@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Practitioner, Reference, ServiceRequest } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
@@ -10,6 +11,8 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { findOrCreatePatientSystemFolderList } from '../../shared/patient-document-folders';
+import { searchRadiologyResultDocRefs } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 
 let m2mToken: string;
@@ -51,6 +54,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
   const title = body.title || body.z3URL.split('/').pop() || 'Radiology Result';
 
+  const [radiologyReportsFolder, currentResults] = await Promise.all([
+    findOrCreatePatientSystemFolderList({
+      patientId: patientReference.replace('Patient/', ''),
+      internalName: BUCKET_NAMES.RADIOLOGY_REPORTS,
+      oystehr,
+    }),
+    searchRadiologyResultDocRefs(body.serviceRequestId, oystehr),
+  ]);
+
+  const replacedResultReferences = currentResults
+    .filter(
+      (result) => result.content[0]?.attachment.title === title && result.content[0]?.attachment.url !== body.z3URL
+    )
+    .map((result) => `DocumentReference/${result.id}`);
+
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: body.z3URL, title }],
     type: { coding: [RADIOLOGY_RESULT_DOC_REF_DOCTYPE], text: RADIOLOGY_RESULT_DOC_REF_DOCTYPE.display },
@@ -76,7 +94,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     ],
     oystehr,
     generateUUID: randomUUID,
-    listResources: [],
+    listResources: radiologyReportsFolder
+      ? [
+          {
+            ...radiologyReportsFolder,
+            entry: radiologyReportsFolder.entry?.filter(
+              (entry) => !replacedResultReferences.includes(entry.item.reference ?? '')
+            ),
+          },
+        ]
+      : [],
   });
 
   const docRef = docRefs[0];

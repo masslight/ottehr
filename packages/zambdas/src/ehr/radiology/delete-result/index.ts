@@ -7,6 +7,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { deleteZ3Object } from '../../../shared/z3Utils';
+import { removeDocumentFromPatientFolders } from '../../shared/patient-document-folders';
 import { validateInput, validateSecrets } from './validation';
 
 let m2mToken: string;
@@ -46,6 +47,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
       console.error('Failed to delete Z3 object for radiology result, removing DocumentReference anyway:', error);
     }
   }
+
+  await removeDocumentFromPatientFolders(docRef, oystehr);
 
   await oystehr.fhir.delete({ resourceType: 'DocumentReference', id: body.documentReferenceId });
 

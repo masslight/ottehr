@@ -51,6 +51,7 @@ export const PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL =
 
 export const STATEMENT_CODE = 'statement-code';
 export const RADIOLOGY_REPORT_CODE = '18748-4';
+export const RADIOLOGY_RESULT_DOC_TYPE_CODE = 'radiology-result';
 
 export const FAX_PACKET_CODE = 'fax-packet';
 

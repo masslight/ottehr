@@ -1,7 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
-import { DocumentReference, List } from 'fhir/r4b';
-import { replaceOperation } from 'utils/lib/helpers/operations';
+import { DocumentReference } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, FILE_STORAGE_REQUEST_REJECTED_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
@@ -12,6 +10,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { deleteZ3Object, Z3Error } from '../../shared/z3Utils';
+import { removeDocumentFromPatientFolders } from '../shared/patient-document-folders';
 
 export const DeletePatientDocumentSchema = z.object({
   documentRefId: z.string().uuid(),
@@ -71,31 +70,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })
   );
 
-  const listResources = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [{ name: 'subject', value: docRef.subject?.reference || '' }],
-    })
-  ).unbundle() as List[];
-
-  const targetLists = listResources.filter(
-    (list) => list.entry?.some((entry) => entry.item?.reference === `DocumentReference/${documentRefId}`)
-  );
-
-  await Promise.all(
-    targetLists.map(async (list) => {
-      const updatedEntries =
-        list.entry?.filter((e) => e.item?.reference !== `DocumentReference/${documentRefId}`) ?? [];
-
-      const operations: Operation[] = [replaceOperation('/entry', updatedEntries)];
-
-      return oystehr.fhir.patch<List>({
-        resourceType: 'List',
-        id: list.id!,
-        operations,
-      });
-    })
-  );
+  await removeDocumentFromPatientFolders(docRef, oystehr);
 
   await oystehr.fhir.delete({
     resourceType: 'DocumentReference',

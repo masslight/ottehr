@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, Reference, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from '../secrets';
+import { RADIOLOGY_RESULT_DOC_TYPE_CODE } from '../types/data/paperwork/paperwork.constants';
 import { SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL } from './constants';
 import { getScheduleOwnerFromAppointmentOrEncounter } from './helpers';
 
@@ -14,7 +15,7 @@ export const RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM =
 /** DocumentReference type coding for manually-attached radiology result files (external orders) */
 export const RADIOLOGY_RESULT_DOC_REF_DOCTYPE = {
   system: 'http://ottehr.org/fhir/StructureDefinition/radiology-result',
-  code: 'radiology-result',
+  code: RADIOLOGY_RESULT_DOC_TYPE_CODE,
   display: 'Radiology Result',
 };
 export const ADVAPACS_FHIR_BASE_URL = 'https://usa1.api.integration.advapacs.com/fhir/R5';
