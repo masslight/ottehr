@@ -12,7 +12,7 @@ import { createRoot, Root } from 'react-dom/client';
 import type { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 // Deep imports: keep the whole utils barrel (and zod) out of the iframe bundle.
 import {
-  REPORT_ROOT_NAME,
+  noComponentReturnedError,
   RUNTIME_SCOPE_PARAM_NAMES,
   RuntimeScopeParamName,
 } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
@@ -48,12 +48,12 @@ const theme = createTheme({
 // handed to the root as props: the contract is that it reads `data`/`schema` from the enclosing
 // scope, but a model that slips and writes `function ReportRoot({ data })` would otherwise render a
 // silently EMPTY report instead of a working one.
-function toElement(returned: unknown, scope: Record<string, unknown>): React.ReactElement {
+function toElement(returned: unknown, scope: Record<string, unknown>, code: string): React.ReactElement {
   if (typeof returned === 'function') {
     return React.createElement(returned as React.ComponentType<Record<string, unknown>>, { ...scope });
   }
   if (React.isValidElement(returned)) return returned;
-  throw new Error(`the generated code must return a React component, e.g. \`return ${REPORT_ROOT_NAME};\``);
+  throw new Error(noComponentReturnedError(code));
 }
 
 // Run the body via indirect eval named "report-code.js" so a thrown error's stack points into the
@@ -188,7 +188,7 @@ function start(): void {
         : scopeValues(msg.data, msg.schema);
       const factory = compileReport(transpiled.code, paramNames);
       const returned: unknown = factory(...paramNames.map((name) => scope[name]));
-      const element = toElement(returned, scope);
+      const element = toElement(returned, scope, msg.code);
 
       renderSeq += 1;
       hasRendered = false;

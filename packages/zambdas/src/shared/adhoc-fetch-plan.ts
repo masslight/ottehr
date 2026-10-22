@@ -21,6 +21,7 @@ import {
   resolveParamTemplates,
   scopedBulkBatchSize,
   scopedPagedBatchSize,
+  scopedStepSourceMismatch,
   scopedStepValues,
   stepIsDateBounded,
   stepRunsBulk,
@@ -272,7 +273,17 @@ async function runStep(
       }
       const source = resourcesByStep.get(step.from.step) ?? [];
       const values = scopedStepValues(source, step.from);
-      if (values.length === 0) return finish([], { mode: 'normal', requests: 0, scopedValues: 0 });
+      if (values.length === 0) {
+        // A keepType the source has none of is the plan's fault (the type to fetch was written): flagged like a
+        // search the server rejected, so the planner fixes the plan instead of reporting on a silent empty step.
+        const mismatch = scopedStepSourceMismatch(source, step.from);
+        return finish([], {
+          mode: 'normal',
+          requests: 0,
+          scopedValues: 0,
+          ...(mismatch ? { error: mismatch, rejected: true } : {}),
+        });
+      }
       const [scoped, partial] = await runScoped(
         oystehr,
         limit,

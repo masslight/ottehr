@@ -1,4 +1,10 @@
+import {
+  noComponentReturnedError,
+  REPORT_FACTORY_NAME,
+  REPORT_ROOT_NAME,
+} from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
 import { transpileReportJsx } from 'utils/lib/types/adhoc/generation/transpile';
+import { PLAN_REPORT_SCOPE_PARAMS } from 'utils/lib/types/adhoc/plan/report-scope';
 import { AdHocFrameEventSchema } from 'utils/lib/types/adhoc/sandbox/events';
 import { describe, expect, it } from 'vitest';
 import { hrefForOpenLink } from '../../src/features/report-builder/hooks/links';
@@ -72,6 +78,33 @@ describe('in-frame transpilation of the JSX artifact', () => {
     // Function-compile — the frame surfaces an error either way; here we pin the transpiler side.
     if ('error' in result) expect(result.error).toBeTruthy();
     else expect(() => new Function('React', 'MUI', 'Report', 'data', 'schema', result.code)).toThrow();
+  });
+});
+
+describe('a whole function instead of its body (the plan-report failure a browser test showed)', () => {
+  // What the model returned: the function the prompt had shown it, declaration and all.
+  const wrapped = `function ${REPORT_FACTORY_NAME}(${PLAN_REPORT_SCOPE_PARAMS.join(', ')}) {
+      function ${REPORT_ROOT_NAME}() { return <div>{Object.keys(resources).length}</div>; }
+      return ${REPORT_ROOT_NAME};
+    }`;
+
+  it('transpiles and runs, but returns nothing: the declaration is hoisted and never called', () => {
+    const result = transpileReportJsx(wrapped);
+    expect('code' in result).toBe(true);
+    if (!('code' in result)) return;
+    const factory = new Function(...PLAN_REPORT_SCOPE_PARAMS, result.code);
+    expect(factory()).toBeUndefined();
+  });
+
+  it('is named as the cause in the error the frame reports, so the repair removes the wrapper', () => {
+    const message = noComponentReturnedError(wrapped);
+    expect(message).toContain(`function ${REPORT_FACTORY_NAME}(`);
+    expect(message).toMatch(/BODY/);
+    expect(message).toContain(`return ${REPORT_ROOT_NAME};`);
+    // A body that simply forgot the return keeps the plain message.
+    expect(noComponentReturnedError(`function ${REPORT_ROOT_NAME}() { return null; }`)).toBe(
+      `the generated code must return a React component, e.g. \`return ${REPORT_ROOT_NAME};\``
+    );
   });
 });
 

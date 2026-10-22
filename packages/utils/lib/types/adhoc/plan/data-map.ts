@@ -119,7 +119,9 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
     ],
     search: [
       "The encounters of the visits in a range: Encounter?appointment=<the visits' ids> as a scoped step after the " +
-        'Appointment step (paged batches; at a year on a busy practice about a third of the time of the chain), or ' +
+        'Appointment step — from { step: "visits", path: "id", param: "appointment", keepType: "Appointment" } (the ' +
+        'source type; keepType "Encounter" over an Appointments step feeds nothing) — (paged batches; at a year on a ' +
+        'busy practice about a third of the time of the chain), or ' +
         'Encounter?appointment.date=ge{{start}}&appointment.date=le{{end}} (chained) beside it — the same set; the chain ' +
         'cost about the same as the scoped step at 60 days but three times as much at a year. Encounter.period is blank on the visit ' +
         "encounters on synth (Encounter?date= found 3 of 2,697) and set but open-ended on a busy practice's follow-ups — a period " +
@@ -220,6 +222,39 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
       'The coverages of the patients with a visit in a range: Coverage?beneficiary:Patient._has:Appointment:patient:date=ge{{start}}' +
         '&beneficiary:Patient._has:Appointment:patient:date=le{{end}} as a step of its own (the same 2,919 coverages as the id list ' +
         'on a year of synth; one of the slower steps for a year at a busy practice). Then Organization by _id from payor.reference (small).',
+    ],
+  },
+  {
+    resourceType: 'CoverageEligibilityResponse',
+    meaning:
+      "An insurance eligibility check's answer from the payer — one per check run (at paperwork, and on demand from the " +
+      "patient's insurance screen) against a Coverage. A check that could not run (service failure, payer not in the " +
+      'directory) stores nothing. The CoverageEligibilityRequest it answers is request → (status active, same created).',
+    fields: [
+      'created (ISO instant of the check), patient → Patient, insurer → Organization (the payer), request → ' +
+        'CoverageEligibilityRequest, insurance[0].coverage → Coverage (the insurance checked; a few checks carry it CONTAINED ' +
+        'instead). outcome is "complete" on every synth check — it is NOT the result.',
+      'THE RESULT (the rule of parseCoverageEligibilityResponse): error[] present = the check FAILED (error[].code.text and ' +
+        'coding[0].code say why), except coding code 410 = the payer does not support real-time eligibility (not checked, not a ' +
+        'failure); no error and an insurance[0].item whose category.coding[0].code is UC, 86 or 30 with a benefit of type.text ' +
+        '"Active Coverage" = ELIGIBLE; no error and no such item = NOT ELIGIBLE. All 6,209 checks on synth were eligible.',
+      'insurance[0].item[] carries every benefit line (copay, deductible), and extensions raw-request / raw-response the payer ' +
+        'exchange — tens of KB a check: always set "elements" (created, patient, insurance, error) and never read the extensions.',
+    ],
+    links: [
+      'No link to the visit: match a check to a visit by patient and time — the latest check created at or before the visit ' +
+        "(the patient's recent checks, as the insurance screen shows them). The Appointment extension insurance-related-resources " +
+        '(coverage-eligibility-response-reference) would name it, but nothing writes it today (0 of 200 recent synth visits).',
+      'A telemed visit whose check could not run is tagged on its Appointment: meta.tag system ending ' +
+        'OTTEHR-TM-eligibility-failed-reason, code api-failure | eligibility-check-disabled | real-time-eligibility-unsupported.',
+    ],
+    search: [
+      'CoverageEligibilityResponse?patient=Patient/<id>,… (scoped step from the visits step: path participant.actor.reference, ' +
+        'keepType Patient) with elements ["created", "patient", "insurance", "error"]; or ?created=ge{{start}}&created=le{{end}} ' +
+        'beside the visits step for the checks of a period (642 in three weeks of synth). request=, status= and outcome= work too.',
+    ],
+    gaps: [
+      'Counting the whole table fails on the server (response size) — never _summary=count without a patient or created filter.',
     ],
   },
   {

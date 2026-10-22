@@ -1,6 +1,7 @@
 // The planner / report-writer prompt sections that describe the fetch plan format, the scope a plan
 // report's code runs in and the helpers it gets — rendered from the same constants the runner and the
 // iframe runtime use, so the three never drift.
+import { REPORT_FACTORY_NAME, REPORT_ROOT_NAME } from '../generation/runtime-scope.catalog';
 import { FETCH_PLAN_LIMITS } from './fetch-plan';
 import { PLAN_REPORT_SCOPE_PARAMS } from './report-scope';
 
@@ -38,8 +39,11 @@ FETCH PLAN FORMAT (JSON; the "plan" field of your answer):
   earlier step's resources (arrays flattened, deduped, references filtered to keepType) are fed to "param" in
   batches of up to ${FETCH_PLAN_LIMITS.scopedBatchSize}, searched side by side. For "_id" the "Type/" prefix is stripped; for reference params
   ("encounter", "patient", "request", "context") the full "Type/id" is kept (a bare id gets "keepType/" prefixed).
-  For a bare-value path such as "id", keepType picks WHICH source resources contribute: { path: "id", param:
-  "encounter", keepType: "Encounter" } over a mixed visits step feeds only the Encounter ids.
+  keepType is always a type the SOURCE step holds, never the type this step fetches. For a bare-value path such as
+  "id", it picks WHICH source resources contribute: { path: "id", param: "encounter", keepType: "Encounter" } over a
+  mixed visits step feeds only the Encounter ids; the encounters OF an Appointments step are { step: "visits", path:
+  "id", param: "appointment", keepType: "Appointment" } (keepType "Encounter" there matches nothing: the step is
+  rejected with the source's types, and the plan must be fixed).
 - Included resources (_include / _revinclude) land in the SAME step array; use helpers.index(resources.visits).byType.
   "elements" does NOT trim included resources. _revinclude:iterate is for small per-visit tables (Procedure, Condition,
   ServiceRequest, DiagnosticReport); for Observation, QuestionnaireResponse, Coverage use a scoped step with "elements".
@@ -66,8 +70,10 @@ FETCH PLAN FORMAT (JSON; the "plan" field of your answer):
 `;
 
 export const renderPlanReportCodeContractPrompt = (): string => `
-REPORT CODE CONTRACT (the "code" field): a JavaScript/JSX FUNCTION BODY, run inside a sandboxed iframe as the body of
-  function buildReport(${PLAN_REPORT_SCOPE_PARAMS.join(', ')}) { <YOUR CODE>; return ReportRoot; }
+REPORT CODE CONTRACT (the "code" field): the BODY of a JavaScript/JSX function — statements only. The runtime itself
+  wraps it as  function ${REPORT_FACTORY_NAME}(${PLAN_REPORT_SCOPE_PARAMS.join(', ')}) { <YOUR CODE> }
+  so do NOT write \`function ${REPORT_FACTORY_NAME}(\` or its closing brace: a declaration is never called and the report
+  is empty. Start with your first statement and end with \`return ${REPORT_ROOT_NAME};\`.
 In scope, and nothing else:
 - React — the React namespace (hooks as React.useState etc., or destructure once).
 - MUI — the curated MUI components listed under COMPONENTS.
@@ -78,7 +84,7 @@ In scope, and nothing else:
   viewer's IANA zone), patientId (the run's patient parameter, when one is set), totals: { [stepId]: number } for
   count-only steps }.
 Rules:
-- Define a root component and END with:  return ReportRoot;   The runtime renders <ReportRoot /> with NO props —
+- Define a root component and END with:  return ${REPORT_ROOT_NAME};   The runtime renders <${REPORT_ROOT_NAME} /> with NO props —
   read resources/helpers/params from the enclosing scope. Prepare data at the top level with plain JS (no hooks
   there); hooks only inside components.
 - Write JSX freely; no import/require/exports, no network, no window/document access; render through React only.

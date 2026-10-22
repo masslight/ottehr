@@ -50,6 +50,22 @@ export const RUNTIME_SCOPE_PARAM_NAMES: readonly RuntimeScopeParamName[] = RUNTI
 export const REPORT_WRAP_PREFIX = `(function (${RUNTIME_SCOPE_PARAM_NAMES.join(', ')}) {\n`;
 export const REPORT_WRAP_SUFFIX = '\n})';
 
+const FACTORY_DECLARATION = new RegExp(`(^|\\n)\\s*(async\\s+)?function\\s+${REPORT_FACTORY_NAME}\\s*\\(`);
+
+/** The runtime's error when the body returned no component. A body that is the whole
+ *  `function buildReport(…) { … }` the prompt shows (declared, so never called) is the usual cause, and the plain
+ *  "must return ReportRoot" sent a repair that returned the same declaration again — so that case is named. */
+export function noComponentReturnedError(code: string): string {
+  if (FACTORY_DECLARATION.test(code)) {
+    return (
+      `the code is the whole \`function ${REPORT_FACTORY_NAME}(…) { … }\` declaration, which is never called, so ` +
+      `nothing was returned — send only its BODY (the statements between its braces, with no wrapper), ending with ` +
+      `\`return ${REPORT_ROOT_NAME};\``
+    );
+  }
+  return `the generated code must return a React component, e.g. \`return ${REPORT_ROOT_NAME};\``;
+}
+
 /** Named value formatters accepted by Report.Kpi / Report.Table columns. */
 export const VALUE_FORMATS = ['integer', 'number', 'percent', 'currency'] as const;
 export type ValueFormat = (typeof VALUE_FORMATS)[number];

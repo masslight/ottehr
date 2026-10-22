@@ -446,6 +446,26 @@ export function scopedSearchValues(values: string[], from: FetchStepFrom): strin
   return Array.from(out);
 }
 
+const REFERENCE_VALUE = /^[A-Za-z]+\/[^/]+$/;
+
+/**
+ * Why a scoped step fed no values although its source step had resources, when the plan misused keepType: a bare-value
+ * path ("id") with a keepType no source resource has — the planner named the type it wanted FETCHED (Encounter over an
+ * Appointments step) instead of the source's. Undefined when the empty result has another cause (an empty source, or
+ * references of other types, which keepType filters legitimately).
+ */
+export function scopedStepSourceMismatch(source: { resourceType?: string }[], from: FetchStepFrom): string | undefined {
+  if (!from.keepType || source.length === 0) return undefined;
+  if (source.some((resource) => resource.resourceType === from.keepType)) return undefined;
+  const values = extractPathValues(source, from.path);
+  if (values.length === 0 || values.some((value) => REFERENCE_VALUE.test(value))) return undefined;
+  const types = Array.from(new Set(source.map((resource) => resource.resourceType).filter(Boolean))).join(', ');
+  return (
+    `no ${from.keepType} in step "${from.step}" (it holds ${types}): "keepType" names the type of the SOURCE resources ` +
+    `whose "${from.path}" values are taken, not the type this step fetches — use one of the source's types or leave it out`
+  );
+}
+
 /**
  * The search values a scoped step feeds its param, from the source step's resources. `keepType` filters
  * references by their type; for a bare-value path such as "id" it filters the SOURCE RESOURCES by type
@@ -455,7 +475,7 @@ export function scopedStepValues(source: { resourceType?: string }[], from: Fetc
   const out = new Set<string>();
   for (const resource of source) {
     const values = extractPathValues([resource], from.path);
-    const bare = values.filter((v) => !/^[A-Za-z]+\/[^/]+$/.test(v));
+    const bare = values.filter((v) => !REFERENCE_VALUE.test(v));
     if (bare.length && from.keepType && resource.resourceType !== from.keepType) continue;
     // A bare id fed to a reference parameter without keepType takes the source resource's own type: "based-on" can
     // point to several types, and the server rejects a bare id there ("Logical Id may refer to more than one type").

@@ -17,6 +17,7 @@ import {
   RunFetchPlanInputSchema,
   scopedBulkBatchSize,
   scopedPagedBatchSize,
+  scopedStepSourceMismatch,
   scopedStepValues,
   stepIsDateBounded,
   toElementName,
@@ -92,6 +93,50 @@ describe('scopedStepValues', () => {
 
   it('takes every id when there is no keepType', () => {
     expect(scopedStepValues(visits, { step: 'visits', path: 'id', param: '_id' })).toEqual(['a1', 'e1', 'e2', 'p1']);
+  });
+});
+
+describe('scopedStepSourceMismatch', () => {
+  const appointments = [
+    { resourceType: 'Appointment', id: 'a1', participant: [{ actor: { reference: 'Patient/p1' } }] },
+    { resourceType: 'Appointment', id: 'a2', participant: [{ actor: { reference: 'Location/l1' } }] },
+  ];
+
+  it('names the misuse: a bare-value path with a keepType no source resource has (the type to FETCH was written)', () => {
+    const reason = scopedStepSourceMismatch(appointments, {
+      step: 'visits',
+      path: 'id',
+      param: 'appointment',
+      keepType: 'Encounter',
+    });
+    expect(reason).toContain('no Encounter in step "visits" (it holds Appointment)');
+    expect(reason).toContain('keepType');
+  });
+
+  it('is nothing when keepType filters references, when a source resource has the type, or when the source is empty', () => {
+    // references of other types are filtered, not misused: Practitioner ids over Appointments that only name Patients
+    expect(
+      scopedStepSourceMismatch(appointments, {
+        step: 'visits',
+        path: 'participant.actor.reference',
+        param: '_id',
+        keepType: 'Practitioner',
+      })
+    ).toBeUndefined();
+    expect(
+      scopedStepSourceMismatch(appointments, {
+        step: 'visits',
+        path: 'id',
+        param: 'appointment',
+        keepType: 'Appointment',
+      })
+    ).toBeUndefined();
+    expect(
+      scopedStepSourceMismatch(appointments, { step: 'visits', path: 'id', param: 'appointment' })
+    ).toBeUndefined();
+    expect(
+      scopedStepSourceMismatch([], { step: 'visits', path: 'id', param: 'appointment', keepType: 'Encounter' })
+    ).toBeUndefined();
   });
 });
 

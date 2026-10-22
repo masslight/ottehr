@@ -461,8 +461,9 @@ const generatePlanReport = async (
         : `${basePrompt}\n\nIMPORTANT: your previous attempt produced output that was not usable ` +
           `(${lastError}). Return ONLY a valid JSON object with a "plan" that follows the FETCH PLAN FORMAT and ` +
           `reads only data-map resource types, and a "code" field that is the JSX function BODY — no markdown ` +
-          `fences, no commentary. The code must RUN without throwing (guard nulls; watch variable scope), define ` +
-          `a root component, and end with \`return ${REPORT_ROOT_NAME};\`.`;
+          `fences, no commentary, no \`function ${REPORT_FACTORY_NAME}(){…}\` wrapper. The code must RUN without ` +
+          `throwing (guard nulls; watch variable scope), define a root component, and end with ` +
+          `\`return ${REPORT_ROOT_NAME};\`.`;
 
     const raw = await invokeReportModel(prompt, secrets);
 
