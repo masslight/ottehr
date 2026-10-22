@@ -592,7 +592,7 @@ function remitsLayer(
   AdHocBillingClaimsRow,
   'remitCount' | 'lastRemitDate' | 'adjustmentReasonCodes' | 'remits' | 'remitAdjustments'
 > {
-  const sorted = sortClaimResponsesByRecency(claimResponses);
+  const sorted = sortClaimResponsesByRecency(claimResponses).sort((a, b) => compareInstants(a.created, b.created));
 
   const remits = sorted.map((claimResponse) => {
     const amounts = extractClaimResponseAmounts(claimResponse);

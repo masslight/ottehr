@@ -1222,4 +1222,27 @@ describe('billing-claims review fixes', () => {
     );
     expect(rows.find((r) => r.claimId === 'claim-1')?.insurancePayments?.[0]?.eraId).toBe('era-1');
   });
+
+  it('orders remits by time across date-only and timestamped dates, so the last remit date is the latest', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const created = remit.created;
+    // 02:30Z is the evening of Oct 11 in New York; a manual remit dated Oct 12 comes after it.
+    remit.created = '2026-10-12T02:30:00Z';
+    const manualRemit: ClaimResponse = { ...remit, id: 'cr-manual', created: '2026-10-12' };
+    store.push(manualRemit);
+    try {
+      const { oystehr } = stubBillingClient();
+      const rows = await fetchAdHocClaimRows(
+        oystehr,
+        { dateRange: DATE_RANGE, includeRemits: true },
+        { eraReadClient: oystehr }
+      );
+      const row = rows.find((r) => r.claimId === 'claim-1')!;
+      expect(row.remits?.map((r) => r.date)).toEqual(['2026-10-11', '2026-10-12']);
+      expect(row.lastRemitDate).toBe('2026-10-12');
+    } finally {
+      remit.created = created;
+      store.splice(store.indexOf(manualRemit), 1);
+    }
+  });
 });

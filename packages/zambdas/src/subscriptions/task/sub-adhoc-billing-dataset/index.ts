@@ -76,7 +76,13 @@ async function buildOutputJson(
   }
 }
 
-async function uploadJson(oystehr: Oystehr, secrets: Secrets, taskId: string, json: string): Promise<string> {
+interface UploadedJson {
+  url: string;
+  bucketName: string;
+  objectPath: string;
+}
+
+async function uploadJson(oystehr: Oystehr, secrets: Secrets, taskId: string, json: string): Promise<UploadedJson> {
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
   const bucketName = `${projectId}-${BUCKET_NAMES.BILLING_CLAIM_EXPORTS}`;
@@ -88,7 +94,15 @@ async function uploadJson(oystehr: Oystehr, secrets: Secrets, taskId: string, js
     file: new Blob([json], { type: 'application/json' }),
   });
 
-  return `${projectApi}/z3/${bucketName}/${objectPath}`;
+  return { url: `${projectApi}/z3/${bucketName}/${objectPath}`, bucketName, objectPath };
+}
+
+async function deleteUnrecordedJson(oystehr: Oystehr, { bucketName, objectPath }: UploadedJson): Promise<void> {
+  try {
+    await oystehr.z3.deleteObject({ bucketName, 'objectPath+': objectPath });
+  } catch (error) {
+    console.error(`[adhoc-billing] could not delete ${objectPath} after the Task output failed`, error);
+  }
 }
 
 async function stage<T>(name: string, taskId: string, startedAt: number, run: () => Promise<T>): Promise<T> {
@@ -127,26 +141,31 @@ export const index = wrapTaskHandler(
       `[adhoc-billing] data ready task=${taskId} ms=${Date.now() - startedAt} rows=${rowCount} bytes=${json.length}`
     );
 
-    const z3Url = await stage('upload', taskId, startedAt, () => uploadJson(oystehr, secrets, taskId, json));
+    const uploaded = await stage('upload', taskId, startedAt, () => uploadJson(oystehr, secrets, taskId, json));
 
-    await stage('record output on task', taskId, startedAt, () =>
-      oystehr.fhir.patch({
-        resourceType: 'Task',
-        id: taskId,
-        operations: [
-          {
-            op: 'add',
-            path: '/output',
-            value: [
-              {
-                type: { coding: [{ system: ADHOC_REPORT_TASK_SYSTEM, code: ADHOC_REPORT_OUTPUT_URL_CODE }] },
-                valueString: z3Url,
-              },
-            ],
-          },
-        ],
-      })
-    );
+    await stage('record output on task', taskId, startedAt, async () => {
+      try {
+        await oystehr.fhir.patch({
+          resourceType: 'Task',
+          id: taskId,
+          operations: [
+            {
+              op: 'add',
+              path: '/output',
+              value: [
+                {
+                  type: { coding: [{ system: ADHOC_REPORT_TASK_SYSTEM, code: ADHOC_REPORT_OUTPUT_URL_CODE }] },
+                  valueString: uploaded.url,
+                },
+              ],
+            },
+          ],
+        });
+      } catch (error) {
+        await deleteUnrecordedJson(oystehr, uploaded);
+        throw error;
+      }
+    });
 
     console.log(`[adhoc-billing] done task=${taskId} ms=${Date.now() - startedAt}`);
 

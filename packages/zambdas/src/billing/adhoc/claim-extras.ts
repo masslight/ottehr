@@ -56,6 +56,7 @@ import {
   readClaimItemDrug,
   sortClaimInsurance,
 } from '../shared';
+import { REPORT_ZONE } from './report-dates';
 
 export const BASE_EXTRA_ELEMENTS = ['Claim.extension', 'Patient.meta', 'Patient.identifier', 'Patient.extension'];
 export const CODES_EXTRA_ELEMENTS = ['Claim.diagnosis'];
@@ -90,7 +91,7 @@ export const emptyClaimExtras = (): ClaimExtras => ({
 });
 
 const instantMillis = (value: string | null | undefined): number => {
-  const millis = value ? DateTime.fromISO(value).toMillis() : NaN;
+  const millis = value ? DateTime.fromISO(value, { zone: REPORT_ZONE }).toMillis() : NaN;
   return Number.isNaN(millis) ? Number.NEGATIVE_INFINITY : millis;
 };
 
