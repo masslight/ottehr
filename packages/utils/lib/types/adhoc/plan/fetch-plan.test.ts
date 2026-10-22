@@ -8,6 +8,7 @@ import {
   PAGED_WINDOW_TARGET,
   pagedWindowCount,
   planNeedsPatient,
+  planUsesDateRange,
   REQUEST_BUDGET,
   resolveParamTemplates,
   RunFetchPlanInputSchema,
@@ -142,6 +143,12 @@ describe('planNeedsPatient and the run input', () => {
   it('spots the template in any step', () => {
     expect(planNeedsPatient(plan)).toBe(true);
     expect(planNeedsPatient({ steps: [{ params: [{ name: 'date', value: 'ge{{start}}' }] }] })).toBe(false);
+  });
+
+  it('tells a date-range report from one without (a per-patient history asks for no range)', () => {
+    expect(planUsesDateRange(plan)).toBe(false);
+    expect(planUsesDateRange({ steps: [{ params: [{ name: 'date', value: 'ge{{start}}' }] }] })).toBe(true);
+    expect(planUsesDateRange({ steps: [{ params: [{ name: 'authored', value: 'le{{ endDate }}' }] }] })).toBe(true);
   });
 
   it('accepts parameters on the run input', () => {

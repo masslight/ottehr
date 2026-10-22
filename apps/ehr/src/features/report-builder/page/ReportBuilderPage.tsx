@@ -66,6 +66,14 @@ export default function ReportBuilderPage(): React.ReactElement {
     );
   }
 
+  // A dataset report has rows + schema; a plan report has the resources its plan fetched.
+  const hasDatasetData = !!rb.schema && !!rb.rows;
+  const hasPlanData = !!rb.plan && !!rb.resources && !!rb.planParams;
+  const totalResources = rb.fetchStats?.reduce((sum, step) => sum + step.count, 0) ?? 0;
+  const fetchSeconds = rb.fetchStats?.length
+    ? Math.round(rb.fetchStats.reduce((max, s) => Math.max(max, s.ms), 0) / 100) / 10
+    : 0;
+
   return (
     <PageContainer>
       <>
@@ -81,27 +89,30 @@ export default function ReportBuilderPage(): React.ReactElement {
           </Box>
 
           <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel id="adhoc-date-range-label">Date Range</InputLabel>
-              <Select
-                labelId="adhoc-date-range-label"
-                id="adhoc-date-range"
-                value={rb.dateRange}
-                label="Date Range"
-                onChange={(e: SelectChangeEvent<AdHocDateRangeFilter>) =>
-                  rb.setDateRange(e.target.value as AdHocDateRangeFilter)
-                }
-              >
-                <MenuItem value="today">Today</MenuItem>
-                <MenuItem value="yesterday">Yesterday</MenuItem>
-                <MenuItem value="last-7-days">Last 7 Days</MenuItem>
-                <MenuItem value="last-30-days">Last 30 Days</MenuItem>
-                <MenuItem value="custom">Custom Date</MenuItem>
-                <MenuItem value="customRange">Custom Date Range</MenuItem>
-              </Select>
-            </FormControl>
+            {/* A report without a date range (one patient's history) does not ask for one. */}
+            {rb.needsDateRange && (
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel id="adhoc-date-range-label">Date Range</InputLabel>
+                <Select
+                  labelId="adhoc-date-range-label"
+                  id="adhoc-date-range"
+                  value={rb.dateRange}
+                  label="Date Range"
+                  onChange={(e: SelectChangeEvent<AdHocDateRangeFilter>) =>
+                    rb.setDateRange(e.target.value as AdHocDateRangeFilter)
+                  }
+                >
+                  <MenuItem value="today">Today</MenuItem>
+                  <MenuItem value="yesterday">Yesterday</MenuItem>
+                  <MenuItem value="last-7-days">Last 7 Days</MenuItem>
+                  <MenuItem value="last-30-days">Last 30 Days</MenuItem>
+                  <MenuItem value="custom">Custom Date</MenuItem>
+                  <MenuItem value="customRange">Custom Date Range</MenuItem>
+                </Select>
+              </FormControl>
+            )}
 
-            {rb.dateRange === 'custom' && (
+            {rb.needsDateRange && rb.dateRange === 'custom' && (
               <TextField
                 type="date"
                 size="small"
@@ -111,7 +122,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                 InputLabelProps={{ shrink: true }}
               />
             )}
-            {rb.dateRange === 'customRange' && (
+            {rb.needsDateRange && rb.dateRange === 'customRange' && (
               <>
                 <TextField
                   type="date"
@@ -134,6 +145,17 @@ export default function ReportBuilderPage(): React.ReactElement {
               </>
             )}
 
+            {/* A per-patient plan takes the patient from the screen that opened the builder, or from here. */}
+            {rb.needsPatient && !rb.patientFromScreen && (
+              <TextField
+                size="small"
+                label="Patient ID"
+                value={rb.patientIdInput}
+                onChange={(e) => rb.setPatientIdInput(e.target.value)}
+                sx={{ minWidth: 300 }}
+              />
+            )}
+
             {rb.canPickModel && (
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel id="adhoc-model-label">Model</InputLabel>
@@ -153,7 +175,7 @@ export default function ReportBuilderPage(): React.ReactElement {
               </FormControl>
             )}
 
-            {rb.schema && (
+            {(rb.schema || rb.plan) && (
               <Button
                 variant="contained"
                 onClick={() => void rb.handleFetch()}
@@ -179,7 +201,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                 multiline
                 minRows={2}
                 fullWidth
-                placeholder="e.g. Bar chart of visits per provider; or average time from check-in to exam room by location"
+                placeholder="e.g. Bar chart of visits per provider; or visits last month with a fever, with the diagnosis"
                 value={rb.request}
                 onChange={(e) => rb.setRequest(e.target.value)}
                 sx={{ mb: 1 }}
@@ -270,7 +292,7 @@ export default function ReportBuilderPage(): React.ReactElement {
             </Paper>
           )}
 
-          {rb.schema && rb.rows && (
+          {hasDatasetData && rb.schema && rb.rows && (
             <>
               <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="subtitle1">
@@ -326,92 +348,147 @@ export default function ReportBuilderPage(): React.ReactElement {
                   <DatasetLayersInfo schema={rb.schema} />
                 </Paper>
               </Collapse>
+            </>
+          )}
 
-              {rb.generatedCode && (
-                <>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Typography variant="h3" component="h2" sx={{ flexGrow: 1, fontWeight: 700 }}>
-                      {rb.generatedTitle ?? 'Generated report'}
-                    </Typography>
-                    <Button size="small" onClick={() => rb.setShowCode(!rb.showCode)}>
-                      {rb.showCode ? 'Hide generated code' : 'View generated code'}
-                    </Button>
-                    {rb.canCreate && (
-                      <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={rb.openSaveDialog}>
-                        {rb.loadedSavedId ? 'Save' : 'Save report'}
-                      </Button>
-                    )}
-                  </Box>
+          {hasPlanData && rb.fetchStats && (
+            <>
+              <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="subtitle1">
+                  Data: <strong>{rb.fetchStats.length}</strong> {rb.fetchStats.length === 1 ? 'search' : 'searches'} ·{' '}
+                  <strong>{totalResources.toLocaleString()}</strong> records · <strong>{fetchSeconds}</strong> s
+                </Typography>
+                <Button size="small" onClick={() => rb.setShowSchema(!rb.showSchema)}>
+                  {rb.showSchema ? 'Hide fetch plan' : 'Show fetch plan'}
+                </Button>
+              </Box>
 
-                  <Collapse in={rb.showCode} unmountOnExit>
-                    <Paper
-                      variant="outlined"
-                      sx={{ mb: 2, p: 2, maxHeight: 400, overflow: 'auto', bgcolor: 'grey.50' }}
-                    >
-                      <Box
-                        component="pre"
-                        sx={{
-                          m: 0,
-                          fontSize: '0.75rem',
-                          fontFamily: 'monospace',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {rb.generatedCode}
-                      </Box>
-                    </Paper>
-                  </Collapse>
+              <Collapse in={rb.showSchema} unmountOnExit>
+                <Paper variant="outlined" sx={{ mb: 3, overflow: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Step</TableCell>
+                        <TableCell>Resource</TableCell>
+                        <TableCell>Search</TableCell>
+                        <TableCell align="right">Records</TableCell>
+                        <TableCell align="right">Time</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rb.fetchStats.map((step) => (
+                        <TableRow key={step.id}>
+                          <TableCell sx={{ fontFamily: 'monospace' }}>{step.id}</TableCell>
+                          <TableCell>{step.resourceType}</TableCell>
+                          <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', wordBreak: 'break-all' }}>
+                            {step.error
+                              ? `Failed: ${step.error}`
+                              : step.params.map((p) => `${p.name}=${p.value}`).join('&')}
+                          </TableCell>
+                          <TableCell align="right">{step.count.toLocaleString()}</TableCell>
+                          <TableCell align="right">{(step.ms / 1000).toFixed(1)} s</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Paper>
+              </Collapse>
+            </>
+          )}
 
-                  {rb.loadingLayers.length > 0 && (
-                    <Alert severity="info" icon={<CircularProgress size={18} />} sx={{ mb: 2 }}>
-                      This report is incomplete — it needs {rb.loadingLayers.join(', ')} data that was not loaded.
-                      Loading it and rebuilding the report…
-                    </Alert>
-                  )}
+          {(hasDatasetData || hasPlanData) && rb.generatedCode && (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Typography variant="h3" component="h2" sx={{ flexGrow: 1, fontWeight: 700 }}>
+                  {rb.generatedTitle ?? 'Generated report'}
+                </Typography>
+                <Button size="small" onClick={() => rb.setShowCode(!rb.showCode)}>
+                  {rb.showCode ? 'Hide generated code' : 'View generated code'}
+                </Button>
+                {rb.canCreate && (
+                  <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={rb.openSaveDialog}>
+                    {rb.loadedSavedId ? 'Save' : 'Save report'}
+                  </Button>
+                )}
+              </Box>
 
-                  {rb.renderError && (
-                    <Alert severity="warning" sx={{ mb: 2 }}>
-                      The report failed to run: {rb.renderError}.{' '}
-                      {rb.canCreate ? 'Adjust your request and regenerate.' : 'Ask an administrator to rebuild it.'}
-                    </Alert>
-                  )}
-
+              <Collapse in={rb.showCode} unmountOnExit>
+                <Paper variant="outlined" sx={{ mb: 2, p: 2, maxHeight: 400, overflow: 'auto', bgcolor: 'grey.50' }}>
                   <Box
+                    component="pre"
                     sx={{
-                      mb: 1,
-                      p: 1.5,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.25,
-                      bgcolor: '#fde5e7',
-                      border: '1px solid #ff6c6c',
-                      borderRadius: 1,
+                      m: 0,
+                      fontSize: '0.75rem',
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
                     }}
                   >
-                    <Box
-                      component="span"
-                      sx={{
-                        px: 0.75,
-                        py: 0.25,
-                        borderRadius: 0.75,
-                        bgcolor: '#ff6c6c',
-                        color: 'common.white',
-                        fontWeight: 900,
-                        fontSize: '0.9rem',
-                        letterSpacing: '0.05em',
-                        flexShrink: 0,
-                      }}
-                    >
-                      AI
-                    </Box>
-                    <Typography variant="body2" sx={{ color: 'common.black', fontSize: '0.9rem', fontWeight: 500 }}>
-                      This is a beta feature. The report is generated by AI and can be incomplete or wrong. Check the
-                      results against the source data before acting on them.
-                    </Typography>
+                    {rb.generatedCode}
                   </Box>
+                </Paper>
+              </Collapse>
 
-                  {/* The model's code runs here, sandboxed, over the fetched rows. */}
+              {rb.loadingLayers.length > 0 && (
+                <Alert severity="info" icon={<CircularProgress size={18} />} sx={{ mb: 2 }}>
+                  This report is incomplete — it needs {rb.loadingLayers.join(', ')} data that was not loaded. Loading
+                  it and rebuilding the report…
+                </Alert>
+              )}
+
+              {rb.renderError && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  The report failed to run: {rb.renderError}.{' '}
+                  {rb.canCreate ? 'Adjust your request and regenerate.' : 'Ask an administrator to rebuild it.'}
+                </Alert>
+              )}
+
+              <Box
+                sx={{
+                  mb: 1,
+                  p: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.25,
+                  bgcolor: '#fde5e7',
+                  border: '1px solid #ff6c6c',
+                  borderRadius: 1,
+                }}
+              >
+                <Box
+                  component="span"
+                  sx={{
+                    px: 0.75,
+                    py: 0.25,
+                    borderRadius: 0.75,
+                    bgcolor: '#ff6c6c',
+                    color: 'common.white',
+                    fontWeight: 900,
+                    fontSize: '0.9rem',
+                    letterSpacing: '0.05em',
+                    flexShrink: 0,
+                  }}
+                >
+                  AI
+                </Box>
+                <Typography variant="body2" sx={{ color: 'common.black', fontSize: '0.9rem', fontWeight: 500 }}>
+                  This is a beta feature. The report is generated by AI and can be incomplete or wrong. Check the
+                  results against the source data before acting on them.
+                </Typography>
+              </Box>
+
+              {/* The model's code runs here, sandboxed, over the fetched rows or resources. */}
+              {hasPlanData && rb.resources && rb.planParams ? (
+                <ReportFrame
+                  code={rb.generatedCode}
+                  resources={rb.resources}
+                  params={rb.planParams}
+                  onError={rb.handleRenderError}
+                  onRendered={rb.handleRendered}
+                />
+              ) : (
+                rb.rows &&
+                rb.schema && (
                   <ReportFrame
                     code={rb.generatedCode}
                     data={rb.rows}
@@ -419,7 +496,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                     onError={rb.handleRenderError}
                     onRendered={rb.handleRendered}
                   />
-                </>
+                )
               )}
             </>
           )}
@@ -429,9 +506,9 @@ export default function ReportBuilderPage(): React.ReactElement {
           <DialogTitle>Save report</DialogTitle>
           <DialogContent>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              This saves the dataset, the date-range criteria, and the view — not the data. Opening it later re-fetches
-              fresh data for the criteria and re-renders this report. It appears as a tile under Saved reports for
-              everyone with report access.
+              This saves what the report fetches, its date-range setting, and the view — not the data. Opening it later
+              re-fetches fresh data and re-renders this report. It appears as a tile under Saved reports for everyone
+              with report access.
             </Typography>
             <TextField
               autoFocus

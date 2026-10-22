@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 // Date-range selector. Relative values recompute on open; custom/customRange are fixed.
-export type AdHocDateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-30-days' | 'custom' | 'customRange';
+export const AD_HOC_DATE_RANGE_PRESETS = ['today', 'yesterday', 'last-7-days', 'last-30-days'] as const;
+export const AD_HOC_DATE_RANGE_FILTERS = [...AD_HOC_DATE_RANGE_PRESETS, 'custom', 'customRange'] as const;
+export type AdHocDateRangeFilter = (typeof AD_HOC_DATE_RANGE_FILTERS)[number];
 
 // The resolved ISO instant window a dataset endpoint is queried with.
 export const DateRangeSchema = z.object({

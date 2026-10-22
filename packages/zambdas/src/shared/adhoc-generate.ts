@@ -15,6 +15,13 @@ import {
   buildExecutionContractPromptSection,
 } from 'utils/lib/types/adhoc/generation/runtime-scope';
 import { REPORT_FACTORY_NAME, REPORT_ROOT_NAME } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
+import { renderDataMapPrompt } from 'utils/lib/types/adhoc/plan/data-map';
+import { FetchPlanSchema } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import {
+  renderFetchPlanFormatPrompt,
+  renderPlanReportCodeContractPrompt,
+  renderPlanReportHelpersPrompt,
+} from 'utils/lib/types/adhoc/plan/plan-prompt';
 import { LlmModelVariant, LlmProvider } from 'utils/lib/types/api/ai-models.constants';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
@@ -65,6 +72,74 @@ const RESPONSE_SCHEMA = {
   required: ['code'],
 };
 
+// A fetch-plan report's answer: the plan (see FETCH PLAN FORMAT in the prompt) and the code over its resources.
+const PLAN_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    plan: {
+      type: 'object',
+      properties: {
+        version: { type: 'integer' },
+        steps: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              resourceType: { type: 'string' },
+              description: { type: 'string' },
+              params: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: { name: { type: 'string' }, value: { type: 'string' } },
+                  required: ['name', 'value'],
+                },
+              },
+              from: {
+                type: 'object',
+                properties: {
+                  step: { type: 'string' },
+                  path: { type: 'string' },
+                  param: { type: 'string' },
+                  keepType: { type: 'string' },
+                },
+                required: ['step', 'path', 'param'],
+              },
+              mode: { type: 'string', enum: ['auto', 'normal', 'bulk'] },
+              elements: { type: 'array', items: { type: 'string' } },
+            },
+            required: ['id', 'resourceType', 'params'],
+          },
+        },
+      },
+      required: ['version', 'steps'],
+    },
+    code: { type: 'string' },
+  },
+  required: ['plan', 'code'],
+};
+
+type JsonSchema = {
+  type?: string;
+  properties?: Record<string, JsonSchema>;
+  items?: JsonSchema;
+  [key: string]: unknown;
+};
+
+// Anthropic's structured output requires every object to be closed (additionalProperties: false).
+const closedObjects = (schema: JsonSchema): JsonSchema => ({
+  ...schema,
+  ...(schema.type === 'object' && schema.properties
+    ? {
+        properties: Object.fromEntries(Object.entries(schema.properties).map(([k, v]) => [k, closedObjects(v)])),
+        additionalProperties: false,
+      }
+    : {}),
+  ...(schema.items ? { items: closedObjects(schema.items) } : {}),
+});
+
 type ReportModelInvoker = (prompt: string, secrets: Secrets) => Promise<string>;
 
 const CLAUDE_REPORT_OPTIONS = {
@@ -73,27 +148,20 @@ const CLAUDE_REPORT_OPTIONS = {
   maxTokens: 32_000,
   // noCache: prevents caching the initiated model, so other callers won't use it from the cache
   noCache: true,
-  // structured output: the API guarantees valid JSON; Anthropic requires every object to be closed
-  responseSchema: {
-    ...RESPONSE_SCHEMA,
-    properties: {
-      ...RESPONSE_SCHEMA.properties,
-      needsDataset: { ...RESPONSE_SCHEMA.properties.needsDataset, additionalProperties: false },
-    },
-    additionalProperties: false,
-  },
 } as const;
 
 const createVertexReportInvoker =
-  ({ model }: LlmModelVariant): ReportModelInvoker =>
+  ({ model }: LlmModelVariant, responseSchema: JsonSchema): ReportModelInvoker =>
   (prompt, secrets) =>
-    invokeChatbotVertexAI([{ text: prompt }], secrets, FEATURE_NAME, RESPONSE_SCHEMA, model.id);
+    invokeChatbotVertexAI([{ text: prompt }], secrets, FEATURE_NAME, responseSchema, model.id);
 
 const createAnthropicReportInvoker =
-  ({ model, effort, thinking }: LlmModelVariant): ReportModelInvoker =>
+  ({ model, effort, thinking }: LlmModelVariant, responseSchema: JsonSchema): ReportModelInvoker =>
   async (prompt, secrets) => {
     const response = await invokeChatbot([{ role: 'user', content: prompt }], secrets, {
       ...CLAUDE_REPORT_OPTIONS,
+      // structured output: the API guarantees valid JSON
+      responseSchema: closedObjects(responseSchema),
       model: model.id,
       effort,
       thinking,
@@ -102,9 +170,17 @@ const createAnthropicReportInvoker =
     return response.text;
   };
 
-const REPORT_INVOKER_FACTORIES: Record<LlmProvider, (variant: LlmModelVariant) => ReportModelInvoker> = {
+const REPORT_INVOKER_FACTORIES: Record<
+  LlmProvider,
+  (variant: LlmModelVariant, responseSchema: JsonSchema) => ReportModelInvoker
+> = {
   vertex: createVertexReportInvoker,
   anthropic: createAnthropicReportInvoker,
+};
+
+const createReportInvoker = (model: AdHocReportModel, responseSchema: JsonSchema): ReportModelInvoker => {
+  const variant = AD_HOC_REPORT_LLM_MODELS[model] ?? AD_HOC_REPORT_LLM_MODELS[AD_HOC_REPORT_DEFAULT_MODEL];
+  return REPORT_INVOKER_FACTORIES[variant.model.provider](variant, responseSchema);
 };
 
 const buildPrompt = (
@@ -293,14 +369,142 @@ export const parseNeedsDataset = (
   return { id, concepts: names };
 };
 
-export const generateAdHocReportCode = async (
-  { schema, request, previousAttempt }: GenerateAdHocReportInput,
+// The fetch-plan prompt: the request and the data map only — never fetched records. The model writes the
+// plan (what to fetch) and the code (what to show) together; the plan is checked against the data map here
+// and the code where it runs (the sandboxed iframe), as for dataset reports.
+const buildPlanPrompt = (request: string, previousAttempt?: GenerateAdHocReportInput['previousAttempt']): string => {
+  const repairBlock = previousAttempt
+    ? `\nYOUR PREVIOUS ATTEMPT at this request CRASHED when it ran. The error comes from EXECUTING your\n` +
+      `code (your JSX is compiled to JS and run); any "around line N" refers to line N of the code you\n` +
+      `wrote below:\n` +
+      `"""\n${explainRuntimeError(previousAttempt.error)}\n"""\n` +
+      (previousAttempt.plan ? `The previous plan was:\n"""\n${JSON.stringify(previousAttempt.plan)}\n"""\n` : '') +
+      `The previous code was:\n"""\n${previousAttempt.code}\n"""\n` +
+      `Return CORRECTED code that fixes the error — pay special attention to null/undefined guards ` +
+      `(any FHIR field may be missing) — and otherwise fulfils the same request. Keep the same plan unless ` +
+      `the error came from what it fetched.\n`
+    : '';
+
+  return `
+You are a report generator for a clinical EHR whose data is FHIR R4B. You are given a DATA MAP (what the
+practice's records mean and how to search them — never the records themselves) and a user's plain-language
+request. Produce TWO things: a FETCH PLAN (the FHIR searches the report needs) and the REPORT CODE (a React
+report component in JSX over the fetched resources).
+
+${renderFetchPlanFormatPrompt().trim()}
+
+${renderDataMapPrompt().trim()}
+
+${renderPlanReportCodeContractPrompt().trim()}
+
+${renderPlanReportHelpersPrompt().trim()}
+
+${buildComponentsPromptSection()}
+
+RULES:
+- ONLY THE DATA MAP EXISTS. A plan may read only the resource types the data map describes, with the search
+  parameters it lists. When the request names something the data map does not describe, do not approximate or
+  repurpose another record for it: build the parts that ARE available and render a Report.Note tone="warn" at
+  the TOP of the report naming what is not available and why. Never emit a plausible-looking number in its place.
+- THE REQUEST'S WORDING IS NOT A VALUE. Map each status, type or category the user names to the value the data
+  map documents (helpers.visitStatus labels, meta tags, code systems) and compare against that verbatim.
+  Rephrasing a request must not change the filter or add values the user did not ask for.
+- NEVER RECALL CODE SETS FROM MEMORY as the only filter. ICD-10 is hierarchical — select a diagnosis family by
+  prefix (code.startsWith('H66')). CPT is NOT hierarchical — match the exact codes the user names or a numeric
+  range, guarding non-numeric codes. To group or break down by a code, enumerate the distinct codes present in
+  the resources at runtime and show the display next to the code.
+- A DEFINITION IN THE REQUEST IS BINDING: compute exactly the category, column or metric the user defines, in its
+  own expression; show leftovers as their own labelled bucket, never folded into a defined one.
+- METRIC SEMANTICS: "busiest" / "most visits" / "volume" = a count of visits, not a sum of minutes. For "top
+  entity" answers exclude placeholder buckets ('Unknown', '', null) from the ranking.
+- COVER THE WHOLE REQUEST: when it enumerates sections, charts or columns, render every one; say in a Note which
+  part was dropped and why if one cannot be built.
+- ONLY BUILD REPORTS. If the USER REQUEST is not a comprehensible report specification (a greeting, a general
+  question, gibberish), do NOT improvise: return a plan with ONE count-only step (Appointment, _summary=count,
+  _tag=OTTEHR-IP,OTTEHR-TM, bounded by {{start}} / {{end}}) and code that renders a short help panel — one
+  sentence that this tool generates reports from the practice's records, then 3-4 concrete example requests —
+  with the title "How to use Ad-Hoc Reports".
+${repairBlock}
+USER REQUEST:
+"""
+${request}
+"""
+
+Return JSON: { "title": "<short report title>", "plan": <the fetch plan>, "code": "<the JSX function body, ending with 'return ${REPORT_ROOT_NAME};'>" }
+`;
+};
+
+const generatePlanReport = async (
+  { request, previousAttempt }: GenerateAdHocReportInput,
   model: AdHocReportModel,
   secrets: Secrets
 ): Promise<GenerateAdHocReportOutput> => {
+  const basePrompt = buildPlanPrompt(request, previousAttempt);
+  const invokeReportModel = createReportInvoker(model, PLAN_RESPONSE_SCHEMA);
+  let lastError = '';
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const prompt =
+      attempt === 0
+        ? basePrompt
+        : `${basePrompt}\n\nIMPORTANT: your previous attempt produced output that was not usable ` +
+          `(${lastError}). Return ONLY a valid JSON object with a "plan" that follows the FETCH PLAN FORMAT and ` +
+          `reads only data-map resource types, and a "code" field that is the JSX function BODY — no markdown ` +
+          `fences, no commentary. The code must RUN without throwing (guard nulls; watch variable scope), define ` +
+          `a root component, and end with \`return ${REPORT_ROOT_NAME};\`.`;
+
+    const raw = await invokeReportModel(prompt, secrets);
+
+    let parsed: { code?: unknown; title?: unknown; plan?: unknown };
+    try {
+      parsed = fixAndParseJsonObjectFromString(raw) as typeof parsed;
+    } catch {
+      lastError = 'response was not valid JSON';
+      continue;
+    }
+    if (!parsed || typeof parsed.code !== 'string' || !parsed.code.trim()) {
+      lastError = 'no code field was returned';
+      continue;
+    }
+    // The plan is data the runner executes, so it IS checked here: against the data map's allowlist and the
+    // step rules. The model gets the exact issues back on the next attempt.
+    const plan = FetchPlanSchema.safeParse(parsed.plan);
+    if (!plan.success) {
+      lastError = `the plan was invalid: ${plan.error.issues
+        .slice(0, 5)
+        .map((i) => `${i.path.join('.') || 'plan'}: ${i.message}`)
+        .join('; ')}`;
+      continue;
+    }
+
+    return validateOutputWithSchema(
+      GenerateAdHocReportOutputSchema,
+      {
+        code: stripFences(parsed.code),
+        title: typeof parsed.title === 'string' ? parsed.title : undefined,
+        plan: plan.data,
+      },
+      FEATURE_NAME
+    );
+  }
+
+  throw INVALID_INPUT_ERROR(
+    `Could not generate a valid report after ${MAX_ATTEMPTS} attempts (${lastError}). Please rephrase ` +
+      `your request and try again.`
+  );
+};
+
+export const generateAdHocReportCode = async (
+  input: GenerateAdHocReportInput,
+  model: AdHocReportModel,
+  secrets: Secrets
+): Promise<GenerateAdHocReportOutput> => {
+  const { schema, request, previousAttempt } = input;
+  // No dataset schema: a fetch-plan report, written from the data map.
+  if (!schema) return generatePlanReport(input, model, secrets);
+
   const basePrompt = buildPrompt(schema, request, previousAttempt);
-  const variant = AD_HOC_REPORT_LLM_MODELS[model] ?? AD_HOC_REPORT_LLM_MODELS[AD_HOC_REPORT_DEFAULT_MODEL];
-  const invokeReportModel = REPORT_INVOKER_FACTORIES[variant.model.provider](variant);
+  const invokeReportModel = createReportInvoker(model, RESPONSE_SCHEMA);
   let lastError = '';
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {

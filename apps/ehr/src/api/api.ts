@@ -9,6 +9,7 @@ import {
   StartAdHocReportInput,
   StartAdHocReportResponse,
 } from 'utils/lib/types/adhoc/generation/report-task';
+import { RunFetchPlanInput, RunFetchPlanOutput } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import {
   DeleteAdHocReportInput,
   DeleteAdHocReportOutput,
@@ -431,6 +432,7 @@ const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const GENERATE_ADHOC_REPORT_ZAMBDA_ID = 'generate-adhoc-report';
 const INFER_ADHOC_REPORT_LAYERS_ZAMBDA_ID = 'infer-adhoc-report-layers';
 const ADHOC_REPORT_ZAMBDA_ID = 'adhoc-report';
+const ADHOC_FETCH_PLAN_ZAMBDA_ID = 'adhoc-fetch-plan';
 const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
 const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
 const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
@@ -717,6 +719,23 @@ export const startAdHocReport = async (
   try {
     const response = await oystehr.zambda.execute({
       id: ADHOC_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+/** Runs a fetch plan in one call (the direct path; the Task path is startAdHocReport with a plan). */
+export const runAdHocFetchPlan = async (
+  oystehr: Oystehr,
+  parameters: Pick<RunFetchPlanInput, 'plan' | 'dateRange' | 'parameters'>
+): Promise<RunFetchPlanOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADHOC_FETCH_PLAN_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

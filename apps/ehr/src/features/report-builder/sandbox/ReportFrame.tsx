@@ -1,18 +1,15 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import React from 'react';
-import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
-import { useSandbox } from '../hooks/useSandbox';
+import { SandboxData, useSandbox } from '../hooks/useSandbox';
 
-interface ReportFrameProps {
+type ReportFrameProps = SandboxData & {
   code: string;
-  data: AdHocRow[];
-  schema: LlmDatasetSchema;
   onError: (message: string) => void;
   onRendered?: () => void;
-}
+};
 
-export function ReportFrame({ code, data, schema, onError, onRendered }: ReportFrameProps): React.ReactElement {
-  const { frameProps, rendering } = useSandbox({ code, data, schema, onError, onRendered });
+export function ReportFrame({ code, onError, onRendered, ...sandboxData }: ReportFrameProps): React.ReactElement {
+  const { frameProps, rendering } = useSandbox({ code, onError, onRendered, ...sandboxData });
 
   if (!frameProps) {
     return (

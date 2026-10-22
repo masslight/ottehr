@@ -367,6 +367,12 @@ export const stepIsDateBounded = (step: { params?: FetchStepParam[] }): boolean 
 export const planNeedsPatient = (plan: { steps: { params?: FetchStepParam[] }[] }): boolean =>
   plan.steps.some((step) => (step.params ?? []).some((p) => PATIENT_ID_TEMPLATE.test(p.value)));
 
+const DATE_TEMPLATE = /\{\{\s*(start|end|startDate|endDate)\s*\}\}/;
+
+/** Whether any step of the plan uses the date-range templates, so the run needs (and the user may change) a date range. */
+export const planUsesDateRange = (plan: { steps: { params?: FetchStepParam[] }[] }): boolean =>
+  plan.steps.some((step) => (step.params ?? []).some((p) => DATE_TEMPLATE.test(p.value)));
+
 // FHIR choice-type elements of the data-map resources: the JSON key carries the type (valueQuantity,
 // effectiveDateTime) but `_elements` wants the base name (value, effective) — the typed key silently
 // drops the field. Top-level only; nested choices (dosage.dose[x]) never appear in `_elements`.

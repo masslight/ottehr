@@ -12,7 +12,12 @@ const formatIssues = (error: z.ZodError): string =>
 // LLM was told about the rows — so a mapper drift fails loud at the source (with a server-side log)
 // instead of surfacing as a client-side parse error. Returns the parsed value, so unknown extra
 // fields are stripped and exactly the contract is what ships.
-export function validateOutputWithSchema<T>(schema: z.ZodType<T>, output: unknown, endpoint: string): T {
+// `I` (the schema's input type) is inferred separately so a schema with defaults (input ≠ output) fits too.
+export function validateOutputWithSchema<T, I = T>(
+  schema: z.ZodType<T, z.ZodTypeDef, I>,
+  output: unknown,
+  endpoint: string
+): T {
   const parsed = schema.safeParse(output);
   if (!parsed.success) {
     const issues = formatIssues(parsed.error);

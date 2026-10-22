@@ -209,7 +209,7 @@ function SavedReportTile({
             </Typography>
           ) : (
             <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.5, fontStyle: 'italic' }}>
-              {(report.title ?? report.datasetId) + ' · ' + report.criteria.dateRange}
+              {[report.title ?? report.datasetId ?? 'Report', report.criteria?.dateRange].filter(Boolean).join(' · ')}
             </Typography>
           )}
         </CardContent>
@@ -249,7 +249,7 @@ const REPORT_TILES: ReportTileConfig[] = [
   },
   {
     title: 'Ad-Hoc Report',
-    description: 'Describe a report in plain language and the AI generates it over the encounters dataset',
+    description: "Describe a report in plain language and the AI generates it from the practice's records",
     icon: <AutoAwesomeIcon />,
     path: '/reports/ad-hoc',
     requiredRoles: AD_HOC_REPORT_EDIT_ROLES,

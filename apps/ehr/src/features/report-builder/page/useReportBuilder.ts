@@ -1,4 +1,6 @@
+import { captureException } from '@sentry/react';
 import { useQueryClient } from '@tanstack/react-query';
+import type { FhirResource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -12,7 +14,10 @@ import {
   GenerateAdHocReportOutput,
 } from 'utils/lib/types/adhoc/generation/generate.types';
 import { InferDatasetFeedback } from 'utils/lib/types/adhoc/generation/infer.types';
-import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
+import { chooseFetchMode, MeasuredFetch, measuredFetch } from 'utils/lib/types/adhoc/plan/fetch-mode';
+import { FetchPlan, FetchStepStats, planNeedsPatient, planUsesDateRange } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import { PlanReportParams } from 'utils/lib/types/adhoc/plan/report-scope';
+import { AdHocDateRangeFilter, DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
 import {
   AD_HOC_REPORT_EDIT_ROLES,
@@ -27,6 +32,8 @@ import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
 import { toLocalYmd } from '../query/dataset-query';
 import { runAdHocReportGeneration } from '../query/generation-query';
+import { controlsFromInputs, DateRangeControls, inputsForPlan } from '../query/plan-inputs';
+import { FetchedPlanData, fetchPlanData } from '../query/plan-query';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
 // 1 initial generation + up to 2 repairs.
@@ -102,6 +109,8 @@ function defaultOptionsFor(datasetId: string): Record<string, boolean> {
   return out;
 }
 
+const samePlan = (a: FetchPlan | null, b: FetchPlan): boolean => !!a && JSON.stringify(a) === JSON.stringify(b);
+
 type UseReportBuilder = {
   oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
   canView: boolean;
@@ -116,6 +125,18 @@ type UseReportBuilder = {
   rows: AdHocRow[] | null;
   schema: LlmDatasetSchema | null;
   datasetOptions: Record<string, boolean>;
+  /** A fetch-plan report: the plan, what its last run fetched, and the run values the code gets. */
+  plan: FetchPlan | null;
+  resources: Record<string, FhirResource[]> | null;
+  fetchStats: FetchStepStats[] | null;
+  planParams: PlanReportParams | null;
+  /** Whether the page asks for a date range: always before a report exists or for a dataset report; for a plan report only when the plan uses one. */
+  needsDateRange: boolean;
+  /** Whether the plan is about one patient ({{patientId}}). */
+  needsPatient: boolean;
+  /** The patient the screen that opened the builder passed (?patientId=…), if any. */
+  patientFromScreen: string | undefined;
+  patientIdInput: string;
   loading: boolean;
   error: string | null;
   request: string;
@@ -139,6 +160,7 @@ type UseReportBuilder = {
   setCustomDate: (customDate: string) => void;
   setCustomStartDate: (customStartDate: string) => void;
   setCustomEndDate: (customEndDate: string) => void;
+  setPatientIdInput: (patientId: string) => void;
   setRequest: (request: string) => void;
   setModel: (model: AdHocReportModel) => void;
   setShowSchema: (showSchema: boolean) => void;
@@ -178,6 +200,15 @@ export function useReportBuilder(): UseReportBuilder {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A plan report's state; `measured` is what the last run taught about its fetch (saved with the report).
+  const [plan, setPlan] = useState<FetchPlan | null>(null);
+  const [resources, setResources] = useState<Record<string, FhirResource[]> | null>(null);
+  const [fetchStats, setFetchStats] = useState<FetchStepStats[] | null>(null);
+  const [planParams, setPlanParams] = useState<PlanReportParams | null>(null);
+  const [measured, setMeasured] = useState<MeasuredFetch>({});
+  const [patientIdInput, setPatientIdInput] = useState('');
+  const patientFromScreen = searchParams.get('patientId')?.trim() || undefined;
+
   const [request, setRequest] = useState('');
   const [model, setModel] = useState<AdHocReportModel>(AD_HOC_REPORT_DEFAULT_MODEL);
   const [generating, setGenerating] = useState(false);
@@ -195,6 +226,8 @@ export function useReportBuilder(): UseReportBuilder {
   const autoFixedRef = useRef(false);
 
   const [loadedSavedId, setLoadedSavedId] = useState<string | null>(null);
+  // The definition as last saved or loaded: the timing written after a run changes only its timing fields.
+  const savedDefinitionRef = useRef<SavedAdHocReportDefinition | null>(null);
   const [savedName, setSavedName] = useState<string>('');
   const [savedDescription, setSavedDescription] = useState<string>('');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -246,9 +279,65 @@ export function useReportBuilder(): UseReportBuilder {
     [oystehrZambda, queryClient, dateRange, getDateRangeIso]
   );
 
+  // Runs a plan on the server (the shared runner, direct or through the background Task by the report's last
+  // measured timing) and keeps what it fetched. `range` overrides the page's picker (a saved report's own range).
+  const runPlan = useCallback(
+    async (activePlan: FetchPlan, previous: MeasuredFetch, range?: DateRange): Promise<FetchedPlanData | null> => {
+      if (!oystehrZambda) return null;
+      const runRange = planUsesDateRange(activePlan) ? range ?? getDateRangeIso(dateRange) : undefined;
+      const patientId = patientFromScreen ?? (patientIdInput.trim() || undefined);
+      if (planNeedsPatient(activePlan) && !patientId) {
+        setError('This report is about one patient. Enter a patient id to run it.');
+        return null;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const mode = chooseFetchMode(previous, runRange);
+        const { data, fellBack } = await fetchPlanData(
+          oystehrZambda,
+          { plan: activePlan, dateRange: runRange, parameters: patientId ? { patientId } : undefined },
+          mode
+        );
+        showAdHocDebugLog('fetch', `ran the plan (${mode}) in ${data.totalMs} ms`, {
+          steps: data.stats.map(({ id, count, ms, mode: stepMode, error: stepError }) => ({
+            id,
+            count,
+            ms,
+            mode: stepMode,
+            error: stepError,
+          })),
+        });
+        setPlan(activePlan);
+        setResources(data.resources);
+        setFetchStats(data.stats);
+        setPlanParams({
+          dateRange: runRange,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          patientId,
+          totals: Object.fromEntries(data.stats.flatMap((s) => (s.total === undefined ? [] : [[s.id, s.total]]))),
+        });
+        setMeasured(measuredFetch(data.totalMs, runRange, fellBack));
+        const failed = data.stats.filter((s) => s.error);
+        if (failed.length) {
+          setError(`Some of the report's searches failed: ${failed.map((s) => `${s.id} — ${s.error}`).join('; ')}`);
+        }
+        return data;
+      } catch (e) {
+        showAdHocDebugLog('fetch', 'plan FAILED', e);
+        setError(getApiError({ error: e, defaultError: 'Failed to fetch data' }));
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [oystehrZambda, dateRange, getDateRangeIso, patientFromScreen, patientIdInput]
+  );
+
   const handleFetch = useCallback((): void => {
-    if (datasetId) void fetchWithOptions(datasetId, datasetOptions);
-  }, [fetchWithOptions, datasetId, datasetOptions]);
+    if (plan) void runPlan(plan, measured);
+    else if (datasetId) void fetchWithOptions(datasetId, datasetOptions);
+  }, [plan, runPlan, measured, fetchWithOptions, datasetId, datasetOptions]);
 
   const inferOptions = useCallback(
     async (message: string, feedback?: InferDatasetFeedback): Promise<InferResult> => {
@@ -314,7 +403,10 @@ export function useReportBuilder(): UseReportBuilder {
   }, []);
 
   const orchestrateRef = useRef<(m: string, infer: boolean, prev?: PreviousAttempt) => Promise<void>>();
+  const orchestratePlanRef = useRef<(m: string, prev?: PreviousAttempt) => Promise<void>>();
 
+  // The dataset flow: pick a dataset, fetch its rows, generate code over their schema. New reports no longer
+  // come through here — reports saved on a dataset keep regenerating and running this way.
   const orchestrate = useCallback(
     async (message: string, infer: boolean, previousAttempt?: PreviousAttempt): Promise<void> => {
       if (!oystehrZambda) return;
@@ -436,22 +528,70 @@ export function useReportBuilder(): UseReportBuilder {
     [oystehrZambda, datasetId, datasetOptions, schema, inferOptions, fetchWithOptions, requestGenerate, commitGenerated]
   );
 
+  // The fetch-plan flow for new reports: the model gets the request and the data map (never any records) and
+  // writes the plan and the code; the plan runs on the server; the code renders over what it fetched.
+  const orchestratePlan = useCallback(
+    async (message: string, previousAttempt?: PreviousAttempt): Promise<void> => {
+      if (!oystehrZambda) return;
+      setGenerating(true);
+      setGenerateError(null);
+      setRenderError(null);
+      setUnavailableRequest(null);
+      setMultiDatasetRequest(null);
+      try {
+        showAdHocDebugLog('generate', 'requesting plan and report code', {
+          request: message,
+          repair: !!previousAttempt,
+        });
+        const result = await runAdHocReportGeneration(oystehrZambda, {
+          request: message,
+          previousAttempt,
+          ...(canPickModel ? { model } : {}),
+        });
+        if (!result.plan) throw new Error('The generated report has no fetch plan');
+        showAdHocDebugLog('generate', 'received plan and report code', {
+          title: result.title,
+          steps: result.plan.steps.map((s) => `${s.id}: ${s.resourceType}`),
+          codeLength: result.code.length,
+        });
+        // A repair that kept the plan renders on the data already fetched; a new plan has no timing yet.
+        if (!(resources && samePlan(plan, result.plan))) {
+          const fetched = await runPlan(result.plan, {});
+          if (!fetched) return;
+        }
+        setDatasetId(null);
+        setRows(null);
+        setSchema(null);
+        setDatasetOptions({});
+        commitGenerated(message, result);
+      } catch (e) {
+        showAdHocDebugLog('generate', 'orchestratePlan FAILED', e);
+        setGenerateError(getApiError({ error: e, defaultError: 'Failed to generate report' }));
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [oystehrZambda, canPickModel, model, resources, plan, runPlan, commitGenerated]
+  );
+
   orchestrateRef.current = orchestrate;
+  orchestratePlanRef.current = orchestratePlan;
 
   useEffect(() => {
     if (!pendingRegenerate || loading || generating) return;
     const request = pendingRegenerate;
     setPendingRegenerate(null);
-    void orchestrate(request, false);
-  }, [pendingRegenerate, loading, generating, orchestrate]);
+    if (plan) void orchestratePlan(request);
+    else void orchestrate(request, false);
+  }, [pendingRegenerate, loading, generating, plan, orchestrate, orchestratePlan]);
 
   const handleGenerate = useCallback((): void => {
     if (!request.trim() || !canCreate) return;
     autoRetryRef.current = 0;
     autoFixedRef.current = false;
     setGeneratedCode(null);
-    void orchestrate(request, true);
-  }, [request, canCreate, orchestrate]);
+    void orchestratePlan(request);
+  }, [request, canCreate, orchestratePlan]);
 
   const handleRenderError = useCallback(
     (message: string): void => {
@@ -468,16 +608,23 @@ export function useReportBuilder(): UseReportBuilder {
           message,
         });
         const failingCode = generatedCode;
-        void orchestrateRef.current?.(
-          activeRequestRef.current,
-          false,
-          failingCode ? { code: failingCode, error: message } : undefined
-        );
+        if (plan) {
+          void orchestratePlanRef.current?.(
+            activeRequestRef.current,
+            failingCode ? { code: failingCode, error: message, plan } : undefined
+          );
+        } else {
+          void orchestrateRef.current?.(
+            activeRequestRef.current,
+            false,
+            failingCode ? { code: failingCode, error: message } : undefined
+          );
+        }
         return;
       }
       setRenderError(message);
     },
-    [canCreate, generating, generatedCode]
+    [canCreate, generating, generatedCode, plan]
   );
 
   const handleReset = useCallback((): void => {
@@ -488,6 +635,11 @@ export function useReportBuilder(): UseReportBuilder {
     setMultiDatasetRequest(null);
     setRenderError(null);
     setLoadedSavedId(null);
+    setPlan(null);
+    setResources(null);
+    setFetchStats(null);
+    setPlanParams(null);
+    setMeasured({});
     activeRequestRef.current = '';
     autoRetryRef.current = 0;
     autoFixedRef.current = false;
@@ -510,40 +662,71 @@ export function useReportBuilder(): UseReportBuilder {
           setError('That saved report no longer exists.');
           return;
         }
-        const filter = saved.criteria.dateRange as AdHocDateRangeFilter;
-        setDatasetId(saved.datasetId);
-        setDateRange(filter);
-        if (saved.criteria.customDate) setCustomDate(saved.criteria.customDate);
-        if (saved.criteria.customStartDate) setCustomStartDate(saved.criteria.customStartDate);
-        if (saved.criteria.customEndDate) setCustomEndDate(saved.criteria.customEndDate);
+        const { id: _id, updatedAt: _updatedAt, ...savedDefinition } = saved;
+        savedDefinitionRef.current = savedDefinition;
         setRequest(saved.request);
         setSavedDescription(saved.description ?? '');
         setLoadedSavedId(saved.id);
         setSavedName(saved.name);
-        const savedOptions = saved.criteria.options ?? defaultOptionsFor(saved.datasetId);
-        setDatasetOptions(savedOptions);
-
-        const dataset = getDataset(saved.datasetId);
-        if (!dataset) {
-          setError(`Unknown dataset "${saved.datasetId}".`);
-          return;
-        }
-        const range = rangeFromControls(
-          filter,
-          saved.criteria.customDate ?? customDate,
-          saved.criteria.customStartDate ?? customStartDate,
-          saved.criteria.customEndDate ?? customEndDate
-        );
-        const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: savedOptions, queryClient });
-        const builtSchema: LlmDatasetSchema = {
-          ...dataset.buildSchema(fetched, savedOptions),
-          dateRange: schemaDateRange(range),
-          otherDatasets: otherDatasetsFor(saved.datasetId),
-        };
-        setRows(fetched);
-        setSchema(builtSchema);
         activeRequestRef.current = saved.request;
         autoRetryRef.current = 0;
+
+        if (saved.plan) {
+          // A plan report: its own date range (the dateRange input's default) and timing, then its plan runs again.
+          const controls = controlsFromInputs(saved.inputs);
+          if (controls?.dateRange) setDateRange(controls.dateRange);
+          if (controls?.customDate) setCustomDate(controls.customDate);
+          if (controls?.customStartDate) setCustomStartDate(controls.customStartDate);
+          if (controls?.customEndDate) setCustomEndDate(controls.customEndDate);
+          const previous: MeasuredFetch = {
+            fetchMode: saved.fetchMode,
+            measuredFetchSeconds: saved.measuredFetchSeconds,
+            measuredRangeDays: saved.measuredRangeDays,
+          };
+          setPlan(saved.plan);
+          setMeasured(previous);
+          const range = planUsesDateRange(saved.plan)
+            ? rangeFromControls(
+                controls?.dateRange ?? dateRange,
+                controls?.customDate ?? customDate,
+                controls?.customStartDate ?? customStartDate,
+                controls?.customEndDate ?? customEndDate
+              )
+            : undefined;
+          // A run that could not happen yet (a per-patient report opened with no patient) must not hide the
+          // report: the code is still set below, and "Refresh data" renders it once the input is there.
+          await runPlan(saved.plan, previous, range);
+        } else {
+          const filter = saved.criteria?.dateRange as AdHocDateRangeFilter;
+          const savedDatasetId = saved.datasetId ?? '';
+          setDatasetId(savedDatasetId);
+          setDateRange(filter);
+          if (saved.criteria?.customDate) setCustomDate(saved.criteria.customDate);
+          if (saved.criteria?.customStartDate) setCustomStartDate(saved.criteria.customStartDate);
+          if (saved.criteria?.customEndDate) setCustomEndDate(saved.criteria.customEndDate);
+          const savedOptions = saved.criteria?.options ?? defaultOptionsFor(savedDatasetId);
+          setDatasetOptions(savedOptions);
+
+          const dataset = getDataset(savedDatasetId);
+          if (!dataset) {
+            setError(`Unknown dataset "${savedDatasetId}".`);
+            return;
+          }
+          const range = rangeFromControls(
+            filter,
+            saved.criteria?.customDate ?? customDate,
+            saved.criteria?.customStartDate ?? customStartDate,
+            saved.criteria?.customEndDate ?? customEndDate
+          );
+          const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: savedOptions, queryClient });
+          const builtSchema: LlmDatasetSchema = {
+            ...dataset.buildSchema(fetched, savedOptions),
+            dateRange: schemaDateRange(range),
+            otherDatasets: otherDatasetsFor(savedDatasetId),
+          };
+          setRows(fetched);
+          setSchema(builtSchema);
+        }
 
         if ((saved.runtimeVersion ?? 0) !== ADHOC_RUNTIME_VERSION) {
           showAdHocDebugLog('saved', 'runtime version mismatch', {
@@ -577,18 +760,36 @@ export function useReportBuilder(): UseReportBuilder {
   }, [oystehrZambda]);
 
   const buildDefinition = useCallback(
-    (name: string, code: string, reportDatasetId: string): SavedAdHocReportDefinition => ({
-      name: name.trim(),
-      description: savedDescription.trim() || undefined,
-      datasetId: reportDatasetId,
-      criteria: { dateRange, customDate, customStartDate, customEndDate, options: datasetOptions },
-      request: activeRequestRef.current || request,
-      code,
-      title: generatedTitle,
-      runtimeVersion: ADHOC_RUNTIME_VERSION,
-    }),
-    [savedDescription, dateRange, customDate, customStartDate, customEndDate, datasetOptions, request, generatedTitle]
+    (name: string, code: string): SavedAdHocReportDefinition => {
+      const controls: DateRangeControls = { dateRange, customDate, customStartDate, customEndDate };
+      const base = {
+        name: name.trim(),
+        description: savedDescription.trim() || undefined,
+        request: activeRequestRef.current || request,
+        code,
+        title: generatedTitle,
+        runtimeVersion: ADHOC_RUNTIME_VERSION,
+      };
+      // A plan report keeps its plan, the values it takes from the screen and what its runs measured.
+      if (plan) return { ...base, plan, inputs: inputsForPlan(plan, controls), ...measured };
+      return { ...base, datasetId: datasetId ?? undefined, criteria: { ...controls, options: datasetOptions } };
+    },
+    [
+      savedDescription,
+      dateRange,
+      customDate,
+      customStartDate,
+      customEndDate,
+      datasetOptions,
+      request,
+      generatedTitle,
+      plan,
+      measured,
+      datasetId,
+    ]
   );
+
+  const canSave = !!generatedCode && (!!plan || !!datasetId);
 
   const handleRendered = useCallback((): void => {
     setRenderError(null);
@@ -597,23 +798,44 @@ export function useReportBuilder(): UseReportBuilder {
 
     autoFixedRef.current = false;
 
-    if (!canCreate || !oystehrZambda || !loadedSavedId || !generatedCode || !datasetId) return;
+    if (!canCreate || !oystehrZambda || !loadedSavedId || !generatedCode || !canSave) return;
 
-    void saveAdHocReport(oystehrZambda, {
-      reportId: loadedSavedId,
-      definition: buildDefinition(savedName || generatedTitle || 'Report', generatedCode, datasetId),
-    }).catch((e) => console.warn('Could not persist auto-fixed report', e));
-  }, [canCreate, oystehrZambda, loadedSavedId, generatedCode, datasetId, buildDefinition, savedName, generatedTitle]);
+    const definition = buildDefinition(savedName || generatedTitle || 'Report', generatedCode);
+    void saveAdHocReport(oystehrZambda, { reportId: loadedSavedId, definition })
+      .then(() => {
+        savedDefinitionRef.current = definition;
+      })
+      .catch((e) => console.warn('Could not persist auto-fixed report', e));
+  }, [canCreate, oystehrZambda, loadedSavedId, generatedCode, canSave, buildDefinition, savedName, generatedTitle]);
+
+  // What a run measured is written to the saved report after each run (by someone allowed to save), so the next
+  // run can choose the direct call or the background Task from it. Only the timing fields change — the plan and
+  // code stay as saved, so a regeneration the user has not saved is never written by this.
+  useEffect(() => {
+    const saved = savedDefinitionRef.current;
+    if (!plan || !loadedSavedId || !canCreate || !oystehrZambda || !saved?.plan || !samePlan(saved.plan, plan)) return;
+    if (measured.fetchMode === undefined || saved.measuredFetchSeconds === measured.measuredFetchSeconds) return;
+    const definition = { ...saved, ...measured };
+    savedDefinitionRef.current = definition;
+    void saveAdHocReport(oystehrZambda, { reportId: loadedSavedId, definition }).catch((e) => {
+      console.warn('Could not persist the report timing', e);
+      captureException(e);
+    });
+    // Runs on a new measurement only; the rest is read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measured]);
 
   const handleSave = useCallback(
     async (mode: 'update' | 'new'): Promise<void> => {
-      if (!oystehrZambda || !generatedCode || !datasetId || !savedName.trim()) return;
+      if (!oystehrZambda || !generatedCode || !canSave || !savedName.trim()) return;
       setSaving(true);
       try {
+        const definition = buildDefinition(savedName, generatedCode);
         const { report: saved } = await saveAdHocReport(oystehrZambda, {
           reportId: mode === 'update' ? loadedSavedId ?? undefined : undefined,
-          definition: buildDefinition(savedName, generatedCode, datasetId),
+          definition,
         });
+        savedDefinitionRef.current = definition;
         setLoadedSavedId(saved.id);
         setSavedName(saved.name);
         setSaveDialogOpen(false);
@@ -624,7 +846,7 @@ export function useReportBuilder(): UseReportBuilder {
         setSaving(false);
       }
     },
-    [oystehrZambda, generatedCode, datasetId, savedName, loadedSavedId, buildDefinition]
+    [oystehrZambda, generatedCode, canSave, savedName, loadedSavedId, buildDefinition]
   );
 
   const openSaveDialog = useCallback((): void => {
@@ -646,6 +868,14 @@ export function useReportBuilder(): UseReportBuilder {
     rows,
     schema,
     datasetOptions,
+    plan,
+    resources,
+    fetchStats,
+    planParams,
+    needsDateRange: !plan || planUsesDateRange(plan),
+    needsPatient: !!plan && planNeedsPatient(plan),
+    patientFromScreen,
+    patientIdInput,
     loading,
     error,
     request,
@@ -668,6 +898,7 @@ export function useReportBuilder(): UseReportBuilder {
     setCustomDate,
     setCustomStartDate,
     setCustomEndDate,
+    setPatientIdInput,
     setRequest,
     setModel,
     setShowSchema,

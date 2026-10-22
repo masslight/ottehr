@@ -1,8 +1,10 @@
 // Iframe runtime bundle entry point. Everything the report needs (React, MUI + DataGridPro, ECharts,
 // Vega-Lite, the Report components, the JSX transpiler) lives in this bundle — the frame has no
-// network and loads nothing else. Once ready, the SPA posts { type: 'render', code, data, schema };
-// the code is the JSX BODY of the function the runtime-scope catalog describes (the same contract
-// the generation prompt shows the model), exactly as generated. The runtime transpiles it here.
+// network and loads nothing else. Once ready, the SPA posts { type: 'render', code, … } with either a
+// dataset's rows + schema (the runtime-scope catalog's contract) or a fetch plan's resources + run
+// params (the plan report scope: the resources and the data map's helpers); the code is the JSX BODY
+// of that function (the same contract the generation prompt shows the model), exactly as generated.
+// The runtime transpiles it here.
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import { LicenseInfo } from '@mui/x-data-grid-pro';
 import React, { useEffect } from 'react';
@@ -11,12 +13,16 @@ import type { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/
 // Deep imports: keep the whole utils barrel (and zod) out of the iframe bundle.
 import {
   REPORT_ROOT_NAME,
-  REPORT_WRAP_PREFIX,
-  REPORT_WRAP_SUFFIX,
   RUNTIME_SCOPE_PARAM_NAMES,
   RuntimeScopeParamName,
 } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
 import { transpileReportJsx } from 'utils/lib/types/adhoc/generation/transpile';
+import {
+  PLAN_REPORT_SCOPE_PARAMS,
+  PlanReportParams,
+  PlanReportResources,
+} from 'utils/lib/types/adhoc/plan/report-scope';
+import { helpers } from 'utils/lib/types/adhoc/runtime/helpers';
 import { ErrorBoundary } from './ErrorBoundary';
 import { measureHeight, sendLifecycle } from './messaging';
 import { MUI, Report } from './scope';
@@ -24,8 +30,12 @@ import { MUI, Report } from './scope';
 interface RenderMessage {
   type: 'render';
   code: string;
-  data: AdHocRow[];
-  schema: LlmDatasetSchema;
+  // A dataset report's rows + schema…
+  data?: AdHocRow[];
+  schema?: LlmDatasetSchema;
+  // …or a plan report's resources + run params (the plan report scope).
+  resources?: PlanReportResources;
+  params?: PlanReportParams;
   muiLicenseKey?: string;
 }
 
@@ -38,7 +48,7 @@ const theme = createTheme({
 // handed to the root as props: the contract is that it reads `data`/`schema` from the enclosing
 // scope, but a model that slips and writes `function ReportRoot({ data })` would otherwise render a
 // silently EMPTY report instead of a working one.
-function toElement(returned: unknown, scope: Record<RuntimeScopeParamName, unknown>): React.ReactElement {
+function toElement(returned: unknown, scope: Record<string, unknown>): React.ReactElement {
   if (typeof returned === 'function') {
     return React.createElement(returned as React.ComponentType<Record<string, unknown>>, { ...scope });
   }
@@ -55,12 +65,12 @@ const MAX_ERROR_LENGTH = 600;
 
 type ReportFactory = (...args: unknown[]) => unknown;
 
-function compileReport(body: string): ReportFactory {
-  // The wrapper comes from the runtime-scope catalog — the very same one transpileReportJsx slices
-  // off — so only the catalog's names are in scope for the generated code. Indirect eval runs in
-  // global scope (no app closures leak in), same isolation as new Function; the trailing sourceURL
-  // names the script for stack traces.
-  const wrapped = `${REPORT_WRAP_PREFIX}${body}${REPORT_WRAP_SUFFIX}\n//# sourceURL=${REPORT_CODE_URL}`;
+function compileReport(body: string, paramNames: readonly string[]): ReportFactory {
+  // The wrapper names exactly the scope's parameters (transpileReportJsx slices its own wrapper back
+  // off), so only those names are in scope for the generated code. Indirect eval runs in global
+  // scope (no app closures leak in), same isolation as new Function; the trailing sourceURL names
+  // the script for stack traces.
+  const wrapped = `(function (${paramNames.join(', ')}) {\n${body}\n})\n//# sourceURL=${REPORT_CODE_URL}`;
 
   return (0, eval)(wrapped) as ReportFactory;
 }
@@ -72,6 +82,21 @@ function scopeValues(
   schema: LlmDatasetSchema | undefined
 ): Record<RuntimeScopeParamName, unknown> {
   return { React, MUI, Report, data: data ?? [], schema: schema ?? {} };
+}
+
+// The plan report scope: the fetched resources and the data map's helpers instead of rows.
+function planScopeValues(
+  resources: PlanReportResources,
+  params: PlanReportParams | undefined
+): Record<(typeof PLAN_REPORT_SCOPE_PARAMS)[number], unknown> {
+  return {
+    React,
+    MUI,
+    Report,
+    resources,
+    helpers,
+    params: params ?? { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, totals: {} },
+  };
 }
 
 // Turn a thrown value into a compact, model-actionable string: "Name: message (around line N of
@@ -157,9 +182,12 @@ function start(): void {
         sendLifecycle({ type: 'error', message: `the report code did not transpile (${transpiled.error})` });
         return;
       }
-      const factory = compileReport(transpiled.code);
-      const scope = scopeValues(msg.data, msg.schema);
-      const returned: unknown = factory(...RUNTIME_SCOPE_PARAM_NAMES.map((name) => scope[name]));
+      const paramNames: readonly string[] = msg.resources ? PLAN_REPORT_SCOPE_PARAMS : RUNTIME_SCOPE_PARAM_NAMES;
+      const scope: Record<string, unknown> = msg.resources
+        ? planScopeValues(msg.resources, msg.params)
+        : scopeValues(msg.data, msg.schema);
+      const factory = compileReport(transpiled.code, paramNames);
+      const returned: unknown = factory(...paramNames.map((name) => scope[name]));
       const element = toElement(returned, scope);
 
       renderSeq += 1;

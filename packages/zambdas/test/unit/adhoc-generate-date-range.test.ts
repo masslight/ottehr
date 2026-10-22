@@ -26,7 +26,7 @@ describe('ad-hoc generation prompt', () => {
       },
       request: 'count of encounters in discharged status or completed status for each of the past 30 days',
     });
-    expect(parsed.schema.dateRange).toEqual({ start: '2026-09-15', end: '2026-10-14' });
+    expect(parsed.schema?.dateRange).toEqual({ start: '2026-09-15', end: '2026-10-14' });
 
     mockInvokeVertex.mockResolvedValue(JSON.stringify({ title: 'T', code: 'return ReportRoot;' }));
     await generateAdHocReportCode(parsed, 'defaultVertexModel', {});

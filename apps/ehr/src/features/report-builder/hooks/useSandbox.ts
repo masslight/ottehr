@@ -6,6 +6,7 @@
 import { captureException } from '@sentry/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { PlanReportParams, PlanReportResources } from 'utils/lib/types/adhoc/plan/report-scope';
 import { AdHocFrameEventSchema } from 'utils/lib/types/adhoc/sandbox/events';
 import { showAdHocDebugLog } from '../debug';
 import { hrefForOpenLink } from './links';
@@ -55,13 +56,16 @@ export const SANDBOX_TIMEOUT_MESSAGE = 'Report timed out — the generated code 
 
 const MUI_X_LICENSE_KEY: string | undefined = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 
-export interface UseSandboxOptions {
+/** What the code runs over: a dataset's rows + schema, or a fetch plan's resources + run params. */
+export type SandboxData =
+  | { data: AdHocRow[]; schema: LlmDatasetSchema; resources?: undefined; params?: undefined }
+  | { resources: PlanReportResources; params: PlanReportParams; data?: undefined; schema?: undefined };
+
+export type UseSandboxOptions = SandboxData & {
   code: string;
-  data: AdHocRow[];
-  schema: LlmDatasetSchema;
   onError: (message: string) => void;
   onRendered?: () => void;
-}
+};
 
 export interface UseSandbox {
   frameProps: {
@@ -75,7 +79,15 @@ export interface UseSandbox {
   rendering: boolean;
 }
 
-export function useSandbox({ code, data, schema, onError, onRendered }: UseSandboxOptions): UseSandbox {
+export function useSandbox({
+  code,
+  data,
+  schema,
+  resources,
+  params,
+  onError,
+  onRendered,
+}: UseSandboxOptions): UseSandbox {
   const ref = useRef<HTMLIFrameElement>(null);
   const onRenderedRef = useRef(onRendered);
   onRenderedRef.current = onRendered;
@@ -117,8 +129,16 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
       onErrorRef.current(SANDBOX_TIMEOUT_MESSAGE);
     }, TIMEOUT_MS);
     setRendering(true);
-    win.postMessage({ type: 'render', code, data, schema, muiLicenseKey: MUI_X_LICENSE_KEY }, '*');
-  }, [code, data, schema, finishRendering]);
+    win.postMessage(
+      {
+        type: 'render',
+        code,
+        ...(resources ? { resources, params } : { data, schema }),
+        muiLicenseKey: MUI_X_LICENSE_KEY,
+      },
+      '*'
+    );
+  }, [code, data, schema, resources, params, finishRendering]);
 
   const handleFrameEvent = useCallback((raw: unknown): void => {
     const parsed = AdHocFrameEventSchema.safeParse(raw);
