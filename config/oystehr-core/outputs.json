@@ -54,6 +54,9 @@
     },
     "DYNAMSOFT_LICENSE_KEY": {
       "value": "#{var/DYNAMSOFT_LICENSE_KEY}"
+    },
+    "BILLING_INTEGRATION": {
+      "value": "#{var/BILLING_INTEGRATION}"
     }
   }
 }

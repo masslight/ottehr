@@ -4,7 +4,11 @@ import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getExtensionValue, reducePatchOperations, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
-import { CLAIM_TAG_SYSTEM, ERA_CLAIM_STATUS_CODE } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  CLAIM_TAG_SYSTEM,
+  ERA_CLAIM_STATUS_CODE,
+  ERA_VOID_STATUS,
+} from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
   HOLD_TAG_NAME,
@@ -161,6 +165,10 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
   const { claim, claimResponse, agent } = validated;
   if (!validated.newlyMatched) {
     console.log(`ClaimResponse/${validated.claimResponseId} was edited, not newly matched; leaving Claim/${claim.id}`);
+    return;
+  }
+  if (claimResponse.status === ERA_VOID_STATUS) {
+    console.log(`ClaimResponse/${validated.claimResponseId} belongs to a voided ERA; leaving Claim/${claim.id}`);
     return;
   }
 

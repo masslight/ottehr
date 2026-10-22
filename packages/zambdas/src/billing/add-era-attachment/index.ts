@@ -15,6 +15,7 @@ import {
   presignAttachment,
   resolveAttachmentContentType,
 } from '../attachments';
+import { assertEraNotVoided } from '../era-write';
 import { createBillingClient, fetchById } from '../shared';
 
 type AddEraAttachmentParams = ValidatedZambdaInput<typeof AddEraAttachmentInputSchema>;
@@ -39,6 +40,7 @@ export async function performEffect(
   params: AddEraAttachmentParams
 ): Promise<AddEraAttachmentResponse> {
   const era = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId);
+  assertEraNotVoided(era);
   const contentType = resolveAttachmentContentType(params.fileName, params.mimeType, ERA_ATTACHMENT_CONTENT_TYPES);
   const location = newAttachmentLocation(
     params.secrets['PROJECT_ID'],

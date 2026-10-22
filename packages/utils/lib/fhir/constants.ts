@@ -138,6 +138,14 @@ export const FHIR_EXTENSION = {
       url: 'https://extensions.fhir.oystehr.com/medication-request/is-renewal',
     },
   },
+  MedicationStatement: {
+    lastFilledDate: {
+      url: ottehrExtensionUrl('medication-last-filled-date'),
+    },
+    refills: {
+      url: ottehrExtensionUrl('medication-refills'),
+    },
+  },
   InsurancePlan: {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,

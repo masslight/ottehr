@@ -62,7 +62,8 @@ export const FollowUpNoteDetails: FC = () => {
   const showExternalLabsResultsContainer = externalLabResultsPending || externalLabResultsReceived;
 
   const inHouseLabResultsPending = !!(
-    inHouseLabResults?.resultsPending && inHouseLabResults?.resultsPending.length > 0
+    (inHouseLabResults?.resultsPending && inHouseLabResults?.resultsPending.length > 0) ||
+    (inHouseLabResults?.testsOrdered && inHouseLabResults?.testsOrdered.length > 0)
   );
   const inHouseLabResultsEntered = !!(
     inHouseLabResults?.labOrderResults && inHouseLabResults?.labOrderResults.length > 0

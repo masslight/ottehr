@@ -39,6 +39,7 @@ const payments = (overrides: Partial<ClaimPaymentSummary> = {}): ClaimPaymentSum
   insurancePaid: 0,
   patientResp: 0,
   patientPaid: 0,
+  writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
   ...overrides,

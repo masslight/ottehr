@@ -247,6 +247,12 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  it('leaves the claim alone when the response belongs to a voided ERA', async () => {
+    await performEffect(oystehr, validated(claimWith([]), { ...forwardedResponse, status: 'cancelled' }));
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('only records the match when the claim is already adjudicated', async () => {
     const adjudicated = claimWith([]);
     adjudicated.meta!.tag!.push({

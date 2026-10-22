@@ -13,10 +13,20 @@ import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
-import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  ERA_VOID_STATUS,
+  X12_ADJUSTMENT_GROUP_CODE,
+  X12AdjustmentGroupCode,
+} from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
+import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
+import {
+  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
+  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
+  MANUAL_REFUND_ID_SYSTEM,
+} from './payments';
 import { ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
@@ -43,6 +53,7 @@ export interface ClaimPaymentSummary {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
 }
@@ -155,7 +166,8 @@ export function sortClaimResponsesByRecency(claimResponses: ClaimResponse[]): Cl
 export function summarizeClaimPayments(
   claimResponses: ClaimResponse[],
   billed: number,
-  patientPaid = 0
+  patientPaid = 0,
+  writeOffsTotal = 0
 ): ClaimPaymentSummary {
   if (claimResponses.length === 0) {
     return {
@@ -163,7 +175,8 @@ export function summarizeClaimPayments(
       insurancePaid: 0,
       patientResp: 0,
       patientPaid,
-      balance: billed - patientPaid,
+      writeOffsTotal,
+      balance: billed - patientPaid - writeOffsTotal,
       adjudicated: false,
     };
   }
@@ -187,7 +200,8 @@ export function summarizeClaimPayments(
     insurancePaid,
     patientResp,
     patientPaid,
-    balance: patientResp - patientPaid,
+    writeOffsTotal,
+    balance: patientResp - patientPaid - writeOffsTotal,
     adjudicated: true,
   };
 }
@@ -217,12 +231,20 @@ export function summarizePatientBalance(
   };
 }
 
-function movesPatientAr(notice: PaymentNotice): boolean {
-  return notice.status === 'active';
-}
-
+/**
+ * Sums the amounts from patient payments. There are 4 possible resource layouts here:
+ *  - normal patient payment -- positive value
+ *  - voided patient payment -- positive value, status is 'cancelled'
+ *  - refunded patient payment -- positive value
+ *  - refund -- negative value
+ * Voided are filtered out, normal and refunded payment notices add positive amounts,
+ * "refund notice" adds negative amount.
+ *
+ * @param notices PaymentNotice resources that are expected to be for patient payments
+ * @returns total
+ */
 export function sumPatientPayments(notices: PaymentNotice[]): number {
-  return notices.filter(movesPatientAr).reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
+  return notices.filter((n) => n.status === 'active').reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
 }
 
 export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPayment {
@@ -327,7 +349,7 @@ function hasEraStatusCode(claimResponse: ClaimResponse): boolean {
 
 // Fetch every matched ClaimResponse for the given claims, grouped by claim id. Unmatched ERA
 // ClaimResponses never carry a Claim/{id} request reference, so this returns matched ones only.
-// Filters out non-ERA ClaimResponses created by claim submission.
+// Filters out non-ERA ClaimResponses created by claim submission, and the ones of voided ERAs.
 export async function fetchClaimResponsesByClaimIds(
   oystehr: Oystehr,
   claimIds: string[]
@@ -345,6 +367,10 @@ export async function fetchClaimResponsesByClaimIds(
       {
         name: 'outcome:not',
         value: 'error',
+      },
+      {
+        name: 'status:not',
+        value: ERA_VOID_STATUS,
       },
     ],
     groupKeyOf: (claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''),
@@ -366,6 +392,10 @@ export async function fetchPatientPaymentsByEncounterIds(
       {
         name: 'request:identifier',
         value: batch.map((id) => `${system}|${id}`).join(','),
+      },
+      {
+        name: 'identifier',
+        value: `${MANUAL_REFUND_ID_SYSTEM}|,${STRIPE_PAYMENT_ID_SYSTEM}|,${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|,${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|`,
       },
     ],
     groupKeyOf: (notice) => notice.request?.identifier?.value,

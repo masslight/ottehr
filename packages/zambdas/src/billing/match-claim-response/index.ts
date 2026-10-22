@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
   MatchClaimResponseToClaimInput,
   MatchClaimResponseToClaimInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -14,7 +15,8 @@ import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, matchFieldsPatchOperations } from '../claim-response-match';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient } from '../shared';
+import { assertClaimResponseEraNotVoided } from '../era-write';
+import { createBillingClient, createEraReadClient } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'match-claim-response';
@@ -25,7 +27,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, {
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const response = await performEffect(oystehr, eraReadClient, {
     ...params,
     agent,
   });
@@ -38,19 +41,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect(
   oystehr: Oystehr,
+  eraReadClient: Oystehr,
   params: Params & { agent: ProvenanceAgent }
 ): Promise<ClaimResponse> {
   const claim = await oystehr.fhir.get<Claim>({
     resourceType: 'Claim',
     id: params.claimId,
   });
-  if (!claim.insurer) {
-    throw INVALID_INPUT_ERROR('Claim has no insurer');
-  }
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
+  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
   const matched: ClaimResponse = {
     ...claimResponse,
     request: {
@@ -65,6 +67,8 @@ export async function performEffect(
       getPatchBinary({
         resourceType: 'ClaimResponse',
         resourceId: claimResponse.id!,
+        // Fails if a void cancelled the response after the check above.
+        ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
         patchOperations: matchFieldsPatchOperations(matched),
       }),
       ...claimMatchHistoryRequests({

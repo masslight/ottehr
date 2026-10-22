@@ -1,13 +1,17 @@
 import {
+  Close as CloseIcon,
   InfoOutlined as InfoOutlinedIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
 } from '@mui/icons-material';
 import {
   Box,
+  ClickAwayListener,
   Collapse,
   Divider,
   IconButton,
+  Paper,
+  Popper,
   Stack,
   Table,
   TableBody,
@@ -18,26 +22,40 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Fragment, ReactElement, ReactNode, useMemo, useState } from 'react';
+import {
+  createContext,
+  Dispatch,
+  Fragment,
+  ReactElement,
+  ReactNode,
+  SetStateAction,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { commaFormattedName } from 'utils/lib/fhir/billing';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { formatNdcForDisplay, X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
-import { ClaimDetailResponse, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
+import { ClaimDetailResponse, ClaimRemit, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { carcDescription, PATIENT_RESP_CARC, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency } from 'utils/lib/utils/convert';
-import { adjustmentCode, ERA_STATUS_LABELS, isAdverseRemitStatus } from '../../constants/era';
+import { adjustmentCode, isAdverseRemitStatus } from '../../constants/era';
 import {
   adjustmentColumn,
+  claimPayerNames,
   groupRemitLines,
   groupUnmatchedRemitLines,
   insurancePaidByDesignation,
   ledgerAmounts,
   LedgerColumn,
   longestLedgerAmount,
+  remitLabel,
   RemitLineEntry,
   UnmatchedRemitLine,
 } from '../../utils/claimRemits';
 import { formatDate } from '../../utils/format';
+import { CopyButton } from '../CopyButton';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';
 import { thSx } from '../ReadOnlySection';
 import { useRemitHighlightTarget } from './RemitHighlight';
@@ -52,7 +70,8 @@ const PATIENT_RESP_COLUMNS: { key: Exclude<LedgerColumn, 'insuranceAdjustment'>;
   { key: 'patientResp', label: 'Patient' },
 ];
 
-const LEDGER_COLUMNS: { label: string; kind: 'date' | 'type' | 'amount' }[] = [
+const LEDGER_COLUMNS: { label: string; kind: 'info' | 'date' | 'type' | 'amount' }[] = [
+  { label: '', kind: 'info' },
   { label: 'Date', kind: 'date' },
   { label: 'Type', kind: 'type' },
   { label: 'Billed', kind: 'amount' },
@@ -69,6 +88,7 @@ const LEDGER_AMOUNT_COLUMN_COUNT = LEDGER_COLUMNS.filter((column) => column.kind
 // they line up and fit its longest amount; the type column takes the rest. Past their minimum, the
 // service lines scroll sideways rather than cut amounts off.
 const LEDGER_CELL_PX = 8;
+const LEDGER_INFO_WIDTH = 36;
 // MM/DD/YYYY fits in 9ch
 const LEDGER_DATE_WIDTH = `calc(9ch + ${2 * LEDGER_CELL_PX + 4}px)`;
 const LEDGER_TYPE_MIN_WIDTH = 150;
@@ -168,7 +188,20 @@ const remitCardSx = {
   p: 2,
   minWidth: 320,
   maxWidth: 440,
+  position: 'relative',
 };
+
+// The one remit line whose card is open; it stays until closed or a click lands outside it.
+const OpenRemitCardContext = createContext<{
+  openKey: string | null;
+  setOpenKey: Dispatch<SetStateAction<string | null>>;
+}>({ openKey: null, setOpenKey: () => {} });
+
+function OpenRemitCardProvider({ children }: { children: ReactNode }): ReactElement {
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const value = useMemo(() => ({ openKey, setOpenKey }), [openKey]);
+  return <OpenRemitCardContext.Provider value={value}>{children}</OpenRemitCardContext.Provider>;
+}
 
 // The claim's service lines. Once an ERA is matched, each line also lists its transactions: the
 // charge, then every remit's response to it with the CAS adjustments behind that response.
@@ -202,6 +235,7 @@ export function ServiceLinesTable({
   const columnCount = columns.length + 1 + (hasRemits ? 1 : 0);
   // the charge is dated by when it was first sent to the payer
   const chargeDate = claim.firstSubmittedDate || claim.created;
+  const claimPayers = claimPayerNames(claim);
 
   const cells = (content: (column: ServiceLineColumn) => ReactNode): ReactElement[] =>
     columns.map((column) => (
@@ -224,98 +258,104 @@ export function ServiceLinesTable({
     line.drug || line.orderingProvider ? <ServiceLineExtras line={line} /> : null;
 
   return (
-    <TableContainer>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            {hasRemits && <TableCell sx={{ ...thSx, width: 40 }} />}
-            <TableCell sx={{ ...thSx, ...indicatorsCellSx }} align="center">
-              <Tooltip title="Additional data">
-                <InfoOutlinedIcon sx={{ fontSize: 16, verticalAlign: 'middle', color: 'text.secondary' }} />
-              </Tooltip>
-            </TableCell>
-            {columns.map((column) => (
-              <TableCell key={column.label} sx={thSx} align={column.align}>
-                {column.label}
+    <OpenRemitCardProvider>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              {hasRemits && <TableCell sx={{ ...thSx, width: 40 }} />}
+              <TableCell sx={{ ...thSx, ...indicatorsCellSx }} align="center">
+                <Tooltip title="Additional data">
+                  <InfoOutlinedIcon sx={{ fontSize: 16, verticalAlign: 'middle', color: 'text.secondary' }} />
+                </Tooltip>
               </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {claim.serviceLines.map((line, index) =>
-            hasRemits ? (
-              <ExpandableLedgerRows
-                key={line.sequence}
-                toggleLabel={`Toggle remit details for line ${line.sequence}`}
-                columnCount={columnCount}
-                summary={lineCells(line, index)}
-                extras={lineExtras(line)}
-                ledger={
-                  <RemitLedger
-                    label={`Remit details for line ${line.sequence}`}
-                    charge={{ date: chargeDate, amount: line.charges }}
-                    entries={byClaimLine.get(line.sequence) ?? []}
-                    claimLineUnits={line.units}
-                    amountWidth={amountWidth}
-                  />
-                }
-              />
-            ) : (
-              <Fragment key={line.sequence}>
-                <TableRow sx={lineExtras(line) ? { '& > td': { borderBottom: 'none' } } : undefined}>
-                  {lineCells(line, index)}
-                </TableRow>
-                {lineExtras(line) && (
-                  <TableRow>
-                    <TableCell colSpan={columnCount} sx={{ pt: 0 }}>
-                      {lineExtras(line)}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
-            )
-          )}
-          {hasRemits &&
-            [
-              { label: 'Remit Lines Not On Claim', lines: unmatched.filter((eraLine) => !eraLine.isClaimLevel) },
-              { label: 'Claim Level Remit Lines', lines: unmatched.filter((eraLine) => eraLine.isClaimLevel) },
-            ]
-              .filter((group) => group.lines.length > 0)
-              .map((group) => (
-                <Fragment key={group.label}>
-                  <TableRow>
-                    <TableCell colSpan={columnCount} sx={{ pt: 2, pb: 0.5 }}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        {group.label}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                  {group.lines.map((eraLine) => {
-                    const name = eraLine.isClaimLevel
-                      ? 'claim-level adjustments'
-                      : `${eraLine.cptCode || 'an unknown code'} (not on claim)`;
-                    return (
-                      <ExpandableLedgerRows
-                        key={eraLine.key}
-                        toggleLabel={`Toggle remit details for ${name}`}
-                        columnCount={columnCount}
-                        muted
-                        summary={[<TableCell key="indicators" />, ...cells((column) => column.eraLineCell(eraLine))]}
-                        ledger={
-                          <RemitLedger
-                            label={`Remit details for ${name}`}
-                            entries={eraLine.entries}
-                            amountWidth={amountWidth}
-                          />
-                        }
-                      />
-                    );
-                  })}
-                </Fragment>
+              {columns.map((column) => (
+                <TableCell key={column.label} sx={thSx} align={column.align}>
+                  {column.label}
+                </TableCell>
               ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {claim.serviceLines.map((line, index) =>
+              hasRemits ? (
+                <ExpandableLedgerRows
+                  key={line.sequence}
+                  toggleLabel={`Toggle remit details for line ${line.sequence}`}
+                  columnCount={columnCount}
+                  summary={lineCells(line, index)}
+                  extras={lineExtras(line)}
+                  ledger={
+                    <RemitLedger
+                      label={`Remit details for line ${line.sequence}`}
+                      charge={{ date: chargeDate, amount: line.charges }}
+                      entries={byClaimLine.get(line.sequence) ?? []}
+                      claimLineUnits={line.units}
+                      amountWidth={amountWidth}
+                      remits={claim.remits}
+                      claimPayers={claimPayers}
+                    />
+                  }
+                />
+              ) : (
+                <Fragment key={line.sequence}>
+                  <TableRow sx={lineExtras(line) ? { '& > td': { borderBottom: 'none' } } : undefined}>
+                    {lineCells(line, index)}
+                  </TableRow>
+                  {lineExtras(line) && (
+                    <TableRow>
+                      <TableCell colSpan={columnCount} sx={{ pt: 0 }}>
+                        {lineExtras(line)}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              )
+            )}
+            {hasRemits &&
+              [
+                { label: 'Remit Lines Not On Claim', lines: unmatched.filter((eraLine) => !eraLine.isClaimLevel) },
+                { label: 'Claim Level Remit Lines', lines: unmatched.filter((eraLine) => eraLine.isClaimLevel) },
+              ]
+                .filter((group) => group.lines.length > 0)
+                .map((group) => (
+                  <Fragment key={group.label}>
+                    <TableRow>
+                      <TableCell colSpan={columnCount} sx={{ pt: 2, pb: 0.5 }}>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          {group.label}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                    {group.lines.map((eraLine) => {
+                      const name = eraLine.isClaimLevel
+                        ? 'claim-level adjustments'
+                        : `${eraLine.cptCode || 'an unknown code'} (not on claim)`;
+                      return (
+                        <ExpandableLedgerRows
+                          key={eraLine.key}
+                          toggleLabel={`Toggle remit details for ${name}`}
+                          columnCount={columnCount}
+                          muted
+                          summary={[<TableCell key="indicators" />, ...cells((column) => column.eraLineCell(eraLine))]}
+                          ledger={
+                            <RemitLedger
+                              label={`Remit details for ${name}`}
+                              entries={eraLine.entries}
+                              amountWidth={amountWidth}
+                              remits={claim.remits}
+                              claimPayers={claimPayers}
+                            />
+                          }
+                        />
+                      );
+                    })}
+                  </Fragment>
+                ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </OpenRemitCardProvider>
   );
 }
 
@@ -395,12 +435,16 @@ function RemitLedger({
   entries,
   claimLineUnits,
   amountWidth,
+  remits,
+  claimPayers,
 }: {
   label: string;
   charge?: { date: string; amount: number };
   entries: RemitLineEntry[];
   claimLineUnits?: number;
   amountWidth: string;
+  remits: ClaimRemit[];
+  claimPayers: string[];
 }): ReactElement {
   return (
     <Box sx={{ my: 1, ml: 5, py: 0.5, bgcolor: otherColors.formCardBg, borderRadius: 1 }}>
@@ -410,7 +454,7 @@ function RemitLedger({
         sx={{
           tableLayout: 'fixed',
           typography: 'body2',
-          minWidth: `calc(${LEDGER_DATE_WIDTH} + ${LEDGER_TYPE_MIN_WIDTH}px + ${LEDGER_AMOUNT_COLUMN_COUNT} * ${amountWidth})`,
+          minWidth: `calc(${LEDGER_INFO_WIDTH}px + ${LEDGER_DATE_WIDTH} + ${LEDGER_TYPE_MIN_WIDTH}px + ${LEDGER_AMOUNT_COLUMN_COUNT} * ${amountWidth})`,
           '& .MuiTableCell-root': {
             px: `${LEDGER_CELL_PX}px`,
             borderRight: ledgerBorder,
@@ -423,7 +467,16 @@ function RemitLedger({
           {LEDGER_COLUMNS.map(({ label: columnLabel, kind }) => (
             <col
               key={columnLabel}
-              style={{ width: kind === 'date' ? LEDGER_DATE_WIDTH : kind === 'amount' ? amountWidth : undefined }}
+              style={{
+                width:
+                  kind === 'info'
+                    ? LEDGER_INFO_WIDTH
+                    : kind === 'date'
+                    ? LEDGER_DATE_WIDTH
+                    : kind === 'amount'
+                    ? amountWidth
+                    : undefined,
+              }}
             />
           ))}
         </colgroup>
@@ -439,15 +492,22 @@ function RemitLedger({
         {charge && (
           <TableBody>
             <TableRow sx={ledgerRowSx}>
+              <TableCell />
               <TableCell>{formatDate(charge.date) || '-'}</TableCell>
               <TableCell>Charge</TableCell>
               <TableCell align="right">{formatCurrency(charge.amount)}</TableCell>
-              <TableCell colSpan={LEDGER_COLUMN_COUNT - 3} />
+              <TableCell colSpan={LEDGER_COLUMN_COUNT - 4} />
             </TableRow>
           </TableBody>
         )}
         {entries.map((entry) => (
-          <LedgerGroup key={entry.key} entry={entry} claimLineUnits={claimLineUnits} />
+          <LedgerGroup
+            key={entry.key}
+            entry={entry}
+            claimLineUnits={claimLineUnits}
+            remits={remits}
+            claimPayers={claimPayers}
+          />
         ))}
         {entries.length === 0 && (
           <TableBody>
@@ -479,105 +539,169 @@ function isColumnHeaderCarc(adjustment: ClaimRemitAdjustment): boolean {
 }
 
 // One remit's response to a line, with rows below only for adjustments the columns don't cover.
-// Hovering (or focusing) anywhere on the group highlights its remit and opens the line's card
-// with every adjustment spelled out.
-function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLineUnits?: number }): ReactElement {
+// Hover or focus highlights its remit; the info icon opens the line's card.
+function LedgerGroup({
+  entry,
+  claimLineUnits,
+  remits,
+  claimPayers,
+}: {
+  entry: RemitLineEntry;
+  claimLineUnits?: number;
+  remits: ClaimRemit[];
+  claimPayers: string[];
+}): ReactElement {
   const { remit, line } = entry;
   const { highlighted, highlight, clearHighlight } = useRemitHighlightTarget({
     key: entry.key,
     claimResponseId: remit.claimResponseId,
     paymentReconciliationId: remit.paymentReconciliationId,
   });
+  const { openKey, setOpenKey } = useContext(OpenRemitCardContext);
+  const open = openKey === entry.key;
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const close = (): void => {
+    setOpenKey((latest) => (latest === entry.key ? null : latest));
+    clearHighlight();
+  };
+  const closeToTrigger = (): void => {
+    close();
+    anchorRef.current?.focus();
+  };
+
   const amounts = ledgerAmounts(line.adjustments);
   const date = formatDate(remit.date) || '-';
 
   return (
-    <Tooltip
-      title={<RemitLineCard entry={entry} claimLineUnits={claimLineUnits} />}
-      describeChild
-      disableInteractive
-      enterDelay={150}
-      placement="bottom-start"
-      slotProps={{ tooltip: { sx: remitCardSx } }}
+    <TableBody
+      tabIndex={0}
+      onMouseEnter={highlight}
+      onMouseLeave={() => !open && clearHighlight()}
+      onFocus={highlight}
+      onBlur={(event) => {
+        if (!open && !event.currentTarget.contains(event.relatedTarget as Node | null)) clearHighlight();
+      }}
+      sx={{ bgcolor: highlighted ? 'action.hover' : undefined }}
     >
-      <TableBody
-        tabIndex={0}
-        onMouseEnter={highlight}
-        onMouseLeave={clearHighlight}
-        onFocus={highlight}
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) clearHighlight();
-        }}
-        sx={{ bgcolor: highlighted ? 'action.hover' : undefined }}
-      >
-        <TableRow sx={ledgerRowSx}>
-          <TableCell>{date}</TableCell>
-          <TableCell>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0, maxWidth: 220 }}>
-                {remit.payerName || 'Unknown payer'}
-              </Typography>
-              {remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode) && (
-                <EraStatusChip statusCode={remit.eraStatusCode} />
-              )}
-            </Stack>
+      <TableRow sx={ledgerRowSx}>
+        <TableCell align="center" sx={{ px: 0 }}>
+          <IconButton
+            ref={anchorRef}
+            size="small"
+            aria-label="Show remit details"
+            aria-expanded={open}
+            onClick={() => {
+              setOpenKey(open ? null : entry.key);
+              highlight();
+            }}
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+          <Popper open={open} anchorEl={anchorRef.current} placement="bottom-start" sx={{ zIndex: 'modal' }}>
+            <ClickAwayListener onClickAway={close}>
+              <Paper
+                role="dialog"
+                aria-label="Remit line details"
+                sx={remitCardSx}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Escape') return;
+                  event.stopPropagation();
+                  closeToTrigger();
+                }}
+              >
+                <IconButton
+                  autoFocus
+                  size="small"
+                  aria-label="Close remit details"
+                  onClick={closeToTrigger}
+                  sx={{ position: 'absolute', top: 8, right: 8 }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+                <RemitLineCard
+                  entry={entry}
+                  claimLineUnits={claimLineUnits}
+                  label={remitLabel(remit, remits, claimPayers)}
+                />
+              </Paper>
+            </ClickAwayListener>
+          </Popper>
+        </TableCell>
+        <TableCell>{date}</TableCell>
+        <TableCell>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0, maxWidth: 220 }}>
+              {remit.payerName || 'Unknown payer'}
+            </Typography>
+            {remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode) && (
+              <EraStatusChip statusCode={remit.eraStatusCode} />
+            )}
+          </Stack>
+        </TableCell>
+        <TableCell align="right">{line.billed === null ? '-' : formatCurrency(line.billed)}</TableCell>
+        <TableCell align="right">
+          {line.allowed === null ? '-' : <AmountChip label={formatCurrency(line.allowed)} color="success" />}
+        </TableCell>
+        <TableCell align="right">{formatCurrency(amounts.insuranceAdjustment)}</TableCell>
+        <TableCell align="right">
+          <AmountChip label={formatCurrency(line.paid)} color="primary" />
+        </TableCell>
+        {PATIENT_RESP_COLUMNS.map(({ key }) => (
+          <TableCell key={key} align="right">
+            <PatientRespAmount amount={amounts[key]} />
           </TableCell>
-          <TableCell align="right">{line.billed === null ? '-' : formatCurrency(line.billed)}</TableCell>
-          <TableCell align="right">
-            {line.allowed === null ? '-' : <AmountChip label={formatCurrency(line.allowed)} color="success" />}
-          </TableCell>
-          <TableCell align="right">{formatCurrency(amounts.insuranceAdjustment)}</TableCell>
-          <TableCell align="right">
-            <AmountChip label={formatCurrency(line.paid)} color="primary" />
-          </TableCell>
-          {PATIENT_RESP_COLUMNS.map(({ key }) => (
-            <TableCell key={key} align="right">
-              <PatientRespAmount amount={amounts[key]} />
-            </TableCell>
-          ))}
-        </TableRow>
-        {line.adjustments
-          .filter((adjustment) => !isColumnHeaderCarc(adjustment))
-          .map((adjustment, index) => {
-            const column = adjustmentColumn(adjustment);
-            const amountIn = (key: LedgerColumn): string => (column === key ? formatCurrency(adjustment.amount) : '');
-            return (
-              <TableRow key={index} sx={ledgerRowSx}>
-                <TableCell>{date}</TableCell>
-                <TableCell>
-                  <AdjustmentChip groupCode={adjustment.groupCode} label={adjustmentCode(adjustment)} />
+        ))}
+      </TableRow>
+      {line.adjustments
+        .filter((adjustment) => !isColumnHeaderCarc(adjustment))
+        .map((adjustment, index) => {
+          const column = adjustmentColumn(adjustment);
+          const amountIn = (key: LedgerColumn): string => (column === key ? formatCurrency(adjustment.amount) : '');
+          return (
+            <TableRow key={index} sx={ledgerRowSx}>
+              <TableCell />
+              <TableCell>{date}</TableCell>
+              <TableCell>
+                <AdjustmentChip groupCode={adjustment.groupCode} label={adjustmentCode(adjustment)} />
+              </TableCell>
+              <TableCell />
+              <TableCell />
+              <TableCell align="right">{amountIn('insuranceAdjustment')}</TableCell>
+              <TableCell />
+              {PATIENT_RESP_COLUMNS.map(({ key }) => (
+                <TableCell key={key} align="right">
+                  {amountIn(key)}
                 </TableCell>
-                <TableCell />
-                <TableCell />
-                <TableCell align="right">{amountIn('insuranceAdjustment')}</TableCell>
-                <TableCell />
-                {PATIENT_RESP_COLUMNS.map(({ key }) => (
-                  <TableCell key={key} align="right">
-                    {amountIn(key)}
-                  </TableCell>
-                ))}
-              </TableRow>
-            );
-          })}
-      </TableBody>
-    </Tooltip>
+              ))}
+            </TableRow>
+          );
+        })}
+    </TableBody>
   );
 }
 
-function RemitLineCard({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLineUnits?: number }): ReactElement {
+function RemitLineCard({
+  entry,
+  claimLineUnits,
+  label,
+}: {
+  entry: RemitLineEntry;
+  claimLineUnits?: number;
+  label: string;
+}): ReactElement {
   const { remit, line } = entry;
   const reportedUnits =
     line.units !== null && claimLineUnits !== undefined && line.units !== claimLineUnits ? line.units : null;
 
   return (
     <Stack spacing={1.25} divider={<Divider flexItem />}>
-      <Box>
-        <Typography variant="subtitle1" fontWeight={700} lineHeight={1.3}>
+      <Box sx={{ pr: 4 }}>
+        <Typography variant="subtitle1" color="primary.dark" fontWeight={700} lineHeight={1.3}>
           {remit.payerName || 'Unknown payer'}
         </Typography>
-        {remit.eraStatusCode && (
+        {label !== 'Other' && (
           <Typography variant="body2" color="text.secondary">
-            {ERA_STATUS_LABELS[remit.eraStatusCode]}
+            {label}
           </Typography>
         )}
       </Box>
@@ -606,9 +730,15 @@ function RemitLineCard({ entry, claimLineUnits }: { entry: RemitLineEntry; claim
         <Typography variant="body2" fontWeight={700}>
           Check
         </Typography>
-        <Typography variant="body2" sx={{ flex: 1 }}>
-          {remit.checkNumber || '-'}
-        </Typography>
+        <Box sx={{ flex: 1 }}>
+          {remit.checkNumber ? (
+            <CopyButton value={remit.checkNumber} label="check number">
+              <Typography variant="body2">{remit.checkNumber}</Typography>
+            </CopyButton>
+          ) : (
+            <Typography variant="body2">-</Typography>
+          )}
+        </Box>
         <Typography variant="body2" color="text.secondary">
           {formatDate(remit.checkDate)}
         </Typography>
@@ -637,7 +767,7 @@ function RemitLineCard({ entry, claimLineUnits }: { entry: RemitLineEntry; claim
 // The claim's money once a payer has adjudicated it. Insurance paid is split by the payer rank each
 // remit was processed as; the rest are the same claim totals as the header.
 export function RemitTotals({ claim }: { claim: ClaimDetailResponse }): ReactElement {
-  const insurancePaid = useMemo(() => insurancePaidByDesignation(claim.remits), [claim.remits]);
+  const insurancePaid = useMemo(() => insurancePaidByDesignation(claim.remits, claimPayerNames(claim)), [claim]);
   return (
     <Box
       role="group"

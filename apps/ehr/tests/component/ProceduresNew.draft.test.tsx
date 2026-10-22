@@ -158,6 +158,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { PROCEDURE_NAMES } from 'utils/lib/procedure-coding/procedure-names';
 import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
@@ -430,6 +431,16 @@ describe('ProceduresNew — sentence layout', () => {
     });
     const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
     expect(procedurePayload).toMatchObject({ consentObtained: true, specimenSent: false, performerType: 'Both' });
+  });
+
+  it.each([
+    ['Test procedure', 'Site: site/location (side).'],
+    [PROCEDURE_NAMES['injection-infusion'][0], 'Site: (side).'],
+  ])('writes the %s site sentence with the side in brackets', (procedureType, sentence) => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType });
+    renderComponent();
+    const side = screen.getByTestId(dataTestIds.documentProcedurePage.sideOfBody);
+    expect(side.closest('.MuiTypography-root')?.textContent?.replace(/⁠/g, '')).toBe(sentence);
   });
 });
 

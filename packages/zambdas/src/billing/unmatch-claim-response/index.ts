@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
-import { codeableConcept } from 'utils/lib/fhir/helpers';
+import { codeableConcept, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
 import {
@@ -16,7 +16,8 @@ import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, matchFieldsPatchOperations } from '../claim-response-match';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient } from '../shared';
+import { assertClaimResponseEraNotVoided } from '../era-write';
+import { createBillingClient, createEraReadClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {
   display: 'Unknown',
@@ -31,7 +32,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, {
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const response = await performEffect(oystehr, eraReadClient, {
     ...params,
     agent,
   });
@@ -44,12 +46,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect(
   oystehr: Oystehr,
+  eraReadClient: Oystehr,
   params: Params & { agent: ProvenanceAgent }
 ): Promise<ClaimResponse> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
+  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
   const containedClaim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
   const containedPatient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
   const unmatched: ClaimResponse = {
@@ -73,6 +77,8 @@ export async function performEffect(
       getPatchBinary({
         resourceType: 'ClaimResponse',
         resourceId: claimResponse.id!,
+        // Fails if a void cancelled the response after the check above.
+        ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
         patchOperations: matchFieldsPatchOperations(unmatched),
       }),
       ...claimMatchHistoryRequests({
