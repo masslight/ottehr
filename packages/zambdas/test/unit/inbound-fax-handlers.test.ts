@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, List, Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -334,6 +335,28 @@ describe('file-inbound-fax handler', () => {
     const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
     const listPut = requests.find((r: any) => r.method === 'PUT' && r.url === '/List/folder-abc');
     expect(listPut.ifMatch).toBe('W/"7"');
+  });
+
+  it('guards the Task filed-marker with an optimistic lock so a concurrent file, delete or Complete fails the filing', async () => {
+    mockHappyPathReads(makeFaxTask({ meta: { versionId: '3' } }));
+
+    await fileInboundFax(makeInput(fileBody));
+
+    const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
+    const taskPatch = requests.find((r: any) => r.method === 'PATCH' && r.url === '/Task/task-123');
+    expect(taskPatch.ifMatch).toBe('W/"3"');
+  });
+
+  it('reports a lost optimistic lock as PRECONDITION_FAILED rather than a server error', async () => {
+    mockHappyPathReads();
+    mockOystehr.fhir.transaction.mockRejectedValue(
+      new Oystehr.OystehrFHIRError({ code: 412, error: { resourceType: 'OperationOutcome', issue: [] } })
+    );
+
+    const result = await fileInboundFax(makeInput(fileBody));
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
   });
 
   describe('synthetic folder ids', () => {

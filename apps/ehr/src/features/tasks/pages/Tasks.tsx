@@ -16,6 +16,7 @@ import { Stack } from '@mui/system';
 import React, { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
@@ -34,7 +35,7 @@ import {
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
@@ -103,8 +104,26 @@ export const Tasks: React.FC = () => {
 
   const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
+      const complete = async (): Promise<void> => await completeTask({ taskId: task.id });
+      // A completed fax can no longer be filed or deleted, so completing an unfiled one is confirmed first.
+      if (task.category === FAX_TASK.category && task.action?.name !== VIEW_FAX) {
+        return (
+          <ConfirmationDialog
+            title="Complete without filing?"
+            description="This fax hasn't been filed to a patient's chart. Once the task is completed, the fax can no longer be filed or deleted."
+            response={complete}
+            actionButtons={{ proceed: { text: 'Complete' }, back: { text: 'Cancel' } }}
+          >
+            {(showDialog) => (
+              <RoundedButton variant="contained" onClick={showDialog}>
+                Complete
+              </RoundedButton>
+            )}
+          </ConfirmationDialog>
+        );
+      }
       return (
-        <RoundedButton variant="contained" onClick={async () => await completeTask({ taskId: task.id })}>
+        <RoundedButton variant="contained" onClick={complete}>
           Complete
         </RoundedButton>
       );

@@ -1,4 +1,4 @@
-import { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference, FhirResource, List, Task } from 'fhir/r4b';
@@ -165,10 +165,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           value: { coding: [{ system: FAX_TASK.system, code: FAX_TASK.businessStatus.filed }], text: 'Filed' },
         },
       ],
+      // Optimistic lock: a concurrent file, delete or Complete since the checks above fails the transaction.
+      ifMatch: makeOptimisticLockIfMatchHeader(task),
     });
 
     const requests: BatchInputRequest<FhirResource>[] = [createDocRefRequest, updateListRequest, markTaskFiledRequest];
-    const transactionResult = await oystehr.fhir.transaction<FhirResource>({ requests });
+    const transactionResult = await oystehr.fhir.transaction<FhirResource>({ requests }).catch((error: unknown) => {
+      // A lost optimistic lock (Task or folder List changed concurrently) is an expected race, not a server fault.
+      if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
+        throw PRECONDITION_FAILED(`Task/${taskId} or its folder changed while filing`);
+      }
+      throw error;
+    });
 
     const documentRefId = transactionResult.entry
       ?.map((entry) => entry.resource)

@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { enqueueSnackbar } from 'notistack';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InboundFaxMatch } from '../../src/features/inbound-fax/pages/InboundFaxMatch';
 
@@ -621,6 +623,44 @@ describe('InboundFaxMatch page', () => {
 
     // No client-side List creation for a folder that does not exist yet.
     expect(mockFhirCreate).not.toHaveBeenCalled();
+  });
+
+  it('refreshes into the read-only view when someone else filed the fax first', async () => {
+    let filedElsewhere = false;
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType !== 'Task') return Promise.resolve({ unbundle: () => [] });
+      const task = filedElsewhere
+        ? { ...makeFaxTask('ready'), businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }] } }
+        : makeFaxTask('ready');
+      return Promise.resolve({ unbundle: () => [task] });
+    });
+    mockFileInboundFax.mockImplementation(async () => {
+      filedElsewhere = true;
+      throw { code: APIErrorCode.PRECONDITION_FAILED, message: 'Task/task-abc has already been filed' };
+    });
+    const user = userEvent.setup();
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await selectPatientAndFolder(user);
+    const saveButton = screen.getByText('Save').closest('button');
+    await waitFor(() => {
+      expect(saveButton?.disabled).toBe(false);
+    });
+    await user.click(saveButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
+    });
+    expect(enqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('changed by someone else'), {
+      variant: 'error',
+    });
+    expect(enqueueSnackbar).not.toHaveBeenCalledWith(expect.stringContaining('Please try again'), expect.anything());
+    expect(screen.queryByTestId('tasks-page')).toBeNull();
   });
 
   describe('delete confirmation dialog', () => {

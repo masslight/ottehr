@@ -40,7 +40,13 @@ import {
 import PageContainer from 'src/layout/PageContainer';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FAX_TASK, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
+
+// Someone else filed, completed or deleted the fax (or changed its folder) after this page loaded.
+const isStaleFaxError = (e: unknown): boolean =>
+  (e as { code?: number } | undefined)?.code === APIErrorCode.PRECONDITION_FAILED;
+const STALE_FAX_MESSAGE = 'This fax was changed by someone else. The page has been refreshed.';
 
 export const InboundFaxMatch: React.FC = () => {
   const { communicationId } = useParams();
@@ -57,6 +63,7 @@ export const InboundFaxMatch: React.FC = () => {
   // no match form.
   const [readOnlyNotice, setReadOnlyNotice] = useState<string>();
   const readOnly = !!readOnlyNotice;
+  const [reloadCount, setReloadCount] = useState(0);
 
   const [taskId, setTaskId] = useState<string>();
   const [pdfUrl, setPdfUrl] = useState<string>();
@@ -170,7 +177,7 @@ export const InboundFaxMatch: React.FC = () => {
     };
 
     void loadData();
-  }, [oystehr, communicationId, loadPresignedUrl]);
+  }, [oystehr, communicationId, loadPresignedUrl, reloadCount]);
 
   // Load patient folders when patient is confirmed. Reuses the shared docs-folders hook so
   // custom folders and synthesized system folders (patients with no per-patient List yet)
@@ -216,7 +223,12 @@ export const InboundFaxMatch: React.FC = () => {
       navigate('/tasks');
     } catch (e) {
       console.error('Failed to file fax:', e);
-      enqueueSnackbar('Failed to file fax. Please try again.', { variant: 'error' });
+      if (isStaleFaxError(e)) {
+        enqueueSnackbar(STALE_FAX_MESSAGE, { variant: 'error' });
+        setReloadCount((count) => count + 1);
+      } else {
+        enqueueSnackbar('Failed to file fax. Please try again.', { variant: 'error' });
+      }
     } finally {
       setIsFiling(false);
     }
@@ -238,7 +250,12 @@ export const InboundFaxMatch: React.FC = () => {
       navigate('/tasks');
     } catch (e) {
       console.error('Failed to delete fax:', e);
-      enqueueSnackbar('Failed to delete fax. Please try again.', { variant: 'error' });
+      if (isStaleFaxError(e)) {
+        enqueueSnackbar(STALE_FAX_MESSAGE, { variant: 'error' });
+        setReloadCount((count) => count + 1);
+      } else {
+        enqueueSnackbar('Failed to delete fax. Please try again.', { variant: 'error' });
+      }
     } finally {
       setIsDeleting(false);
     }
