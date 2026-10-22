@@ -1131,10 +1131,6 @@ export interface RecordBillingVoidResponse {
   billingNoticesVoided: number;
 }
 
-export interface RecordBillingTaskHistoryResponse {
-  recorded: boolean;
-}
-
 export interface AddClaimAttachmentResponse {
   documentReferenceId: string;
   uploadUrl: string;

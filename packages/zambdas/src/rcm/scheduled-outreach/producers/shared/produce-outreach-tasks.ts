@@ -19,7 +19,7 @@ import {
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 export const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 export const OUTREACH_ACTION_ID_TAG_SYSTEM = `${OUTREACH_TASK_TAG_SYSTEM}/action-id`;
-export const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
+const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
 // Year scoping for patient-birthday tasks so the idempotency check distinguishes
 // one calendar year's birthday outreach from the next. Without this, a completed
 // prior-year task permanently blocks creation of the current year's task.

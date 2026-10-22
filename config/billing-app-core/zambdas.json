@@ -446,13 +446,6 @@
       "src": "src/billing/record-billing-void/index",
       "zip": ".dist/zips/record-billing-void.zip"
     },
-    "RECORD-BILLING-TASK-HISTORY": {
-      "name": "record-billing-task-history",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/record-billing-task-history/index",
-      "zip": ".dist/zips/record-billing-task-history.zip"
-    },
     "CREATE-BILLING-NON-INSURANCE-ORG": {
       "name": "create-billing-non-insurance-org",
       "type": "http_auth",
