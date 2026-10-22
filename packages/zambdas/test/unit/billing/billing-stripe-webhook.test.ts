@@ -677,6 +677,58 @@ describe('billing-stripe-webhook', () => {
       },
     ]);
   });
+
+  it('attributes a refund issued from the EHR to the user who issued it', async () => {
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+      metadata: {
+        refundedByReference: 'Practitioner/jane',
+      },
+    };
+    (getStripeClient as Mock).mockReturnValue({
+      charges: {
+        retrieve: vi.fn().mockResolvedValue(makeCharge()),
+      },
+      refunds: {
+        list: vi.fn().mockResolvedValue({
+          data: [refund],
+        }),
+      },
+    } as unknown as Stripe);
+    const { oystehr, transaction } = makeOystehr([[claim], [claim]]);
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    const entries = claimHistoryEntries(writes(transaction));
+    const chargeEntry = entries.find((entry) =>
+      provenanceChanges(entry).some((change) => change.newValue === '$10.00')
+    );
+    const refundEntries = entries.filter((entry) => entry !== chargeEntry);
+    // the charge itself was taken without a user on record
+    expect(chargeEntry?.agent).toEqual([SYSTEM_AGENT]);
+    // the refund's own notice, and its stamp on the charge's notice
+    expect(refundEntries.map((entry) => entry.agent)).toEqual([
+      [
+        expect.objectContaining({
+          who: {
+            reference: 'Practitioner/jane',
+          },
+        }),
+      ],
+      [
+        expect.objectContaining({
+          who: {
+            reference: 'Practitioner/jane',
+          },
+        }),
+      ],
+    ]);
+  });
 });
 
 describe('billing-stripe-webhook invoice-originated charges', () => {

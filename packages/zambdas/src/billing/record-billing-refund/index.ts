@@ -73,7 +73,7 @@ async function performEffect(
     })
   ).unbundle();
 
-  // called on the EHR's machine token, so there is no user to attribute the refund to
+  // called on the EHR's machine token: the clinical notice says who issued each refund
   const agent = await resolveClaimActor('system', oystehr, undefined, secrets);
   for (const billingNotice of billingNotices) {
     // union with the copy's own stamped refunds: the webhook may have stamped a newer Stripe
@@ -108,6 +108,7 @@ async function performEffect(
         paymentMethod,
         createdISO: entry.dateISO,
         reason: entry.reason ?? 'Other',
+        refundedByReference: entry.refundedByReference,
         secrets,
       });
     }

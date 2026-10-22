@@ -117,6 +117,7 @@ export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
   reason: refund.metadata?.reason ?? refund.reason ?? undefined,
   notes: refund.metadata?.notes ?? undefined,
   refundedBy: refund.metadata?.refundedBy ?? undefined,
+  refundedByReference: refund.metadata?.refundedByReference ?? undefined,
   operationKey: refund.metadata?.operationKey ?? undefined,
 });
 

@@ -126,3 +126,87 @@ describe('payment notice changes with a claim history recorder', () => {
     expect(patch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('payment notice change attribution', () => {
+  const SYSTEM_AGENT = {
+    who: {
+      reference: 'Device/system',
+    },
+  };
+
+  const recordedAgent = (transaction: ReturnType<typeof vi.fn>): unknown =>
+    claimHistoryEntries(transaction.mock.calls[0][0].requests)[0].agent;
+
+  it('attributes a void to the user the EHR stamped on it', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await voidPaymentNotice(
+      oystehr,
+      billingCopy,
+      {
+        reason: 'Entered in error',
+        voidedAtISO: '2026-10-02T12:00:00Z',
+        voidedBy: 'Jane Doe',
+        voidedByReference: 'Practitioner/jane',
+      },
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toMatchObject([
+      {
+        who: {
+          reference: 'Practitioner/jane',
+        },
+      },
+    ]);
+  });
+
+  it('attributes an added refund to the user who issued it', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        {
+          stripeRefundId: 're_1',
+          amountInCents: 2000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+          refundedByReference: 'Practitioner/jane',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toMatchObject([
+      {
+        who: {
+          reference: 'Practitioner/jane',
+        },
+      },
+    ]);
+  });
+
+  it('attributes a refund nobody stamped, like one made in the Stripe dashboard, to the system', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        {
+          stripeRefundId: 're_1',
+          amountInCents: 2000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toEqual([SYSTEM_AGENT]);
+  });
+});

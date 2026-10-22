@@ -233,6 +233,27 @@ describe('record-billing-refund candid sync', () => {
     });
   });
 
+  it('hands each manual refund its issuer, so its billing notice is attributed to them', async () => {
+    clinicalGet.mockResolvedValue(
+      makeClinicalNotice([
+        {
+          ...manualRefund,
+          refundedByReference: 'Practitioner/jane',
+        },
+      ])
+    );
+
+    await invoke('ottehr');
+
+    expect(recordBillingManualRefund).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        refundId: manualRefund.stripeRefundId,
+        refundedByReference: 'Practitioner/jane',
+      })
+    );
+  });
+
   it('fails the request when the Candid create fails so the EHR retry can heal it', async () => {
     candidCreate.mockResolvedValue({ ok: false, error: { errorName: 'boom' } });
 

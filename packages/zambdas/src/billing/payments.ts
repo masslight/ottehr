@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, FhirResource, Money, PaymentNotice, PaymentReconciliation, ProvenanceAgent, Reference } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { parsePaymentRefundsFromNotice, parsePaymentVoidFromNotice } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -67,16 +68,33 @@ export function paymentNoticeHistoryRequest({
   }) as BatchInputRequest<FhirResource> | null;
 }
 
-// For the shared refund and void writers, which stamp billing copies and clinical notices alike
+// The user the EHR stamped on a refund or void
+const changeIssuerReference = (before: PaymentNotice, after: PaymentNotice): string | undefined => {
+  const voidedByReference = parsePaymentVoidFromNotice(after)?.voidedByReference;
+  if (voidedByReference && !parsePaymentVoidFromNotice(before)) return voidedByReference;
+  const priorRefundIds = new Set((parsePaymentRefundsFromNotice(before) ?? []).map((refund) => refund.stripeRefundId));
+  return (parsePaymentRefundsFromNotice(after) ?? []).find(
+    (refund) => !priorRefundIds.has(refund.stripeRefundId) && refund.refundedByReference
+  )?.refundedByReference;
+};
+
+// For the shared refund and void writers, which stamp billing copies and clinical notices alike;
+// changes no user stamped are attributed to fallbackAgent
 export const recordPaymentNoticeChange =
-  (agent: ProvenanceAgent): PaymentNoticeChangeRecorder =>
-  (before, after) =>
-    paymentNoticeHistoryRequest({
+  (fallbackAgent: ProvenanceAgent): PaymentNoticeChangeRecorder =>
+  (before, after) => {
+    const issuerReference = changeIssuerReference(before, after);
+    return paymentNoticeHistoryRequest({
       targetReference: `PaymentNotice/${before.id}`,
       before,
       after,
-      agent,
+      agent: issuerReference
+        ? humanClaimActor({
+            reference: issuerReference,
+          })
+        : fallbackAgent,
     });
+  };
 
 export async function findPaymentNotice(
   oystehr: Oystehr,
@@ -143,13 +161,13 @@ export async function createPaymentNotice({
   return created;
 }
 
-// Attributed to whoever took the payment, else to the system.
-const paymentActor = async (
+// Attributed to whoever took the payment or issued the refund, else to the system.
+export const paymentActor = async (
   oystehr: Oystehr,
-  submitterRef: Reference | undefined,
+  recordedBy: Reference | undefined,
   secrets: Secrets | null
 ): Promise<ProvenanceAgent> =>
-  submitterRef?.reference ? humanClaimActor(submitterRef) : resolveClaimActor('system', oystehr, undefined, secrets);
+  recordedBy?.reference ? humanClaimActor(recordedBy) : resolveClaimActor('system', oystehr, undefined, secrets);
 
 // Mirrors the stripe webhook's negative refund notice so patient AR stays a plain sum over a
 // claim's notices; used for cash/check/external-reader refunds, which have no processor events.
@@ -162,10 +180,12 @@ export const recordBillingManualRefund = async (
     paymentMethod: string;
     createdISO: string;
     reason: string;
+    refundedByReference?: string;
     secrets: Secrets | null;
   }
 ): Promise<void> => {
-  const { encounterId, refundId, amountInCents, paymentMethod, createdISO, reason, secrets } = input;
+  const { encounterId, refundId, amountInCents, paymentMethod, createdISO, reason, refundedByReference, secrets } =
+    input;
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
   const payeeRef: Reference = claim?.provider ?? {
@@ -204,12 +224,19 @@ export const recordBillingManualRefund = async (
     value: refundId,
   };
   if (!(await findPaymentNotice(oystehr, dedupIdentifier))) {
-    // the refund zambda runs on the EHR's machine token, so there is no user to attribute it to
     await createPaymentNotice({
       oystehr,
       notice: desiredNotice,
       dedupIdentifier,
-      agent: await resolveClaimActor('system', oystehr, undefined, secrets),
+      agent: await paymentActor(
+        oystehr,
+        refundedByReference
+          ? {
+              reference: refundedByReference,
+            }
+          : undefined,
+        secrets
+      ),
     });
   }
 

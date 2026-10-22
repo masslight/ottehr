@@ -32,6 +32,7 @@ import {
   createPaymentNotice,
   findBillingClaimForEncounter,
   findPaymentNotice,
+  paymentActor,
   paymentNoticeHistoryRequest,
   reconcilePaymentNoticesForClaim,
   recordPaymentNoticeChange,
@@ -267,13 +268,22 @@ const persistPaymentNoticeUpsert = async (
   desiredNotice: PaymentNotice,
   dedupStripeId: string,
   claim: Claim | undefined,
-  encounterId: string
+  encounterId: string,
+  refundedByReference?: string
 ): Promise<void> => {
   const dedupIdentifier = {
     system: STRIPE_PAYMENT_ID_SYSTEM,
     value: dedupStripeId,
   };
-  const agent = await resolveClaimActor('system', oystehr, undefined, null);
+  const agent = await paymentActor(
+    oystehr,
+    refundedByReference
+      ? {
+          reference: refundedByReference,
+        }
+      : undefined,
+    null
+  );
   const existing = await findPaymentNotice(oystehr, dedupIdentifier);
   if (!existing) {
     await createPaymentNotice({
@@ -378,7 +388,14 @@ const upsertPaymentNoticeForRefund = async (
     cancelled: failed,
   });
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
+  await persistPaymentNoticeUpsert(
+    oystehr,
+    desiredNotice,
+    refund.id,
+    claim,
+    encounterId,
+    refund.metadata?.refundedByReference
+  );
 
   await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };

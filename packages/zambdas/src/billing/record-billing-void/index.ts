@@ -58,7 +58,7 @@ async function performEffect(
     })
   ).unbundle();
 
-  // called on the EHR's machine token, so there is no user to attribute the void to
+  // called on the EHR's machine token: the clinical notice says who voided it
   const agent = await resolveClaimActor('system', oystehr, undefined, params.secrets);
   for (const billingNotice of billingNotices) {
     await voidPaymentNotice(oystehr, billingNotice, voidInfo, recordPaymentNoticeChange(agent));
