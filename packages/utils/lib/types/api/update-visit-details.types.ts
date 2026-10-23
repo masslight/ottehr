@@ -151,6 +151,8 @@ export interface UpdateVisitFormInput {
   questionnaireId: string;
   patientId: string;
   pages: QuestionnaireResponseItem[];
+  /** Values of the form's calculated items, worked out in the browser. See `PatchPaperworkParameters`. */
+  calculatedAnswers?: QuestionnaireResponseItem[];
 }
 
 export interface DeleteVisitFormInput {

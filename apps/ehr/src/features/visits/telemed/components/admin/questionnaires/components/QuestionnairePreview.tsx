@@ -7,7 +7,7 @@ import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQues
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
 import { makeStandaloneFormDTO } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { QuestionnaireFormFields } from 'utils/lib/types/data/paperwork/paperwork.types';
-import { stubPaperworkContext, stubPaperworkResponseForPreview } from '../questionnaire-utils';
+import { getPreviewPages, stubPaperworkContext, stubPaperworkResponseForPreview } from '../questionnaire-utils';
 
 interface QuestionnairePreviewProps {
   questionnaire: Questionnaire;
@@ -44,11 +44,7 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
     };
   }, [questionnaireResponse, answersByPage]);
 
-  const pages = useMemo(() => {
-    return (allItems ?? []).filter((item) => {
-      return item.linkId;
-    });
-  }, [allItems]);
+  const pages = useMemo(() => getPreviewPages(allItems), [allItems]);
 
   const stubContext = useMemo(
     () => stubPaperworkContext(pages, allItems, liveQuestionnaireResponse, setContinueLabel, continueLabel),
