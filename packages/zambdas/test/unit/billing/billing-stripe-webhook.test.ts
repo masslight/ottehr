@@ -111,6 +111,11 @@ const makeInvoice = (over: Record<string, unknown> = {}): Stripe.Invoice =>
 
 const stripeError = (over: Record<string, unknown>): Error => Object.assign(new Error('stripe'), over);
 
+const versionConflict = (): Error =>
+  Object.assign(new Error('Precondition Failed'), {
+    code: 412,
+  });
+
 const makeEvent = (type: string, object: unknown, account?: string): Stripe.Event =>
   ({ id: 'evt_1', type, account, data: { object } }) as unknown as Stripe.Event;
 
@@ -127,7 +132,7 @@ const makeOystehr = (
   orgResults: Organization[][] = [],
   storedNotices: PaymentNotice[] = [],
   provenances: Provenance[] = []
-): { oystehr: Oystehr; transaction: Mock; patch: Mock } => {
+): { oystehr: Oystehr; transaction: Mock; patch: Mock; get: Mock } => {
   const claimQueue = [...claimResults];
   const orgQueue = [...orgResults];
   const notices = [...storedNotices];
@@ -178,6 +183,7 @@ const makeOystehr = (
   });
   const patch = vi.fn().mockResolvedValue({});
   const batch = vi.fn().mockResolvedValue({ entry: [] });
+  const get = vi.fn(async ({ id }: { id: string }) => notices.find((notice) => notice.id === id));
   return {
     oystehr: {
       fhir: {
@@ -185,10 +191,12 @@ const makeOystehr = (
         transaction,
         patch,
         batch,
+        get,
       },
     } as unknown as Oystehr,
     transaction,
     patch,
+    get,
   };
 };
 
@@ -505,6 +513,42 @@ describe('billing-stripe-webhook', () => {
 
     expect(refreshedNotices(transaction)[0].extension).toContainEqual(refundStamp);
     expect(claimHistoryEntries(writes(transaction))).toEqual([]);
+  });
+
+  it('re-reads a notice another writer stamped after the lookup, keeping its stamp', async () => {
+    const first = makeOystehr([[claim]]);
+    await performEffect(first.oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets });
+    const [created] = createdNotices(first.transaction);
+    const read: PaymentNotice = {
+      ...created,
+      id: 'pn-1',
+      meta: {
+        versionId: '3',
+      },
+    };
+    const refundStamp = buildPaymentRefundsExtension([
+      {
+        stripeRefundId: 're_1',
+        amountInCents: 400,
+        dateISO: '2026-07-08T12:00:00.000Z',
+        status: 'succeeded',
+      },
+    ]);
+    const { oystehr, transaction, get } = makeOystehr([[claim]], [], [read]);
+    transaction.mockRejectedValueOnce(versionConflict());
+    get.mockResolvedValueOnce({
+      ...read,
+      meta: {
+        versionId: '4',
+      },
+      extension: [...(read.extension ?? []), refundStamp],
+    });
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets });
+
+    const refreshes = writes(transaction).filter((request) => request.method === 'PUT') as { ifMatch?: string }[];
+    expect(refreshes.map((request) => request.ifMatch)).toEqual(['W/"3"', 'W/"4"']);
+    expect(refreshedNotices(transaction)[1].extension).toContainEqual(refundStamp);
   });
 
   it('stores the notice with a logical reference when the claim does not exist yet', async () => {

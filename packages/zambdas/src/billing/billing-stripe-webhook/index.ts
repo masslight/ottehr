@@ -12,6 +12,7 @@ import {
 } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -296,43 +297,54 @@ const persistPaymentNoticeUpsert = async (
         dedupIdentifier,
         agent,
       });
-  // a notice a concurrent delivery stored after the lookup is refreshed like one the lookup found
-  if (!stored.created) {
-    const existing = stored.notice;
-    // refresh the notice but keep its claim link, which only reconcile adds so the history recorded
-    // before it comes along, and the refund and void stamps other writers keep on it
-    const ownExtensionUrls = new Set((desiredNotice.extension ?? []).map((extension) => extension.url));
-    const refreshed: PaymentNotice = {
-      ...desiredNotice,
-      id: existing.id,
-      request: {
-        ...desiredNotice.request,
-        reference: existing.request?.reference,
-      },
-      extension: [
-        ...(desiredNotice.extension ?? []),
-        ...(existing.extension ?? []).filter((extension) => !ownExtensionUrls.has(extension.url)),
-      ],
-    };
-    const history = paymentNoticeHistoryRequest({
-      targetReference: `PaymentNotice/${existing.id}`,
-      before: existing,
-      after: refreshed,
-      agent,
-    });
-    await oystehr.fhir.transaction<FhirResource>({
-      requests: [
-        {
-          method: 'PUT',
-          url: `/PaymentNotice/${existing.id}`,
-          resource: refreshed,
-        },
-        ...(history ? [history] : []),
-      ],
-    });
-  }
+  // a notice a concurrent delivery stored after the lookup is refreshed like one the lookup found; the
+  // refresh is locked to the version it read, so a write since then is re-read instead of overwritten
+  const notice = stored.created
+    ? stored.notice
+    : await withVersionConflictRetries(async (attempt) => {
+        const existing =
+          attempt === 1
+            ? stored.notice
+            : await oystehr.fhir.get<PaymentNotice>({
+                resourceType: 'PaymentNotice',
+                id: stored.notice.id!,
+              });
+        // refresh the notice but keep its claim link, which only reconcile adds so the history recorded
+        // before it comes along, and the refund and void stamps other writers keep on it
+        const ownExtensionUrls = new Set((desiredNotice.extension ?? []).map((extension) => extension.url));
+        const refreshed: PaymentNotice = {
+          ...desiredNotice,
+          id: existing.id,
+          request: {
+            ...desiredNotice.request,
+            reference: existing.request?.reference,
+          },
+          extension: [
+            ...(desiredNotice.extension ?? []),
+            ...(existing.extension ?? []).filter((extension) => !ownExtensionUrls.has(extension.url)),
+          ],
+        };
+        const history = paymentNoticeHistoryRequest({
+          targetReference: `PaymentNotice/${existing.id}`,
+          before: existing,
+          after: refreshed,
+          agent,
+        });
+        await oystehr.fhir.transaction<FhirResource>({
+          requests: [
+            {
+              method: 'PUT',
+              url: `/PaymentNotice/${existing.id}`,
+              resource: refreshed,
+              ifMatch: makeOptimisticLockIfMatchHeader(existing),
+            },
+            ...(history ? [history] : []),
+          ],
+        });
+        return refreshed;
+      });
 
-  if (!stored.notice.request?.reference) {
+  if (!notice.request?.reference) {
     // the claim may have appeared while the notice was being stored
     const claimToLink = claim ?? (await findBillingClaimForEncounter(oystehr, encounterId));
     if (claimToLink) {
