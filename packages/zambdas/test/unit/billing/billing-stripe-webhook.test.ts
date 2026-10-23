@@ -13,7 +13,7 @@ import {
 } from 'utils/lib/types/data/billing/claim-history';
 import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
-import { claimHistoryEntries } from './claim-history-fixtures';
+import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
 
 const SYSTEM_AGENT = {
   who: {
@@ -735,8 +735,11 @@ describe('billing-stripe-webhook', () => {
       id: 'pn-billing',
       status: 'active',
       identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+      request: {
+        reference: 'Claim/claim-1',
+      },
     } as PaymentNotice;
-    const { oystehr, patch } = makeOystehr([[claim], [claim]], [], [billingNotice]);
+    const { oystehr, transaction, patch } = makeOystehr([[claim], [claim]], [], [billingNotice]);
     const refund = {
       id: 're_1',
       charge: 'ch_1',
@@ -749,18 +752,134 @@ describe('billing-stripe-webhook', () => {
     await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
 
     expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
-    expect(patch).toHaveBeenCalledTimes(1);
-    expect(patch.mock.calls[0][0].id).toBe('pn-billing');
+    const stamps = writes(transaction).filter((request) => request.method === 'PATCH') as {
+      url: string;
+      operations: { value: { url: string; extension: unknown[] }[] }[];
+    }[];
+    expect(stamps.map((request) => request.url)).toEqual(['/PaymentNotice/pn-billing']);
+    expect(patch).not.toHaveBeenCalled();
     expect(createClinicalOystehrClient).not.toHaveBeenCalled();
     expect(oystehr.fhir.search).toHaveBeenCalledWith({
       resourceType: 'PaymentNotice',
       params: [{ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1,${STRIPE_PAYMENT_ID_SYSTEM}|pi_1` }],
     });
-    const extension = patch.mock.calls[0][0].operations[0].value.find((ext: { url: string }) =>
-      ext.url.endsWith('/payment-refunds')
+    const extension = stamps[0].operations[0].value.find((ext) => ext.url.endsWith('/payment-refunds'));
+    expect(extension?.extension[0]).toMatchObject({
+      extension: expect.arrayContaining([
+        {
+          url: 'refundId',
+          valueString: 're_1',
+        },
+        {
+          url: 'amountInCents',
+          valueInteger: 400,
+        },
+      ]),
+    });
+  });
+
+  it("records the refund on the charge's notice in the claim history", async () => {
+    (getStripeClient as Mock).mockReturnValue({
+      charges: {
+        retrieve: vi.fn().mockResolvedValue(makeCharge()),
+      },
+      refunds: {
+        list: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 're_1',
+              amount: 400,
+              currency: 'usd',
+              created: 1751990000,
+              status: 'succeeded',
+            },
+          ],
+        }),
+      },
+    } as unknown as Stripe);
+    const { oystehr, transaction } = makeOystehr([[claim], [claim]]);
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    const refundStamp = claimHistoryEntries(writes(transaction)).find(
+      (entry) => entry.activity?.coding?.[0]?.code === CLAIM_PROVENANCE_ACTIVITY.update.code
     );
-    expect(extension.extension[0].extension).toContainEqual({ url: 'refundId', valueString: 're_1' });
-    expect(extension.extension[0].extension).toContainEqual({ url: 'amountInCents', valueInteger: 400 });
+    expect(refundStamp?.target).toEqual([
+      {
+        reference: 'PaymentNotice/pn-new-1',
+      },
+      {
+        reference: 'Claim/claim-1',
+      },
+    ]);
+    expect(provenanceChanges(refundStamp!)).toEqual([
+      {
+        field: 'refunded',
+        label: 'Refunded',
+        previousValue: null,
+        newValue: '$4.00',
+      },
+    ]);
+  });
+
+  it('attributes a refund issued from the EHR to the user who issued it', async () => {
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+      metadata: {
+        refundedByReference: 'Practitioner/jane',
+      },
+    };
+    (getStripeClient as Mock).mockReturnValue({
+      charges: {
+        retrieve: vi.fn().mockResolvedValue(makeCharge()),
+      },
+      refunds: {
+        list: vi.fn().mockResolvedValue({
+          data: [refund],
+        }),
+      },
+    } as unknown as Stripe);
+    const { oystehr, transaction } = makeOystehr([[claim], [claim]]);
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    const entries = claimHistoryEntries(writes(transaction));
+    const chargeEntry = entries.find((entry) =>
+      provenanceChanges(entry).some((change) => change.newValue === '$10.00')
+    );
+    const refundEntries = entries.filter((entry) => entry !== chargeEntry);
+    // the charge itself was taken without a user on record
+    expect(chargeEntry?.agent).toEqual([SYSTEM_AGENT]);
+    // the refund's own notice, and its stamp on the charge's notice
+    expect(refundEntries.map((entry) => entry.agent)).toEqual([
+      [
+        expect.objectContaining({
+          who: {
+            reference: 'Practitioner/jane',
+          },
+        }),
+      ],
+      [
+        expect.objectContaining({
+          who: {
+            reference: 'Practitioner/jane',
+          },
+        }),
+      ],
+    ]);
   });
 });
 
