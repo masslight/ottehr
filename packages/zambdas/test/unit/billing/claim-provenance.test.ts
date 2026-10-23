@@ -343,6 +343,41 @@ describe('diffResources payer responses', () => {
       },
     ]);
   });
+
+  it('records an allowed amount moved between lines that leaves the total unchanged', () => {
+    const lines = (firstAllowed: number, secondAllowed: number): ClaimResponse =>
+      remit({
+        item: [
+          eraItem({
+            sequence: 1,
+            procedureCode: '99213',
+            adjudication: [
+              adjudication('charge', 100),
+              adjudication('allowed', firstAllowed),
+              adjudication('paid', 50),
+            ],
+          }),
+          eraItem({
+            sequence: 2,
+            procedureCode: '99214',
+            adjudication: [
+              adjudication('charge', 100),
+              adjudication('allowed', secondAllowed),
+              adjudication('paid', 50),
+            ],
+          }),
+        ],
+      });
+    expect(diffResources(lines(60, 40), lines(50, 50))).toEqual([
+      {
+        field: 'serviceLines',
+        label: 'Service Lines',
+        previousValue:
+          '99213 billed $100.00 allowed $60.00 paid $50.00; 99214 billed $100.00 allowed $40.00 paid $50.00',
+        newValue: '99213 billed $100.00 allowed $50.00 paid $50.00; 99214 billed $100.00 allowed $50.00 paid $50.00',
+      },
+    ]);
+  });
 });
 
 describe('claimEventProvenanceRequest', () => {

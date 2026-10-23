@@ -179,7 +179,7 @@ function buildServiceLine(
 
 // A remit keyed in by hand keeps each line's service date, as printed on the remit, on its contained
 // claim's line of the same sequence. The converters' contained claims have no lines.
-function keyedLineDate(contained: Claim | undefined, item: ClaimResponseItem): string | undefined {
+export function keyedLineDate(contained: Claim | undefined, item: ClaimResponseItem): string | undefined {
   const line = contained?.item?.find((claimItem) => claimItem.sequence === item.itemSequence);
   return line?.servicedPeriod?.start ?? line?.servicedDate;
 }

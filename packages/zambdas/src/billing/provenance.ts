@@ -70,6 +70,8 @@ import {
   toClaimPatientPayment,
 } from './claim-amounts';
 import { transmitEventFromClaimResponse } from './claim-status-responses';
+import { eraContainedMemberId, keyedLineDate, resolveEraPayee } from './era-remits';
+import { patientNameText } from './manual-era';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
@@ -77,6 +79,7 @@ import {
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
+  ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   fhirName,
   formatAddress,
@@ -322,16 +325,18 @@ function formatOptionalCurrency(dollars: number | undefined): string {
   return dollars === undefined ? '' : formatCurrency(dollars);
 }
 
-function joinRemitLines(claimResponse: ClaimResponse): string {
+function joinRemitLines(claimResponse: ClaimResponse, containedClaim: Claim | undefined): string {
   return (claimResponse.item ?? [])
     .map((item) => {
-      const { billed, paid, adjustments } = extractLineAmounts(item.adjudication);
+      const { billed, allowed, paid, adjustments } = extractLineAmounts(item.adjudication);
       const remarkCodes = (item.extension ?? [])
         .filter((extension) => extension.url === ERA_ITEM_REMARK_CODE_EXTENSION)
         .map((extension) => extension.valueString);
       return [
         getEraExtensionString(item, ERA_ITEM_PROCEDURE_CODE_EXTENSION),
+        keyedLineDate(containedClaim, item),
         billed === undefined ? '' : `billed ${formatCurrency(billed)}`,
+        allowed === undefined ? '' : `allowed ${formatCurrency(allowed)}`,
         `paid ${formatCurrency(paid)}`,
         ...adjustments.map(
           (adjustment) => `${adjustment.groupCode}-${adjustment.reasonCode} ${formatCurrency(adjustment.amount)}`
@@ -346,6 +351,9 @@ function joinRemitLines(claimResponse: ClaimResponse): string {
 
 function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
   const { paid, allowed, patientResp } = extractClaimResponseAmounts(claimResponse);
+  const contained = claimResponse.contained ?? [];
+  const containedClaim = contained.find((resource): resource is Claim => resource.resourceType === 'Claim');
+  const containedPatient = contained.find((resource): resource is Patient => resource.resourceType === 'Patient');
   return [
     {
       field: 'matchedClaim',
@@ -359,6 +367,31 @@ function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
       ref: claimResponse.insurer?.reference,
     },
     {
+      field: 'billingProvider',
+      label: 'Billing Provider',
+      value: resolveEraPayee([claimResponse])?.name ?? '',
+    },
+    {
+      field: 'remitDate',
+      label: 'Remit Date',
+      value: claimResponse.created ?? '',
+    },
+    {
+      field: 'patient',
+      label: 'Patient',
+      value: patientNameText(containedPatient) ?? '',
+    },
+    {
+      field: 'memberId',
+      label: 'Member ID',
+      value: eraContainedMemberId(claimResponse),
+    },
+    {
+      field: 'patientAccountNumber',
+      label: 'Patient Account Number',
+      value: getEraExtensionString(claimResponse, ERA_PCN_EXTENSION) ?? '',
+    },
+    {
       field: 'statusCode',
       label: 'Claim Status Code',
       value: getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION) ?? '',
@@ -367,6 +400,11 @@ function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
       field: 'payerClaimControlNumber',
       label: 'Payer Claim Control Number',
       value: getEraExtensionString(claimResponse, ERA_ICN_EXTENSION) ?? '',
+    },
+    {
+      field: 'serviceDate',
+      label: 'Service Date',
+      value: containedClaim?.created ?? '',
     },
     {
       field: 'charge',
@@ -391,7 +429,7 @@ function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
     {
       field: 'serviceLines',
       label: 'Service Lines',
-      value: joinRemitLines(claimResponse),
+      value: joinRemitLines(claimResponse, containedClaim),
     },
   ];
 }

@@ -11,7 +11,7 @@ import {
 import { MANUAL_ERA_LIMITS } from 'utils/lib/types/data/billing/billing.constants';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
 import { SaveManualEraResponse } from 'utils/lib/types/data/billing/billing.types';
-import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
+import { CLAIM_PROVENANCE_ACTIVITY, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import {
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
   CUSTOM_INSURANCE_ORG_KIND_CODE,
@@ -379,7 +379,12 @@ describe('save-billing-manual-era', () => {
     const result = await save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', claims: [edited] }));
 
     const requests = requestsOf(transaction);
-    expect(describeRequests(requests)).toEqual(['PUT /PaymentReconciliation/era-1', 'PUT /ClaimResponse/cr-2']);
+    expect(describeRequests(requests)).toEqual([
+      'PUT /PaymentReconciliation/era-1',
+      'PUT /ClaimResponse/cr-2',
+      'POST /Provenance',
+    ]);
+    expect(claimHistoryEntries(requests)).toHaveLength(1);
     expect((requests[1] as { resource: ClaimResponse }).resource).toMatchObject({
       id: 'cr-2',
       request: { reference: 'Claim/claim-2' },
@@ -439,8 +444,50 @@ describe('save-billing-manual-era', () => {
     expect(requests.slice(1)).toMatchObject([{ ifMatch: 'W/"5"' }, { ifMatch: 'W/"7"' }]);
   });
 
-  it("records a payer change in the matched claim's history only", async () => {
-    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
+  it.each<[string, Partial<ManualEraHeader>, ClaimFieldChange]>([
+    [
+      'payer',
+      {
+        payerId: CUSTOM_PAYER_ORG.id ?? '',
+      },
+      {
+        field: 'payer',
+        label: 'Payer',
+        previousValue: billingProviderAndPayer.payer.display,
+        newValue: 'Harbor County Health Plan (OTR-00042)',
+      },
+    ],
+    [
+      'remit date',
+      {
+        remitDate: '2026-09-15',
+      },
+      {
+        field: 'remitDate',
+        label: 'Remit Date',
+        previousValue: '2026-09-13',
+        newValue: '2026-09-15',
+      },
+    ],
+    [
+      'billing provider',
+      {
+        billingProviderRef: 'Organization/org-2',
+      },
+      {
+        field: 'billingProvider',
+        label: 'Billing Provider',
+        previousValue: 'some org',
+        newValue: 'other org',
+      },
+    ],
+  ])("records a %s change in the matched claim's history only", async (_field, change, recorded) => {
+    const otherBillingOrg: Organization = {
+      ...billingOrg,
+      id: 'org-2',
+      name: 'other org',
+    };
+    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg, otherBillingOrg]);
     await save(
       oystehr,
       params({
@@ -448,7 +495,7 @@ describe('save-billing-manual-era', () => {
         expectedVersionId: '3',
         header: {
           ...header,
-          payerId: CUSTOM_PAYER_ORG.id ?? '',
+          ...change,
         },
       })
     );
@@ -473,14 +520,68 @@ describe('save-billing-manual-era', () => {
         },
       ],
     });
-    expect(provenanceChanges(history[0])).toEqual([
+    expect(provenanceChanges(history[0])).toEqual([recorded]);
+  });
+
+  it.each<[string, Partial<ManualEraClaim>, ClaimFieldChange]>([
+    [
+      'member ID',
       {
-        field: 'payer',
-        label: 'Payer',
-        previousValue: billingProviderAndPayer.payer.display,
-        newValue: 'Harbor County Health Plan (OTR-00042)',
+        memberId: 'M-2',
       },
-    ]);
+      {
+        field: 'memberId',
+        label: 'Member ID',
+        previousValue: null,
+        newValue: 'M-2',
+      },
+    ],
+    [
+      'patient account number',
+      {
+        patientAccountNumber: 'PCN-2',
+      },
+      {
+        field: 'patientAccountNumber',
+        label: 'Patient Account Number',
+        previousValue: null,
+        newValue: 'PCN-2',
+      },
+    ],
+    [
+      'patient',
+      {
+        patientName: 'Ann B Lee',
+      },
+      {
+        field: 'patient',
+        label: 'Patient',
+        previousValue: 'Ann Lee',
+        newValue: 'Ann B Lee',
+      },
+    ],
+    [
+      'service date',
+      {
+        serviceDate: '2026-08-10',
+      },
+      {
+        field: 'serviceDate',
+        label: 'Service Date',
+        previousValue: '2026-08-15',
+        newValue: '2026-08-10',
+      },
+    ],
+  ])("records a %s edit in the matched claim's history", async (_field, edit, recorded) => {
+    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
+    const edited = keyedClaim({
+      claimResponseId: 'cr-2',
+      patientName: 'Ann Lee',
+      ...edit,
+    });
+    await save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', claims: [edited] }));
+
+    expect(historyChanges(requestsOf(transaction))).toEqual([recorded]);
   });
 
   it("records a service line edit in the matched claim's history", async () => {
@@ -515,8 +616,8 @@ describe('save-billing-manual-era', () => {
       {
         field: 'serviceLines',
         label: 'Service Lines',
-        previousValue: '99212 billed $150.00 paid $50.00 CO-45 $50.00',
-        newValue: '99212 billed $150.00 paid $60.00 CO-45 $40.00',
+        previousValue: '99212 2026-08-15 billed $150.00 allowed $100.00 paid $50.00 CO-45 $50.00',
+        newValue: '99212 2026-08-15 billed $150.00 allowed $100.00 paid $60.00 CO-45 $40.00',
       },
     ]);
   });
