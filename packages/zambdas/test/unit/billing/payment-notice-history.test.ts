@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { PaymentNotice } from 'fhir/r4b';
 import { PENDING_RESERVATION_PREFIX } from 'utils/lib/fhir/paymentRefunds';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { describe, expect, it, vi } from 'vitest';
 import { recordPaymentNoticeChange } from '../../../src/billing/payments';
 import { applyRefundsToPaymentNotice, voidPaymentNotice } from '../../../src/shared/stripeIntegration';
@@ -201,6 +202,85 @@ describe('payment notice change attribution', () => {
           amountInCents: 2000,
           dateISO: '2026-10-02T12:00:00Z',
           status: 'succeeded',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toEqual([SYSTEM_AGENT]);
+  });
+
+  it.each<[string, PaymentRefundDTO]>([
+    [
+      'failed',
+      {
+        stripeRefundId: 're_failed',
+        amountInCents: 1000,
+        dateISO: '2026-10-02T12:00:00Z',
+        status: 'failed',
+        refundedByReference: 'Practitioner/jane',
+      },
+    ],
+    [
+      'reserved',
+      {
+        stripeRefundId: `${PENDING_RESERVATION_PREFIX}op-1`,
+        amountInCents: 1000,
+        dateISO: new Date().toISOString(),
+        status: 'pending',
+        refundedByReference: 'Practitioner/jane',
+      },
+    ],
+  ])('credits the issuer of the refund that settled, not one that %s', async (_state, unsettled) => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        unsettled,
+        {
+          stripeRefundId: 're_1',
+          amountInCents: 2000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+          refundedByReference: 'Practitioner/john',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toMatchObject([
+      {
+        who: {
+          reference: 'Practitioner/john',
+        },
+      },
+    ]);
+  });
+
+  it('attributes refunds several users issued in one stamp to the system', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        {
+          stripeRefundId: 're_1',
+          amountInCents: 1000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+          refundedByReference: 'Practitioner/jane',
+        },
+        {
+          stripeRefundId: 're_2',
+          amountInCents: 1000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+          refundedByReference: 'Practitioner/john',
         },
       ],
       undefined,

@@ -12,7 +12,11 @@ import {
 } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
-import { parsePaymentRefundsFromNotice, parsePaymentVoidFromNotice } from 'utils/lib/fhir/paymentRefunds';
+import {
+  isSettledRefund,
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -81,14 +85,19 @@ export function paymentNoticeHistoryRequest({
   }) as BatchInputRequest<FhirResource> | null;
 }
 
-// The user the EHR stamped on a refund or void
+// The user the EHR stamped on a void, or on every new refund that moved money; a change several users
+// share, or one a refund nobody stamped is part of, has no single issuer
 const changeIssuerReference = (before: PaymentNotice, after: PaymentNotice): string | undefined => {
   const voidedByReference = parsePaymentVoidFromNotice(after)?.voidedByReference;
   if (voidedByReference && !parsePaymentVoidFromNotice(before)) return voidedByReference;
   const priorRefundIds = new Set((parsePaymentRefundsFromNotice(before) ?? []).map((refund) => refund.stripeRefundId));
-  return (parsePaymentRefundsFromNotice(after) ?? []).find(
-    (refund) => !priorRefundIds.has(refund.stripeRefundId) && refund.refundedByReference
-  )?.refundedByReference;
+  const issuers = new Set(
+    (parsePaymentRefundsFromNotice(after) ?? [])
+      .filter((refund) => !priorRefundIds.has(refund.stripeRefundId) && isSettledRefund(refund))
+      .map((refund) => refund.refundedByReference)
+  );
+  const [issuer] = issuers;
+  return issuers.size === 1 ? issuer : undefined;
 };
 
 // For the shared refund and void writers, which stamp billing copies and clinical notices alike;

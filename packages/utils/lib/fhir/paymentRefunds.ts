@@ -110,10 +110,11 @@ export const mergeStripeRefundsWithStored = (
 // Failed/canceled refunds never settle, so they don't reduce what the patient paid.
 // Pending reservations haven't moved money either; they reserve balance (see below) but must not
 // count as refunded in settled/display totals.
+export const isSettledRefund = (refund: PaymentRefundDTO): boolean =>
+  refund.status !== 'failed' && refund.status !== 'canceled' && !isPendingReservation(refund);
+
 export const settledRefundTotalInCents = (refunds: PaymentRefundDTO[] | undefined): number =>
-  (refunds ?? [])
-    .filter((refund) => refund.status !== 'failed' && refund.status !== 'canceled' && !isPendingReservation(refund))
-    .reduce((sum, refund) => sum + refund.amountInCents, 0);
+  (refunds ?? []).filter(isSettledRefund).reduce((sum, refund) => sum + refund.amountInCents, 0);
 
 // balance held by in-flight refund reservations; refund validation subtracts this from remaining
 export const pendingReservationTotalInCents = (refunds: PaymentRefundDTO[] | undefined): number =>
