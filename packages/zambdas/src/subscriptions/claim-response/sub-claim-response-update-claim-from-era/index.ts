@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getExtensionValue, reducePatchOperations, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { Secrets } from 'utils/lib/secrets';
 import {
   CLAIM_TAG_SYSTEM,
@@ -40,6 +41,7 @@ import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'sub-claim-response-adjust-status';
+const IMPORTED_MATCH_HISTORY_TAG_SYSTEM = ottehrCodeSystemUrl('claim-history-imported-match');
 
 let m2mToken: string;
 
@@ -187,6 +189,10 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
         after: claimResponse,
         agent,
         activity: 'create',
+        dedupTag: {
+          system: IMPORTED_MATCH_HISTORY_TAG_SYSTEM,
+          code: `${claimResponse.id}:${claim.id}`,
+        },
       });
 
   await withVersionConflictRetries(async (attempt) => {

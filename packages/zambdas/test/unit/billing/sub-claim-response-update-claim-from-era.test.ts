@@ -286,6 +286,24 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     });
   });
 
+  it('records the imported match only while no overlapping delivery has', async () => {
+    await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
+
+    const matchEntry = lastRequests().find(
+      (request) =>
+        request.url === '/Provenance' &&
+        (request as { resource: Provenance }).resource.target?.[0]?.reference === 'ClaimResponse/response-1'
+    ) as { resource: Provenance; ifNoneExist: unknown };
+    const [dedupTag] = matchEntry.resource.meta?.tag ?? [];
+    expect(dedupTag?.code).toBe('response-1:claim-1');
+    expect(matchEntry.ifNoneExist).toEqual([
+      {
+        name: '_tag',
+        value: `${dedupTag?.system}|${dedupTag?.code}`,
+      },
+    ]);
+  });
+
   it("does not record a match a biller's save already recorded", async () => {
     search.mockResolvedValue({
       unbundle: () => [
