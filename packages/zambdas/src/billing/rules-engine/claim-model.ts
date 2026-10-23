@@ -48,7 +48,6 @@ import {
   formatAntCaseString,
   getClaimStatusFieldValue,
   isValidClaimStatusValue,
-  parseAntCaseString,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
@@ -74,6 +73,7 @@ import {
   getTaxonomy,
   prepareWorkingCopy,
   resourceDisplayName,
+  serviceCodeForName,
   setClaimRenderingProviderCareTeam,
   setClia,
   setTaxId,
@@ -121,6 +121,10 @@ export interface RulesEngineClaimModel {
   // Inactive (soft-deleted) organizations are kept, so the writer can fail the action instead of
   // mistaking the id for an RCM payer.
   customInsuranceOrganizations?: Map<string, Organization>;
+  // The codes of the services seen on claims (search-billing-services' list), prefetched by the engine
+  // when the rule set sets the service: rules name a service as the claim screens show it, and the
+  // synchronous writer looks up the code the claim stores among these.
+  billingServiceCodes?: string[];
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
@@ -437,8 +441,8 @@ const READERS: Record<string, FieldReader> = {
   payerId: (m) => extractPayerIdFromCoverageRef(primaryCoverage(m)?.payor?.[0]?.reference),
   nonInsurancePayerId: (m) => getClaimNonInsurancePayer(m.claim)?.reference?.replace('Organization/', ''),
   type: (m) => getClaimType(m.claim),
-  // The name the claim screens show (workers-comp reads as "Workers Comp"). Conditions compare through
-  // the service format's normalize, so rules that name the code still match.
+  // The name the claim screens show for the service (workers-comp reads as "Workers Comp"), which is
+  // what rules name.
   service: (m) => {
     const code = getClaimService(m.claim);
     return code ? formatAntCaseString(code) : undefined;
@@ -751,9 +755,12 @@ const setClaimType = (claim: Claim, value: string | null): boolean => {
 };
 
 // Rules name the service the way the claim screens show it ("Workers Comp"); the claim's tag carries
-// its code (workers-comp). A value already in code form passes through unchanged.
-const setClaimService = (claim: Claim, value: string | null): boolean => {
-  const code = parseAntCaseString(value ?? undefined);
+// the code of the service seen on claims that is shown by that name. A name none is shown as fails.
+const setClaimService = (model: RulesEngineClaimModel, value: string | null): boolean => {
+  const name = value?.trim();
+  const code = name ? serviceCodeForName(model.billingServiceCodes ?? [], name) : undefined;
+  if (name && !code) return false;
+  const { claim } = model;
   claim.meta = claim.meta ?? {};
   const rest = (claim.meta.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM);
   claim.meta.tag = code ? [...rest, { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code }] : rest;
@@ -999,7 +1006,7 @@ const WRITERS: Record<string, FieldWriter> = {
   payerId: (m, v) => setPayerId(m, v),
   nonInsurancePayerId: (m, v) => setNonInsurancePayer(m, v),
   type: (m, v) => setClaimType(m.claim, v),
-  service: (m, v) => setClaimService(m.claim, v),
+  service: (m, v) => setClaimService(m, v),
   serviceDate: (m, v) => setServiceDate(m.claim, v),
   billType: (m, v) => setBillType(m.claim, v),
   patientDischargeStatusCode: (m, v) => setPatientDischargeStatusCode(m.claim, v),

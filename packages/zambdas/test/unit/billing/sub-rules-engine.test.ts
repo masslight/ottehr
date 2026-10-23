@@ -14,6 +14,7 @@ import {
 } from 'fhir/r4b';
 import { ACCOUNT_TYPE_CODE_SYSTEM, CPT_CODE_SYSTEM, RAW_RESPONSE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -1640,5 +1641,53 @@ describe('sub-rules-engine loadCustomInsuranceOrganizations', () => {
       loadCustomInsuranceOrganizations(oystehr, [setPayer('r1', '123456'), setPayer('r2', ACTIVE_ID, false)])
     ).resolves.toBeUndefined();
     expect(batch).not.toHaveBeenCalled();
+  });
+});
+
+describe('sub-rules-engine service codes prefetch', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const setService = (id: string, value: string, enabled = true): BillingRule => ({
+    ...alwaysRule(id, { type: 'actions', actions: [{ type: 'setField', field: 'service', value }] }),
+    enabled,
+  });
+
+  // complexValidation loads rules (List), the claim graph (Claim), and the prefetches; the services
+  // seen on claims are Basic resources.
+  const run = async (rules: BillingRule[]): Promise<{ codes: string[] | undefined; basicSearches: number }> => {
+    const { oystehr, search } = makeOystehrMock();
+    search.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'List') {
+        return Promise.resolve({ unbundle: () => [rulesToList('claim-submission', rules)] });
+      }
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [makeModel().claim] });
+      if (resourceType === 'Basic') {
+        return Promise.resolve({
+          unbundle: () =>
+            ['urgent-care', 'workers-comp'].map((code) => ({
+              resourceType: 'Basic',
+              code: { text: code, coding: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code }] },
+            })),
+        });
+      }
+      return Promise.resolve({ unbundle: () => [] });
+    });
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null, null, null);
+    const basicSearches = search.mock.calls.filter(([query]) => query.resourceType === 'Basic').length;
+    return { codes: validated.model.billingServiceCodes, basicSearches };
+  };
+
+  it('loads the codes of the services seen on claims when an enabled rule sets the service', async () => {
+    await expect(run([setService('r1', 'Workers Comp')])).resolves.toEqual({
+      codes: ['urgent-care', 'workers-comp'],
+      basicSearches: 1,
+    });
+  });
+
+  it('skips the lookup when no enabled rule sets the service', async () => {
+    await expect(run([setService('r1', 'Workers Comp', false), setService('r2', '')])).resolves.toEqual({
+      codes: undefined,
+      basicSearches: 0,
+    });
   });
 });

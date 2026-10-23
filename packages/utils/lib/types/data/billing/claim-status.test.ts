@@ -7,9 +7,7 @@ import {
   ClaimStatusValues,
   claimStatusValuesToTags,
   emptyClaimStatusValues,
-  formatAntCaseString,
   hasReachedClaimStatus,
-  parseAntCaseString,
 } from './claim-status';
 
 const RECORDED = '2026-07-24T12:00:00.000Z';
@@ -172,21 +170,5 @@ describe('hasReachedClaimStatus', () => {
     expect(hasReachedClaimStatus('patientArStatus', '', 'ready-to-invoice')).toBe(false);
     expect(hasReachedClaimStatus('patientArStatus', 'made-up', 'ready-to-invoice')).toBe(false);
     expect(hasReachedClaimStatus('patientArStatus', 'invoiced', 'made-up')).toBe(false);
-  });
-});
-
-describe('parseAntCaseString', () => {
-  it('turns a displayed name back into the code it was formatted from', () => {
-    for (const code of ['workers-comp', 'urgent-care', 'occupational-medicine', 'pre-op', 'botox']) {
-      expect(parseAntCaseString(formatAntCaseString(code))).toBe(code);
-    }
-  });
-
-  it('ignores case and extra whitespace, and leaves a code unchanged', () => {
-    expect(parseAntCaseString('Workers Comp')).toBe('workers-comp');
-    expect(parseAntCaseString('  workers   COMP ')).toBe('workers-comp');
-    expect(parseAntCaseString('workers-comp')).toBe('workers-comp');
-    expect(parseAntCaseString('')).toBe('');
-    expect(parseAntCaseString(undefined)).toBe('');
   });
 });

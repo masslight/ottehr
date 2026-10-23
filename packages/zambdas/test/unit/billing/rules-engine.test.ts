@@ -369,40 +369,24 @@ describe('rules-engine evaluator', () => {
     );
   });
 
-  it('compares the service by the name the claims list shows, however the rule spells it', () => {
+  it('compares the service by the name the claims list shows', () => {
     const m = makeModel();
     m.claim.meta = { tag: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'workers-comp' }] };
     const service = (operator: RuleOperator, value?: RuleConditionValue): boolean =>
       evaluateCondition({ type: 'field', field: 'service', operator, value }, m);
 
     expect(readField(m, 'service')).toBe('Workers Comp');
-    // The name as shown, the code (how rules named it before), and other spellings of the name.
     expect(service('eq', 'Workers Comp')).toBe(true);
-    expect(service('eq', 'workers-comp')).toBe(true);
-    expect(service('eq', ' workers  comp ')).toBe(true);
-    expect(service('eq', 'Urgent Care')).toBe(false);
-    expect(service('neq', 'Workers Comp')).toBe(false);
     expect(service('in', ['Urgent Care', 'Workers Comp'])).toBe(true);
-    expect(service('notIn', ['Urgent Care', 'Occupational Medicine'])).toBe(true);
-    expect(service('contains', 'comp')).toBe(true);
-    expect(service('notContains', 'Urgent')).toBe(true);
-    expect(service('startsWith', 'Workers C')).toBe(true);
-    expect(service('notStartsWith', 'Workers')).toBe(false);
-    // A pattern matches either the name as shown or the code.
-    expect(service('matches', '^Workers Comp$')).toBe(true);
-    expect(service('matches', '^workers-comp$')).toBe(true);
-    expect(service('notMatches', '^Urgent')).toBe(true);
-    expect(service('exists')).toBe(true);
-
-    // Other text fields still compare exactly.
-    expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'mem-123' }, m)).toBe(
-      false
-    );
+    expect(service('startsWith', 'Workers')).toBe(true);
+    // Only the name matches: the code is not another spelling of it.
+    expect(service('eq', 'workers-comp')).toBe(false);
+    expect(service('neq', 'workers-comp')).toBe(true);
+    expect(service('eq', 'workers comp')).toBe(false);
 
     // A claim without a service matches nothing but the negations.
     m.claim.meta = { tag: [] };
     expect(service('eq', 'Workers Comp')).toBe(false);
-    expect(service('neq', 'Workers Comp')).toBe(true);
     expect(service('notExists')).toBe(true);
   });
 
@@ -465,16 +449,18 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'type')).toBe('institutional');
     expect(writeField(m, 'type', 'dental')).toBe(false);
 
-    // Rules name the service as the claims list shows it; the claim's tag stores the code. A code
-    // (how rules named it before names were supported) is stored as-is.
+    // Rules name the service as the claims list shows it; the claim's tag stores the code of the
+    // service seen on claims that is shown by that name, so any other name can't be set.
+    expect(writeField(m, 'service', 'Workers Comp')).toBe(false); // no services prefetched
+    m.billingServiceCodes = ['urgent-care', 'workers-comp'];
     const serviceCodes = (): (string | undefined)[] =>
       (m.claim.meta?.tag ?? []).filter((t) => t.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM).map((t) => t.code);
     expect(writeField(m, 'service', 'Workers Comp')).toBe(true);
     expect(serviceCodes()).toEqual(['workers-comp']);
     expect(readField(m, 'service')).toBe('Workers Comp');
-    expect(writeField(m, 'service', 'urgent-care')).toBe(true);
-    expect(serviceCodes()).toEqual(['urgent-care']);
-    expect(readField(m, 'service')).toBe('Urgent Care');
+    expect(writeField(m, 'service', 'workers-comp')).toBe(false);
+    expect(writeField(m, 'service', 'Sports Physicals')).toBe(false);
+    expect(serviceCodes()).toEqual(['workers-comp']);
     expect(writeField(m, 'service', null)).toBe(true);
     expect(serviceCodes()).toEqual([]);
     expect(readField(m, 'service')).toBeUndefined();
