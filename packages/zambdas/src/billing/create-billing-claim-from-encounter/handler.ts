@@ -103,6 +103,7 @@ import { sendErrors } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { reconcilePaymentNoticesForClaim } from '../payments';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   billingCopyMatches,
@@ -129,7 +130,6 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
-  reconcilePaymentNoticesForClaim,
   resourceDisplayName,
   searchPatientsByClinicalIds,
   selectClaimCoverages,
