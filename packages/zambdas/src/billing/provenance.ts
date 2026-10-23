@@ -16,6 +16,7 @@ import {
   Provenance,
   ProvenanceAgent,
   ProvenanceEntity,
+  Reference,
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
@@ -23,6 +24,7 @@ import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
@@ -53,13 +55,29 @@ import {
   getClaimStatusValues,
 } from 'utils/lib/types/data/billing/claim-status';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { formatCurrency } from 'utils/lib/utils/convert';
+import {
+  extractClaimResponseAmounts,
+  extractLineAmounts,
+  extractReportedCharge,
+  matchedClaimId,
+} from './claim-amounts';
 import { transmitEventFromClaimResponse } from './claim-status-responses';
+import { eraContainedMemberId, keyedLineDate, resolveEraPayee } from './era-remits';
+import { patientNameText } from './manual-era';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  ERA_ICN_EXTENSION,
+  ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
+  ERA_PCN_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
   fhirName,
   formatAddress,
   getClaimType,
+  getEraExtensionString,
   getProviderLicense,
   getTaxonomy,
   sortClaimInsurance,
@@ -161,6 +179,13 @@ function projectClaim(claim: Claim): FieldProjection[] {
         .map((t) => t.code)
         .filter(Boolean)
         .join(', '),
+    },
+    {
+      field: 'payerClaimControlNumber',
+      label: 'Payer Claim Control Number',
+      value:
+        claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
+          ?.value ?? '',
     }
   );
   return out;
@@ -241,6 +266,130 @@ function projectDocumentReference(documentReference: DocumentReference): FieldPr
   ];
 }
 
+function formatOptionalCurrency(dollars: number | undefined): string {
+  return dollars === undefined ? '' : formatCurrency(dollars);
+}
+
+function joinRemitLines(claimResponse: ClaimResponse, containedClaim: Claim | undefined): string {
+  return (claimResponse.item ?? [])
+    .map((item) => {
+      const { billed, allowed, paid, adjustments } = extractLineAmounts(item.adjudication);
+      const remarkCodes = (item.extension ?? [])
+        .filter((extension) => extension.url === ERA_ITEM_REMARK_CODE_EXTENSION)
+        .map((extension) => extension.valueString);
+      return [
+        getEraExtensionString(item, ERA_ITEM_PROCEDURE_CODE_EXTENSION),
+        keyedLineDate(containedClaim, item),
+        billed === undefined ? '' : `billed ${formatCurrency(billed)}`,
+        allowed === undefined ? '' : `allowed ${formatCurrency(allowed)}`,
+        `paid ${formatCurrency(paid)}`,
+        ...adjustments.map(
+          (adjustment) => `${adjustment.groupCode}-${adjustment.reasonCode} ${formatCurrency(adjustment.amount)}`
+        ),
+        ...remarkCodes,
+      ]
+        .filter(Boolean)
+        .join(' ');
+    })
+    .join('; ');
+}
+
+function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
+  const { paid, allowed, patientResp } = extractClaimResponseAmounts(claimResponse);
+  const contained = claimResponse.contained ?? [];
+  const containedClaim = contained.find((resource): resource is Claim => resource.resourceType === 'Claim');
+  const containedPatient = contained.find((resource): resource is Patient => resource.resourceType === 'Patient');
+  const billingProvider = resolveEraPayee([claimResponse]);
+  return [
+    {
+      field: 'matchedClaim',
+      label: 'Matched Claim',
+      value: matchedClaimId(claimResponse) ?? '',
+    },
+    {
+      field: 'payer',
+      label: 'Payer',
+      value: refValue(claimResponse.insurer),
+      ref: claimResponse.insurer?.reference,
+    },
+    {
+      field: 'billingProvider',
+      label: 'Billing Provider',
+      value: billingProvider?.name ?? '',
+    },
+    {
+      field: 'billingProviderNpi',
+      label: 'Billing Provider NPI',
+      value: billingProvider?.npi ?? '',
+    },
+    {
+      field: 'billingProviderTaxId',
+      label: 'Billing Provider Tax ID',
+      value: billingProvider?.taxId ?? '',
+    },
+    {
+      field: 'remitDate',
+      label: 'Remit Date',
+      value: claimResponse.created ?? '',
+    },
+    {
+      field: 'patient',
+      label: 'Patient',
+      value: patientNameText(containedPatient) ?? '',
+    },
+    {
+      field: 'memberId',
+      label: 'Member ID',
+      value: eraContainedMemberId(claimResponse),
+    },
+    {
+      field: 'patientAccountNumber',
+      label: 'Patient Account Number',
+      value: getEraExtensionString(claimResponse, ERA_PCN_EXTENSION) ?? '',
+    },
+    {
+      field: 'statusCode',
+      label: 'Claim Status Code',
+      value: getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION) ?? '',
+    },
+    {
+      field: 'payerClaimControlNumber',
+      label: 'Payer Claim Control Number',
+      value: getEraExtensionString(claimResponse, ERA_ICN_EXTENSION) ?? '',
+    },
+    {
+      field: 'serviceDate',
+      label: 'Service Date',
+      value: containedClaim?.created ?? '',
+    },
+    {
+      field: 'charge',
+      label: 'Charge',
+      value: formatOptionalCurrency(extractReportedCharge(claimResponse)),
+    },
+    {
+      field: 'allowed',
+      label: 'Allowed',
+      value: formatOptionalCurrency(allowed),
+    },
+    {
+      field: 'paid',
+      label: 'Paid',
+      value: formatCurrency(paid),
+    },
+    {
+      field: 'patientResponsibility',
+      label: 'Patient Responsibility',
+      value: formatOptionalCurrency(patientResp),
+    },
+    {
+      field: 'serviceLines',
+      label: 'Service Lines',
+      value: joinRemitLines(claimResponse, containedClaim),
+    },
+  ];
+}
+
 function projectResource(resource: Resource): FieldProjection[] {
   switch (resource.resourceType) {
     case 'Claim':
@@ -259,6 +408,8 @@ function projectResource(resource: Resource): FieldProjection[] {
       return projectRelatedPerson(resource as RelatedPerson);
     case 'DocumentReference':
       return projectDocumentReference(resource as DocumentReference);
+    case 'ClaimResponse':
+      return projectClaimResponse(resource as ClaimResponse);
     default:
       return [];
   }
@@ -405,10 +556,9 @@ export async function resolveClaimActor(
       if (!token) throw new Error('Missing token for caller actor');
       const user = await userMe(token, secrets);
       if (!user.profile?.includes('Practitioner/')) throw new Error('Caller is not a Practitioner for caller actor');
-      return {
-        type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] },
-        who: { reference: user.profile },
-      };
+      return humanClaimActor({
+        reference: user.profile,
+      });
     }
     case 'system': {
       const deviceId = await ensureSystemDevice(oystehr);
@@ -425,6 +575,16 @@ export async function resolveClaimActor(
       };
     }
   }
+}
+
+// For a zambda that has already looked up the calling Practitioner.
+export function humanClaimActor(who: Reference): ProvenanceAgent {
+  return {
+    type: {
+      coding: [CLAIM_PROVENANCE_AGENT_TYPE.human],
+    },
+    who,
+  };
 }
 
 // --- Provenance request building --------------------------------------------
@@ -453,6 +613,9 @@ export interface ClaimProvenanceArgs {
   acknowledgment?: ClaimAcknowledgmentEvent;
   // The transmit facts captured when the claim was submitted, stored for the same reason.
   transmit?: ClaimTransmitEvent;
+  // A tag no other entry carries: the entry is created only while none has it, so a retried or
+  // concurrent write records its change once.
+  dedupTag?: Coding;
 }
 
 // Multi-reference fields (the claim's coverage field) join their references with ', '.
@@ -572,6 +735,13 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
 
   const provenance: Provenance = {
     resourceType: 'Provenance',
+    ...(args.dedupTag
+      ? {
+          meta: {
+            tag: [args.dedupTag],
+          },
+        }
+      : {}),
     target,
     recorded: args.recorded,
     activity: {
@@ -585,6 +755,16 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     method: 'POST',
     url: '/Provenance',
     resource: provenance,
+    ...(args.dedupTag
+      ? {
+          ifNoneExist: [
+            {
+              name: '_tag',
+              value: `${args.dedupTag.system}|${args.dedupTag.code}`,
+            },
+          ],
+        }
+      : {}),
   };
 }
 
@@ -660,6 +840,30 @@ export function claimEventProvenanceRequest({
     recorded: recordedNow(),
     priorVersionReference: versionedReference(args.before),
   });
+}
+
+export async function claimHistoryHasEntryFor({
+  oystehr,
+  claimId,
+  targetReference,
+}: {
+  oystehr: Oystehr;
+  claimId: string;
+  targetReference: string;
+}): Promise<boolean> {
+  const provenances = await getAllFhirSearchPages<Provenance>(
+    {
+      resourceType: 'Provenance',
+      params: [
+        {
+          name: 'target',
+          value: targetReference,
+        },
+      ],
+    },
+    oystehr
+  );
+  return provenances.some((provenance) => provenance.target?.some((target) => target.reference === `Claim/${claimId}`));
 }
 
 /**

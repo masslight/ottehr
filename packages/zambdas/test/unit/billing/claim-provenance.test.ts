@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Claim, Coverage, DocumentReference, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, DocumentReference, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
@@ -19,12 +19,15 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   addErrorProvenanceForClaimSubmission,
   claimEventProvenanceRequest,
+  claimHistoryHasEntryFor,
   claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimMetaTagsWithProvenance,
   commitClaimResourceChange,
   diffResources,
 } from '../../../src/billing/provenance';
+import { ERA_ICN_EXTENSION, ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
+import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/u1' } };
 const CLAIM_REF = 'Claim/c1';
@@ -129,6 +132,124 @@ describe('diffResources attachments', () => {
   });
 });
 
+describe('diffResources payer responses', () => {
+  const statusCode = {
+    url: ERA_STATUS_CODE_EXTENSION,
+    valueString: '1',
+  };
+
+  const remit = (overrides: Partial<ClaimResponse> = {}, reasonCode = '45'): ClaimResponse =>
+    claimResponse({
+      extension: [statusCode],
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '99213',
+          adjudication: [adjudication('charge', 100), adjudication('paid', 80), casAdjustment('CO', 20, reasonCode)],
+        }),
+      ],
+      ...overrides,
+    });
+
+  it('records an unmatch as a matched claim change only', () => {
+    const unmatched = remit({
+      request: {
+        reference: '#request',
+      },
+    });
+    expect(diffResources(remit(), unmatched)).toEqual([
+      {
+        field: 'matchedClaim',
+        label: 'Matched Claim',
+        previousValue: 'c1',
+        newValue: null,
+      },
+    ]);
+  });
+
+  it('records a move to another claim', () => {
+    const moved = remit({
+      request: {
+        reference: 'Claim/c2',
+      },
+    });
+    expect(diffResources(remit(), moved)).toEqual([
+      {
+        field: 'matchedClaim',
+        label: 'Matched Claim',
+        previousValue: 'c1',
+        newValue: 'c2',
+      },
+    ]);
+  });
+
+  it('records a payer claim control number change', () => {
+    const withIcn = remit({
+      extension: [
+        statusCode,
+        {
+          url: ERA_ICN_EXTENSION,
+          valueString: 'ICN1',
+        },
+      ],
+    });
+    expect(diffResources(remit(), withIcn)).toEqual([
+      {
+        field: 'payerClaimControlNumber',
+        label: 'Payer Claim Control Number',
+        previousValue: null,
+        newValue: 'ICN1',
+      },
+    ]);
+  });
+
+  it('records a service line adjustment edit that leaves the totals unchanged', () => {
+    expect(diffResources(remit(), remit({}, '253'))).toEqual([
+      {
+        field: 'serviceLines',
+        label: 'Service Lines',
+        previousValue: '99213 billed $100.00 paid $80.00 CO-45 $20.00',
+        newValue: '99213 billed $100.00 paid $80.00 CO-253 $20.00',
+      },
+    ]);
+  });
+
+  it('records an allowed amount moved between lines that leaves the total unchanged', () => {
+    const lines = (firstAllowed: number, secondAllowed: number): ClaimResponse =>
+      remit({
+        item: [
+          eraItem({
+            sequence: 1,
+            procedureCode: '99213',
+            adjudication: [
+              adjudication('charge', 100),
+              adjudication('allowed', firstAllowed),
+              adjudication('paid', 50),
+            ],
+          }),
+          eraItem({
+            sequence: 2,
+            procedureCode: '99214',
+            adjudication: [
+              adjudication('charge', 100),
+              adjudication('allowed', secondAllowed),
+              adjudication('paid', 50),
+            ],
+          }),
+        ],
+      });
+    expect(diffResources(lines(60, 40), lines(50, 50))).toEqual([
+      {
+        field: 'serviceLines',
+        label: 'Service Lines',
+        previousValue:
+          '99213 billed $100.00 allowed $60.00 paid $50.00; 99214 billed $100.00 allowed $40.00 paid $50.00',
+        newValue: '99213 billed $100.00 allowed $50.00 paid $50.00; 99214 billed $100.00 allowed $50.00 paid $50.00',
+      },
+    ]);
+  });
+});
+
 describe('claimEventProvenanceRequest', () => {
   it('targets the changed resource and the claim, and stamps the prior version', () => {
     const before = documentReference('a.pdf', {
@@ -188,6 +309,60 @@ describe('claimEventProvenanceRequest', () => {
       activity: 'update',
     });
     expect(request).toBeNull();
+  });
+});
+
+describe('claim history lookups', () => {
+  const historyEntry = (id: string, targets: string[]): Provenance => ({
+    resourceType: 'Provenance',
+    id,
+    recorded: '2026-10-01T00:00:00Z',
+    agent: [agent],
+    target: targets.map((reference) => ({
+      reference,
+    })),
+    extension: [
+      {
+        url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+        valueString: '[]',
+      },
+    ],
+  });
+
+  // a server that returns one entry per page, whatever _count asks for
+  const onePerPage = (provenances: Provenance[]): Oystehr =>
+    ({
+      fhir: {
+        search: vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => {
+          const offset = Number(params.find((param) => param.name === '_offset')?.value ?? 0);
+          const page = provenances.slice(offset, offset + 1);
+          return {
+            total: provenances.length,
+            entry: page.map((resource) => ({
+              resource,
+              search: {
+                mode: 'match',
+              },
+            })),
+            unbundle: () => page,
+          };
+        }),
+      },
+    }) as unknown as Oystehr;
+
+  it('finds a claim history entry from a later page of results', async () => {
+    const oystehr = onePerPage([
+      historyEntry('prov-other-claim', ['ClaimResponse/cr1', 'Claim/c2']),
+      historyEntry('prov-this-claim', ['ClaimResponse/cr1', CLAIM_REF]),
+    ]);
+
+    await expect(
+      claimHistoryHasEntryFor({
+        oystehr,
+        claimId: 'c1',
+        targetReference: 'ClaimResponse/cr1',
+      })
+    ).resolves.toBe(true);
   });
 });
 
