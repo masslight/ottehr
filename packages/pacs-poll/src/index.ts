@@ -49,31 +49,10 @@ const serviceRequestsSent = new Gauge({
   registers: [register],
 });
 
-const mirthErrors = new Counter({
-  name: 'pacs_poll_mirth_errors_total',
-  help: 'Total Mirth send failures',
-  labelNames: ['project_id'] as const,
-  registers: [register],
-});
-
-const patchErrors = new Counter({
-  name: 'pacs_poll_patch_errors_total',
-  help: 'Total FHIR patch failures',
-  labelNames: ['project_id'] as const,
-  registers: [register],
-});
-
-const authErrors = new Counter({
-  name: 'pacs_poll_auth_errors_total',
-  help: 'Total OAuth token fetch failures',
-  labelNames: ['project_id'] as const,
-  registers: [register],
-});
-
-const pollErrors = new Counter({
-  name: 'pacs_poll_cycle_errors_total',
-  help: 'Total poll cycle errors per project',
-  labelNames: ['project_id'] as const,
+const errorsTotal = new Counter({
+  name: 'pacs_poll_errors_total',
+  help: 'Total errors across all types — filter by type and project_id labels',
+  labelNames: ['type', 'project_id'] as const,
   registers: [register],
 });
 
@@ -94,7 +73,7 @@ const createOystehrClientFromConfig = async (config: ProjectConfig): Promise<any
   });
 
   if (!tokenResponse.ok) {
-    authErrors.inc({ project_id: config.projectId });
+    errorsTotal.inc({ type: 'auth', project_id: config.projectId });
     throw new Error(
       `Failed to fetch token for projectId ${config.projectId} with statusText: ${tokenResponse.statusText}`
     );
@@ -124,15 +103,21 @@ const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
 
   for (const file of envFiles) {
     if (file.endsWith('.env.json')) {
-      const configPath = path.resolve(pathToEnvFiles, file);
-      const configUrl = pathToFileURL(configPath).href;
-      const configModule = await import(configUrl, { with: { type: 'json' } });
-      const config = configModule.default;
-      if (!config.projectId || !config.clientId || !config.clientSecret || !config.advapacsTenant) {
-        console.error('Invalid config in file: ', file);
-        continue;
+      try {
+        const configPath = path.resolve(pathToEnvFiles, file);
+        const configUrl = pathToFileURL(configPath).href;
+        const configModule = await import(configUrl, { with: { type: 'json' } });
+        const config = configModule.default;
+        if (!config.projectId || !config.clientId || !config.clientSecret || !config.advapacsTenant) {
+          console.error('Invalid config in file: ', file);
+          errorsTotal.inc({ type: 'config', project_id: 'unknown' });
+          continue;
+        }
+        projectConfigs.push(config);
+      } catch (error) {
+        console.error(`Error loading config file ${file}:`, error);
+        errorsTotal.inc({ type: 'config', project_id: 'unknown' });
       }
-      projectConfigs.push(config);
     }
   }
 
@@ -190,80 +175,72 @@ const findServiceRequestsToSend = async (oystehr: Oystehr): Promise<ServiceReque
   return serviceRequestsToSend;
 };
 
-const sendWithMirth = async (
-  serviceRequests: ServiceRequest[],
+const sendAndPatchServiceRequest = async (
+  sr: ServiceRequest,
   advapacsTenant: string,
-  projectId: string
-): Promise<ServiceRequest[]> => {
-  const serviceRequestsSentWithMirth: ServiceRequest[] = [];
-  for (const sr of serviceRequests) {
-    try {
-      console.log(`Sending ServiceRequest ${sr.id} to teleradiology via Mirth...`);
-      const fillerOrderNumber = sr.identifier?.find((id) => id.system === FILLER_ORDER_NUMBER_CODE_SYSTEM)?.value;
-      if (!fillerOrderNumber) {
-        console.error(`ServiceRequest ${sr.id} is missing filler order number, skipping.`);
-        mirthErrors.inc({ project_id: projectId });
-        continue;
-      }
-      const placerOrderNumber = sr.identifier?.find((id) => id.system === PLACER_ORDER_NUMBER_CODE_SYSTEM)?.value;
-      if (!placerOrderNumber) {
-        console.error(`ServiceRequest ${sr.id} is missing placer order number, skipping.`);
-        mirthErrors.inc({ project_id: projectId });
-        continue;
-      }
-
-      const mirthResponse = await fetch(`http://localhost:8989/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fillerOrderNumber,
-          placerOrderNumber,
-          advapacsTenant,
-        }),
-      });
-
-      if (mirthResponse.ok) {
-        serviceRequestsSentWithMirth.push(sr);
-      } else {
-        console.error(
-          `Failed to send ServiceRequest ${sr.id} via Mirth with status ${mirthResponse.status}: ${mirthResponse.statusText}`
-        );
-        mirthErrors.inc({ project_id: projectId });
-      }
-    } catch (error) {
-      console.error(`Failed to send ServiceRequest ${sr.id}:`, error);
-      mirthErrors.inc({ project_id: projectId });
-    }
-  }
-  return serviceRequestsSentWithMirth;
-};
-
-const patchServiceRequests = async (
-  serviceRequests: ServiceRequest[],
   oystehr: Oystehr,
   projectId: string
-): Promise<void> => {
-  for (const sr of serviceRequests) {
-    const hasBeenSentOperation = getPatchOperationToUpdateExtension(sr, {
-      url: SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
-      valueDateTime: DateTime.now().toISO(),
+): Promise<boolean> => {
+  const fillerOrderNumber = sr.identifier?.find((id) => id.system === FILLER_ORDER_NUMBER_CODE_SYSTEM)?.value;
+  if (!fillerOrderNumber) {
+    console.error(`ServiceRequest ${sr.id} is missing filler order number, skipping.`);
+    errorsTotal.inc({ type: 'mirth', project_id: projectId });
+    return false;
+  }
+  const placerOrderNumber = sr.identifier?.find((id) => id.system === PLACER_ORDER_NUMBER_CODE_SYSTEM)?.value;
+  if (!placerOrderNumber) {
+    console.error(`ServiceRequest ${sr.id} is missing placer order number, skipping.`);
+    errorsTotal.inc({ type: 'mirth', project_id: projectId });
+    return false;
+  }
+
+  console.log(`Sending ServiceRequest ${sr.id} to teleradiology via Mirth...`);
+  let mirthResponse: Response;
+  try {
+    mirthResponse = await fetch(`http://localhost:8989/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fillerOrderNumber,
+        placerOrderNumber,
+        advapacsTenant,
+      }),
     });
-    if (hasBeenSentOperation) {
-      try {
-        await oystehr.fhir.patch({
-          resourceType: 'ServiceRequest',
-          id: sr.id as string,
-          operations: [hasBeenSentOperation],
-        });
-        console.log(`Patched ServiceRequest ${sr.id} as sent to teleradiology.`);
-      } catch (error) {
-        console.error(`Failed to patch ServiceRequest ${sr.id}:`, error);
-        patchErrors.inc({ project_id: projectId });
-      }
+  } catch (error) {
+    console.error(`Failed to send ServiceRequest ${sr.id}:`, error);
+    errorsTotal.inc({ type: 'mirth', project_id: projectId });
+    return false;
+  }
+
+  if (!mirthResponse.ok) {
+    console.error(
+      `Failed to send ServiceRequest ${sr.id} via Mirth with status ${mirthResponse.status}: ${mirthResponse.statusText}`
+    );
+    errorsTotal.inc({ type: 'mirth', project_id: projectId });
+    return false;
+  }
+
+  const hasBeenSentOperation = getPatchOperationToUpdateExtension(sr, {
+    url: SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
+    valueDateTime: DateTime.now().toISO(),
+  });
+  if (hasBeenSentOperation) {
+    try {
+      await oystehr.fhir.patch({
+        resourceType: 'ServiceRequest',
+        id: sr.id as string,
+        operations: [hasBeenSentOperation],
+      });
+      console.log(`Patched ServiceRequest ${sr.id} as sent to teleradiology.`);
+    } catch (error) {
+      console.error(`Failed to patch ServiceRequest ${sr.id}:`, error);
+      errorsTotal.inc({ type: 'patch', project_id: projectId });
     }
   }
+
+  return true;
 };
 
 const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> => {
@@ -277,13 +254,13 @@ const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> 
     serviceRequestsSent.set({ project_id: config.projectId }, 0);
     return;
   }
-  const serviceRequestsToPatchAsSent = await sendWithMirth(
-    serviceRequestsToSend,
-    config.advapacsTenant,
-    config.projectId
-  );
-  serviceRequestsSent.set({ project_id: config.projectId }, serviceRequestsToPatchAsSent.length);
-  await patchServiceRequests(serviceRequestsToPatchAsSent, oystehr, config.projectId);
+
+  let sentCount = 0;
+  for (const sr of serviceRequestsToSend) {
+    const sent = await sendAndPatchServiceRequest(sr, config.advapacsTenant, oystehr, config.projectId);
+    if (sent) sentCount++;
+  }
+  serviceRequestsSent.set({ project_id: config.projectId }, sentCount);
 };
 
 // ── Poll loop ───────────────────────────────────────────────────────
@@ -301,7 +278,7 @@ const pollOnce = async (): Promise<void> => {
       await sendStudiesToTeleradiology(config);
     } catch (error) {
       console.error(`Error processing project ${config.projectId}:`, error);
-      pollErrors.inc({ project_id: config.projectId });
+      errorsTotal.inc({ type: 'poll', project_id: config.projectId });
     }
     const durationSec = (performance.now() - start) / 1000;
     pollDuration.set({ project_id: config.projectId }, durationSec);
@@ -329,8 +306,22 @@ const main = async (): Promise<void> => {
     console.log(`Metrics server listening on port ${METRICS_PORT}`);
   });
 
-  await pollOnce();
-  const interval = setInterval(pollOnce, POLL_INTERVAL_MS);
+  let polling = false;
+  const guardedPoll = async (): Promise<void> => {
+    if (polling) {
+      console.log('Previous poll cycle still running, skipping this tick');
+      return;
+    }
+    polling = true;
+    try {
+      await pollOnce();
+    } finally {
+      polling = false;
+    }
+  };
+
+  await guardedPoll();
+  const interval = setInterval(guardedPoll, POLL_INTERVAL_MS);
 
   const shutdown = (): void => {
     console.log('Shutting down...');
