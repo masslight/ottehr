@@ -1,6 +1,7 @@
 import { QuestionnaireDataTypes } from 'config-types/config/questionnaire';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
+import type { FormPlacement } from '../../../helpers/practice-managed-questionnaires';
 import { QAndQRResponse } from '../paperwork/paperwork.types';
 import {
   GetStandAlonePaperworkInputSchema,
@@ -60,12 +61,32 @@ export type PracticeManagedQuestionnaireDTO = {
   title: string;
   status: Questionnaire['status'];
   url: string;
+  placement: FormPlacement;
 };
 
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
   questionnaireId: string;
   questionnaireTitle: string;
+  /** Where the form's answers appear; absent means Visit Details. */
+  placement?: FormPlacement;
+  /** The form's canonical url, shared by all of its versions. */
+  questionnaireUrl?: string;
 };
+
+/** A response from one of the patient's visits, for pages that show forms across visits. */
+export type PatientFormResponse = StandaloneFormDTO & {
+  encounterId: string;
+  appointmentId?: string;
+  visitDate?: string;
+  /** False for forms answered inside the visit's paperwork, which are deleted with the paperwork. */
+  deletable: boolean;
+};
+
+/** Placements stored as a tag on the form; Visit details is the untagged default. */
+export type TaggedFormPlacement = Exclude<FormPlacement, 'visit-details'>;
+
+export type GetPatientFormResponsesInput = { patientId: string; placements: TaggedFormPlacement[] };
+export type GetPatientFormResponsesOutput = { responses: PatientFormResponse[] };
 
 // ============= api input / output types ===============
 

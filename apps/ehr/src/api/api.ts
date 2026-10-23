@@ -383,6 +383,8 @@ import {
   GetPatientBalancesZambdaOutput,
 } from 'utils/lib/types/data/payment/payment-method-types';
 import {
+  GetPatientFormResponsesInput,
+  GetPatientFormResponsesOutput,
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
@@ -554,6 +556,7 @@ const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
 const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
 const PAPERWORK_FLOW_DELETE_ZAMBDA_ID = 'paperwork-flow-delete';
 const SEND_PATIENT_FORM = 'send-patient-form';
+const GET_PATIENT_FORM_RESPONSES = 'get-patient-form-responses';
 const FILE_INBOUND_FAX_ZAMBDA_ID = 'file-inbound-fax';
 const DELETE_INBOUND_FAX_ZAMBDA_ID = 'delete-inbound-fax';
 
@@ -3779,6 +3782,19 @@ export const sendPatientForm = async (
       id: SEND_PATIENT_FORM,
       ...parameters,
     });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPatientFormResponses = async (
+  oystehr: Oystehr,
+  parameters: GetPatientFormResponsesInput
+): Promise<GetPatientFormResponsesOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_PATIENT_FORM_RESPONSES, ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
