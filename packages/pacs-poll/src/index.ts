@@ -35,16 +35,16 @@ const pollDuration = new Gauge({
   registers: [register],
 });
 
-const serviceRequestsFound = new Gauge({
-  name: 'pacs_poll_service_requests_found',
-  help: 'Number of ServiceRequests found needing teleradiology send',
+const serviceRequestsFound = new Counter({
+  name: 'pacs_poll_service_requests_found_total',
+  help: 'Total ServiceRequests found needing teleradiology send',
   labelNames: ['project_id'] as const,
   registers: [register],
 });
 
-const serviceRequestsSent = new Gauge({
-  name: 'pacs_poll_service_requests_sent',
-  help: 'Number of ServiceRequests successfully sent via Mirth',
+const serviceRequestsSent = new Counter({
+  name: 'pacs_poll_service_requests_sent_total',
+  help: 'Total ServiceRequests successfully sent via Mirth',
   labelNames: ['project_id'] as const,
   registers: [register],
 });
@@ -247,11 +247,10 @@ const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> 
   const oystehr = await createOystehrClientFromConfig(config);
   const serviceRequestsToSend = await findServiceRequestsToSend(oystehr);
 
-  serviceRequestsFound.set({ project_id: config.projectId }, serviceRequestsToSend.length);
+  serviceRequestsFound.inc({ project_id: config.projectId }, serviceRequestsToSend.length);
 
   if (serviceRequestsToSend.length === 0) {
     console.log(`No ServiceRequests to send to teleradiology for project ${config.projectId}`);
-    serviceRequestsSent.set({ project_id: config.projectId }, 0);
     return;
   }
 
@@ -260,7 +259,7 @@ const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> 
     const sent = await sendAndPatchServiceRequest(sr, config.advapacsTenant, oystehr, config.projectId);
     if (sent) sentCount++;
   }
-  serviceRequestsSent.set({ project_id: config.projectId }, sentCount);
+  serviceRequestsSent.inc({ project_id: config.projectId }, sentCount);
 };
 
 // ── Poll loop ───────────────────────────────────────────────────────

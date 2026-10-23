@@ -55,7 +55,6 @@ const main = async (): Promise<void> => {
       bundle: true,
       outdir: '.dist',
       sourcemap: true,
-      external: ['tdigest'],
       platform: 'node',
       format: 'esm',
       banner: {

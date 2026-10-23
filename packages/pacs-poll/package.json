@@ -14,7 +14,8 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
-    "prom-client": "^15.1.3"
+    "prom-client": "^15.1.3",
+    "tdigest": "^0.1.3"
   },
   "devDependencies": {
     "@sentry/esbuild-plugin": "^3.5.0",
