@@ -25,7 +25,7 @@ interface EditPatientNoteModalProps {
 export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note, target, onClose }) => {
   const theme = useTheme();
   const [text, setText] = useState(note.text);
-  const { mutateAsync: save, isPending } = useUpdatePatientNote();
+  const { mutateAsync: save, isPending } = useUpdatePatientNote(target);
   const label = noteKind(target) === 'task' ? 'Task Note' : 'Patient Note';
 
   const handleSave = async (): Promise<void> => {

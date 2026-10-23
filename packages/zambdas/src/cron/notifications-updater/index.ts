@@ -862,7 +862,9 @@ export async function getRecentTaskNotes(
   const notesByTaskId = new Map<string, Communication[]>();
   for (const note of notesById.values()) {
     const taskId = getNoteTaskId(note) ?? '';
-    notesByTaskId.set(taskId, [...(notesByTaskId.get(taskId) ?? []), note]);
+    const notesOnTask = notesByTaskId.get(taskId);
+    if (notesOnTask) notesOnTask.push(note);
+    else notesByTaskId.set(taskId, [note]);
   }
   const newNotes = [...notesById.values()].filter(
     (note) =>

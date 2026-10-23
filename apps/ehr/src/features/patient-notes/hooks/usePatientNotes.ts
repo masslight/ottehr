@@ -2,6 +2,7 @@ import { InfiniteData, QueryClient, useInfiniteQuery, UseInfiniteQueryResult } f
 import { GetPatientNotesOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { getPatientNotes } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import { invalidateTaskBoardNotes } from './useTaskNotes';
 
 const PAGE_SIZE = 20;
 
@@ -10,10 +11,11 @@ export type NoteTarget = { patientId: string; taskId?: never } | { taskId: strin
 
 export const noteKind = (target: NoteTarget): 'task' | 'patient' => (target.taskId ? 'task' : 'patient');
 
-/** Every notes query (a patient's, a task's, the Tasks board's) and the patient notes count refresh together. */
-export const invalidateNotes = (queryClient: QueryClient): void => {
-  void queryClient.invalidateQueries({ queryKey: ['patient-notes'] });
-  void queryClient.invalidateQueries({ queryKey: ['patient-notes-count'] });
+/** After a note changes: its list, and the patient's notes count or the Tasks board pages showing the task. */
+export const invalidateNotes = (queryClient: QueryClient, target: NoteTarget): void => {
+  void queryClient.invalidateQueries({ queryKey: ['patient-notes', target] });
+  if (target.taskId) invalidateTaskBoardNotes(queryClient, target.taskId);
+  else void queryClient.invalidateQueries({ queryKey: ['patient-notes-count', { patientId: target.patientId }] });
 };
 
 export const usePatientNotes = (

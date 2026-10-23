@@ -1,6 +1,7 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInput, FhirResource, FhirSearchParams } from '@oystehr/sdk';
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, Practitioner, Resource, Task } from 'fhir/r4b';
+import { applyPatch, Operation } from 'fast-json-patch';
+import { Communication, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AppointmentProviderNotificationTypes,
@@ -48,8 +49,16 @@ vi.mock('../../src/shared/users.helper', () => ({
   getRoleMembers: vi.fn(),
 }));
 
-const searchResults = new Map<string, { matches: Resource[]; includes?: Resource[] }>();
-const bundle = ({ matches, includes = [] }: { matches: Resource[]; includes?: Resource[] }): object => ({
+// A small FHIR server: searches read the store and the cron's transaction writes to it, so a run sees what an earlier
+// run wrote. Only the searches the task-note path makes find anything; the rest come back empty.
+const store = new Map<string, FhirResource>();
+const put = (...resources: FhirResource[]): void => {
+  for (const resource of resources) store.set(`${resource.resourceType}/${resource.id}`, resource);
+};
+const stored = <T extends FhirResource>(resourceType: T['resourceType']): T[] =>
+  [...store.values()].filter((resource): resource is T => resource.resourceType === resourceType);
+
+const bundle = (matches: FhirResource[], includes: FhirResource[] = []): object => ({
   total: matches.length,
   entry: [
     ...matches.map((resource) => ({ resource, search: { mode: 'match' } })),
@@ -57,12 +66,49 @@ const bundle = ({ matches, includes = [] }: { matches: Resource[]; includes?: Re
   ],
   unbundle: () => [...matches, ...includes],
 });
+
+// _tag + status + sent, with the notes' Tasks (_include) and every other Communication on them (_revinclude:iterate).
+const searchTaskNotes = ({ params = [] }: FhirSearchParams<FhirResource>): object => {
+  const value = (name: string): string => String(params.find((param) => param.name === name)?.value);
+  const [tagSystem, tagCode] = value('_tag').split('|');
+  const sentFrom = DateTime.fromISO(value('sent').replace(/^ge/, ''));
+  const matches = stored<Communication>('Communication').filter(
+    (communication) =>
+      communication.status === value('status') &&
+      communication.meta?.tag?.some((tag) => tag.system === tagSystem && tag.code === tagCode) &&
+      DateTime.fromISO(communication.sent ?? '') >= sentFrom
+  );
+  const taskReferences = new Set(matches.flatMap((match) => match.basedOn?.map((basedOn) => basedOn.reference)));
+  const tasks = stored<Task>('Task').filter((task) => taskReferences.has(`Task/${task.id}`));
+  const others = stored<Communication>('Communication').filter(
+    (communication) =>
+      !matches.includes(communication) &&
+      communication.basedOn?.some((basedOn) => taskReferences.has(basedOn.reference))
+  );
+  return bundle(matches, [...tasks, ...others]);
+};
+
 const oystehr = {
   fhir: {
-    search: vi.fn(async ({ resourceType }: { resourceType: string }) =>
-      bundle(searchResults.get(resourceType) ?? { matches: [] })
-    ),
-    transaction: vi.fn(),
+    search: vi.fn(async (params: FhirSearchParams<FhirResource>) => {
+      if (params.resourceType === 'Communication') return searchTaskNotes(params);
+      if (params.resourceType === 'Practitioner') return bundle(stored<Practitioner>('Practitioner'));
+      return bundle([]);
+    }),
+    transaction: vi.fn(async ({ requests }: BatchInput<FhirResource>) => {
+      for (const request of requests) {
+        if (!('resource' in request)) continue;
+        if (request.method === 'POST') put({ ...request.resource, id: `created-${store.size}` });
+        if (request.method === 'PATCH' && request.resource.resourceType === 'Binary') {
+          const key = request.url.replace(/^\//, '');
+          const target = store.get(key);
+          if (!target) throw new Error(`${key} is not stored`);
+          const operations: Operation[] = JSON.parse(atob(request.resource.data ?? ''));
+          store.set(key, applyPatch(structuredClone(target), operations).newDocument);
+        }
+      }
+      return {};
+    }),
   },
   transactionalSMS: { send: vi.fn() },
 };
@@ -149,11 +195,11 @@ const legacyPhoneStaff = (id: string): Practitioner => ({
   ],
 });
 
-const decodePatch = (data: string): unknown => JSON.parse(atob(data));
+const notifiedTag = { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  searchResults.clear();
+  store.clear();
 });
 
 describe('resolveTaskNoteRecipientIds', () => {
@@ -233,12 +279,7 @@ describe('getRecentTaskNotes', () => {
   it("returns this window's un-notified notes with every live note on their tasks", async () => {
     const fresh = note('fresh', 'writer');
     const notified = note('notified', 'writer', {
-      meta: {
-        tag: [
-          { system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE },
-          { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE },
-        ],
-      },
+      meta: { tag: [{ system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE }, notifiedTag] },
     });
     const older = note('older', 'earlier', { sent: DateTime.utc().minus({ days: 3 }).toISO()! });
     const deleted = note('deleted', 'ghost', { status: 'entered-in-error' });
@@ -249,10 +290,7 @@ describe('getRecentTaskNotes', () => {
       basedOn: [{ reference: `Task/${task.id}` }],
       sender: { reference: 'Practitioner/system' },
     };
-    searchResults.set('Communication', {
-      matches: [fresh, notified],
-      includes: [task, older, deleted, assignmentNotice],
-    });
+    put(fresh, notified, older, deleted, assignmentNotice, task);
 
     const { newNotes, notesByTaskId, tasksById } = await getRecentTaskNotes(oystehr as unknown as Oystehr, windowStart);
 
@@ -267,11 +305,15 @@ describe('getRecentTaskNotes', () => {
     );
     expect(newNotes.map((n) => n.id)).toEqual(['fresh']);
     expect(notesByTaskId.get(task.id!)?.map((n) => n.id)).toEqual(['fresh', 'notified', 'older']);
-    expect(tasksById.get(task.id!)).toBe(task);
+    expect(tasksById.get(task.id!)).toEqual(task);
   });
 });
 
 describe('notifications-updater: new task notes', () => {
+  const run = (): Promise<APIGatewayProxyResult> => notificationsUpdater({ headers: {}, body: '{}', secrets: {} });
+  const bellNotifications = (): Communication[] =>
+    stored<Communication>('Communication').filter((communication) => communication.recipient);
+
   beforeEach(() => {
     const staff = [
       migratedStaff('assignee'),
@@ -292,33 +334,25 @@ describe('notifications-updater: new task notes', () => {
       { id: 'provider-role', name: RoleType.Provider },
     ] as never);
     vi.mocked(getRoleMembers).mockResolvedValue([]);
-    searchResults.set('Practitioner', { matches: staff });
-    searchResults.set('Communication', {
-      matches: [note('first', 'writer', readBy('earlier')), note('second', 'writer', readBy('earlier'))],
-      includes: [
-        task,
-        note('older', 'earlier', {
-          sent: DateTime.utc().minus({ days: 3 }).toISO()!,
-          meta: {
-            tag: [
-              { system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE },
-              { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE },
-            ],
-          },
-        }),
-        note('deleted', 'ghost', { status: 'entered-in-error' }),
-      ],
-    });
+    put(
+      ...staff,
+      task,
+      note('first', 'writer', readBy('earlier')),
+      note('second', 'writer', readBy('earlier')),
+      note('older', 'earlier', {
+        sent: DateTime.utc().minus({ days: 3 }).toISO()!,
+        meta: { tag: [{ system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE }, notifiedTag] },
+      }),
+      note('deleted', 'ghost', { status: 'entered-in-error' })
+    );
   });
 
   it("notifies each other involved person once per run per their settings, without the note's text", async () => {
-    await notificationsUpdater({ headers: {}, body: '{}', secrets: {} });
+    await run();
 
-    const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
-    const notifications = requests.filter((request: { method: string }) => request.method === 'POST');
     // The assignee's bell, once for both notes; the creator is phone-only, so they get a text and no bell entry.
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0].resource).toMatchObject({
+    expect(bellNotifications()).toHaveLength(1);
+    expect(bellNotifications()[0]).toMatchObject({
       category: [
         {
           coding: expect.arrayContaining([
@@ -336,26 +370,27 @@ describe('notifications-updater: new task notes', () => {
       resource: 'Practitioner/creator',
       message: `New note on task: ${TASK_TITLE}`,
     });
-    expect(JSON.stringify(requests)).not.toContain('Private details');
+    expect(JSON.stringify(oystehr.fhir.transaction.mock.calls)).not.toContain('Private details');
   });
 
-  it('stamps each new note as notified in the same transaction, so the next run skips it', async () => {
-    await notificationsUpdater({ headers: {}, body: '{}', secrets: {} });
+  it('notifies nobody again on the next run, but does tell them about a note written since', async () => {
+    await run();
+    await run();
 
-    const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
-    const notePatches = requests.filter((request: { method: string }) => request.method === 'PATCH');
-    expect(notePatches.map((request: { url: string }) => request.url)).toEqual([
-      '/Communication/first',
-      '/Communication/second',
+    expect(bellNotifications()).toHaveLength(1);
+    expect(oystehr.transactionalSMS.send).toHaveBeenCalledTimes(1);
+    // The marker is appended: the note keeps its own tag and its read markers.
+    expect(store.get('Communication/first')?.meta?.tag).toEqual([...(readBy('earlier').meta?.tag ?? []), notifiedTag]);
+
+    put(note('third', 'earlier'));
+    await run();
+
+    // writer, who wrote the first two notes, hears about the third.
+    expect(bellNotifications().map((notification) => notification.recipient?.[0].reference)).toEqual([
+      'Practitioner/assignee',
+      'Practitioner/assignee',
+      'Practitioner/writer',
     ]);
-    for (const patch of notePatches) {
-      expect(decodePatch(patch.resource.data)).toEqual([
-        {
-          op: 'add',
-          path: '/meta/tag/-',
-          value: { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE },
-        },
-      ]);
-    }
+    expect(oystehr.transactionalSMS.send).toHaveBeenCalledTimes(2);
   });
 });

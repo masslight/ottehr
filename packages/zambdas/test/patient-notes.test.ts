@@ -568,8 +568,8 @@ describe('update-patient-note handler', () => {
     mockFhirClient.fhir.get.mockResolvedValue(fakePractitioner);
   });
 
-  it('returns 200 and updates the Communication', async () => {
-    const existing = fakeNote();
+  it('returns 200 and updates the Communication, locked to the version it read', async () => {
+    const existing = fakeNote({ meta: { ...fakeNote().meta, versionId: '7' } });
     const updated = fakeNote({ payload: [{ contentString: 'updated text' }] });
     mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
     mockFhirClient.fhir.patch.mockResolvedValue(updated);
@@ -579,7 +579,9 @@ describe('update-patient-note handler', () => {
     );
 
     expect(result.statusCode).toBe(200);
-    expect(mockFhirClient.fhir.patch).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
+    expect(mockFhirClient.fhir.patch).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }), {
+      optimisticLockingVersionId: '7',
+    });
     expect(mockFhirClient.fhir.create).not.toHaveBeenCalled();
   });
 

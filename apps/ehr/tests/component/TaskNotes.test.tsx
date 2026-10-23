@@ -1,12 +1,14 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryKey } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { MemoryRouter } from 'react-router-dom';
 import { createPatientNote, getPatientNotes, markTaskNotesRead } from 'src/api/api';
+import { invalidateNotes } from 'src/features/patient-notes/hooks/usePatientNotes';
 import { Tasks } from 'src/features/tasks/pages/Tasks';
 import {
   GetPatientNotesInput,
+  MarkTaskNotesReadInput,
   PatientNoteDTO,
   SavePatientNoteOutput,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
@@ -25,7 +27,9 @@ vi.mock('src/api/api', () => ({
     hasMore: false,
   })),
   createPatientNote: vi.fn(),
-  markTaskNotesRead: vi.fn(),
+  markTaskNotesRead: vi.fn(async (_client: unknown, { taskId }: MarkTaskNotesReadInput) => {
+    notes = notes.map((note) => (note.taskId === taskId ? { ...note, isUnread: false } : note));
+  }),
   updatePatientNote: vi.fn(),
   deletePatientNote: vi.fn(),
 }));
@@ -173,6 +177,77 @@ describe('Tasks board: task notes', () => {
     expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
   });
 
+  it('marks the notes read when they are opened before the board has loaded them', async () => {
+    tasks = [task('open', { assignee: assignedTo(ME) }), task('other')];
+    notes = [note('open')];
+    // The board's request never finishes.
+    vi.mocked(getPatientNotes).mockImplementationOnce(() => new Promise(() => undefined));
+    renderBoard();
+    expect(getPatientNotes).toHaveBeenCalledWith(expect.anything(), { taskIds: ['open', 'other'] });
+
+    await userEvent.click(title('open'));
+
+    expect(await within(await screen.findByRole('dialog')).findByText('About open')).toBeInTheDocument();
+    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open' }));
+  });
+
+  it('marks a note read that arrived after the board last loaded', async () => {
+    tasks = [task('open', { assignee: assignedTo(ME) })];
+    notes = [note('open', { isUnread: false })];
+    renderBoard();
+    await userEvent.hover(title('open'));
+    expect(await within(await screen.findByRole('tooltip')).findByText('About open')).toBeInTheDocument();
+    await userEvent.unhover(title('open'));
+    expect(hasUnreadDot('open')).toBe(false);
+    notes = [note('open', { resourceId: 'newer', text: 'Payer called back' }), ...notes];
+
+    await userEvent.click(title('open'));
+
+    expect(await within(await screen.findByRole('dialog')).findByText('Payer called back')).toBeInTheDocument();
+    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open' }));
+  });
+
+  it('clears the unread dot once the opened notes are marked read, marking them only once', async () => {
+    tasks = [task('open', { assignee: assignedTo(ME) })];
+    notes = [note('open')];
+    renderBoard();
+    await waitFor(() => expect(hasUnreadDot('open')).toBe(true));
+
+    await userEvent.click(title('open'));
+    await within(await screen.findByRole('dialog')).findByText('About open');
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'close' }));
+
+    await waitFor(() => expect(hasUnreadDot('open')).toBe(false));
+    expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
+
+    // Reopened: the discussion cached from the first opening still says unread until it reloads.
+    const requestsBefore = vi.mocked(getPatientNotes).mock.calls.length;
+    await userEvent.click(title('open'));
+    await waitFor(() => expect(getPatientNotes).toHaveBeenCalledTimes(requestsBefore + 1));
+    await within(await screen.findByRole('dialog')).findByText('About open');
+    expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the dot when marking fails, and tries again the next time the notes are opened', async () => {
+    tasks = [task('open', { assignee: assignedTo(ME) })];
+    notes = [note('open')];
+    vi.mocked(markTaskNotesRead).mockRejectedValueOnce(new Error('Network error'));
+    renderBoard();
+    await waitFor(() => expect(hasUnreadDot('open')).toBe(true));
+
+    await userEvent.click(title('open'));
+    await within(await screen.findByRole('dialog')).findByText('About open');
+    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(1));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(hasUnreadDot('open')).toBe(true);
+
+    await userEvent.click(title('open'));
+    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(2));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'close' }));
+    await waitFor(() => expect(hasUnreadDot('open')).toBe(false));
+  });
+
   it('closes the dialog and confirms with the text once a note is added', async () => {
     tasks = [task('open', { assignee: assignedTo(ME) })];
     vi.mocked(createPatientNote).mockResolvedValue({ note: note('open', { authorId: ME, isUnread: false }) });
@@ -213,5 +288,39 @@ describe('Tasks board: task notes', () => {
       expect(enqueueSnackbar).toHaveBeenCalledWith('Note created: Called the payer', { variant: 'success' })
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+});
+
+describe('invalidateNotes', () => {
+  const PATIENT_QUERIES: QueryKey[] = [
+    ['patient-notes', { patientId: 'patient-1' }],
+    ['patient-notes-count', { patientId: 'patient-1' }],
+    ['patient-notes', { patientId: 'patient-2' }],
+    ['patient-notes-count', { patientId: 'patient-2' }],
+  ];
+  const TASK_QUERIES: QueryKey[] = [
+    ['patient-notes', { taskId: 'task-1' }],
+    ['patient-notes', { taskId: 'task-2' }],
+    ['patient-notes', 'tasks', ['task-1', 'task-2']],
+    ['patient-notes', 'tasks', ['task-3']],
+  ];
+
+  const invalidatedBy = (target: Parameters<typeof invalidateNotes>[1]): QueryKey[] => {
+    const queryClient = new QueryClient();
+    for (const queryKey of [...PATIENT_QUERIES, ...TASK_QUERIES]) queryClient.setQueryData(queryKey, {});
+    invalidateNotes(queryClient, target);
+    return queryClient
+      .getQueryCache()
+      .getAll()
+      .filter((query) => query.state.isInvalidated)
+      .map((query) => query.queryKey);
+  };
+
+  it("refreshes a patient's notes and count, and no one else's", () => {
+    expect(invalidatedBy({ patientId: 'patient-1' })).toEqual(PATIENT_QUERIES.slice(0, 2));
+  });
+
+  it("refreshes a task's notes and only the board pages that show it", () => {
+    expect(invalidatedBy({ taskId: 'task-1' })).toEqual([TASK_QUERIES[0], TASK_QUERIES[2]]);
   });
 });

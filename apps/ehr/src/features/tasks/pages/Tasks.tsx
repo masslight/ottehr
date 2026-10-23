@@ -24,8 +24,7 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import Loading from 'src/components/Loading';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
-import { PatientNotesDialog } from 'src/features/patient-notes/components/PatientNotesDialog';
-import { useMarkTaskNotesRead, useTaskNotes } from 'src/features/patient-notes/hooks/useTaskNotes';
+import { useTaskNotes } from 'src/features/patient-notes/hooks/useTaskNotes';
 import {
   formatDate,
   OPEN_DOSESPOT,
@@ -43,6 +42,7 @@ import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
 import { MoreTaskActions } from '../components/MoreTaskActions';
+import { TaskNotesDialog } from '../components/TaskNotesDialog';
 import { TaskTitle } from '../components/TaskTitle';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
@@ -223,7 +223,6 @@ export const Tasks: React.FC = () => {
     }
     return grouped;
   }, [taskNotes]);
-  const { mutate: markTaskNotesRead } = useMarkTaskNotesRead();
   const [notesTaskId, setNotesTaskId] = useState<string | undefined>();
 
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
@@ -349,10 +348,7 @@ export const Tasks: React.FC = () => {
                               task={task}
                               notes={notes}
                               currentUserId={currentUserProviderId}
-                              onOpenNotes={() => {
-                                setNotesTaskId(task.id);
-                                if (notes.some((note) => note.isUnread)) markTaskNotesRead(task.id);
-                              }}
+                              onOpenNotes={() => setNotesTaskId(task.id)}
                             />
                             {task.alert ? renderAlertIcon(task.alert) : null}
                           </Box>
@@ -412,9 +408,8 @@ export const Tasks: React.FC = () => {
           />
         </Paper>
         {notesTaskId ? (
-          <PatientNotesDialog
-            target={{ taskId: notesTaskId }}
-            open
+          <TaskNotesDialog
+            taskId={notesTaskId}
             onClose={() => setNotesTaskId(undefined)}
             onNoteCreated={(text) => {
               setNotesTaskId((current) => (current === notesTaskId ? undefined : current));

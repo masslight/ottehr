@@ -2,9 +2,11 @@ import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-
 import { PatientNoteDTO, UpdatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { updatePatientNote } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { invalidateNotes } from './usePatientNotes';
+import { invalidateNotes, NoteTarget } from './usePatientNotes';
 
-export const useUpdatePatientNote = (): UseMutationResult<PatientNoteDTO, Error, UpdatePatientNoteRequest> => {
+export const useUpdatePatientNote = (
+  target: NoteTarget
+): UseMutationResult<PatientNoteDTO, Error, UpdatePatientNoteRequest> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
@@ -14,6 +16,6 @@ export const useUpdatePatientNote = (): UseMutationResult<PatientNoteDTO, Error,
       const result = await updatePatientNote(oystehrZambda, { note });
       return result.note;
     },
-    onSuccess: () => invalidateNotes(queryClient),
+    onSuccess: () => invalidateNotes(queryClient, target),
   });
 };

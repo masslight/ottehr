@@ -314,8 +314,8 @@ with their Tasks (`_include`) and every other note on those Tasks (`_revinclude:
 
 ```
 for each new note:
-   recipients = task owner + task requester (the creator; manual tasks only) + authors of the task's live notes
-                − the note's author − anyone with a read tag on the note
+   recipients = task owner + task requester (the creator, recorded only on manual tasks staff create)
+                + authors of the task's live notes − the note's author − anyone with a read tag on the note
    for each recipient who is active staff, once per (task, recipient) per run:
       migrated staff + categorized task: row = prefs.taskCategories[category]
          notify if row matches (enabled + location); being involved counts as assigned, so 'me' rows match

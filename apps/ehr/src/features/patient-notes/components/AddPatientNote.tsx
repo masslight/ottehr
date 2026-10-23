@@ -12,7 +12,7 @@ interface AddPatientNoteProps {
 
 export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ target, onCreated }) => {
   const [text, setText] = useState('');
-  const { mutateAsync: save, isPending } = useCreatePatientNote();
+  const { mutateAsync: save, isPending } = useCreatePatientNote(target);
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim()) return;

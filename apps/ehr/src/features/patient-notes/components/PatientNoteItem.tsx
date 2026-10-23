@@ -26,7 +26,7 @@ export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note, target }
   const theme = useTheme();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const { mutateAsync: deleteNote, isPending: isDeleting } = useDeletePatientNote();
+  const { mutateAsync: deleteNote, isPending: isDeleting } = useDeletePatientNote(target);
 
   const handleDelete = async (entity: PatientNoteDTO): Promise<void> => {
     if (!entity.resourceId) return;

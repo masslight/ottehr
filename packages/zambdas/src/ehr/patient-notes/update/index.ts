@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Communication, Extension, Practitioner } from 'fhir/r4b';
+import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { SavePatientNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FHIR_RESOURCE_NOT_FOUND, FHIR_RESOURCE_VALIDATION_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -54,24 +55,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     url: NOTE_EDITOR_EXTENSION_URL,
     valueReference: { reference: `Practitioner/${callerId}`, display: getPractitionerName(callerPractitioner) },
   };
-  const isNewEditor = !existing.extension?.some(
-    (ext) => ext.url === NOTE_EDITOR_EXTENSION_URL && ext.valueReference?.reference === editor.valueReference?.reference
-  );
-  // A patch, not a whole-resource update: the author, sent time and tags (read markers, the notified marker) that
-  // others may write meanwhile all stay as they are. The editor is appended to an existing list, so two first-time
-  // editors at once both stay listed.
-  const operations: Operation[] = [{ op: 'replace', path: '/payload', value: [{ contentString: note.text }] }];
-  if (isNewEditor) {
-    operations.push(
-      existing.extension
-        ? { op: 'add', path: '/extension/-', value: editor }
-        : { op: 'add', path: '/extension', value: [editor] }
+  // A patch, not a whole-resource update, so the author, sent time and tags stay as they are. Version-checked, so any
+  // concurrent write (another edit, a read or notified marker) has it re-read the note and recompute: a first editor
+  // racing another can't replace the other's entry when both would create the editor list.
+  let current = existing;
+  const saved = await withVersionConflictRetries(async (attempt) => {
+    if (attempt > 1) {
+      current = await oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: note.resourceId });
+    }
+    const operations: Operation[] = [{ op: 'replace', path: '/payload', value: [{ contentString: note.text }] }];
+    const isNewEditor = !current.extension?.some(
+      (ext) =>
+        ext.url === NOTE_EDITOR_EXTENSION_URL && ext.valueReference?.reference === editor.valueReference?.reference
     );
-  }
-  const saved = await oystehr.fhir.patch<Communication>({
-    resourceType: 'Communication',
-    id: note.resourceId,
-    operations,
+    if (isNewEditor) {
+      operations.push(
+        current.extension
+          ? { op: 'add', path: '/extension/-', value: editor }
+          : { op: 'add', path: '/extension', value: [editor] }
+      );
+    }
+    return oystehr.fhir.patch<Communication>(
+      { resourceType: 'Communication', id: note.resourceId, operations },
+      { optimisticLockingVersionId: current.meta?.versionId }
+    );
   });
 
   const output: SavePatientNoteOutput = { note: toNoteDto(saved, callerId) };

@@ -1,6 +1,8 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import type { Communication, Practitioner } from 'fhir/r4b';
+import { applyPatch, Operation } from 'fast-json-patch';
+import type { Communication, Extension, Practitioner } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { TASK_NOTE_NOTIFIED_TAG_CODE, TASK_NOTE_NOTIFIED_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters as validateCreate } from '../src/ehr/patient-notes/create/validateRequestParameters';
@@ -276,5 +278,96 @@ describe('task notes handlers', () => {
 
     expect(JSON.parse(result.body).marked).toBe(0);
     expect(mockFhirClient.fhir.transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('update: concurrent edits', () => {
+  const editors: Record<string, Practitioner> = {
+    'practitioner-a': {
+      resourceType: 'Practitioner',
+      id: 'practitioner-a',
+      name: [{ given: ['Ann'], family: 'Avery' }],
+    },
+    'practitioner-b': {
+      resourceType: 'Practitioner',
+      id: 'practitioner-b',
+      name: [{ given: ['Ben'], family: 'Brooks' }],
+    },
+  };
+  const editorEntry = (id: string): Extension => ({
+    url: NOTE_EDITOR_EXTENSION_URL,
+    valueReference: { reference: `Practitioner/${id}`, display: id === 'practitioner-a' ? 'Ann Avery' : 'Ben Brooks' },
+  });
+  const tags = [
+    { system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE },
+    { system: TASK_NOTE_READ_BY_TAG_SYSTEM, code: ME },
+    { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE },
+  ];
+
+  // One stored note, versioned as Oystehr versions it: a patch naming a stale version is refused with a 412. Every
+  // editor reads the note before any of them writes.
+  const editConcurrently = async (initial: Communication, editorIds: string[]): Promise<Communication> => {
+    let stored: Communication = { ...structuredClone(initial), meta: { ...initial.meta, versionId: '1' } };
+    let firstReads = 0;
+    let releaseFirstReads = (): void => undefined;
+    const everyoneHasRead = new Promise<void>((resolve) => (releaseFirstReads = resolve));
+    mockFhirClient.fhir.get.mockImplementation(async ({ resourceType, id }: { resourceType: string; id: string }) => {
+      if (resourceType === 'Practitioner') return editors[id];
+      const snapshot = structuredClone(stored);
+      if (firstReads < editorIds.length) {
+        firstReads += 1;
+        if (firstReads === editorIds.length) releaseFirstReads();
+        await everyoneHasRead;
+      }
+      return snapshot;
+    });
+    mockFhirClient.fhir.patch.mockImplementation(
+      async ({ operations }: { operations: Operation[] }, options?: { optimisticLockingVersionId?: string }) => {
+        const lockedVersion = options?.optimisticLockingVersionId;
+        if (lockedVersion && lockedVersion !== stored.meta?.versionId) {
+          throw Object.assign(new Error('Precondition Failed'), { code: 412 });
+        }
+        stored = applyPatch(structuredClone(stored), operations).newDocument;
+        stored.meta = { ...stored.meta, versionId: String(Number(stored.meta?.versionId) + 1) };
+        return structuredClone(stored);
+      }
+    );
+    vi.mocked(getMyPractitionerId).mockImplementation(async (token) => token);
+
+    await Promise.all(
+      editorIds.map((id) =>
+        updateHandler({
+          headers: { Authorization: `Bearer ${id}` },
+          body: JSON.stringify({ note: { resourceId: NOTE_ID, taskId: TASK_ID, text: `Edited by ${id}` } }),
+          secrets: {},
+        })
+      )
+    );
+    return stored;
+  };
+
+  it('keeps both editors when two people make the first edits at once', async () => {
+    const original = taskNote({ meta: { tag: tags } });
+
+    const saved = await editConcurrently(original, ['practitioner-a', 'practitioner-b']);
+
+    expect(saved.extension).toHaveLength(2);
+    expect(saved.extension).toEqual(
+      expect.arrayContaining([editorEntry('practitioner-a'), editorEntry('practitioner-b')])
+    );
+    expect(saved).toMatchObject({ sender: original.sender, sent: original.sent, meta: { tag: tags } });
+    // The second write lost the race, re-read the note and tried again.
+    expect(mockFhirClient.fhir.patch).toHaveBeenCalledTimes(3);
+  });
+
+  it('adds only the new editor to an existing list, keeping the other extensions', async () => {
+    const other: Extension = { url: 'https://example.com/other-extension', valueString: 'kept' };
+    const original = taskNote({ meta: { tag: tags }, extension: [other, editorEntry('practitioner-a')] });
+
+    const saved = await editConcurrently(original, ['practitioner-a', 'practitioner-b']);
+
+    expect(saved.extension).toEqual([other, editorEntry('practitioner-a'), editorEntry('practitioner-b')]);
+    expect(saved).toMatchObject({ sender: original.sender, sent: original.sent, meta: { tag: tags } });
+    expect(mockFhirClient.fhir.patch).toHaveBeenCalledTimes(3);
   });
 });
