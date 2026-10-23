@@ -14,6 +14,17 @@ import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwor
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockSendEmail = vi.fn();
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/ottehr-config/feature-flags')>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: {
+      ...actual.FEATURE_FLAGS_CONFIG,
+      skipSendingVisitNoteToPatientPortalEnabled: false,
+    },
+  };
+});
+
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({
     getFeatureFlag: () => true,
