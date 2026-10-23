@@ -2,7 +2,13 @@ import Oystehr, { BatchInputPatchRequest, FhirResourceReturnValue } from '@oyste
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
-import { getExtensionValue, reducePatchOperations, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import {
+  getExtensionValue,
+  reducePatchOperations,
+  versionLockedPatches,
+  withVersionConflictRetries,
+} from 'utils/lib/fhir/helpers';
+import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { Secrets } from 'utils/lib/secrets';
 import {
   CLAIM_TAG_SYSTEM,
@@ -15,7 +21,12 @@ import {
   SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
-import { claimMetaTagsWithProvenanceRequests, resolveClaimActor } from '../../../billing/provenance';
+import {
+  claimEventProvenanceRequest,
+  claimHistoryHasEntryFor,
+  claimMetaTagsWithProvenanceRequests,
+  resolveClaimActor,
+} from '../../../billing/provenance';
 import {
   buildUpdatedClaimStatusTags,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
@@ -35,6 +46,7 @@ import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'sub-claim-response-adjust-status';
+const IMPORTED_MATCH_HISTORY_TAG_SYSTEM = ottehrCodeSystemUrl('claim-history-imported-match');
 
 let m2mToken: string;
 
@@ -157,7 +169,7 @@ function planStatusAdjustment(claim: Claim, claimResponse: ClaimResponse): Statu
 }
 
 export async function performEffect(oystehr: Oystehr, validated: ComplexValidationOutput): Promise<void> {
-  const { claim, claimResponse } = validated;
+  const { claim, claimResponse, agent } = validated;
   if (!validated.newlyMatched) {
     console.log(`ClaimResponse/${validated.claimResponseId} was edited, not newly matched; leaving Claim/${claim.id}`);
     return;
@@ -166,6 +178,27 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
     console.log(`ClaimResponse/${validated.claimResponseId} belongs to a voided ERA; leaving Claim/${claim.id}`);
     return;
   }
+
+  // a biller's match or manually keyed remit already recorded it; an imported remit has no entry yet
+  const claimResponseReference = `ClaimResponse/${claimResponse.id}`;
+  const matchRecorded = await claimHistoryHasEntryFor({
+    oystehr,
+    claimId: claim.id,
+    targetReference: claimResponseReference,
+  });
+  const matchHistory = matchRecorded
+    ? null
+    : claimEventProvenanceRequest({
+        targetReference: claimResponseReference,
+        claimId: claim.id,
+        after: claimResponse,
+        agent,
+        activity: 'create',
+        dedupTag: {
+          system: IMPORTED_MATCH_HISTORY_TAG_SYSTEM,
+          code: `${claimResponse.id}:${claim.id}`,
+        },
+      });
 
   await withVersionConflictRetries(async (attempt) => {
     const current = attempt === 1 ? claim : await oystehr.fhir.get<Claim>({ resourceType: 'Claim', id: claim.id });
@@ -191,34 +224,53 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       console.log(`Claim/${current.id} no longer needs this adjustment after the conflict, skipping`);
     }
     const claimResponseIcn = getExtensionValue(claimResponse, ERA_ICN_EXTENSION, 'valueString');
-    const requests = reducePatchOperations<Claim | Provenance>([
-      ...(updatedTags.length
-        ? claimMetaTagsWithProvenanceRequests(claim, updatedTags, 'statusChange', validated.agent)
-        : []),
+    const withIcn: Claim = claimResponseIcn
+      ? {
+          ...current,
+          identifier: [
+            ...(current.identifier ?? []).filter(
+              (identifier) => identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+            ),
+            {
+              system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+              value: claimResponseIcn,
+            },
+          ],
+        }
+      : current;
+    const icnHistory = claimEventProvenanceRequest({
+      targetReference: `Claim/${current.id}`,
+      claimId: current.id,
+      before: current,
+      after: withIcn,
+      agent,
+      activity: 'update',
+    });
+    const merged = reducePatchOperations<Claim | Provenance>([
+      ...(updatedTags.length ? claimMetaTagsWithProvenanceRequests(current, updatedTags, 'statusChange', agent) : []),
       ...(claimResponseIcn
         ? [
             {
               method: 'PATCH',
-              url: `/Claim/${claim.id}`,
+              url: `/Claim/${current.id}`,
               operations: [
                 {
                   op: 'replace',
                   path: '/identifier',
-                  value: [
-                    ...(claim.identifier ?? []).filter(
-                      (identifier) => identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
-                    ),
-                    {
-                      system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
-                      value: claimResponseIcn,
-                    },
-                  ],
+                  value: withIcn.identifier,
                 },
               ],
             } as BatchInputPatchRequest<Claim>,
           ]
         : []),
+      ...(icnHistory ? [icnHistory] : []),
+      ...(matchHistory ? [matchHistory] : []),
     ]);
+    // locked to the claim this attempt read
+    const requests = versionLockedPatches({
+      requests: merged,
+      resource: current,
+    });
     if (!requests.length) {
       // Nothing to do
       return;

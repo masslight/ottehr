@@ -1,8 +1,10 @@
-import Oystehr, { BatchInputJSONPatchRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Claim, ClaimResponse, Coding, FhirResource, Identifier, ProvenanceAgent } from 'fhir/r4b';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
+import { Binary, Claim, ClaimResponse, Coding, FhirResource, Identifier, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
   HOLD_TAG_NAME,
@@ -21,6 +23,7 @@ import {
   performEffect,
 } from '../../../src/subscriptions/claim-response/sub-claim-response-update-claim-from-era';
 import { validateRequestParameters } from '../../../src/subscriptions/claim-response/sub-claim-response-update-claim-from-era/validateRequestParameters';
+import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/billing/provenance')>()),
@@ -30,11 +33,13 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
 const transaction = vi.fn();
 const get = vi.fn();
 const history = vi.fn();
+const search = vi.fn();
 const oystehr = {
   fhir: {
     transaction,
     get,
     history,
+    search,
   },
 } as unknown as Oystehr;
 
@@ -133,27 +138,34 @@ const validated = (claim: Claim, claimResponse: ClaimResponse): ComplexValidatio
     newlyMatched: true,
   }) as unknown as ComplexValidationOutput;
 
+const writtenClaimOperations = (): Operation[] => {
+  const requests = transaction.mock.calls.at(-1)?.[0].requests as BatchInputRequest<FhirResource>[];
+  const patch = requests.find((r) => r.method === 'PATCH' && r.url === '/Claim/claim-1') as
+    | { resource: Binary }
+    | undefined;
+  return patch ? JSON.parse(atob(patch.resource.data ?? '')) : [];
+};
+
 // The meta.tag array the committed transaction actually writes, read back out of the PATCH Binary.
 const writtenTags = (): Coding[] => {
-  const requests = transaction.mock.calls.at(-1)?.[0].requests as BatchInputRequest<FhirResource>[];
-  const patch = requests.find((r) => r.method === 'PATCH' && 'operations' in r && r.operations) as
-    | BatchInputJSONPatchRequest
-    | undefined;
-  const tagOp = patch?.operations.find((op) => op.path === '/meta/tag');
+  const tagOp = writtenClaimOperations().find((op) => op.path === '/meta/tag');
   return (tagOp as { value: Coding[] }).value;
 };
 
 const writtenIdentifiers = (): Identifier[] => {
-  const requests = transaction.mock.calls.at(-1)?.[0].requests as BatchInputRequest<FhirResource>[];
-  const patch = requests.find((r) => r.method === 'PATCH' && 'operations' in r && r.operations) as
-    | BatchInputJSONPatchRequest
-    | undefined;
-  const identifiers = patch?.operations.find((op) => op.path === '/identifier');
+  const identifiers = writtenClaimOperations().find((op) => op.path === '/identifier');
   return (identifiers as { value: Identifier[] } | undefined)?.value ?? [];
 };
 
 const codesInSystem = (tags: Coding[], system: string): string[] =>
   tags.filter((t) => t.system === system).map((t) => t.code ?? '');
+
+const lastRequests = (): BatchInputRequest<FhirResource>[] => transaction.mock.calls.at(-1)?.[0].requests ?? [];
+
+const historyEntries = (): Provenance[] => claimHistoryEntries(lastRequests());
+
+const claimPatches = (): BatchInputRequest<FhirResource>[] =>
+  lastRequests().filter((request) => request.method === 'PATCH');
 
 const versionConflict = (): Error =>
   Object.assign(new Error('Precondition Failed'), {
@@ -164,6 +176,9 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     transaction.mockResolvedValue({ entry: [] });
+    search.mockResolvedValue({
+      unbundle: () => [],
+    });
   });
 
   // Regression: these were written as one index-keyed patch op per tag, computed against the same
@@ -212,7 +227,7 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     expect(codesInSystem(writtenTags(), CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus)).toEqual(['adjudicated']);
   });
 
-  it('does nothing when the claim is not at the insurance-payer AR stage', async () => {
+  it('only records the match when the claim is not at the insurance-payer AR stage', async () => {
     const patientArClaim = claimWith([]);
     patientArClaim.meta!.tag = [
       {
@@ -223,7 +238,8 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
 
     await performEffect(oystehr, validated(patientArClaim, forwardedResponse));
 
-    expect(transaction).not.toHaveBeenCalled();
+    expect(claimPatches()).toEqual([]);
+    expect(historyEntries().map((entry) => entry.target?.[0]?.reference)).toEqual(['ClaimResponse/response-1']);
   });
 
   it('leaves the claim alone when the response was edited rather than newly matched', async () => {
@@ -238,7 +254,7 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('does nothing when the claim is already adjudicated', async () => {
+  it('only records the match when the claim is already adjudicated', async () => {
     const adjudicated = claimWith([]);
     adjudicated.meta!.tag!.push({
       system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
@@ -247,7 +263,101 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
 
     await performEffect(oystehr, validated(adjudicated, forwardedResponse));
 
-    expect(transaction).not.toHaveBeenCalled();
+    expect(claimPatches()).toEqual([]);
+    expect(historyEntries()).toHaveLength(1);
+  });
+
+  it('records an imported response in the claim history as created', async () => {
+    await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
+
+    const matchEntry = historyEntries().find((entry) => entry.target?.[0]?.reference === 'ClaimResponse/response-1');
+    expect(matchEntry).toMatchObject({
+      target: [
+        {
+          reference: 'ClaimResponse/response-1',
+        },
+        {
+          reference: 'Claim/claim-1',
+        },
+      ],
+      activity: {
+        coding: [CLAIM_PROVENANCE_ACTIVITY.create],
+      },
+      agent: [agent],
+    });
+  });
+
+  it('records the imported match only while no overlapping delivery has', async () => {
+    await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
+
+    const matchEntry = lastRequests().find(
+      (request) =>
+        request.url === '/Provenance' &&
+        (request as { resource: Provenance }).resource.target?.[0]?.reference === 'ClaimResponse/response-1'
+    ) as { resource: Provenance; ifNoneExist: unknown };
+    const [dedupTag] = matchEntry.resource.meta?.tag ?? [];
+    expect(dedupTag?.code).toBe('response-1:claim-1');
+    expect(matchEntry.ifNoneExist).toEqual([
+      {
+        name: '_tag',
+        value: `${dedupTag?.system}|${dedupTag?.code}`,
+      },
+    ]);
+  });
+
+  it("does not record a match a biller's save already recorded", async () => {
+    search.mockResolvedValue({
+      unbundle: () => [
+        {
+          resourceType: 'Provenance',
+          target: [
+            {
+              reference: 'ClaimResponse/response-1',
+            },
+            {
+              reference: 'Claim/claim-1',
+            },
+          ],
+        },
+      ],
+    });
+
+    await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
+
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Provenance',
+      params: expect.arrayContaining([
+        {
+          name: 'target',
+          value: 'ClaimResponse/response-1',
+        },
+      ]),
+    });
+    expect(historyEntries().filter((entry) => entry.target?.[0]?.reference === 'ClaimResponse/response-1')).toEqual([]);
+  });
+
+  it("records the match even when the ERA's own record already targets the response", async () => {
+    search.mockResolvedValue({
+      unbundle: () => [
+        {
+          resourceType: 'Provenance',
+          target: [
+            {
+              reference: 'PaymentReconciliation/era-1',
+            },
+            {
+              reference: 'ClaimResponse/response-1',
+            },
+          ],
+        },
+      ],
+    });
+
+    await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
+
+    expect(
+      historyEntries().filter((entry) => entry.target?.[0]?.reference === 'ClaimResponse/response-1')
+    ).toHaveLength(1);
   });
 
   it('re-reads the claim and retries once the commit hits a version conflict', async () => {
@@ -268,6 +378,23 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     ]);
   });
 
+  // Regression: the retry built its patch from the claim first read, so it sent the version that had
+  // just conflicted and could only conflict again.
+  it('locks the retry to the version of the claim it re-read', async () => {
+    transaction.mockRejectedValueOnce(versionConflict()).mockResolvedValue({ entry: [] });
+    const reRead = claimWith([claimTag('customTag')]);
+    reRead.meta!.versionId = '2';
+    get.mockResolvedValue(reRead);
+
+    await performEffect(oystehr, validated(claimWith([]), forwardedResponse));
+
+    expect(claimPatches()).toMatchObject([
+      {
+        ifMatch: 'W/"2"',
+      },
+    ]);
+  });
+
   // Regression: the conflicting writer can be another ClaimResponse landing 'adjudicated'. The retry
   // re-read the claim but kept the plan built before the conflict, walking the status back to
   // 'submitted' for a forwarded response.
@@ -282,7 +409,7 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
 
     await performEffect(oystehr, validated(claimWith([]), forwardedResponse));
 
-    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(claimPatches()).toEqual([]);
   });
 
   // Regression: same stale plan re-applied the Hold tag to a claim the biller had just moved on.
@@ -299,7 +426,7 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
 
     await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
 
-    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(claimPatches()).toEqual([]);
   });
 
   it('does not add a payer claim control number if claim response does not have one', async () => {
@@ -318,6 +445,82 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     );
     const identifiers = writtenIdentifiers();
     expect(identifiers).toEqual([{ system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM, value: 'PCCN-12345' }]);
+  });
+
+  const withIcn = (icn: string): ClaimResponse => ({
+    ...notForwardedResponse,
+    extension: [
+      {
+        url: ERA_ICN_EXTENSION,
+        valueString: icn,
+      },
+    ],
+  });
+
+  const claimUpdates = (): Provenance[] =>
+    historyEntries().filter(
+      (entry) =>
+        entry.target?.[0]?.reference === 'Claim/claim-1' &&
+        entry.activity?.coding?.[0]?.code === CLAIM_PROVENANCE_ACTIVITY.update.code
+    );
+
+  it('records the payer claim control number in the claim history', async () => {
+    await performEffect(oystehr, validated(claimWith([], 1), withIcn('PCCN-12345')));
+
+    expect(claimUpdates()).toHaveLength(1);
+    expect(provenanceChanges(claimUpdates()[0])).toEqual([
+      {
+        field: 'payerClaimControlNumber',
+        label: 'Payer Claim Control Number',
+        previousValue: null,
+        newValue: 'PCCN-12345',
+      },
+    ]);
+  });
+
+  it('records the payer claim control number even when the claim status does not change', async () => {
+    const adjudicated = claimWith([]);
+    adjudicated.meta!.tag!.push({
+      system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
+      code: 'adjudicated',
+    });
+
+    await performEffect(oystehr, validated(adjudicated, withIcn('PCCN-12345')));
+
+    expect(claimUpdates()).toHaveLength(1);
+  });
+
+  it('locks the payer claim control number to the claim version when the status does not change', async () => {
+    const adjudicated = claimWith([]);
+    adjudicated.meta!.tag!.push({
+      system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
+      code: 'adjudicated',
+    });
+
+    await performEffect(oystehr, validated(adjudicated, withIcn('PCCN-12345')));
+
+    expect(claimPatches()).toMatchObject([
+      {
+        url: '/Claim/claim-1',
+        ifMatch: 'W/"1"',
+      },
+    ]);
+  });
+
+  it('records nothing for a payer claim control number the claim already has', async () => {
+    const claim: Claim = {
+      ...claimWith([], 1),
+      identifier: [
+        {
+          system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+          value: 'PCCN-12345',
+        },
+      ],
+    };
+
+    await performEffect(oystehr, validated(claim, withIcn('PCCN-12345')));
+
+    expect(claimUpdates()).toEqual([]);
   });
 });
 
