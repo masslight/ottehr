@@ -337,7 +337,6 @@ function FieldValueInput({
   helperText,
   inputRef,
   allowEmptyOption,
-  allowNew,
 }: {
   fieldId: string;
   multiple: boolean;
@@ -347,8 +346,6 @@ function FieldValueInput({
   onChange: (value: string | string[]) => void;
   label?: string;
   allowEmptyOption?: boolean;
-  // Service fields: whether a name outside the listed services can be entered (false for setField).
-  allowNew?: boolean;
 } & ValueInputValidationProps): ReactElement {
   const def = getRuleFieldDef(fieldId);
   if (isRegex) {
@@ -428,7 +425,6 @@ function FieldValueInput({
         value={value}
         onChange={onChange}
         label={label}
-        allowNew={allowNew}
         required={required}
         error={error}
         helperText={helperText}
@@ -1239,7 +1235,6 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
                 }
                 inputRef={ref}
                 allowEmptyOption={!!setFieldDef && !setFieldDef.requiredOnSet}
-                allowNew={false}
               />
             )}
           />

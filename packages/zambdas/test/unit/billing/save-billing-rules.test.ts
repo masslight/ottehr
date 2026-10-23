@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
-import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -418,58 +417,5 @@ describe('save-billing-rules complexValidation (payers must exist)', () => {
     await expect(complexValidation(oystehr, params([rule('Plain')]))).resolves.toBeUndefined();
     expect(batch).not.toHaveBeenCalled();
     expect(getPayer).not.toHaveBeenCalled();
-  });
-});
-
-describe('save-billing-rules complexValidation (set services must be services seen on claims)', () => {
-  const serviceRule = (name: string, value: string): BillingRuleInput => ({
-    name,
-    description: '',
-    enabled: true,
-    conditional: {
-      branches: [
-        {
-          condition: { type: 'all' },
-          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value }] },
-        },
-      ],
-    },
-  });
-
-  const serviceBasic = (code: string): Basic => ({
-    resourceType: 'Basic',
-    code: { text: code, coding: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code }] },
-  });
-
-  const basicSearches = (): unknown[] => search.mock.calls.filter(([q]) => q.resourceType === 'Basic');
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    search.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
-      unbundle: () => (resourceType === 'Basic' ? [serviceBasic('urgent-care'), serviceBasic('workers-comp')] : []),
-    }));
-  });
-
-  it('passes when the service is named as the claim screens show a service seen on claims', async () => {
-    await expect(complexValidation(oystehr, params([serviceRule('Set WC', 'Workers Comp')]))).resolves.toBeUndefined();
-    expect(basicSearches()).toHaveLength(1);
-  });
-
-  it('rejects any other name, including a service code, naming the rule and the value', async () => {
-    await expect(
-      complexValidation(
-        oystehr,
-        params([serviceRule('By code', 'workers-comp'), serviceRule('New', 'Sports Physicals')])
-      )
-    ).rejects.toThrow(
-      /rule "By code" sets the service to "workers-comp".*rule "New" sets the service to "Sports Physicals"/
-    );
-  });
-
-  it('skips the lookup for clearing actions and rules that set nothing', async () => {
-    await expect(
-      complexValidation(oystehr, params([serviceRule('Clear it', ''), rule('Plain')]))
-    ).resolves.toBeUndefined();
-    expect(basicSearches()).toHaveLength(0);
   });
 });

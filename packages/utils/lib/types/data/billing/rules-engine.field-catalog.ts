@@ -7,7 +7,7 @@ import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
 import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
-import { CLAIM_STATUS_FIELDS } from './claim-status';
+import { CLAIM_STATUS_FIELDS, parseAntCaseString } from './claim-status';
 import {
   AddServiceLineInput,
   DATE_SOURCE_KIND,
@@ -135,6 +135,10 @@ export interface RuleValueFormatDef {
   validate?: (value: string) => string | undefined;
   // One-line format hint for the generated docs and UI helper text.
   hint: string;
+  // For values with more than one spelling, the canonical form the engine compares: both sides of a
+  // condition are reduced to it, so a service's displayed name ("Workers Comp") and its code
+  // (workers-comp) are the same value.
+  normalize?: (value: string) => string;
 }
 
 // Messages mirror the billing app's form validation (billing.schemas.ts / the provider and
@@ -163,7 +167,7 @@ export const RULE_VALUE_FORMATS: Record<RuleValueFormat, RuleValueFormatDef> = {
   },
   tag: { hint: 'a tag defined on the Tags page' },
   cpt: { hint: 'a CPT/HCPCS code' },
-  service: { hint: 'a service name as the claims list shows it, e.g. Workers Comp' },
+  service: { hint: 'a service name as the claims list shows it, e.g. Workers Comp', normalize: parseAntCaseString },
 };
 
 export interface RuleFieldDef {
@@ -552,9 +556,9 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description:
-      'The service category, by the name the claims list shows (e.g. Workers Comp, not its code). ' +
-      'A condition can pick a service seen on a claim so far or name one no claim has used yet; ' +
-      'setting it must pick a service seen on a claim so far.',
+      'The service category, by the name the claims list shows (e.g. Workers Comp). Pick a service seen on a claim so far, or type the name of one no claim has used yet. ' +
+      'Comparisons ignore case and treat hyphens as spaces, so the underlying code (workers-comp) matches too, and a pattern matches either form. ' +
+      'Setting it stores the code for the name (lowercased, words joined by hyphens).',
     format: 'service',
   },
   {
@@ -1351,21 +1355,6 @@ export function ruleReferencesPatientCoverage(rule: { conditional: RuleCondition
 export interface SetResourceRef {
   field: string;
   ref: string;
-}
-
-export const SERVICE_FIELD_ID = 'service';
-
-// The service names a rule's setField actions assign (deduped, in tree order) — save-billing-rules
-// checks each is the name of a service seen on claims, and the engine prefetches those services so
-// the synchronous writer can look up the code the claim stores.
-export function collectSetServiceNames(rule: { conditional: RuleConditional }): string[] {
-  const names: string[] = [];
-  forEachRuleAction(rule, (action) => {
-    if (action.type !== 'setField' || action.field !== SERVICE_FIELD_ID) return;
-    const name = action.value?.trim();
-    if (name && !names.includes(name)) names.push(name);
-  });
-  return names;
 }
 
 export const NON_INSURANCE_PAYER_FIELD_ID = 'nonInsurancePayerId';

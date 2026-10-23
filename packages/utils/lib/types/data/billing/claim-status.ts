@@ -278,6 +278,18 @@ export function formatAntCaseString(value?: string): string {
     .join(' ');
 }
 
+// The inverse of formatAntCaseString: the code a displayed name stands for ("Workers Comp" ->
+// "workers-comp"). Codes are lowercase words joined by hyphens, so a value already in that form passes
+// through unchanged.
+export function parseAntCaseString(value?: string): string {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .join('-');
+}
+
 // Whether `code` is a valid selection for the field. Empty/null (clear back to default) is allowed.
 export function isValidClaimStatusValue(field: ClaimStatusFieldDef, code: string | null | undefined): boolean {
   if (code == null || code === '') return true;

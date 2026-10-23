@@ -9,7 +9,6 @@ import {
   collectSetNioIds,
   collectSetPayerIds,
   collectSetResourceRefs,
-  collectSetServiceNames,
   getRuleFieldDef,
   NON_INSURANCE_PAYER_FIELD_ID,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
@@ -32,8 +31,6 @@ import {
   hasTag,
   listToRulesReportingMalformed,
   PROVIDER_ROLE_TAG,
-  searchBillingServiceCodes,
-  serviceCodeForName,
 } from '../shared';
 import { SaveBillingRulesParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -63,7 +60,6 @@ export async function complexValidation(oystehr: Oystehr, params: SaveBillingRul
     validateReferencedResourcesExist(oystehr, params.rules),
     validateNioReferencesExist(oystehr, params.rules),
     validatePayerReferencesExist(oystehr, params.rules),
-    validateSetServicesExist(oystehr, params.rules),
   ]);
   return existing;
 }
@@ -200,27 +196,6 @@ async function validatePayerReferencesExist(oystehr: Oystehr, rules: SaveBilling
     entry.ids
       .filter((id) => problemById.get(id))
       .map((id) => `rule "${entry.name}" sets a payer to ${id} — ${problemById.get(id)}`)
-  );
-  if (problems.length > 0) throw INVALID_INPUT_ERROR(problems.join('; '));
-}
-
-// Every service a rule sets must be named as the claim screens show one of the services seen on
-// claims: the claim stores the service's code, and those are the only services whose code is known.
-// Runs one search, and none when no rule sets a service. The engine re-checks at apply time.
-async function validateSetServicesExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
-  const perRule = rules
-    .map((rule) => ({ name: rule.name, services: collectSetServiceNames(rule) }))
-    .filter((entry) => entry.services.length > 0);
-  if (perRule.length === 0) return;
-
-  const codes = await searchBillingServiceCodes(oystehr);
-  const problems = perRule.flatMap((entry) =>
-    entry.services
-      .filter((service) => !serviceCodeForName(codes, service))
-      .map(
-        (service) =>
-          `rule "${entry.name}" sets the service to "${service}", which is not the name of a service seen on claims`
-      )
   );
   if (problems.length > 0) throw INVALID_INPUT_ERROR(problems.join('; '));
 }

@@ -1,5 +1,4 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -251,7 +250,7 @@ describe('ConditionalEditor', () => {
       });
     });
 
-    it('lets a condition name a service no claim has used yet, but a set action only a listed one', async () => {
+    it('takes a typed service no claim has used yet, and spells a listed one the way the list does', async () => {
       const conditional: RuleConditional = {
         branches: [
           {
@@ -262,19 +261,16 @@ describe('ConditionalEditor', () => {
       };
       const onValid = vi.fn();
       render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+      const [conditionInput, actionInput] = screen.getAllByPlaceholderText('Pick or type a service…');
 
-      fireEvent.change(screen.getByPlaceholderText('Pick or type a service…'), {
-        target: { value: 'Sports Physicals' },
-      });
+      fireEvent.change(conditionInput, { target: { value: 'Sports Physicals' } });
 
-      // The set action's picker has no free text: typing only filters the listed services.
-      const user = userEvent.setup();
-      const actionInput = screen.getByPlaceholderText('Pick a service…');
-      await user.type(actionInput, 'Sports');
-      expect(await screen.findByText('No options')).toBeInTheDocument();
-      await user.clear(actionInput);
-      await user.type(actionInput, 'work');
-      await user.click(await screen.findByRole('option', { name: 'Workers Comp' }));
+      // Wait for the registry, then type a listed service in another spelling.
+      fireEvent.mouseDown(actionInput);
+      expect(await screen.findByRole('option', { name: 'Workers Comp' })).toBeInTheDocument();
+      fireEvent.change(actionInput, { target: { value: 'workers comp' } });
+      fireEvent.blur(actionInput);
+      expect(actionInput).toHaveValue('Workers Comp');
 
       fireEvent.click(screen.getByText('Save'));
       await waitFor(() => expect(onValid).toHaveBeenCalled());
@@ -297,10 +293,10 @@ describe('ConditionalEditor', () => {
       fireEvent.click(await screen.findByRole('option', { name: 'Urgent Care' }));
       fireEvent.change(input, { target: { value: 'Sports Physicals' } });
       fireEvent.keyDown(input, { key: 'Enter' });
-      fireEvent.change(input, { target: { value: 'Occupational Medicine' } });
+      // A code spelling of a listed service becomes its name; a repeat is dropped.
+      fireEvent.change(input, { target: { value: 'workers-comp' } });
       fireEvent.blur(input);
-      // A repeat is dropped.
-      fireEvent.change(input, { target: { value: 'Urgent Care' } });
+      fireEvent.change(input, { target: { value: 'urgent care' } });
       fireEvent.blur(input);
 
       fireEvent.click(screen.getByText('Save'));
@@ -308,7 +304,7 @@ describe('ConditionalEditor', () => {
       expect(onValid.mock.calls[0][0].conditional.branches[0].condition.value).toEqual([
         'Urgent Care',
         'Sports Physicals',
-        'Occupational Medicine',
+        'Workers Comp',
       ]);
     });
   });
