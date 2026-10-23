@@ -58,6 +58,9 @@ const main = async (): Promise<void> => {
       external: ['tdigest'],
       platform: 'node',
       format: 'esm',
+      banner: {
+        js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
+      },
       treeShaking: true,
       plugins: [
         copy({
