@@ -98,9 +98,10 @@ const resultDocRef: DocumentReference = {
 const resultEntry = { item: { type: 'DocumentReference', reference: `DocumentReference/${DOC_REF_ID}` } };
 const otherEntry = { item: { type: 'DocumentReference', reference: 'DocumentReference/other-doc-ref' } };
 
-const makeRadiologyReportsFolder = (entry: List['entry']): List => ({
+const makeRadiologyReportsFolder = (entry: List['entry'], versionId = '1'): List => ({
   resourceType: 'List',
   id: 'radiology-reports-folder',
+  meta: { versionId },
   status: 'current',
   mode: 'working',
   title: BUCKET_NAMES.RADIOLOGY_REPORTS,
@@ -137,15 +138,43 @@ describe('radiology-delete-result handler', () => {
       ],
     });
     expect(mockOystehr.fhir.patch).toHaveBeenCalledTimes(1);
-    expect(mockOystehr.fhir.patch).toHaveBeenCalledWith({
-      resourceType: 'List',
-      id: 'radiology-reports-folder',
-      operations: [{ op: 'replace', path: '/entry', value: [otherEntry] }],
-    });
+    expect(mockOystehr.fhir.patch).toHaveBeenCalledWith(
+      {
+        resourceType: 'List',
+        id: 'radiology-reports-folder',
+        operations: [{ op: 'replace', path: '/entry', value: [otherEntry] }],
+      },
+      { optimisticLockingVersionId: '1' }
+    );
     expect(mockOystehr.fhir.delete).toHaveBeenCalledWith({ resourceType: 'DocumentReference', id: DOC_REF_ID });
     expect(mockOystehr.fhir.patch.mock.invocationCallOrder[0]).toBeLessThan(
       mockOystehr.fhir.delete.mock.invocationCallOrder[0]
     );
+  });
+
+  it('re-reads the folder after a version conflict and keeps entries added concurrently', async () => {
+    const concurrentEntry = { item: { type: 'DocumentReference', reference: 'DocumentReference/concurrent-upload' } };
+    mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) =>
+      resourceType === 'List'
+        ? makeRadiologyReportsFolder([otherEntry, resultEntry, concurrentEntry], '2')
+        : resultDocRef
+    );
+    mockFolders([makeRadiologyReportsFolder([otherEntry, resultEntry])]);
+    mockOystehr.fhir.patch.mockRejectedValueOnce({ code: 412, message: 'Precondition Failed' });
+
+    const result = await deleteRadiologyResult(input);
+
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehr.fhir.patch).toHaveBeenCalledTimes(2);
+    expect(mockOystehr.fhir.patch).toHaveBeenLastCalledWith(
+      {
+        resourceType: 'List',
+        id: 'radiology-reports-folder',
+        operations: [{ op: 'replace', path: '/entry', value: [otherEntry, concurrentEntry] }],
+      },
+      { optimisticLockingVersionId: '2' }
+    );
+    expect(mockOystehr.fhir.delete).toHaveBeenCalledWith({ resourceType: 'DocumentReference', id: DOC_REF_ID });
   });
 
   it('deletes a result uploaded before folder filing without touching the folder', async () => {

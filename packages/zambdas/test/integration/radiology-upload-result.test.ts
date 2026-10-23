@@ -84,9 +84,7 @@ describe('radiology upload-result integration tests', () => {
       ).output as UploadRadiologyResultZambdaOutput
     ).documentReferenceId;
 
-  it('keeps one Radiology Reports entry per current external result across uploads, replacements and deletes', async () => {
-    expect(await findRadiologyReportsFolder()).toBeUndefined();
-
+  const createExternalOrder = async (): Promise<string> => {
     const createOrderInput: CreateRadiologyZambdaOrderInput = {
       encounterId: baseResources.encounter.id!,
       diagnosisCodes: ['W21.89XA'],
@@ -111,15 +109,46 @@ describe('radiology upload-result integration tests', () => {
       id: orderOutput.serviceRequestId,
     });
     resourcesToCleanup.push(serviceRequest);
+    return serviceRequest.id!;
+  };
+
+  const getDocRef = (id: string): Promise<DocumentReference> =>
+    oystehrAdmin.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id });
+
+  const trackDocRef = async (id: string): Promise<void> => {
+    resourcesToCleanup.push(await getDocRef(id));
+  };
+
+  const setFolderReferences = async (folderId: string, references: string[]): Promise<void> => {
+    await oystehrAdmin.fhir.patch<List>({
+      resourceType: 'List',
+      id: folderId,
+      operations: [
+        {
+          op: 'replace',
+          path: '/entry',
+          value: references.map((reference) => ({ item: { type: 'DocumentReference', reference } })),
+        },
+      ],
+    });
+  };
+
+  let folderId: string;
+
+  it('keeps one Radiology Reports entry per current external result across uploads, replacements and deletes', async () => {
+    expect(await findRadiologyReportsFolder()).toBeUndefined();
+
+    const serviceRequestId = await createExternalOrder();
 
     const currentResultIds = async (): Promise<string[]> =>
-      (await searchRadiologyResultDocRefs(serviceRequest.id!, oystehrAdmin)).map((docRef) => docRef.id!).sort();
+      (await searchRadiologyResultDocRefs(serviceRequestId, oystehrAdmin)).map((docRef) => docRef.id!).sort();
 
     const firstUploadUrl = fakeZ3Url('first-upload.pdf');
-    const firstDocRefId = await uploadResult(serviceRequest.id!, firstUploadUrl, 'report-1.pdf');
+    const firstDocRefId = await uploadResult(serviceRequestId, firstUploadUrl, 'report-1.pdf');
 
     const folder = await waitForRadiologyReportsFolder();
     resourcesToCleanup.push(folder);
+    folderId = folder.id!;
     expect(await folderReferences(folder.id!)).toEqual([`DocumentReference/${firstDocRefId}`]);
 
     const firstDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
@@ -135,10 +164,10 @@ describe('radiology upload-result integration tests', () => {
     );
     expect(await currentResultIds()).toEqual([firstDocRefId]);
 
-    expect(await uploadResult(serviceRequest.id!, firstUploadUrl, 'report-1.pdf')).toBe(firstDocRefId);
+    expect(await uploadResult(serviceRequestId, firstUploadUrl, 'report-1.pdf')).toBe(firstDocRefId);
     expect(await folderReferences(folder.id!)).toEqual([`DocumentReference/${firstDocRefId}`]);
 
-    const replacementDocRefId = await uploadResult(serviceRequest.id!, fakeZ3Url('second-upload.pdf'), 'report-1.pdf');
+    const replacementDocRefId = await uploadResult(serviceRequestId, fakeZ3Url('second-upload.pdf'), 'report-1.pdf');
     expect(replacementDocRefId).not.toBe(firstDocRefId);
 
     const supersededDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
@@ -149,7 +178,7 @@ describe('radiology upload-result integration tests', () => {
     expect(await folderReferences(folder.id!)).toEqual([`DocumentReference/${replacementDocRefId}`]);
     expect(await currentResultIds()).toEqual([replacementDocRefId]);
 
-    const otherDocRefId = await uploadResult(serviceRequest.id!, fakeZ3Url('third-upload.pdf'), 'report-2.pdf');
+    const otherDocRefId = await uploadResult(serviceRequestId, fakeZ3Url('third-upload.pdf'), 'report-2.pdf');
     const otherDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
       resourceType: 'DocumentReference',
       id: otherDocRefId,
@@ -175,5 +204,70 @@ describe('radiology upload-result integration tests', () => {
     expect(
       (await oystehrAdmin.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id: firstDocRefId })).status
     ).toBe('superseded');
+  }, 120_000);
+
+  it('repairs the folder on retry after a folder write failed, including a half-finished replacement', async () => {
+    const serviceRequestId = await createExternalOrder();
+    const resultUrl = fakeZ3Url('repair-upload.pdf');
+    const resultId = await uploadResult(serviceRequestId, resultUrl, 'repair-report.pdf');
+    await trackDocRef(resultId);
+    const filedReferences = await folderReferences(folderId);
+    expect(filedReferences).toContain(`DocumentReference/${resultId}`);
+
+    await setFolderReferences(
+      folderId,
+      filedReferences.filter((reference) => reference !== `DocumentReference/${resultId}`)
+    );
+    expect(await uploadResult(serviceRequestId, resultUrl, 'repair-report.pdf')).toBe(resultId);
+    expect(await folderReferences(folderId)).toEqual(filedReferences);
+
+    const replacementUrl = fakeZ3Url('repair-replacement.pdf');
+    const replacementId = await uploadResult(serviceRequestId, replacementUrl, 'repair-report.pdf');
+    await trackDocRef(replacementId);
+    expect((await getDocRef(resultId)).status).toBe('superseded');
+
+    const unrelatedReferences = (await folderReferences(folderId)).filter(
+      (reference) => reference !== `DocumentReference/${replacementId}`
+    );
+    await setFolderReferences(folderId, [...unrelatedReferences, `DocumentReference/${resultId}`]);
+
+    expect(await uploadResult(serviceRequestId, replacementUrl, 'repair-report.pdf')).toBe(replacementId);
+    expect(await folderReferences(folderId)).toEqual([...unrelatedReferences, `DocumentReference/${replacementId}`]);
+    expect((await getDocRef(resultId)).status).toBe('superseded');
+  }, 120_000);
+
+  it('rejects stale folder writes on the server and keeps every entry when uploads overlap', async () => {
+    const firstOrderId = await createExternalOrder();
+    const secondOrderId = await createExternalOrder();
+    const folderBeforeUploads = await oystehrAdmin.fhir.get<List>({ resourceType: 'List', id: folderId });
+    const referencesBeforeUploads = await folderReferences(folderId);
+
+    const [firstResultId, secondResultId] = await Promise.all([
+      uploadResult(firstOrderId, fakeZ3Url('overlap-first.pdf'), 'overlap-first.pdf'),
+      uploadResult(secondOrderId, fakeZ3Url('overlap-second.pdf'), 'overlap-second.pdf'),
+    ]);
+    await trackDocRef(firstResultId);
+    await trackDocRef(secondResultId);
+
+    const referencesAfterUploads = await folderReferences(folderId);
+    expect(referencesAfterUploads).toEqual(
+      expect.arrayContaining([
+        ...referencesBeforeUploads,
+        `DocumentReference/${firstResultId}`,
+        `DocumentReference/${secondResultId}`,
+      ])
+    );
+    expect(referencesAfterUploads).toHaveLength(referencesBeforeUploads.length + 2);
+
+    await expect(
+      oystehrAdmin.fhir.patch<List>(
+        {
+          resourceType: 'List',
+          id: folderId,
+          operations: [{ op: 'replace', path: '/title', value: folderBeforeUploads.title }],
+        },
+        { optimisticLockingVersionId: folderBeforeUploads.meta!.versionId! }
+      )
+    ).rejects.toMatchObject({ code: 412 });
   }, 120_000);
 });

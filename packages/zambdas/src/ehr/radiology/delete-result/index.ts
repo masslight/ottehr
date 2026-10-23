@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference, List } from 'fhir/r4b';
+import { DocumentReference } from 'fhir/r4b';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { replaceOperation } from 'utils/lib/helpers/operations';
@@ -62,17 +63,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     isCustom: false,
     oystehr,
   });
-  if (radiologyReportsFolder?.entry?.some((entry) => entry.item.reference === docRefReference)) {
-    await oystehr.fhir.patch<List>({
-      resourceType: 'List',
-      id: radiologyReportsFolder.id!,
-      operations: [
-        replaceOperation(
-          '/entry',
-          radiologyReportsFolder.entry.filter((entry) => entry.item.reference !== docRefReference)
-        ),
-      ],
-    });
+  if (radiologyReportsFolder?.id) {
+    await patchWithOptimisticLock(oystehr, { ...radiologyReportsFolder, id: radiologyReportsFolder.id }, (folder) =>
+      folder.entry?.some((entry) => entry.item.reference === docRefReference)
+        ? [
+            replaceOperation(
+              '/entry',
+              folder.entry.filter((entry) => entry.item.reference !== docRefReference)
+            ),
+          ]
+        : []
+    );
   }
 
   await oystehr.fhir.delete({ resourceType: 'DocumentReference', id: body.documentReferenceId });
