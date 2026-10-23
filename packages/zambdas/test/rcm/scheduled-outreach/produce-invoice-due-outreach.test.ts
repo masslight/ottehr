@@ -21,8 +21,8 @@ const mockOystehr = {
   fhir: { get: mockFhirGet, search: mockFhirSearch, patch: mockFhirPatch },
 } as unknown as Oystehr;
 
-vi.mock('../../../src/billing/reports/shared', () => ({
-  listStripeAccounts: (...args: unknown[]) => mockListStripeAccounts(...args),
+vi.mock('../../../src/rcm/scheduled-outreach/producers/shared/list-outreach-stripe-accounts', () => ({
+  listOutreachStripeAccounts: (...args: unknown[]) => mockListStripeAccounts(...args),
 }));
 
 vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => {
@@ -88,7 +88,7 @@ beforeEach(() => {
 const secrets = {} as Secrets;
 
 describe('produceInvoiceDueOutreach Stripe account fan-out', () => {
-  it('queries every Stripe account returned by listStripeAccounts and aggregates their invoices', async () => {
+  it('queries every Stripe account returned by listOutreachStripeAccounts and aggregates their invoices', async () => {
     mockListStripeAccounts.mockResolvedValue([undefined, 'acct_A', 'acct_B']);
     mockInvoicesList.mockImplementation((_params: unknown, options: { stripeAccount?: string }) => {
       if (options.stripeAccount === 'acct_A') {

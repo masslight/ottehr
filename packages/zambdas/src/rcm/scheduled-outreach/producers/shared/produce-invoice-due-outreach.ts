@@ -3,7 +3,6 @@ import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils/lib/secrets';
-import { listStripeAccounts } from '../../../../billing/reports/shared';
 import { getStripeClient, STRIPE_METADATA_KEYS } from '../../../../shared/stripeIntegration';
 import {
   getOrCreateOutreachConfig,
@@ -11,6 +10,7 @@ import {
   parseConfiguredAt,
   parsePlanDefinitionToActions,
 } from '../../../scheduled-outreach-config/helpers';
+import { listOutreachStripeAccounts } from './list-outreach-stripe-accounts';
 import {
   calculateDueDateTime,
   OUTREACH_PLATFORM_STRIPE_ACCOUNT,
@@ -53,7 +53,7 @@ export async function produceInvoiceDueOutreach(
     );
   }
 
-  const stripeAccounts = await listStripeAccounts(oystehr, oystehr, stripe);
+  const stripeAccounts = await listOutreachStripeAccounts(oystehr, stripe);
 
   const pastDueInvoices = (
     await Promise.all(
