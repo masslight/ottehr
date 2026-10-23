@@ -12,7 +12,8 @@ import {
   TASK_LOCATION_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { getCoding, getExtension } from 'utils/lib/fhir/helpers';
+import { getCoding, getExtension, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
@@ -23,6 +24,7 @@ import {
   CreateManualTaskRequest,
   ERX_TASK,
   FAX_TASK,
+  isInboundFaxDeleting,
   isInboundFaxFiled,
   MANUAL_TASK,
   RADIOLOGY_TASK,
@@ -415,26 +417,50 @@ export const useCreateManualTask = (): UseMutationResult<void, Error, CreateManu
   });
 };
 
+/**
+ * Completes a Task against its current version. An inbound fax reserved for deletion is refused (completing it
+ * would block the delete retry), and the version check stops a stale Complete from overtaking a reservation made
+ * after the read. Exported for tests.
+ */
+export const completeTaskVersionChecked = async (oystehr: Oystehr, input: CompleteTaskRequest): Promise<void> => {
+  const task = await oystehr.fhir.get<FhirTask>({ resourceType: 'Task', id: input.taskId });
+  if (isInboundFaxDeleting(task)) {
+    throw new Error('This fax is being deleted and can no longer be completed.');
+  }
+  // A transaction entry carries ifMatch in the body: the FHIR API's CORS policy rejects an If-Match header.
+  const completeRequest = getPatchBinary({
+    resourceType: 'Task',
+    resourceId: input.taskId,
+    patchOperations: [
+      {
+        op: 'replace',
+        path: '/status',
+        value: 'completed',
+      },
+      ...(input.owner ? [{ op: 'add' as const, path: '/owner', value: input.owner }] : []),
+    ],
+    ifMatch: makeOptimisticLockIfMatchHeader(task),
+  });
+  try {
+    await oystehr.fhir.transaction<FhirTask>({ requests: [completeRequest] });
+  } catch (error) {
+    if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
+      throw new Error('This task was changed by someone else. Refresh the page and try again.');
+    }
+    throw error;
+  }
+};
+
 export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRequest> => {
   const { oystehr } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CompleteTaskRequest) => {
       if (!oystehr) throw new Error('oystehr not defined');
-      await oystehr.fhir.patch<FhirTask>({
-        resourceType: 'Task',
-        id: input.taskId,
-        operations: [
-          {
-            op: 'replace',
-            path: '/status',
-            value: 'completed',
-          },
-          ...(input.owner ? [{ op: 'add' as const, path: '/owner', value: input.owner }] : []),
-        ],
-      });
+      await completeTaskVersionChecked(oystehr, input);
     },
-    onSuccess: async () => {
+    // Also on failure: a refused Complete means the row is stale.
+    onSettled: async () => {
       await queryClient.invalidateQueries({
         queryKey: [GET_TASKS_KEY],
         exact: false,
@@ -443,7 +469,8 @@ export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRe
   });
 };
 
-function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>): Task {
+/** Exported for tests. */
+export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>): Task {
   const category = task.groupIdentifier?.value ?? '';
   let action: any = undefined;
   let title = '';
@@ -690,8 +717,8 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
       title = task.description || 'Inbound fax';
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
       // Fax tasks are never completed automatically (not even by filing); like manual tasks, a person
-      // presses Complete.
-      completable = true;
+      // presses Complete. Not while a delete has reserved the fax: completing it would block the delete retry.
+      completable = !isInboundFaxDeleting(task);
       if (communicationId) {
         // Once the fax is actioned (filed, completed, or deleted = cancelled), the match page
         // renders read-only, so the action label flips from "Match" to "View".

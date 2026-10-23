@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Stack } from '@mui/system';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -104,7 +105,15 @@ export const Tasks: React.FC = () => {
 
   const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
-      const complete = async (): Promise<void> => await completeTask({ taskId: task.id });
+      const complete = async (): Promise<void> => {
+        try {
+          await completeTask({ taskId: task.id });
+        } catch (error) {
+          enqueueSnackbar(error instanceof Error ? error.message : 'Failed to complete the task.', {
+            variant: 'error',
+          });
+        }
+      };
       // A completed fax can no longer be filed or deleted, so completing an unfiled one is confirmed first.
       if (task.category === FAX_TASK.category && task.action?.name !== VIEW_FAX) {
         return (
