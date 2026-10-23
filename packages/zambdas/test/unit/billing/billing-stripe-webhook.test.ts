@@ -1,13 +1,16 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, FhirResource, Organization, PaymentNotice } from 'fhir/r4b';
+import { Claim, FhirResource, Organization, PaymentNotice, Provenance } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { buildPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
+import {
+  CLAIM_PROVENANCE_ACTIVITY,
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+} from 'utils/lib/types/data/billing/claim-history';
 import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
@@ -117,11 +120,13 @@ const claim = {
   identifier: [{ system: CLAIM_ENC_SYSTEM, value: 'enc-1' }],
 } as Claim;
 
-// PaymentNotices live in an in-memory store: searched by identifier, written by transactions.
+// PaymentNotices live in an in-memory store: searched by identifier or by the encounter they were
+// taken for, written by transactions.
 const makeOystehr = (
   claimResults: Claim[][],
   orgResults: Organization[][] = [],
-  storedNotices: PaymentNotice[] = []
+  storedNotices: PaymentNotice[] = [],
+  provenances: Provenance[] = []
 ): { oystehr: Oystehr; transaction: Mock; patch: Mock } => {
   const claimQueue = [...claimResults];
   const orgQueue = [...orgResults];
@@ -131,6 +136,7 @@ const makeOystehr = (
     .mockImplementation(
       ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
         const identifiers = params.find((param) => param.name === 'identifier')?.value.split(',') ?? [];
+        const encounterIdentifier = params.find((param) => param.name === 'request:identifier')?.value;
         const results =
           resourceType === 'Claim'
             ? claimQueue.shift() ?? []
@@ -141,8 +147,11 @@ const makeOystehr = (
                 (notice) =>
                   notice.identifier?.some((identifier) =>
                     identifiers.includes(`${identifier.system}|${identifier.value}`)
-                  )
+                  ) ||
+                  `${notice.request?.identifier?.system}|${notice.request?.identifier?.value}` === encounterIdentifier
               )
+            : resourceType === 'Provenance'
+            ? provenances
             : [];
         return Promise.resolve({ unbundle: () => results });
       }
@@ -533,6 +542,61 @@ describe('billing-stripe-webhook', () => {
     expect(refreshedNotices(transaction)[0].request?.reference).toBe('Claim/previously-linked');
   });
 
+  // a refresh that found the claim linked the notice itself, so reconcile skipped it and the
+  // history recorded with the payment never reached the claim.
+  it("brings the payment's history along when a refresh finds the claim of an unlinked notice", async () => {
+    const unlinked = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-unlinked',
+      identifier: [
+        {
+          system: STRIPE_PAYMENT_ID_SYSTEM,
+          value: 'ch_1',
+        },
+      ],
+      request: {
+        type: 'Claim',
+        identifier: {
+          system: CLAIM_ENC_SYSTEM,
+          value: 'enc-1',
+        },
+      },
+    } as PaymentNotice;
+    const paymentEntry = {
+      resourceType: 'Provenance',
+      id: 'prov-payment',
+      target: [
+        {
+          reference: 'PaymentNotice/pn-unlinked',
+        },
+      ],
+      extension: [
+        {
+          url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+          valueString: '[]',
+        },
+      ],
+    } as Provenance;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [unlinked], [paymentEntry]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets });
+
+    expect(refreshedNotices(transaction)[0].request?.reference).toBeUndefined();
+    expect(writes(transaction)).toContainEqual({
+      method: 'PATCH',
+      url: '/Provenance/prov-payment',
+      operations: [
+        {
+          op: 'add',
+          path: '/target/-',
+          value: {
+            reference: 'Claim/claim-1',
+          },
+        },
+      ],
+    });
+  });
+
   it('puts the resolved billing provider in payee and recipient', async () => {
     const bp = { resourceType: 'Organization', id: 'bp-1' } as Organization;
     const { oystehr, transaction } = makeOystehr([[claim]], [[bp]]);
@@ -627,6 +691,9 @@ describe('billing-stripe-webhook', () => {
       id: 'pn-billing',
       status: 'active',
       identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+      request: {
+        reference: 'Claim/claim-1',
+      },
     } as PaymentNotice;
     const { oystehr, transaction, patch } = makeOystehr([[claim], [claim]], [], [billingNotice]);
     const refund = {

@@ -299,16 +299,15 @@ const persistPaymentNoticeUpsert = async (
   // a notice a concurrent delivery stored after the lookup is refreshed like one the lookup found
   if (!stored.created) {
     const existing = stored.notice;
-    // refresh the notice but keep an existing link if the claim search missed, and the refund and
-    // void stamps other writers keep on it
-    const reference = claim?.id ? `Claim/${claim.id}` : existing.request?.reference;
+    // refresh the notice but keep its claim link, which only reconcile adds so the history recorded
+    // before it comes along, and the refund and void stamps other writers keep on it
     const ownExtensionUrls = new Set((desiredNotice.extension ?? []).map((extension) => extension.url));
     const refreshed: PaymentNotice = {
       ...desiredNotice,
       id: existing.id,
       request: {
         ...desiredNotice.request,
-        ...(reference ? { reference } : {}),
+        reference: existing.request?.reference,
       },
       extension: [
         ...(desiredNotice.extension ?? []),
@@ -333,11 +332,11 @@ const persistPaymentNoticeUpsert = async (
     });
   }
 
-  if (!claim) {
+  if (!stored.notice.request?.reference) {
     // the claim may have appeared while the notice was being stored
-    const lateClaim = await findBillingClaimForEncounter(oystehr, encounterId);
-    if (lateClaim) {
-      await reconcilePaymentNoticesForClaim(oystehr, lateClaim);
+    const claimToLink = claim ?? (await findBillingClaimForEncounter(oystehr, encounterId));
+    if (claimToLink) {
+      await reconcilePaymentNoticesForClaim(oystehr, claimToLink);
     }
   }
 };
