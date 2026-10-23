@@ -2,7 +2,9 @@ import { Alert, Box, Button, CircularProgress, Stack, TextField, Typography } fr
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { SaveInvoiceConfigBodySchema, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
 import { getInvoiceConfig, saveInvoiceConfig } from '../api/api';
 import { InvoiceTemplateField } from '../components/InvoiceTemplateField';
@@ -11,9 +13,9 @@ import { useApiClients } from '../hooks/useAppClients';
 export default function InvoicingConfiguration(): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const [saveError, setSaveError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const {
     control,
     register,
@@ -25,15 +27,15 @@ export default function InvoicingConfiguration(): ReactElement {
   useEffect(() => {
     if (!oystehrZambda || loaded) return;
     let active = true;
-    setLoadError(false);
+    setLoadError(null);
     void getInvoiceConfig(oystehrZambda)
       .then((config) => {
         if (!active) return;
         reset(parseInvoiceConfigFromQR(config.questionnaireResponse));
         setLoaded(true);
       })
-      .catch(() => {
-        if (active) setLoadError(true);
+      .catch((error) => {
+        if (active) setLoadError(getApiError({ error, defaultError: 'Failed to load invoicing settings' }));
       });
     return () => {
       active = false;
@@ -42,13 +44,13 @@ export default function InvoicingConfiguration(): ReactElement {
 
   const onSubmit = async (values: SaveInvoiceConfigInput): Promise<void> => {
     if (!oystehrZambda) return;
-    setSaveError(false);
+    setSaveError(null);
     try {
       const config = await saveInvoiceConfig(oystehrZambda, values);
       reset(parseInvoiceConfigFromQR(config.questionnaireResponse));
       enqueueSnackbar('Invoicing settings saved', { variant: 'success' });
-    } catch {
-      setSaveError(true);
+    } catch (error) {
+      setSaveError(getApiError({ error, defaultError: 'Failed to save invoicing settings' }));
     }
   };
   const { ref: dueDaysRef, ...dueDaysField } = register('dueDaysFromGeneration', {
@@ -58,28 +60,41 @@ export default function InvoicingConfiguration(): ReactElement {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4" color="primary.dark">
-        Invoicing Configuration
-      </Typography>
+      <Box>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Invoicing Configuration
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          Due date and default message templates for patient invoices.
+        </Typography>
+      </Box>
       {loadError ? (
         <Alert severity="error" action={<Button onClick={() => setLoadAttempt((value) => value + 1)}>Retry</Button>}>
-          Failed to load invoicing settings.
+          {loadError}
         </Alert>
       ) : !loaded ? (
-        <CircularProgress aria-label="Loading invoicing settings" />
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress size={28} aria-label="Loading invoicing settings" />
+        </Box>
       ) : (
         <Box
           component="form"
           noValidate
           onSubmit={handleSubmit(onSubmit)}
-          sx={{ bgcolor: 'background.paper', p: 3, borderRadius: 2 }}
+          sx={{
+            bgcolor: 'background.paper',
+            border: `1px solid ${otherColors.lightDivider}`,
+            borderRadius: 2,
+            p: 3,
+          }}
         >
           <Stack component="fieldset" disabled={isSubmitting} spacing={3} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
-            {saveError && <Alert severity="error">Failed to save invoicing settings. Try again.</Alert>}
+            {saveError && <Alert severity="error">{saveError}</Alert>}
             <TextField
               {...dueDaysField}
               inputRef={dueDaysRef}
               label="Invoice Due Days"
+              size="small"
               type="number"
               inputProps={{ min: 1, max: 365, step: 1 }}
               error={!!errors.dueDaysFromGeneration}
@@ -124,7 +139,7 @@ export default function InvoicingConfiguration(): ReactElement {
                 disabled={!isDirty || isSubmitting}
                 onClick={() => {
                   reset();
-                  setSaveError(false);
+                  setSaveError(null);
                 }}
               >
                 Reset

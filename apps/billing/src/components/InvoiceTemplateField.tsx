@@ -14,6 +14,7 @@ import {
 import { ReactElement, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
 import { buildInvoicePlaceholders } from 'utils/lib/helpers/rcm/invoice-config';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { InvoiceSmsCounter } from './InvoiceSmsCounter';
 
 const PREVIEW_VALUES = buildInvoicePlaceholders({
@@ -117,7 +118,7 @@ export function InvoiceTemplateField({
       <Box
         sx={{
           border: '1px solid',
-          borderColor: error ? 'error.main' : 'divider',
+          borderColor: error ? 'error.main' : otherColors.lightDivider,
           borderRadius: 1,
           bgcolor: 'background.paper',
         }}
@@ -180,6 +181,7 @@ export function InvoiceTemplateField({
                 multiline
                 minRows={4}
                 fullWidth
+                size="small"
                 disabled={disabled}
                 error={error}
               />

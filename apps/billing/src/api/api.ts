@@ -160,12 +160,12 @@ async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?
 // --- Invoice configuration ---
 
 export const getInvoiceConfig = (oystehr: Oystehr): Promise<InvoiceConfigResponse> =>
-  executeBillingZambda(oystehr, 'get-invoice-config', {});
+  executeBillingZambda(oystehr, 'get-billing-invoice-config', {});
 
 export const saveInvoiceConfig = (
   oystehr: Oystehr,
   parameters: SaveInvoiceConfigInput
-): Promise<InvoiceConfigResponse> => executeBillingZambda(oystehr, 'save-invoice-config', parameters);
+): Promise<InvoiceConfigResponse> => executeBillingZambda(oystehr, 'save-billing-invoice-config', parameters);
 
 // --- Rules engines ---
 

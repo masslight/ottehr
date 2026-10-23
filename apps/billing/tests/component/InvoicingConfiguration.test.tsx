@@ -150,7 +150,7 @@ describe('Invoicing Configuration', () => {
     await screen.findByRole('button', { name: 'Save changes' });
     await user.type(sms(), ' Edited');
     await user.click(saveButton());
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to save invoicing settings');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unavailable');
     expect(sms()).toHaveValue(saved.defaultSmsTemplate + ' Edited');
     expect(mocks.snackbar).not.toHaveBeenCalled();
     await user.click(saveButton());
@@ -163,7 +163,7 @@ describe('Invoicing Configuration', () => {
     const user = userEvent.setup();
     mocks.get.mockRejectedValueOnce(new Error('Unavailable'));
     render(<InvoicingConfiguration />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load invoicing settings');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unavailable');
     expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     await screen.findByRole('button', { name: 'Save changes' });
