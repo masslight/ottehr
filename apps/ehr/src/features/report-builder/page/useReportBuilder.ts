@@ -51,7 +51,7 @@ export interface MultiDatasetRequest {
   hint?: string;
 }
 
-function rangeFromControls(
+export function rangeFromControls(
   filter: AdHocDateRangeFilter,
   customDate: string,
   customStartDate: string,
@@ -70,12 +70,12 @@ function rangeFromControls(
     case 'last-30-days':
       return { start: today.minus({ days: 29 }).toISO() ?? '', end: today.endOf('day').toISO() ?? '' };
     case 'custom': {
-      const d = DateTime.fromISO(customDate).setZone('America/New_York');
+      const d = DateTime.fromISO(customDate, { zone: 'America/New_York' });
       return { start: d.startOf('day').toISO() ?? '', end: d.endOf('day').toISO() ?? '' };
     }
     case 'customRange': {
-      const s = DateTime.fromISO(customStartDate).setZone('America/New_York');
-      const e = DateTime.fromISO(customEndDate).setZone('America/New_York');
+      const s = DateTime.fromISO(customStartDate, { zone: 'America/New_York' });
+      const e = DateTime.fromISO(customEndDate, { zone: 'America/New_York' });
       return { start: s.startOf('day').toISO() ?? '', end: e.endOf('day').toISO() ?? '' };
     }
     default:

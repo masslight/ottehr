@@ -299,7 +299,7 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
 // A working copy can itself be copied, so a copy is not always one hop from its main Patient
-const MAX_COPY_CHAIN_HOPS = 10;
+export const MAX_COPY_CHAIN_HOPS = 10;
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
