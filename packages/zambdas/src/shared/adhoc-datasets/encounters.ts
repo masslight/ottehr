@@ -131,7 +131,9 @@ import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
+  fetchOrdersByAuthoredDate,
   fetchScopedResources,
+  knownValueOrNull,
   presentFullName,
   resolveEncounterAppointment,
 } from '../adhoc-report';
@@ -283,7 +285,6 @@ const isLabOrder = (sr: ServiceRequest): boolean =>
   isInHouseLabServiceRequest(sr) ||
   Boolean(sr.meta?.tag?.some((t) => t.code === 'generic-lab-order' || t.code === 'in-house-lab' || t.code === 'lab'));
 
-const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.some((t) => t.code === 'radiology'));
 const orderDisplay = (sr: ServiceRequest): string =>
   sr.code?.text || sr.code?.coding?.find((c) => c.display)?.display || sr.code?.coding?.[0]?.code || '';
 
@@ -297,9 +298,6 @@ const lastSignedAt = (history: ReturnType<typeof getVisitStatusHistory>): string
   }
   return start;
 };
-
-const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
-  value && (allowed as readonly string[]).includes(value) ? (value as T) : null;
 
 /**
  * Hours the clinic was open on the day `start` falls on, from a Schedule extension (closures and the day's
@@ -633,7 +631,7 @@ export async function fetchAdHocEncounterRows(
         if (p.id) practitionerMap.set(p.id, p);
       }
     }
-    if (includeLabs || includeImaging || includeDisposition || includeNursing || includeProcedures) {
+    if (includeLabs || includeDisposition || includeNursing || includeProcedures) {
       indexByEncounter(
         await fetchScoped<ServiceRequest>('ServiceRequest', 'encounter', encRefs),
         (s) => stripEnc(s.encounter?.reference),
@@ -641,26 +639,29 @@ export async function fetchAdHocEncounterRows(
       );
     }
     if (includeImaging) {
-      // The radiology orders page's search (getRadiologyOrders), keyed by encounter. Cancelled (revoked)
+      // The radiology orders page's search (getRadiologyOrders). Cancelled (revoked)
       // orders are kept: the dataset lists them, the page does not.
-      const radiology = await fetchScoped<ServiceRequest | Task | DiagnosticReport | DocumentReference | Practitioner>(
-        'ServiceRequest',
-        'encounter',
-        encRefs,
-        [
-          { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
-          { name: '_revinclude', value: 'Task:based-on' },
-          { name: '_revinclude', value: 'DiagnosticReport:based-on' },
-          { name: '_revinclude', value: 'DocumentReference:related' },
-          { name: '_include', value: 'ServiceRequest:requester' },
-        ]
-      );
+      const radiologyParams = [
+        { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
+        { name: '_revinclude', value: 'Task:based-on' },
+        { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+        { name: '_revinclude', value: 'DocumentReference:related' },
+        { name: '_include', value: 'ServiceRequest:requester' },
+      ];
+      type RadiologyResource = ServiceRequest | Task | DiagnosticReport | DocumentReference | Practitioner;
+      const radiology =
+        (await fetchOrdersByAuthoredDate<RadiologyResource>(oystehr, dateRange, radiologyParams)) ??
+        (await fetchScoped<RadiologyResource>('ServiceRequest', 'encounter', encRefs, radiologyParams));
 
       for (const r of radiology) {
         switch (r.resourceType) {
-          case 'ServiceRequest':
-            indexByEncounter([r], (sr) => stripEnc(sr.encounter?.reference), radiologyRequestsByEncounterId);
+          case 'ServiceRequest': {
+            const encounterId = stripEnc(r.encounter?.reference);
+            if (encounterId && encounterById.has(encounterId)) {
+              indexByEncounter([r], () => encounterId, radiologyRequestsByEncounterId);
+            }
             break;
+          }
           case 'Task':
             radiologyPool.tasks.push(r);
             break;
@@ -1032,7 +1033,16 @@ export async function fetchAdHocEncounterRows(
       intakePerformerId,
       cancellationReason: appointment.cancelationReason?.coding?.[0]?.display ?? '',
       cancellationReasonDisplay: getCancellationReasonDisplay(appointment) ?? '',
-      paymentVariant: knownValueOrNull(Object.values(PaymentVariant), getPaymentVariantFromEncounter(encounter)),
+      // The visit's payment option, as its Payments panel reads it from the visit's Encounter — for a follow-up note,
+      // its parent visit's (the note has no payment option of its own).
+      paymentVariant: knownValueOrNull(
+        Object.values(PaymentVariant),
+        getPaymentVariantFromEncounter(
+          (isFollowUpRow && encounter.partOf?.reference
+            ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
+            : undefined) ?? encounter
+        )
+      ),
       registrationChannel,
       registeredBy,
       registeredByName,
@@ -1361,7 +1371,23 @@ export async function fetchAdHocEncounterRows(
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
     }
 
-    if (includeLabs || includeImaging || includeDisposition || includeNursing || includeProcedures) {
+    if (includeImaging) {
+      const radiologyRequests = encounter.id ? radiologyRequestsByEncounterId.get(encounter.id) ?? [] : [];
+      const imagingOrders = radiologyRequests.filter(isActiveOrder).map(orderDisplay).filter(Boolean);
+      row.imagingOrders = imagingOrders;
+      row.imagingOrderCount = imagingOrders.length;
+      row.imagingStudies = radiologyStudyRecords({
+        serviceRequests: radiologyRequests,
+        tasks: radiologyPool.tasks,
+        diagnosticReports: radiologyPool.diagnosticReports,
+        documentReferences: radiologyPool.documentReferences,
+        practitioners: allPractitioners,
+        encounters: allEncounters,
+        nameOf: orderDisplay,
+      });
+    }
+
+    if (includeLabs || includeDisposition || includeNursing || includeProcedures) {
       const srs = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []).filter(isActiveOrder);
 
       if (includeLabs) {
@@ -1373,21 +1399,6 @@ export async function fetchAdHocEncounterRows(
         row.labTestNames = labTests.map((test) => test.name);
         row.labNames = Array.from(new Set(labTests.map((test) => test.lab).filter(Boolean)));
         row.labResultComponents = Array.from(new Set(labTests.flatMap((test) => test.resultComponents)));
-      }
-
-      if (includeImaging) {
-        const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
-        row.imagingOrders = imagingOrders;
-        row.imagingOrderCount = imagingOrders.length;
-        row.imagingStudies = radiologyStudyRecords({
-          serviceRequests: encounter.id ? radiologyRequestsByEncounterId.get(encounter.id) ?? [] : [],
-          tasks: radiologyPool.tasks,
-          diagnosticReports: radiologyPool.diagnosticReports,
-          documentReferences: radiologyPool.documentReferences,
-          practitioners: allPractitioners,
-          encounters: allEncounters,
-          nameOf: orderDisplay,
-        });
       }
 
       if (includeNursing) {

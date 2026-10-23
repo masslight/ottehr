@@ -243,6 +243,19 @@ describe('save-billing-manual-era', () => {
     });
   });
 
+  it('does not restore a voided remit when saving edits', async () => {
+    const [pr, ...rest] = storedRemit();
+    const { oystehr, transaction } = makeClient([
+      { ...(pr as PaymentReconciliation), status: 'cancelled' },
+      ...rest,
+      billingOrg,
+    ]);
+    await expect(save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header }))).rejects.toMatchObject({
+      message: 'Voided ERAs cannot be changed',
+    });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('refuses a save made from a stale copy', async () => {
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
     await expect(save(oystehr, params({ eraId: 'era-1', expectedVersionId: '2', header }))).rejects.toEqual(

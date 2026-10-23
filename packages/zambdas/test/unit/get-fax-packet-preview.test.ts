@@ -33,6 +33,7 @@ vi.mock('../../src/shared/fax/collect-visit-documents', async (importOriginal) =
 import { index } from '../../src/ehr/get-fax-packet-preview';
 
 const APPOINTMENT_ID = '650e8400-e29b-41d4-a716-446655440000';
+const PATIENT_ID = '750e8400-e29b-41d4-a716-446655440000';
 const ENCOUNTER_ID = 'encounter-1';
 
 const AVAILABILITY: FaxDocumentAvailability[] = [
@@ -112,6 +113,57 @@ describe('get-fax-packet-preview', () => {
     expect(JSON.parse(result.body)).toEqual({ documents: [], hasSavedPcp: false, senderFaxNumber: '+12125550000' });
     // Nothing visit-specific is resolved, so no document availability work is done either.
     expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+    expect(mockFhirSearch).not.toHaveBeenCalled();
+  });
+
+  it('counts the faxable documents a medical-record packet would carry for the requested range', async () => {
+    const document = (id: string, date: string, url: string): Record<string, unknown> => ({
+      resourceType: 'DocumentReference',
+      id,
+      status: 'current',
+      date,
+      content: [{ attachment: { url, contentType: url.endsWith('.zip') ? 'application/zip' : 'application/pdf' } }],
+    });
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) =>
+      Promise.resolve({
+        unbundle: () =>
+          resourceType === 'DocumentReference'
+            ? [
+                document('in-range', '2026-03-15T12:00:00.000Z', 'https://z3.example/in-range.pdf'),
+                document('archive', '2026-03-16T12:00:00.000Z', 'https://z3.example/archive.zip'),
+                document('later', '2026-06-01T12:00:00.000Z', 'https://z3.example/later.pdf'),
+              ]
+            : [],
+      })
+    );
+
+    const preview = async (dateRange: Record<string, string>): Promise<GetFaxPacketPreviewOutput> => {
+      const result: any = await (index as any)(
+        createMockZambdaInput({ medicalRecord: { patientId: PATIENT_ID, dateRange } }, { secrets: createMockSecrets() })
+      );
+      expect(result.statusCode).toBe(200);
+      return JSON.parse(result.body);
+    };
+
+    expect(await preview({ from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T23:59:59.999Z' })).toEqual({
+      documents: [],
+      hasSavedPcp: false,
+      senderFaxNumber: '+12125550000',
+      documentCount: 1,
+    });
+    expect((await preview({ from: '2026-07-01T00:00:00.000Z', to: '2026-07-31T23:59:59.999Z' })).documentCount).toBe(0);
+    expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+  });
+
+  it('refuses a medical-record preview whose range is missing a bound', async () => {
+    await expect(
+      (index as any)(
+        createMockZambdaInput(
+          { medicalRecord: { patientId: PATIENT_ID, dateRange: { from: '2026-07-01T00:00:00.000Z' } } },
+          { secrets: createMockSecrets() }
+        )
+      )
+    ).rejects.toMatchObject({ message: expect.stringContaining('dateRange.to') });
     expect(mockFhirSearch).not.toHaveBeenCalled();
   });
 

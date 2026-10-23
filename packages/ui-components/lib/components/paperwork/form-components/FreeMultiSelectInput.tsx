@@ -144,6 +144,18 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
     return moveOtherOptionToEnd(filteredOptions);
   }, [usesDynamicOptions, data, multiple, otherProps.value, staticOptions, valueType]);
 
+  // for coded options the form value is the selected option's code, but the autocomplete needs the option itself to show its display
+  const selectedValue = useMemo(() => {
+    const current = otherProps.value;
+    if (!multiple && typeof current === 'string') {
+      const match = options.find((option) => option.valueCoding?.code === current);
+      if (match) {
+        return match;
+      }
+    }
+    return current || null;
+  }, [multiple, options, otherProps.value]);
+
   return (
     <Autocomplete
       {...otherProps}
@@ -174,7 +186,7 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
         },
       }}
       autoComplete
-      value={otherProps.value || null}
+      value={selectedValue}
       disableClearable={otherProps.required}
       disabled={disabled}
       id={name}
@@ -203,6 +215,9 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       }}
       isOptionEqualToValue={(option, value) => {
         if (typeof option === 'object') {
+          if (option.valueCoding) {
+            return option.valueCoding.code === (value?.valueCoding?.code ?? value);
+          }
           if (valueType === 'String') {
             return option.valueString === value;
           } else {
@@ -251,7 +266,9 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
 };
 
 const labelForOption = (option: any): string => {
-  if (option?.valueString !== undefined) {
+  if (option?.valueCoding !== undefined) {
+    return option.valueCoding.display ?? option.valueCoding.code ?? '';
+  } else if (option?.valueString !== undefined) {
     return option.valueString;
   } else if (option?.valueReference?.display !== undefined) {
     return `${option?.valueReference?.display}`;
@@ -262,10 +279,13 @@ const labelForOption = (option: any): string => {
 };
 
 const idForOption = (option: any): string => {
-  return option.id ?? option.valueString ?? option.valueReference?.reference ?? `${option}`;
+  return option.id ?? option.valueCoding?.code ?? option.valueString ?? option.valueReference?.reference ?? `${option}`;
 };
 
 const valueForOption = (option: any, valueType: 'String' | 'Reference'): any => {
+  if (option?.valueCoding?.code !== undefined) {
+    return option.valueCoding.code;
+  }
   const defaultVal = valueType === 'String' ? '' : null;
   const value = option?.[`value${valueType}`] ?? defaultVal;
   if (valueType === 'Reference' && value?.type === 'other') {

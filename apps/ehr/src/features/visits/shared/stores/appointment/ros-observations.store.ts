@@ -12,3 +12,12 @@ type RosObservationsInitializationState = {
 export const useRosObservationsInitializationStore = create<RosObservationsInitializationState>()(() => ({
   hasInitialData: false,
 }));
+
+let rosStoreGeneration = 0;
+
+/** Bumped on every store reset, so writes started for a previous chart can tell they are stale. */
+export const getRosStoreGeneration = (): number => rosStoreGeneration;
+
+export const bumpRosStoreGeneration = (): void => {
+  rosStoreGeneration += 1;
+};

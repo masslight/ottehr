@@ -45,14 +45,16 @@ vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
 }));
 
 vi.mock('../../src/shared/hooks/useDebounce', () => ({
-  useDebounce: () => ({ debounce: (cb: () => void) => cb() }),
+  useDebounce: () => ({ debounce: (cb: () => void) => cb(), clear: vi.fn() }),
 }));
 
+const { visitAccess } = vi.hoisted(() => ({ visitAccess: { readOnly: false } }));
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
-  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
+  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: visitAccess.readOnly }),
 }));
 
-const { mockSaveChartData, mockDeleteChartData } = vi.hoisted(() => ({
+const { mockSaveChartData, mockDeleteChartData, mockSetPartialChartData } = vi.hoisted(() => ({
+  mockSetPartialChartData: vi.fn(),
   mockSaveChartData: vi.fn().mockResolvedValue({ chartData: { procedures: [{ resourceId: 'saved-proc-1' }] } }),
   mockDeleteChartData: vi.fn().mockResolvedValue({}),
 }));
@@ -63,12 +65,32 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   useDeleteChartData: () => ({ mutateAsync: mockDeleteChartData }),
 }));
 
+const { mockChartData, mockSearchCodes } = vi.hoisted(() => ({
+  mockSearchCodes: { codes: [] as { code: string; display: string }[] },
+  mockChartData: { patientId: 'patient-1' } as Pick<AllChartValues, 'diagnosis' | 'procedures'> & { patientId: string },
+}));
+
 vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
-  useChartData: () => ({ chartData: {}, setPartialChartData: vi.fn() }),
+  useChartData: () => ({
+    chartData: mockChartData,
+    setPartialChartData: (data: Parameters<UseChartDataResult['setPartialChartData']>[0]) => {
+      mockSetPartialChartData(data);
+      Object.assign(mockChartData, data);
+    },
+    chartDataSetState: (updater: Parameters<UseChartDataResult['chartDataSetState']>[0]) => {
+      const next =
+        typeof updater === 'function' ? updater({ chartData: mockChartData, isChartDataLoading: false }) : updater;
+      if (next.chartData) Object.assign(mockChartData, next.chartData);
+    },
+  }),
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
+  useICD10SearchNew: ({ search }: { search: string }) => ({
+    isFetching: false,
+    data: { codes: search ? mockSearchCodes.codes : [] },
+  }),
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -91,8 +113,22 @@ vi.mock('../../src/components/RoundedButton', () => ({
   ),
 }));
 
-vi.mock('../../src/components/input/AutocompleteInput', () => ({
-  AutocompleteInput: () => <div />,
+vi.mock('../../src/features/visits/in-person/components/procedures/useProcedureSelectOptions', () => ({
+  useProcedureSelectOptions: () => ({
+    data: {
+      procedureTypes: [{ code: 'test', name: 'Test procedure' }],
+      medicationsUsed: [],
+      bodySites: ['Other'],
+      bodySides: [],
+      techniques: [],
+      supplies: ['Other'],
+      complications: ['Other'],
+      patientResponses: [],
+      postProcedureInstructions: ['Other'],
+      timeSpent: [],
+    },
+    isLoading: false,
+  }),
 }));
 
 vi.mock('../../src/components/WithTooltip', () => ({
@@ -110,14 +146,6 @@ vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
   ),
 }));
 
-vi.mock('../../src/features/visits/shared/components/assessment-tab/DiagnosesField', () => ({
-  DiagnosesField: () => <div />,
-}));
-
-vi.mock('../../src/features/visits/in-person/components/InfoAlert', () => ({
-  InfoAlert: () => <div />,
-}));
-
 vi.mock('../../src/api/api', () => ({
   createProcedureQuickPick: vi.fn(),
   getProcedureQuickPicks: vi.fn().mockResolvedValue({ quickPicks: [] }),
@@ -130,10 +158,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { PROCEDURE_NAMES } from 'utils/lib/procedure-coding/procedure-names';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { OTHER } from '../../src/features/visits/in-person/pages/procedureOtherFields';
 import ProceduresNew from '../../src/features/visits/in-person/pages/ProceduresNew';
+import type { UseChartDataResult } from '../../src/features/visits/shared/hooks/useChartData';
 import { useProcedureStore } from '../../src/state/draft-data.store';
 
 const ENCOUNTER_ID = 'enc-procedure-test';
@@ -154,18 +185,20 @@ const createWrapper = (): ((props: { children: ReactNode }) => JSX.Element) => {
 
 const renderComponent = (): ReturnType<typeof render> => render(<ProceduresNew />, { wrapper: createWrapper() });
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  visitAccess.readOnly = false;
+  mockSearchCodes.codes = [];
+  delete mockChartData.diagnosis;
+  delete mockChartData.procedures;
+  useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+  // Stub the consent-PDF request; all API hooks are mocked above.
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
+});
+
+afterEach(() => vi.unstubAllGlobals());
+
 describe('ProceduresNew — draft store', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
-    // Stub fetch so the PDF-check useEffect does not trigger the no-network guard.
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   // --- Banner (UnsavedDraftWarning) tests ---
 
   it('shows the draft banner when a draft exists for the encounter', async () => {
@@ -266,20 +299,33 @@ describe('ProceduresNew — draft store', () => {
 });
 
 describe('ProceduresNew — Other field fallback on save', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
-    // Stub fetch so the PDF-check useEffect does not trigger the no-network guard.
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  it.each([
+    { testId: dataTestIds.documentProcedurePage.site, field: 'bodySite', textField: 'otherBodySite' },
+    {
+      testId: dataTestIds.documentProcedurePage.complications,
+      field: 'complications',
+      textField: 'otherComplications',
+    },
+  ])('preserves custom $field text when Other is selected again', async ({ testId, field, textField }) => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      [field]: OTHER,
+      [textField]: 'Custom answer',
+    });
+    renderComponent();
+    await user.click(screen.getByTestId(testId));
+    await user.click(screen.getByRole('option', { name: OTHER }));
+    await user.keyboard('{Escape}');
+    expect(screen.getByTestId(testId)).toHaveTextContent('Custom answer');
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0][field]).toBe('Custom answer');
   });
 
   const saveDraftAndSubmit = async (draft: Record<string, unknown>): Promise<void> => {
     const user = userEvent.setup();
-    useProcedureStore.getState().setDraft(ENCOUNTER_ID, draft);
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Test procedure', ...draft });
     renderComponent();
     await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
     await waitFor(() => {
@@ -315,5 +361,307 @@ describe('ProceduresNew — Other field fallback on save', () => {
     await saveDraftAndSubmit({ complications: OTHER, otherComplications: '  Minor bleeding  ' });
     const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
     expect(procedurePayload.complications).toBe('Minor bleeding');
+  });
+});
+
+describe('ProceduresNew — sentence layout', () => {
+  it('offers the visit diagnoses as one-click picks and links the charted Condition on save', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Test procedure' });
+    mockChartData.diagnosis = [
+      { code: 'S61.411A', display: 'Laceration of right hand', isPrimary: true, resourceId: 'cond-1' },
+      { code: 'J06.9', display: 'Acute URI', isPrimary: false, resourceId: 'cond-2' },
+      // The same code charted twice (e.g. by an earlier procedure) is offered once.
+      { code: 'J06.9', display: 'Acute URI', isPrimary: false, resourceId: 'cond-3' },
+    ];
+    renderComponent();
+
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis));
+    // The charted diagnoses are listed as soon as the popover opens, before anything is typed.
+    expect(screen.getAllByRole('option', { name: 'J06.9 Acute URI' })).toHaveLength(1);
+    await user.click(screen.getByRole('option', { name: 'S61.411A Laceration of right hand' }));
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.diagnosis)).toHaveTextContent(
+      'Laceration of right hand S61.411A'
+    );
+
+    // A diagnosis already on the procedure is not offered again.
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis));
+    expect(screen.getByRole('option', { name: 'J06.9 Acute URI' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'S61.411A Laceration of right hand' })).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => {
+      expect(mockSaveChartData).toHaveBeenCalledTimes(2);
+    });
+    // Nothing new to create: the charted Condition is linked by its resourceId.
+    expect(mockSaveChartData.mock.calls[0][0].diagnosis).toEqual([]);
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0].diagnoses).toEqual([
+      expect.objectContaining({ code: 'S61.411A', resourceId: 'cond-1' }),
+    ]);
+  });
+
+  it('starts optional blanks empty and saves picks as their stored values', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    expect(screen.queryByText(/Please include body part/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Checks current as of/)).not.toBeInTheDocument();
+    const consent = screen.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure);
+    expect(consent).toHaveTextContent('consent');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.specimenSent)).toHaveTextContent('specimen');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.performedBy)).toHaveTextContent('performed by');
+
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.procedureType));
+    await user.click(screen.getByRole('option', { name: 'Test procedure' }));
+    await user.click(consent);
+    await user.click(screen.getByRole('option', { name: 'obtained' }));
+    expect(consent).toHaveTextContent('obtained');
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.specimenSent));
+    await user.click(screen.getByRole('option', { name: 'not sent' }));
+    // "Both" is stored as-is but reads as its display wording in the sentence.
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.performedBy));
+    await user.click(screen.getByRole('option', { name: 'provider and healthcare staff' }));
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.performedBy)).toHaveTextContent(
+      'provider and healthcare staff'
+    );
+
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => {
+      expect(mockSaveChartData).toHaveBeenCalledTimes(2);
+    });
+    const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
+    expect(procedurePayload).toMatchObject({ consentObtained: true, specimenSent: false, performerType: 'Both' });
+  });
+
+  it.each([
+    ['Test procedure', 'Site: site/location (side).'],
+    [PROCEDURE_NAMES['injection-infusion'][0], 'Site: (side).'],
+  ])('writes the %s site sentence with the side in brackets', (procedureType, sentence) => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType });
+    renderComponent();
+    const side = screen.getByTestId(dataTestIds.documentProcedurePage.sideOfBody);
+    expect(side.closest('.MuiTypography-root')?.textContent?.replace(/⁠/g, '')).toBe(sentence);
+  });
+});
+
+describe('ProceduresNew — save validation and shared diagnoses', () => {
+  it('rejects a missing type without opening its blank', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    expect(await screen.findByText('This field is required')).toBeInTheDocument();
+    expect(mockSaveChartData).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid type restored from a draft without opening its blank', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Invalid  type' });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    expect(await screen.findByText('No leading, trailing, or consecutive spaces allowed')).toBeInTheDocument();
+    expect(mockSaveChartData).not.toHaveBeenCalled();
+  });
+
+  it('rejects typed invalid text when the outside click also presses Save', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.procedureType));
+    await user.type(screen.getByRole('combobox', { name: 'Procedure type' }), 'Invalid  type');
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    expect(screen.queryByRole('dialog', { name: 'Procedure type' })).not.toBeInTheDocument();
+    expect(await screen.findByText('No leading, trailing, or consecutive spaces allowed')).toBeInTheDocument();
+    expect(mockSaveChartData).not.toHaveBeenCalled();
+  });
+
+  it('unlinks a shared diagnosis on edit without deleting it from the visit', async () => {
+    const user = userEvent.setup();
+    const diagnosis = { code: 'J06.9', display: 'Acute URI', isPrimary: false, resourceId: 'shared-condition' };
+    mockChartData.diagnosis = [diagnosis];
+    mockChartData.procedures = [
+      { resourceId: 'existing-procedure', procedureType: 'Test procedure', diagnoses: [diagnosis] },
+    ];
+    render(<ProceduresNew procedureId="existing-procedure" />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole('button', { name: 'Remove J06.9' }));
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[1][0]).toMatchObject({
+      cleanupProcedureDiagnoses: true,
+      procedures: [{ resourceId: 'existing-procedure', diagnoses: [] }],
+    });
+    expect(mockDeleteChartData).not.toHaveBeenCalled();
+    expect(mockChartData.diagnosis).toEqual([diagnosis]);
+  });
+
+  it('renders custom answers in their blanks, edits Other inside the popover, and saves the same values', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      bodySite: OTHER,
+      otherBodySite: 'Left elbow',
+      suppliesUsed: [OTHER],
+      otherSuppliesUsed: 'Custom dressing',
+      complications: OTHER,
+      otherComplications: 'Minor bleeding',
+      postInstructions: [OTHER],
+      otherPostInstructions: 'Return tomorrow',
+    });
+    renderComponent();
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.site)).toHaveTextContent('Left elbow');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.instruments)).toHaveTextContent('Custom dressing');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.complications)).toHaveTextContent('Minor bleeding');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions)).toHaveTextContent(
+      'Return tomorrow'
+    );
+    expect(screen.queryByRole('textbox', { name: 'Other site/location' })).not.toBeInTheDocument();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.site));
+    const other = screen.getByRole('textbox', { name: 'Other site/location' });
+    await user.clear(other);
+    await user.type(other, 'Right elbow');
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0]).toMatchObject({
+      bodySite: 'Right elbow',
+      suppliesUsed: 'Other: Custom dressing',
+      complications: 'Minor bleeding',
+      postInstructions: 'Other: Return tomorrow',
+    });
+  });
+});
+
+describe('procedure diagnosis search and cleanup', () => {
+  it.each([true, false])('removes only the clicked duplicate-code diagnosis (has IDs: %s)', async (hasIds) => {
+    const user = userEvent.setup();
+    const first = { code: 'J06.9', display: 'First URI', isPrimary: false, resourceId: hasIds ? 'first' : undefined };
+    const second = {
+      code: 'J06.9',
+      display: 'Second URI',
+      isPrimary: false,
+      resourceId: hasIds ? 'second' : undefined,
+    };
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      diagnoses: [first, second],
+    });
+    renderComponent();
+    await user.click(screen.getAllByRole('button', { name: 'Remove J06.9' })[1]);
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.diagnosis)).toHaveTextContent('First URI');
+    expect(screen.queryByText('Second URI J06.9')).not.toBeInTheDocument();
+    expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).diagnoses).toEqual([first]);
+  });
+
+  it.each([false, true])('merges reused Conditions into the latest chart by ID (cleanup: %s)', async (cleanup) => {
+    const user = userEvent.setup();
+    const previous = { code: 'OLD', display: 'Previous', isPrimary: false, resourceId: 'previous' };
+    const existing = { code: 'NEW', display: 'Old display', isPrimary: false, resourceId: 'reused' };
+    const saved = { ...existing, display: 'Updated display', isPrimary: true };
+    const concurrent = { code: 'NEW', display: 'Different Condition', isPrimary: false, resourceId: 'concurrent' };
+    const later = { code: 'LATER', display: 'Later diagnosis', isPrimary: false, resourceId: 'later' };
+    mockChartData.diagnosis = [previous];
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      diagnoses: [{ code: 'NEW', display: 'New diagnosis', isPrimary: false }],
+    });
+    mockSaveChartData
+      .mockImplementationOnce(async () => {
+        mockChartData.diagnosis = [previous, existing, concurrent];
+        return { chartData: { diagnosis: [saved] } };
+      })
+      .mockImplementationOnce(async () => {
+        mockChartData.diagnosis = [...(mockChartData.diagnosis ?? []), later];
+        return {
+          chartData: { procedures: [{ resourceId: 'procedure' }] },
+          deletedDiagnosisIds: cleanup ? ['previous'] : [],
+        };
+      });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockChartData.diagnosis).toEqual([...(cleanup ? [] : [previous]), saved, concurrent, later]);
+  });
+
+  it('reuses a code-only diagnosis from a restored draft if that code is already charted', async () => {
+    const user = userEvent.setup();
+    mockChartData.diagnosis = [{ code: 'J06.9', display: 'URI', resourceId: 'charted', isPrimary: false }];
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      diagnoses: [{ code: 'J06.9', display: 'URI', isPrimary: false }],
+    });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[0][0].diagnosis).toEqual([]);
+    expect(mockSaveChartData.mock.calls[1][0]).toMatchObject({
+      cleanupProcedureDiagnoses: false,
+      procedures: [{ diagnoses: [expect.objectContaining({ resourceId: 'charted' })] }],
+    });
+  });
+
+  it('shows a diagnosis placeholder on a locked procedure with no diagnoses', async () => {
+    visitAccess.readOnly = true;
+    mockChartData.procedures = [{ resourceId: 'procedure', procedureType: 'Test procedure', diagnoses: [] }];
+    render(<ProceduresNew procedureId="procedure" />, { wrapper: createWrapper() });
+    expect(await screen.findByText('[diagnosis]')).toBeInTheDocument();
+    expect(screen.getByText('[diagnosis]').closest('.MuiTypography-root')).toHaveTextContent('Diagnosis: [diagnosis]');
+    expect(screen.queryByRole('button', { name: 'diagnosis (empty)' })).not.toBeInTheDocument();
+  });
+
+  it('shows a locked procedure without literal add-action labels', async () => {
+    visitAccess.readOnly = true;
+    mockChartData.procedures = [
+      {
+        resourceId: 'procedure',
+        procedureType: 'Test procedure',
+        diagnoses: [{ resourceId: 'condition', code: 'J06.9', display: 'URI', isPrimary: false }],
+      },
+    ];
+    render(<ProceduresNew procedureId="procedure" />, { wrapper: createWrapper() });
+    expect(await screen.findByText(/URI J06.9/)).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.addDiagnosis)).not.toBeInTheDocument();
+    expect(screen.queryByText('[+ another]')).not.toBeInTheDocument();
+    expect(screen.queryByText('[+ technique]')).not.toBeInTheDocument();
+  });
+
+  it('links an existing visit Condition selected through search instead of creating a copy', async () => {
+    const user = userEvent.setup();
+    mockChartData.diagnosis = [{ code: 'J06.9', display: 'URI', resourceId: 'existing-condition', isPrimary: true }];
+    mockSearchCodes.codes = [{ code: 'J06.9', display: 'URI' }];
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Test procedure' });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis));
+    await user.type(screen.getByRole('combobox', { name: 'Dx' }), 'URI');
+    await user.click(await screen.findByRole('option', { name: 'J06.9 URI' }));
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[0][0].diagnosis).toEqual([]);
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0].diagnoses).toEqual([
+      expect.objectContaining({ resourceId: 'existing-condition', code: 'J06.9' }),
+    ]);
+  });
+  it('records origin for a genuinely new diagnosis and preserves newly saved diagnoses when old ones are cleaned up', async () => {
+    const user = userEvent.setup();
+    const previous = { code: 'OLD', display: 'Previous', isPrimary: false, resourceId: 'previous' };
+    mockChartData.diagnosis = [previous];
+    mockChartData.procedures = [{ resourceId: 'procedure', procedureType: 'Test procedure', diagnoses: [previous] }];
+    mockSearchCodes.codes = [{ code: 'J06.9', display: 'URI' }];
+    mockSaveChartData
+      .mockResolvedValueOnce({
+        chartData: {
+          diagnosis: [{ code: 'J06.9', display: 'URI', isPrimary: false, resourceId: 'new', addedViaProcedure: true }],
+        },
+      })
+      .mockResolvedValueOnce({
+        chartData: { procedures: [{ resourceId: 'procedure' }] },
+        deletedDiagnosisIds: ['previous'],
+      });
+    render(<ProceduresNew procedureId="procedure" />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole('button', { name: 'Remove OLD' }));
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis));
+    await user.type(screen.getByRole('combobox', { name: 'Dx' }), 'URI');
+    await user.click(await screen.findByRole('option', { name: 'J06.9 URI' }));
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[0][0].diagnosis[0]).toMatchObject({ code: 'J06.9', addedViaProcedure: true });
+    expect(mockChartData.diagnosis).toEqual([expect.objectContaining({ resourceId: 'new' })]);
+    expect(mockDeleteChartData).not.toHaveBeenCalled();
   });
 });

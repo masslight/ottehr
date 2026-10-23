@@ -71,6 +71,7 @@ const makeLookups = (
   coverages: [],
   claimResponsesByClaimId,
   patientPaidByClaimId,
+  writeOffs: new Map([]),
 });
 
 describe('buildClaimFilterParams: non-insurance payer', () => {
@@ -520,6 +521,7 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     ],
     claimResponsesByClaimId: new Map(),
     patientPaidByClaimId: new Map([['claim-1', 25]]),
+    writeOffs: new Map([]),
   });
 
   // Every field each fixture carries that the list is meant to strip. The accounting test below

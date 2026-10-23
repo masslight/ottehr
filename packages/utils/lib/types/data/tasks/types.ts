@@ -41,6 +41,7 @@ export interface CreateManualTaskRequest {
     id: string;
     name: string;
   };
+  createdBy?: string;
 }
 
 export const MANUAL_TASK = {

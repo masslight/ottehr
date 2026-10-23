@@ -1,4 +1,4 @@
-import { Box, Button, Paper, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Typography } from '@mui/material';
 import {
   DataGridPro,
   GridColDef,
@@ -7,6 +7,7 @@ import {
   GridToolbarContainer,
   GridToolbarDensitySelector,
   GridToolbarFilterButton,
+  GridValueFormatterParams,
   GridValueGetterParams,
   useGridApiRef,
 } from '@mui/x-data-grid-pro';
@@ -15,7 +16,7 @@ import { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope.cata
 import type { AdHocLinkRoute } from 'utils/lib/types/adhoc/sandbox/events';
 import { MAX_EXPORT_CSV_LENGTH } from 'utils/lib/types/adhoc/sandbox/limits';
 import { sendFrameEvent } from '../messaging';
-import { cellText, formatValue } from './format';
+import { cellText, exactNumberText, formatValue } from './format';
 import { Link } from './Link';
 
 export interface TableColumn {
@@ -69,6 +70,10 @@ export interface TableProps {
 // Reserved grid-row key; the underscored name keeps collisions with report fields implausible.
 const ROW_ID_KEY = '__adhocRowId';
 
+const PLACEHOLDER_LABELS = new Set(['unknown', 'unassigned', 'n/a']);
+
+const isPlaceholderLabel = (text: string): boolean => PLACEHOLDER_LABELS.has(text.trim().toLowerCase());
+
 interface GridRow extends Record<string, unknown> {
   [ROW_ID_KEY]: number;
 }
@@ -86,7 +91,7 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
     return m;
   }, [links]);
 
-  const { gridColumns, gridRows } = useMemo(() => {
+  const { gridColumns, gridRows, placeholderColumns } = useMemo(() => {
     const fields = columns?.map((c) => c.field) ?? Object.keys(rows[0] ?? {});
     const configByField = new Map((columns ?? []).map((c) => [c.field, c]));
 
@@ -122,9 +127,15 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
         sortable: true,
         type: numeric ? 'number' : 'string',
         ...(numeric ? { headerAlign: 'right' as const, align: 'right' as const } : {}),
-        ...(numeric ? {} : { valueGetter: (params: GridValueGetterParams) => cellText(cellValue(field, params.row)) }),
+        ...(numeric
+          ? {
+              valueGetter: (params: GridValueGetterParams) => cellValue(field, params.row),
+              valueFormatter: ({ value }: GridValueFormatterParams) => exactNumberText(value),
+            }
+          : { valueGetter: (params: GridValueGetterParams) => cellText(cellValue(field, params.row)) }),
         renderCell: (params: GridRenderCellParams) => {
           const raw = cellValue(field, params.row);
+          if (React.isValidElement(raw)) return raw;
           const display = namedFormat ? formatValue(raw, namedFormat) : cellText(raw);
           if (link) {
             // id from idField's value when given (e.g. link patientName by patientId), else this
@@ -144,7 +155,15 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
     });
 
     const gridRows: GridRow[] = rows.map((r, i) => ({ ...r, [ROW_ID_KEY]: i }));
-    return { gridColumns, gridRows };
+
+    const placeholderColumns =
+      rows.length > 0
+        ? gridColumns
+            .filter((col) => rows.every((r) => isPlaceholderLabel(cellText(cellValue(col.field, r)))))
+            .map((col) => col.headerName ?? col.field)
+        : [];
+
+    return { gridColumns, gridRows, placeholderColumns };
   }, [columns, rows, linkByField]);
 
   const handleExport = useCallback((): void => {
@@ -183,6 +202,13 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
 
   return (
     <Box sx={{ mb: 1 }}>
+      {placeholderColumns.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 1 }}>
+          {placeholderColumns.map((name) => `“${name}”`).join(', ')} {placeholderColumns.length > 1 ? 'are' : 'is'}{' '}
+          “Unknown” / “N/A” in every row. The report is probably reading a field these records do not carry, so this
+          table may be wrong — regenerate it, naming where that value comes from.
+        </Alert>
+      )}
       {exportTooLarge && (
         <Typography variant="body2" color="error" sx={{ mb: 0.5 }}>
           This report is too large to export.

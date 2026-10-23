@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { MedicationDTO } from '../../api/chart-data/chart-data.types';
 import { RecentPatientRecordSchema } from '../../api/recent-patients-report.types';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+import { ELIGIBILITY_STATUS_DESCRIPTION, ELIGIBILITY_STATUS_VALUES } from './eligibility';
 
 // The chart medication list's vocabularies (MedicationDTO), required exhaustively.
 const MEDICATION_TYPES = { scheduled: true, 'as-needed': true, 'prescribed-medication': true } satisfies Record<
@@ -314,6 +315,38 @@ export const PATIENT_LAYERS = {
       secondaryInsuranceAdditionalInformation: z
         .string()
         .describe('Additional insurance information on the secondary coverage (free text). "" when none.'),
+    }),
+  },
+  eligibility: {
+    label: 'Insurance eligibility',
+    description:
+      "The eligibility of each of the patient's current insurances (primary and secondary) as the Patient Record " +
+      'shows it: the latest check, its status and when it ran.',
+    schema: z.object({
+      primaryEligibilityStatus: z
+        .enum(ELIGIBILITY_STATUS_VALUES)
+        .nullable()
+        .describe(
+          'Result of the latest eligibility check of the primary insurance, as the Patient Record shows it. ' +
+            ELIGIBILITY_STATUS_DESCRIPTION +
+            ' Null when the Patient Record shows no check: never checked, or every check failed before the payer ' +
+            'answered.'
+        ),
+      primaryEligibilityCheckedAt: z
+        .string()
+        .nullable()
+        .describe('Full ISO instant the latest primary insurance check ran. Null when there is none.'),
+      secondaryEligibilityStatus: z
+        .enum(ELIGIBILITY_STATUS_VALUES)
+        .nullable()
+        .describe(
+          'Result of the latest eligibility check of the secondary insurance (same values as ' +
+            'primaryEligibilityStatus). Null when there is none.'
+        ),
+      secondaryEligibilityCheckedAt: z
+        .string()
+        .nullable()
+        .describe('Full ISO instant the latest secondary insurance check ran. Null when there is none.'),
     }),
   },
   employers: {
