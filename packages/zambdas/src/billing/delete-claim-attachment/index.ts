@@ -9,7 +9,12 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { claimAttachmentOwner, deleteAttachmentObject, ownedAttachmentLocation } from '../attachments';
+import {
+  claimAttachmentOwner,
+  deleteAttachmentObject,
+  ownedAttachmentLocation,
+  RETIRED_ATTACHMENT_STATUS,
+} from '../attachments';
 import { claimEventProvenanceRequest, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 
@@ -44,7 +49,7 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
   );
   const location = ownedAttachmentLocation(documentReference, claimAttachmentOwner(claim.id, params.secrets));
   // retired by an earlier deletion that failed before removing it, so only the removal is left
-  if (documentReference.status !== RETIRED_STATUS) {
+  if (documentReference.status !== RETIRED_ATTACHMENT_STATUS) {
     await retireAttachment({
       oystehr,
       claim,
@@ -58,8 +63,6 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
   });
   await deleteAttachmentObject(oystehr, location);
 }
-
-const RETIRED_STATUS = 'entered-in-error';
 
 // Takes the document off the claim and records its deletion. A transaction can't lock a DELETE to a
 // version, so the document is retired here instead, locked to the version its history was read at,
@@ -113,7 +116,7 @@ async function retireAttachment({
         {
           op: 'replace',
           path: '/status',
-          value: RETIRED_STATUS,
+          value: RETIRED_ATTACHMENT_STATUS,
         },
       ],
     }),

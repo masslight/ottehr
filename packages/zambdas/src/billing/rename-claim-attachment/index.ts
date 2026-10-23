@@ -4,11 +4,12 @@ import { DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { RenameClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { renamedAttachmentContent } from '../attachments';
+import { renamedAttachmentContent, RETIRED_ATTACHMENT_STATUS } from '../attachments';
 import { attachedClaimId } from '../claim-attachments';
 import { claimEventProvenanceRequest, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
@@ -41,6 +42,10 @@ export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachm
     'DocumentReference',
     params.documentReferenceId
   );
+  // a deletion retires the document before removing it, and a rename in between would outlive it
+  if (documentReference.status === RETIRED_ATTACHMENT_STATUS) {
+    throw INVALID_INPUT_ERROR(`DocumentReference ${documentReference.id} was deleted`);
+  }
   const renamed: DocumentReference = {
     ...documentReference,
     content: renamedAttachmentContent(documentReference, params.name),

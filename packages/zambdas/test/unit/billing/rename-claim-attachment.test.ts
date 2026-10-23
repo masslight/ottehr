@@ -80,6 +80,39 @@ describe('rename-claim-attachment', () => {
     `);
     expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
   });
+  it('refuses a document a deletion already retired', async () => {
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
+      resourceType: 'DocumentReference',
+      id: 'document-reference-id',
+      status: 'entered-in-error',
+      context: {
+        related: [
+          {
+            reference: 'Claim/claim-id',
+          },
+        ],
+      },
+      content: [
+        {
+          attachment: {
+            title: 'File.pdf',
+          },
+        },
+      ],
+    });
+    const oystehr = makeClient();
+    await expect(
+      performEffect(oystehr, {
+        documentReferenceId: 'document-reference-id',
+        name: 'File.new.pdf',
+        secrets: {},
+        agent: TEST_AGENT,
+      })
+    ).rejects.toMatchObject({
+      message: 'DocumentReference document-reference-id was deleted',
+    });
+    expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
   it('succeeds changing doc ref content title', async () => {
     (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
       resourceType: 'DocumentReference',
