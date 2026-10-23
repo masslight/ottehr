@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Claim, Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Coverage, DocumentReference, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
@@ -18,6 +18,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import {
   addErrorProvenanceForClaimSubmission,
+  claimEventProvenanceRequest,
   claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimMetaTagsWithProvenance,
@@ -86,6 +87,107 @@ describe('diffResources', () => {
         newRef: 'https://rcm.example/payer/2',
       },
     ]);
+  });
+});
+
+const documentReference = (title: string, overrides: Partial<DocumentReference> = {}): DocumentReference => ({
+  resourceType: 'DocumentReference',
+  id: 'd1',
+  status: 'current',
+  content: [
+    {
+      attachment: {
+        title,
+        contentType: 'application/pdf',
+      },
+    },
+  ],
+  ...overrides,
+});
+
+describe('diffResources attachments', () => {
+  it('records a rename as a name change', () => {
+    expect(diffResources(documentReference('a.pdf'), documentReference('b.pdf'))).toEqual([
+      {
+        field: 'name',
+        label: 'Name',
+        previousValue: 'a.pdf',
+        newValue: 'b.pdf',
+      },
+    ]);
+  });
+
+  it('records a delete with the name as the previous value', () => {
+    expect(diffResources(documentReference('a.pdf'), undefined)).toEqual([
+      {
+        field: 'name',
+        label: 'Name',
+        previousValue: 'a.pdf',
+        newValue: null,
+      },
+    ]);
+  });
+});
+
+describe('claimEventProvenanceRequest', () => {
+  it('targets the changed resource and the claim, and stamps the prior version', () => {
+    const before = documentReference('a.pdf', {
+      meta: {
+        versionId: '2',
+      },
+    });
+    const request = claimEventProvenanceRequest({
+      targetReference: 'DocumentReference/d1',
+      claimId: 'c1',
+      before,
+      after: documentReference('b.pdf'),
+      agent,
+      activity: 'update',
+    });
+    const provenance = request!.resource;
+    expect(provenance.target).toEqual([
+      {
+        reference: 'DocumentReference/d1',
+      },
+      {
+        reference: CLAIM_REF,
+      },
+    ]);
+    expect(provenance.entity?.[0]?.what?.reference).toBe('DocumentReference/d1/_history/2');
+    expect(provenance.recorded).toBeTruthy();
+  });
+
+  it('records a create under a urn:uuid target', () => {
+    const request = claimEventProvenanceRequest({
+      targetReference: 'urn:uuid:doc-ref',
+      claimId: 'c1',
+      after: documentReference('a.pdf'),
+      agent,
+      activity: 'create',
+    });
+    expect(request!.resource.target?.[0]).toEqual({
+      reference: 'urn:uuid:doc-ref',
+    });
+    expect(parseChanges(request!.resource)).toEqual([
+      {
+        field: 'name',
+        label: 'Name',
+        previousValue: null,
+        newValue: 'a.pdf',
+      },
+    ]);
+  });
+
+  it('returns null for a no-op update', () => {
+    const request = claimEventProvenanceRequest({
+      targetReference: 'DocumentReference/d1',
+      claimId: 'c1',
+      before: documentReference('a.pdf'),
+      after: documentReference('a.pdf'),
+      agent,
+      activity: 'update',
+    });
+    expect(request).toBeNull();
   });
 });
 
