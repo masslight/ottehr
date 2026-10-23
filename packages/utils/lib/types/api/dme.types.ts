@@ -3,11 +3,8 @@ import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from 
 import { isValidUUID } from '../../validation/helper';
 import { CPTCodeDTO } from './chart-data/chart-data.types';
 
-export const DME_MENU_ITEM_TAG_SYSTEM = ottehrCodeSystemUrl('dme-menu-item');
-export const DME_MENU_ITEM_TAG_CODE = 'dme-menu-item';
 export const DME_ORDER_TAG_SYSTEM = ottehrCodeSystemUrl('dme-order');
 export const DME_ORDER_TAG_CODE = 'dme-order';
-export const DME_ITEM_CODE_SYSTEM = ottehrCodeSystemUrl('dme-item');
 export const DME_ORDER_PARAMETER_SYSTEM = ottehrCodeSystemUrl('dme-order-parameter');
 export const DME_FULFILLMENT_EXTENSION_URL = ottehrExtensionUrl('dme-fulfillment');
 export const DME_BILLING_CODE_EXTENSION_URL = ottehrExtensionUrl('dme-billing-code');
@@ -97,38 +94,6 @@ const DiagnosisCodeSchema = z.object({
 
 const phone = text(30).regex(/^[\d\s()+.-]*$/, 'Expected a phone number');
 
-// ---- DME menu (admin catalog) ----
-
-export interface DmeMenuItem {
-  id: string;
-  name: string;
-  hcpcsCodes: CPTCodeDTO[];
-}
-
-export const GetDmeMenuItemsInputSchema = z.object({});
-
-export const DmeMenuItemInputSchema = z.object({
-  name: text(MAX_NAME_LENGTH).min(1, 'name is required'),
-  hcpcsCodes: z.array(BillingCodeSchema).max(MAX_CODES).default([]),
-});
-export type DmeMenuItemInput = z.input<typeof DmeMenuItemInputSchema>;
-
-export const UpdateDmeMenuItemInputSchema = DmeMenuItemInputSchema.extend({ menuItemId: uuid('menuItemId') });
-export type UpdateDmeMenuItemInput = z.input<typeof UpdateDmeMenuItemInputSchema>;
-
-export const DeleteDmeMenuItemInputSchema = z.object({ menuItemId: uuid('menuItemId') });
-export type DeleteDmeMenuItemInput = z.infer<typeof DeleteDmeMenuItemInputSchema>;
-
-export interface GetDmeMenuItemsResponse {
-  items: DmeMenuItem[];
-}
-
-export interface SaveDmeMenuItemResponse {
-  item: DmeMenuItem;
-}
-
-// ---- DME orders ----
-
 export const DmeThirdPartySchema = z.object({
   name: text(MAX_NAME_LENGTH).optional(),
   address: text(MAX_ADDRESS_LENGTH).optional(),
@@ -138,11 +103,6 @@ export const DmeThirdPartySchema = z.object({
 export type DmeThirdParty = z.infer<typeof DmeThirdPartySchema>;
 
 export const DmeOrderFieldsSchema = z.object({
-  /** set when the item was picked from the DME menu; omitted for a free-text "Other" item */
-  menuItemId: z
-    .string()
-    .regex(/^[A-Za-z0-9\-.]{1,64}$/, 'menuItemId must be a FHIR resource id')
-    .optional(),
   itemName: text(MAX_NAME_LENGTH).min(1, 'DME item is required'),
   diagnoses: z.array(DiagnosisCodeSchema).max(MAX_CODES).default([]),
   quantity: z
@@ -220,7 +180,6 @@ export interface SendDmeOrderFaxResponse {
 export interface DmeOrderDTO {
   id: string;
   encounterId: string;
-  menuItemId?: string;
   itemName: string;
   diagnoses: { code: string; display: string }[];
   quantity: number;

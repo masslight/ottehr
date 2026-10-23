@@ -19,7 +19,6 @@ const PRACTITIONER_ID = '2b0f5b9e-6a43-4c55-9f5e-6a1d1c7d1a01';
 const DISPENSER_ID = '2b0f5b9e-6a43-4c55-9f5e-6a1d1c7d1a02';
 
 const inHouseFields: DmeOrderFields = {
-  menuItemId: 'menu-1',
   itemName: 'Wrist brace',
   diagnoses: [{ code: 'S52.501A', display: 'Fracture of right radius' }],
   quantity: 2,

@@ -122,7 +122,6 @@ const createFakeFhir = (
 };
 
 const dmeFields = DmeOrderFieldsSchema.parse({
-  menuItemId: 'menu-item-1',
   itemName: 'Ankle Brace',
   quantity: 2,
   orderedByPractitionerId: '0b5a2c8e-1f3d-4c6e-9a7b-2d4f6e8a0c1b',

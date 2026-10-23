@@ -81,17 +81,12 @@ import { DeleteUserZambdaInput, DeleteUserZambdaOutput } from 'utils/lib/types/a
 import {
   CreateDmeOrderInput,
   CreateDmeOrderResponse,
-  DeleteDmeMenuItemInput,
-  DmeMenuItemInput,
-  GetDmeMenuItemsResponse,
   GetDmeOrderPdfInput,
   GetDmeOrderPdfResponse,
   GetDmeOrdersInput,
   GetDmeOrdersResponse,
-  SaveDmeMenuItemResponse,
   SendDmeOrderFaxInput,
   SendDmeOrderFaxResponse,
-  UpdateDmeMenuItemInput,
   UpdateDmeOrderInput,
   UpdateDmeOrderResponse,
 } from 'utils/lib/types/api/dme.types';
@@ -519,10 +514,6 @@ const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
-const GET_DME_MENU_ITEMS_ZAMBDA_ID = 'get-dme-menu-items';
-const ADMIN_CREATE_DME_MENU_ITEM_ZAMBDA_ID = 'admin-create-dme-menu-item';
-const ADMIN_UPDATE_DME_MENU_ITEM_ZAMBDA_ID = 'admin-update-dme-menu-item';
-const ADMIN_DELETE_DME_MENU_ITEM_ZAMBDA_ID = 'admin-delete-dme-menu-item';
 const CREATE_DME_ORDER_ZAMBDA_ID = 'create-dme-order';
 const GET_DME_ORDERS_ZAMBDA_ID = 'get-dme-orders';
 const UPDATE_DME_ORDER_ZAMBDA_ID = 'update-dme-order';
@@ -2115,20 +2106,6 @@ const executeDmeZambda = async <T>(oystehr: Oystehr, id: string, parameters: obj
     throw error;
   }
 };
-
-export const getDmeMenuItems = (oystehr: Oystehr): Promise<GetDmeMenuItemsResponse> =>
-  executeDmeZambda(oystehr, GET_DME_MENU_ITEMS_ZAMBDA_ID, {});
-
-export const createDmeMenuItem = (oystehr: Oystehr, parameters: DmeMenuItemInput): Promise<SaveDmeMenuItemResponse> =>
-  executeDmeZambda(oystehr, ADMIN_CREATE_DME_MENU_ITEM_ZAMBDA_ID, parameters);
-
-export const updateDmeMenuItem = (
-  oystehr: Oystehr,
-  parameters: UpdateDmeMenuItemInput
-): Promise<SaveDmeMenuItemResponse> => executeDmeZambda(oystehr, ADMIN_UPDATE_DME_MENU_ITEM_ZAMBDA_ID, parameters);
-
-export const deleteDmeMenuItem = (oystehr: Oystehr, parameters: DeleteDmeMenuItemInput): Promise<void> =>
-  executeDmeZambda(oystehr, ADMIN_DELETE_DME_MENU_ITEM_ZAMBDA_ID, parameters);
 
 export const createDmeOrder = (oystehr: Oystehr, parameters: CreateDmeOrderInput): Promise<CreateDmeOrderResponse> =>
   executeDmeZambda(oystehr, CREATE_DME_ORDER_ZAMBDA_ID, parameters);

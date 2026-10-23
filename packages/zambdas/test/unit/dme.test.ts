@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { ActivityDefinition, DeviceRequest, Encounter, Location, Organization, Patient, Procedure } from 'fhir/r4b';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { DeviceRequest, Encounter, Location, Organization, Patient, Procedure } from 'fhir/r4b';
+import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
+import { CODE_SYSTEM_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import {
   DME_ORDER_PARAMETER_SYSTEM,
   DME_TASK,
@@ -24,15 +25,12 @@ import {
   getDmePractitionerIds,
   isDmeBillingProcedure,
   isDmeBillingProcedureOf,
-  isDmeMenuItem,
   isDmeOrderDeleted,
   isDmeOrderExternal,
   makeDmeBillingProcedures,
   makeDmeDeviceRequest,
   makeDmeDispensedExtension,
-  makeDmeMenuItemActivityDefinition,
   makeDmeProvenance,
-  parseDmeMenuItem,
   parseDmeOrder,
 } from '../../src/shared/dme';
 
@@ -49,7 +47,6 @@ const ANKLE_BRACE_CODES = [
 
 const fields = (overrides: Partial<DmeOrderFields> = {}): ParsedDmeOrderFields =>
   DmeOrderFieldsSchema.parse({
-    menuItemId: 'menu-item-1',
     itemName: 'Ankle Brace',
     quantity: 2,
     orderedByPractitionerId: ORDERED_BY,
@@ -60,54 +57,6 @@ const fields = (overrides: Partial<DmeOrderFields> = {}): ParsedDmeOrderFields =
 const build = (f: ParsedDmeOrderFields, existing?: DeviceRequest): DeviceRequest => ({
   ...makeDmeDeviceRequest({ fields: f, encounterId: ENCOUNTER_ID, patientId: PATIENT_ID, existing }),
   id: existing?.id ?? 'dr-1',
-});
-
-describe('DME menu item mapping', () => {
-  it('round-trips name and HCPCS codes through an ActivityDefinition', () => {
-    const resource = makeDmeMenuItemActivityDefinition(
-      { name: '  Ankle Brace ', hcpcsCodes: ANKLE_BRACE_CODES },
-      'ad-1'
-    );
-
-    expect(resource).toMatchObject({
-      id: 'ad-1',
-      status: 'active',
-      kind: 'DeviceRequest',
-      name: 'Ankle_Brace',
-      title: 'Ankle Brace',
-    });
-    expect(resource.productCodeableConcept?.coding?.map((c) => c.code)).toEqual(['L1906', 'L4361']);
-    expect(resource.code).toBeUndefined();
-    expect(isDmeMenuItem(resource)).toBe(true);
-    expect(parseDmeMenuItem(resource)).toEqual({ id: 'ad-1', name: 'Ankle Brace', hcpcsCodes: ANKLE_BRACE_CODES });
-  });
-
-  it('handles an item without codes and rejects resources that are not DME menu items', () => {
-    const resource = makeDmeMenuItemActivityDefinition({ name: 'Crutches', hcpcsCodes: [] }, 'ad-2');
-    expect(resource.productCodeableConcept).toBeUndefined();
-    expect(parseDmeMenuItem(resource)).toEqual({ id: 'ad-2', name: 'Crutches', hcpcsCodes: [] });
-
-    expect(makeDmeMenuItemActivityDefinition({ name: 'New', hcpcsCodes: [] }).id).toBeUndefined();
-    expect(parseDmeMenuItem({ ...resource, id: undefined })).toBeUndefined();
-
-    const other: ActivityDefinition = { resourceType: 'ActivityDefinition', id: 'qp', status: 'active', title: 'x' };
-    expect(isDmeMenuItem(other)).toBe(false);
-  });
-
-  it('describes a stored code without a display by the item name, so an order copying it stays valid', () => {
-    const resource = makeDmeMenuItemActivityDefinition({ name: 'Ankle Brace', hcpcsCodes: ANKLE_BRACE_CODES }, 'ad-3');
-    resource.productCodeableConcept!.coding = [
-      { system: CODE_SYSTEM_CPT, code: 'L1906' },
-      { system: CODE_SYSTEM_CPT, code: 'L4361', display: ' ' },
-    ];
-
-    const item = parseDmeMenuItem(resource)!;
-    expect(item.hcpcsCodes).toEqual([
-      { code: 'L1906', display: 'Ankle Brace' },
-      { code: 'L4361', display: 'Ankle Brace' },
-    ]);
-    expect(DmeOrderFieldsSchema.safeParse({ ...fields(), billingCodes: item.hcpcsCodes }).success).toBe(true);
-  });
 });
 
 describe('DME order mapping', () => {
@@ -127,7 +76,6 @@ describe('DME order mapping', () => {
     expect(parseDmeOrder(dr, NAMES)).toEqual({
       id: 'dr-1',
       encounterId: ENCOUNTER_ID,
-      menuItemId: 'menu-item-1',
       itemName: 'Ankle Brace',
       diagnoses: [{ code: 'S93.401A', display: 'Sprain of right ankle' }],
       quantity: 2,
@@ -215,16 +163,13 @@ describe('DME order mapping', () => {
     });
   });
 
-  it('round-trips a minimal free-text "Other" in-house order and drops third party details', () => {
-    const dr = build(
-      fields({ menuItemId: undefined, itemName: 'Custom splint', billingCodes: [], thirdParty: { name: 'Ignored' } })
-    );
+  it('round-trips a minimal in-house order and drops third party details', () => {
+    const dr = build(fields({ itemName: 'Custom splint', billingCodes: [], thirdParty: { name: 'Ignored' } }));
     const parsed = parseDmeOrder(dr, NAMES);
 
     expect(dr.contained).toBeUndefined();
     expect(dr.performer).toBeUndefined();
     expect(parsed).toMatchObject({
-      menuItemId: undefined,
       itemName: 'Custom splint',
       quantity: 2,
       billingCodes: [],
@@ -237,6 +182,25 @@ describe('DME order mapping', () => {
       instructions: undefined,
       status: DmeOrderStatus.pending,
     });
+  });
+
+  it('stores the item name as the code text only', () => {
+    expect(build(fields({ itemName: '  Knee walker ' })).codeCodeableConcept).toEqual({ text: 'Knee walker' });
+  });
+
+  it('reads the item name of an order placed from the old DME menu (coding, no text)', () => {
+    const legacy: DeviceRequest = {
+      ...build(fields()),
+      codeCodeableConcept: {
+        coding: [{ system: ottehrCodeSystemUrl('dme-item'), code: 'menu-item-1', display: 'Ankle Brace' }],
+      },
+    };
+    const parsed = parseDmeOrder(legacy, NAMES);
+    expect(parsed.itemName).toBe('Ankle Brace');
+    expect(parsed).not.toHaveProperty('menuItemId');
+
+    const resaved = build(DmeOrderFieldsSchema.parse({ ...fields(), itemName: parsed.itemName }), legacy);
+    expect(resaved.codeCodeableConcept).toEqual({ text: 'Ankle Brace' });
   });
 
   it.each([{ fax: '5557654321' }, { address: '1 Main St' }, { name: 'Acme DME' }])(
