@@ -2,7 +2,13 @@ import Oystehr, { BatchInputPatchRequest, FhirResourceReturnValue } from '@oyste
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
-import { getExtensionValue, reducePatchOperations, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import {
+  getExtensionValue,
+  makeOptimisticLockIfMatchHeader,
+  reducePatchOperations,
+  withVersionConflictRetries,
+} from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -241,7 +247,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       agent,
       activity: 'update',
     });
-    const requests = reducePatchOperations<Claim | Provenance>([
+    const merged = reducePatchOperations<Claim | Provenance>([
       ...(updatedTags.length ? claimMetaTagsWithProvenanceRequests(current, updatedTags, 'statusChange', agent) : []),
       ...(claimResponseIcn
         ? [
@@ -261,6 +267,18 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       ...(icnHistory ? [icnHistory] : []),
       ...(matchHistory ? [matchHistory] : []),
     ]);
+    // a transaction drops a JSON patch's ifMatch, so the claim patch goes as a binary one, locked
+    // to the claim this attempt read
+    const requests = merged.map((request) =>
+      request.method === 'PATCH' && 'operations' in request && request.url === `/Claim/${current.id}`
+        ? getPatchBinary({
+            resourceType: 'Claim',
+            resourceId: current.id,
+            ifMatch: makeOptimisticLockIfMatchHeader(current),
+            patchOperations: request.operations,
+          })
+        : request
+    );
     if (!requests.length) {
       // Nothing to do
       return;

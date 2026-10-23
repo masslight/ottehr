@@ -1,5 +1,6 @@
-import Oystehr, { BatchInputJSONPatchRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Claim, ClaimResponse, Coding, FhirResource, Identifier, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
+import { Binary, Claim, ClaimResponse, Coding, FhirResource, Identifier, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -137,22 +138,22 @@ const validated = (claim: Claim, claimResponse: ClaimResponse): ComplexValidatio
     newlyMatched: true,
   }) as unknown as ComplexValidationOutput;
 
+const writtenClaimOperations = (): Operation[] => {
+  const requests = transaction.mock.calls.at(-1)?.[0].requests as BatchInputRequest<FhirResource>[];
+  const patch = requests.find((r) => r.method === 'PATCH' && r.url === '/Claim/claim-1') as
+    | { resource: Binary }
+    | undefined;
+  return patch ? JSON.parse(atob(patch.resource.data ?? '')) : [];
+};
+
 // The meta.tag array the committed transaction actually writes, read back out of the PATCH Binary.
 const writtenTags = (): Coding[] => {
-  const requests = transaction.mock.calls.at(-1)?.[0].requests as BatchInputRequest<FhirResource>[];
-  const patch = requests.find((r) => r.method === 'PATCH' && 'operations' in r && r.operations) as
-    | BatchInputJSONPatchRequest
-    | undefined;
-  const tagOp = patch?.operations.find((op) => op.path === '/meta/tag');
+  const tagOp = writtenClaimOperations().find((op) => op.path === '/meta/tag');
   return (tagOp as { value: Coding[] }).value;
 };
 
 const writtenIdentifiers = (): Identifier[] => {
-  const requests = transaction.mock.calls.at(-1)?.[0].requests as BatchInputRequest<FhirResource>[];
-  const patch = requests.find((r) => r.method === 'PATCH' && 'operations' in r && r.operations) as
-    | BatchInputJSONPatchRequest
-    | undefined;
-  const identifiers = patch?.operations.find((op) => op.path === '/identifier');
+  const identifiers = writtenClaimOperations().find((op) => op.path === '/identifier');
   return (identifiers as { value: Identifier[] } | undefined)?.value ?? [];
 };
 
@@ -487,6 +488,23 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     await performEffect(oystehr, validated(adjudicated, withIcn('PCCN-12345')));
 
     expect(claimUpdates()).toHaveLength(1);
+  });
+
+  it('locks the payer claim control number to the claim version when the status does not change', async () => {
+    const adjudicated = claimWith([]);
+    adjudicated.meta!.tag!.push({
+      system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
+      code: 'adjudicated',
+    });
+
+    await performEffect(oystehr, validated(adjudicated, withIcn('PCCN-12345')));
+
+    expect(claimPatches()).toMatchObject([
+      {
+        url: '/Claim/claim-1',
+        ifMatch: 'W/"1"',
+      },
+    ]);
   });
 
   it('records nothing for a payer claim control number the claim already has', async () => {
