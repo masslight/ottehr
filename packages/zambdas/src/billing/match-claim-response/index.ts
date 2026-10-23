@@ -13,9 +13,9 @@ import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
-import { claimMatchHistoryRequests, matchFieldsPatchOperations } from '../claim-response-match';
-import { resolveClaimActor } from '../provenance';
+import { claimMatchHistoryRequests, MATCH_FIELDS, matchFieldsPatchOperations } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
+import { resolveClaimActor } from '../provenance';
 import { createBillingClient, createEraReadClient } from '../shared';
 
 let m2mToken: string;
@@ -58,7 +58,6 @@ export async function performEffect(
     request: {
       reference: 'Claim/' + claim.id,
     },
-    insurer: claimResponse.insurer?.reference ? claimResponse.insurer : claim.insurer,
     patient: claim.patient,
     type: claim.type,
   };
@@ -69,7 +68,7 @@ export async function performEffect(
         resourceId: claimResponse.id!,
         // Fails if a void cancelled the response after the check above.
         ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
-        patchOperations: matchFieldsPatchOperations(matched),
+        patchOperations: matchFieldsPatchOperations(matched, MATCH_FIELDS),
       }),
       ...claimMatchHistoryRequests({
         before: claimResponse,

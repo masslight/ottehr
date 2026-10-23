@@ -4,11 +4,17 @@ import { ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { matchedClaimId } from './claim-amounts';
 import { claimEventProvenanceRequest } from './provenance';
 
-// What matching a payer response to a claim, or unmatching it, rewrites.
-const MATCH_FIELDS = ['request', 'insurer', 'patient', 'type'] as const;
+// What matching a payer response to a claim rewrites. The insurer stays as the ERA reported it,
+// since the claim's payer may differ.
+export const MATCH_FIELDS = ['request', 'patient', 'type'] as const;
+// Unmatching also puts back the payer of the claim the ERA keyed.
+export const UNMATCH_FIELDS = [...MATCH_FIELDS, 'insurer'] as const;
 
-export function matchFieldsPatchOperations(claimResponse: ClaimResponse): Operation[] {
-  return MATCH_FIELDS.map((field) => ({
+export function matchFieldsPatchOperations(
+  claimResponse: ClaimResponse,
+  fields: readonly (typeof UNMATCH_FIELDS)[number][]
+): Operation[] {
+  return fields.map((field) => ({
     op: 'replace',
     path: `/${field}`,
     value: claimResponse[field],

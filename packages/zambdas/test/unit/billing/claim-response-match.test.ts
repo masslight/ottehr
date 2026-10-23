@@ -6,6 +6,13 @@ import { performEffect as unmatchClaimResponse } from '../../../src/billing/unma
 import { claimHistoryEntries, provenanceChanges, TEST_AGENT } from './claim-history-fixtures';
 import { claimResponse } from './era-fixtures';
 
+vi.mock('../../../src/billing/era-write', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  assertClaimResponseEraNotVoided: vi.fn(),
+}));
+
+const eraReadClient = {} as Oystehr;
+
 const claim: Claim = {
   resourceType: 'Claim',
   id: 'c2',
@@ -95,7 +102,7 @@ describe('match-claim-response', () => {
   it("records the match in the claim's history, by the biller who made it", async () => {
     const { oystehr, transaction } = makeClient(unmatchedResponse);
 
-    await matchClaimResponse(oystehr, {
+    await matchClaimResponse(oystehr, eraReadClient, {
       claimId: 'c2',
       claimResponseId: 'cr-1',
       secrets: null,
@@ -122,10 +129,10 @@ describe('match-claim-response', () => {
     });
   });
 
-  it('patches the response to point at the claim, taking its payer only when it has none', async () => {
+  it('patches the response to point at the claim, keeping the payer the ERA reported', async () => {
     const { oystehr, transaction } = makeClient(unmatchedResponse);
 
-    await matchClaimResponse(oystehr, {
+    await matchClaimResponse(oystehr, eraReadClient, {
       claimId: 'c2',
       claimResponseId: 'cr-1',
       secrets: null,
@@ -143,11 +150,6 @@ describe('match-claim-response', () => {
       },
       {
         op: 'replace',
-        path: '/insurer',
-        value: claim.insurer,
-      },
-      {
-        op: 'replace',
         path: '/patient',
         value: claim.patient,
       },
@@ -162,7 +164,7 @@ describe('match-claim-response', () => {
   it("records a move between claims in both claims' history", async () => {
     const { oystehr, transaction } = makeClient(claimResponse());
 
-    await matchClaimResponse(oystehr, {
+    await matchClaimResponse(oystehr, eraReadClient, {
       claimId: 'c2',
       claimResponseId: 'cr-1',
       secrets: null,
@@ -187,7 +189,7 @@ describe('unmatch-claim-response', () => {
       })
     );
 
-    await unmatchClaimResponse(oystehr, {
+    await unmatchClaimResponse(oystehr, eraReadClient, {
       claimResponseId: 'cr-1',
       secrets: null,
       agent: TEST_AGENT,
@@ -205,7 +207,7 @@ describe('unmatch-claim-response', () => {
   it('records nothing for a response that was not matched', async () => {
     const { oystehr, transaction } = makeClient(unmatchedResponse);
 
-    await unmatchClaimResponse(oystehr, {
+    await unmatchClaimResponse(oystehr, eraReadClient, {
       claimResponseId: 'cr-1',
       secrets: null,
       agent: TEST_AGENT,

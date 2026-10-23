@@ -14,9 +14,9 @@ import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
-import { claimMatchHistoryRequests, matchFieldsPatchOperations } from '../claim-response-match';
-import { resolveClaimActor } from '../provenance';
+import { claimMatchHistoryRequests, matchFieldsPatchOperations, UNMATCH_FIELDS } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
+import { resolveClaimActor } from '../provenance';
 import { createBillingClient, createEraReadClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {
@@ -79,7 +79,7 @@ export async function performEffect(
         resourceId: claimResponse.id!,
         // Fails if a void cancelled the response after the check above.
         ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
-        patchOperations: matchFieldsPatchOperations(unmatched),
+        patchOperations: matchFieldsPatchOperations(unmatched, UNMATCH_FIELDS),
       }),
       ...claimMatchHistoryRequests({
         before: claimResponse,
