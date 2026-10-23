@@ -12,6 +12,11 @@ import {
 } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import {
+  isSettledRefund,
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -20,6 +25,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
 import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
+import { PaymentNoticeChangeRecorder } from '../shared/stripeIntegration';
 import { safeValidate } from '../shared/validation';
 import {
   claimEventProvenanceRequest,
@@ -78,6 +84,39 @@ export function paymentNoticeHistoryRequest({
     dedupTag,
   }) as BatchInputRequest<FhirResource> | null;
 }
+
+// The user the EHR stamped on a void, or on every new refund that moved money; a change several users
+// share, or one a refund nobody stamped is part of, has no single issuer
+const changeIssuerReference = (before: PaymentNotice, after: PaymentNotice): string | undefined => {
+  const voidedByReference = parsePaymentVoidFromNotice(after)?.voidedByReference;
+  if (voidedByReference && !parsePaymentVoidFromNotice(before)) return voidedByReference;
+  const priorRefundIds = new Set((parsePaymentRefundsFromNotice(before) ?? []).map((refund) => refund.stripeRefundId));
+  const issuers = new Set(
+    (parsePaymentRefundsFromNotice(after) ?? [])
+      .filter((refund) => !priorRefundIds.has(refund.stripeRefundId) && isSettledRefund(refund))
+      .map((refund) => refund.refundedByReference)
+  );
+  const [issuer] = issuers;
+  return issuers.size === 1 ? issuer : undefined;
+};
+
+// For the shared refund and void writers, which stamp billing copies and clinical notices alike;
+// changes no user stamped are attributed to fallbackAgent
+export const recordPaymentNoticeChange =
+  (fallbackAgent: ProvenanceAgent): PaymentNoticeChangeRecorder =>
+  (before, after) => {
+    const issuerReference = changeIssuerReference(before, after);
+    return paymentNoticeHistoryRequest({
+      targetReference: `PaymentNotice/${before.id}`,
+      before,
+      after,
+      agent: issuerReference
+        ? humanClaimActor({
+            reference: issuerReference,
+          })
+        : fallbackAgent,
+    });
+  };
 
 export async function findPaymentNotice(
   oystehr: Oystehr,
@@ -155,7 +194,7 @@ export async function createPaymentNotice({
   };
 }
 
-// Attributed to whoever took the payment, else to the system.
+// Attributed to whoever took the payment or issued the refund, else to the system.
 export const paymentActor = async (
   oystehr: Oystehr,
   recordedBy: Reference | undefined,
@@ -174,10 +213,12 @@ export const recordBillingManualRefund = async (
     paymentMethod: string;
     createdISO: string;
     reason: string;
+    refundedByReference?: string;
     secrets: Secrets | null;
   }
 ): Promise<void> => {
-  const { encounterId, refundId, amountInCents, paymentMethod, createdISO, reason, secrets } = input;
+  const { encounterId, refundId, amountInCents, paymentMethod, createdISO, reason, refundedByReference, secrets } =
+    input;
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
   const payeeRef: Reference = claim?.provider ?? {
@@ -220,7 +261,15 @@ export const recordBillingManualRefund = async (
       oystehr,
       notice: desiredNotice,
       dedupIdentifier,
-      agent: await resolveClaimActor('system', oystehr, undefined, secrets),
+      agent: await paymentActor(
+        oystehr,
+        refundedByReference
+          ? {
+              reference: refundedByReference,
+            }
+          : undefined,
+        secrets
+      ),
     });
   }
 
