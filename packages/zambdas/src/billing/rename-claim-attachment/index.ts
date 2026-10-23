@@ -1,6 +1,8 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { RenameClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
@@ -52,17 +54,19 @@ export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachm
     activity: 'update',
   });
   const requests: BatchInputRequest<FhirResource>[] = [
-    {
-      method: 'PATCH',
-      url: `/DocumentReference/${documentReference.id}`,
-      operations: [
+    getPatchBinary({
+      resourceType: 'DocumentReference',
+      resourceId: documentReference.id!,
+      // fails if another rename landed after the read, so history never records a name it skipped
+      ifMatch: makeOptimisticLockIfMatchHeader(documentReference),
+      patchOperations: [
         {
           op: 'replace',
           path: `/content`,
           value: renamed.content,
         },
       ],
-    },
+    }),
     ...(provenance ? [provenance] : []),
   ];
 

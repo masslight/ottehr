@@ -114,25 +114,10 @@ describe('rename-claim-attachment', () => {
     expect(oystehr.fhir.transaction).toBeCalledTimes(1);
     expect(oystehr.fhir.transaction).toBeCalledWith({
       requests: [
-        {
+        expect.objectContaining({
           method: 'PATCH',
           url: '/DocumentReference/document-reference-id',
-          operations: [
-            {
-              op: 'replace',
-              path: '/content',
-              value: [
-                {
-                  attachment: {
-                    url: 'https://project-api.zapehr.com/v1/z3/some-bucket/some-path/File.pdf',
-                    contentType: 'application/pdf',
-                    title: 'File.new.pdf',
-                  },
-                },
-              ],
-            },
-          ],
-        },
+        }),
         claimHistoryRequest({
           target: 'DocumentReference/document-reference-id',
           claimId: 'claim-id',
@@ -141,6 +126,21 @@ describe('rename-claim-attachment', () => {
       ],
     });
     const [{ requests }] = (oystehr.fhir.transaction as Mock).mock.calls[0];
+    expect(JSON.parse(atob(requests[0].resource.data))).toEqual([
+      {
+        op: 'replace',
+        path: '/content',
+        value: [
+          {
+            attachment: {
+              url: 'https://project-api.zapehr.com/v1/z3/some-bucket/some-path/File.pdf',
+              contentType: 'application/pdf',
+              title: 'File.new.pdf',
+            },
+          },
+        ],
+      },
+    ]);
     expect(historyChanges(requests)).toEqual([
       {
         field: 'name',
@@ -149,5 +149,46 @@ describe('rename-claim-attachment', () => {
         newValue: 'File.new.pdf',
       },
     ]);
+  });
+  it('locks the rename to the version its history was read at', async () => {
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
+      resourceType: 'DocumentReference',
+      id: 'document-reference-id',
+      meta: {
+        versionId: '2',
+      },
+      status: 'current',
+      context: {
+        related: [
+          {
+            reference: 'Claim/claim-id',
+          },
+        ],
+      },
+      content: [
+        {
+          attachment: {
+            url: 'https://project-api.zapehr.com/v1/z3/some-bucket/some-path/File.pdf',
+            title: 'File.pdf',
+          },
+        },
+      ],
+    });
+    const oystehr = makeClient();
+
+    await performEffect(oystehr, {
+      documentReferenceId: 'document-reference-id',
+      name: 'File.new.pdf',
+      secrets: {
+        PROJECT_API: 'https://project-api.zapehr.com/v1',
+      },
+      agent: TEST_AGENT,
+    });
+
+    const [{ requests }] = (oystehr.fhir.transaction as Mock).mock.calls[0];
+    expect(requests[0]).toMatchObject({
+      url: '/DocumentReference/document-reference-id',
+      ifMatch: 'W/"2"',
+    });
   });
 });
