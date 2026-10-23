@@ -266,6 +266,10 @@ export function isMatchedToClaim(claimResponse: ClaimResponse): boolean {
   return claimResponse.request?.reference?.startsWith('Claim/') ?? false;
 }
 
+export function matchedClaimId(claimResponse: ClaimResponse): string | undefined {
+  return isMatchedToClaim(claimResponse) ? claimResponse.request?.reference?.slice('Claim/'.length) : undefined;
+}
+
 export interface EraClaimCounts {
   total: number;
   matched: number;
