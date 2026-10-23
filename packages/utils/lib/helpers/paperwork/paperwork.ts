@@ -32,6 +32,7 @@ import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwor
 import {
   CalculatedExpression,
   ConditionKeyObject,
+  flattenIntakeQuestionnaireItems,
   FormDisplayElementList,
   FormElement,
   FormSelectionElementList,
@@ -932,4 +933,17 @@ export const getPaperworkResources = async (
     schedule,
     location,
   };
+};
+
+// The patient record form's first insurance block is the coverage that is currently primary and the "-2" block the one
+// that is currently secondary, so a different insurance type answer in a block means a priority change was requested.
+export const hasInsurancePriorityChange = (items: QuestionnaireResponseItem[]): boolean => {
+  const flattenedItems = flattenIntakeQuestionnaireItems(
+    items as IntakeQuestionnaireItem[]
+  ) as QuestionnaireResponseItem[];
+
+  const getPriority = (linkId: string): string | undefined =>
+    flattenedItems.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+
+  return getPriority('insurance-priority') === 'Secondary' || getPriority('insurance-priority-2') === 'Primary';
 };

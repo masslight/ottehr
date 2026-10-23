@@ -1,17 +1,29 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import type { Account, Encounter, Patient, Questionnaire } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import type { Account, DocumentReference, Encounter, Patient, Questionnaire } from 'fhir/r4b';
 import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { AUDIT_EVENT_OUTCOME_CODE, PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { checkBundleOutcomeOk, getVersionedReferencesFromBundleResources } from 'utils/lib/fhir/helpers';
-import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import { getInsurancePriorityChanges } from 'utils/lib/fhir/insurance';
+import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
+import {
+  isInsuranceCardId,
+  isPrimaryInsuranceCardId,
+  swapPrimarySecondaryInsuranceCardId,
+} from 'utils/lib/helpers/paperwork/files-docs';
+import {
+  hasInsurancePriorityChange,
+  mapQuestionnaireAndValueSetsToItemsList,
+} from 'utils/lib/helpers/paperwork/paperwork';
 import { makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { UpdatePatientAccountResponse } from 'utils/lib/types/api/patient-account';
-import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { INSURANCE_CARD_CODE, InsuranceCardId } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { flattenQuestionnaireAnswers, InsurancePriorityChanges } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
@@ -110,6 +122,10 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     console.log('no pharmacy patch operations to perform--skipping');
   }
 
+  const coveragesBeforeSave = hasInsurancePriorityChange(items)
+    ? (await getAccountAndCoverageResourcesForPatient(patientId, oystehr)).coverages
+    : undefined;
+
   let resultBundle: Bundle;
   try {
     resultBundle = await updatePatientAccountFromQuestionnaire(
@@ -140,9 +156,24 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   try {
     const {
       account,
+      coverages: savedCoverages,
       guarantorResource,
       workersCompAccount: latestWorkersCompAccount,
     } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+
+    if (coveragesBeforeSave) {
+      try {
+        await moveInsuranceCardImages(
+          patientId,
+          oystehr,
+          getInsurancePriorityChanges(coveragesBeforeSave, savedCoverages)
+        );
+      } catch (e) {
+        console.error('error moving insurance card images', e);
+        await sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+      }
+    }
+
     updatedAccount = account;
     workersCompAccount = latestWorkersCompAccount;
 
@@ -201,6 +232,59 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
         ],
       });
     }
+  }
+};
+
+// Insurance card images are tied to primary/secondary by attachment title, so when an insurance changes its priority, its card titles are changed too.
+const moveInsuranceCardImages = async (
+  patientId: string,
+  oystehr: Oystehr,
+  { primaryBecameSecondary, secondaryBecamePrimary }: InsurancePriorityChanges
+): Promise<void> => {
+  if (!primaryBecameSecondary && !secondaryBecamePrimary) {
+    return;
+  }
+
+  const docRefs = (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        { name: 'status', value: 'current' },
+        { name: 'related', value: `Patient/${patientId}` },
+        { name: 'type', value: `${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}` },
+        { name: '_sort', value: '-_lastUpdated' },
+      ],
+    })
+  ).unbundle();
+
+  const requests: BatchInputPatchRequest<DocumentReference>[] = [];
+  const movedTitles = new Set<InsuranceCardId>();
+
+  for (const docRef of docRefs) {
+    const title = docRef.content[0]?.attachment.title;
+
+    if (!isInsuranceCardId(title)) {
+      continue;
+    }
+
+    const shouldMove = isPrimaryInsuranceCardId(title) ? primaryBecameSecondary : secondaryBecamePrimary;
+
+    if (!shouldMove) {
+      continue;
+    }
+
+    // Only the newest image of each card side is moved. Older versions are superseded (as a new upload does): all
+    // moved images get the same lastUpdated, so the newest one could otherwise lose to an old version.
+    const operations: Operation[] = movedTitles.has(title)
+      ? [{ op: 'replace', path: '/status', value: 'superseded' }]
+      : [{ op: 'replace', path: '/content/0/attachment/title', value: swapPrimarySecondaryInsuranceCardId(title) }];
+
+    movedTitles.add(title);
+    requests.push({ method: 'PATCH', url: `DocumentReference/${docRef.id}`, operations });
+  }
+
+  if (requests.length) {
+    await oystehr.fhir.transaction({ requests });
   }
 };
 
