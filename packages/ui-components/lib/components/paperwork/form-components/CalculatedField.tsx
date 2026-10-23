@@ -1,9 +1,8 @@
 import { Grid, Typography } from '@mui/material';
-import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useMemo } from 'react';
 import { formatCalculatedValue } from 'utils/lib/helpers/paperwork/calculated-answers';
-import { evaluateCalculatedItems } from 'utils/lib/helpers/paperwork/calculated-expressions';
-import { usePaperworkContext } from '../context';
+import { evaluateEnabledCalculatedItems } from 'utils/lib/helpers/paperwork/calculated-expressions';
+import { useCalculationInput } from '../hooks/useCalculationInput';
 import { useQRState } from '../hooks/useFormHelpers';
 import { StyledQuestionnaireItem } from '../hooks/useStyleItems';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
@@ -13,18 +12,16 @@ interface CalculatedFieldProps {
 }
 
 // a formula field: its value is derived from the other answers in the form on every render. it is not a form field,
-// so it never enters form state; PagedQuestionnaire records it by handing it to the host as `calculatedAnswers`
+// so it never enters form state; PagedQuestionnaire records it by handing it to the host as `calculatedAnswers`.
+// it is evaluated from the same input as that save, so a page that is not enabled counts toward neither
 export const CalculatedField: FC<CalculatedFieldProps> = ({ item }) => {
-  const { allItems } = usePaperworkContext();
-  const { allFields } = useQRState();
+  const calculationInput = useCalculationInput();
+  const { formValues } = useQRState();
 
-  const display = useMemo(() => {
-    const qrItems = Object.values(allFields).filter(
-      (field): field is QuestionnaireResponseItem =>
-        typeof field === 'object' && field !== null && typeof field.linkId === 'string'
-    );
-    return formatCalculatedValue(evaluateCalculatedItems(allItems, qrItems)[item.linkId]);
-  }, [allFields, allItems, item.linkId]);
+  const display = useMemo(
+    () => formatCalculatedValue(evaluateEnabledCalculatedItems(calculationInput(formValues))[item.linkId]),
+    [calculationInput, formValues, item.linkId]
+  );
 
   return (
     <Grid item xs={12} md={item.width} sx={{ maxWidth: '100%' }}>

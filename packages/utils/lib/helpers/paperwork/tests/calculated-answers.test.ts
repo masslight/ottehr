@@ -7,7 +7,7 @@ import {
   extractCalculatedItems,
   validateCalculatedAnswers,
 } from '../calculated-answers';
-import { buildCalculatedAnswers } from '../calculated-expressions';
+import { buildCalculatedAnswers, evaluateEnabledCalculatedItems } from '../calculated-expressions';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
 
 const calculated = (expression: string): QuestionnaireItem['extension'] => [
@@ -344,6 +344,40 @@ describe('buildCalculatedAnswers', () => {
         },
       ]);
     });
+
+    it('shows live the same values it records', () => {
+      const input = {
+        pageItems: splitItems,
+        formValues: formValues(coded('a1', '1')),
+        savedPages: [
+          { linkId: 'part-a', item: [] },
+          { linkId: 'part-b', item: [coded('b1', '1'), { linkId: 'subtotal-b', answer: [{ valueInteger: 10 }] }] },
+          { linkId: 'results', item: [] },
+        ],
+        isPageEnabled,
+      };
+      const live = evaluateEnabledCalculatedItems(input);
+      expect(live).toEqual({ 'subtotal-a': 10, 'answer-total': 1, 'subtotal-total': 10 });
+
+      const recorded = resultsOf(buildCalculatedAnswers(input));
+      expect(answerOf(recorded?.find((i) => i.linkId === 'answer-total'))).toEqual({
+        valueInteger: live['answer-total'],
+      });
+      expect(answerOf(recorded?.find((i) => i.linkId === 'subtotal-total'))).toEqual({
+        valueInteger: live['subtotal-total'],
+      });
+    });
+  });
+
+  it('still calculates on a page that is enabled but hidden', () => {
+    // the CAGE results page is readOnly (hidden); being hidden does not disable it
+    const live = evaluateEnabledCalculatedItems({
+      pageItems,
+      formValues: formValues(coded('q1', '1'), coded('q2', '1')),
+      savedPages: stubPages(),
+      isPageEnabled: () => true,
+    });
+    expect(live.total).toBe(2);
   });
 
   it('does nothing for a questionnaire without calculated items', () => {

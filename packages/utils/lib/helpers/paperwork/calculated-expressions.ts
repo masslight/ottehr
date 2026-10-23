@@ -201,15 +201,12 @@ const locateCalculatedItems = (
 };
 
 /**
- * Works out every calculated item in a questionnaire from the saved response overlaid with the values just entered,
- * and returns the ones whose recorded value needs to change.
- * An entry without an `answer` clears a value that is no longer calculable. Empty when nothing changed.
+ * Evaluates every calculated item on the enabled pages from the saved response overlaid with the values in the form.
+ * This is the one place pages are filtered by enablement, so the value shown live (CalculatedField) and the value
+ * recorded on save (buildCalculatedAnswers) always agree. Items on a page that is not enabled get no entry.
  */
-export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): QuestionnaireResponseItem[] => {
+export const evaluateEnabledCalculatedItems = (input: BuildCalculatedAnswersInput): Record<string, CalculatedValue> => {
   const { pageItems, formValues, savedPages, isPageEnabled } = input;
-
-  const located = pageItems.flatMap((page) => locateCalculatedItems(page.item, page));
-  if (located.length === 0) return []; // no calculated items to assess, just return
 
   // a page that is not enabled supplies neither answers nor calculated values, so nothing on it feeds a score
   // can be enabled and hidden, enabled does not equate to visible
@@ -224,7 +221,21 @@ export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): Ques
     return { linkId: page.linkId, item };
   });
 
-  const results = evaluateCalculatedItems(enabledPages, overlay);
+  return evaluateCalculatedItems(enabledPages, overlay);
+};
+
+/**
+ * Works out every calculated item in a questionnaire from the saved response overlaid with the values just entered,
+ * and returns the ones whose recorded value needs to change.
+ * An entry without an `answer` clears a value that is no longer calculable. Empty when nothing changed.
+ */
+export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): QuestionnaireResponseItem[] => {
+  const { pageItems, savedPages } = input;
+
+  const located = pageItems.flatMap((page) => locateCalculatedItems(page.item, page));
+  if (located.length === 0) return []; // no calculated items to assess, just return
+
+  const results = evaluateEnabledCalculatedItems(input);
 
   const calculatedPages: QuestionnaireResponseItem[] = [];
 

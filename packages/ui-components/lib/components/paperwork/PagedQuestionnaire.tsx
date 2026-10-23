@@ -30,7 +30,7 @@ import { useBeforeUnload } from 'react-router-dom';
 import { formatZipcodeForDisplay, stripMarkdownLink } from 'utils/lib/helpers/helpers';
 import { buildCalculatedAnswers } from 'utils/lib/helpers/paperwork/calculated-expressions';
 import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
-import { evalEnableWhen, makeValidationSchema, SIGNATURE_FIELDS } from 'utils/lib/helpers/paperwork/validation';
+import { makeValidationSchema, SIGNATURE_FIELDS } from 'utils/lib/helpers/paperwork/validation';
 import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
   IntakeQuestionnaireItem,
@@ -64,6 +64,7 @@ import { PharmacyCollection } from './form-components/PharmacyCollection';
 import { RadioInput } from './form-components/RadioInput';
 import { RadioListInput } from './form-components/RadioListInput';
 import { useAutoFillValues } from './hooks/useAutofill';
+import { useCalculationInput } from './hooks/useCalculationInput';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useDisplayFilteredOptions, useFilterAnswersOptions } from './hooks/useFilterAnswersOptions';
 import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './hooks/useFormHelpers';
@@ -309,8 +310,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 }) => {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
-  const { questionnaireResponse, saveButtonDisabled, continueLabel, pageItems, allItems, paperwork } =
-    usePaperworkContext();
+  const { questionnaireResponse, saveButtonDisabled, continueLabel } = usePaperworkContext();
 
   const { handleSubmit, formState } = useFormContext();
 
@@ -322,22 +322,14 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const visibleItems = useStyledItems({ formItems: items });
   const errorMessage = makeFormErrorMessage(visibleItems, errors);
-  const { formValues, allFields } = useQRState();
+  const { formValues } = useQRState();
 
   // Works out the form's calculated items, hidden pages included, from the saved response overlaid with the values
   // just entered. The values are sent with this page's save, because a hidden page is never saved by itself.
+  const calculationInput = useCalculationInput();
   const makeCalculatedAnswers = useCallback(
-    (data: QuestionnaireFormFields): QuestionnaireResponseItem[] =>
-      buildCalculatedAnswers({
-        pageItems,
-        formValues: data as Record<string, QuestionnaireResponseItem | undefined>,
-        savedPages: paperwork,
-        isPageEnabled: (page) => {
-          const definition = pageItems.find((item) => item.linkId === page.linkId);
-          return definition ? evalEnableWhen(definition, allItems, allFields, questionnaireResponse) : true;
-        },
-      }),
-    [pageItems, paperwork, allItems, allFields, questionnaireResponse]
+    (data: QuestionnaireFormFields): QuestionnaireResponseItem[] => buildCalculatedAnswers(calculationInput(data)),
+    [calculationInput]
   );
 
   // Only run credit-card auto-save when the current page actually contains a Credit Card input.
