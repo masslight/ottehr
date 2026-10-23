@@ -7,6 +7,7 @@ import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
 import { UploadRadiologyResultZambdaOutput } from 'utils/lib/types/api/radiology';
+import { RADIOLOGY_REPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -71,7 +72,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: body.z3URL, title }],
-    type: { coding: [RADIOLOGY_RESULT_DOC_REF_DOCTYPE], text: RADIOLOGY_RESULT_DOC_REF_DOCTYPE.display },
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: RADIOLOGY_REPORT_CODE, display: 'Diagnostic imaging study' },
+        RADIOLOGY_RESULT_DOC_REF_DOCTYPE,
+      ],
+      text: RADIOLOGY_RESULT_DOC_REF_DOCTYPE.display,
+    },
     references: {
       subject: { reference: patientReference },
       author,

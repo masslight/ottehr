@@ -2,11 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference, DomainResource, List, ServiceRequest } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
 import {
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   UploadRadiologyResultZambdaOutput,
 } from 'utils/lib/types/api/radiology';
+import { RADIOLOGY_REPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { searchRadiologyResultDocRefs } from '../../src/ehr/radiology/shared/result-doc-refs';
 import {
   InsertFullAppointmentDataBaseResult,
   insertInPersonAppointmentBase,
@@ -109,6 +112,9 @@ describe('radiology upload-result integration tests', () => {
     });
     resourcesToCleanup.push(serviceRequest);
 
+    const currentResultIds = async (): Promise<string[]> =>
+      (await searchRadiologyResultDocRefs(serviceRequest.id!, oystehrAdmin)).map((docRef) => docRef.id!).sort();
+
     const firstUploadUrl = fakeZ3Url('first-upload.pdf');
     const firstDocRefId = await uploadResult(serviceRequest.id!, firstUploadUrl, 'report-1.pdf');
 
@@ -121,6 +127,13 @@ describe('radiology upload-result integration tests', () => {
       id: firstDocRefId,
     });
     resourcesToCleanup.push(firstDocRef);
+    expect(firstDocRef.type?.coding).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ system: 'http://loinc.org', code: RADIOLOGY_REPORT_CODE }),
+        expect.objectContaining(RADIOLOGY_RESULT_DOC_REF_DOCTYPE),
+      ])
+    );
+    expect(await currentResultIds()).toEqual([firstDocRefId]);
 
     expect(await uploadResult(serviceRequest.id!, firstUploadUrl, 'report-1.pdf')).toBe(firstDocRefId);
     expect(await folderReferences(folder.id!)).toEqual([`DocumentReference/${firstDocRefId}`]);
@@ -134,6 +147,7 @@ describe('radiology upload-result integration tests', () => {
     });
     expect(supersededDocRef.status).toBe('superseded');
     expect(await folderReferences(folder.id!)).toEqual([`DocumentReference/${replacementDocRefId}`]);
+    expect(await currentResultIds()).toEqual([replacementDocRefId]);
 
     const otherDocRefId = await uploadResult(serviceRequest.id!, fakeZ3Url('third-upload.pdf'), 'report-2.pdf');
     const otherDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
@@ -146,6 +160,7 @@ describe('radiology upload-result integration tests', () => {
       `DocumentReference/${replacementDocRefId}`,
       `DocumentReference/${otherDocRefId}`,
     ]);
+    expect(await currentResultIds()).toEqual([replacementDocRefId, otherDocRefId].sort());
 
     await oystehrTestUserM2M.zambda.execute({
       id: 'RADIOLOGY-DELETE-RESULT',
@@ -153,6 +168,7 @@ describe('radiology upload-result integration tests', () => {
     });
 
     expect(await folderReferences(folder.id!)).toEqual([`DocumentReference/${otherDocRefId}`]);
+    expect(await currentResultIds()).toEqual([otherDocRefId]);
     await expect(
       oystehrAdmin.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id: replacementDocRefId })
     ).rejects.toBeDefined();

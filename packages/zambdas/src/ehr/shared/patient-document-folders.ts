@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference, List, Patient } from 'fhir/r4b';
+import { List, Patient } from 'fhir/r4b';
 import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import {
   createCustomPatientDocumentList,
@@ -7,7 +7,6 @@ import {
   fetchCustomFoldersCatalog,
   isCustomFolderList,
 } from 'utils/lib/fhir/list';
-import { replaceOperation } from 'utils/lib/helpers/operations';
 import { isSyntheticFolderId, parseSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 
 const logIt = (msg: string): void => {
@@ -30,7 +29,7 @@ const logIt = (msg: string): void => {
  * FHIR string search on `title` is prefix-match, so an exact title (and folder-kind) check is
  * required before reusing a List — searching for "Labs" also returns "Labs Archive".
  */
-const findExistingFolderList = async (args: {
+export const findExistingFolderList = async (args: {
   patientId: string;
   internalName: string;
   isCustom: boolean;
@@ -137,33 +136,6 @@ export const findOrCreatePatientCustomFolderList = async (args: {
   });
   logIt(`findOrCreatePatientCustomFolderList: resolved List ${created.id} for "${internalName}"`);
   return created;
-};
-
-export const removeDocumentFromPatientFolders = async (docRef: DocumentReference, oystehr: Oystehr): Promise<void> => {
-  const docRefReference = `DocumentReference/${docRef.id}`;
-
-  const listResources = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [{ name: 'subject', value: docRef.subject?.reference || '' }],
-    })
-  ).unbundle();
-
-  const targetLists = listResources.filter(
-    (list) => list.entry?.some((entry) => entry.item?.reference === docRefReference)
-  );
-
-  await Promise.all(
-    targetLists.map(async (list) => {
-      const updatedEntries = list.entry?.filter((entry) => entry.item?.reference !== docRefReference) ?? [];
-
-      return oystehr.fhir.patch<List>({
-        resourceType: 'List',
-        id: list.id!,
-        operations: [replaceOperation('/entry', updatedEntries)],
-      });
-    })
-  );
 };
 
 export interface ListAndPatientResource {
