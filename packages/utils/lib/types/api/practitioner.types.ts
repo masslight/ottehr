@@ -328,6 +328,7 @@ export enum AppointmentProviderNotificationTypes {
   unsigned_charts = 'unsigned-charts',
   task_assigned = 'task-assigned',
   task_category_created = 'task-category-created',
+  task_note_added = 'task-note-added',
   virtual_visit_scheduled = 'virtual-visit-scheduled',
 }
 
@@ -337,6 +338,9 @@ export const PROVIDER_NOTIFICATION_PREFERENCES_V2_URL = `${FHIR_BASE_URL}/r4/pro
 export const PROVIDER_NOTIFICATION_CATEGORY_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-category`;
 export const CATEGORY_NOTIFICATION_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-category-tag`;
 export const CATEGORY_NOTIFICATION_TAG_CODE = 'category-notified';
+// Stamped on a task note once the people involved in its task have been notified about it.
+export const TASK_NOTE_NOTIFIED_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-task-note-tag`;
+export const TASK_NOTE_NOTIFIED_TAG_CODE = 'task-note-notified';
 export const VIRTUAL_VISIT_SCHEDULED_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-virtual-visit-scheduled-tag`;
 export const VIRTUAL_VISIT_SCHEDULED_TAG_CODE = 'virtual-visit-scheduled-notified';
 // Own system, not the legacy 'patient waiting' tag: old deploys stamped that tag at BOOKING, so reusing

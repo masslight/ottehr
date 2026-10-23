@@ -7,6 +7,7 @@ import { validateRequestParameters as validateCreate } from '../src/ehr/patient-
 import { validateRequestParameters as validateDelete } from '../src/ehr/patient-notes/delete/validateRequestParameters';
 import { GetPatientNotesSchema } from '../src/ehr/patient-notes/get/index';
 import { validateRequestParameters as validateUpdate } from '../src/ehr/patient-notes/update/validateRequestParameters';
+import { NOTE_EDITOR_EXTENSION_URL } from '../src/shared/notes';
 import { getMyPractitionerId } from '../src/shared/practitioners';
 import type { ZambdaInput } from '../src/shared/types/common';
 import { validateWithSchema } from '../src/shared/validation';
@@ -45,6 +46,7 @@ const mockFhirClient = {
     search: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
 };
@@ -384,7 +386,7 @@ describe('get-patient-notes handler', () => {
         { name: 'subject', value: `Patient/${VALID_PATIENT_ID}` },
         { name: '_tag', value: PATIENT_NOTE_TAG },
         { name: 'status', value: 'completed' },
-        { name: '_sort', value: '-_lastUpdated' },
+        { name: '_sort', value: '-sent' },
         { name: '_count', value: '10' },
         { name: '_offset', value: '20' },
       ])
@@ -419,6 +421,23 @@ describe('get-patient-notes handler', () => {
     const result = await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
     const { notes } = JSON.parse(result.body);
     expect(notes[0].edited).toBe(false);
+  });
+
+  it('marks a note its author edited as edited, with no other editors listed', async () => {
+    const selfEdited = fakeNote({
+      meta: { tag: [{ system: PATIENT_NOTE_SYSTEM, code: 'patient-note' }], lastUpdated: '2026-01-01T12:00:01.000Z' },
+      extension: [
+        {
+          url: NOTE_EDITOR_EXTENSION_URL,
+          valueReference: { reference: `Practitioner/${CALLER_ID}`, display: 'Jane Smith' },
+        },
+      ],
+    });
+    mockFhirClient.fhir.search.mockResolvedValue({ unbundle: () => [selfEdited] });
+
+    const result = await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+    const { notes } = JSON.parse(result.body);
+    expect(notes[0]).toMatchObject({ authorName: 'Jane Smith', edited: true, editorNames: [] });
   });
 });
 
@@ -549,18 +568,20 @@ describe('update-patient-note handler', () => {
     mockFhirClient.fhir.get.mockResolvedValue(fakePractitioner);
   });
 
-  it('returns 200 and updates the Communication', async () => {
-    const existing = fakeNote();
+  it('returns 200 and updates the Communication, locked to the version it read', async () => {
+    const existing = fakeNote({ meta: { ...fakeNote().meta, versionId: '7' } });
     const updated = fakeNote({ payload: [{ contentString: 'updated text' }] });
     mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
-    mockFhirClient.fhir.update.mockResolvedValue(updated);
+    mockFhirClient.fhir.patch.mockResolvedValue(updated);
 
     const result = await updateHandler(
       makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'updated text' } }, 'user-token')
     );
 
     expect(result.statusCode).toBe(200);
-    expect(mockFhirClient.fhir.update).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
+    expect(mockFhirClient.fhir.patch).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }), {
+      optimisticLockingVersionId: '7',
+    });
     expect(mockFhirClient.fhir.create).not.toHaveBeenCalled();
   });
 
@@ -580,7 +601,7 @@ describe('update-patient-note handler', () => {
       updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
     ).rejects.toMatchObject({ code: 4103, message: expect.stringMatching(/not a patient note/i) });
 
-    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+    expect(mockFhirClient.fhir.patch).not.toHaveBeenCalled();
   });
 
   it('throws FHIR_RESOURCE_VALIDATION_ERROR (4103) when the note subject does not match the requested patientId', async () => {
@@ -591,7 +612,7 @@ describe('update-patient-note handler', () => {
       updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
     ).rejects.toMatchObject({ code: 4103, message: expect.stringMatching(/does not belong/i) });
 
-    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+    expect(mockFhirClient.fhir.patch).not.toHaveBeenCalled();
   });
 
   it('throws FHIR_RESOURCE_VALIDATION_ERROR (4103) when the note is soft-deleted (entered-in-error)', async () => {
@@ -602,41 +623,77 @@ describe('update-patient-note handler', () => {
       updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
     ).rejects.toMatchObject({ code: 4103, message: expect.stringMatching(/deleted/i) });
 
-    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+    expect(mockFhirClient.fhir.patch).not.toHaveBeenCalled();
   });
 
-  it('allows any caller to update a note they did not author', async () => {
-    const existing = fakeNote();
-    const updated = fakeNote({ payload: [{ contentString: 'updated text' }] });
-    mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
-    mockFhirClient.fhir.update.mockResolvedValue(updated);
+  it('lets anyone edit a note, keeping its author and listing the editor', async () => {
+    const editor = { reference: 'Practitioner/other-practitioner', display: 'Lina Grace' };
+    mockFhirClient.fhir.get.mockResolvedValueOnce(fakeNote()).mockResolvedValueOnce({
+      resourceType: 'Practitioner',
+      id: 'other-practitioner',
+      name: [{ given: ['Lina'], family: 'Grace' }],
+    });
+    vi.mocked(getMyPractitionerId).mockResolvedValue('other-practitioner');
+    mockFhirClient.fhir.patch.mockResolvedValue(
+      fakeNote({
+        payload: [{ contentString: 'updated text' }],
+        extension: [{ url: NOTE_EDITOR_EXTENSION_URL, valueReference: editor }],
+      })
+    );
 
     const result = await updateHandler(
       makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'updated text' } }, 'other-token')
     );
 
-    expect(result.statusCode).toBe(200);
-    expect(mockFhirClient.fhir.update).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
+    const { operations } = mockFhirClient.fhir.patch.mock.calls[0][0];
+    expect(operations).toContainEqual({
+      op: 'add',
+      path: '/extension',
+      value: [{ url: NOTE_EDITOR_EXTENSION_URL, valueReference: editor }],
+    });
+    expect(JSON.parse(result.body).note).toMatchObject({
+      authorId: CALLER_ID,
+      authorName: 'Jane Smith',
+      sent: '2026-01-01T12:00:00.000Z',
+      editorNames: ['Lina Grace'],
+      edited: true,
+    });
   });
 
-  it('preserves the original sent timestamp so edit detection works correctly', async () => {
-    const originalSent = '2026-01-01T10:00:00.000Z';
-    const existing = fakeNote({ sent: originalSent });
-    mockFhirClient.fhir.get.mockResolvedValueOnce(existing); // second fhir.get falls back to fakePractitioner from beforeEach
-    mockFhirClient.fhir.update.mockResolvedValue(fakeNote({ sent: originalSent }));
+  it("adds an editor to the end of an existing editor list, and doesn't list the same editor twice", async () => {
+    const author = { url: NOTE_EDITOR_EXTENSION_URL, valueReference: { reference: `Practitioner/${CALLER_ID}` } };
+    const other = { url: NOTE_EDITOR_EXTENSION_URL, valueReference: { reference: 'Practitioner/other-practitioner' } };
+    mockFhirClient.fhir.patch.mockResolvedValue(fakeNote());
+    const edit = (): Promise<APIGatewayProxyResult> =>
+      updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'new' } }, 'user-token'));
+
+    mockFhirClient.fhir.get.mockResolvedValueOnce(fakeNote({ extension: [other] }));
+    await edit();
+    expect(mockFhirClient.fhir.patch.mock.calls[0][0].operations[1]).toMatchObject({
+      op: 'add',
+      path: '/extension/-',
+      value: { url: NOTE_EDITOR_EXTENSION_URL, valueReference: { reference: `Practitioner/${CALLER_ID}` } },
+    });
+
+    mockFhirClient.fhir.get.mockResolvedValueOnce(fakeNote({ extension: [other, author] }));
+    await edit();
+    expect(mockFhirClient.fhir.patch.mock.calls[1][0].operations).toEqual([
+      { op: 'replace', path: '/payload', value: [{ contentString: 'new' }] },
+    ]);
+  });
+
+  it('keeps the author and sent time: only the text and editor list change', async () => {
+    mockFhirClient.fhir.get.mockResolvedValueOnce(fakeNote()); // second fhir.get falls back to fakePractitioner from beforeEach
+    mockFhirClient.fhir.patch.mockResolvedValue(fakeNote());
 
     await updateHandler(
       makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'new text' } }, 'user-token')
     );
 
-    const resourcePassed = mockFhirClient.fhir.update.mock.calls[0][0] as Communication;
-    expect(resourcePassed.sent).toBe(originalSent);
+    const { operations } = mockFhirClient.fhir.patch.mock.calls[0][0];
+    expect(operations.map((operation: { path: string }) => operation.path)).toEqual(['/payload', '/extension']);
   });
 });
-
-// ---------------------------------------------------------------------------
-// delete-patient-note handler
-// ---------------------------------------------------------------------------
 
 describe('delete-patient-note handler', () => {
   beforeEach(() => {

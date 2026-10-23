@@ -141,6 +141,7 @@ Each delivered notification is a FHIR `Communication` with a primary `category.c
 | `virtual-visit-scheduled` | `virtualVisitScheduled` | Telemed appointment reaches `booked` (`pending`) | `Virtual visit with <patient> at <time>` | `encounter: Encounter/<id>` |
 | `patient-waiting` | `waitingRoom` | Telemed appointment reaches `arrived` | `<patient> is ready in the virtual waiting room` | `encounter: Encounter/<id>` |
 | `task-assigned` | `taskCategories[id]` for migrated staff; legacy flags otherwise | A task is assigned to a user (owner set) | `A new task has been assigned to you: …` | `basedOn: Task/<id>` |
+| `task-note-added` | `taskCategories[id]` for migrated staff; legacy flags otherwise | Someone adds a note to a task the recipient is involved in | `New note on task: <description>` (never the note's text) | `basedOn: Task/<id>` |
 
 > `task-assigned` is emitted by the assignment engine ([§4.3](#43-task-assignment-engine)). For migrated staff it delivers all
 > `assignedTo: 'me'` subscriptions, plus assignments of tasks whose creation round already passed (so an
@@ -305,6 +306,25 @@ for each recipient (the task owner) of an assigned task:
       legacy behavior, gated on legacy taskNotificationsEnabled
 ```
 
+### 4.4 Task-note engine
+
+Task notes are `Communication`s tagged `task|task-note` with `basedOn: Task/<id>` (written by the patient-notes
+zambdas). Each run, one search finds the notes written in the window that carry no `task-note-notified` tag, together
+with their Tasks (`_include`) and every other note on those Tasks (`_revinclude:iterate`).
+
+```
+for each new note:
+   recipients = task owner + task requester (the creator, recorded only on manual tasks staff create)
+                + authors of the task's live notes − the note's author − anyone with a read tag on the note
+   for each recipient who is active staff, once per (task, recipient) per run:
+      migrated staff + categorized task: row = prefs.taskCategories[category]
+         notify if row matches (enabled + location); being involved counts as assigned, so 'me' rows match
+      otherwise: legacy taskNotificationsEnabled
+   queue the note's task-note-notified tag, even with 0 recipients
+```
+
+Editing a note never notifies (its `sent` is unchanged), and a note deleted before the run notifies nobody.
+
 ---
 
 ## 5. Delivery semantics (in-app bell vs SMS)
@@ -373,6 +393,7 @@ instead of clobbering each other.
 | Task assigned | Task | `…/r4/provider-notifications-tag` | `task-assigned` |
 | Virtual visit scheduled | Appointment | `…/r4/provider-notifications-virtual-visit-scheduled-tag` | `virtual-visit-scheduled-notified` |
 | Patient waiting (waiting room) | Appointment | `…/r4/provider-notifications-waiting-room-tag` | `waiting-room-notified` |
+| Task note notified | Communication (task note) | `…/r4/provider-notifications-task-note-tag` | `task-note-notified` |
 | (legacy, read-only) booking notified by an older deploy | Appointment | `…/r4/provider-notifications-tag` | `patient waiting` |
 
 The legacy row is never written anymore; the booking path only reads it to avoid re-notifying
