@@ -1,6 +1,8 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { DeleteClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -41,6 +43,38 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
     params.documentReferenceId
   );
   const location = ownedAttachmentLocation(documentReference, claimAttachmentOwner(claim.id, params.secrets));
+  // retired by an earlier deletion that failed before removing it, so only the removal is left
+  if (documentReference.status !== RETIRED_STATUS) {
+    await retireAttachment({
+      oystehr,
+      claim,
+      documentReference,
+      agent: params.agent,
+    });
+  }
+  await oystehr.fhir.delete({
+    resourceType: 'DocumentReference',
+    id: documentReference.id!,
+  });
+  await deleteAttachmentObject(oystehr, location);
+}
+
+const RETIRED_STATUS = 'entered-in-error';
+
+// Takes the document off the claim and records its deletion. A transaction can't lock a DELETE to a
+// version, so the document is retired here instead, locked to the version its history was read at,
+// and removed once nothing points at it.
+async function retireAttachment({
+  oystehr,
+  claim,
+  documentReference,
+  agent,
+}: {
+  oystehr: Oystehr;
+  claim: Claim;
+  documentReference: DocumentReference;
+  agent: ProvenanceAgent;
+}): Promise<void> {
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoIndex = supportingInfo.findIndex(
     (supportingInfo) =>
@@ -61,7 +95,7 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
     targetReference: `DocumentReference/${documentReference.id}`,
     claimId: claim.id,
     before: documentReference,
-    agent: params.agent,
+    agent,
     activity: 'delete',
   });
 
@@ -71,10 +105,20 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
       url: `/Claim/${claim.id}`,
       operations: [{ op: 'replace', path: `/supportingInfo`, value: newSupportingInfo }],
     },
-    { method: 'DELETE', url: `/DocumentReference/${documentReference.id}` },
+    getPatchBinary({
+      resourceType: 'DocumentReference',
+      resourceId: documentReference.id!,
+      ifMatch: makeOptimisticLockIfMatchHeader(documentReference),
+      patchOperations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: RETIRED_STATUS,
+        },
+      ],
+    }),
     ...(provenance ? [provenance] : []),
   ];
 
   await oystehr.fhir.transaction<FhirResource>({ requests });
-  await deleteAttachmentObject(oystehr, location);
 }

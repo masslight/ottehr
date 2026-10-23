@@ -1,4 +1,5 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
+import { Claim, DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { Mock, vi } from 'vitest';
@@ -17,6 +18,7 @@ function makeClient(): Oystehr {
   return {
     fhir: {
       transaction: vi.fn(),
+      delete: vi.fn(),
     },
     z3: {
       deleteObject: vi.fn(),
@@ -261,16 +263,20 @@ describe('delete-claim-attachment', () => {
             },
           ],
         },
-        {
-          method: 'DELETE',
+        expect.objectContaining({
+          method: 'PATCH',
           url: '/DocumentReference/document-reference-id',
-        },
+        }),
         claimHistoryRequest({
           target: 'DocumentReference/document-reference-id',
           claimId: 'claim-id',
           activity: CLAIM_PROVENANCE_ACTIVITY.delete,
         }),
       ],
+    });
+    expect(oystehr.fhir.delete).toBeCalledWith({
+      resourceType: 'DocumentReference',
+      id: 'document-reference-id',
     });
     const [{ requests }] = (oystehr.fhir.transaction as Mock).mock.calls[0];
     expect(historyChanges(requests)).toEqual([
@@ -437,16 +443,139 @@ describe('delete-claim-attachment', () => {
             },
           ],
         },
-        {
-          method: 'DELETE',
+        expect.objectContaining({
+          method: 'PATCH',
           url: '/DocumentReference/document-reference-id-2',
-        },
+        }),
         claimHistoryRequest({
           target: 'DocumentReference/document-reference-id-2',
           claimId: 'claim-id',
           activity: CLAIM_PROVENANCE_ACTIVITY.delete,
         }),
       ],
+    });
+  });
+
+  describe('version lock', () => {
+    const claim = (): FhirResourceReturnValue<Claim> => ({
+      resourceType: 'Claim',
+      id: 'claim-id',
+      status: 'active',
+      type: {
+        coding: [],
+      },
+      created: DateTime.now().toISO(),
+      insurance: [],
+      patient: {
+        reference: 'patient-id',
+      },
+      priority: {
+        coding: [],
+      },
+      provider: {
+        reference: 'organization-id',
+      },
+      use: 'claim',
+      supportingInfo: [
+        {
+          sequence: 1,
+          category: {
+            coding: [],
+          },
+          valueReference: {
+            reference: 'document-reference-id',
+          },
+        },
+      ],
+    });
+
+    const attachment = (overrides: Partial<DocumentReference> = {}): FhirResourceReturnValue<DocumentReference> => ({
+      resourceType: 'DocumentReference',
+      id: 'document-reference-id',
+      meta: {
+        versionId: '3',
+      },
+      status: 'current',
+      context: {
+        related: [
+          {
+            reference: 'Claim/claim-id',
+          },
+        ],
+      },
+      content: [
+        {
+          attachment: {
+            url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.pdf',
+            title: 'File.pdf',
+          },
+        },
+      ],
+      ...overrides,
+    });
+
+    const deleteAttachment = (oystehr: Oystehr): Promise<void> =>
+      performEffect(oystehr, {
+        claimId: 'claim-id',
+        documentReferenceId: 'document-reference-id',
+        secrets: SECRETS,
+        agent: TEST_AGENT,
+      });
+
+    it('retires the document at the version its history was read at', async () => {
+      (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce(claim()).mockResolvedValueOnce(attachment());
+      const oystehr = makeClient();
+
+      await deleteAttachment(oystehr);
+
+      const [{ requests }] = (oystehr.fhir.transaction as Mock).mock.calls[0];
+      expect(requests[1]).toMatchObject({
+        url: '/DocumentReference/document-reference-id',
+        ifMatch: 'W/"3"',
+      });
+      expect(JSON.parse(atob(requests[1].resource.data))).toEqual([
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'entered-in-error',
+        },
+      ]);
+    });
+
+    it('leaves the document in place when a rename landed after it was read', async () => {
+      (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce(claim()).mockResolvedValueOnce(attachment());
+      const oystehr = makeClient();
+      const conflict = Object.assign(new Error('Precondition Failed'), {
+        code: 412,
+      });
+      (oystehr.fhir.transaction as Mock).mockRejectedValueOnce(conflict);
+
+      await expect(deleteAttachment(oystehr)).rejects.toBe(conflict);
+      expect(oystehr.fhir.delete).not.toHaveBeenCalled();
+      expect(oystehr.z3.deleteObject).not.toHaveBeenCalled();
+    });
+
+    it('finishes a deletion that retired the document but failed to remove it', async () => {
+      (fetchById as Mock<typeof fetchById>)
+        .mockResolvedValueOnce({
+          ...claim(),
+          supportingInfo: [],
+        })
+        .mockResolvedValueOnce(
+          attachment({
+            status: 'entered-in-error',
+          })
+        );
+      const oystehr = makeClient();
+
+      await deleteAttachment(oystehr);
+
+      expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+      expect(oystehr.fhir.delete).toBeCalledWith({
+        resourceType: 'DocumentReference',
+        id: 'document-reference-id',
+      });
+      expect(oystehr.z3.deleteObject).toBeCalledTimes(1);
     });
   });
 });
