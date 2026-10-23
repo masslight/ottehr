@@ -36,6 +36,9 @@ const makeNotice = (id: string, requestReference?: string): PaymentNotice =>
   ({
     resourceType: 'PaymentNotice',
     id,
+    meta: {
+      versionId: '1',
+    },
     status: 'active',
     request: {
       type: 'Claim',
@@ -73,6 +76,7 @@ interface FakeOystehr {
   fhir: {
     search: ReturnType<typeof vi.fn>;
     transaction: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -82,8 +86,14 @@ const makeOystehr = (notices: PaymentNotice[], provenances: Provenance[] = []): 
       unbundle: () => (resourceType === 'Provenance' ? provenances : notices),
     })),
     transaction: vi.fn().mockResolvedValue({}),
+    get: vi.fn(),
   },
 });
+
+const versionConflict = (): Error =>
+  Object.assign(new Error('Precondition Failed'), {
+    code: 412,
+  });
 
 // getPatchBinary base64-encodes the JSON patch operations into resource.data
 const decodePatchOps = (request: {
@@ -183,6 +193,54 @@ describe('reconcilePaymentNoticesForClaim', () => {
       ]);
       expect(transactionRequests(oystehr, call)).toContainEqual(historyLink(provenanceId));
     });
+  });
+
+  it('locks the link to the notice version its history was read at', async () => {
+    const oystehr = makeOystehr([makeNotice('pn-unlinked')], [paymentEntry('pn-unlinked')]);
+
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+
+    expect(transactionRequests(oystehr)[0]).toMatchObject({
+      url: '/PaymentNotice/pn-unlinked',
+      ifMatch: 'W/"1"',
+    });
+  });
+
+  it('brings along history recorded after it was read, once the link conflicts', async () => {
+    const provenances = [paymentEntry('pn-unlinked')];
+    const oystehr = makeOystehr([makeNotice('pn-unlinked')], provenances);
+    oystehr.fhir.transaction.mockImplementationOnce(async () => {
+      provenances.push({
+        ...paymentEntry('pn-unlinked'),
+        id: 'prov-refund',
+      });
+      throw versionConflict();
+    });
+    oystehr.fhir.get.mockResolvedValue({
+      ...makeNotice('pn-unlinked'),
+      meta: {
+        versionId: '2',
+      },
+    });
+
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+
+    expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(2);
+    expect(transactionRequests(oystehr, 1)[0]).toMatchObject({
+      ifMatch: 'W/"2"',
+    });
+    expect(transactionRequests(oystehr, 1)).toContainEqual(historyLink('prov-pn-unlinked'));
+    expect(transactionRequests(oystehr, 1)).toContainEqual(historyLink('prov-refund'));
+  });
+
+  it('leaves a notice an overlapping reconcile linked first', async () => {
+    const oystehr = makeOystehr([makeNotice('pn-unlinked')]);
+    oystehr.fhir.transaction.mockRejectedValueOnce(versionConflict());
+    oystehr.fhir.get.mockResolvedValue(makeNotice('pn-unlinked', 'Claim/claim-1'));
+
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+
+    expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
   });
 
   it('records a notice stored before claim history was kept, attributed to the system', async () => {

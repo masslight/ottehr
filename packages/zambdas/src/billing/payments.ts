@@ -11,6 +11,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { parsePaymentRefundsFromNotice, parsePaymentVoidFromNotice } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
@@ -423,6 +424,45 @@ export const recordBillingPatientPayment = async (
   return { notice: returned, claimId };
 };
 
+async function noticeLinkHistory({
+  oystehr,
+  claimId,
+  notices,
+}: {
+  oystehr: Oystehr;
+  claimId: string;
+  notices: PaymentNotice[];
+}): Promise<(notice: PaymentNotice) => BatchInputRequest<FhirResource>[]> {
+  const linkRequests = await claimHistoryLinkRequests({
+    oystehr,
+    claimId,
+    targetReferences: notices.map((notice) => `PaymentNotice/${notice.id}`),
+  });
+  const systemActor = notices.some((notice) => !linkRequests.has(`PaymentNotice/${notice.id}`))
+    ? await resolveClaimActor('system', oystehr, undefined, null)
+    : undefined;
+  return (notice) => {
+    const targetReference = `PaymentNotice/${notice.id}`;
+    const links = linkRequests.get(targetReference);
+    if (links) return links;
+    // notices stored before claim history was kept have no entry to link, so they get one now
+    const entry =
+      systemActor &&
+      paymentNoticeHistoryRequest({
+        targetReference,
+        after: {
+          ...notice,
+          request: {
+            ...notice.request,
+            reference: `Claim/${claimId}`,
+          },
+        },
+        agent: systemActor,
+      });
+    return entry ? [entry] : [];
+  };
+}
+
 // Links notices stored before the claim existed, and the claim history entries recorded with them.
 export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
   const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
@@ -444,54 +484,52 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
   const unlinked = notices.filter((n) => n.id && !n.request?.reference);
   if (unlinked.length === 0) return;
 
-  const claimReference = `Claim/${claim.id}`;
-  const linkRequests = await claimHistoryLinkRequests({
+  const claimId = claim.id;
+  const searchedHistory = await noticeLinkHistory({
     oystehr,
-    claimId: claim.id,
-    targetReferences: unlinked.map((notice) => `PaymentNotice/${notice.id}`),
+    claimId,
+    notices: unlinked,
   });
-  const systemActor = unlinked.some((notice) => !linkRequests.has(`PaymentNotice/${notice.id}`))
-    ? await resolveClaimActor('system', oystehr, undefined, null)
-    : undefined;
-  const historyRequests = (notice: PaymentNotice): BatchInputRequest<FhirResource>[] => {
-    const targetReference = `PaymentNotice/${notice.id}`;
-    const links = linkRequests.get(targetReference);
-    if (links) return links;
-    // notices stored before claim history was kept have no entry to link, so they get one now
-    const entry =
-      systemActor &&
-      paymentNoticeHistoryRequest({
-        targetReference,
-        after: {
-          ...notice,
-          request: {
-            ...notice.request,
-            reference: claimReference,
-          },
-        },
-        agent: systemActor,
-      });
-    return entry ? [entry] : [];
-  };
 
-  // each notice commits with its history, so one that fails is left whole for the next reconcile
+  // each notice commits with its history, so one that fails is left whole for the next reconcile;
+  // the link is locked to the version its history was read at, so an entry written since is not
+  // left behind
   const results = await Promise.allSettled(
     unlinked.map((notice) =>
-      oystehr.fhir.transaction<FhirResource>({
-        requests: [
-          getPatchBinary({
-            resourceType: 'PaymentNotice',
-            resourceId: notice.id!,
-            patchOperations: [
-              {
-                op: 'add',
-                path: '/request/reference',
-                value: claimReference,
-              },
-            ],
-          }),
-          ...historyRequests(notice),
-        ],
+      withVersionConflictRetries(async (attempt) => {
+        const current =
+          attempt === 1
+            ? notice
+            : await oystehr.fhir.get<PaymentNotice>({
+                resourceType: 'PaymentNotice',
+                id: notice.id!,
+              });
+        if (current.request?.reference) return;
+        const historyRequests =
+          attempt === 1
+            ? searchedHistory
+            : await noticeLinkHistory({
+                oystehr,
+                claimId,
+                notices: [current],
+              });
+        await oystehr.fhir.transaction<FhirResource>({
+          requests: [
+            getPatchBinary({
+              resourceType: 'PaymentNotice',
+              resourceId: current.id!,
+              ifMatch: makeOptimisticLockIfMatchHeader(current),
+              patchOperations: [
+                {
+                  op: 'add',
+                  path: '/request/reference',
+                  value: `Claim/${claimId}`,
+                },
+              ],
+            }),
+            ...historyRequests(current),
+          ],
+        });
       })
     )
   );
