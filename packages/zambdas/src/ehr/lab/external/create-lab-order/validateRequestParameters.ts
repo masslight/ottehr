@@ -1,5 +1,5 @@
 import { CreateLabOrderParameters } from 'utils/lib/types/data/labs/labs.types';
-import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';
 
@@ -29,6 +29,8 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
     throw MISSING_REQUIRED_PARAMETERS(missingResources);
   }
 
+  if (typeof isStat !== 'boolean') throw INVALID_INPUT_ERROR(`isStat should be type boolean`);
+
   return {
     dx,
     encounter,
@@ -37,7 +39,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
     orderingLocation,
     selectedPaymentMethod,
     clinicalInfoNoteByUser,
-    isStat: isStat ?? false,
+    isStat,
     secrets: input.secrets,
   };
 }

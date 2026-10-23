@@ -819,7 +819,7 @@ describe('ApplyTemplate', () => {
     expect(within(labCard).getAllByText(/Discontinued Panel/)).toHaveLength(2);
     expect(within(labCard).getByText(/unavailable in this environment/)).toBeInTheDocument();
     expect(within(labCard).getByText('PSC Hold')).toBeInTheDocument();
-    expect(within(labCard).getByText('Stat')).toBeInTheDocument();
+    expect(within(labCard).getByText('STAT')).toBeInTheDocument();
     expect(within(labCard).getByText(/fasting required/)).toBeInTheDocument();
 
     // CPT chips are hidden when the payment method is not Client Bill.

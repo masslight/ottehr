@@ -499,7 +499,7 @@ const ExternalLabPlansList: React.FC<{
         </Typography>
         <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
           {plan.psc ? <Chip size="small" color="primary" variant="outlined" label="PSC Hold" /> : null}
-          {plan.isStat ? <Chip size="small" color="primary" variant="outlined" label="Stat" /> : null}
+          {plan.isStat ? <Chip size="small" color="error" variant="outlined" label="STAT" /> : null}
           {plan.diagnoses.map((d, idx) => (
             <Chip
               key={`${plan.planId}-dx-${idx}`}
