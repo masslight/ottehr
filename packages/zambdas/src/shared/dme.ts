@@ -1,5 +1,4 @@
 import {
-  ActivityDefinition,
   Coding,
   ContactPoint,
   DeviceRequest,
@@ -19,10 +18,7 @@ import {
   DME_DISPENSED_EXTENSION_URL,
   DME_DURATION_UNITS,
   DME_FULFILLMENT_EXTENSION_URL,
-  DME_ITEM_CODE_SYSTEM,
   DME_LATERALITY_OPTIONS,
-  DME_MENU_ITEM_TAG_CODE,
-  DME_MENU_ITEM_TAG_SYSTEM,
   DME_MODIFIER_LABELS,
   DME_MODIFIER_OPTIONS,
   DME_ORDER_PARAMETER_SYSTEM,
@@ -32,7 +28,6 @@ import {
   DME_THIRD_PARTY_IDENTIFIER_SYSTEM,
   DmeDurationUnit,
   DmeLaterality,
-  DmeMenuItem,
   DmeModifier,
   DmeOrderDTO,
   DmeOrderStatus,
@@ -42,7 +37,6 @@ import {
 import { PROVENANCE_ACTIVITY_TYPE_SYSTEM, SNOMED_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { makeProcedureResource } from './chart-data';
 
-export const DME_MENU_ITEM_SEARCH_TAG = `${DME_MENU_ITEM_TAG_SYSTEM}|${DME_MENU_ITEM_TAG_CODE}`;
 export const DME_ORDER_SEARCH_TAG = `${DME_ORDER_TAG_SYSTEM}|${DME_ORDER_TAG_CODE}`;
 /** On a billing Procedure: the DeviceRequest it bills for (Procedure.basedOn can't target a DeviceRequest). */
 export const DME_BILLED_ORDER_EXTENSION_URL = ottehrExtensionUrl('dme-order');
@@ -69,49 +63,11 @@ const DURATION_UCUM: Record<DmeDurationUnit, { code: string; unit: string }> = {
 const DISPENSED_BY = 'by';
 const DISPENSED_AT = 'at';
 
-// ---- DME menu ----
-
-export const makeDmeMenuItemActivityDefinition = (
-  input: { name: string; hcpcsCodes: { code: string; display: string }[] },
-  id?: string
-): ActivityDefinition => {
-  const title = input.name.trim();
-  return {
-    resourceType: 'ActivityDefinition',
-    ...(id ? { id } : {}),
-    meta: { tag: [{ system: DME_MENU_ITEM_TAG_SYSTEM, code: DME_MENU_ITEM_TAG_CODE }] },
-    status: 'active',
-    kind: 'DeviceRequest',
-    name: title.replace(/[^a-zA-Z0-9]/g, '_'),
-    title,
-    productCodeableConcept: input.hcpcsCodes.length
-      ? { coding: input.hcpcsCodes.map((c) => ({ system: CODE_SYSTEM_CPT, code: c.code, display: c.display })) }
-      : undefined,
-  };
-};
-
 // A billing line needs a description; codes saved without one fall back to the item name, as in-house labs do.
 const toBillingCode = (coding: Coding, fallbackDisplay: string): CPTCodeDTO => ({
   code: coding.code!,
   display: coding.display?.trim() || fallbackDisplay,
 });
-
-export const parseDmeMenuItem = (resource: ActivityDefinition): DmeMenuItem | undefined => {
-  const { id, title } = resource;
-  if (!id || !title) return undefined;
-  return {
-    id,
-    name: title,
-    hcpcsCodes: (resource.productCodeableConcept?.coding ?? [])
-      .filter((c) => c.code)
-      .map((c) => toBillingCode(c, title)),
-  };
-};
-
-export const isDmeMenuItem = (resource: ActivityDefinition): boolean =>
-  !!resource.meta?.tag?.some((t) => t.system === DME_MENU_ITEM_TAG_SYSTEM && t.code === DME_MENU_ITEM_TAG_CODE);
-
-// ---- DME orders ----
 
 const makeThirdPartyOrganization = (thirdParty: DmeThirdParty): Organization => {
   const telecom: ContactPoint[] = [
@@ -202,12 +158,7 @@ export const makeDmeDeviceRequest = (input: {
     intent: 'order',
     contained: thirdParty ? [makeThirdPartyOrganization(thirdParty)] : undefined,
     extension,
-    codeCodeableConcept: {
-      coding: fields.menuItemId
-        ? [{ system: DME_ITEM_CODE_SYSTEM, code: fields.menuItemId, display: fields.itemName }]
-        : undefined,
-      text: fields.itemName,
-    },
+    codeCodeableConcept: { text: fields.itemName },
     parameter: makeParameters(fields),
     occurrenceTiming: makeDurationOfUse(fields.duration),
     subject: { reference: `Patient/${patientId}` },
@@ -357,7 +308,9 @@ export const parseDmeOrder = (dr: DeviceRequest, practitionerNames: Record<strin
     (r): r is Organization => r.resourceType === 'Organization' && r.id === DME_THIRD_PARTY_CONTAINED_ID
   );
   const dispensed = getDmeDispensed(dr);
-  const itemName = dr.codeCodeableConcept?.text ?? dr.codeCodeableConcept?.coding?.[0]?.display ?? '';
+  // orders placed from the removed DME menu may carry the name only on a coding
+  const itemName =
+    dr.codeCodeableConcept?.text?.trim() || dr.codeCodeableConcept?.coding?.find((c) => c.display)?.display || '';
   const billingCodes: CPTCodeDTO[] = (dr.extension ?? [])
     .filter((e) => e.url === DME_BILLING_CODE_EXTENSION_URL && e.valueCoding?.code)
     .map((e) => toBillingCode(e.valueCoding!, itemName));
@@ -365,7 +318,6 @@ export const parseDmeOrder = (dr: DeviceRequest, practitionerNames: Record<strin
   return {
     id: dr.id ?? '',
     encounterId: dr.encounter?.reference?.replace('Encounter/', '') ?? '',
-    menuItemId: dr.codeCodeableConcept?.coding?.find((c) => c.system === DME_ITEM_CODE_SYSTEM)?.code,
     itemName,
     diagnoses: (dr.reasonCode ?? [])
       .map((rc) => rc.coding?.[0])

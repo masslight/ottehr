@@ -2,7 +2,6 @@ import { LoadingButton } from '@mui/lab';
 import { Box, Button, FormControlLabel, Grid, Paper, Switch, Typography, useTheme } from '@mui/material';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
@@ -24,23 +23,21 @@ import {
   DME_MODIFIER_OPTIONS,
   DmeDurationUnit,
   DmeLaterality,
-  DmeMenuItem,
   DmeModifier,
   DmeOrderDTO,
   DmeOrderFields,
   DmeOrderStatus,
 } from 'utils/lib/types/api/dme.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { useCreateDmeOrder, useDmeMenuItems, useUpdateDmeOrder } from '../dme.queries';
+import { useCreateDmeOrder, useUpdateDmeOrder } from '../dme.queries';
 import { DmeBillingCodesField } from './DmeBillingCodesField';
 
-const OTHER_ITEM_OPTION: DmeMenuItem = { id: 'other', name: 'Other', hcpcsCodes: [] };
+const DME_ITEM_NAME_MAX_LENGTH = 200;
 
 const DURATION_UNIT_LABELS: Record<DmeDurationUnit, string> = { days: 'Days', weeks: 'Weeks' };
 
 export interface DmeOrderFormValues {
-  item: DmeMenuItem | null;
-  otherItemName: string;
+  itemName: string;
   diagnoses: RadiologyDiagnosis[];
   quantity: string;
   laterality: DmeLaterality | null;
@@ -54,8 +51,6 @@ export interface DmeOrderFormValues {
   thirdParty: { name: string; address: string; phone: string; fax: string };
 }
 
-const isOtherItem = (item: DmeMenuItem | null): boolean => item?.id === OTHER_ITEM_OPTION.id;
-
 const toCodeDisplay = ({ code, display }: { code: string; display: string }): { code: string; display: string } => ({
   code,
   display,
@@ -64,7 +59,6 @@ const toCodeDisplay = ({ code, display }: { code: string; display: string }): { 
 const optional = (value: string): string | undefined => value.trim() || undefined;
 
 export const buildDmeOrderFields = (values: DmeOrderFormValues): DmeOrderFields => {
-  const other = isOtherItem(values.item);
   const thirdParty = {
     name: optional(values.thirdParty.name),
     address: optional(values.thirdParty.address),
@@ -72,8 +66,7 @@ export const buildDmeOrderFields = (values: DmeOrderFormValues): DmeOrderFields 
     fax: optional(values.thirdParty.fax),
   };
   return {
-    menuItemId: other ? undefined : values.item?.id,
-    itemName: other ? values.otherItemName.trim() : values.item?.name ?? '',
+    itemName: values.itemName.trim(),
     diagnoses: values.diagnoses.map(toCodeDisplay),
     quantity: Number(values.quantity),
     billingCodes: values.billingCodes.map(toCodeDisplay),
@@ -91,12 +84,7 @@ export const buildDmeOrderFields = (values: DmeOrderFormValues): DmeOrderFields 
 };
 
 const orderToFormValues = (order: DmeOrderDTO): DmeOrderFormValues => ({
-  item: order.menuItemId
-    ? { id: order.menuItemId, name: order.itemName, hcpcsCodes: [] }
-    : order.itemName
-    ? OTHER_ITEM_OPTION
-    : null,
-  otherItemName: order.menuItemId ? '' : order.itemName,
+  itemName: order.itemName,
   diagnoses: order.diagnoses.map(toCodeDisplay),
   quantity: String(order.quantity),
   laterality: order.laterality ?? null,
@@ -132,7 +120,6 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { chartData, setPartialChartData } = useChartData();
   const { mutate: saveChartData } = useSaveChartData();
-  const { data: menu, isLoading: isMenuLoading } = useDmeMenuItems();
   const { mutateAsync: createOrder } = useCreateDmeOrder();
   const { mutateAsync: updateOrder } = useUpdateDmeOrder(encounterId);
   const [submitError, setSubmitError] = useState<string | undefined>();
@@ -152,8 +139,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
     defaultValues: order
       ? orderToFormValues(order)
       : {
-          item: null,
-          otherItemName: '',
+          itemName: '',
           diagnoses: primaryFirst(chartDiagnoses),
           quantity: '1',
           laterality: null,
@@ -168,7 +154,6 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
         },
   });
   const { control, watch, setValue, getValues, getFieldState, handleSubmit, formState } = methods;
-  const item = watch('item');
   const external = watch('external');
 
   // chart data and the user's profile can arrive after the form mounts
@@ -181,8 +166,6 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
     if (order || !defaultOrderedBy || getFieldState('orderedBy').isDirty || getValues('orderedBy')) return;
     setValue('orderedBy', defaultOrderedBy);
   }, [order, defaultOrderedBy, getFieldState, getValues, setValue]);
-
-  const itemOptions = useMemo(() => [...(menu?.items ?? []), OTHER_ITEM_OPTION], [menu?.items]);
 
   const addAdditionalDxToEncounter = async (orderDx: RadiologyDiagnosis[]): Promise<void> => {
     const newDx = orderDx.filter((dx) => !chartDiagnoses.some((d) => d.code === dx.code));
@@ -237,34 +220,15 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <AutocompleteInput<DmeMenuItem>
-                name="item"
+              <TextInput
+                name="itemName"
                 label="DME"
                 required
-                options={itemOptions}
-                loading={isMenuLoading}
-                openOnFocus
-                getOptionKey={(option) => option.id}
-                getOptionLabel={(option) => option.name}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-                onOptionSelected={(option) => {
-                  if (option?.id === item?.id) return;
-                  setValue('billingCodes', (option?.hcpcsCodes ?? []).map(toCodeDisplay), { shouldDirty: true });
-                }}
+                inputProps={{ maxLength: DME_ITEM_NAME_MAX_LENGTH }}
+                validate={(value) => !!value?.trim() || 'DME is required'}
                 dataTestId={ids.item}
               />
             </Grid>
-            {isOtherItem(item) && (
-              <Grid item xs={12}>
-                <TextInput
-                  name="otherItemName"
-                  label="DME name"
-                  required
-                  validate={(value) => !!value?.trim() || 'DME name is required'}
-                  dataTestId={ids.otherItemName}
-                />
-              </Grid>
-            )}
             <Grid item xs={12} data-testid={ids.diagnoses}>
               <Controller
                 name="diagnoses"

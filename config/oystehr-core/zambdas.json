@@ -1559,34 +1559,6 @@
       "src": "src/ehr/update-nursing-order/index",
       "zip": ".dist/zips/update-nursing-order.zip"
     },
-    "GET-DME-MENU-ITEMS": {
-      "name": "get-dme-menu-items",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/dme/get-dme-menu-items/index",
-      "zip": ".dist/zips/get-dme-menu-items.zip"
-    },
-    "ADMIN-CREATE-DME-MENU-ITEM": {
-      "name": "admin-create-dme-menu-item",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/dme/admin-create-dme-menu-item/index",
-      "zip": ".dist/zips/admin-create-dme-menu-item.zip"
-    },
-    "ADMIN-UPDATE-DME-MENU-ITEM": {
-      "name": "admin-update-dme-menu-item",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/dme/admin-update-dme-menu-item/index",
-      "zip": ".dist/zips/admin-update-dme-menu-item.zip"
-    },
-    "ADMIN-DELETE-DME-MENU-ITEM": {
-      "name": "admin-delete-dme-menu-item",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/dme/admin-delete-dme-menu-item/index",
-      "zip": ".dist/zips/admin-delete-dme-menu-item.zip"
-    },
     "CREATE-DME-ORDER": {
       "name": "create-dme-order",
       "type": "http_auth",

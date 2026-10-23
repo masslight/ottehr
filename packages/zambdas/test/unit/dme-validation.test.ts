@@ -2,22 +2,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Secrets } from 'utils/lib/secrets';
 import {
   CreateDmeOrderInputSchema,
-  DeleteDmeMenuItemInputSchema,
-  DmeMenuItemInputSchema,
-  GetDmeMenuItemsInputSchema,
   GetDmeOrderPdfInputSchema,
   GetDmeOrdersInputSchema,
-  UpdateDmeMenuItemInputSchema,
   UpdateDmeOrderInputSchema,
 } from 'utils/lib/types/api/dme.types';
 import { APIError, APIErrorCode, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ZodTypeAny } from 'zod';
-import { index as adminCreateDmeMenuItem } from '../../src/ehr/dme/admin-create-dme-menu-item/index';
-import { index as adminDeleteDmeMenuItem } from '../../src/ehr/dme/admin-delete-dme-menu-item/index';
-import { index as adminUpdateDmeMenuItem } from '../../src/ehr/dme/admin-update-dme-menu-item/index';
 import { index as createDmeOrder } from '../../src/ehr/dme/create-dme-order/index';
-import { index as getDmeMenuItems } from '../../src/ehr/dme/get-dme-menu-items/index';
 import { index as getDmeOrderPdf } from '../../src/ehr/dme/get-dme-order-pdf/index';
 import { index as getDmeOrders } from '../../src/ehr/dme/get-dme-orders/index';
 import { index as updateDmeOrder } from '../../src/ehr/dme/update-dme-order/index';
@@ -39,7 +31,6 @@ vi.mock('../../src/shared/auth', async (importOriginal) => ({
 const ENCOUNTER_ID = '11111111-1111-4111-8111-111111111111';
 const PRACTITIONER_ID = '22222222-2222-4222-8222-222222222222';
 const DEVICE_REQUEST_ID = '33333333-3333-4333-8333-333333333333';
-const MENU_ITEM_ID = '44444444-4444-4444-8444-444444444444';
 
 const secrets: Secrets = { PROJECT_API: 'https://project.api', ENVIRONMENT: 'local' };
 
@@ -74,7 +65,6 @@ const minimalOrderFields = {
 };
 
 const fullOrderFields = {
-  menuItemId: MENU_ITEM_ID,
   itemName: '  Ankle Brace ',
   diagnoses: [{ code: 's93.401a', display: 'Sprain of right ankle' }],
   quantity: 2,
@@ -89,10 +79,6 @@ const fullOrderFields = {
 };
 
 const schemas: [string, ZodTypeAny, Record<string, unknown>][] = [
-  ['get-dme-menu-items', GetDmeMenuItemsInputSchema, {}],
-  ['admin-create-dme-menu-item', DmeMenuItemInputSchema, { name: 'Ankle Brace' }],
-  ['admin-update-dme-menu-item', UpdateDmeMenuItemInputSchema, { menuItemId: MENU_ITEM_ID, name: 'Ankle Brace' }],
-  ['admin-delete-dme-menu-item', DeleteDmeMenuItemInputSchema, { menuItemId: MENU_ITEM_ID }],
   ['create-dme-order', CreateDmeOrderInputSchema, { ...minimalOrderFields, encounterId: ENCOUNTER_ID }],
   ['get-dme-orders', GetDmeOrdersInputSchema, { encounterId: ENCOUNTER_ID }],
   ['update-dme-order', UpdateDmeOrderInputSchema, { action: 'dispense', deviceRequestId: DEVICE_REQUEST_ID }],
@@ -100,7 +86,6 @@ const schemas: [string, ZodTypeAny, Record<string, unknown>][] = [
 ];
 
 function defaultsFor(schema: ZodTypeAny): Record<string, unknown> {
-  if (schema === DmeMenuItemInputSchema || schema === UpdateDmeMenuItemInputSchema) return { hcpcsCodes: [] };
   if (schema === CreateDmeOrderInputSchema) return { diagnoses: [], billingCodes: [], external: false };
   return {};
 }
@@ -127,68 +112,6 @@ describe.each(schemas)('%s request envelope', (_name, schema, validBody) => {
   });
 });
 
-describe('get-dme-menu-items input', () => {
-  it('accepts the "{}" body the SDK sends for a call without parameters and drops unknown keys', () => {
-    expect(validateWithSchema(GetDmeMenuItemsInputSchema, makeInput({ search: 'brace' }))).toEqual({ secrets });
-  });
-});
-
-describe('DME menu item inputs', () => {
-  it('trims the name and normalizes HCPCS codes', () => {
-    expect(
-      validateWithSchema(
-        DmeMenuItemInputSchema,
-        makeInput({ name: '  Ankle Brace  ', hcpcsCodes: [{ code: ' l1906 ', display: ' AFO ' }] })
-      )
-    ).toEqual({ name: 'Ankle Brace', hcpcsCodes: [{ code: 'L1906', display: 'AFO' }], secrets });
-  });
-
-  it.each([
-    ['an empty name', { name: '' }, 'name is required'],
-    ['a blank name', { name: '   ' }, 'name is required'],
-    ['a missing name', {}, 'Required at "name"'],
-    ['a name over 200 characters', { name: 'x'.repeat(201) }, 'at most 200'],
-    ['a short code', { name: 'Brace', hcpcsCodes: [{ code: 'L19', display: 'AFO' }] }, 'CPT/HCPCS'],
-    ['a code with a modifier', { name: 'Brace', hcpcsCodes: [{ code: 'L1906-LT', display: 'AFO' }] }, 'CPT/HCPCS'],
-    ['an empty code', { name: 'Brace', hcpcsCodes: [{ code: '', display: 'AFO' }] }, 'CPT/HCPCS'],
-    ['a numeric code', { name: 'Brace', hcpcsCodes: [{ code: 99213, display: 'AFO' }] }, 'Expected string'],
-    ['a code without a display', { name: 'Brace', hcpcsCodes: [{ code: 'L1906' }] }, 'Required'],
-    [
-      'a code with an empty display',
-      { name: 'Brace', hcpcsCodes: [{ code: 'L1906', display: '' }] },
-      'description is required at "hcpcsCodes[0].display"',
-    ],
-    [
-      'a code with a blank display',
-      { name: 'Brace', hcpcsCodes: [{ code: 'L1906', display: '   ' }] },
-      'description is required at "hcpcsCodes[0].display"',
-    ],
-    [
-      'more than 50 codes',
-      { name: 'Brace', hcpcsCodes: Array.from({ length: 51 }, () => ({ code: 'L1906', display: 'AFO' })) },
-      'at most 50',
-    ],
-  ])('create rejects %s', (_case, body, message) => {
-    expectInvalid(DmeMenuItemInputSchema, body, message);
-  });
-
-  it.each([
-    ['a missing menuItemId', { name: 'Brace' }, 'menuItemId is required'],
-    ['a non-uuid menuItemId', { name: 'Brace', menuItemId: 'menu-1' }, 'menuItemId must be a uuid'],
-    ['a blank name', { name: ' ', menuItemId: MENU_ITEM_ID }, 'name is required'],
-  ])('update rejects %s', (_case, body, message) => {
-    expectInvalid(UpdateDmeMenuItemInputSchema, body, message);
-  });
-
-  it.each([
-    ['a missing menuItemId', {}, 'menuItemId is required'],
-    ['a non-uuid menuItemId', { menuItemId: 'menu-1' }, 'menuItemId must be a uuid'],
-    ['a numeric menuItemId', { menuItemId: 1 }, 'Expected string'],
-  ])('delete rejects %s', (_case, body, message) => {
-    expectInvalid(DeleteDmeMenuItemInputSchema, body, message);
-  });
-});
-
 describe('create-dme-order input', () => {
   const order = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
     ...minimalOrderFields,
@@ -211,6 +134,12 @@ describe('create-dme-order input', () => {
     });
   });
 
+  it('drops a menuItemId sent by an older client', () => {
+    expect(
+      validateWithSchema(CreateDmeOrderInputSchema, makeInput(order({ menuItemId: 'menu-item-1' })))
+    ).not.toHaveProperty('menuItemId');
+  });
+
   it.each(['U07.1', 'M25561', 'C4A.10', 'Z3A.39'])('accepts the ICD-10 code %s', (code) => {
     expect(
       validateWithSchema(CreateDmeOrderInputSchema, makeInput(order({ diagnoses: [{ code, display: '' }] }))).diagnoses
@@ -221,7 +150,6 @@ describe('create-dme-order input', () => {
     ['a missing encounterId', { encounterId: undefined }, 'encounterId is required'],
     ['a non-uuid encounterId', { encounterId: 'enc-1' }, 'encounterId must be a uuid'],
     ['an empty orderedByPractitionerId', { orderedByPractitionerId: '' }, 'orderedByPractitionerId must be a uuid'],
-    ['a malformed menuItemId', { menuItemId: 'menu item/1' }, 'menuItemId must be a FHIR resource id'],
     ['a blank item name', { itemName: '   ' }, 'DME item is required'],
     ['an item name over 200 characters', { itemName: 'x'.repeat(201) }, 'at most 200'],
     ['quantity 0', { quantity: 0 }, 'Quantity dispensed must be a positive number'],
@@ -337,10 +265,6 @@ describe('DME handlers validate before doing any work', () => {
   });
 
   it.each([
-    ['get-dme-menu-items', asHandler(getDmeMenuItems), []],
-    ['admin-create-dme-menu-item', asHandler(adminCreateDmeMenuItem), { name: '' }],
-    ['admin-update-dme-menu-item', asHandler(adminUpdateDmeMenuItem), { menuItemId: 'menu-1', name: 'Brace' }],
-    ['admin-delete-dme-menu-item', asHandler(adminDeleteDmeMenuItem), { menuItemId: 'menu-1' }],
     ['create-dme-order', asHandler(createDmeOrder), { ...minimalOrderFields, encounterId: ENCOUNTER_ID, quantity: 0 }],
     ['get-dme-orders', asHandler(getDmeOrders), {}],
     ['update-dme-order', asHandler(updateDmeOrder), { action: 'cancel', deviceRequestId: DEVICE_REQUEST_ID }],
@@ -350,11 +274,5 @@ describe('DME handlers validate before doing any work', () => {
     expect(response.statusCode).toBe(400);
     expect(JSON.parse(response.body)).toMatchObject({ code: APIErrorCode.INVALID_INPUT });
     expect(mockM2MToken).not.toHaveBeenCalled();
-  });
-
-  it('get-dme-menu-items accepts the "{}" body the EHR sends', async () => {
-    const response = await asHandler(getDmeMenuItems)(makeInput({}));
-    expect(response.statusCode).toBe(PASSED_VALIDATION.statusCode);
-    expect(mockM2MToken).toHaveBeenCalledOnce();
   });
 });
