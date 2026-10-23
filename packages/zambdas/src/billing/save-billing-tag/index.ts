@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Basic, Claim, ProvenanceAgent } from 'fhir/r4b';
+import { Basic, Claim, FhirResource, ProvenanceAgent } from 'fhir/r4b';
+import { versionLockedPatches } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { SaveBillingTagInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { collidingSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
@@ -10,7 +11,7 @@ import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
+import { claimMetaTagsWithProvenanceRequests, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById, isSystemTag, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
 
 export type SaveBillingTagParams = ValidatedZambdaInput<typeof SaveBillingTagInputSchema>;
@@ -118,7 +119,13 @@ async function rewriteClaimTags(
         const updatedTags = (claim.meta?.tag ?? []).map((t) =>
           t.system === CLAIM_TAG_SYSTEM && t.code === oldName ? { ...t, code: newName } : t
         );
-        return commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'tagChange', agent);
+        // locked to the claim as fetched, so a status or tag change since then fails this claim
+        return oystehr.fhir.transaction<FhirResource>({
+          requests: versionLockedPatches({
+            requests: claimMetaTagsWithProvenanceRequests(claim, updatedTags, 'tagChange', agent),
+            resource: claim,
+          }),
+        });
       })
     );
     results.forEach((result, j) => {

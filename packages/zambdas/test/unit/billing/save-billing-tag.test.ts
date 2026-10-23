@@ -152,6 +152,32 @@ describe('save-billing-tag rename', () => {
     ]);
   });
 
+  it('locks each retagged claim to the version it was fetched at', async () => {
+    const { oystehr, transaction } = makeRenameClient([taggedClaim('claim-1')]);
+
+    await rename(oystehr, 'Priority');
+
+    const [patch] = transaction.mock.calls[0][0].requests;
+    expect(patch).toMatchObject({
+      method: 'PATCH',
+      url: '/Claim/claim-1',
+      ifMatch: 'W/"4"',
+      resource: {
+        resourceType: 'Binary',
+      },
+    });
+    expect(JSON.parse(atob(patch.resource.data))).toContainEqual({
+      op: 'add',
+      path: '/meta/tag',
+      value: [
+        {
+          system: CLAIM_TAG_SYSTEM,
+          code: 'Priority',
+        },
+      ],
+    });
+  });
+
   it('reports a claim that failed to retag without undoing the others', async () => {
     const { oystehr, transaction } = makeRenameClient([taggedClaim('claim-1'), taggedClaim('claim-2')]);
     transaction.mockRejectedValueOnce(new Error('precondition failed'));
