@@ -354,6 +354,7 @@ function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
   const contained = claimResponse.contained ?? [];
   const containedClaim = contained.find((resource): resource is Claim => resource.resourceType === 'Claim');
   const containedPatient = contained.find((resource): resource is Patient => resource.resourceType === 'Patient');
+  const billingProvider = resolveEraPayee([claimResponse]);
   return [
     {
       field: 'matchedClaim',
@@ -369,7 +370,17 @@ function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
     {
       field: 'billingProvider',
       label: 'Billing Provider',
-      value: resolveEraPayee([claimResponse])?.name ?? '',
+      value: billingProvider?.name ?? '',
+    },
+    {
+      field: 'billingProviderNpi',
+      label: 'Billing Provider NPI',
+      value: billingProvider?.npi ?? '',
+    },
+    {
+      field: 'billingProviderTaxId',
+      label: 'Billing Provider Tax ID',
+      value: billingProvider?.taxId ?? '',
     },
     {
       field: 'remitDate',

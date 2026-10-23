@@ -481,13 +481,35 @@ describe('save-billing-manual-era', () => {
         newValue: 'other org',
       },
     ],
+    [
+      'same-name billing provider',
+      {
+        billingProviderRef: 'Organization/org-3',
+      },
+      {
+        field: 'billingProviderNpi',
+        label: 'Billing Provider NPI',
+        previousValue: '8675309123',
+        newValue: '1234567893',
+      },
+    ],
   ])("records a %s change in the matched claim's history only", async (_field, change, recorded) => {
     const otherBillingOrg: Organization = {
       ...billingOrg,
       id: 'org-2',
       name: 'other org',
     };
-    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg, otherBillingOrg]);
+    const sameNameBillingOrg: Organization = {
+      ...billingOrg,
+      id: 'org-3',
+      identifier: [
+        {
+          system: 'http://hl7.org/fhir/sid/us-npi',
+          value: '1234567893',
+        },
+      ],
+    };
+    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg, otherBillingOrg, sameNameBillingOrg]);
     await save(
       oystehr,
       params({
