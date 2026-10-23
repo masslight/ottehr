@@ -21,11 +21,7 @@ const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 export const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 export const OUTREACH_ACTION_ID_TAG_SYSTEM = `${OUTREACH_TASK_TAG_SYSTEM}/action-id`;
 const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
-// Task.input slot recording the Stripe account that owned the triggering invoice at
-// task-creation time. Platform ownership is recorded explicitly (see sentinel below);
-// a missing input means ownership was never recorded (legacy task or non-invoice trigger).
 export const OUTREACH_STRIPE_ACCOUNT_INPUT = 'stripe-account';
-// Sentinel distinguishing "owned by the platform account" from "ownership unknown".
 export const OUTREACH_PLATFORM_STRIPE_ACCOUNT = 'platform';
 // Year scoping for patient-birthday tasks so the idempotency check distinguishes
 // one calendar year's birthday outreach from the next. Without this, a completed
@@ -42,11 +38,7 @@ export interface ProduceOutreachTasksParams {
   appointment?: Reference; // Appointment linked to the triggering event
   eventTimestamp: string; // ISO datetime the event occurred/is scheduled
   oystehr: Oystehr;
-  /**
-   * Stripe account owning the triggering invoice, when known. Pass
-   * OUTREACH_PLATFORM_STRIPE_ACCOUNT for platform-owned invoices; leave undefined only when
-   * ownership is unknown (execution then falls back to the clinic Location's current account).
-   */
+  /** Stripe account owning the triggering invoice; OUTREACH_PLATFORM_STRIPE_ACCOUNT for platform, undefined if unknown. */
   stripeAccount?: string;
   /** Optional filter to only produce tasks for specific actions. If omitted, all matching actions are produced. */
   actionFilter?: (action: OutreachAction) => boolean;
@@ -336,10 +328,8 @@ export function buildOutreachTaskIdentityQuery(
 }
 
 /**
- * The Stripe account an outreach task's invoice lives on. Prefers the account recorded on the
- * task at creation time (immune to later Location config edits), where the platform sentinel
- * decodes to undefined. Tasks created before ownership was recorded fall back to resolving the
- * focus Encounter's clinic Location. Undefined = platform.
+ * The Stripe account an outreach task's invoice lives on: the account recorded at creation time
+ * when present ('platform' decodes to undefined), otherwise the focus Encounter's clinic Location.
  */
 export async function resolveOutreachTaskStripeAccount(task: Task, oystehr: Oystehr): Promise<string | undefined> {
   const stamped = task.input?.find((i) => i.type?.text === OUTREACH_STRIPE_ACCOUNT_INPUT)?.valueString;
@@ -685,9 +675,7 @@ export async function reconcileDraftTasksWithConfig(
         patchOps.push({ op: 'replace', path: '/executionPeriod/start', value: newStart });
       }
 
-      // Config change: rebuild input, carrying over the recorded invoice ownership —
-      // buildTaskInput cannot re-derive it and dropping it would re-expose execution
-      // to Location config drift.
+      // Config change: rebuild input
       const existingStripeAccount = task.input?.find((i) => i.type?.text === OUTREACH_STRIPE_ACCOUNT_INPUT)
         ?.valueString;
       const newInput = buildTaskInput(newAction, existingStripeAccount);

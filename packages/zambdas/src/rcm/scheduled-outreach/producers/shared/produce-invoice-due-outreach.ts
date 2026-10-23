@@ -53,8 +53,6 @@ export async function produceInvoiceDueOutreach(
     );
   }
 
-  // Invoices are created on the clinic Location's connected Stripe account when one is
-  // configured, so past-due invoices must be collected across every account, not just the platform.
   const stripeAccounts = await listStripeAccounts(oystehr, oystehr, stripe);
 
   const pastDueInvoices = (
@@ -128,8 +126,6 @@ export async function produceInvoiceDueOutreach(
         appointment: appointmentRef ? { reference: appointmentRef } : undefined,
         eventTimestamp: dueDate,
         oystehr,
-        // Ownership is known here, so platform is recorded explicitly — an absent stamp
-        // means "unknown" and would fall back to the Location's current (mutable) account.
         stripeAccount: stripeAccount ?? OUTREACH_PLATFORM_STRIPE_ACCOUNT,
         actionFilter: (action) => applicableActionIds.has(action.id),
       });
@@ -312,7 +308,6 @@ async function cancelTasksForPaidInvoices(
     const encounterId = task.focus?.reference?.replace('Encounter/', '');
     if (!encounterId) continue;
 
-    // Absence from this run's scan only proves the invoice closed if its owning account was scanned.
     const stampedAccount = task.input?.find((i) => i.type?.text === OUTREACH_STRIPE_ACCOUNT_INPUT)?.valueString;
     if (
       stampedAccount &&

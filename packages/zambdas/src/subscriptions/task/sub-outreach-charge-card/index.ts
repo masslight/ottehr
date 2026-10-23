@@ -349,7 +349,6 @@ async function chargeCard(task: Task, oystehr: Oystehr, secrets: Secrets | null)
     return { success: false, error: `Unsupported focus reference format: ${focusRef}. Expected Encounter/<id>` };
   }
 
-  // Every Stripe call below must target the account the invoice was created on.
   const stripeAccount = await resolveOutreachTaskStripeAccount(task, oystehr);
 
   // 1. Find the patient's billing account and Stripe customer
