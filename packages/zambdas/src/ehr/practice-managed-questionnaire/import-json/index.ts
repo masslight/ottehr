@@ -57,6 +57,9 @@ async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Pro
   // deduce the correct fhir questionnaire resource, if one exists
   if (questionnaireId) {
     fhirQ = await oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId });
+    if (fhirQ.status !== 'active') {
+      throw INVALID_INPUT_ERROR(`This form was updated since you opened it. Refresh the page and try again.`);
+    }
   } else {
     const existing = await searchActiveQuestionnairesByUrl(questionnaire.url, oystehr);
 

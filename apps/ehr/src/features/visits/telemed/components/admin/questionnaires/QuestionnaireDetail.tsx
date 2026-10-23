@@ -102,7 +102,10 @@ export const QuestionnaireDetail: FC = () => {
           <QuestionnaireBuilder initial={practiceManagedQuestionnaire} onSave={handleSave} isSaving={isUpdating} />
         ) : (
           readOnlyQuestionnaire && (
-            <QuestionnaireReadOnlyView questionnaire={readOnlyQuestionnaire} allowVersionUpload={isCustomerSupport} />
+            <QuestionnaireReadOnlyView
+              questionnaire={readOnlyQuestionnaire}
+              allowVersionUpload={isCustomerSupport && readOnlyQuestionnaire.status === 'active'}
+            />
           )
         )}
       </>
