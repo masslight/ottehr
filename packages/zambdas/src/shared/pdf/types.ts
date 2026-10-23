@@ -558,6 +558,7 @@ export interface RosObservations extends PdfData {
         label: string;
         abnormal: boolean;
       }>;
+      comment?: string;
     };
   };
 }

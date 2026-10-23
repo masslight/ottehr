@@ -77,7 +77,13 @@ Procedure data: ${JSON.stringify(aiProcedureInput(input))}`;
 }
 
 export function parseAiSuggestions(raw: string): EvaluationResult {
-  const items = responseSchema.parse(JSON.parse(raw));
+  let items: z.infer<typeof responseSchema>;
+  try {
+    items = responseSchema.parse(JSON.parse(raw));
+  } catch (error) {
+    console.error('Failed to parse AI billing code response:', raw);
+    throw error;
+  }
 
   const unique = items
     .filter((item, i) => items.findIndex((other) => other.code === item.code) === i)

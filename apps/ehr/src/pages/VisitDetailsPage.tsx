@@ -1684,6 +1684,7 @@ export default function VisitDetailsPage(): ReactElement {
               <Paper sx={{ padding: 3 }}>
                 <PatientDocumentsExplorer
                   patientId={patientId}
+                  patient={patient}
                   // Both linkages: EHR uploads link by encounter, while consent forms, condition
                   // photos and school/work notes from intake link by appointment.
                   visit={{ encounterId: encounter.id, appointmentId: appointmentID }}

@@ -16,6 +16,7 @@ import {
   DRUG_UNIT_CODE_VALUES,
   ERA_CLAIM_STATUS_CODES,
   ERA_PAYMENT_METHOD_CODES,
+  ERA_STATUSES,
   MANUAL_ERA_LIMITS,
   NDC_REGEX,
   REFRESH_REPORT_KINDS,
@@ -79,8 +80,13 @@ export const GetEraDetailInputSchema = z.object({
   eraId: nonEmptyString,
 });
 
+export const VoidEraInputSchema = z.object({
+  eraId: nonEmptyString,
+});
+
 export const SearchErasInputSchema = z.object({
   // ERA-level filters (work for matched + unmatched)
+  status: z.enum(ERA_STATUSES).optional(),
   checkNumber: nonEmptyString.optional(),
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),
@@ -386,6 +392,22 @@ const billingStripeAccountIdSchema = nonEmptyString.regex(
   'Stripe account ID must start with acct_'
 );
 const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
+// A claim's accident details are complete: any accident type needs the accident date, and an auto
+// accident also needs the state it happened in. Shared by the claim editor's update schema and the
+// rules engine's end-of-run check, so a rule can't leave a claim in a state the editor would reject.
+export function claimAccidentProblems(info: {
+  accidentType?: readonly string[];
+  accidentState?: string;
+  accidentDate?: string;
+}): string[] {
+  const problems: string[] = [];
+  if (info.accidentType?.includes('auto') && !info.accidentState) {
+    problems.push('Accident state is required for auto accidents');
+  }
+  if (info.accidentType?.length && !info.accidentDate) problems.push('Accident date is required');
+  return problems;
+}
+
 // Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
 // because patient working copies carry addresses cloned from clinical data.
 const billingProviderAddressSchema = billingAddressSchema.extend({
@@ -682,17 +704,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         accidentDate: nonEmptyString.optional().or(z.literal('')),
       })
       .superRefine((data, ctx) => {
-        if (data.accidentType?.includes('auto') && !data.accidentState) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Accident state is required for auto accidents',
-          });
-        }
-        if (data.accidentType?.length && !data.accidentDate) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Accident date is required',
-          });
+        for (const message of claimAccidentProblems(data)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message });
         }
       }),
   }),
@@ -889,6 +902,26 @@ export const RecordBillingVoidInputSchema = z.object({
   clinicalPaymentNoticeId: nonEmptyString.uuid(),
 });
 
+export const AddClaimWriteOffInputSchema = z
+  .object({
+    claimId: nonEmptyString,
+    amount: z.number().nonnegative(),
+    date: z.string().date(),
+    party: z.enum(['insurance', 'nio', 'patient']),
+    payer: nonEmptyString.optional(),
+    reason: nonEmptyString,
+    note: nonEmptyString.optional(),
+  })
+  .superRefine((args, ctx) => {
+    if (args.party === 'insurance' && !args.payer) {
+      ctx.addIssue({ code: 'custom', path: ['payer'], message: '"payer" is required when "party" is "insurance"' });
+    }
+  });
+
+export const VoidClaimWriteOffInputSchema = z.object({
+  writeOffId: nonEmptyString,
+});
+
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
@@ -1077,6 +1110,7 @@ export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetClaimCms1500Input = z.output<typeof GetClaimCms1500InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
+export type VoidEraInput = z.output<typeof VoidEraInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;
@@ -1141,6 +1175,8 @@ export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseT
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
+export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;
 export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
 export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
 export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;

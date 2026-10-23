@@ -148,7 +148,6 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>({
   environment,
   ...resources
 }: MapResourcesToLabOrderDTOsInput<SearchBy>): LabOrderDTO<SearchBy>[] => {
-  console.log('mapResourcesToLabOrderDTOs');
   const { tasks, results } = resources;
   const result: LabOrderDTO<SearchBy>[] = [];
 
@@ -224,19 +223,15 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   coverages,
   cache,
 }: ParseOrderDataInput<SearchBy>): LabOrderDTO<SearchBy> => {
-  console.log('parsing external lab order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
-  console.log(serviceRequest.id);
 
   const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testName, fillerLab, testItemCode } = parseLabInfoFromServiceRequest(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
-  console.log('external lab orderStatus parsed', orderStatus);
 
-  console.log('formatting external lab listPageDTO');
   const requisitionNumber = getOrderNumber(serviceRequest);
   const abnPdfUrl =
     requisitionNumber && labDocuments?.abnPDFsByRequisitionNumber
@@ -360,8 +355,6 @@ export const parseTasks = ({
     };
   }
 
-  console.log('parsing tasks for service request', serviceRequest.id);
-
   const PST = parseTaskPST(tasks, serviceRequest.id);
 
   // parseResults returns filtered prelim results if there are final results with the same code
@@ -412,8 +405,6 @@ export const parseTasks = ({
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  console.log('successfully parsed tasks');
-
   return {
     taskPST: PST,
     orderedPrelimTasks,
@@ -442,7 +433,6 @@ export const parseResults = (
   orderedCancelledResults: DiagnosticReport[];
   reflexCancelledResults: DiagnosticReport[];
 } => {
-  console.log('parsing results for serviceRequest', serviceRequest.id);
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -1249,11 +1239,6 @@ export const filterFinalAndPrelimAndCorrectedTasks = (tasksResponse: Task[]): Ta
 
   tasksToReturn.push(...drIdToLatestRFRTMap.values());
 
-  console.log(
-    `>>> These are the tasks returned from fetchFinalAndPrelimAndCorrectedTasks`,
-    JSON.stringify(tasksToReturn)
-  );
-
   return tasksToReturn;
 };
 
@@ -1472,22 +1457,19 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.reviewed;
   }
 
+  // Kept to one unindented line: the tracking board maps every order on every 30 s poll.
   console.log(
     `Alert: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
-    JSON.stringify(
-      {
-        pendingStatusConditions,
-        sentStatusConditions,
-        prelimStatusConditions,
-        correctedResultConditions,
-        receivedStatusConditions,
-        reviewedStatusConditions,
-      },
-      null,
-      2
-    )
+    JSON.stringify({
+      serviceRequestStatus: serviceRequest.status,
+      pendingStatusConditions,
+      sentStatusConditions,
+      prelimStatusConditions,
+      correctedResultConditions,
+      receivedStatusConditions,
+      reviewedStatusConditions,
+    })
   );
-  console.log('sr status: ', serviceRequest.status);
 
   return ExternalLabsStatus.unknown;
 };
@@ -1739,7 +1721,6 @@ const parseLabOrderSubmittedDate = (provenances: Provenance[]): string | undefin
           c.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code
       )
   );
-  console.log('submittedProvenance', submittedProvenance);
   return submittedProvenance?.recorded;
 };
 
@@ -2525,11 +2506,6 @@ export const getAllServiceRequestsForPatient = async (
 };
 
 const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): Location | undefined => {
-  console.log(`Parsing location for ServiceRequest/${serviceRequest.id}`);
-  console.log(
-    `These are the possible Locations`,
-    locations.map((location) => location.id)
-  );
   if (!serviceRequest.locationReference || !serviceRequest.locationReference.length || !locations.length)
     return undefined;
 
@@ -2539,10 +2515,7 @@ const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): L
     console.log(`Missing or misconfigured Location ref from ServiceRequest/${serviceRequest.id}`);
     return undefined;
   }
-  const location = locations.find((loc) => `Location/${loc.id}` === locationRef);
-
-  console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${location?.id}`);
-  return location;
+  return locations.find((loc) => `Location/${loc.id}` === locationRef);
 };
 
 export const labOrderCommunicationType = (

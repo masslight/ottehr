@@ -104,7 +104,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
         })
       );
     } catch (error) {
-      console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
+      console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error);
       void sendErrors(error, ENVIRONMENT);
     }
   }
@@ -145,7 +145,6 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   currentPractitionerName?: string;
   currentPractitionerId?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
-  console.log('parsing in-house order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -168,11 +167,9 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     relatedDiagnosticReport
   );
   const orderStatus = determineOrderStatus(serviceRequest, tasks);
-  console.log('orderStatus:', orderStatus);
   const attendingPractitioner = parseAttendingPractitioner(encounter, practitioners);
   const diagnosisDTO = parseDiagnoses(serviceRequest);
 
-  console.log('formatting listPageDTO');
   const listPageDTO: InHouseOrderListPageItemDTO = {
     appointmentId: appointmentId,
     testItemName: testItem.name,

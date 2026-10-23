@@ -22,6 +22,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
+import { formatList } from 'src/shared/utils/formatList';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useProgressNoteSigning } from '../../hooks/useProgressNoteSigning';
 import { useVisitNote } from '../../hooks/useVisitNote';
@@ -63,10 +64,6 @@ const DEFAULT_SELECTIONS: DischargeSelections = {
   signProgressNote: false,
   requireSupervisorApproval: true,
 };
-
-/** ["a", "b", "c"] -> "a, b & c" */
-const joinWithAmpersand = (parts: string[]): string =>
-  parts.length > 1 ? `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}` : parts[0];
 
 const openGeneratedPdf = async (tab: Window, render: () => Promise<{ presignedURL: string }>): Promise<void> => {
   try {
@@ -195,8 +192,9 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
 
     if (pendingDocuments.length > 0) {
       enqueueSnackbar(
-        `Still preparing the ${joinWithAmpersand(
-          pendingDocuments
+        `Still preparing the ${formatList(
+          pendingDocuments,
+          '&'
         )}. Wait a moment, or clear it to discharge without printing it.`,
         { variant: 'warning' }
       );
@@ -327,11 +325,10 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     onClose,
   ]);
 
-  const actionLabel = joinWithAmpersand([
-    'Discharge',
-    ...(isPrinting ? ['Print'] : []),
-    ...(signProgressNote ? ['Sign'] : []),
-  ]);
+  const actionLabel = formatList(
+    ['Discharge', ...(isPrinting ? ['Print'] : []), ...(signProgressNote ? ['Sign'] : [])],
+    '&'
+  );
 
   return (
     <CustomDialog

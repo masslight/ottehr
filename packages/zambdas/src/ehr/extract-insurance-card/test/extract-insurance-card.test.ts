@@ -15,7 +15,6 @@ import { makePlainJpeg } from './image-fixtures';
 
 vi.mock('../../../shared/ai', () => ({
   invokeChatbotVertexAI: vi.fn(),
-  VERTEX_AI_MODEL: 'gemini-3.1-flash-lite',
 }));
 
 vi.mock('../../../shared/getAuth0Token', async (importOriginal) => {
@@ -42,13 +41,14 @@ vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) =
   };
 });
 
-const Z3_URL = 'https://project-api.zapehr.com/v1/z3/insurance-cards-bucket/patient-1/insurance-card-front.jpg';
+const Z3_URL = 'https://project-api.zapehr.com/v1/z3/test-project-insurance-cards/patient-1/insurance-card-front.jpg';
 const PRESIGNED_URL = 'https://signed.example.com/insurance-card-front.jpg';
 const IMAGE_BYTES = await makePlainJpeg(40, 24);
 
 const SECRETS = {
   FHIR_API: 'https://fhir-api.example.com',
-  PROJECT_API: 'https://project-api.example.com',
+  PROJECT_API: 'https://project-api.zapehr.com/v1',
+  PROJECT_ID: 'test-project',
   ENVIRONMENT: 'local',
 };
 

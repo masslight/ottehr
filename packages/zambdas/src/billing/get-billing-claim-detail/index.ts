@@ -20,6 +20,7 @@ import {
   BillingPolicyHolderSummary,
   ClaimAttachment,
   ClaimDetailResponse,
+  ClaimWriteOff,
 } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -69,6 +70,7 @@ import {
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
+import { fetchWriteOffs, sumWriteOffs, writeOffFromPaymentNotice } from '../write-offs';
 
 type GetClaimDetailParams = ValidatedZambdaInput<typeof GetClaimDetailInputSchema>;
 
@@ -116,16 +118,23 @@ export async function performEffect(
 
   // Other claims via Person lookup, this claim's ERA adjudications and first submission, its patient
   // payments, and its non-insurance payer (when stamped)
-  const [otherClaims, claimResponsesByClaimId, firstSubmittedDate, paymentsByEncounter, nonInsurancePayer] =
-    await Promise.all([
-      fetchOtherClaims(oystehr, patient?.id, claimId),
-      fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
-      fetchClaimFirstSubmittedDate(eraReadClient, claimId),
-      encounterId
-        ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
-        : Promise.resolve(new Map<string, PaymentNotice[]>()),
-      resolveNonInsurancePayerDetail(oystehr, claim),
-    ]);
+  const [
+    otherClaims,
+    claimResponsesByClaimId,
+    firstSubmittedDate,
+    paymentsByEncounter,
+    nonInsurancePayer,
+    writeOffResources,
+  ] = await Promise.all([
+    fetchOtherClaims(oystehr, patient?.id, claimId),
+    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
+    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
+    encounterId
+      ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
+      : Promise.resolve(new Map<string, PaymentNotice[]>()),
+    resolveNonInsurancePayerDetail(oystehr, claim),
+    fetchWriteOffs(oystehr, claimId),
+  ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
     eraReadClient,
@@ -140,6 +149,9 @@ export async function performEffect(
   const patientPayments = patientPaymentNotices
     .map(toClaimPatientPayment)
     .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+
+  const writeOffsTotal = sumWriteOffs(writeOffResources);
+  const writeOffs: ClaimWriteOff[] = writeOffResources.map<ClaimWriteOff>(writeOffFromPaymentNotice);
 
   // Resolve primary, secondary, remit, and insurance payment payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [
@@ -162,11 +174,15 @@ export async function performEffect(
     : undefined;
 
   const billed = claim.total?.value ?? 0;
-  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid);
+  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
-    const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
     const era = paymentReconciliationById.get(paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') ?? '');
+    // the ERA's paymentIssuer outranks ClaimResponse.insurer, which a manual match may have corrupted
+    const issuerRef = era?.paymentIssuer?.reference;
+    const payer =
+      (issuerRef ? payersByRef.get(issuerRef) : undefined) ??
+      (cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined);
     return {
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
@@ -186,23 +202,29 @@ export async function performEffect(
   });
   const paymentMillis = (paymentReconciliation: PaymentReconciliation): number =>
     DateTime.fromISO(paymentReconciliation.paymentDate ?? paymentReconciliation.created ?? '').toMillis() || 0;
+  const payerClaimControlNumber =
+    claim.identifier?.find((i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)?.value ?? '';
   const insurancePayments = [...paymentReconciliations]
     .sort((a, b) => paymentMillis(b) - paymentMillis(a))
     .map((paymentReconciliation) => {
-      // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
-      // of this ERA's ClaimResponses
+      // paymentIssuer may be missing (process-era) or carry an unresolvable id (the 835's GS/ISA
+      // sender, e.g. a payer's EDI/TIN id); fall back to the payer on one of this ERA's ClaimResponses
       const linkedCr = claimResponses.find(
         (cr) => paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') === paymentReconciliation.id
       );
-      const payerRef = paymentReconciliation.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
-      const payer = payerRef ? payersByRef.get(payerRef) : undefined;
+      const issuerRef = paymentReconciliation.paymentIssuer?.reference;
+      const linkedCrRef = linkedCr?.insurer?.reference;
+      const payer =
+        (issuerRef ? payersByRef.get(issuerRef) : undefined) ??
+        (linkedCrRef ? payersByRef.get(linkedCrRef) : undefined);
       return {
         paymentReconciliationId: paymentReconciliation.id ?? '',
         checkNumber: getEraCheckNumber(paymentReconciliation) ?? '',
         remitDate: paymentReconciliation.created ?? '',
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
-        payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? '',
+        payerName: payer?.name ?? linkedCr?.insurer?.display ?? paymentReconciliation.paymentIssuer?.display ?? '',
+        payerClaimControlNumber,
       };
     });
   const status = getClaimStatus(claim);
@@ -318,12 +340,14 @@ export async function performEffect(
     insurancePaid: payments.insurancePaid,
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
+    writeOffsTotal: payments.writeOffsTotal,
     balance: payments.balance,
     adjudicated: payments.adjudicated,
     firstSubmittedDate,
     remits,
     insurancePayments,
     patientPayments,
+    writeOffs,
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

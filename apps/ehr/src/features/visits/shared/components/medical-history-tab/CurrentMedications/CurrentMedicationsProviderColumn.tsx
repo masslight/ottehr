@@ -37,9 +37,13 @@ interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
   type: MedicationDTO['type'];
   date: DateTime | null;
+  lastFilledDate: DateTime | null;
+  refills: string | null;
   dose: string | null;
   patientCouldNotConfirmDosage: boolean;
 }
+
+const REFILLS_PATTERN = /^\d{1,2}$/;
 
 export interface MedicationDataProps {
   medications: MedicationDTO[];
@@ -63,6 +67,8 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
       medication: null,
       dose: null,
       date: null,
+      lastFilledDate: null,
+      refills: null,
       type: 'scheduled',
       patientCouldNotConfirmDosage: false,
     },
@@ -70,7 +76,8 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
   const { isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { control, reset, handleSubmit, setValue } = methods;
+  const { control, reset, handleSubmit, setValue, watch } = methods;
+  const isScheduled = watch('type') === 'scheduled';
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
@@ -98,6 +105,8 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
 
   const handleFormSubmitted = async (data: CurrentMedicationsProviderColumnForm): Promise<void> => {
     if (data && data.medication) {
+      const scheduled = data.type === 'scheduled';
+      const refills = data.refills?.trim();
       const success = await onAddMedication({
         medication: data.medication,
         dose: data.dose,
@@ -105,11 +114,15 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
         type: data.type,
         date: data.date?.toUTC().toString(),
         patientCouldNotConfirmDosage: data.patientCouldNotConfirmDosage,
+        lastFilledDate: scheduled ? data.lastFilledDate?.toUTC().toString() : undefined,
+        refills: scheduled && refills ? Number(refills) : undefined,
       });
       if (success) {
         reset({
           medication: null,
           date: null,
+          lastFilledDate: null,
+          refills: null,
           dose: null,
           type: 'scheduled',
           patientCouldNotConfirmDosage: false,
@@ -362,6 +375,69 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
                   </Box>
                 )}
               ></Controller>
+              {isScheduled && (
+                <>
+                  <Controller
+                    name="lastFilledDate"
+                    control={control}
+                    rules={{
+                      validate: (val) => {
+                        if (val && !val.isValid) {
+                          return val.invalidExplanation ?? 'Provide valid date time';
+                        }
+                        return true;
+                      },
+                    }}
+                    render={({ field: { value, onChange }, fieldState: { error } }) => (
+                      <Box
+                        sx={{ gridColumn: 'span 2' }}
+                        data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsLastFilledInput}
+                      >
+                        <LocalizationProvider dateAdapter={AdapterLuxon}>
+                          <DateTimePicker
+                            onChange={onChange}
+                            value={value || null}
+                            label="Prescription Last Filled"
+                            slotProps={{
+                              textField: {
+                                sx: { width: '100%' },
+                                InputLabelProps: { shrink: true },
+                                InputProps: { size: 'small', error: !!error },
+                              },
+                            }}
+                          ></DateTimePicker>
+                        </LocalizationProvider>
+                      </Box>
+                    )}
+                  ></Controller>
+                  <Controller
+                    name="refills"
+                    control={control}
+                    rules={{
+                      validate: (val) => {
+                        const trimmed = val?.trim();
+                        if (trimmed && !REFILLS_PATTERN.test(trimmed)) {
+                          return 'Enter a whole number from 0 to 99';
+                        }
+                        return true;
+                      },
+                    }}
+                    render={({ field: { value, onChange }, fieldState: { error } }) => (
+                      <TextField
+                        value={value || ''}
+                        onChange={onChange}
+                        data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsRefillsInput}
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ inputMode: 'numeric', maxLength: 2 }}
+                        label="Number of Refills"
+                        error={!!error}
+                        helperText={error?.message}
+                      />
+                    )}
+                  ></Controller>
+                </>
+              )}
             </Box>
             <Button
               variant="outlined"

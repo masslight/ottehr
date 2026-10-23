@@ -9,13 +9,25 @@ type Props = {
   name: string;
   label: string;
   multiple?: boolean;
+  withSelectAll?: boolean;
+  limitTags?: number;
   required?: boolean;
   size?: 'small' | 'medium';
   type?: 'in-person' | 'virtual';
   dataTestId?: string;
 };
 
-export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, type, dataTestId }) => {
+export const LocationSelectInput: React.FC<Props> = ({
+  name,
+  label,
+  multiple,
+  withSelectAll,
+  limitTags,
+  required,
+  size,
+  type,
+  dataTestId,
+}) => {
   const { oystehr } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [options, setOptions] = useState<{ id: string; name: string }[] | undefined>(undefined);
@@ -71,6 +83,8 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, re
       getOptionKey={(option) => option.id}
       isOptionEqualToValue={(option, value) => option.id === value.id}
       multiple={multiple}
+      withSelectAll={withSelectAll}
+      limitTags={limitTags}
       size={size}
       dataTestId={dataTestId}
     />

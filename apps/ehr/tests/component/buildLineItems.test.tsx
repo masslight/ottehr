@@ -1,7 +1,7 @@
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { buildLineItems } from 'utils/lib/helpers/rcm/visit-pricing';
 import { describe, expect, it } from 'vitest';
-import { buildLineItems } from '../../src/components/PatientPaymentsList';
 
 const feeSchedule: ChargeItemDefinition = {
   resourceType: 'ChargeItemDefinition',

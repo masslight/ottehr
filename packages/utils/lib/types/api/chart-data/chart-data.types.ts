@@ -167,6 +167,8 @@ export interface MedicationIntakeInfo {
   date?: string;
   dose?: string;
   patientCouldNotConfirmDosage?: boolean;
+  lastFilledDate?: string;
+  refills?: number;
 }
 
 export interface PrescribedMedicationDTO extends SaveableDTO {
@@ -441,6 +443,8 @@ export interface DiagnosisDTO extends SaveableDTO {
   display: string;
   isPrimary: boolean;
   addedViaLabOrder?: boolean;
+  /** Recorded only for diagnoses first created through procedure documentation. */
+  addedViaProcedure?: boolean;
 }
 
 export interface BirthHistoryDTO extends SaveableDTO {
@@ -612,6 +616,13 @@ export interface AccidentDTO extends SaveableDTO {
   date?: string;
   state?: string;
 }
+
+// Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
+export const ACCIDENT_TYPE_LABELS: Record<string, string> = {
+  AA: 'Auto Accident',
+  EM: 'Employment',
+  OA: 'Other Accident',
+};
 
 export interface MigrateExamDataInput {
   encounterId: string;

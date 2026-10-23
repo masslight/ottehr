@@ -1,7 +1,7 @@
 import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
-import type { EraClaimStatusCode, EraSource, X12AdjustmentGroupCode } from './billing.constants';
+import type { EraClaimStatusCode, EraSource, EraStatus, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
@@ -298,6 +298,7 @@ export interface SaveManualEraResponse {
 export interface EraDetailResponse {
   id: string;
   source: EraSource;
+  status: EraStatus;
   // PaymentReconciliation version, sent back when saving a manual ERA so stale edits are refused
   versionId: string;
   checkNumber: string;
@@ -345,6 +346,7 @@ export interface BillingClaimItem {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   claimBalance: number;
   adjudicated: boolean;
   responsibleParty: string;
@@ -387,6 +389,8 @@ export interface PatientDetailResponse {
     | 'insurancePaid'
     | 'patientResp'
     | 'patientPaid'
+    | 'writeOffsTotal'
+    | 'claimBalance'
   >[];
 }
 
@@ -408,6 +412,21 @@ export interface ClaimPatientPayment {
   status: string;
 }
 
+export interface ClaimWriteOff {
+  id: string;
+  date: string;
+  amount: number;
+  party: string;
+  payer?: string;
+  reason: string;
+  note: string;
+  status: string;
+  voidDate?: string;
+  voidReason?: string;
+  voidNote?: string;
+  voidActor?: string;
+}
+
 // One ERA payment (PaymentReconciliation) behind a claim's remits.
 export interface ClaimInsurancePayment {
   paymentReconciliationId: string;
@@ -419,6 +438,8 @@ export interface ClaimInsurancePayment {
   // the whole check's amount, not this claim's share (that's the remit's paid)
   paymentAmount: number;
   payerName: string;
+  // CLP07/ICN from this claim's remit on the ERA; '' when the converter stamps none
+  payerClaimControlNumber: string;
 }
 
 // One ERA adjudication (ClaimResponse) posted against a claim.
@@ -544,6 +565,7 @@ export interface ClaimDetailResponse {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
   // when Oystehr first sent the claim to the payer; '' when it was never submitted from Ottehr
@@ -573,6 +595,7 @@ export interface ClaimDetailResponse {
   accidentDate: string;
   attachments: ClaimAttachment[];
   payerClaimControlNumber?: string;
+  writeOffs: ClaimWriteOff[];
 }
 
 interface Paginated {
