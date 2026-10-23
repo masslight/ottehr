@@ -95,7 +95,7 @@ interface ProjectConfig {
   advapacsTenant: string;
 }
 
-const pathToEnvFiles = path.resolve(__dirname, '../.env');
+const pathToEnvFiles = path.resolve(__dirname, '.env');
 
 const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
   const projectConfigs: ProjectConfig[] = [];
