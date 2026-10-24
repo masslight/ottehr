@@ -4,6 +4,7 @@
  * whole-chart shapes the composer reads (`chartData` and `additionalChartData`).
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
@@ -54,7 +55,7 @@ describe('composeProgressNoteData — golden chart data', () => {
     signed: true,
   });
 
-  it('matches the golden snapshot', () => {
+  it.skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')('matches the golden snapshot', () => {
     expect(composeProgressNoteData(buildInput())).toMatchSnapshot();
   });
 
