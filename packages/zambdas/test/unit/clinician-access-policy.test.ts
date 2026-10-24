@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { CLINICIAN_RULES, PROVIDER_RULES } from '../../src/shared/accessPolicies';
+import rolesSpec from '../../../../config/oystehr-core/roles.json';
+import { allNonPatientRoles } from '../../src/shared/rolesUtils';
 
 // The Clinician role has Provider-level access except the two NPI-gated capabilities enforced at the
 // access-policy layer: client-side e-prescribing (eRx) and writing Claims under a provider NPI. eRx is
 // narrowed rather than removed — the read-only Medispan lookups back medication search and the in-house
 // medication pages, which a Clinician does use.
+//
+// The roles live in config/oystehr-core/roles.json (what Terraform applies); this guards that file against
+// drift, since nothing derives Clinician from Provider automatically.
 
 type Rule = { resource: string | string[]; action: string | string[] };
+
+const policyOf = (roleKey: keyof typeof rolesSpec.roles): { rule: Rule[] } => ({
+  rule: rolesSpec.roles[roleKey].accessPolicy as Rule[],
+});
+
+const CLINICIAN_RULES = policyOf('CLINICIAN');
+const PROVIDER_RULES = policyOf('PROVIDER');
 
 const grantsResource = (policy: { rule: Rule[] }, resource: string): boolean =>
   policy.rule.some((rule) => [rule.resource].flat().includes(resource));
@@ -16,8 +27,8 @@ const grantsAction = (policy: { rule: Rule[] }, resource: string, action: string
     (rule) => [rule.resource].flat().includes(resource) && [rule.action].flat().some((a) => a === action || a === '*')
   );
 
-describe('CLINICIAN_RULES', () => {
-  it('sanity check: PROVIDER_RULES grants eRx and Claim (guards against drift)', () => {
+describe('CLINICIAN role access policy (config/oystehr-core/roles.json)', () => {
+  it('sanity check: Provider grants eRx and Claim (guards against drift)', () => {
     expect(grantsResource(PROVIDER_RULES, 'eRx:*')).toBe(true);
     expect(grantsResource(PROVIDER_RULES, 'FHIR:Claim')).toBe(true);
   });
@@ -62,5 +73,35 @@ describe('CLINICIAN_RULES', () => {
     expect(grantsResource(CLINICIAN_RULES, 'FHIR:Patient')).toBe(true);
     // The RCM block (minus Claim) is retained, so Coverage from that block survives.
     expect(grantsResource(CLINICIAN_RULES, 'FHIR:Coverage')).toBe(true);
+  });
+
+  // Zambda grants are generated from each zambda's `access` declaration (npm run zambda-access:generate), with
+  // Clinician inheriting Staff and Provider inheriting Clinician, so no role in the chain can be missing a
+  // zambda the tier below it has.
+  it('can invoke every zambda Staff can, and Provider every zambda Clinician can', () => {
+    const zambdaGrants = (policy: { rule: Rule[] }): string[] =>
+      policy.rule
+        .filter((rule) => [rule.action].flat().includes('Zambda:InvokeFunction'))
+        .flatMap((rule) => [rule.resource].flat());
+    const staff = zambdaGrants(policyOf('STAFF'));
+    const clinician = zambdaGrants(CLINICIAN_RULES);
+    const provider = zambdaGrants(PROVIDER_RULES);
+    expect(staff.length).toBeGreaterThan(0);
+    expect(staff.some((grant) => grant.endsWith(':*'))).toBe(false);
+    expect(clinician).toEqual(expect.arrayContaining(staff));
+    expect(provider).toEqual(expect.arrayContaining(clinician));
+  });
+});
+
+describe('allNonPatientRoles', () => {
+  it('mirrors roles.json so the role scripts can never push a policy that differs from the IaC config', () => {
+    const names = allNonPatientRoles.map((role) => role.name).sort();
+    const expected = Object.entries(rolesSpec.roles)
+      .filter(([key]) => key !== 'PATIENT')
+      .map(([, role]) => role.name)
+      .sort();
+    expect(names).toEqual(expected);
+    const clinician = allNonPatientRoles.find((role) => role.name === 'Clinician');
+    expect(clinician?.accessPolicy.rule).toEqual(rolesSpec.roles.CLINICIAN.accessPolicy);
   });
 });

@@ -96,6 +96,12 @@ jobs:
         if: steps.npm-cache.outputs.cache-hit != 'true'
         run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
 
+      # Every http_auth zambda must declare which roles may invoke it, and the generated role grants in
+      # config/oystehr-core/roles.json must match. Pure config check, no secrets, sub-second, so it is never
+      # skipped. See config/README.md ("Zambda access").
+      - name: Check zambda access declarations
+        run: npm run zambda-access:check
+
       - name: Check for skip build and lint
         if: contains(github.event.pull_request.body, '/skip-build-and-lint')
         run: echo "Build and lint skipped via /skip-build-and-lint command"

@@ -4,6 +4,9 @@
     "SEARCH-BILLING-PATIENTS": {
       "name": "search-billing-patients",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-patients/index",
       "zip": ".dist/zips/search-billing-patients.zip"
@@ -11,6 +14,9 @@
     "SEARCH-BILLING-LOCATIONS": {
       "name": "search-billing-locations",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-locations/index",
       "zip": ".dist/zips/search-billing-locations.zip"
@@ -18,6 +24,9 @@
     "SEARCH-BILLING-PAYERS": {
       "name": "search-billing-payers",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-payers/index",
       "zip": ".dist/zips/search-billing-payers.zip"
@@ -25,6 +34,9 @@
     "SEARCH-BILLING-SERVICES": {
       "name": "search-billing-services",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-services/index",
       "zip": ".dist/zips/search-billing-services.zip"
@@ -32,6 +44,9 @@
     "GET-PATIENT-COVERAGES": {
       "name": "get-patient-coverages",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-patient-coverages/index",
       "zip": ".dist/zips/get-patient-coverages.zip"
@@ -39,6 +54,9 @@
     "SEARCH-BILLING-PROVIDERS": {
       "name": "search-billing-providers",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-providers/index",
       "zip": ".dist/zips/search-billing-providers.zip"
@@ -46,6 +64,9 @@
     "GET-BILLING-PROVIDER": {
       "name": "get-billing-provider",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-provider/index",
       "zip": ".dist/zips/get-billing-provider.zip"
@@ -53,6 +74,9 @@
     "SEARCH-BILLING-SERVICE-FACILITIES": {
       "name": "search-billing-service-facilities",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-service-facilities/index",
       "zip": ".dist/zips/search-billing-service-facilities.zip"
@@ -60,6 +84,9 @@
     "GET-BILLING-SERVICE-FACILITY": {
       "name": "get-billing-service-facility",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-service-facility/index",
       "zip": ".dist/zips/get-billing-service-facility.zip"
@@ -67,6 +94,9 @@
     "SAVE-BILLING-SERVICE-FACILITY": {
       "name": "save-billing-service-facility",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/save-billing-service-facility/index",
       "zip": ".dist/zips/save-billing-service-facility.zip"
@@ -74,6 +104,9 @@
     "DELETE-BILLING-SERVICE-FACILITY": {
       "name": "delete-billing-service-facility",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-billing-service-facility/index",
       "zip": ".dist/zips/delete-billing-service-facility.zip"
@@ -81,6 +114,9 @@
     "CREATE-BILLING-CLAIM": {
       "name": "create-billing-claim",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-claim/index",
       "zip": ".dist/zips/create-billing-claim.zip"
@@ -88,6 +124,9 @@
     "CREATE-BILLING-PROVIDER": {
       "name": "create-billing-provider",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-provider/index",
       "zip": ".dist/zips/create-billing-provider.zip"
@@ -95,6 +134,9 @@
     "CREATE-BILLING-PATIENT": {
       "name": "create-billing-patient",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-patient/index",
       "zip": ".dist/zips/create-billing-patient.zip"
@@ -102,6 +144,9 @@
     "CREATE-BILLING-WORKING-COPY": {
       "name": "create-billing-working-copy",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-working-copy/index",
       "zip": ".dist/zips/create-billing-working-copy.zip"
@@ -109,6 +154,9 @@
     "CREATE-BILLING-COVERAGE": {
       "name": "create-billing-coverage",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-coverage/index",
       "zip": ".dist/zips/create-billing-coverage.zip"
@@ -116,6 +164,9 @@
     "UPDATE-BILLING-COVERAGE": {
       "name": "update-billing-coverage",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/update-billing-coverage/index",
       "zip": ".dist/zips/update-billing-coverage.zip"
@@ -123,6 +174,9 @@
     "GET-BILLING-COVERAGE": {
       "name": "get-billing-coverage",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-coverage/index",
       "zip": ".dist/zips/get-billing-coverage.zip"
@@ -130,6 +184,9 @@
     "DELETE-BILLING-COVERAGE": {
       "name": "delete-billing-coverage",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-billing-coverage/index",
       "zip": ".dist/zips/delete-billing-coverage.zip"
@@ -137,6 +194,9 @@
     "SEARCH-BILLING-CLAIMS": {
       "name": "search-billing-claims",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-claims/index",
       "zip": ".dist/zips/search-billing-claims.zip"
@@ -144,6 +204,9 @@
     "EXPORT-BILLING-CLAIMS": {
       "name": "export-billing-claims",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/export-billing-claims/index",
       "zip": ".dist/zips/export-billing-claims.zip"
@@ -151,6 +214,9 @@
     "SEARCH-BILLING-PATIENT-AR-CLAIMS": {
       "name": "search-billing-patient-ar-claims",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-patient-ar-claims/index",
       "zip": ".dist/zips/search-billing-patient-ar-claims.zip"
@@ -158,6 +224,9 @@
     "GET-BILLING-PATIENT-BALANCE": {
       "name": "get-billing-patient-balance",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-patient-balance/index",
       "zip": ".dist/zips/get-billing-patient-balance.zip"
@@ -165,6 +234,9 @@
     "GET-BILLING-CLAIM-DETAIL": {
       "name": "get-billing-claim-detail",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-claim-detail/index",
       "zip": ".dist/zips/get-billing-claim-detail.zip"
@@ -172,6 +244,9 @@
     "GET-BILLING-CLAIM-HISTORY": {
       "name": "get-billing-claim-history",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-claim-history/index",
       "zip": ".dist/zips/get-billing-claim-history.zip"
@@ -179,6 +254,9 @@
     "ADD-BILLING-CLAIM-NOTE": {
       "name": "add-billing-claim-note",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/add-billing-claim-note/index",
       "zip": ".dist/zips/add-billing-claim-note.zip"
@@ -186,6 +264,9 @@
     "EXPORT-BILLING-CLAIM-X12": {
       "name": "export-billing-claim-x12",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/export-billing-claim-x12/index",
       "zip": ".dist/zips/export-billing-claim-x12.zip"
@@ -193,6 +274,9 @@
     "GET-BILLING-CLAIM-CMS1500": {
       "name": "get-billing-claim-cms1500",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-claim-cms1500/index",
       "zip": ".dist/zips/get-billing-claim-cms1500.zip"
@@ -200,6 +284,9 @@
     "GET-BILLING-PATIENT-DETAIL": {
       "name": "get-billing-patient-detail",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-patient-detail/index",
       "zip": ".dist/zips/get-billing-patient-detail.zip"
@@ -207,6 +294,9 @@
     "SEARCH-BILLING-ERAS": {
       "name": "search-billing-eras",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-eras/index",
       "zip": ".dist/zips/search-billing-eras.zip"
@@ -214,6 +304,9 @@
     "GET-BILLING-ERA-DETAIL": {
       "name": "get-billing-era-detail",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-era-detail/index",
       "zip": ".dist/zips/get-billing-era-detail.zip"
@@ -221,6 +314,9 @@
     "IMPORT-ERA": {
       "name": "import-era",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/import-era/index",
       "zip": ".dist/zips/import-era.zip"
@@ -228,6 +324,9 @@
     "MATCH-CLAIM-RESPONSE": {
       "name": "match-claim-response",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/match-claim-response/index",
       "zip": ".dist/zips/match-claim-response.zip"
@@ -235,6 +334,9 @@
     "UNMATCH-CLAIM-RESPONSE": {
       "name": "unmatch-claim-response",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/unmatch-claim-response/index",
       "zip": ".dist/zips/unmatch-claim-response.zip"
@@ -242,6 +344,9 @@
     "SEARCH-BILLING-TAGS": {
       "name": "search-billing-tags",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-tags/index",
       "zip": ".dist/zips/search-billing-tags.zip"
@@ -249,6 +354,9 @@
     "SAVE-BILLING-TAG": {
       "name": "save-billing-tag",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/save-billing-tag/index",
       "zip": ".dist/zips/save-billing-tag.zip"
@@ -256,6 +364,9 @@
     "DELETE-BILLING-TAG": {
       "name": "delete-billing-tag",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-billing-tag/index",
       "zip": ".dist/zips/delete-billing-tag.zip"
@@ -263,6 +374,9 @@
     "GET-BILLING-RULES": {
       "name": "get-billing-rules",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-rules/index",
       "zip": ".dist/zips/get-billing-rules.zip"
@@ -270,6 +384,9 @@
     "SAVE-BILLING-RULES": {
       "name": "save-billing-rules",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/save-billing-rules/index",
       "zip": ".dist/zips/save-billing-rules.zip"
@@ -277,6 +394,9 @@
     "RUN-BILLING-RULES-ENGINE": {
       "name": "run-billing-rules-engine",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/run-billing-rules-engine/index",
       "zip": ".dist/zips/run-billing-rules-engine.zip"
@@ -284,6 +404,9 @@
     "GET-BILLING-REPORT": {
       "name": "get-billing-report",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/reports/get-billing-report/index",
       "zip": ".dist/zips/get-billing-report.zip"
@@ -291,6 +414,9 @@
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/tag-billing-claim/index",
       "zip": ".dist/zips/tag-billing-claim.zip"
@@ -298,6 +424,9 @@
     "SET-BILLING-CLAIM-STATUS": {
       "name": "set-billing-claim-status",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/set-billing-claim-status/index",
       "zip": ".dist/zips/set-billing-claim-status.zip"
@@ -305,6 +434,9 @@
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/update-billing-claim/index",
       "zip": ".dist/zips/update-billing-claim.zip"
@@ -312,6 +444,9 @@
     "UPDATE-BILLING-PATIENT": {
       "name": "update-billing-patient",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/update-billing-patient/index",
       "zip": ".dist/zips/update-billing-patient.zip"
@@ -319,6 +454,9 @@
     "UPDATE-BILLING-PROVIDER": {
       "name": "update-billing-provider",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/update-billing-provider/index",
       "zip": ".dist/zips/update-billing-provider.zip"
@@ -326,6 +464,9 @@
     "DELETE-BILLING-PROVIDER": {
       "name": "delete-billing-provider",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-billing-provider/index",
       "zip": ".dist/zips/delete-billing-provider.zip"
@@ -333,6 +474,9 @@
     "CREATE-BILLING-CLAIM-TASK": {
       "name": "create-billing-claim-task",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-claim-task/index",
       "zip": ".dist/zips/create-billing-claim-task.zip"
@@ -340,6 +484,9 @@
     "SEARCH-BILLING-CLAIM-TASKS": {
       "name": "search-billing-claim-tasks",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-claim-tasks/index",
       "zip": ".dist/zips/search-billing-claim-tasks.zip"
@@ -347,6 +494,9 @@
     "UPDATE-BILLING-CLAIM-TASK": {
       "name": "update-billing-claim-task",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/update-billing-claim-task/index",
       "zip": ".dist/zips/update-billing-claim-task.zip"
@@ -361,6 +511,9 @@
     "CREATE-BILLING-CLAIM-FROM-ENCOUNTER": {
       "name": "create-billing-claim-from-encounter",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-claim-from-encounter/index",
       "zip": ".dist/zips/create-billing-claim-from-encounter.zip"
@@ -379,6 +532,9 @@
     "SEARCH-CHARGE-ITEM-DEFINITIONS": {
       "name": "search-charge-item-definitions",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-charge-item-definitions/index",
       "zip": ".dist/zips/search-charge-item-definitions.zip"
@@ -386,6 +542,9 @@
     "CREATE-CHARGE-ITEM-DEFINITION": {
       "name": "create-charge-item-definition",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-charge-item-definition/index",
       "zip": ".dist/zips/create-charge-item-definition.zip"
@@ -393,6 +552,9 @@
     "GET-CHARGE-ITEM-DEFINITION": {
       "name": "get-charge-item-definition",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/get-charge-item-definition/index",
       "zip": ".dist/zips/get-charge-item-definition.zip"
@@ -400,6 +562,9 @@
     "UPDATE-CHARGE-ITEM-DEFINITION": {
       "name": "update-charge-item-definition",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/update-charge-item-definition/index",
       "zip": ".dist/zips/update-charge-item-definition.zip"
@@ -407,6 +572,9 @@
     "DELETE-CHARGE-ITEM-DEFINITION": {
       "name": "delete-charge-item-definition",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-charge-item-definition/index",
       "zip": ".dist/zips/delete-charge-item-definition.zip"
@@ -414,6 +582,9 @@
     "BULK-ADD-CHARGE-ITEM-DEFINITION-PROCEDURE-CODES": {
       "name": "bulk-add-charge-item-definition-procedure-codes",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/bulk-add-charge-item-definition-procedure-codes/index",
       "zip": ".dist/zips/bulk-add-charge-item-definition-procedure-codes.zip"
@@ -428,6 +599,9 @@
     "RECORD-BILLING-MANUAL-PAYMENT": {
       "name": "record-billing-manual-payment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/record-billing-manual-payment/index",
       "zip": ".dist/zips/record-billing-manual-payment.zip"
@@ -435,6 +609,9 @@
     "RECORD-BILLING-REFUND": {
       "name": "record-billing-refund",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/record-billing-refund/index",
       "zip": ".dist/zips/record-billing-refund.zip"
@@ -442,6 +619,9 @@
     "RECORD-BILLING-VOID": {
       "name": "record-billing-void",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/record-billing-void/index",
       "zip": ".dist/zips/record-billing-void.zip"
@@ -449,6 +629,9 @@
     "CREATE-BILLING-NON-INSURANCE-ORG": {
       "name": "create-billing-non-insurance-org",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-non-insurance-org/index",
       "zip": ".dist/zips/create-billing-non-insurance-org.zip"
@@ -456,6 +639,9 @@
     "UPDATE-BILLING-NON-INSURANCE-ORG": {
       "name": "update-billing-non-insurance-org",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/update-billing-non-insurance-org/index",
       "zip": ".dist/zips/update-billing-non-insurance-org.zip"
@@ -463,6 +649,9 @@
     "SEARCH-BILLING-NON-INSURANCE-ORGS": {
       "name": "search-billing-non-insurance-orgs",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-non-insurance-orgs/index",
       "zip": ".dist/zips/search-billing-non-insurance-orgs.zip"
@@ -470,6 +659,9 @@
     "DELETE-BILLING-NON-INSURANCE-ORG": {
       "name": "delete-billing-non-insurance-org",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-billing-non-insurance-org/index",
       "zip": ".dist/zips/delete-billing-non-insurance-org.zip"
@@ -477,6 +669,9 @@
     "LIST-NON-INSURANCE-ORGANIZATIONS": {
       "name": "list-non-insurance-organizations",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/list-non-insurance-organizations/index",
       "zip": ".dist/zips/list-non-insurance-organizations.zip"
@@ -484,6 +679,9 @@
     "CREATE-BILLING-CUSTOM-INSURANCE-ORG": {
       "name": "create-billing-custom-insurance-org",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-custom-insurance-org/index",
       "zip": ".dist/zips/create-billing-custom-insurance-org.zip"
@@ -491,6 +689,9 @@
     "UPDATE-BILLING-CUSTOM-INSURANCE-ORG": {
       "name": "update-billing-custom-insurance-org",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/update-billing-custom-insurance-org/index",
       "zip": ".dist/zips/update-billing-custom-insurance-org.zip"
@@ -498,6 +699,9 @@
     "SEARCH-BILLING-CUSTOM-INSURANCE-ORGS": {
       "name": "search-billing-custom-insurance-orgs",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-custom-insurance-orgs/index",
       "zip": ".dist/zips/search-billing-custom-insurance-orgs.zip"
@@ -505,6 +709,9 @@
     "DELETE-BILLING-CUSTOM-INSURANCE-ORG": {
       "name": "delete-billing-custom-insurance-org",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-billing-custom-insurance-org/index",
       "zip": ".dist/zips/delete-billing-custom-insurance-org.zip"
@@ -512,6 +719,9 @@
     "LIST-CUSTOM-INSURANCE-ORGANIZATIONS": {
       "name": "list-custom-insurance-organizations",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/list-custom-insurance-organizations/index",
       "zip": ".dist/zips/list-custom-insurance-organizations.zip"
@@ -574,6 +784,9 @@
     "ADD-CLAIM-WRITE-OFF": {
       "name": "add-claim-write-off",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/add-claim-write-off/index",
       "zip": ".dist/zips/add-claim-write-off.zip"
@@ -581,6 +794,9 @@
     "VOID-CLAIM-WRITE-OFF": {
       "name": "void-claim-write-off",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/void-claim-write-off/index",
       "zip": ".dist/zips/void-claim-write-off.zip"
@@ -588,6 +804,9 @@
     "ADD-CLAIM-ATTACHMENT": {
       "name": "add-claim-attachment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/add-claim-attachment/index",
       "zip": ".dist/zips/add-claim-attachment.zip"
@@ -595,6 +814,9 @@
     "RENAME-CLAIM-ATTACHMENT": {
       "name": "rename-claim-attachment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/rename-claim-attachment/index",
       "zip": ".dist/zips/rename-claim-attachment.zip"
@@ -602,6 +824,9 @@
     "DELETE-CLAIM-ATTACHMENT": {
       "name": "delete-claim-attachment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-claim-attachment/index",
       "zip": ".dist/zips/delete-claim-attachment.zip"
@@ -609,6 +834,9 @@
     "DOWNLOAD-CLAIM-ATTACHMENT": {
       "name": "download-claim-attachment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/download-claim-attachment/index",
       "zip": ".dist/zips/download-claim-attachment.zip"
@@ -616,6 +844,9 @@
     "CREATE-TIMELY-FILING-REPORT": {
       "name": "create-timely-filing-report",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/create-timely-filing-report/index",
       "zip": ".dist/zips/create-timely-filing-report.zip"
@@ -623,6 +854,9 @@
     "SAVE-BILLING-MANUAL-ERA": {
       "name": "save-billing-manual-era",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/save-billing-manual-era/index",
       "zip": ".dist/zips/save-billing-manual-era.zip"
@@ -630,6 +864,9 @@
     "ADD-ERA-ATTACHMENT": {
       "name": "add-era-attachment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/add-era-attachment/index",
       "zip": ".dist/zips/add-era-attachment.zip"
@@ -637,6 +874,9 @@
     "RENAME-ERA-ATTACHMENT": {
       "name": "rename-era-attachment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/rename-era-attachment/index",
       "zip": ".dist/zips/rename-era-attachment.zip"
@@ -644,6 +884,9 @@
     "DELETE-ERA-ATTACHMENT": {
       "name": "delete-era-attachment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-era-attachment/index",
       "zip": ".dist/zips/delete-era-attachment.zip"
@@ -651,6 +894,9 @@
     "DOWNLOAD-ERA-ATTACHMENT": {
       "name": "download-era-attachment",
       "type": "http_auth",
+      "access": [
+        "BILLING_ADMIN"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/billing/download-era-attachment/index",
       "zip": ".dist/zips/download-era-attachment.zip"

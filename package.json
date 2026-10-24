@@ -130,6 +130,8 @@
     "spellcheck": "cspell .",
     "merge-payer-addresses": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv",
     "bump-canonical-version": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/config/bump-canonical-version.ts",
+    "zambda-access:check": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/config/zambda-access.ts --check",
+    "zambda-access:generate": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/config/zambda-access.ts --write",
     "docs:billing-rules": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/generate-billing-rules-docs.ts",
     "codes:remit": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/generate-remit-code-lists.ts",
     "create:project": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/setup/project/create-project.ts",

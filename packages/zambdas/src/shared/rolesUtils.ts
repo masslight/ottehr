@@ -1,14 +1,6 @@
 import Oystehr, { Role, RoleListItem } from '@oystehr/sdk';
 import { AccessPolicy, RoleType } from 'utils/lib/types/api/user.types';
-import {
-  ADMINISTRATOR_RULES,
-  CLINICIAN_RULES,
-  CUSTOMER_SUPPORT_RULES,
-  INACTIVE_RULES,
-  MANAGER_RULES,
-  PROVIDER_RULES,
-  STAFF_RULES,
-} from './accessPolicies';
+import rolesSpec from '../../../../config/oystehr-core/roles.json';
 
 export async function getRoleId(roleName: string, token: string, projectApiUrl: string): Promise<string> {
   const headers = {
@@ -31,15 +23,19 @@ export async function getRoleId(roleName: string, token: string, projectApiUrl: 
   return roleId;
 }
 
-export const allNonPatientRoles = [
-  { name: RoleType.Administrator, accessPolicy: ADMINISTRATOR_RULES },
-  { name: RoleType.Clinician, accessPolicy: CLINICIAN_RULES },
-  { name: RoleType.CustomerSupport, accessPolicy: CUSTOMER_SUPPORT_RULES },
-  { name: RoleType.Inactive, accessPolicy: INACTIVE_RULES },
-  { name: RoleType.Manager, accessPolicy: MANAGER_RULES },
-  { name: RoleType.Provider, accessPolicy: PROVIDER_RULES },
-  { name: RoleType.Staff, accessPolicy: STAFF_RULES },
-];
+/**
+ * The staff-side roles exactly as declared in config/oystehr-core/roles.json — the one source of truth that
+ * Terraform applies, and whose Zambda:InvokeFunction grants are generated from the `access` declared on each
+ * zambda (`npm run zambda-access:generate`). The scripts that create or patch roles through the API
+ * (update-user-roles, invite-user) read this list so they can never push a policy that differs from the IaC
+ * config. The Patient role is provisioned with the project and is deliberately left out.
+ */
+export const allNonPatientRoles: { name: RoleType; accessPolicy: AccessPolicy }[] = Object.entries(rolesSpec.roles)
+  .filter(([key]) => key !== 'PATIENT')
+  .map(([, role]) => ({
+    name: role.name as RoleType,
+    accessPolicy: { rule: role.accessPolicy as AccessPolicy['rule'] },
+  }));
 
 type UpdateUserRolesReturnType = { [key in RoleType]?: string | undefined };
 export const updateUserRoles = async (oystehr: Oystehr): Promise<UpdateUserRolesReturnType> => {
@@ -68,7 +64,7 @@ export const updateUserRoles = async (oystehr: Oystehr): Promise<UpdateUserRoles
       try {
         roleResult = await oystehr.role.update({
           roleId: foundRole.id,
-          accessPolicy: role.accessPolicy as AccessPolicy,
+          accessPolicy: role.accessPolicy,
         });
         console.log(`${roleName} role accessPolicy patched: `, roleResult, JSON.stringify(roleResult.accessPolicy));
       } catch (err) {
@@ -78,7 +74,7 @@ export const updateUserRoles = async (oystehr: Oystehr): Promise<UpdateUserRoles
     } else {
       console.log(`creating ${roleName} role`);
       try {
-        roleResult = await oystehr.role.create({ name: roleName, accessPolicy: role.accessPolicy as AccessPolicy });
+        roleResult = await oystehr.role.create({ name: roleName, accessPolicy: role.accessPolicy });
         console.log(`${roleName} role: `, roleResult, JSON.stringify(roleResult.accessPolicy));
       } catch (err) {
         console.error(err);

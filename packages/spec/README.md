@@ -195,6 +195,7 @@ Example zambda spec:
     "MY-ZAMBDA": {
       "name": "my-zambda",
       "type": "http_auth", // http_auth | http_open | cron | subscription
+      "access": ["STAFF"], // required for http_auth: lowest role keys that may invoke it (see Zambda Access)
       "runtime": "nodejs20.x",
       "timeout": "900", // seconds (optional)
       "memorySize": "1024", // MB (optional)
@@ -215,6 +216,56 @@ Example zambda spec:
 }
 ```
 
+## Zambda Access
+
+Which roles may invoke an `http_auth` zambda is declared on the zambda, and the roles' `Zambda:InvokeFunction` grants are generated from those declarations. The logic lives in `src/zambda-access.ts`; the CLI is `scripts/config/zambda-access.ts` (`npm run zambda-access:check` / `npm run zambda-access:generate`). See [`config/README.md`](/config/README.md#zambda-access) for the day-to-day workflow.
+
+### `access` on zambdas
+
+```json
+{
+  "zambdas": {
+    "GET-APPOINTMENTS": { "name": "get-appointments", "type": "http_auth", "access": ["STAFF"] },
+    "CREATE-APPOINTMENT": { "name": "create-appointment", "type": "http_auth", "access": ["PATIENT", "STAFF"] },
+    "INTERNAL-SYNC": { "name": "internal-sync", "type": "http_auth", "access": [] }
+  }
+}
+```
+
+- `access` lists the **lowest** role keys (keys from `roles.json`, e.g. `STAFF`, not display names) that may invoke the zambda. Every role that inherits from one of them is granted it too, so a zambda is declared once at the tier where access starts. Listing a role that already inherits another listed role is an error.
+- `"access": []` means no user role may invoke it — only M2M clients, whose access policies are managed separately.
+- `access` is required on every `http_auth` zambda and forbidden on `http_open`, `cron` and `subscription` zambdas: those are never invoked with a user token, so a role grant would be meaningless.
+
+### `zambdaAccess.inherits` on roles
+
+```json
+{
+  "roles": {
+    "STAFF": { "name": "Staff", "accessPolicy": [] },
+    "CLINICIAN": { "name": "Clinician", "zambdaAccess": { "inherits": ["STAFF"] }, "accessPolicy": [] },
+    "PROVIDER": { "name": "Provider", "zambdaAccess": { "inherits": ["CLINICIAN"] }, "accessPolicy": [] }
+  }
+}
+```
+
+`inherits` names the roles whose zambda grants this role also receives (transitively; cycles are rejected). It affects only the generated zambda rule — FHIR and other rules are still written by hand per role.
+
+### Generated rule
+
+For each role the generator writes exactly one rule of this shape, replacing any existing rule that touches the Zambda service, and leaves every other rule untouched and in place:
+
+```json
+{
+  "resource": ["Zambda:Function:create-appointment", "Zambda:Function:get-appointments"],
+  "action": ["Zambda:InvokeFunction"],
+  "effect": "Allow"
+}
+```
+
+Wildcards such as `Zambda:Function:*` are never generated and are reported as stale, because they would make "every zambda is explicitly granted" vacuous. A zambda rule of any other shape (mixed actions, `Deny`, `Zambda:*`) is an error: split the non-zambda part into its own rule.
+
+The check and the generator read `config/oystehr`, `config/oystehr-core`, `config/billing-app-core` and **every** `config/oystehr/env/<env>/` overlay, so the generated grants are valid in every environment. The same zambda may appear in several env overlays as long as it is declared identically in each.
+
 ## Testing
 
 ```bash
@@ -229,6 +280,7 @@ Tests cover:
 - Successful merge of unique resources
 - Unknown key rejection
 - Required resource type validation
+- Zambda access: grant derivation and inheritance, generated-rule placement, stale detection, declaration errors, spec-file discovery
 
 ## Usage in Deploy
 

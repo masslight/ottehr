@@ -4,6 +4,10 @@
     "VERSION": {
       "name": "version",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/version/index",
       "zip": ".dist/zips/version.zip"
@@ -11,6 +15,9 @@
     "CREATE-USER": {
       "name": "create-user",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-user/index",
       "zip": ".dist/zips/create-user.zip"
@@ -18,6 +25,9 @@
     "DELETE-USER": {
       "name": "delete-user",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-user/index",
       "zip": ".dist/zips/delete-user.zip"
@@ -25,6 +35,9 @@
     "USER-ACTIVATION": {
       "name": "user-activation",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/user-activation/index",
       "zip": ".dist/zips/user-activation.zip"
@@ -32,6 +45,9 @@
     "GET-APPOINTMENTS": {
       "name": "get-appointments",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-appointments/index",
       "zip": ".dist/zips/get-appointments.zip"
@@ -39,6 +55,9 @@
     "INCOMPLETE-ENCOUNTERS-REPORT": {
       "name": "incomplete-encounters-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/incomplete-encounters-report/index",
       "zip": ".dist/zips/incomplete-encounters-report.zip"
@@ -46,6 +65,9 @@
     "MAILED-STATEMENTS-REPORT": {
       "name": "mailed-statements-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/mailed-statements-report/index",
       "zip": ".dist/zips/mailed-statements-report.zip"
@@ -53,6 +75,9 @@
     "SYNC-MAILED-STATEMENT-STATUSES": {
       "name": "sync-mailed-statement-statuses",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/sync-mailed-statement-statuses/index",
       "zip": ".dist/zips/sync-mailed-statement-statuses.zip"
@@ -71,6 +96,9 @@
     "AI-ASSISTED-ENCOUNTERS-REPORT": {
       "name": "ai-assisted-encounters-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/ai-assisted-encounters-report/index",
       "zip": ".dist/zips/ai-assisted-encounters-report.zip"
@@ -78,6 +106,9 @@
     "SEND-PATIENT-FORM": {
       "name": "send-patient-form",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/send-patient-form/index",
       "zip": ".dist/zips/send-patient-form.zip"
@@ -85,6 +116,9 @@
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/daily-payments-report/index",
       "zip": ".dist/zips/daily-payments-report.zip"
@@ -92,6 +126,9 @@
     "PRACTICE-KPIS-REPORT": {
       "name": "practice-kpis-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-kpis-report/index",
       "zip": ".dist/zips/practice-kpis-report.zip"
@@ -99,6 +136,9 @@
     "VISITS-OVERVIEW-REPORT": {
       "name": "visits-overview-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visits-overview-report/index",
       "zip": ".dist/zips/visits-overview-report.zip"
@@ -106,6 +146,9 @@
     "RECENT-PATIENTS-REPORT": {
       "name": "recent-patients-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/recent-patients-report/index",
       "zip": ".dist/zips/recent-patients-report.zip"
@@ -113,6 +156,9 @@
     "ASSIGN-PRACTITIONER": {
       "name": "assign-practitioner",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/assign-practitioner/index",
       "zip": ".dist/zips/assign-practitioner.zip"
@@ -120,6 +166,9 @@
     "UNASSIGN-PRACTITIONER": {
       "name": "unassign-practitioner",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/unassign-practitioner/index",
       "zip": ".dist/zips/unassign-practitioner.zip"
@@ -127,6 +176,9 @@
     "CHANGE-IN-PERSON-VISIT-STATUS": {
       "name": "change-in-person-visit-status",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/change-in-person-visit-status/index",
       "zip": ".dist/zips/change-in-person-visit-status.zip"
@@ -134,6 +186,9 @@
     "CONVERT-VISIT-TO-FOLLOW-UP": {
       "name": "convert-visit-to-follow-up",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/convert-visit-to-follow-up/index",
       "zip": ".dist/zips/convert-visit-to-follow-up.zip"
@@ -141,6 +196,9 @@
     "SIGN-APPOINTMENT": {
       "name": "sign-appointment",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/sign-appointment/index",
       "zip": ".dist/zips/sign-appointment.zip"
@@ -148,6 +206,9 @@
     "UNLOCK-APPOINTMENT": {
       "name": "unlock-appointment",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/unlock-appointment/index",
       "zip": ".dist/zips/unlock-appointment.zip"
@@ -155,6 +216,9 @@
     "PENDING-SUPERVISOR-APPROVAL": {
       "name": "pending-supervisor-approval",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/pending-supervisor-approval/index",
       "zip": ".dist/zips/pending-supervisor-approval.zip"
@@ -162,6 +226,9 @@
     "GET-CHART-SECTION": {
       "name": "get-chart-section",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-chart-section/index",
       "zip": ".dist/zips/get-chart-section.zip"
@@ -169,6 +236,9 @@
     "GET-VISIT-NOTE": {
       "name": "get-visit-note",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-visit-note/index",
       "zip": ".dist/zips/get-visit-note.zip"
@@ -176,6 +246,9 @@
     "SAVE-CHART-DATA": {
       "name": "save-chart-data",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-chart-data/index",
       "zip": ".dist/zips/save-chart-data.zip"
@@ -183,6 +256,9 @@
     "DELETE-CHART-DATA": {
       "name": "delete-chart-data",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-chart-data/index",
       "zip": ".dist/zips/delete-chart-data.zip"
@@ -190,6 +266,9 @@
     "GET-PATIENT-NOTES": {
       "name": "get-patient-notes",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-notes/get/index",
       "zip": ".dist/zips/get-patient-notes.zip"
@@ -197,6 +276,9 @@
     "GET-PATIENT-NOTES-COUNT": {
       "name": "get-patient-notes-count",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-notes/count/index",
       "zip": ".dist/zips/get-patient-notes-count.zip"
@@ -204,6 +286,9 @@
     "DELETE-PATIENT-NOTE": {
       "name": "delete-patient-note",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-notes/delete/index",
       "zip": ".dist/zips/delete-patient-note.zip"
@@ -211,6 +296,9 @@
     "CREATE-PATIENT-NOTE": {
       "name": "create-patient-note",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-notes/create/index",
       "zip": ".dist/zips/create-patient-note.zip"
@@ -218,6 +306,9 @@
     "UPDATE-PATIENT-NOTE": {
       "name": "update-patient-note",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-notes/update/index",
       "zip": ".dist/zips/update-patient-note.zip"
@@ -225,6 +316,10 @@
     "UPLOAD-PATIENT-CONDITION-PHOTO": {
       "name": "upload-patient-condition-photo",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/upload-patient-condition-photo/index",
       "zip": ".dist/zips/upload-patient-condition-photo.zip"
@@ -232,6 +327,9 @@
     "UPLOAD-DOT-VISION-DOCUMENT": {
       "name": "upload-dot-vision-document",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/upload-dot-vision-document/index",
       "zip": ".dist/zips/upload-dot-vision-document.zip"
@@ -239,6 +337,9 @@
     "MIGRATE-EXAM-DATA": {
       "name": "migrate-exam-data",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/migrate-exam-data/index",
       "zip": ".dist/zips/migrate-exam-data.zip"
@@ -246,6 +347,9 @@
     "BULK-UPDATE-INSURANCE-STATUS": {
       "name": "bulk-update-insurance-status",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/bulk-update-insurance-status/index",
       "zip": ".dist/zips/bulk-update-insurance-status.zip"
@@ -253,6 +357,9 @@
     "ADMIN-GET-QUICK-PICKS": {
       "name": "admin-get-quick-picks",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-quick-picks/index",
       "zip": ".dist/zips/admin-get-quick-picks.zip"
@@ -260,6 +367,9 @@
     "ADMIN-CREATE-QUICK-PICK": {
       "name": "admin-create-quick-pick",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-quick-pick/index",
       "zip": ".dist/zips/admin-create-quick-pick.zip"
@@ -267,6 +377,9 @@
     "ADMIN-UPDATE-QUICK-PICK": {
       "name": "admin-update-quick-pick",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-quick-pick/index",
       "zip": ".dist/zips/admin-update-quick-pick.zip"
@@ -274,6 +387,9 @@
     "ADMIN-REMOVE-QUICK-PICK": {
       "name": "admin-remove-quick-pick",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-quick-pick/index",
       "zip": ".dist/zips/admin-remove-quick-pick.zip"
@@ -281,6 +397,9 @@
     "UPDATE-USER": {
       "name": "update-user",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-user/index",
       "zip": ".dist/zips/update-user.zip"
@@ -288,6 +407,9 @@
     "INIT-TELEMED-SESSION": {
       "name": "init-telemed-session",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/init-telemed-session/index",
       "zip": ".dist/zips/init-telemed-session.zip"
@@ -295,6 +417,9 @@
     "GET-USER": {
       "name": "get-user",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-user/index",
       "zip": ".dist/zips/get-user.zip"
@@ -302,6 +427,9 @@
     "SAVE-PATIENT-INSTRUCTION": {
       "name": "save-patient-instruction",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-patient-instruction/index",
       "zip": ".dist/zips/save-patient-instruction.zip"
@@ -309,6 +437,9 @@
     "GET-PATIENT-INSTRUCTIONS": {
       "name": "get-patient-instructions",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-instructions/index",
       "zip": ".dist/zips/get-patient-instructions.zip"
@@ -316,6 +447,9 @@
     "DELETE-PATIENT-INSTRUCTION": {
       "name": "delete-patient-instruction",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-patient-instruction/index",
       "zip": ".dist/zips/delete-patient-instruction.zip"
@@ -323,6 +457,9 @@
     "SAVE-FOLLOWUP-ENCOUNTER": {
       "name": "save-followup-encounter",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-followup-encounter/index",
       "zip": ".dist/zips/save-followup-encounter.zip"
@@ -330,6 +467,9 @@
     "GET-EMPLOYEE-CHATS": {
       "name": "get-employee-chats",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-employee-chats/index",
       "zip": ".dist/zips/get-employee-chats.zip"
@@ -337,6 +477,9 @@
     "OPEN-EMPLOYEE-CHAT": {
       "name": "open-employee-chat",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/open-employee-chat/index",
       "zip": ".dist/zips/open-employee-chat.zip"
@@ -344,6 +487,9 @@
     "GET-CONVERSATION": {
       "name": "get-conversation",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-conversation/index",
       "zip": ".dist/zips/get-conversation.zip"
@@ -351,6 +497,9 @@
     "GET-EMPLOYEES": {
       "name": "get-employees",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-employees/index",
       "zip": ".dist/zips/get-employees.zip"
@@ -358,6 +507,9 @@
     "GET-PAYMENT-LOCATIONS": {
       "name": "get-payment-locations",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/payments/get-payment-locations/index",
       "zip": ".dist/zips/get-payment-locations.zip"
@@ -365,6 +517,9 @@
     "GET-STRIPE-ACCOUNT-INFO": {
       "name": "get-stripe-account-info",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/payments/get-stripe-account-info/index",
       "zip": ".dist/zips/get-stripe-account-info.zip"
@@ -372,6 +527,9 @@
     "GET-TERMINAL-READERS": {
       "name": "get-terminal-readers",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/payments/get-terminal-readers/index",
       "zip": ".dist/zips/get-terminal-readers.zip"
@@ -379,6 +537,9 @@
     "SAVE-TERMINAL-LOCATION": {
       "name": "save-terminal-location",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/payments/save-terminal-location/index",
       "zip": ".dist/zips/save-terminal-location.zip"
@@ -386,6 +547,9 @@
     "SYNC-USER": {
       "name": "sync-user",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/sync-user/index",
       "zip": ".dist/zips/sync-user.zip"
@@ -393,6 +557,9 @@
     "GET-PATIENT-PROFILE-PHOTO-URL": {
       "name": "get-patient-profile-photo-url",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-profile-photo-url/index",
       "zip": ".dist/zips/get-patient-profile-photo-url.zip"
@@ -400,6 +567,9 @@
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-update-medication-order/index",
       "zip": ".dist/zips/create-update-medication-order.zip"
@@ -407,6 +577,9 @@
     "GET-MEDICATION-ORDERS": {
       "name": "get-medication-orders",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-medication-orders/index",
       "zip": ".dist/zips/get-medication-orders.zip"
@@ -414,6 +587,9 @@
     "CREATE-UPLOAD-AUDIO-RECORDING-URL": {
       "name": "upload-audio-recording",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/upload-audio-recording/index",
       "zip": ".dist/zips/upload-audio-recording.zip"
@@ -421,6 +597,9 @@
     "CREATE-RESOURCES-FROM-AUDIO-RECORDING": {
       "name": "create-resources-from-audio-recording",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-resources-from-audio-recording/index",
       "zip": ".dist/zips/create-resources-from-audio-recording.zip"
@@ -436,6 +615,9 @@
     "CREATE-UPLOAD-DOCUMENT-URL": {
       "name": "create-upload-document-url",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-upload-document-url/index",
       "zip": ".dist/zips/create-upload-document-url.zip"
@@ -443,6 +625,9 @@
     "CREATE-LAB-ORDER": {
       "name": "create-lab-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/create-lab-order/index",
       "zip": ".dist/zips/create-lab-order.zip"
@@ -450,6 +635,9 @@
     "GET-CREATE-LAB-ORDER-RESOURCES": {
       "name": "get-create-lab-order-resources",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/get-create-lab-order-resources/index",
       "zip": ".dist/zips/get-create-lab-order-resources.zip"
@@ -457,6 +645,9 @@
     "GET-UNSOLICITED-RESULTS-RESOURCES": {
       "name": "get-unsolicited-results-resources",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/get-unsolicited-results-resources/index",
       "zip": ".dist/zips/get-unsolicited-results-resources.zip"
@@ -478,6 +669,9 @@
     "PAPERWORK-TO-PDF": {
       "name": "paperwork-to-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/paperwork-to-pdf/index",
       "zip": ".dist/zips/paperwork-to-pdf.zip"
@@ -485,6 +679,9 @@
     "VISIT-DETAILS-TO-PDF": {
       "name": "visit-details-to-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/visit-details-to-pdf/index",
       "zip": ".dist/zips/visit-details-to-pdf.zip"
@@ -492,6 +689,9 @@
     "GET-PATIENT-ACCOUNT": {
       "name": "get-patient-account",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/get/index",
       "zip": ".dist/zips/get-patient-account.zip"
@@ -499,6 +699,9 @@
     "UPDATE-PATIENT-ACCOUNT": {
       "name": "update-patient-account",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/update/index",
       "zip": ".dist/zips/update-patient-account.zip"
@@ -506,6 +709,9 @@
     "REMOVE-PATIENT-COVERAGE": {
       "name": "remove-patient-coverage",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/remove-coverage/index",
       "zip": ".dist/zips/remove-patient-coverage.zip"
@@ -513,6 +719,9 @@
     "MERGE-PATIENTS": {
       "name": "merge-patients",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/merge-patients/index",
       "zip": ".dist/zips/merge-patients.zip"
@@ -562,6 +771,10 @@
     "CREATE-APPOINTMENT": {
       "name": "create-appointment",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/create-appointment/index",
       "zip": ".dist/zips/create-appointment.zip"
@@ -569,6 +782,9 @@
     "INTAKE-GET-APPOINTMENTS": {
       "name": "intake-get-appointments",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/prebook-get-appointments/index",
       "zip": ".dist/zips/intake-get-appointments.zip"
@@ -576,6 +792,9 @@
     "GET-PATIENTS": {
       "name": "get-patients",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/get-patients/index",
       "zip": ".dist/zips/get-patients.zip"
@@ -590,6 +809,9 @@
     "GET-STANDALONE-PAPERWORK": {
       "name": "get-standalone-paperwork",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-standalone-paperwork/index",
       "zip": ".dist/zips/get-standalone-paperwork.zip"
@@ -597,6 +819,9 @@
     "CREATE-IN-HOUSE-MEDICATION": {
       "name": "create-in-house-medication",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/configuration/in-house-medications/create-in-house-medication/index",
       "zip": ".dist/zips/create-in-house-medication.zip"
@@ -604,6 +829,9 @@
     "UPDATE-IN-HOUSE-MEDICATION": {
       "name": "update-in-house-medication",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/configuration/in-house-medications/update-in-house-medication/index",
       "zip": ".dist/zips/update-in-house-medication.zip"
@@ -611,6 +839,9 @@
     "GET-IN-HOUSE-MEDICATIONS": {
       "name": "get-in-house-medications",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/configuration/in-house-medications/get-in-house-medications/index",
       "zip": ".dist/zips/get-in-house-medications.zip"
@@ -653,6 +884,10 @@
     "PAYMENT-METHODS-LIST": {
       "name": "payment-methods-list",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/list/index",
       "zip": ".dist/zips/payment-methods-list.zip"
@@ -660,6 +895,9 @@
     "PAYMENT-METHODS-DELETE": {
       "name": "payment-methods-delete",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/delete/index",
       "zip": ".dist/zips/payment-methods-delete.zip"
@@ -667,6 +905,10 @@
     "PAYMENT-METHODS-SETUP": {
       "name": "payment-methods-setup",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/setup/index",
       "zip": ".dist/zips/payment-methods-setup.zip"
@@ -674,6 +916,10 @@
     "PAYMENT-METHODS-SET-DEFAULT": {
       "name": "payment-methods-set-default",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/set-default/index",
       "zip": ".dist/zips/payment-methods-set-default.zip"
@@ -681,6 +927,9 @@
     "PAYMENT-METHODS-UNSET-DEFAULT": {
       "name": "payment-methods-unset-default",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/unset-default/index",
       "zip": ".dist/zips/payment-methods-unset-default.zip"
@@ -688,6 +937,10 @@
     "SEARCH-PLACES": {
       "name": "search-places",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/search-places/index",
       "zip": ".dist/zips/search-places.zip"
@@ -695,6 +948,9 @@
     "VIDEO-CHAT-INVITES-CANCEL": {
       "name": "video-chat-invites-cancel",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/cancel-invite/index",
       "zip": ".dist/zips/video-chat-invites-cancel.zip"
@@ -702,6 +958,10 @@
     "VIDEO-CHAT-INVITES-CREATE": {
       "name": "video-chat-invites-create",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/create-invite/index",
       "zip": ".dist/zips/video-chat-invites-create.zip"
@@ -709,6 +969,9 @@
     "VIDEO-CHAT-INVITES-LIST": {
       "name": "video-chat-invites-list",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/list-invites/index",
       "zip": ".dist/zips/video-chat-invites-list.zip"
@@ -723,6 +986,10 @@
     "GET-VISIT-DETAILS": {
       "name": "get-visit-details",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/get-visit-details/index",
       "zip": ".dist/zips/get-visit-details.zip"
@@ -730,6 +997,10 @@
     "GET-ELIGIBILITY": {
       "name": "get-eligibility",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/get-eligibility/index",
       "zip": ".dist/zips/get-eligibility.zip"
@@ -737,6 +1008,10 @@
     "GET-ANSWER-OPTIONS": {
       "name": "get-answer-options",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/get-answer-options/index",
       "zip": ".dist/zips/get-answer-options.zip"
@@ -765,6 +1040,10 @@
     "TELEMED-CANCEL-APPOINTMENT": {
       "name": "telemed-cancel-appointment",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-cancel-appointment/index",
       "zip": ".dist/zips/telemed-cancel-appointment.zip"
@@ -772,6 +1051,9 @@
     "TELEMED-GET-APPOINTMENTS": {
       "name": "telemed-get-appointments",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-get-appointments/index",
       "zip": ".dist/zips/telemed-get-appointments.zip"
@@ -779,6 +1061,9 @@
     "GET-PAST-VISITS": {
       "name": "get-past-visits",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/get-past-visits/index",
       "zip": ".dist/zips/get-past-visits.zip"
@@ -786,6 +1071,9 @@
     "TELEMED-UPDATE-APPOINTMENT": {
       "name": "telemed-update-appointment",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-update-appointment/index",
       "zip": ".dist/zips/telemed-update-appointment.zip"
@@ -793,6 +1081,9 @@
     "TELEMED-GET-PATIENTS": {
       "name": "telemed-get-patients",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/telemed-get-patients/index",
       "zip": ".dist/zips/telemed-get-patients.zip"
@@ -817,6 +1108,9 @@
     "GET-PROVIDER-NOTIFICATIONS": {
       "name": "get-provider-notifications",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/notifications/get-provider-notifications/index",
       "zip": ".dist/zips/get-provider-notifications.zip"
@@ -824,6 +1118,9 @@
     "MARK-PROVIDER-NOTIFICATIONS-READ": {
       "name": "mark-provider-notifications-read",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/notifications/mark-provider-notifications-read/index",
       "zip": ".dist/zips/mark-provider-notifications-read.zip"
@@ -831,6 +1128,9 @@
     "UPDATE-PROVIDER-NOTIFICATION-SETTINGS": {
       "name": "update-provider-notification-settings",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/notifications/update-provider-notification-settings/index",
       "zip": ".dist/zips/update-provider-notification-settings.zip"
@@ -882,6 +1182,9 @@
     "EXTRACT-INSURANCE-CARD": {
       "name": "extract-insurance-card",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/extract-insurance-card/index",
       "zip": ".dist/zips/extract-insurance-card.zip"
@@ -889,6 +1192,9 @@
     "EXTRACT-PHOTO-ID": {
       "name": "extract-photo-id",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/extract-photo-id/index",
       "zip": ".dist/zips/extract-photo-id.zip"
@@ -896,6 +1202,9 @@
     "ROTATE-INSURANCE-CARD-IMAGE": {
       "name": "rotate-insurance-card-image",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/rotate-insurance-card-image/index",
       "zip": ".dist/zips/rotate-insurance-card-image.zip"
@@ -1003,6 +1312,9 @@
     "AI-INTERVIEW-START": {
       "name": "ai-interview-start",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/start/index",
       "zip": ".dist/zips/ai-interview-start.zip"
@@ -1010,6 +1322,9 @@
     "AI-INTERVIEW-HANDLE-ANSWER": {
       "name": "ai-interview-handle-answer",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/handle-answer/index",
       "zip": ".dist/zips/ai-interview-handle-answer.zip"
@@ -1017,6 +1332,9 @@
     "AI-INTERVIEW-PERSIST-CONSENT": {
       "name": "ai-interview-persist-consent",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
@@ -1024,6 +1342,9 @@
     "RADIOLOGY-CREATE-ORDER": {
       "name": "radiology-create-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/create-order/index",
       "zip": ".dist/zips/radiology-create-order.zip"
@@ -1031,6 +1352,9 @@
     "RADIOLOGY-CANCEL-ORDER": {
       "name": "radiology-cancel-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/cancel-order/index",
       "zip": ".dist/zips/radiology-cancel-order.zip"
@@ -1038,6 +1362,9 @@
     "RADIOLOGY-ORDER-LIST": {
       "name": "radiology-order-list",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/order-list/index",
       "zip": ".dist/zips/radiology-order-list.zip"
@@ -1052,6 +1379,9 @@
     "RADIOLOGY-LAUNCH-VIEWER": {
       "name": "radiology-launch-viewer",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/launch-viewer/index",
       "zip": ".dist/zips/radiology-launch-viewer.zip"
@@ -1059,6 +1389,9 @@
     "RADIOLOGY-SAVE-PRELIMINARY-REPORT": {
       "name": "radiology-save-preliminary-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/save-preliminary-report/index",
       "zip": ".dist/zips/radiology-save-preliminary-report.zip"
@@ -1066,6 +1399,9 @@
     "RADIOLOGY-SAVE-FINAL-REPORT": {
       "name": "radiology-save-final-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/save-final-report/index",
       "zip": ".dist/zips/radiology-save-final-report.zip"
@@ -1073,6 +1409,9 @@
     "RADIOLOGY-UPDATE-REPORT": {
       "name": "radiology-update-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/update-report/index",
       "zip": ".dist/zips/radiology-update-report.zip"
@@ -1080,6 +1419,9 @@
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/send-for-final-read/index",
       "zip": ".dist/zips/radiology-send-for-final-read.zip"
@@ -1087,6 +1429,9 @@
     "RADIOLOGY-UPDATE-ORDER": {
       "name": "radiology-update-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/update-order/index",
       "zip": ".dist/zips/radiology-update-order.zip"
@@ -1094,6 +1439,9 @@
     "RADIOLOGY-GET-ORDER-PDF": {
       "name": "radiology-get-order-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/get-order-pdf/index",
       "zip": ".dist/zips/radiology-get-order-pdf.zip"
@@ -1101,6 +1449,9 @@
     "RADIOLOGY-SEND-FAX": {
       "name": "radiology-send-fax",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/send-fax/index",
       "zip": ".dist/zips/radiology-send-fax.zip"
@@ -1108,6 +1459,9 @@
     "RADIOLOGY-LIST-RESULTS": {
       "name": "radiology-list-results",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/list-results/index",
       "zip": ".dist/zips/radiology-list-results.zip"
@@ -1115,6 +1469,9 @@
     "RADIOLOGY-UPLOAD-RESULT": {
       "name": "radiology-upload-result",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/upload-result/index",
       "zip": ".dist/zips/radiology-upload-result.zip"
@@ -1122,6 +1479,9 @@
     "RADIOLOGY-DELETE-RESULT": {
       "name": "radiology-delete-result",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/delete-result/index",
       "zip": ".dist/zips/radiology-delete-result.zip"
@@ -1129,6 +1489,9 @@
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/get-lab-orders/index",
       "zip": ".dist/zips/get-lab-orders.zip"
@@ -1136,6 +1499,9 @@
     "DELETE-LAB-ORDER": {
       "name": "delete-lab-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/delete-lab-order/index",
       "zip": ".dist/zips/delete-lab-order.zip"
@@ -1143,6 +1509,9 @@
     "SUBMIT-LAB-ORDER": {
       "name": "submit-lab-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/submit-lab-order/index",
       "zip": ".dist/zips/submit-lab-order.zip"
@@ -1150,6 +1519,9 @@
     "UPDATE-LAB-ORDER-RESOURCES": {
       "name": "update-lab-order-resources",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/update-lab-order-resources/index",
       "zip": ".dist/zips/update-lab-order-resources.zip"
@@ -1157,6 +1529,9 @@
     "GET-OR-CREATE-VISIT-LABEL-PDF": {
       "name": "get-or-create-visit-label-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-or-create-visit-label-pdf/index",
       "zip": ".dist/zips/get-or-create-visit-label-pdf.zip"
@@ -1164,6 +1539,9 @@
     "EHR-GET-SCHEDULE": {
       "name": "ehr-get-schedule",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/get-schedule/index",
       "zip": ".dist/zips/ehr-get-schedule.zip"
@@ -1171,6 +1549,9 @@
     "UPDATE-SCHEDULE": {
       "name": "update-schedule",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/update-schedule/index",
       "zip": ".dist/zips/update-schedule.zip"
@@ -1178,6 +1559,9 @@
     "CREATE-LOCATION": {
       "name": "create-location",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/locations/create-location/index",
       "zip": ".dist/zips/create-location.zip"
@@ -1185,6 +1569,9 @@
     "GET-LOCATION": {
       "name": "get-location",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/locations/get-location/index",
       "zip": ".dist/zips/get-location.zip"
@@ -1192,6 +1579,9 @@
     "LIST-ACTIVE-LOCATIONS": {
       "name": "list-active-locations",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/locations/list-active-locations/index",
       "zip": ".dist/zips/list-active-locations.zip"
@@ -1199,6 +1589,9 @@
     "UPDATE-LOCATION": {
       "name": "update-location",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/locations/update-location/index",
       "zip": ".dist/zips/update-location.zip"
@@ -1206,6 +1599,9 @@
     "TOGGLE-LOCATION-ACTIVE": {
       "name": "toggle-location-active",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/locations/toggle-location-active/index",
       "zip": ".dist/zips/toggle-location-active.zip"
@@ -1213,6 +1609,9 @@
     "DELETE-LOCATION": {
       "name": "delete-location",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/locations/delete-location/index",
       "zip": ".dist/zips/delete-location.zip"
@@ -1220,6 +1619,9 @@
     "LIST-SCHEDULE-OWNERS": {
       "name": "list-schedule-owners",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/list-schedule-owners/index",
       "zip": ".dist/zips/list-schedule-owners.zip"
@@ -1227,6 +1629,9 @@
     "LIST-PROVIDER-GROUPS": {
       "name": "list-provider-groups",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/list-provider-groups/index",
       "zip": ".dist/zips/list-provider-groups.zip"
@@ -1234,6 +1639,9 @@
     "TOGGLE-SCHEDULE-ACTIVE": {
       "name": "toggle-schedule-active",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/toggle-schedule-active/index",
       "zip": ".dist/zips/toggle-schedule-active.zip"
@@ -1241,6 +1649,9 @@
     "CREATE-SCHEDULE": {
       "name": "create-schedule",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/create-schedule/index",
       "zip": ".dist/zips/create-schedule.zip"
@@ -1248,6 +1659,9 @@
     "AI-SUGGESTION-NOTES": {
       "name": "ai-suggestion-notes",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/ai-suggestion-notes/index",
       "zip": ".dist/zips/ai-suggestion-notes.zip"
@@ -1255,6 +1669,9 @@
     "GET-EM-CODES": {
       "name": "get-em-codes",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/em-codes/get/index",
       "zip": ".dist/zips/get-em-codes.zip"
@@ -1262,6 +1679,9 @@
     "CREATE-EM-CODE": {
       "name": "create-em-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/em-codes/create/index",
       "zip": ".dist/zips/create-em-code.zip"
@@ -1269,6 +1689,9 @@
     "UPDATE-EM-CODE": {
       "name": "update-em-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/em-codes/update/index",
       "zip": ".dist/zips/update-em-code.zip"
@@ -1276,6 +1699,9 @@
     "DELETE-EM-CODE": {
       "name": "delete-em-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/em-codes/delete/index",
       "zip": ".dist/zips/delete-em-code.zip"
@@ -1283,6 +1709,9 @@
     "EASY-CHART-PLAN": {
       "name": "easy-chart-plan",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/easy-chart-plan/index",
       "zip": ".dist/zips/easy-chart-plan.zip"
@@ -1290,6 +1719,9 @@
     "EASY-CHART-NARRATIVE": {
       "name": "easy-chart-narrative",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/easy-chart-narrative/index",
       "zip": ".dist/zips/easy-chart-narrative.zip"
@@ -1297,6 +1729,9 @@
     "EASY-CHART-SAVE-TRANSCRIPT": {
       "name": "easy-chart-save-transcript",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/easy-chart-save-transcript/index",
       "zip": ".dist/zips/easy-chart-save-transcript.zip"
@@ -1304,6 +1739,9 @@
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-suggestions/index",
       "zip": ".dist/zips/recommend-billing-suggestions.zip"
@@ -1311,6 +1749,9 @@
     "RECOMMEND-BILLING-CODES": {
       "name": "recommend-billing-codes",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-codes/index",
       "zip": ".dist/zips/recommend-billing-codes.zip"
@@ -1318,6 +1759,9 @@
     "GENERATE-ADHOC-REPORT": {
       "name": "generate-adhoc-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/generate-adhoc-report/index",
       "zip": ".dist/zips/generate-adhoc-report.zip"
@@ -1325,6 +1769,9 @@
     "INFER-ADHOC-REPORT-LAYERS": {
       "name": "infer-adhoc-report-layers",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/infer-adhoc-report-layers/index",
       "zip": ".dist/zips/infer-adhoc-report-layers.zip"
@@ -1332,6 +1779,9 @@
     "ADHOC-REPORT": {
       "name": "adhoc-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/adhoc-report/index",
       "zip": ".dist/zips/adhoc-report.zip"
@@ -1356,6 +1806,9 @@
     "SAVE-ADHOC-REPORT": {
       "name": "save-adhoc-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-adhoc-report/index",
       "zip": ".dist/zips/save-adhoc-report.zip"
@@ -1363,6 +1816,9 @@
     "LIST-ADHOC-REPORTS": {
       "name": "list-adhoc-reports",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/list-adhoc-reports/index",
       "zip": ".dist/zips/list-adhoc-reports.zip"
@@ -1370,6 +1826,9 @@
     "DELETE-ADHOC-REPORT": {
       "name": "delete-adhoc-report",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-adhoc-report/index",
       "zip": ".dist/zips/delete-adhoc-report.zip"
@@ -1377,6 +1836,9 @@
     "GENERATE-PATIENT-EDUCATION": {
       "name": "generate-patient-education",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/generate-patient-education/index",
       "zip": ".dist/zips/generate-patient-education.zip"
@@ -1384,6 +1846,9 @@
     "SAVE-PATIENT-EDUCATION-PDF": {
       "name": "save-patient-education-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-patient-education-pdf/index",
       "zip": ".dist/zips/save-patient-education-pdf.zip"
@@ -1391,6 +1856,9 @@
     "LIST-APPROVED-PATIENT-EDUCATION": {
       "name": "list-approved-patient-education",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/list-approved-patient-education/index",
       "zip": ".dist/zips/list-approved-patient-education.zip"
@@ -1398,6 +1866,9 @@
     "SAVE-APPROVED-PATIENT-EDUCATION": {
       "name": "save-approved-patient-education",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-approved-patient-education/index",
       "zip": ".dist/zips/save-approved-patient-education.zip"
@@ -1405,6 +1876,9 @@
     "DELETE-APPROVED-PATIENT-EDUCATION": {
       "name": "delete-approved-patient-education",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-approved-patient-education/index",
       "zip": ".dist/zips/delete-approved-patient-education.zip"
@@ -1412,6 +1886,9 @@
     "UPDATE-APPROVED-PATIENT-EDUCATION-CODES": {
       "name": "update-approved-patient-education-codes",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-approved-patient-education-codes/index",
       "zip": ".dist/zips/update-approved-patient-education-codes.zip"
@@ -1427,6 +1904,9 @@
     "FILE-INBOUND-FAX": {
       "name": "file-inbound-fax",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/file-inbound-fax/index",
       "zip": ".dist/zips/file-inbound-fax.zip"
@@ -1434,6 +1914,9 @@
     "DELETE-INBOUND-FAX": {
       "name": "delete-inbound-fax",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-inbound-fax/index",
       "zip": ".dist/zips/delete-inbound-fax.zip"
@@ -1441,6 +1924,9 @@
     "SEND-FAX": {
       "name": "send-fax",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/send-fax/index",
       "zip": ".dist/zips/send-fax.zip"
@@ -1448,6 +1934,9 @@
     "SEND-FAX-PACKET": {
       "name": "send-fax-packet",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/send-fax-packet/index",
       "zip": ".dist/zips/send-fax-packet.zip"
@@ -1455,6 +1944,9 @@
     "GET-FAX-PACKET-STATUS": {
       "name": "get-fax-packet-status",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-fax-packet-status/index",
       "zip": ".dist/zips/get-fax-packet-status.zip"
@@ -1471,6 +1963,9 @@
     "GET-FAX-PACKET-PREVIEW": {
       "name": "get-fax-packet-preview",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-fax-packet-preview/index",
       "zip": ".dist/zips/get-fax-packet-preview.zip"
@@ -1499,6 +1994,9 @@
     "GET-IN-HOUSE-ORDERS": {
       "name": "get-in-house-orders",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/get-in-house-orders/index",
       "zip": ".dist/zips/get-in-house-orders.zip"
@@ -1506,6 +2004,9 @@
     "CREATE-IN-HOUSE-LAB-ORDER": {
       "name": "create-in-house-lab-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/create-in-house-lab-order/index",
       "zip": ".dist/zips/create-in-house-lab-order.zip"
@@ -1513,6 +2014,9 @@
     "GET-CREATE-IN-HOUSE-LAB-ORDER-RESOURCES": {
       "name": "get-create-in-house-lab-order-resources",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/get-create-in-house-lab-order-resources/index",
       "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip"
@@ -1520,6 +2024,9 @@
     "COLLECT-IN-HOUSE-LAB-SPECIMEN": {
       "name": "collect-in-house-lab-specimen",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/collect-in-house-lab-specimen/index",
       "zip": ".dist/zips/collect-in-house-lab-specimen.zip"
@@ -1527,6 +2034,9 @@
     "HANDLE-IN-HOUSE-LAB-RESULTS": {
       "name": "handle-in-house-lab-results",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/handle-in-house-lab-results/index",
       "zip": ".dist/zips/handle-in-house-lab-results.zip"
@@ -1534,6 +2044,9 @@
     "DELETE-IN-HOUSE-LAB-ORDER": {
       "name": "delete-in-house-lab-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/delete-in-house-lab-order/index",
       "zip": ".dist/zips/delete-in-house-lab-order.zip"
@@ -1541,6 +2054,9 @@
     "GET-NURSING-ORDERS": {
       "name": "get-nursing-orders",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-nursing-orders/index",
       "zip": ".dist/zips/get-nursing-orders.zip"
@@ -1548,6 +2064,9 @@
     "CREATE-NURSING-ORDER": {
       "name": "create-nursing-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-nursing-order/index",
       "zip": ".dist/zips/create-nursing-order.zip"
@@ -1555,6 +2074,9 @@
     "UPDATE-NURSING-ORDER": {
       "name": "update-nursing-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-nursing-order/index",
       "zip": ".dist/zips/update-nursing-order.zip"
@@ -1569,6 +2091,9 @@
     "PATIENT-PAYMENTS-LIST": {
       "name": "patient-payments-list",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/list/index",
       "zip": ".dist/zips/patient-payments-list.zip"
@@ -1576,6 +2101,9 @@
     "PATIENT-PAYMENTS-POST": {
       "name": "patient-payments-post",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/post/index",
       "zip": ".dist/zips/patient-payments-post.zip"
@@ -1583,6 +2111,9 @@
     "PATIENT-PAYMENTS-GET-CONFIG": {
       "name": "patient-payments-terminal-get-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/get-config/index",
       "zip": ".dist/zips/patient-payments-terminal-get-config.zip"
@@ -1590,6 +2121,9 @@
     "PATIENT-PAYMENTS-CHECK-PAYMENT-STATUS": {
       "name": "patient-payments-terminal-check-payment-status",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/check-payment-status/index",
       "zip": ".dist/zips/patient-payments-terminal-check-payment-status.zip"
@@ -1597,6 +2131,9 @@
     "PATIENT-PAYMENTS-CANCEL-READER-ACTION": {
       "name": "patient-payments-terminal-cancel-reader-action",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/cancel-reader-action/index",
       "zip": ".dist/zips/patient-payments-terminal-cancel-reader-action.zip"
@@ -1604,6 +2141,9 @@
     "PATIENT-PAYMENTS-INITIATE-PAYMENT": {
       "name": "patient-payments-terminal-initiate-payment",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/initiate-payment/index",
       "zip": ".dist/zips/patient-payments-terminal-initiate-payment.zip"
@@ -1611,6 +2151,9 @@
     "PATIENT-PAYMENTS-FINALIZE-PAYMENT": {
       "name": "patient-payments-terminal-finalize-payment",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/finalize-payment/index",
       "zip": ".dist/zips/patient-payments-terminal-finalize-payment.zip"
@@ -1618,6 +2161,9 @@
     "PATIENT-PAYMENTS-REFUND": {
       "name": "patient-payments-refund",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/refund/index",
       "zip": ".dist/zips/patient-payments-refund.zip"
@@ -1625,6 +2171,9 @@
     "PATIENT-PAYMENTS-VOID": {
       "name": "patient-payments-void",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/void/index",
       "zip": ".dist/zips/patient-payments-void.zip"
@@ -1639,6 +2188,9 @@
     "CREATE-DISCHARGE_SUMMARY": {
       "name": "create-discharge-summary",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-discharge-summary/index",
       "zip": ".dist/zips/create-discharge-summary.zip"
@@ -1646,6 +2198,9 @@
     "GET-VITALS": {
       "name": "get-vitals",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/chart-data/vitals/get/index",
       "zip": ".dist/zips/get-vitals.zip"
@@ -1653,6 +2208,9 @@
     "GET-VITALS-FOR-LIST-OF-ENCOUNTERS": {
       "name": "get-vitals-for-list-of-encounters",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/chart-data/vitals/get-for-list-of-encounters/index",
       "zip": ".dist/zips/get-vitals-for-list-of-encounters.zip"
@@ -1660,6 +2218,9 @@
     "CREATE-UPDATE-IMMUNIZATION_ORDER": {
       "name": "create-update-immunization-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/create-update-order/index",
       "zip": ".dist/zips/create-update-immunization-order.zip"
@@ -1667,6 +2228,9 @@
     "GET-IMMUNIZATION_ORDERS": {
       "name": "get-immunization-orders",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/get-orders/index",
       "zip": ".dist/zips/get-immunization-orders.zip"
@@ -1674,6 +2238,9 @@
     "ADMINISTER-IMMUNIZATION_ORDER": {
       "name": "administer-immunization-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/administer-order/index",
       "zip": ".dist/zips/administer-immunization-order.zip"
@@ -1681,6 +2248,9 @@
     "CANCEL-IMMUNIZATION_ORDER": {
       "name": "cancel-immunization-order",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/cancel-order/index",
       "zip": ".dist/zips/cancel-immunization-order.zip"
@@ -1688,6 +2258,9 @@
     "APPLY-TEMPLATE": {
       "name": "apply-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/apply-template/index",
       "zip": ".dist/zips/apply-template.zip"
@@ -1695,6 +2268,9 @@
     "LIST-TEMPLATES": {
       "name": "list-templates",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/list-templates/index",
       "zip": ".dist/zips/list-templates.zip"
@@ -1702,6 +2278,9 @@
     "ADMIN-CREATE-TEMPLATE": {
       "name": "admin-create-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-template/index",
       "zip": ".dist/zips/admin-create-template.zip"
@@ -1709,6 +2288,9 @@
     "ADMIN-RENAME-TEMPLATE": {
       "name": "admin-rename-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-rename-template/index",
       "zip": ".dist/zips/admin-rename-template.zip"
@@ -1716,6 +2298,9 @@
     "ADMIN-DELETE-TEMPLATE": {
       "name": "admin-delete-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-delete-template/index",
       "zip": ".dist/zips/admin-delete-template.zip"
@@ -1723,6 +2308,9 @@
     "ADMIN-GET-TEMPLATE-DETAIL": {
       "name": "admin-get-template-detail",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-template-detail/index",
       "zip": ".dist/zips/admin-get-template-detail.zip"
@@ -1730,6 +2318,9 @@
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-patient-document/index",
       "zip": ".dist/zips/delete-patient-document.zip"
@@ -1737,6 +2328,9 @@
     "GET-PATIENT-MEDICAL-RECORD": {
       "name": "get-patient-medical-record",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-medical-record/index",
       "zip": ".dist/zips/get-patient-medical-record.zip"
@@ -1752,6 +2346,9 @@
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/send-receipt-by-email/index",
       "zip": ".dist/zips/send-receipt-by-email.zip"
@@ -1759,6 +2356,9 @@
     "GET-VISIT-FILES": {
       "name": "get-visit-files",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-files/index",
       "zip": ".dist/zips/get-visit-files.zip"
@@ -1766,6 +2366,9 @@
     "UPDATE-VISIT-FILES": {
       "name": "update-visit-files",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/update-visit-files/index",
       "zip": ".dist/zips/update-visit-files.zip"
@@ -1773,6 +2376,9 @@
     "DELETE-VISIT-FILES": {
       "name": "delete-visit-files",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/delete-visit-files/index",
       "zip": ".dist/zips/delete-visit-files.zip"
@@ -1780,6 +2386,9 @@
     "UPDATE-VISIT-FORM": {
       "name": "update-visit-form",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/update-visit-form/index",
       "zip": ".dist/zips/update-visit-form.zip"
@@ -1787,6 +2396,9 @@
     "DELETE-VISIT-FORM": {
       "name": "delete-visit-form",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/delete-visit-form/index",
       "zip": ".dist/zips/delete-visit-form.zip"
@@ -1794,6 +2406,9 @@
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-details/index",
       "zip": ".dist/zips/ehr-get-visit-details.zip"
@@ -1801,6 +2416,9 @@
     "EHR-UPDATE-VISIT-DETAILS": {
       "name": "ehr-update-visit-details",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/update-visit-details/index",
       "zip": ".dist/zips/ehr-update-visit-details.zip"
@@ -1808,6 +2426,9 @@
     "EHR-SEARCH-LEGACY-RECORDS": {
       "name": "ehr-search-legacy-records",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/search-legacy-records/index",
       "zip": ".dist/zips/ehr-search-legacy-records.zip"
@@ -1815,6 +2436,9 @@
     "CREATE-MANUAL-TASK": {
       "name": "create-manual-task",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/tasks/create-manual-task/index",
       "zip": ".dist/zips/create-manual-task.zip"
@@ -1840,6 +2464,9 @@
     "GET-PATIENT-VISIT-HISTORY": {
       "name": "get-patient-visit-history",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-visit-history/get/index",
       "zip": ".dist/zips/get-patient-visit-history.zip"
@@ -1847,6 +2474,9 @@
     "UPDATE_INVOICE_TASK": {
       "name": "update-invoice-task",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-invoice-task/index",
       "zip": ".dist/zips/update-invoice-task.zip"
@@ -1854,6 +2484,9 @@
     "GET-BOOKING-QUESTIONNAIRE": {
       "name": "get-booking-questionnaire",
       "type": "http_auth",
+      "access": [
+        "PATIENT"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-booking-questionnaire/index",
       "zip": ".dist/zips/get-booking-questionnaire.zip"
@@ -1868,6 +2501,9 @@
     "GET_ERX_ORDERS": {
       "name": "get-erx-orders",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-erx-orders/index",
       "zip": ".dist/zips/get-erx-orders.zip"
@@ -1875,6 +2511,9 @@
     "GET-INVOICES-TASKS": {
       "name": "get-invoices-tasks",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-invoices-tasks/index",
       "zip": ".dist/zips/get-invoices-tasks.zip"
@@ -1882,6 +2521,9 @@
     "CREATE-INVOICE-TASKS-FOR-BILLING-CLAIMS": {
       "name": "create-invoice-tasks-for-billing-claims",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-invoice-tasks-for-billing-claims/index",
       "zip": ".dist/zips/create-invoice-tasks-for-billing-claims.zip"
@@ -1889,6 +2531,9 @@
     "EXPORT-INVOICES": {
       "name": "export-invoices",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/export-invoices/index",
       "zip": ".dist/zips/export-invoices.zip"
@@ -1903,6 +2548,9 @@
     "GET-STATEMENT-TEMPLATE": {
       "name": "get-statement-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/get-template/index",
       "zip": ".dist/zips/get-statement-template.zip"
@@ -1910,6 +2558,9 @@
     "GET-STATEMENT-DETAILS": {
       "name": "get-statement-details",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/get-details/index",
       "zip": ".dist/zips/get-statement-details.zip"
@@ -1917,6 +2568,9 @@
     "GET-STATEMENT-STATUS": {
       "name": "get-statement-status",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/get-status/index",
       "zip": ".dist/zips/get-statement-status.zip"
@@ -1924,6 +2578,9 @@
     "CREATE-MAIL-STATEMENT-TASK": {
       "name": "create-mail-statement-task",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/create-mail-statement-task/index",
       "zip": ".dist/zips/create-mail-statement-task.zip"
@@ -1943,6 +2600,9 @@
     "CREATE-GENERATE-STATEMENT-TASK": {
       "name": "create-generate-statement-task",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/create-generate-statement-task/index",
       "zip": ".dist/zips/create-generate-statement-task.zip"
@@ -1957,6 +2617,9 @@
     "GET_PATIENT_BALANCES": {
       "name": "get-patient-balances",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-balances/index",
       "zip": ".dist/zips/get-patient-balances.zip"
@@ -1964,6 +2627,9 @@
     "GET_LOGIN_PHONE_NUMBERS": {
       "name": "get-login-phone-numbers",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/get-login-phone-numbers/index",
       "zip": ".dist/zips/get-login-phone-numbers.zip"
@@ -1971,6 +2637,9 @@
     "UPDATE_LOGIN_PHONE_NUMBERS": {
       "name": "update-login-phone-numbers",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/update-login-phone-numbers/index",
       "zip": ".dist/zips/update-login-phone-numbers.zip"
@@ -1978,6 +2647,9 @@
     "MAKE_MEDICATION_HISTORY_PDF": {
       "name": "make-medication-history-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
       "zip": ".dist/zips/make-medication-history-pdf.zip"
@@ -1985,6 +2657,9 @@
     "MAKE_PATIENT_INSTRUCTIONS_PDF": {
       "name": "make-patient-instructions-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/print-chart-data/make-patient-instructions-pdf/index",
       "zip": ".dist/zips/make-patient-instructions-pdf.zip"
@@ -1992,6 +2667,9 @@
     "MAKE_PROGRESS_NOTE_PDF": {
       "name": "make-progress-note-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/print-chart-data/make-progress-note-pdf/index",
       "zip": ".dist/zips/make-progress-note-pdf.zip"
@@ -1999,6 +2677,9 @@
     "GET_VISIT_FAX_HISTORY": {
       "name": "get-visit-fax-history",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-fax-history/index",
       "zip": ".dist/zips/get-visit-fax-history.zip"
@@ -2006,6 +2687,9 @@
     "GET_ACTION_LOGS": {
       "name": "get-action-logs",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-action-logs/index",
       "zip": ".dist/zips/get-action-logs.zip"
@@ -2013,6 +2697,9 @@
     "RETRY_ACTION_LOG": {
       "name": "retry-action-log",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/retry-action-log/index",
       "zip": ".dist/zips/retry-action-log.zip"
@@ -2020,6 +2707,9 @@
     "SEARCH-PATIENTS": {
       "name": "search-patients",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/search-patients/index",
       "zip": ".dist/zips/search-patients.zip"
@@ -2027,6 +2717,9 @@
     "CREATE-PATIENT": {
       "name": "create-patient",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-patient/index",
       "zip": ".dist/zips/create-patient.zip"
@@ -2034,6 +2727,9 @@
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/create-fee-schedule/index",
       "zip": ".dist/zips/create-fee-schedule.zip"
@@ -2041,6 +2737,9 @@
     "UPDATE-FEE-SCHEDULE": {
       "name": "update-fee-schedule",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/update-fee-schedule/index",
       "zip": ".dist/zips/update-fee-schedule.zip"
@@ -2048,6 +2747,9 @@
     "DELETE-FEE-SCHEDULE": {
       "name": "delete-fee-schedule",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/delete-fee-schedule/index",
       "zip": ".dist/zips/delete-fee-schedule.zip"
@@ -2055,6 +2757,9 @@
     "LIST-FEE-SCHEDULES": {
       "name": "list-fee-schedules",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/list-fee-schedules/index",
       "zip": ".dist/zips/list-fee-schedules.zip"
@@ -2062,6 +2767,9 @@
     "GET-VERSION-HISTORY": {
       "name": "get-version-history",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/get-version-history/index",
       "zip": ".dist/zips/get-version-history.zip"
@@ -2069,6 +2777,9 @@
     "GET-CHARGE-ITEM-DEFINITION-VERSION": {
       "name": "get-charge-item-definition-version",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/get-charge-item-definition-version/index",
       "zip": ".dist/zips/get-charge-item-definition-version.zip"
@@ -2076,6 +2787,9 @@
     "ASSOCIATE-PAYER": {
       "name": "associate-payer",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/associate-payer/index",
       "zip": ".dist/zips/associate-payer.zip"
@@ -2083,6 +2797,9 @@
     "DISASSOCIATE-PAYER": {
       "name": "disassociate-payer",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/disassociate-payer/index",
       "zip": ".dist/zips/disassociate-payer.zip"
@@ -2090,6 +2807,9 @@
     "ADD-PROCEDURE-CODE": {
       "name": "add-procedure-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/add-procedure-code/index",
       "zip": ".dist/zips/add-procedure-code.zip"
@@ -2097,6 +2817,9 @@
     "UPDATE-PROCEDURE-CODE": {
       "name": "update-procedure-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/update-procedure-code/index",
       "zip": ".dist/zips/update-procedure-code.zip"
@@ -2104,6 +2827,9 @@
     "DELETE-PROCEDURE-CODE": {
       "name": "delete-procedure-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/delete-procedure-code/index",
       "zip": ".dist/zips/delete-procedure-code.zip"
@@ -2111,6 +2837,9 @@
     "BULK-ADD-PROCEDURE-CODES": {
       "name": "bulk-add-procedure-codes",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/bulk-add-procedure-codes/index",
       "zip": ".dist/zips/bulk-add-procedure-codes.zip"
@@ -2118,6 +2847,9 @@
     "FIND-APPLICABLE-FEE-SCHEDULE": {
       "name": "find-applicable-fee-schedule",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/find-applicable-fee-schedule/index",
       "zip": ".dist/zips/find-applicable-fee-schedule.zip"
@@ -2125,6 +2857,9 @@
     "CREATE-CHARGE-MASTER": {
       "name": "create-charge-master",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/create-charge-master/index",
       "zip": ".dist/zips/create-charge-master.zip"
@@ -2132,6 +2867,9 @@
     "UPDATE-CHARGE-MASTER": {
       "name": "update-charge-master",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/update-charge-master/index",
       "zip": ".dist/zips/update-charge-master.zip"
@@ -2139,6 +2877,9 @@
     "DELETE-CHARGE-MASTER": {
       "name": "delete-charge-master",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/delete-charge-master/index",
       "zip": ".dist/zips/delete-charge-master.zip"
@@ -2146,6 +2887,9 @@
     "LIST-CHARGE-MASTERS": {
       "name": "list-charge-masters",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/list-charge-masters/index",
       "zip": ".dist/zips/list-charge-masters.zip"
@@ -2153,6 +2897,9 @@
     "CREATE-EMPLOYER": {
       "name": "create-employer",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/employers/create-employer/index",
       "zip": ".dist/zips/create-employer.zip"
@@ -2160,6 +2907,9 @@
     "LIST-EMPLOYERS": {
       "name": "list-employers",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/employers/list-employers/index",
       "zip": ".dist/zips/list-employers.zip"
@@ -2167,6 +2917,9 @@
     "UPDATE-EMPLOYER": {
       "name": "update-employer",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/employers/update-employer/index",
       "zip": ".dist/zips/update-employer.zip"
@@ -2174,6 +2927,9 @@
     "SEARCH-ADDRESS-BOOK": {
       "name": "search-address-book",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/address-book/search-address-book/index",
       "zip": ".dist/zips/search-address-book.zip"
@@ -2181,6 +2937,9 @@
     "CREATE-ADDRESS-BOOK-CONTACT": {
       "name": "create-address-book-contact",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/address-book/create-address-book-contact/index",
       "zip": ".dist/zips/create-address-book-contact.zip"
@@ -2188,6 +2947,9 @@
     "UPDATE-ADDRESS-BOOK-CONTACT": {
       "name": "update-address-book-contact",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/address-book/update-address-book-contact/index",
       "zip": ".dist/zips/update-address-book-contact.zip"
@@ -2195,6 +2957,9 @@
     "DELETE-ADDRESS-BOOK-CONTACT": {
       "name": "delete-address-book-contact",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/address-book/delete-address-book-contact/index",
       "zip": ".dist/zips/delete-address-book-contact.zip"
@@ -2202,6 +2967,9 @@
     "DESIGNATE-CHARGE-MASTER-ENTRY": {
       "name": "designate-charge-master-entry",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/designate-charge-master-entry/index",
       "zip": ".dist/zips/designate-charge-master-entry.zip"
@@ -2209,6 +2977,9 @@
     "GET-CHARGE-MASTER-ENTRY": {
       "name": "get-charge-master-entry",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/get-charge-master-entry/index",
       "zip": ".dist/zips/get-charge-master-entry.zip"
@@ -2216,6 +2987,9 @@
     "FIND-APPLICABLE-CHARGE-MASTER": {
       "name": "find-applicable-charge-master",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/find-applicable-charge-master/index",
       "zip": ".dist/zips/find-applicable-charge-master.zip"
@@ -2223,6 +2997,9 @@
     "CM-ASSOCIATE-PAYER": {
       "name": "cm-associate-payer",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-associate-payer/index",
       "zip": ".dist/zips/cm-associate-payer.zip"
@@ -2230,6 +3007,9 @@
     "CM-DISASSOCIATE-PAYER": {
       "name": "cm-disassociate-payer",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-disassociate-payer/index",
       "zip": ".dist/zips/cm-disassociate-payer.zip"
@@ -2237,6 +3017,9 @@
     "CM-ADD-PROCEDURE-CODE": {
       "name": "cm-add-procedure-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-add-procedure-code/index",
       "zip": ".dist/zips/cm-add-procedure-code.zip"
@@ -2244,6 +3027,9 @@
     "CM-UPDATE-PROCEDURE-CODE": {
       "name": "cm-update-procedure-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-update-procedure-code/index",
       "zip": ".dist/zips/cm-update-procedure-code.zip"
@@ -2251,6 +3037,9 @@
     "CM-DELETE-PROCEDURE-CODE": {
       "name": "cm-delete-procedure-code",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-delete-procedure-code/index",
       "zip": ".dist/zips/cm-delete-procedure-code.zip"
@@ -2258,6 +3047,9 @@
     "CM-BULK-ADD-PROCEDURE-CODES": {
       "name": "cm-bulk-add-procedure-codes",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-bulk-add-procedure-codes/index",
       "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip"
@@ -2265,6 +3057,9 @@
     "GET-INVOICE-CONFIG": {
       "name": "get-invoice-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/invoice-config/get-invoice-config/index",
       "zip": ".dist/zips/get-invoice-config.zip"
@@ -2272,6 +3067,9 @@
     "SAVE-INVOICE-CONFIG": {
       "name": "save-invoice-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/invoice-config/save-invoice-config/index",
       "zip": ".dist/zips/save-invoice-config.zip"
@@ -2279,6 +3077,9 @@
     "GET-SCHEDULED-OUTREACH-CONFIG": {
       "name": "get-scheduled-outreach-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/scheduled-outreach-config/get-scheduled-outreach-config/index",
       "zip": ".dist/zips/get-scheduled-outreach-config.zip"
@@ -2286,6 +3087,9 @@
     "SAVE-SCHEDULED-OUTREACH-CONFIG": {
       "name": "save-scheduled-outreach-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/scheduled-outreach-config/save-scheduled-outreach-config/index",
       "zip": ".dist/zips/save-scheduled-outreach-config.zip"
@@ -2293,6 +3097,9 @@
     "LIST-OUTREACH-TASKS": {
       "name": "list-outreach-tasks",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/scheduled-outreach/list-outreach-tasks/index",
       "zip": ".dist/zips/list-outreach-tasks.zip"
@@ -2300,6 +3107,9 @@
     "CANCEL-OUTREACH-TASK": {
       "name": "cancel-outreach-task",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/scheduled-outreach/cancel-outreach-task/index",
       "zip": ".dist/zips/cancel-outreach-task.zip"
@@ -2307,6 +3117,9 @@
     "RETRY-OUTREACH-TASK": {
       "name": "retry-outreach-task",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/scheduled-outreach/retry-outreach-task/index",
       "zip": ".dist/zips/retry-outreach-task.zip"
@@ -2314,6 +3127,9 @@
     "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
       "name": "produce-outreach-discharge-tasks",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/scheduled-outreach/producers/produce-discharge-tasks/index",
       "zip": ".dist/zips/produce-outreach-discharge-tasks.zip"
@@ -2321,6 +3137,9 @@
     "PRODUCE-OUTREACH-INVOICE-ISSUED-TASKS": {
       "name": "produce-outreach-invoice-issued-tasks",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/scheduled-outreach/producers/produce-invoice-issued-tasks/index",
       "zip": ".dist/zips/produce-outreach-invoice-issued-tasks.zip"
@@ -2388,6 +3207,9 @@
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/admin-list-in-house-labs/index",
       "zip": ".dist/zips/admin-list-in-house-labs.zip"
@@ -2395,6 +3217,9 @@
     "ADMIN_ADD_IN_HOUSE_LAB": {
       "name": "admin-add-in-house-lab",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/admin-add-in-house-lab/index",
       "zip": ".dist/zips/admin-add-in-house-lab.zip"
@@ -2402,6 +3227,9 @@
     "ADMIN_GET_IN_HOUSE_LAB_CONFIG": {
       "name": "admin-get-in-house-lab-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/admin-get-in-house-lab-config/index",
       "zip": ".dist/zips/admin-get-in-house-lab-config.zip"
@@ -2409,6 +3237,9 @@
     "ADMIN_UPDATE_IN_HOUSE_LAB": {
       "name": "admin-update-in-house-lab",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
       "zip": ".dist/zips/admin-update-in-house-lab.zip"
@@ -2416,6 +3247,9 @@
     "ADMIN_LIST_SERVICE_CATEGORIES": {
       "name": "admin-list-service-categories",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-list-service-categories/index",
       "zip": ".dist/zips/admin-list-service-categories.zip"
@@ -2423,6 +3257,9 @@
     "ADMIN_CREATE_SERVICE_CATEGORY": {
       "name": "admin-create-service-category",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-service-category/index",
       "zip": ".dist/zips/admin-create-service-category.zip"
@@ -2430,6 +3267,9 @@
     "ADMIN_UPDATE_SERVICE_CATEGORY": {
       "name": "admin-update-service-category",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-service-category/index",
       "zip": ".dist/zips/admin-update-service-category.zip"
@@ -2437,6 +3277,9 @@
     "ADMIN_DELETE_SERVICE_CATEGORY": {
       "name": "admin-delete-service-category",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-delete-service-category/index",
       "zip": ".dist/zips/admin-delete-service-category.zip"
@@ -2444,6 +3287,9 @@
     "ADMIN_CREATE_PRACTITIONER_ROLE": {
       "name": "admin-create-practitioner-role",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-practitioner-role/index",
       "zip": ".dist/zips/admin-create-practitioner-role.zip"
@@ -2451,6 +3297,9 @@
     "ADMIN_UPDATE_PRACTITIONER_ROLE": {
       "name": "admin-update-practitioner-role",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-practitioner-role/index",
       "zip": ".dist/zips/admin-update-practitioner-role.zip"
@@ -2458,6 +3307,9 @@
     "ADMIN_SET_PRACTITIONER_ROLE_ACTIVE": {
       "name": "admin-set-practitioner-role-active",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-set-practitioner-role-active/index",
       "zip": ".dist/zips/admin-set-practitioner-role-active.zip"
@@ -2465,6 +3317,9 @@
     "ADMIN_UPDATE_GROUP": {
       "name": "admin-update-group",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-group/index",
       "zip": ".dist/zips/admin-update-group.zip"
@@ -2472,6 +3327,9 @@
     "TOGGLE-GROUP-ACTIVE": {
       "name": "toggle-group-active",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/toggle-group-active/index",
       "zip": ".dist/zips/toggle-group-active.zip"
@@ -2479,6 +3337,9 @@
     "ADMIN-CREATE-GROUP": {
       "name": "admin-create-group",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-group/index",
       "zip": ".dist/zips/admin-create-group.zip"
@@ -2493,6 +3354,9 @@
     "ADMIN_GET_LAB_SETS": {
       "name": "admin-get-lab-sets",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/lab-sets/admin-get-lab-sets/index",
       "zip": ".dist/zips/admin-get-lab-sets.zip"
@@ -2500,6 +3364,9 @@
     "ADMIN_ADD_LAB_SET": {
       "name": "admin-add-lab-set",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/lab-sets/admin-add-lab-set/index",
       "zip": ".dist/zips/admin-add-lab-set.zip"
@@ -2507,6 +3374,9 @@
     "ADMIN_UPDATE_LAB_SET": {
       "name": "admin-update-lab-set",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/lab-sets/admin-update-lab-set/index",
       "zip": ".dist/zips/admin-update-lab-set.zip"
@@ -2525,6 +3395,9 @@
     "GET-LABEL-PRINTING-CONFIG": {
       "name": "get-label-printing-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/label-printing-config/get-label-printing-config/index",
       "zip": ".dist/zips/get-label-printing-config.zip"
@@ -2532,6 +3405,9 @@
     "ADMIN-UPDATE-LABEL-PRINTING-CONFIG": {
       "name": "admin-update-label-printing-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/label-printing-config/admin-update-label-printing-config/index",
       "zip": ".dist/zips/admin-update-label-printing-config.zip"
@@ -2539,6 +3415,9 @@
     "GET-SUPPORT-DIALOG": {
       "name": "get-support-dialog",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/support-dialog/get-support-dialog/index",
       "zip": ".dist/zips/get-support-dialog.zip"
@@ -2546,6 +3425,9 @@
     "ADMIN-UPDATE-SUPPORT-DIALOG": {
       "name": "admin-update-support-dialog",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/support-dialog/admin-update-support-dialog/index",
       "zip": ".dist/zips/admin-update-support-dialog.zip"
@@ -2553,6 +3435,9 @@
     "GET-PROGRESS-NOTE-CONFIG": {
       "name": "get-progress-note-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/progress-note-config/get-progress-note-config/index",
       "zip": ".dist/zips/get-progress-note-config.zip"
@@ -2560,6 +3445,9 @@
     "ADMIN-UPDATE-PROGRESS-NOTE-CONFIG": {
       "name": "admin-update-progress-note-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/progress-note-config/admin-update-progress-note-config/index",
       "zip": ".dist/zips/admin-update-progress-note-config.zip"
@@ -2567,6 +3455,9 @@
     "GET-VITALS-ALERT-CONFIG": {
       "name": "get-vitals-alert-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/vitals-alert-config/get-vitals-alert-config/index",
       "zip": ".dist/zips/get-vitals-alert-config.zip"
@@ -2574,6 +3465,9 @@
     "ADMIN-UPDATE-VITALS-ALERT-CONFIG": {
       "name": "admin-update-vitals-alert-config",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/vitals-alert-config/admin-update-vitals-alert-config/index",
       "zip": ".dist/zips/admin-update-vitals-alert-config.zip"
@@ -2595,6 +3489,9 @@
     "GENERATE-LABEL-XML": {
       "name": "generate-label-xml",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/generate-label-xml/index",
       "zip": ".dist/zips/generate-label-xml.zip"
@@ -2602,6 +3499,10 @@
     "GET_ALL_INSURANCE_PAYERS": {
       "name": "get-all-insurance-payers",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/get-all-insurance-payers/index",
       "zip": ".dist/zips/get-all-insurance-payers.zip"
@@ -2609,6 +3510,10 @@
     "GET_PATIENT_INSURANCE_PAYERS": {
       "name": "get-patient-insurance-payers",
       "type": "http_auth",
+      "access": [
+        "PATIENT",
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/patient/get-patient-insurance-payers/index",
       "zip": ".dist/zips/get-patient-insurance-payers.zip"
@@ -2616,6 +3521,9 @@
     "GET_INSURANCE_OVERRIDE_LIST": {
       "name": "get-insurance-override-list",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/get-insurance-override-list/index",
       "zip": ".dist/zips/get-insurance-override-list.zip"
@@ -2623,6 +3531,9 @@
     "ADD_PAYER_TO_INSURANCE_OVERRIDE_LIST": {
       "name": "add-payer-to-insurance-override-list",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/add-payer-to-insurance-override-list/index",
       "zip": ".dist/zips/add-payer-to-insurance-override-list.zip"
@@ -2630,6 +3541,9 @@
     "REMOVE_PAYER_FROM_INSURANCE_OVERRIDE_LIST": {
       "name": "remove-payer-from-insurance-override-list",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/remove-payer-from-insurance-override-list/index",
       "zip": ".dist/zips/remove-payer-from-insurance-override-list.zip"
@@ -2637,6 +3551,9 @@
     "EDIT_PAYER_IN_INSURANCE_OVERRIDE_LIST": {
       "name": "edit-payer-in-insurance-override-list",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/rcm/edit-payer-in-insurance-override-list/index",
       "zip": ".dist/zips/edit-payer-in-insurance-override-list.zip"
@@ -2644,6 +3561,9 @@
     "CREATE-CUSTOM-FOLDER": {
       "name": "create-custom-folder",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-custom-folder/index",
       "zip": ".dist/zips/create-custom-folder.zip"
@@ -2651,6 +3571,9 @@
     "RENAME-CUSTOM-FOLDER": {
       "name": "rename-custom-folder",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/rename-custom-folder/index",
       "zip": ".dist/zips/rename-custom-folder.zip"
@@ -2658,6 +3581,9 @@
     "DELETE-CUSTOM-FOLDER": {
       "name": "delete-custom-folder",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-custom-folder/index",
       "zip": ".dist/zips/delete-custom-folder.zip"
@@ -2665,6 +3591,9 @@
     "MANAGED_QUESTIONNAIRE_GET": {
       "name": "practice-managed-questionnaire-get",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-managed-questionnaire/get/index",
       "zip": ".dist/zips/practice-managed-questionnaire-get.zip"
@@ -2672,6 +3601,9 @@
     "MANAGED_QUESTIONNAIRE_LIST": {
       "name": "practice-managed-questionnaire-list",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-managed-questionnaire/list/index",
       "zip": ".dist/zips/practice-managed-questionnaire-list.zip"
@@ -2679,6 +3611,9 @@
     "MANAGED_QUESTIONNAIRE_UPDATE": {
       "name": "practice-managed-questionnaire-update",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-managed-questionnaire/update/index",
       "zip": ".dist/zips/practice-managed-questionnaire-update.zip"
@@ -2686,6 +3621,9 @@
     "MANAGED_QUESTIONNAIRE_CREATE": {
       "name": "practice-managed-questionnaire-create",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-managed-questionnaire/create/index",
       "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
@@ -2693,6 +3631,9 @@
     "PAPERWORK_FLOW_LIST": {
       "name": "paperwork-flow-list",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/paperwork-flow/list/index",
       "zip": ".dist/zips/paperwork-flow-list.zip"
@@ -2700,6 +3641,9 @@
     "PAPERWORK_FLOW_CREATE": {
       "name": "paperwork-flow-create",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/paperwork-flow/create/index",
       "zip": ".dist/zips/paperwork-flow-create.zip"
@@ -2707,6 +3651,9 @@
     "PAPERWORK_FLOW_UPDATE": {
       "name": "paperwork-flow-update",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/paperwork-flow/update/index",
       "zip": ".dist/zips/paperwork-flow-update.zip"
@@ -2714,6 +3661,9 @@
     "PAPERWORK_FLOW_DELETE": {
       "name": "paperwork-flow-delete",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/paperwork-flow/delete/index",
       "zip": ".dist/zips/paperwork-flow-delete.zip"
@@ -2721,6 +3671,9 @@
     "CREATE-FORM-TEMPLATE-UPLOAD-URL": {
       "name": "create-form-template-upload-url",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-form-template-upload-url/index",
       "zip": ".dist/zips/create-form-template-upload-url.zip"
@@ -2728,6 +3681,9 @@
     "CREATE-COMPLETED-FORM-UPLOAD-URL": {
       "name": "create-completed-form-upload-url",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-completed-form-upload-url/index",
       "zip": ".dist/zips/create-completed-form-upload-url.zip"
@@ -2735,6 +3691,9 @@
     "SAVE-COMPLETED-FORM": {
       "name": "save-completed-form",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-completed-form/index",
       "zip": ".dist/zips/save-completed-form.zip"
@@ -2742,6 +3701,9 @@
     "FILL-FORM-TEMPLATE": {
       "name": "fill-form-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/fill-form-template/index",
       "zip": ".dist/zips/fill-form-template.zip"
@@ -2749,6 +3711,9 @@
     "LIST-FORM-TEMPLATES": {
       "name": "list-form-templates",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/list-form-templates/index",
       "zip": ".dist/zips/list-form-templates.zip"
@@ -2756,6 +3721,9 @@
     "UPDATE-FORM-TEMPLATE": {
       "name": "update-form-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-form-template/index",
       "zip": ".dist/zips/update-form-template.zip"
@@ -2763,6 +3731,9 @@
     "DELETE-FORM-TEMPLATE": {
       "name": "delete-form-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-form-template/index",
       "zip": ".dist/zips/delete-form-template.zip"
@@ -2770,6 +3741,9 @@
     "ANALYZE-FORM-TEMPLATE": {
       "name": "analyze-form-template",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/analyze-form-template/index",
       "zip": ".dist/zips/analyze-form-template.zip"
@@ -2777,6 +3751,9 @@
     "GET-FORM-TEMPLATE-DETAIL": {
       "name": "get-form-template-detail",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-form-template-detail/index",
       "zip": ".dist/zips/get-form-template-detail.zip"
@@ -2784,6 +3761,9 @@
     "SAVE-FORM-TEMPLATE-MAPPING": {
       "name": "save-form-template-mapping",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-form-template-mapping/index",
       "zip": ".dist/zips/save-form-template-mapping.zip"
@@ -2791,6 +3771,9 @@
     "REPLACE-FORM-TEMPLATE-PDF": {
       "name": "replace-form-template-pdf",
       "type": "http_auth",
+      "access": [
+        "STAFF"
+      ],
       "runtime": "nodejs22.x",
       "src": "src/ehr/replace-form-template-pdf/index",
       "zip": ".dist/zips/replace-form-template-pdf.zip"

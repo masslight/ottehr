@@ -120,7 +120,9 @@ Validate a request body with `validateWithSchema(schema, input)` from `packages/
 
 Zambdas use `wrapHandler` from `../../shared/lambda` for consistent error handling. They authenticate via machine-to-machine (M2M) tokens cached in module scope across warm invocations.
 
-The local server (`packages/zambdas/src/local-server/index.ts`) reads `config/oystehr/zambdas.json` to register all routes as Express endpoints, enabling local development without deploying.
+The local server (`packages/zambdas/src/local-server/index.ts`) reads `config/oystehr-core/zambdas.json` to register all routes as Express endpoints, enabling local development without deploying. It does not evaluate Oystehr access policies, so a missing role grant only surfaces as a 403 once deployed.
+
+Every `http_auth` zambda entry in `config/oystehr-core/zambdas.json` (or `config/billing-app-core/zambdas.json`) must declare `"access": [...]` — the lowest role keys from `config/oystehr-core/roles.json` that may invoke it (`["STAFF"]` reaches every EHR role through `zambdaAccess.inherits`; `[]` means M2M-only). After adding a zambda or changing its `access`, run `npm run zambda-access:generate` and commit the regenerated `roles.json`; `npm run zambda-access:check` enforces this in pre-commit and CI. See `config/README.md` ("Zambda access").
 
 ### Frontend Apps (EHR & Intake)
 

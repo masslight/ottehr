@@ -80,6 +80,42 @@ To bump the version of a single canonical resource in a file that contains many,
 npm run bump-canonical-version config/oystehr/in-house-lab-activity-definitions.json activity-definition-flu-vid-1_0_0 minor
 ```
 
+## Zambda access
+
+Users can only invoke the zambdas their Oystehr role grants with `Zambda:InvokeFunction`. Those grants are not written by hand: every `http_auth` zambda in `oystehr-core/zambdas.json` (or `billing-app-core/zambdas.json`) declares the **lowest** roles that may invoke it, and the zambda rule in each role in `oystehr-core/roles.json` is generated from those declarations. Roles build on each other through `zambdaAccess.inherits` in `roles.json` (Staff → Clinician → Provider → Administrator, with Manager and Customer Support branching off and Administrator also inheriting BillingAdmin), so a zambda is declared once at the tier where access starts.
+
+```json
+"GET-APPOINTMENTS": {
+  "name": "get-appointments",
+  "type": "http_auth",
+  "access": ["STAFF"],          // every EHR role, since they all inherit Staff
+  ...
+},
+"CREATE-APPOINTMENT": {
+  "name": "create-appointment",
+  "type": "http_auth",
+  "access": ["PATIENT", "STAFF"], // patient app and every EHR role
+  ...
+},
+"CREATE-USER": {
+  "name": "create-user",
+  "type": "http_auth",
+  "access": ["ADMINISTRATOR"],    // administrators only
+  ...
+}
+```
+
+Use `"access": []` for a zambda that only other zambdas call with the M2M client. `http_open`, `cron` and `subscription` zambdas take no `access`: they are never invoked with a user token.
+
+When you add an `http_auth` zambda or change its `access`:
+
+```shell
+npm run zambda-access:generate   # rewrites the zambda grants in config/oystehr-core/roles.json
+git add config/oystehr-core/roles.json
+```
+
+`npm run zambda-access:check` fails when an `http_auth` zambda has no `access`, names an unknown or redundant role, or when `roles.json` does not match the declarations (including any leftover `Zambda:Function:*` wildcard). It runs on every commit that touches these files (lint-staged) and on every pull request (the Lint and Build workflow), so a new zambda cannot land without saying who may call it. Keep in mind that the local zambda emulator does not evaluate access policies, so a missing grant only shows up as a 403 in a deployed environment — the check is what catches it early. Details of the rules: [`packages/spec/README.md`](/packages/spec/README.md#zambda-access).
+
 ## Generation
 
 These static configuration files are combined with dynamic, per-environment config values by the `npm run generate` script in [`deploy/`](/deploy/README.md). Values and references are resolved according to the rules in the [`packages/spec/`](/packages/spec/README.md) schema `generate()` function.

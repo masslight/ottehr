@@ -1,5 +1,10 @@
 {
-  "oystehr/*.json": [
-    "./../scripts/lint-config-syntax.sh"
+  "{oystehr,oystehr-core,billing-app-core}/*.json": [
+    "../scripts/lint-config-syntax.sh",
+    "npx tsx ../scripts/config/zambda-access.ts --check"
+  ],
+  "oystehr/env/*/*.json": [
+    "../scripts/lint-config-syntax.sh",
+    "npx tsx ../scripts/config/zambda-access.ts --check"
   ]
 }

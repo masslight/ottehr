@@ -11,6 +11,7 @@
   "include": [
     ".",
     ".eslintrc.cjs",
-    "../scripts/config/generate-oystehr-resource-imports.ts"
+    "../scripts/config/generate-oystehr-resource-imports.ts",
+    "../scripts/config/zambda-access.ts"
   ]
 }
