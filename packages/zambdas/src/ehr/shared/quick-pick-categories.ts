@@ -6,6 +6,7 @@ import {
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   PatientInstructionQuickPickData,
+  PrescriptionQuickPickData,
   ProcedureQuickPickData,
   QuickTextQuickPickData,
   RadiologyQuickPickData,
@@ -64,6 +65,17 @@ export const RADIOLOGY_QUICK_PICK_CATEGORY: QuickPickCategory<RadiologyQuickPick
     id,
     name: title,
     ...(config as Omit<RadiologyQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const PRESCRIPTION_QUICK_PICK_CATEGORY: QuickPickCategory<PrescriptionQuickPickData> = {
+  tagCode: 'prescription-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<PrescriptionQuickPickData, 'id' | 'name'>),
   }),
 };
 

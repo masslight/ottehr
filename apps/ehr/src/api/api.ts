@@ -83,6 +83,7 @@ import {
   OpenEmployeeChatInput,
   OpenEmployeeChatResponse,
 } from 'utils/lib/types/api/employee-chat.types';
+import { MedicationSearchResult, PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
 import { ExtractCardInput, ExtractCardResponse } from 'utils/lib/types/api/extract-card.types';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { GetConversationInput, GetConversationZambdaOutput } from 'utils/lib/types/api/get-conversation.types';
@@ -117,6 +118,7 @@ import {
   MailedStatementsReportZambdaOutput,
   SyncMailedStatementStatusesOutput,
 } from 'utils/lib/types/api/mailed-statements-report.types';
+import { OrderPrescriptionInput, OrderPrescriptionOutput } from 'utils/lib/types/api/order-prescription.types';
 import {
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
@@ -135,6 +137,7 @@ import {
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
 } from 'utils/lib/types/api/practice-kpis-report.types';
+import { CheckPractitionerEnrollmentOutput } from 'utils/lib/types/api/practitioner-enrollment.types';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -172,6 +175,8 @@ import {
   CreateMedicationHistoryQuickPickResponse,
   CreatePatientInstructionQuickPickInput,
   CreatePatientInstructionQuickPickResponse,
+  CreatePrescriptionQuickPickInput,
+  CreatePrescriptionQuickPickResponse,
   CreateProcedureQuickPickInput,
   CreateProcedureQuickPickResponse,
   CreateQuickTextQuickPickInput,
@@ -185,6 +190,7 @@ import {
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
   GetPatientInstructionQuickPicksResponse,
+  GetPrescriptionQuickPicksResponse,
   GetProcedureQuickPicksResponse,
   GetQuickTextQuickPicksResponse,
   GetRadiologyQuickPicksResponse,
@@ -194,6 +200,7 @@ import {
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   PatientInstructionQuickPickData,
+  PrescriptionQuickPickData,
   ProcedureQuickPickData,
   QuickPickRemoveResponse,
   QuickTextQuickPickData,
@@ -205,6 +212,7 @@ import {
   UpdateMedicalConditionQuickPickResponse,
   UpdateMedicationHistoryQuickPickResponse,
   UpdatePatientInstructionQuickPickResponse,
+  UpdatePrescriptionQuickPickResponse,
   UpdateProcedureQuickPickResponse,
   UpdateQuickTextQuickPickResponse,
   UpdateRadiologyQuickPickResponse,
@@ -563,6 +571,125 @@ const DELETE_INBOUND_FAX_ZAMBDA_ID = 'delete-inbound-fax';
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = createClinicalOystehrClient(token);
   return oystehr.user.me();
+};
+
+const ERX_API_URL = 'https://staging-erx-api.zapehr.com';
+
+export const orderPrescription = async (
+  token: string,
+  parameters: OrderPrescriptionInput
+): Promise<OrderPrescriptionOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/order-prescription`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+    body: JSON.stringify(parameters),
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    console.log(response);
+    throw new Error(body?.message ?? `Failed to order prescription (${response.status})`);
+  }
+  return body as OrderPrescriptionOutput;
+};
+
+export const checkPractitionerEnrollment = async (
+  token: string,
+  practitionerId: string
+): Promise<CheckPractitionerEnrollmentOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/practitioner/${practitionerId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to check Surescripts registration (${response.status})`);
+  }
+  return body as CheckPractitionerEnrollmentOutput;
+};
+
+export const enrollPractitioner = async (
+  token: string,
+  practitionerId: string
+): Promise<CheckPractitionerEnrollmentOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/practitioner/${practitionerId}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to enroll in Surescripts (${response.status})`);
+  }
+  return body as CheckPractitionerEnrollmentOutput;
+};
+
+const SAMPLE_PHARMACIES: PharmacySearchResult[] = [
+  {
+    ncpdpId: '0002026',
+    npi: '1234567893',
+    name: 'Sample Pharmacy One',
+    phone: '5125559999',
+    address: '123 Main St, Washington, DC 20001',
+  },
+  {
+    ncpdpId: '0000031',
+    npi: '1245319599',
+    name: 'Sample Pharmacy Two',
+    phone: '5125550123',
+    address: '123 Example St, Washington, DC 20001',
+  },
+  {
+    ncpdpId: '0000042',
+    npi: '1316099070',
+    name: 'Sample Pharmacy Three',
+    phone: '2145550188',
+    address: '123 Example St, Washington, DC 20001',
+  },
+];
+
+const TERMINOLOGY_API_URL = import.meta.env.VITE_APP_TERMINOLOGY_API_URL ?? 'https://terminology-api.zapehr.com/v1';
+
+interface MedicationSearchResponse {
+  medications: { name: string; strengths: { strength: string; ndcs: string[] }[] }[];
+}
+
+export const searchMedications = async (token: string, query: string): Promise<MedicationSearchResult[]> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${TERMINOLOGY_API_URL}/medication/search?${new URLSearchParams({ query })}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to search medications (${response.status})`);
+  }
+  // An order needs an NDC, so a strength without one can't be picked. The first NDC stands in for the strength.
+  return (body as MedicationSearchResponse).medications.flatMap(({ name, strengths }) =>
+    strengths
+      .filter(({ ndcs }) => ndcs.length > 0)
+      .map(({ strength, ndcs }) => ({ ndc: ndcs[0], description: `${name} ${strength}` }))
+  );
+};
+
+export const searchPharmacies = async (query: string): Promise<PharmacySearchResult[]> => {
+  const normalizedQuery = query.trim().toLowerCase();
+  return SAMPLE_PHARMACIES.filter(
+    (pharmacy) =>
+      pharmacy.name.toLowerCase().includes(normalizedQuery) || pharmacy.address.toLowerCase().includes(normalizedQuery)
+  );
 };
 
 if (!VITE_APP_IS_LOCAL) {
@@ -3167,6 +3294,57 @@ export const updateRadiologyQuickPick = async (
     const response = await oystehr.zambda.execute({
       id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
       category: 'radiology-quick-pick',
+      quickPickId,
+      quickPick,
+    } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── Prescription (eRx) Quick Picks ──
+
+export const getPrescriptionQuickPicks = async (oystehr: Oystehr): Promise<GetPrescriptionQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createPrescriptionQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreatePrescriptionQuickPickInput
+): Promise<CreatePrescriptionQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updatePrescriptionQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<PrescriptionQuickPickData, 'id'>
+): Promise<UpdatePrescriptionQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
       quickPickId,
       quickPick,
     } as any);
