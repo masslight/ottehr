@@ -5,6 +5,35 @@
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+vi.mock('utils/lib/ottehr-config/screening-questions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/screening-questions')>();
+  return {
+    ...original,
+    patientScreeningQuestionsConfig: {
+      ...original.patientScreeningQuestionsConfig,
+      fields: [
+        ...original.patientScreeningQuestionsConfig.fields,
+        {
+          id: 'covid-symptoms',
+          type: 'radio',
+          question: 'Do you have any COVID symptoms?',
+          fhirField: 'covid-symptoms',
+          options: [
+            { value: 'yes', label: 'Yes', fhirValue: 'yes' },
+            { value: 'no', label: 'No', fhirValue: 'no' },
+          ],
+        },
+        {
+          id: 'travel-usa',
+          type: 'text',
+          question: 'Have you traveled outside the US recently?',
+          fhirField: 'travel-usa',
+        },
+      ],
+    },
+  };
+});
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';

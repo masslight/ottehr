@@ -52,6 +52,25 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const CORE_FORM_IDS = new Set(['hipaa-acknowledgement', 'consent-to-treat']);
+  const CTT_DEFAULT_ASSET = './assets/Authorization_for_Treatment_Billing.pdf';
+  const CTT_IL_ASSET = './assets/Authorization_for_Treatment_Billing_IL.pdf';
+  return {
+    ...original,
+    getConsentFormsForLocation: (locationState?: string) =>
+      original
+        .getConsentFormsForLocation(undefined)
+        .filter((f) => CORE_FORM_IDS.has(f.id))
+        .map((f) =>
+          f.id === 'consent-to-treat'
+            ? { ...f, assetPath: locationState === 'IL' ? CTT_IL_ASSET : CTT_DEFAULT_ASSET }
+            : f
+        ),
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
