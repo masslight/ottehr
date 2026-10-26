@@ -15,12 +15,14 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { convert } from 'html-to-text';
 import {
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
   getMedicationFromMA,
 } from 'utils/lib/fhir/medication-administration';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { decodeRadiologyReportHtml } from 'utils/lib/fhir/radiology';
 import { AdHocEncounterRow } from 'utils/lib/types/adhoc/datasets/encounters';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { MedicationOrderStatusesType } from 'utils/lib/types/api/medication-administration.types';
@@ -79,8 +81,17 @@ const COARSE_RADIOLOGY_STATUS: Record<RadiologyOrderStatus, RadiologyStudyRecord
   [RadiologyOrderStatus.reviewed]: 'final',
 };
 
+const historyRow = (
+  history: RadiologyOrderHistoryRow[],
+  status: RadiologyOrderStatus
+): RadiologyOrderHistoryRow | undefined => history.filter((row) => row.status === status).at(-1);
+
 const historyAt = (history: RadiologyOrderHistoryRow[], status: RadiologyOrderStatus): string | null =>
-  history.filter((row) => row.status === status).at(-1)?.date || null;
+  historyRow(history, status)?.date || null;
+
+// Same conversion as the visit note PDF (discharge-summary/radiology.ts).
+const radiologyReportText = (stored: string | undefined): string =>
+  stored ? convert(decodeRadiologyReportHtml(stored), { wordwrap: false }) : '';
 
 const radiologyRecord = (
   name: string,
@@ -88,30 +99,40 @@ const radiologyRecord = (
   dto: RadiologyDTO,
   history: RadiologyOrderHistoryRow[],
   detail: Pick<RadiologyStudyRecord, 'status' | 'orderStatus' | 'orderedBy' | 'stat' | 'consentObtained'>
-): RadiologyStudyRecord => ({
-  name,
-  ...detail,
-  orderedAt:
-    historyAt(history, RadiologyOrderStatus.pending) ??
-    historyAt(history, RadiologyOrderStatus.ordered) ??
-    serviceRequest.authoredOn ??
-    null,
-  performedAt: historyAt(history, RadiologyOrderStatus.performed),
-  preliminaryAt: historyAt(history, RadiologyOrderStatus.preliminary),
-  pendingFinalAt: historyAt(history, RadiologyOrderStatus.pendingFinal),
-  finalAt: historyAt(history, RadiologyOrderStatus.final),
-  reviewedAt: historyAt(history, RadiologyOrderStatus.reviewed),
-  cptCode: dto.cptCode ?? '',
-  laterality: dto.laterality ?? null,
-  external: !!dto.external,
-  icdCodes: (dto.diagnoses ?? []).map((dx) => dx.code).filter(Boolean),
-  performedBy: dto.performedBy?.name ?? '',
-  performingOrganization: dto.performingOrganization?.name ?? '',
-  safetyFlags: dto.safetyFlags ?? [],
-  clinicalHistory: dto.clinicalHistory ?? '',
-  preliminaryReport: dto.preliminaryReport ?? '',
-  finalReport: dto.finalReport ?? '',
-});
+): RadiologyStudyRecord => {
+  // The send-for-final stamp is never removed, so it still marks an over-read after the final read arrives.
+  const pendingFinal = historyRow(history, RadiologyOrderStatus.pendingFinal);
+  const final = historyRow(history, RadiologyOrderStatus.final);
+  const finalReadSource = final?.date ? (pendingFinal?.date ? 'teleradiology' : 'in-house') : null;
+
+  return {
+    name,
+    ...detail,
+    orderedAt:
+      historyAt(history, RadiologyOrderStatus.pending) ??
+      historyAt(history, RadiologyOrderStatus.ordered) ??
+      serviceRequest.authoredOn ??
+      null,
+    performedAt: historyAt(history, RadiologyOrderStatus.performed),
+    preliminaryAt: historyAt(history, RadiologyOrderStatus.preliminary),
+    pendingFinalAt: pendingFinal?.date || null,
+    pendingFinalBy: pendingFinal?.performer || null,
+    finalAt: final?.date || null,
+    finalReadSource,
+    finalReadBy: finalReadSource === 'in-house' ? final?.performer || null : null,
+    reviewedAt: historyAt(history, RadiologyOrderStatus.reviewed),
+    cptCode: dto.cptCode ?? '',
+    laterality: dto.laterality ?? null,
+    external: !!dto.external,
+    icdCodes: (dto.diagnoses ?? []).map((dx) => dx.code).filter(Boolean),
+    performedBy: dto.performedBy?.name ?? '',
+    performingOrganization: dto.performingOrganization?.name ?? '',
+    safetyFlags: dto.safetyFlags ?? [],
+    clinicalHistory: dto.clinicalHistory ?? '',
+    preliminaryReport: radiologyReportText(dto.preliminaryReport),
+    finalReport: radiologyReportText(dto.finalReport),
+  };
+};
 
 /**
  * One record per radiology order of a visit. Live orders go through the radiology page's own mapper; cancelled

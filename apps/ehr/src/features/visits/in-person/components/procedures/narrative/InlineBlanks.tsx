@@ -427,9 +427,10 @@ interface MultiBlankProps {
   onChange: (values: string[]) => void;
   readOnly: boolean;
   dataTestId?: string;
+  ghost?: boolean;
 }
 
-/** Checkbox list with Done; the blank reads "a, b and c" or, when nothing is chosen, "+ label". */
+/** Checkbox list with Done; the blank reads "a, b and c" or, when nothing is chosen, its label. */
 export const MultiBlank: FC<MultiBlankProps> = ({
   label,
   title,
@@ -440,6 +441,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   dataTestId,
   otherValue,
   onOtherChange,
+  ghost,
 }) => {
   const all = withSavedValues(options, values);
   const display = formatList(
@@ -452,10 +454,10 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   if (readOnly) return <ReadOnlyBlank label={label} value={display || undefined} />;
   return (
     <PopoverBlank
-      label={`+ ${label}`}
+      label={ghost ? `+ ${label}` : label}
       title={title ?? label}
       value={display || undefined}
-      ghost
+      ghost={ghost}
       readOnly={readOnly}
       dataTestId={dataTestId}
     >
@@ -534,7 +536,7 @@ interface TextBlankProps {
   label: string;
   /** Shorter text shown in the empty box; the label stays the accessible name and tooltip. */
   placeholder?: string;
-  kind?: 'text' | 'number' | 'time';
+  kind?: 'text' | 'number';
   value: string | number | undefined;
   onChange: (raw: string) => void;
   readOnly: boolean;
@@ -545,7 +547,7 @@ interface TextBlankProps {
   dataTestId?: string;
 }
 
-/** Borderless input that sits in the sentence: numbers, clock times and short free text. */
+/** Borderless input that sits in the sentence: numbers and short free text. */
 export const TextBlank: FC<TextBlankProps> = ({
   label,
   placeholder: placeholderProp,
@@ -582,10 +584,15 @@ export const TextBlank: FC<TextBlankProps> = ({
         return {
           ...inline,
           // One input style for every kind; the number tweaks are merged in, not swapped in.
-          '& input': { ...(inline['& input'] as Record<string, unknown>), ...(kind === 'number' ? numberInputSx : {}) },
+          '& input': {
+            ...(inline['& input'] as Record<string, unknown>),
+            ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
+            ...(kind === 'number' ? numberInputSx : {}),
+          },
           maxWidth: '100%',
           // The box hugs its content: the placeholder at first, then whatever is typed.
-          width: kind === 'time' ? 'auto' : width ?? `calc(${Math.max(placeholder.length, text.length) + 1}ch + 8px)`,
+          width: width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,
+          '@supports (field-sizing: content)': { width: width ?? 'auto', '& input': { fieldSizing: 'content' } },
         };
       }}
     />
@@ -598,11 +605,12 @@ interface DateTimeBlankProps {
   value: DateTime | null | undefined;
   onChange: (value: DateTime | null) => void;
   readOnly: boolean;
+  need?: boolean;
   dataTestId?: string;
 }
 
 /** The existing MUI pickers, restyled as inline blanks so date/time semantics stay exactly as before. */
-export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onChange, readOnly, dataTestId }) => {
+export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onChange, readOnly, need, dataTestId }) => {
   const display = value?.isValid
     ? kind === 'date'
       ? value.toLocaleString(DateTime.DATE_MED)
@@ -619,9 +627,14 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
           textField: {
             variant: 'standard',
             InputProps: { disableUnderline: true },
-            inputProps: { 'aria-label': label, 'data-testid': dataTestId, placeholder: label },
+            inputProps: {
+              'aria-label': label,
+              'data-testid': dataTestId,
+              'data-needed': !display && need ? true : undefined,
+              placeholder: label,
+            },
             sx: (theme) => {
-              const inline = inlineInputSx(theme, !display, false);
+              const inline = inlineInputSx(theme, !display, need ?? false);
               return {
                 // Input and icon share one shrink-wrapped inline box, so the icon never spills over the
                 // words after it; the margin is the visible gap before them.
@@ -650,6 +663,44 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
   );
 };
 
+const parseClockTime = (value: string | undefined): DateTime | null =>
+  value ? DateTime.fromFormat(value, 'H:mm') : null;
+
+const toClockTime = (value: DateTime | null): string | undefined =>
+  value?.isValid ? value.toFormat('HH:mm') : undefined;
+
+interface ClockTimeBlankProps {
+  label: string;
+  /** "HH:mm", the shape coding answers store clock times in. */
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+  readOnly: boolean;
+  need?: boolean;
+}
+
+export const ClockTimeBlank: FC<ClockTimeBlankProps> = ({ label, value, onChange, readOnly, need }) => {
+  const [draft, setDraft] = useState<DateTime | null>(() => parseClockTime(value));
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    // The stored answer changed elsewhere (a template, a removed row): show it instead of the draft.
+    if (value !== toClockTime(draft)) setDraft(parseClockTime(value));
+  }
+  return (
+    <DateTimeBlank
+      kind="time"
+      label={label}
+      value={draft}
+      onChange={(next) => {
+        setDraft(next);
+        onChange(toClockTime(next));
+      }}
+      readOnly={readOnly}
+      need={need}
+    />
+  );
+};
+
 interface SentenceProps {
   children: ReactNode;
   onRemove?: () => void;
@@ -663,7 +714,7 @@ const JOIN = '\u2060';
 /** Inputs and pickers are atomic inlines: browsers may still break right after them, joiner or not, so
  * those blanks and their punctuation share a no-break wrapper. Text blanks keep wrapping internally. */
 const isAtomicBlank = (node: ReactNode): boolean =>
-  isValidElement(node) && (node.type === TextBlank || node.type === DateTimeBlank);
+  isValidElement(node) && (node.type === TextBlank || node.type === DateTimeBlank || node.type === ClockTimeBlank);
 
 /** Flattens fragments and keeps punctuation with its blank: a trailing ". " or ")" is joined to the
  * blank before it and an opening "(" to the blank after it, so a line never starts with a full stop or

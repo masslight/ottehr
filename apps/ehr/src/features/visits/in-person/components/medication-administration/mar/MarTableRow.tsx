@@ -52,6 +52,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({
   });
 
   const isPending = medication.status === 'pending';
+  const isCancelled = medication.status === 'cancelled';
   const isCompleted =
     medication.status === 'administered' ||
     medication.status === 'administered-partly' ||
@@ -88,6 +89,8 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({
   }, [medication.dateTimeCreated]);
 
   const formatGivenDateTime = useMemo(() => {
+    if (isCancelled) return '-';
+
     // Try new format first: effectiveDateTime (ISO format)
     if (medication.effectiveDateTime) {
       const date = DateTime.fromISO(medication.effectiveDateTime);
@@ -101,7 +104,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({
     }
 
     return '-';
-  }, [medication.effectiveDateTime, medication.dateGiven, medication.timeGiven]);
+  }, [isCancelled, medication.effectiveDateTime, medication.dateGiven, medication.timeGiven]);
 
   return (
     <TableRow
@@ -148,7 +151,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({
             data-testid={dataTestIds.inHouseMedicationsPage.marTable.givenByCell}
             sx={columnStyles.orderDateTime}
           >
-            {medication.administeredProvider || ''}
+            {isCancelled ? '' : medication.administeredProvider || ''}
           </TableCell>
         </>
       )}

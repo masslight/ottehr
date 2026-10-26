@@ -1,6 +1,7 @@
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getFullName } from 'utils/lib/fhir/patient';
+import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { ERX_TASK, FAX_TASK, MANUAL_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
@@ -17,6 +18,7 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [IN_HOUSE_LAB_TASK.category]: 'In-house Lab',
   [RADIOLOGY_TASK.category]: 'Radiology',
   [ERX_TASK.category]: 'eRX',
+  [DME_TASK.category]: 'DME',
   [MANUAL_TASK.category.externalLab]: 'External Lab',
   [MANUAL_TASK.category.inHouseLab]: 'In-house Lab',
   [MANUAL_TASK.category.inHouseMedications]: 'In-House Medications',

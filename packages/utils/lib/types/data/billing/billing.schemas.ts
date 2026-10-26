@@ -172,6 +172,14 @@ export const GetBillingProviderInputSchema = z.object({
   providerId: nonEmptyString,
 });
 
+// The claim list columns a search can sort by. Neither has a Claim search parameter, so the search
+// scans the matching claims and sorts them in memory.
+export const CLAIM_SORT_FIELDS = ['serviceDate', 'billed'] as const;
+export const ClaimSortSchema = z.object({
+  field: z.enum(CLAIM_SORT_FIELDS),
+  direction: z.enum(['asc', 'desc']),
+});
+
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   // Limit search to patient names and claim IDs.
@@ -194,12 +202,15 @@ export const SearchBillingClaimsInputSchema = z.object({
   nonInsurancePayerId: oneOrMany(nonEmptyString.uuid()).optional(),
   service: oneOrMany(nonEmptyString).optional(),
   patientId: oneOrMany(nonEmptyString).optional(),
+  // Unset keeps the default order: most recently updated first.
+  sort: ClaimSortSchema.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
 
 export const ExportBillingClaimsInputSchema = SearchBillingClaimsInputSchema.omit({
   patientNameOnly: true,
+  sort: true,
   offset: true,
   pageSize: true,
 });
@@ -902,6 +913,26 @@ export const RecordBillingVoidInputSchema = z.object({
   clinicalPaymentNoticeId: nonEmptyString.uuid(),
 });
 
+export const AddClaimWriteOffInputSchema = z
+  .object({
+    claimId: nonEmptyString,
+    amount: z.number().nonnegative(),
+    date: z.string().date(),
+    party: z.enum(['insurance', 'nio', 'patient']),
+    payer: nonEmptyString.optional(),
+    reason: nonEmptyString,
+    note: nonEmptyString.optional(),
+  })
+  .superRefine((args, ctx) => {
+    if (args.party === 'insurance' && !args.payer) {
+      ctx.addIssue({ code: 'custom', path: ['payer'], message: '"payer" is required when "party" is "insurance"' });
+    }
+  });
+
+export const VoidClaimWriteOffInputSchema = z.object({
+  writeOffId: nonEmptyString,
+});
+
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
@@ -1100,6 +1131,8 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type ClaimSort = z.output<typeof ClaimSortSchema>;
+export type ClaimSortField = ClaimSort['field'];
 export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
 export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
 export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
@@ -1155,6 +1188,8 @@ export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseT
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
+export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;
 export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
 export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
 export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;

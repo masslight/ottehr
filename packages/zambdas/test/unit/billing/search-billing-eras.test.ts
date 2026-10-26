@@ -194,7 +194,8 @@ describe('search-billing-eras performEffect', () => {
       extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: 'manual' }],
       requestor: { reference: 'Organization/org-1', display: 'Brightside Pediatrics LLC' },
     };
-    const clearingHouse = claimMdEra('era-ch', 'CHK-1');
+    // unmarked, and without the identifier, as Oystehr writes clearing-house ERAs
+    const clearingHouse = importedEra('era-ch', 'CHK-1');
     (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(
       new Map([
         [
@@ -212,7 +213,11 @@ describe('search-billing-eras performEffect', () => {
         ],
       ])
     );
-    const { oystehr } = makeOystehr([manual, clearingHouse, importedEra('era-x12', 'CHK-2')]);
+    const imported: PaymentReconciliation = {
+      ...importedEra('era-x12', 'CHK-2'),
+      extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: 'x12-import' }],
+    };
+    const { oystehr } = makeOystehr([manual, clearingHouse, imported]);
 
     const result = await performEffect(oystehr, oystehr, searchParams());
 

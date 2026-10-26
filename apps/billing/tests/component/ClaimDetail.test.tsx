@@ -148,12 +148,14 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePaid: 0,
   patientResp: 0,
   patientPaid: 0,
+  writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
   firstSubmittedDate: '',
   remits: [],
   insurancePayments: [],
   patientPayments: [],
+  writeOffs: [],
   otherClaims: [],
   tags: [],
   pcn: '',
@@ -576,11 +578,30 @@ describe('ClaimDetail — service line remit details', () => {
       within(line1)
         .getAllByRole('columnheader')
         .map((header) => header.textContent)
-    ).toEqual(['Date', 'Type', 'Billed', 'Allowed', 'Ins adj', 'Ins paid', 'Deductible', 'Co-ins', 'Copay', 'Patient']);
-    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))).toEqual(['08/15/2026', 'Charge', '$201.04', '']);
+    ).toEqual([
+      '',
+      'Date',
+      'Type',
+      'Billed',
+      'Allowed',
+      'Ins adj',
+      'Ins paid',
+      'Deductible',
+      'Co-ins',
+      'Copay',
+      'Patient',
+    ]);
+    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))).toEqual([
+      '',
+      '08/15/2026',
+      'Charge',
+      '$201.04',
+      '',
+    ]);
     // Patient is the line's patient responsibility: here all of it is the copay
     const payerRow = within(line1).getByText('Employers Mutual').closest('tr') as HTMLElement;
     expect(cellTexts(payerRow)).toEqual([
+      '',
       '08/18/2026',
       'Employers Mutual',
       '$201.04',
@@ -603,7 +624,7 @@ describe('ClaimDetail — service line remit details', () => {
 
     const line2 = screen.getByRole('table', { name: 'Remit details for line 2' });
     expect(within(line2).queryByText('PR-1')).not.toBeInTheDocument();
-    expect(cellTexts(within(line2).getByText('Employers Mutual').closest('tr')).slice(6)).toEqual([
+    expect(cellTexts(within(line2).getByText('Employers Mutual').closest('tr')).slice(7)).toEqual([
       '$15.00',
       '$0.00',
       '$0.00',
@@ -641,10 +662,10 @@ describe('ClaimDetail — service line remit details', () => {
 
     const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
     const cells = cellTexts(within(line1).getByText('Employers Mutual').closest('tr'));
-    expect(cells.slice(6)).toEqual(['$10.00', '$0.00', '$0.00', '$17.00']);
+    expect(cells.slice(7)).toEqual(['$10.00', '$0.00', '$0.00', '$17.00']);
     // PR-1 is a column, so no row; PR-96 has no column of its own and keeps one
     expect(within(line1).queryByText('PR-1')).not.toBeInTheDocument();
-    expect(cellTexts(within(line1).getByText('PR-96').closest('tr')).slice(6)).toEqual(['', '', '', '$7.00']);
+    expect(cellTexts(within(line1).getByText('PR-96').closest('tr')).slice(7)).toEqual(['', '', '', '$7.00']);
   });
 
   it('dates the charge by when the claim was created when it was never submitted', async () => {
@@ -653,13 +674,13 @@ describe('ClaimDetail — service line remit details', () => {
     await openRemitsTab();
 
     const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
-    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))[0]).toBe('08/14/2026');
+    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))[1]).toBe('08/14/2026');
   });
 
   it("sizes every line's ledger columns alike, to fit the claim's longest amount", async () => {
     const columnWidths = (table: HTMLElement): string[] =>
       Array.from(table.querySelectorAll('col'), (col) => col.style.width);
-    const amountColumnCh = (widths: string[]): number => Number(/calc\(([\d.]+)ch/.exec(widths[2])?.[1]);
+    const amountColumnCh = (widths: string[]): number => Number(/calc\(([\d.]+)ch/.exec(widths[3])?.[1]);
 
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();
@@ -667,8 +688,8 @@ describe('ClaimDetail — service line remit details', () => {
     const line1 = columnWidths(await screen.findByRole('table', { name: 'Remit details for line 1' }));
     expect(columnWidths(screen.getByRole('table', { name: 'Remit details for line 2' }))).toEqual(line1);
     // the type column takes whatever the others leave
-    expect(line1[1]).toBe('');
-    expect(new Set(line1.slice(2)).size).toBe(1);
+    expect(line1[2]).toBe('');
+    expect(new Set(line1.slice(3)).size).toBe(1);
     cleanup();
 
     getBillingClaimDetailMock.mockResolvedValue(
@@ -747,20 +768,20 @@ describe('ClaimDetail — service line remit details', () => {
     expect(within(codedLedger).queryByText('Charge')).not.toBeInTheDocument();
     // its CO-45 shows under Ins adj on the remit's row rather than a row of its own
     expect(within(codedLedger).queryByText('CO-45')).not.toBeInTheDocument();
-    expect(cellTexts(within(codedLedger).getByText('Employers Mutual').closest('tr'))[4]).toBe('$60.00');
+    expect(cellTexts(within(codedLedger).getByText('Employers Mutual').closest('tr'))[5]).toBe('$60.00');
 
     const claimLevelRow = screen
       .getByRole('button', { name: 'Toggle remit details for claim-level adjustments' })
       .closest('tr') as HTMLElement;
     expect(cellTexts(claimLevelRow)).toEqual(['', '', 'ERA', '-', 'Claim-level', '-', '-', '-', '-', '-']);
     const claimLevelLedger = screen.getByRole('table', { name: 'Remit details for claim-level adjustments' });
-    expect(cellTexts(within(claimLevelLedger).getByText('OA-23').closest('tr'))[4]).toBe('$2.00');
+    expect(cellTexts(within(claimLevelLedger).getByText('OA-23').closest('tr'))[5]).toBe('$2.00');
 
     // the claim-level adjustments come after the lines the payer adjudicated
     expect(codedRow?.compareDocumentPosition(claimLevelRow) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('highlights a remit line with its remit and check on hover, and opens its card from anywhere on the line', async () => {
+  it('highlights a remit line with its remit and check on hover, and opens its card from the info icon', async () => {
     const user = userEvent.setup();
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();
@@ -774,46 +795,74 @@ describe('ClaimDetail — service line remit details', () => {
     const checkRow = within(payments).getByRole('link', { name: 'CHK00012347' }).closest('tr');
     const otherCheckRow = within(payments).getByRole('link', { name: 'CHK00012345' }).closest('tr');
 
-    // anywhere on the remit's rows lights up its remit and check and opens the card
+    // hovering lights up its remit and check, but opens no card
     await user.hover(within(line1).getByText('$40.21'));
     expect(remitRow).toHaveClass('Mui-selected');
     expect(checkRow).toHaveClass('Mui-selected');
     expect(otherCheckRow).not.toHaveClass('Mui-selected');
+    expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument();
 
     // the card spells out every adjustment, the columned defaults included
-    const card = await screen.findByRole('tooltip');
+    await user.click(within(line1).getByRole('button', { name: 'Show remit details' }));
+    const card = await screen.findByRole('dialog', { name: 'Remit line details' });
     expect(within(card).getByText('Employers Mutual')).toBeInTheDocument();
     expect(within(card).getByText('Primary')).toBeInTheDocument();
     expect(within(card).getByText("Paid less: billed amount is above the payer's allowed rate")).toBeInTheDocument();
     expect(within(card).getByText("Patient's copay for the visit")).toBeInTheDocument();
     expect(within(card).getByText('$40.21')).toBeInTheDocument();
     expect(within(card).getByText('CHK00012347')).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Copy check number' })).toBeInTheDocument();
     expect(within(card).getByText('08/22/2026')).toBeInTheDocument();
     expect(within(card).getByText('Adjudicated as A7020')).toBeInTheDocument();
+
+    // it stays open after the mouse leaves, and clicks inside it keep it open
+    await user.unhover(within(line1).getByText('$40.21'));
+    await user.click(within(card).getByText('Adjudicated as A7020'));
+    expect(screen.getByRole('dialog', { name: 'Remit line details' })).toBeInTheDocument();
     expect(remitRow).toHaveClass('Mui-selected');
-    expect(checkRow).toHaveClass('Mui-selected');
-    expect(otherCheckRow).not.toHaveClass('Mui-selected');
 
-    // moving onto another line keeps a single card and the highlight up
+    // opening another line's card replaces it
     const line2 = screen.getByRole('table', { name: 'Remit details for line 2' });
-    const line2Label = within(line2).getByText('Employers Mutual');
-    await user.hover(line2Label);
-    // the previous line's card finishes closing while this one opens
-    await waitFor(() => {
-      expect(screen.getAllByRole('tooltip')).toHaveLength(1);
-      expect(remitRow).toHaveClass('Mui-selected');
-    });
+    await user.click(within(line2).getByRole('button', { name: 'Show remit details' }));
+    await waitFor(() => expect(screen.getAllByRole('dialog', { name: 'Remit line details' })).toHaveLength(1));
     expect(
-      within(screen.getByRole('tooltip')).getByText("Counted toward the patient's deductible")
+      within(screen.getByRole('dialog', { name: 'Remit line details' })).getByText(
+        "Counted toward the patient's deductible"
+      )
     ).toBeInTheDocument();
-    expect(checkRow).toHaveClass('Mui-selected');
 
-    // leaving the remit's rows clears both
-    await user.unhover(line2Label);
+    // the close button closes it
+    await user.click(screen.getByRole('button', { name: 'Close remit details' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument());
 
-    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    // so does a click outside it, which also clears the highlight
+    await user.click(within(line1).getByRole('button', { name: 'Show remit details' }));
+    await screen.findByRole('dialog', { name: 'Remit line details' });
+    await user.click(document.body);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument());
     expect(remitRow).not.toHaveClass('Mui-selected');
     expect(checkRow).not.toHaveClass('Mui-selected');
+  });
+
+  it('opens a remit card from the keyboard, focuses into it, and returns focus on Escape', async () => {
+    const user = userEvent.setup();
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
+    renderDetail();
+    await openRemitsTab();
+
+    const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
+    const trigger = within(line1).getByRole('button', { name: 'Show remit details' });
+    act(() => trigger.focus());
+    await user.keyboard('{Enter}');
+
+    const card = await screen.findByRole('dialog', { name: 'Remit line details' });
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Close remit details' })).toHaveFocus());
+    await user.tab();
+    expect(within(card).getByRole('button', { name: 'Copy check number' })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
   });
 
   it('highlights a remit line with its remit and check while it has focus', async () => {
@@ -891,40 +940,40 @@ describe('ClaimDetail — run rules engine button', () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
     renderDetail();
 
-    expect(await screen.findByRole('button', { name: 'Submit claim' })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Submit Claim' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Prepare for Invoice' })).not.toBeInTheDocument();
   });
 
   it('shows Prepare for invoice for a claim in Non-insurance Payer AR', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
     renderDetail();
 
-    expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Prepare for Invoice' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Submit Claim' })).not.toBeInTheDocument();
   });
 
   it('shows Prepare for invoice for a self-pay claim in Patient AR', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient)); // coverageFhirId '' -> self-pay
     renderDetail();
 
-    expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Prepare for Invoice' })).toBeEnabled();
   });
 
   it('shows Prepare for invoice for a Patient AR claim with insurance coverage', async () => {
     getBillingClaimDetailMock.mockResolvedValue({ ...makeClaim(AR_STAGE.patient), coverageFhirId: 'coverage-1' });
     renderDetail();
 
-    const prepareButton = await screen.findByRole('button', { name: 'Prepare for invoice' });
+    const prepareButton = await screen.findByRole('button', { name: 'Prepare for Invoice' });
     expect(prepareButton).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit Claim' })).not.toBeInTheDocument();
   });
 
   it('hides the run button when the claim has no AR stage', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(''));
     renderDetail();
     await screen.findByText('No AR Stage');
-    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Prepare for Invoice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit Claim' })).not.toBeInTheDocument();
   });
 
   it('runs the claim submission rules through the confirm dialog', async () => {
@@ -934,14 +983,17 @@ describe('ClaimDetail — run rules engine button', () => {
     });
     renderDetail();
 
-    const submitButton = await screen.findByRole('button', { name: 'Submit claim' });
+    const submitButton = await screen.findByRole('button', { name: 'Submit Claim' });
     fireEvent.click(submitButton);
 
     const confirmButton = await screen.findByRole('button', { name: 'Run rules' });
     fireEvent.click(confirmButton);
 
     await waitFor(() =>
-      expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'], skipRules: false })
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+        {},
+        { claimIds: ['claim-1'], submissionType: 'new', submissionInsurance: 'primary', skipRules: false }
+      )
     );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Claim Submission Rules started — when every rule passes, the claim is submitted to the payer; a Hold keeps the claim for review. Refresh to see the result.',
@@ -956,7 +1008,7 @@ describe('ClaimDetail — run rules engine button', () => {
     });
     renderDetail();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Prepare for invoice' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Prepare for Invoice' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
     await waitFor(() =>
@@ -999,7 +1051,7 @@ describe('ClaimDetail — patient payments', () => {
     });
     renderDetail();
 
-    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    const paymentsTab = await screen.findByRole('tab', { name: 'Patient Payments & Write-offs' });
     fireEvent.click(paymentsTab);
 
     const paymentRow = (await screen.findByText('check collected at front desk')).closest('tr');
@@ -1020,7 +1072,7 @@ describe('ClaimDetail — patient payments', () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
     renderDetail();
 
-    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    const paymentsTab = await screen.findByRole('tab', { name: 'Patient Payments & Write-offs' });
     fireEvent.click(paymentsTab);
 
     expect(await screen.findByText('No patient payments yet')).toBeInTheDocument();
@@ -1154,7 +1206,7 @@ describe('ClaimDetail: notes drawer', () => {
     fireEvent.change(draft, { target: { value: 'draft for the first claim' } });
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
-    await user.click(screen.getByRole('tab', { name: 'Other claims' }));
+    await user.click(screen.getByRole('tab', { name: 'Other Claims' }));
     await user.click(await screen.findByText('claim-2'));
 
     await user.click(await screen.findByRole('button', { name: 'Notes' }));

@@ -41,6 +41,8 @@ import RuleDetail from './pages/RuleDetail';
 import Rules from './pages/Rules';
 import { ServiceFacilitiesList, ServiceFacilityDetail } from './pages/ServiceFacilities';
 import Tags from './pages/Tags';
+import WorkQueueDetail from './pages/WorkQueueDetail';
+import WorkQueues from './pages/WorkQueues';
 import { theme } from './themes/ottehr';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -85,6 +87,8 @@ export default function App(): ReactElement {
               <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
               <Route path="/claim-creation-queue" element={<ClaimCreationQueue />} />
+              <Route path="/work-queues" element={<WorkQueues />} />
+              <Route path="/work-queues/:id" element={<WorkQueueDetail />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
               <Route path="/patients" element={<PatientsList />} />

@@ -14,8 +14,8 @@ import { performEffectWithEnvFile } from './helpers';
  * workspace, so the billing app keeps each practice's templates instead of starting from the defaults.
  * The EHR copy is not changed because EHR invoicing keeps using it until it is removed.
  *
- * A billing config that was already saved from the billing app is never overwritten, so run this
- * before anyone edits the billing Invoicing Configuration page.
+ * If the billing config was already saved from the billing app, the preview says so and applying
+ * replaces it with the EHR values.
  *
  * Preview by default. Pass `--apply` to copy:
  *   npm run migrate-invoice-config-to-billing -- <env>            # preview only
@@ -62,8 +62,7 @@ async function migrate(config: Secrets & { env: string }): Promise<void> {
     console.log(`\nBilling config (QuestionnaireResponse/${billingConfig.id})\n${describeConfig(billingConfig)}`);
     // Only a save sets authored, so a billing config without it still holds the defaults.
     if (billingConfig.authored) {
-      console.log(`\nIt was saved from the billing app on ${billingConfig.authored}, so it is left as is.`);
-      return;
+      console.log(`\nIt was saved from the billing app on ${billingConfig.authored}. Applying replaces it.`);
     }
   }
 

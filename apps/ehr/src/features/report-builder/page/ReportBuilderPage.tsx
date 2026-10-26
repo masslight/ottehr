@@ -295,7 +295,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                 />
               </Collapse>
 
-              <Collapse in={rb.showSchema}>
+              <Collapse in={rb.showSchema} unmountOnExit>
                 <Paper variant="outlined" sx={{ mb: 3, overflow: 'auto' }}>
                   <Table size="small">
                     <TableHead>
@@ -323,7 +323,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                       ))}
                     </TableBody>
                   </Table>
-                  <DatasetLayersInfo datasetId={rb.schema.datasetId} datasetOptions={rb.datasetOptions} />
+                  <DatasetLayersInfo schema={rb.schema} />
                 </Paper>
               </Collapse>
 
@@ -343,7 +343,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                     )}
                   </Box>
 
-                  <Collapse in={rb.showCode}>
+                  <Collapse in={rb.showCode} unmountOnExit>
                     <Paper
                       variant="outlined"
                       sx={{ mb: 2, p: 2, maxHeight: 400, overflow: 'auto', bgcolor: 'grey.50' }}

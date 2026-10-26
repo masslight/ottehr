@@ -6,6 +6,12 @@ import { MedicationWithTypeDTO } from 'src/features/visits/in-person/hooks/useMe
 import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
+const formatLastFilledDate = (value: string): string => {
+  // eRx medication history returns date-only values (e.g. 2025-10-12); manual entry stores a full datetime
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return DateTime.fromISO(value).toFormat(isDateOnly ? 'MM/dd/yyyy' : 'MM/dd/yyyy hh:mm a');
+};
+
 interface MedicationHistoryEntityProps {
   item: MedicationDTO | MedicationWithTypeDTO;
 }
@@ -13,6 +19,11 @@ interface MedicationHistoryEntityProps {
 export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = ({ item }) => {
   const practitioner = 'resourceType' in (item.practitioner || {}) ? (item.practitioner as Practitioner) : undefined;
   const date = item.intakeInfo.date ? DateTime.fromISO(item.intakeInfo.date).toFormat('MM/dd/yyyy hh:mm a') : undefined;
+
+  const lastFilledDate = item.intakeInfo.lastFilledDate
+    ? formatLastFilledDate(item.intakeInfo.lastFilledDate)
+    : undefined;
+  const refills = item.intakeInfo.refills;
 
   const isMedicationWithType = 'chartDataField' in item;
 
@@ -73,6 +84,24 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
           data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableWhoAdded}
         >
           {practitioner ? getProviderNameWithProfession(practitioner) : ''}
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography
+          variant="body2"
+          sx={{ color: 'text.secondary' }}
+          data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableLastFilled}
+        >
+          {lastFilledDate || 'No date available'}
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography
+          variant="body2"
+          sx={{ color: 'text.secondary' }}
+          data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableRefills}
+        >
+          {refills ?? 'Unknown'}
         </Typography>
       </TableCell>
       <TableCell>

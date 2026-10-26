@@ -1,8 +1,10 @@
+import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PAPERWORK_FLOW_BASE_VERSION } from '../../paperwork-flow/shared';
 import {
   bumpFlowFormVersionRequests,
+  ensureUniqueQuestionnaire,
   FhirQuestionnaireSubset,
   isLatestVersion,
   patchQuestionnaireVersion,
@@ -257,5 +259,61 @@ describe('bumpFlowFormVersionRequests', () => {
     expect(createPost.resource.meta).toEqual({
       tag: [{ system: 'https://ottehr.com/paperwork-flow', code: 'paperwork-flow' }],
     });
+  });
+});
+
+describe('ensureUniqueQuestionnaire', () => {
+  const url = 'https://ottehr.com/FHIR/Questionnaire/new-form';
+
+  const newQuestionnaire = (overrides: Partial<Questionnaire> = {}): Questionnaire => ({
+    resourceType: 'Questionnaire',
+    status: 'active',
+    url,
+    name: 'new-form',
+    title: 'New Form',
+    version: '1.0.0',
+    ...overrides,
+  });
+
+  const mockOystehr = (existing: Questionnaire[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+    const search = vi.fn().mockResolvedValue({ unbundle: () => existing });
+    return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+  };
+
+  it('returns the questionnaire unchanged when no questionnaire with the url exists', async () => {
+    const input = newQuestionnaire();
+    const { oystehr } = mockOystehr([]);
+
+    const result = await ensureUniqueQuestionnaire(input, oystehr);
+
+    expect(result).toBe(input);
+  });
+
+  it('appends a random hex suffix to the url when a questionnaire with the url exists', async () => {
+    const input = newQuestionnaire();
+    const { oystehr } = mockOystehr([newQuestionnaire({ id: 'existing-1' })]);
+
+    const result = await ensureUniqueQuestionnaire(input, oystehr);
+
+    expect(result.url).toMatch(new RegExp(`^${url}-[0-9a-f]{6}$`));
+    expect({ ...result, url }).toEqual(input);
+  });
+
+  it('treats a url match on a different version as a collision', async () => {
+    const input = newQuestionnaire({ version: '1.0.0' });
+    const { oystehr } = mockOystehr([newQuestionnaire({ id: 'existing-1', version: '2.0.0' })]);
+
+    const result = await ensureUniqueQuestionnaire(input, oystehr);
+
+    expect(result.url).not.toBe(url);
+  });
+
+  it('throws without searching when the questionnaire has no url', async () => {
+    const { oystehr, search } = mockOystehr([]);
+
+    await expect(ensureUniqueQuestionnaire(newQuestionnaire({ url: undefined }), oystehr)).rejects.toThrow(
+      'ensureUniqueQuestionnaire requires a questionnaire with a url'
+    );
+    expect(search).not.toHaveBeenCalled();
   });
 });
