@@ -126,6 +126,7 @@ import {
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { baseScreeningQuestionsConfig } from 'utils/lib/types/data/screening-questions/config';
 import { applyOverridesToDailySchedule, DOW, getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
@@ -255,7 +256,7 @@ const VITAL_ALERT_FIELDS: Record<string, string> = {
 // "Ask the patient" screening answers are chart-data Observations (makeObservationResource): code.text
 // is the config field's fhirField; radio/select/text answers are valueString (the option's fhirValue
 // or free text), yes/no answers valueBoolean, date answers valueDateTime, date ranges effectivePeriod.
-const SCREENING_FIELD_BY_CODE = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
+const SCREENING_FIELD_BY_CODE = new Map(baseScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
 
 const screeningAnswer = (o: Observation): { question: string; answer: string } | undefined => {
   const field = o.code?.text ? SCREENING_FIELD_BY_CODE.get(o.code.text) : undefined;
