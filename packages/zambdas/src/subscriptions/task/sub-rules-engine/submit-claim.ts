@@ -41,8 +41,6 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
     claimResponse = await oystehr.rcm.submitClaim({
       claimId,
       action: submissionType,
-      // CWO TODO: update sdk
-      // @ts-expect-error this isn't implemented yet
       insurance: submissionInsurance,
       payerClaimControlNumber: payerClaimControlNumber ?? undefined,
     });
