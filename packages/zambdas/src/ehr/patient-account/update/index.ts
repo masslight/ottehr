@@ -7,7 +7,7 @@ import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { AUDIT_EVENT_OUTCOME_CODE, PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { checkBundleOutcomeOk, getVersionedReferencesFromBundleResources } from 'utils/lib/fhir/helpers';
-import { getInsurancePriorityChanges } from 'utils/lib/fhir/insurance';
+import { getCoverageSlotChanges } from 'utils/lib/fhir/insurance';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import {
   isInsuranceCardId,
@@ -15,7 +15,7 @@ import {
   swapPrimarySecondaryInsuranceCardId,
 } from 'utils/lib/helpers/paperwork/files-docs';
 import {
-  hasInsurancePriorityChange,
+  getRequestedInsurancePriorityChanges,
   mapQuestionnaireAndValueSetsToItemsList,
 } from 'utils/lib/helpers/paperwork/paperwork';
 import { makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
@@ -45,6 +45,7 @@ import {
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
   mergeEncounterAccounts,
+  organizeAccounts,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../shared/harvest';
@@ -122,10 +123,6 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     console.log('no pharmacy patch operations to perform--skipping');
   }
 
-  const coveragesBeforeSave = hasInsurancePriorityChange(items)
-    ? (await getAccountAndCoverageResourcesForPatient(patientId, oystehr)).coverages
-    : undefined;
-
   let resultBundle: Bundle;
   try {
     resultBundle = await updatePatientAccountFromQuestionnaire(
@@ -150,29 +147,26 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     throw e;
   }
 
+  const requestedPriorityChanges = getRequestedInsurancePriorityChanges(items);
+
+  if (requestedPriorityChanges.primaryBecameSecondary || requestedPriorityChanges.secondaryBecamePrimary) {
+    try {
+      await moveInsuranceCardImagesForSavedAccount(oystehr, patientId, requestedPriorityChanges, resultBundle);
+    } catch (e) {
+      console.error('error moving insurance card images', e);
+      await sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    }
+  }
+
   let updatedAccount: Account | undefined;
   let workersCompAccount: Account | undefined;
 
   try {
     const {
       account,
-      coverages: savedCoverages,
       guarantorResource,
       workersCompAccount: latestWorkersCompAccount,
     } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
-
-    if (coveragesBeforeSave) {
-      try {
-        await moveInsuranceCardImages(
-          patientId,
-          oystehr,
-          getInsurancePriorityChanges(coveragesBeforeSave, savedCoverages)
-        );
-      } catch (e) {
-        console.error('error moving insurance card images', e);
-        await sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-      }
-    }
 
     updatedAccount = account;
     workersCompAccount = latestWorkersCompAccount;
@@ -235,6 +229,42 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   }
 };
 
+const moveInsuranceCardImagesForSavedAccount = async (
+  oystehr: Oystehr,
+  patientId: string,
+  requestedPriorityChanges: InsurancePriorityChanges,
+  resultBundle: Bundle
+): Promise<void> => {
+  const savedAccounts = (resultBundle.entry ?? []).flatMap((entry) =>
+    entry.resource?.resourceType === 'Account' ? [entry.resource as Account] : []
+  );
+
+  const { existingAccount: savedAccount } = organizeAccounts(savedAccounts);
+
+  if (!savedAccount?.id) {
+    return;
+  }
+
+  const history = await oystehr.fhir.history<Account>({ resourceType: 'Account', id: savedAccount.id });
+  const versions = (history.entry ?? [])
+    .flatMap((entry) => (entry.resource ? [entry.resource] : []))
+    .sort((a, b) => (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? ''));
+
+  const savedVersionIndex = versions.findIndex((version) => version.meta?.versionId === savedAccount.meta?.versionId);
+  const previousAccount = savedVersionIndex === -1 ? undefined : versions[savedVersionIndex + 1];
+
+  if (!previousAccount) {
+    return;
+  }
+
+  const { primaryCoverageChanged, secondaryCoverageChanged } = getCoverageSlotChanges(previousAccount, savedAccount);
+
+  await moveInsuranceCardImages(patientId, oystehr, {
+    primaryBecameSecondary: requestedPriorityChanges.primaryBecameSecondary && primaryCoverageChanged,
+    secondaryBecamePrimary: requestedPriorityChanges.secondaryBecamePrimary && secondaryCoverageChanged,
+  });
+};
+
 // Insurance card images are tied to primary/secondary by attachment title, so when an insurance changes its priority, its card titles are changed too.
 const moveInsuranceCardImages = async (
   patientId: string,
@@ -267,9 +297,19 @@ const moveInsuranceCardImages = async (
       continue;
     }
 
-    const shouldMove = isPrimaryInsuranceCardId(title) ? primaryBecameSecondary : secondaryBecamePrimary;
+    const isMovingOut = isPrimaryInsuranceCardId(title) ? primaryBecameSecondary : secondaryBecamePrimary;
+    const isMovingIn = isPrimaryInsuranceCardId(title) ? secondaryBecamePrimary : primaryBecameSecondary;
 
-    if (!shouldMove) {
+    // Stale image of a removed coverage in the slot a coverage moves into: supersede it so it isn't shown with that coverage.
+    if (!isMovingOut) {
+      if (isMovingIn) {
+        requests.push({
+          method: 'PATCH',
+          url: `DocumentReference/${docRef.id}`,
+          operations: [{ op: 'replace', path: '/status', value: 'superseded' }],
+        });
+      }
+
       continue;
     }
 

@@ -1,8 +1,8 @@
-import { Coverage, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Account, QuestionnaireResponseItem } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { getInsurancePriorityChanges } from '../../fhir/insurance';
+import { getCoverageSlotChanges } from '../../fhir/insurance';
 import { isInsuranceCardId, isPrimaryInsuranceCardId, swapPrimarySecondaryInsuranceCardId } from './files-docs';
-import { hasInsurancePriorityChange } from './paperwork';
+import { getRequestedInsurancePriorityChanges, hasInsurancePriorityChange } from './paperwork';
 
 const insuranceSection = (blocks: Record<string, string>): QuestionnaireResponseItem[] => [
   {
@@ -11,7 +11,14 @@ const insuranceSection = (blocks: Record<string, string>): QuestionnaireResponse
   },
 ];
 
-const coverage = (id: string): Coverage => ({ id }) as Coverage;
+const account = (primary?: string, secondary?: string): Account => ({
+  resourceType: 'Account',
+  status: 'active',
+  coverage: [
+    ...(primary ? [{ coverage: { reference: `Coverage/${primary}` }, priority: 1 }] : []),
+    ...(secondary ? [{ coverage: { reference: `Coverage/${secondary}` }, priority: 2 }] : []),
+  ],
+});
 
 describe('hasInsurancePriorityChange', () => {
   it('is false when priorities are unchanged', () => {
@@ -39,28 +46,42 @@ describe('hasInsurancePriorityChange', () => {
   });
 });
 
-describe('getInsurancePriorityChanges', () => {
-  const a = coverage('a');
-  const b = coverage('b');
+describe('getRequestedInsurancePriorityChanges', () => {
+  it('reads the requested direction per insurance block', () => {
+    expect(getRequestedInsurancePriorityChanges(insuranceSection({ 'insurance-priority': 'Secondary' }))).toEqual({
+      primaryBecameSecondary: true,
+      secondaryBecamePrimary: false,
+    });
+  });
+});
+
+describe('getCoverageSlotChanges', () => {
+  const bothChanged = { primaryCoverageChanged: true, secondaryCoverageChanged: true };
+  const nothingChanged = { primaryCoverageChanged: false, secondaryCoverageChanged: false };
 
   it('detects a swap', () => {
-    expect(getInsurancePriorityChanges({ primary: a, secondary: b }, { primary: b, secondary: a })).toEqual({
-      primaryBecameSecondary: true,
-      secondaryBecamePrimary: true,
-    });
+    expect(getCoverageSlotChanges(account('a', 'b'), account('b', 'a'))).toEqual(bothChanged);
   });
 
   it('detects primary moved to secondary', () => {
-    expect(getInsurancePriorityChanges({ primary: a }, { secondary: a })).toEqual({
-      primaryBecameSecondary: true,
-      secondaryBecamePrimary: false,
+    expect(getCoverageSlotChanges(account('a'), account(undefined, 'a'))).toEqual({
+      primaryCoverageChanged: true,
+      secondaryCoverageChanged: false,
     });
   });
 
-  it('detects nothing when coverages were already moved (re-submitted form)', () => {
-    expect(getInsurancePriorityChanges({ primary: b, secondary: a }, { primary: b, secondary: a })).toEqual({
-      primaryBecameSecondary: false,
-      secondaryBecamePrimary: false,
+  it('detects a replaced coverage (corrected member ID)', () => {
+    expect(getCoverageSlotChanges(account('a', 'b'), account('b', 'a2'))).toEqual(bothChanged);
+  });
+
+  it('detects nothing when the coverages were already moved (re-submitted form)', () => {
+    expect(getCoverageSlotChanges(account('b', 'a'), account('b', 'a'))).toEqual(nothingChanged);
+  });
+
+  it('ignores a slot that was empty before', () => {
+    expect(getCoverageSlotChanges(account(undefined, 'a'), account('a'))).toEqual({
+      primaryCoverageChanged: false,
+      secondaryCoverageChanged: true,
     });
   });
 });
