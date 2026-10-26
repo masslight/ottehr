@@ -29,7 +29,11 @@ vi.mock('../../src/features/fax/hooks/useFaxSender', () => ({
 
 import { useSendFax } from '../../src/features/fax/hooks/useSendFax';
 
-const SOURCE: FaxPacketSource = { type: 'medical-record', patientId: 'patient-1' };
+const SOURCE: FaxPacketSource = {
+  type: 'medical-record',
+  patientId: 'patient-1',
+  dateRange: { from: '2026-01-01T00:00:00.000Z', to: '2026-10-14T23:59:59.999Z' },
+};
 
 const VALUES: FaxFormValues = {
   recipients: [

@@ -27,6 +27,7 @@ import {
   BillingPolicyHolderSummary,
   ClaimAttachment,
   ClaimDetailResponse,
+  ClaimWriteOff,
 } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -78,6 +79,7 @@ import {
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
+import { fetchWriteOffs, sumWriteOffs, writeOffFromPaymentNotice } from '../write-offs';
 
 type GetClaimDetailParams = ValidatedZambdaInput<typeof GetClaimDetailInputSchema>;
 
@@ -125,16 +127,23 @@ export async function performEffect(
 
   // Other claims via Person lookup, this claim's ERA adjudications and first submission, its patient
   // payments, and its non-insurance payer (when stamped)
-  const [otherClaims, claimResponsesByClaimId, firstSubmittedDate, paymentsByEncounter, nonInsurancePayer] =
-    await Promise.all([
-      fetchOtherClaims(oystehr, patient?.id, claimId),
-      fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
-      fetchClaimFirstSubmittedDate(eraReadClient, claimId),
-      encounterId
-        ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
-        : Promise.resolve(new Map<string, PaymentNotice[]>()),
-      resolveNonInsurancePayerDetail(oystehr, claim),
-    ]);
+  const [
+    otherClaims,
+    claimResponsesByClaimId,
+    firstSubmittedDate,
+    paymentsByEncounter,
+    nonInsurancePayer,
+    writeOffResources,
+  ] = await Promise.all([
+    fetchOtherClaims(oystehr, patient?.id, claimId),
+    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
+    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
+    encounterId
+      ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
+      : Promise.resolve(new Map<string, PaymentNotice[]>()),
+    resolveNonInsurancePayerDetail(oystehr, claim),
+    fetchWriteOffs(oystehr, claimId),
+  ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
     eraReadClient,
@@ -149,6 +158,9 @@ export async function performEffect(
   const patientPayments = patientPaymentNotices
     .map(toClaimPatientPayment)
     .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+
+  const writeOffsTotal = sumWriteOffs(writeOffResources);
+  const writeOffs: ClaimWriteOff[] = writeOffResources.map<ClaimWriteOff>(writeOffFromPaymentNotice);
 
   // Resolve primary, secondary, remit, and insurance payment payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [
@@ -204,11 +216,15 @@ export async function performEffect(
   )?.value;
 
   const billed = claim.total?.value ?? 0;
-  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid);
+  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
-    const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
     const era = paymentReconciliationById.get(paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') ?? '');
+    // the ERA's paymentIssuer outranks ClaimResponse.insurer, which a manual match may have corrupted
+    const issuerRef = era?.paymentIssuer?.reference;
+    const payer =
+      (issuerRef ? payersByRef.get(issuerRef) : undefined) ??
+      (cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined);
     return {
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
@@ -368,12 +384,14 @@ export async function performEffect(
     insurancePaid: payments.insurancePaid,
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
+    writeOffsTotal: payments.writeOffsTotal,
     balance: payments.balance,
     adjudicated: payments.adjudicated,
     firstSubmittedDate,
     remits,
     insurancePayments,
     patientPayments,
+    writeOffs,
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

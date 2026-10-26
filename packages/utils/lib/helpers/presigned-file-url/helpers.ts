@@ -6,7 +6,8 @@ import { MIME_TYPES } from '../../utils/file';
 export async function getPresignedURL(
   url: string,
   oystehrToken: string,
-  action: Z3GetPresignedUrlParams['action'] = 'download'
+  action: Z3GetPresignedUrlParams['action'] = 'download',
+  signal?: AbortSignal
 ): Promise<string> {
   console.log('getting presigned url');
 
@@ -16,6 +17,7 @@ export async function getPresignedURL(
       Authorization: `Bearer ${oystehrToken}`,
     },
     body: JSON.stringify({ action: action }),
+    signal,
   });
 
   if (!presignedURLResponse.ok) {

@@ -56,6 +56,7 @@ export interface ParsedExternalLabPlan {
   dx: DiagnosisDTO[];
   note: string | undefined;
   psc: boolean;
+  isStat: boolean;
 }
 
 export const labelForExternalLabPlan = (plan: ServiceRequest): string => {
@@ -84,6 +85,7 @@ export const parseExternalLabPlan = (plan: ServiceRequest): ParsedExternalLabPla
     dx: diagnosesFromReasonCode(plan),
     note: noteFromPlan(plan),
     psc: isPSCOrder(plan),
+    isStat: plan.priority === 'stat',
   };
 };
 
@@ -272,6 +274,7 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
           encounter,
           orderableItems: [orderableItem],
           psc: parsed.psc,
+          isStat: parsed.isStat,
           orderingLocation: modifiedOrderingLocation,
           selectedPaymentMethod,
           clinicalInfoNoteByUser: parsed.note,

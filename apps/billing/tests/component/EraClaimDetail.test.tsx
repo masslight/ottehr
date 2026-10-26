@@ -219,6 +219,7 @@ const reversedClaim: EraClaimListItem = {
 
 const makeEra = (): EraDetailResponse => ({
   id: 'era-1',
+  status: 'active',
   source: 'clearing-house',
   versionId: '1',
   attachments: [],
@@ -271,6 +272,15 @@ describe('EraClaimDetail', () => {
     expect(screen.getByText(`06/07/2008 (${getAgeInYears('2008-06-07')}y)`)).toBeInTheDocument();
     expect(screen.getByText('999000111')).toBeInTheDocument();
     expect(screen.getByText('ACCT-000123456')).toBeInTheDocument();
+  });
+
+  it('marks a voided ERA while retaining its original reimbursement details', async () => {
+    getBillingEraDetailMock.mockResolvedValue({ ...makeEra(), status: 'voided' });
+    renderPage();
+    expect(await screen.findByRole('alert')).toHaveTextContent('This ERA is voided');
+    expect(screen.getByText('$135.43')).toBeInTheDocument();
+    expect(await screen.findByText('I&D of Abscess (10060)')).toBeInTheDocument();
+    expect(screen.getAllByText(CO_45_DESCRIPTION)).toHaveLength(3);
   });
 
   it('shows the money summary including the derived contractual write-off', async () => {

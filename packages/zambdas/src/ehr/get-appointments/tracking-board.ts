@@ -258,14 +258,8 @@ export const fetchTrackingBoardResources = async ({
   let maxEntriesPerBatch = MAX_ENTRIES_PER_BATCH;
   for (let attempt = 0; ; attempt++) {
     const urls = buildTrackingBoardSearchUrls(encounterIds, chunkSizes);
-    const startedAt = Date.now();
     try {
       const fetched = await executeBatchSearches(oystehr, urls, { fhirApiUrl, maxEntriesPerBatch });
-      console.log(
-        `tracking board batch: ${urls.length} entries for ${encounterIds.length} encounters in ${
-          Date.now() - startedAt
-        } ms`
-      );
       return await withLabResultTasks(oystehr, fetched);
     } catch (error) {
       const canShrink =

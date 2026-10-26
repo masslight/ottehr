@@ -61,6 +61,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
+const formatLastFilledDate = (value: string, timezone?: string): string => {
+  // eRx medication history returns date-only values (e.g. 2025-10-12); manual entry stores a full datetime
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return DateTime.fromISO(value).toFormat('MM/dd/yyyy');
+  }
+  const date = DateTime.fromISO(value);
+  return (timezone ? date.setZone(timezone) : date).toFormat('MM/dd/yyyy hh:mm a');
+};
+
 const formatData = ({
   patient,
   medicationHistory,
@@ -91,9 +100,12 @@ const formatData = ({
     visit,
     medications: {
       medications: medicationHistory.map((med) => {
+        const lastFilledDate = med.intakeInfo?.lastFilledDate;
         const additionalInfo = [
           med.intakeInfo?.dose,
           med.intakeInfo?.patientCouldNotConfirmDosage ? 'Patient could not confirm dosage' : null,
+          `Last filled: ${lastFilledDate ? formatLastFilledDate(lastFilledDate, timezone) : 'No date available'}`,
+          `Refills: ${med.intakeInfo?.refills ?? 'Unknown'}`,
         ]
           .filter(Boolean)
           .join(' · ');

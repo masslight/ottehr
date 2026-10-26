@@ -3,6 +3,7 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   GetPatientMedicalRecordOutput,
+  MEDICAL_RECORD_EXPORT_DATE_RANGE_CODE,
   MEDICAL_RECORD_EXPORT_DEADLINE_CODE,
   MEDICAL_RECORD_EXPORT_FAILURE_CODE,
   MEDICAL_RECORD_EXPORT_FILE_NAME_CODE,
@@ -10,6 +11,8 @@ import {
   MEDICAL_RECORD_EXPORT_PROGRESS_CODE,
   MEDICAL_RECORD_EXPORT_TASK_CODE,
   MEDICAL_RECORD_EXPORT_TASK_SYSTEM,
+  MedicalRecordDateRange,
+  MedicalRecordDateRangeSchema,
   MedicalRecordExportProgress,
   MedicalRecordExportProgressSchema,
   MedicalRecordExportStatus,
@@ -53,6 +56,16 @@ export const readExportProgress = (task: Task): MedicalRecordExportProgress | un
     console.warn(`Ignoring unreadable export progress on Task/${task.id}: ${String(error)}`);
     return undefined;
   }
+};
+
+export const readExportDateRange = (task: Task): MedicalRecordDateRange => {
+  const raw = task.input?.find(
+    (input) => input.type?.coding?.some((coding) => coding.code === MEDICAL_RECORD_EXPORT_DATE_RANGE_CODE)
+  )?.valueString;
+
+  if (!raw) throw new Error('Missing medical record export date range');
+
+  return MedicalRecordDateRangeSchema.parse(JSON.parse(raw));
 };
 
 export const patientIdFromTask = (task: Task): string => {
@@ -151,7 +164,11 @@ export const buildExportStatusResponse = async (
   return { ...base, downloadUrl: await presign(objectUrl) };
 };
 
-export const createExportTask = async (oystehr: Oystehr, patientId: string): Promise<Task> =>
+export const createExportTask = async (
+  oystehr: Oystehr,
+  patientId: string,
+  dateRange: MedicalRecordDateRange
+): Promise<Task> =>
   oystehr.fhir.create<Task>({
     resourceType: 'Task',
     status: 'requested',
@@ -161,6 +178,14 @@ export const createExportTask = async (oystehr: Oystehr, patientId: string): Pro
     },
     for: { reference: `Patient/${patientId}` },
     authoredOn: DateTime.now().toUTC().toISO() ?? undefined,
+    input: [
+      {
+        type: {
+          coding: [{ system: MEDICAL_RECORD_EXPORT_TASK_SYSTEM, code: MEDICAL_RECORD_EXPORT_DATE_RANGE_CODE }],
+        },
+        valueString: JSON.stringify(dateRange),
+      },
+    ],
   });
 
 export interface ExportTaskSearchResult {

@@ -431,6 +431,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 0,
       patientResp: 0,
       patientPaid: 0,
+      writeOffsTotal: 0,
       balance: 150,
       adjudicated: false,
     });
@@ -442,6 +443,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 60,
       patientResp: 20,
       patientPaid: 0,
+      writeOffsTotal: 0,
       balance: 20,
       adjudicated: true,
     });
@@ -458,7 +460,25 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 75,
       patientResp: 5,
       patientPaid: 0,
+      writeOffsTotal: 0,
       balance: 5,
+      adjudicated: true,
+    });
+  });
+
+  it('sums all payments and write-offs', () => {
+    const primary = claimMdClaimResponse('2026-01-01');
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 15,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 15), casAdjustment('PR', 5)]],
+    });
+    expect(summarizeClaimPayments([primary, secondary], 100, 0, 5)).toEqual({
+      allowed: 80,
+      insurancePaid: 75,
+      patientResp: 5,
+      patientPaid: 0,
+      writeOffsTotal: 5,
+      balance: 0,
       adjudicated: true,
     });
   });
@@ -543,6 +563,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 110,
       patientResp: 60,
       patientPaid: 0,
+      writeOffsTotal: 0,
       balance: 60,
       adjudicated: true,
     });
@@ -570,6 +591,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 0,
       patientResp: 0,
       patientPaid: 40,
+      writeOffsTotal: 0,
       balance: 110,
       adjudicated: false,
     });
@@ -581,6 +603,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 60,
       patientResp: 20,
       patientPaid: 15,
+      writeOffsTotal: 0,
       balance: 5,
       adjudicated: true,
     });
@@ -601,6 +624,7 @@ const summary = (over: Partial<ClaimPaymentSummary>): ClaimPaymentSummary => ({
   insurancePaid: 0,
   patientResp: 0,
   patientPaid: 0,
+  writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
   ...over,
@@ -648,6 +672,22 @@ describe('summarizePatientBalance', () => {
     ]);
     expect(result.currentBalance).toBe(15);
     expect(result.claimsWithPatientBalance).toBe(1);
+  });
+
+  it('counts an adjudicated claim with a write-off', () => {
+    const result = summarizePatientBalance([
+      patientOwed(
+        summary({
+          adjudicated: true,
+          patientResp: 20,
+          patientPaid: 5,
+          writeOffsTotal: 15,
+          balance: 0,
+        })
+      ),
+    ]);
+    expect(result.currentBalance).toBe(0);
+    expect(result.claimsWithPatientBalance).toBe(0);
   });
 
   it('owes the patient a self-pay visit as soon as it is billed, with no remit to wait for', () => {

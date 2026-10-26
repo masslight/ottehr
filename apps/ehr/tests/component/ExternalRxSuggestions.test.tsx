@@ -229,7 +229,27 @@ describe('ExternalRxSuggestions', () => {
       medication: expect.objectContaining({ id: 42, name: 'Omeprazole' }),
       dose: '20 mg',
       directions: 'Take daily',
+      lastFilledDate: '2026-01-15',
+      refills: 0,
     });
+  });
+
+  it('passes the last fill date and refills through, dropping values that are missing or not numeric', () => {
+    const onSelect = vi.fn();
+    const med = { ...makeMatchedMed('Atorvastatin', '40 mg'), lastFillDate: null, refills: 'PRN' };
+
+    vi.mocked(useExternalMedicationHistory).mockReturnValue({
+      isLoading: false,
+      isAvailable: true,
+      externalMedications: [med],
+      error: null,
+      isPermissionDenied: false,
+    });
+
+    render(<ExternalRxSuggestions chartedMedications={[]} onSelectMedication={onSelect} />, { wrapper });
+    fireEvent.click(screen.getByText(/atorvastatin/i));
+
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ lastFilledDate: undefined, refills: undefined }));
   });
 
   it('does not call onSelectMedication for unmatched medications', () => {
