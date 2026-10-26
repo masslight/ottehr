@@ -12,7 +12,7 @@ import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
-import { voidPaymentNotice } from '../../shared/stripeIntegration';
+import { getStripeClient, voidPaymentNotice } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import {
@@ -46,6 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const notice = await resolvePaymentNoticeForWrite({
     clinicalOystehr,
     billingOystehr,
+    getStripe: () => getStripeClient(secrets),
     paymentNoticeId,
     encounterId,
     secrets,

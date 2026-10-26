@@ -23,16 +23,26 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createBillingClient: vi.fn(),
 }));
+const paymentIntentsRetrieve = vi.fn();
 vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   voidPaymentNotice: vi.fn(),
+  getStripeClient: vi.fn(() => ({ paymentIntents: { retrieve: paymentIntentsRetrieve } })),
+}));
+vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_1'),
+}));
+vi.mock('../../../src/billing/payments', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  findBillingClaimForEncounter: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../../src/billing/payments';
 import { createBillingClient } from '../../../src/billing/shared';
 import { index } from '../../../src/billing/void-billing-patient-payment';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
-import { voidPaymentNotice } from '../../../src/shared/stripeIntegration';
+import { STRIPE_PAYMENT_ID_SYSTEM, voidPaymentNotice } from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 const NOTICE_ID = '2e9e1a9e-5a1f-4b6e-9a51-9f6a3f1c2d3e';
@@ -64,21 +74,27 @@ const legacyNotice = (
   }) as PaymentNotice;
 
 const clinicalGet = vi.fn();
+const billingGet = vi.fn();
+const billingSearch = vi.fn();
+const billingCreate = vi.fn();
 const billingPatch = vi.fn();
 
-const invoke = (): Promise<APIGatewayProxyResult> =>
+const invoke = (paymentNoticeId = NOTICE_ID): Promise<APIGatewayProxyResult> =>
   (index as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)({
-    body: JSON.stringify({ encounterId: ENCOUNTER_ID, paymentNoticeId: NOTICE_ID, reason: 'Other' }),
+    body: JSON.stringify({ encounterId: ENCOUNTER_ID, paymentNoticeId, reason: 'Other' }),
     headers: { Authorization: 'Bearer user-token' },
-    secrets: {},
+    secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/billing-org' },
   } as unknown as ZambdaInput);
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { get: clinicalGet } } as unknown as Oystehr);
   vi.mocked(createBillingClient).mockReturnValue({
-    fhir: { get: vi.fn().mockResolvedValue(bridgedCopy), patch: billingPatch },
+    fhir: { get: billingGet, search: billingSearch, create: billingCreate, patch: billingPatch },
   } as unknown as Oystehr);
+  billingGet.mockResolvedValue(bridgedCopy);
+  billingSearch.mockResolvedValue({ unbundle: () => [] });
+  billingCreate.mockImplementation(async (resource: PaymentNotice) => ({ ...resource, id: 'adopted-1' }));
   billingPatch.mockImplementation(async ({ operations }) => ({
     ...bridgedCopy,
     status: operations.find((op: { path: string }) => op.path === '/status')?.value ?? bridgedCopy.status,
@@ -131,5 +147,44 @@ describe('void-billing-patient-payment', () => {
       value: 'cancelled',
     });
     expect(voidPaymentNotice).not.toHaveBeenCalled();
+  });
+
+  it('copies a legacy card payment keyed by its charge id, so the webhook merges into the copy', async () => {
+    billingGet.mockRejectedValue({ code: 404 });
+    clinicalGet.mockResolvedValue({
+      ...legacyNotice([]),
+      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
+      extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
+    });
+    paymentIntentsRetrieve.mockResolvedValue({ id: 'pi_1', latest_charge: 'ch_1' });
+
+    // card payments cannot be voided, but the copy is made before that check
+    await expect(invoke(LEGACY_NOTICE_ID)).rejects.toMatchObject({
+      message: 'Only cash, check, and external card reader payments can be voided.',
+    });
+
+    expect(paymentIntentsRetrieve).toHaveBeenCalledWith('pi_1', undefined, { stripeAccount: 'acct_1' });
+    expect(billingSearch.mock.calls[0][0].params[0].value).toContain(`${STRIPE_PAYMENT_ID_SYSTEM}|ch_1`);
+    const [copy, options] = billingCreate.mock.calls[0];
+    expect(copy.identifier).toEqual([
+      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+      { system: CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, value: LEGACY_NOTICE_ID },
+      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+    ]);
+    expect(options.ifNoneExist[0]).toEqual({ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1` });
+  });
+
+  it('does not touch Stripe when copying a cash payment', async () => {
+    billingGet.mockRejectedValue({ code: 404 });
+    clinicalGet.mockResolvedValue(legacyNotice([]));
+
+    await invoke(LEGACY_NOTICE_ID);
+
+    expect(paymentIntentsRetrieve).not.toHaveBeenCalled();
+    expect(billingCreate.mock.calls[0][1].ifNoneExist[0]).toEqual({
+      name: 'identifier',
+      value: `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${LEGACY_NOTICE_ID}`,
+    });
+    expect(vi.mocked(voidPaymentNotice).mock.calls[0][1].id).toBe('adopted-1');
   });
 });
