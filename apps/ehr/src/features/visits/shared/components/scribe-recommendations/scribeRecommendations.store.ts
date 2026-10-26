@@ -487,6 +487,18 @@ export const startEditingUnlessAnotherIsOpen = (editingKey: string): void => {
   setEditingId(editingKey);
 };
 
+// The open row editor's commit. A Chart click runs before the editor's click-away, so it saves the edit first.
+let openEditorCommit: (() => void) | undefined;
+
+export const registerOpenEditorCommit = (commit: () => void): (() => void) => {
+  openEditorCommit = commit;
+  return () => {
+    if (openEditorCommit === commit) openEditorCommit = undefined;
+  };
+};
+
+export const commitOpenEditor = (): void => openEditorCommit?.();
+
 /** Horizontal space the scribe UI currently occupies on the right edge (rail or open panel). */
 export const useScribePanelOffset = (): number =>
   useScribeRecommendationsStore((state) => (state.isOpen ? state.width : SCRIBE_RAIL_WIDTH));

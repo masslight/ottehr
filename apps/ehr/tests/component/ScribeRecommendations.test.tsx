@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DocumentReference } from 'fhir/r4b';
 import { ReactNode } from 'react';
@@ -1012,6 +1012,43 @@ describe('ScribeRecommendationsDrawer', () => {
     });
     expect(applied.find((rec) => rec.id === ID.weight)).toMatchObject({ weightLbs: 172 });
     expect(applied.find((rec) => rec.id === ID.dxDrip)).toMatchObject({ code: 'J01.00' });
+  });
+
+  // fireEvent: Chart's click handler runs before the editor's click-away, with no blur in between.
+  it('applies an edit still open in its editor when Chart note is clicked', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.dxDrip)));
+    await user.click(screen.getByTestId('pick-diagnosis'));
+    fireEvent.click(screen.getByTestId(testIds.applyObservationsButton));
+    await waitFor(() =>
+      expect(screen.getByTestId(testIds.rowCheckbox(ID.dxDrip))).toHaveClass('MuiCheckbox-colorSuccess')
+    );
+    expect(
+      mocks.applyOne.mock.calls.map(([rec]) => rec as ScribeRecommendation).find((rec) => rec.id === ID.dxDrip)
+    ).toMatchObject({
+      code: 'J01.00',
+    });
+  });
+
+  it('applies a typed value still open in its editor when Chart note is clicked', async () => {
+    const user = userEvent.setup();
+    await openPanelWithRecommendations(user);
+
+    await user.click(screen.getByTestId(testIds.rowEditButton(ID.weight)));
+    const weightInput = screen.getByTestId(testIds.rowEditInput(ID.weight));
+    await user.clear(weightInput);
+    await user.type(weightInput, '172');
+    fireEvent.click(screen.getByTestId(testIds.applyObservationsButton));
+    await waitFor(() =>
+      expect(screen.getByTestId(testIds.rowCheckbox(ID.weight))).toHaveClass('MuiCheckbox-colorSuccess')
+    );
+    expect(
+      mocks.applyOne.mock.calls.map(([rec]) => rec as ScribeRecommendation).find((rec) => rec.id === ID.weight)
+    ).toMatchObject({
+      weightLbs: 172,
+    });
   });
 
   it('lets a failed template be swapped for another and applied again', async () => {
