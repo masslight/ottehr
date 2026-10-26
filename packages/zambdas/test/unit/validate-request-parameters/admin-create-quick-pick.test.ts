@@ -1,12 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
+import { DME_DURATION_UNITS, DME_LATERALITY_OPTIONS, DME_MODIFIER_OPTIONS } from 'utils/lib/types/api/dme.types';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, test } from 'vitest';
 import { CATEGORY_CONFIG_MAP, validateInput } from '../../../src/ehr/admin-create-quick-pick';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
+  DME_QUICK_PICK_CATEGORY,
   PROCEDURE_QUICK_PICK_CATEGORY,
 } from '../../../src/ehr/shared/quick-pick-categories';
 import {
@@ -173,6 +175,122 @@ describe('admin-create-quick-pick - procedure infusion times', () => {
 
   test('should throw for an invalid stop time even when the start time is valid', async () => {
     await expectRejected({ infusionStartTime: '10:00', infusionStopTime: '24:00' });
+  });
+});
+
+describe('admin-create-quick-pick - DME quick pick payload', () => {
+  const validateDmeQuickPick = (fields: Record<string, unknown>): Promise<void> =>
+    validateCreate(DME_QUICK_PICK_CATEGORY.tagCode, {
+      name: 'Walking boot - Left',
+      itemName: 'Walking boot',
+      ...fields,
+    });
+
+  const expectDmeRejected = async (fields: Record<string, unknown>): Promise<void> => {
+    let thrown: any;
+    try {
+      await validateDmeQuickPick(fields);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown, 'expected the request to be rejected').toBeDefined();
+    expect(thrown.code).toBe(APIErrorCode.INVALID_INPUT);
+  };
+
+  test('should accept a fully populated DME quick pick', async () => {
+    await expect(
+      validateDmeQuickPick({
+        itemName: 'Walking boot',
+        billingCodes: [{ code: 'L4361', display: 'Walking boot, pneumatic' }],
+        quantity: 1,
+        laterality: 'LT',
+        modifier: 'NU',
+        duration: { value: 2, unit: 'weeks' },
+        instructions: 'Wear when walking',
+        external: true,
+        thirdParty: { name: 'Acme DME', address: '1 Main St', phone: '555-0101', fax: '555-0100' },
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  test('should accept values at the order limits', async () => {
+    await expect(
+      validateDmeQuickPick({
+        quantity: 999,
+        duration: { value: 999, unit: 'days' },
+        instructions: 'x'.repeat(2000),
+        billingCodes: Array(50).fill({ code: 'L4361', display: 'Walking boot' }),
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  // The order endpoint uppercases and trims codes the same way, so a lowercase pick stays orderable.
+  test('should accept a lowercase billing code with surrounding spaces', async () => {
+    await expect(
+      validateDmeQuickPick({ billingCodes: [{ code: ' l4361 ', display: 'Walking boot' }] })
+    ).resolves.toBeUndefined();
+  });
+
+  test('should accept a DME quick pick with only a name and a DME name', async () => {
+    await expect(validateDmeQuickPick({})).resolves.toBeUndefined();
+  });
+
+  test.each(DME_LATERALITY_OPTIONS)('should accept laterality %s', async (laterality) => {
+    await expect(validateDmeQuickPick({ laterality })).resolves.toBeUndefined();
+  });
+
+  test.each(DME_MODIFIER_OPTIONS)('should accept modifier %s', async (modifier) => {
+    await expect(validateDmeQuickPick({ modifier })).resolves.toBeUndefined();
+  });
+
+  test.each(DME_DURATION_UNITS)('should accept duration unit %s', async (unit) => {
+    await expect(validateDmeQuickPick({ duration: { value: 1, unit } })).resolves.toBeUndefined();
+  });
+
+  test.each([
+    ['an unknown laterality', { laterality: 'LEFT' }],
+    ['a lowercase laterality', { laterality: 'lt' }],
+    ['an unknown modifier', { modifier: 'XX' }],
+    ['a modifier label instead of the code', { modifier: 'NU (New Purchase)' }],
+    ['zero quantity', { quantity: 0 }],
+    ['negative quantity', { quantity: -1 }],
+    ['fractional quantity', { quantity: 1.5 }],
+    ['quantity as text', { quantity: '2' }],
+    ['a zero duration', { duration: { value: 0, unit: 'days' } }],
+    ['an unknown duration unit', { duration: { value: 2, unit: 'months' } }],
+    ['a billing code without a display', { billingCodes: [{ code: 'L4361' }] }],
+    ['a billing code with an empty code', { billingCodes: [{ code: '', display: 'Walking boot' }] }],
+    ['external as text', { external: 'yes' }],
+    ['a third party that is not an object', { thirdParty: 'Acme DME' }],
+    ['a missing DME name', { itemName: undefined }],
+    ['an empty DME name', { itemName: '' }],
+    ['a whitespace-only DME name', { itemName: '   ' }],
+    ['a DME name that is not text', { itemName: 42 }],
+    ['a DME name over 200 characters', { itemName: 'x'.repeat(201) }],
+    ['quantity above the order limit', { quantity: 1000 }],
+    ['a duration above the order limit', { duration: { value: 1000, unit: 'days' } }],
+    ['a billing code that is not 5 characters', { billingCodes: [{ code: 'L43', display: 'Walking boot' }] }],
+    ['a billing code with symbols', { billingCodes: [{ code: 'L4-61', display: 'Walking boot' }] }],
+    ['a billing code with an empty display', { billingCodes: [{ code: 'L4361', display: '' }] }],
+    ['more than 50 billing codes', { billingCodes: Array(51).fill({ code: 'L4361', display: 'Walking boot' }) }],
+    ['instructions over 2000 characters', { instructions: 'x'.repeat(2001) }],
+    ['a third party phone with letters', { thirdParty: { phone: 'call me' } }],
+  ])('should throw for %s', async (_label, fields) => {
+    await expectDmeRejected(fields);
+  });
+
+  test('should throw for a whitespace-only name', async () => {
+    await expectDmeRejected({ name: '   ' });
+  });
+
+  test('should still require name', async () => {
+    let thrown: any;
+    try {
+      await validateCreate(DME_QUICK_PICK_CATEGORY.tagCode, { itemName: 'Walking boot' });
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown.code).toBe(APIErrorCode.INVALID_INPUT);
   });
 });
 

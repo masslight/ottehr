@@ -1,20 +1,27 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, FormControlLabel, Grid, Paper, Switch, Typography, useTheme } from '@mui/material';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { enqueueSnackbar } from 'notistack';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Controller, FormProvider, PathValue, useForm } from 'react-hook-form';
+import { createDmeQuickPick, getDmeQuickPicks, updateDmeQuickPick } from 'src/api/api';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { RadiologyDiagnosis, RadiologyDiagnosisField } from 'src/features/radiology/components/RadiologyDiagnosisField';
+import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { sortQuickPicks, useMergedDmeQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   DME_DURATION_UNITS,
   DME_LATERALITY_LABELS,
@@ -28,33 +35,22 @@ import {
   DmeOrderFields,
   DmeOrderStatus,
 } from 'utils/lib/types/api/dme.types';
+import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { useCreateDmeOrder, useUpdateDmeOrder } from '../dme.queries';
 import { DmeBillingCodesField } from './DmeBillingCodesField';
+import {
+  applyDmeQuickPick,
+  buildDmeQuickPick,
+  DmeOrderFormValues,
+  DmeQuickPickPatch,
+  toCodeDisplay,
+} from './dmeQuickPick';
+import { DmeQuickPickDialogs } from './DmeQuickPickDialogs';
 
 const DME_ITEM_NAME_MAX_LENGTH = 200;
 
 const DURATION_UNIT_LABELS: Record<DmeDurationUnit, string> = { days: 'Days', weeks: 'Weeks' };
-
-export interface DmeOrderFormValues {
-  itemName: string;
-  diagnoses: RadiologyDiagnosis[];
-  quantity: string;
-  laterality: DmeLaterality | null;
-  modifier: DmeModifier | null;
-  durationValue: string;
-  durationUnit: DmeDurationUnit | null;
-  orderedBy: { id: string; name?: string } | null;
-  instructions: string;
-  billingCodes: CPTCodeDTO[];
-  external: boolean;
-  thirdParty: { name: string; address: string; phone: string; fax: string };
-}
-
-const toCodeDisplay = ({ code, display }: { code: string; display: string }): { code: string; display: string } => ({
-  code,
-  display,
-});
 
 const optional = (value: string): string | undefined => value.trim() || undefined;
 
@@ -123,10 +119,21 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
   const { mutateAsync: createOrder } = useCreateDmeOrder();
   const { mutateAsync: updateOrder } = useUpdateDmeOrder(encounterId);
   const [submitError, setSubmitError] = useState<string | undefined>();
+  const { oystehrZambda } = useApiClients();
+  const {
+    quickPicks,
+    loading: quickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedDmeQuickPicks({ enabled: !isReadOnly });
+  const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
+  const [quickPickName, setQuickPickName] = useState('');
+  const [existingQuickPicks, setExistingQuickPicks] = useState<DmeQuickPickData[]>([]);
+  const [quickPickSaving, setQuickPickSaving] = useState(false);
 
   const currentUser = useEvolveUser();
   const currentPractitionerId = currentUser?.profile?.split('/')[1];
   const isProvider = !!currentUser?.hasRole([RoleType.Provider]);
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
   const currentUserName = currentUser?.userName;
   const defaultOrderedBy = useMemo(
     () => (currentPractitionerId && isProvider ? { id: currentPractitionerId, name: currentUserName } : null),
@@ -166,6 +173,83 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
     if (order || !defaultOrderedBy || getFieldState('orderedBy').isDirty || getValues('orderedBy')) return;
     setValue('orderedBy', defaultOrderedBy);
   }, [order, defaultOrderedBy, getFieldState, getValues, setValue]);
+
+  const externalLocked = order?.status === DmeOrderStatus.dispensed;
+
+  const onQuickPickSelect = (quickPick: DmeQuickPickData): void => {
+    const patch = applyDmeQuickPick(quickPick);
+    if (externalLocked) delete patch.external;
+    const options = { shouldDirty: true, shouldValidate: formState.isSubmitted };
+    const apply = <K extends keyof DmeQuickPickPatch>(key: K): void => {
+      const value = patch[key];
+      if (value !== undefined) setValue(key, value as PathValue<DmeOrderFormValues, K>, options);
+    };
+    (Object.keys(patch) as (keyof DmeQuickPickPatch)[]).forEach(apply);
+  };
+
+  const onQuickPickSelectRef = useRef(onQuickPickSelect);
+  onQuickPickSelectRef.current = onQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      order || isReadOnly
+        ? []
+        : quickPicks.map((quickPick) => ({
+            id: `dme-${quickPick.id ?? quickPick.name}`,
+            label: quickPick.name,
+            category: 'Order DME',
+            keywords: quickPick.itemName ? [quickPick.itemName] : undefined,
+            onSelect: () => onQuickPickSelectRef.current(quickPick),
+          })),
+    [order, isReadOnly, quickPicks]
+  );
+  useCommandPaletteSource('dme-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback((payload: DmeQuickPickData) => onQuickPickSelectRef.current(payload), []);
+  usePendingQuickPick('dme', handlePendingQuickPick, !order && !isReadOnly);
+
+  const openQuickPickDialog = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    if (!getValues('itemName').trim()) {
+      enqueueSnackbar('Enter the DME name before saving a quick pick', { variant: 'error' });
+      return;
+    }
+    try {
+      const response = await getDmeQuickPicks(oystehrZambda);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
+    } catch (error) {
+      console.error('Failed to load existing quick picks:', error);
+      setExistingQuickPicks(quickPicks);
+    }
+    setQuickPickName(getValues('itemName').trim());
+    setQuickPickDialogOpen(true);
+  };
+
+  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
+    const quickPick = buildDmeQuickPick(getValues(), quickPickName);
+    if (!quickPick.name) {
+      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+      return;
+    }
+    if (!oystehrZambda) return;
+    setQuickPickSaving(true);
+    try {
+      if (overwriteId) {
+        await updateDmeQuickPick(oystehrZambda, overwriteId, quickPick);
+        enqueueSnackbar(`Quick pick "${quickPick.name}" updated`, { variant: 'success' });
+      } else {
+        await createDmeQuickPick(oystehrZambda, { quickPick });
+        enqueueSnackbar(`Quick pick "${quickPick.name}" created`, { variant: 'success' });
+      }
+      setQuickPickDialogOpen(false);
+      void refetchQuickPicks();
+    } catch (error) {
+      console.error('Failed to save quick pick:', error);
+      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
+    } finally {
+      setQuickPickSaving(false);
+    }
+  };
 
   const addAdditionalDxToEncounter = async (orderDx: RadiologyDiagnosis[]): Promise<void> => {
     const newDx = orderDx.filter((dx) => !chartDiagnoses.some((d) => d.code === dx.code));
@@ -219,6 +303,20 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
                 Order Details
               </Typography>
             </Grid>
+            {!isReadOnly && (
+              <Grid item xs={12}>
+                <QuickPicksButton
+                  quickPicks={quickPicks}
+                  loading={quickPicksLoading}
+                  getLabel={(quickPick) => quickPick.name}
+                  onSelect={onQuickPickSelect}
+                  showAddOption
+                  isAdmin={isAdmin}
+                  onAddOrUpdate={() => void openQuickPickDialog()}
+                  searchable
+                />
+              </Grid>
+            )}
             <Grid item xs={12}>
               <TextInput
                 name="itemName"
@@ -390,6 +488,15 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
           </Grid>
         </Paper>
       </form>
+      <DmeQuickPickDialogs
+        open={quickPickDialogOpen}
+        name={quickPickName}
+        onNameChange={setQuickPickName}
+        existingQuickPicks={existingQuickPicks}
+        saving={quickPickSaving}
+        onClose={() => setQuickPickDialogOpen(false)}
+        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+      />
     </FormProvider>
   );
 };

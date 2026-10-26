@@ -5,6 +5,7 @@ import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedur
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import { Secrets } from 'utils/lib/secrets';
+import { DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -14,6 +15,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
+  DME_QUICK_PICK_CATEGORY,
   IMMUNIZATION_QUICK_PICK_CATEGORY,
   IN_HOUSE_MEDICATION_QUICK_PICK_CATEGORY,
   INSURANCE_QUICK_PICK_CATEGORY,
@@ -72,8 +74,30 @@ const procedureQuickPickSchema = z
   })
   .passthrough();
 
+// Same limits as the DME order endpoint, so a saved pick can always be ordered as is.
+const dmeQuickPickSchema = DmeOrderFieldsSchema.pick({
+  billingCodes: true,
+  quantity: true,
+  laterality: true,
+  modifier: true,
+  duration: true,
+  instructions: true,
+  external: true,
+  thirdParty: true,
+})
+  .partial()
+  .extend({ name: z.string().trim().min(1), itemName: DmeOrderFieldsSchema.shape.itemName })
+  .passthrough();
+
 const CATEGORIES: CategoryConfig[] = [
   { category: ALLERGY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
+  {
+    category: DME_QUICK_PICK_CATEGORY,
+    requiredStringFields: ['name', 'itemName'],
+    validator: async (_oystehr, quickPick) => {
+      safeValidate(dmeQuickPickSchema, quickPick);
+    },
+  },
   { category: IMMUNIZATION_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
   { category: IN_HOUSE_MEDICATION_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
   {
