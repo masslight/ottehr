@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DeviceRequest, Encounter, Practitioner } from 'fhir/r4b';
+import { DeviceRequest, Practitioner } from 'fhir/r4b';
 import { isPhoneNumberValid, removePrefix } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { SendDmeOrderFaxInputSchema, SendDmeOrderFaxResponse } from 'utils/lib/types/api/dme.types';
@@ -12,6 +12,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 import { getOrCreateDmeOrderForm } from '../get-dme-order-pdf/helpers';
+import { fetchDmeEncounterContext } from '../shared/order-helpers';
 
 let m2mToken: string;
 
@@ -39,16 +40,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const patientId = removePrefix('Patient/', deviceRequest.subject.reference ?? '');
   const encounterId = removePrefix('Encounter/', deviceRequest.encounter?.reference ?? '');
-  const [form, encounter] = await Promise.all([
+  const [form, encounterContext] = await Promise.all([
     // the form on file is faxed, so the recipient gets the document that was printed and reviewed here
     getOrCreateDmeOrderForm(deviceRequestId, secrets, m2mToken, oystehr),
-    encounterId ? oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }) : undefined,
+    encounterId ? fetchDmeEncounterContext(encounterId, oystehr) : undefined,
   ]);
   if (!patientId || !form.documentReference.id) throw new Error('DME order form is missing its patient or document');
 
   const attempt = await sendFaxAttempt(
     {
-      appointmentId: removePrefix('Appointment/', encounter?.appointment?.[0]?.reference ?? '') || undefined,
+      appointmentId: encounterContext?.appointmentId,
       faxNumber,
       organizationId: getSecret(SecretsKeys.ORGANIZATION_ID, secrets),
       patientId,

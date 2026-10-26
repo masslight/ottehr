@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DeviceRequest, Encounter, Practitioner } from 'fhir/r4b';
+import { DeviceRequest, Encounter, Patient, Practitioner } from 'fhir/r4b';
 import { Secrets } from 'utils/lib/secrets';
 import { DME_FULFILLMENT_EXTENSION_URL, DME_THIRD_PARTY_CONTAINED_ID } from 'utils/lib/types/api/dme.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,7 +8,7 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 const { mockOystehr, mockGetForm, mockSendFaxAttempt } = vi.hoisted(() => ({
-  mockOystehr: { fhir: { get: vi.fn() } },
+  mockOystehr: { fhir: { get: vi.fn(), search: vi.fn() } },
   mockGetForm: vi.fn(),
   mockSendFaxAttempt: vi.fn(),
 }));
@@ -60,26 +60,29 @@ const deviceRequest = (overrides: Partial<DeviceRequest> = {}): DeviceRequest =>
 });
 
 const practitioner: Practitioner = { resourceType: 'Practitioner', id: 'prac-1', name: [{ family: 'Smith' }] };
+const patient: Patient = { resourceType: 'Patient', id: 'pat-1' };
 const encounter: Encounter = {
   resourceType: 'Encounter',
   id: 'enc-1',
   status: 'in-progress',
   class: { code: 'AMB' },
+  subject: { reference: 'Patient/pat-1' },
   appointment: [{ reference: 'Appointment/appt-1' }],
 };
 
-const serveResources = (dr: DeviceRequest): void => {
+const serveResources = (dr: DeviceRequest, encounterBundle: (Encounter | Patient)[] = [encounter, patient]): void => {
   mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
     if (resourceType === 'DeviceRequest') return dr;
     if (resourceType === 'Practitioner') return practitioner;
-    if (resourceType === 'Encounter') return encounter;
     throw new Error(`unexpected get ${resourceType}`);
   });
+  mockOystehr.fhir.search.mockResolvedValue({ unbundle: () => encounterBundle });
 };
 
 describe('send-dme-order-fax', () => {
   beforeEach(() => {
     mockOystehr.fhir.get.mockReset();
+    mockOystehr.fhir.search.mockReset();
     mockGetForm.mockReset().mockResolvedValue({
       documentReference: { resourceType: 'DocumentReference', id: 'doc-1' },
       mediaUrl: 'https://z3.test/dme-order.pdf',
@@ -111,6 +114,25 @@ describe('send-dme-order-fax', () => {
       },
       mockOystehr
     );
+  });
+
+  it('files a fax sent from an annotation follow-up under the parent visit appointment', async () => {
+    const followup: Encounter = {
+      ...encounter,
+      id: 'enc-followup',
+      appointment: undefined,
+      partOf: { reference: 'Encounter/enc-1' },
+    };
+    serveResources(deviceRequest({ encounter: { reference: 'Encounter/enc-followup' } }), [
+      followup,
+      encounter,
+      patient,
+    ]);
+
+    const result = await sendDmeOrderFax(makeInput({ deviceRequestId: DEVICE_REQUEST_ID, faxNumber: '2125550199' }));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockSendFaxAttempt).toHaveBeenCalledWith(expect.objectContaining({ appointmentId: 'appt-1' }), mockOystehr);
   });
 
   it.each([
