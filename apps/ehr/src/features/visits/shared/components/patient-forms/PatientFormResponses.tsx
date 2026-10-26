@@ -25,6 +25,9 @@ import { Loader } from '../Loader';
 import { formPagePath, OpenFormResponseState } from './formNavigation';
 import { groupByForm } from './groupByForm';
 
+// A paperwork flow's forms all share its one response.
+const responseKey = (r: PatientFormResponse): string => `${r.questionnaireResponse.id}-${r.questionnaireId}`;
+
 /** One load per patient, shared by the Screening section, the Questionnaires page and the note. */
 const usePatientFormResponses = (): UseQueryResult<GetPatientFormResponsesOutput> => {
   const { oystehrZambda } = useApiClients();
@@ -59,18 +62,18 @@ export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement,
   const navigate = useNavigate();
   const location = useLocation();
   const openFormResponseId = (location.state as OpenFormResponseState | null)?.openFormResponseId;
+  const canChange = !isAppointmentReadOnly;
   useEffect(() => {
     const toOpen = data?.responses.find((r) => r.questionnaireResponse.id === openFormResponseId);
     if (!toOpen) return;
-    setFormToEdit(toOpen);
+    if (canChange) setFormToEdit(toOpen);
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-  }, [data, openFormResponseId, location.pathname, location.search, navigate]);
+  }, [data, openFormResponseId, canChange, location.pathname, location.search, navigate]);
 
   const isThisVisit = (r: PatientFormResponse): boolean => r.encounterId === encounter?.id;
   const responses = (data?.responses ?? []).filter(
     (r) => r.placement === placement && (scope === 'all-visits' || isThisVisit(r))
   );
-  const canChange = !isAppointmentReadOnly;
 
   const fillOutNow = async (questionnaireId: string, formPlacement: FormPlacement): Promise<void> => {
     if (!oystehrZambda || !appointment?.id) return;
@@ -112,12 +115,12 @@ export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement,
   };
 
   const renderResponse = (r: PatientFormResponse, titled: boolean): JSX.Element => {
-    const date = formatDateForDisplay(r.visitDate);
+    const date = formatDateForDisplay(r.visitDate, r.visitTimezone);
     const form = titled ? r : { ...r, questionnaireTitle: `${date} · This visit` };
     if (isThisVisit(r) && canChange) {
       return (
         <CustomFormCard
-          key={r.questionnaireResponse.id}
+          key={responseKey(r)}
           form={form}
           deletable={r.deletable}
           onEdit={() => setFormToEdit(r)}
@@ -127,12 +130,12 @@ export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement,
     }
     if (isThisVisit(r)) {
       return (
-        <Section key={r.questionnaireResponse.id} title={form.questionnaireTitle}>
+        <Section key={responseKey(r)} title={form.questionnaireTitle}>
           <QuestionnaireResponseViewer form={r} />
         </Section>
       );
     }
-    return <PastResponse key={r.questionnaireResponse.id} response={r} label={date} />;
+    return <PastResponse key={responseKey(r)} response={r} label={date} />;
   };
 
   return (
@@ -205,7 +208,7 @@ export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement,
 
 const FormGroup: FC<{ group: PatientFormResponse[]; children: React.ReactNode }> = ({ group, children }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const latest = formatDateForDisplay(group[0].visitDate);
+  const latest = formatDateForDisplay(group[0].visitDate, group[0].visitTimezone);
   return (
     <AccordionCard
       label={`${group[0].questionnaireTitle} · ${group.length} response${
@@ -252,7 +255,7 @@ export const FormResponsesSummary: FC<{ responses: PatientFormResponse[]; emptyM
   <Stack spacing={1}>
     {emptyMessage && responses.length === 0 && <Typography color="text.secondary">{emptyMessage}</Typography>}
     {responses.map((r) => (
-      <Box key={r.questionnaireResponse.id}>
+      <Box key={responseKey(r)}>
         <Typography fontWeight={600}>{r.questionnaireTitle}</Typography>
         <QuestionnaireResponseViewer form={r} />
       </Box>

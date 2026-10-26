@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Encounter, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FORM_PLACEMENT_TAG_SYSTEM, PAPERWORK_FLOW_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { deconstructCanonicalUrl, getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import {
   hasAnyAnswer,
   isPracticeManagedQ,
@@ -15,6 +15,7 @@ import {
   StandaloneFormDTO,
   TaggedFormPlacement,
 } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { sendErrors } from './errors';
 
 /** Fetches each canonical Questionnaire once per request; a patient's visits mostly share form versions. */
@@ -69,14 +70,8 @@ export const getIntakePaperworkFlowForms = async (
   }
 
   if (!questionnaire || !questionnaire.derivedFrom) return;
-  const flowQuestionnaire = questionnaire;
 
-  const results = await Promise.allSettled(
-    (flowQuestionnaire.derivedFrom ?? []).map(async (canonical) => {
-      const { url, version } = deconstructCanonicalUrl(canonical, flowQuestionnaire);
-      return loadQuestionnaire(`${url}|${version}`);
-    })
-  );
+  const results = await Promise.allSettled(questionnaire.derivedFrom.map((canonical) => loadQuestionnaire(canonical)));
 
   results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
 
@@ -94,7 +89,7 @@ export const getEncounterFormResponses = async (
   oystehr: Oystehr,
   encounterId: string,
   intakeQr: QuestionnaireResponse | undefined,
-  secrets: Secrets | null = null
+  secrets: Secrets | null
 ): Promise<StandaloneFormDTO[]> => {
   const questionnaireResponses = (
     await oystehr.fhir.search<QuestionnaireResponse>({
@@ -103,9 +98,10 @@ export const getEncounterFormResponses = async (
     })
   ).unbundle();
   const loadQuestionnaire = makeQuestionnaireLoader(oystehr);
+  const ownIntakeQr = intakeQr?.encounter?.reference === `Encounter/${encounterId}` ? intakeQr : undefined;
   const [standalone, flowForms] = await Promise.all([
     getStandaloneForms(questionnaireResponses, loadQuestionnaire),
-    intakeQr ? getIntakePaperworkFlowForms(intakeQr, loadQuestionnaire, secrets) : undefined,
+    ownIntakeQr ? getIntakePaperworkFlowForms(ownIntakeQr, loadQuestionnaire, secrets) : undefined,
   ]);
   return [...standalone, ...(flowForms ?? [])].filter(hasAnyAnswer);
 };
@@ -151,7 +147,7 @@ export const getPatientFormResponses = async (input: {
   const canonicals = [...formsByCanonical.keys(), ...relevantFlows];
   if (canonicals.length === 0) return [];
 
-  const resources = await getAllFhirSearchPages<QuestionnaireResponse | Encounter | Appointment>(
+  const resources = await getAllFhirSearchPages<QuestionnaireResponse | Encounter | Appointment | Location>(
     {
       resourceType: 'QuestionnaireResponse',
       params: [
@@ -159,14 +155,19 @@ export const getPatientFormResponses = async (input: {
         { name: 'questionnaire', value: canonicals.join(',') },
         { name: '_include', value: 'QuestionnaireResponse:encounter' },
         { name: '_include:iterate', value: 'Encounter:appointment' },
+        { name: '_include:iterate', value: 'Appointment:location' },
       ],
     },
     oystehr
   );
-  const find = <T extends Encounter | Appointment>(
+  const byReference = new Map(resources.map((r) => [`${r.resourceType}/${r.id}`, r]));
+  const find = <T extends Encounter | Appointment | Location>(
     type: T['resourceType'],
     reference: string | undefined
-  ): T | undefined => resources.find((r): r is T => r.resourceType === type && `${type}/${r.id}` === reference);
+  ): T | undefined => {
+    const resource = reference ? byReference.get(reference) : undefined;
+    return resource?.resourceType === type ? (resource as T) : undefined;
+  };
 
   return resources
     .filter((r): r is QuestionnaireResponse => r.resourceType === 'QuestionnaireResponse')
@@ -175,12 +176,16 @@ export const getPatientFormResponses = async (input: {
       const encounter = find<Encounter>('Encounter', qr.encounter?.reference);
       if (!encounter) return [];
       const appointment = find<Appointment>('Appointment', encounter.appointment?.[0]?.reference);
+      const location = appointment?.participant
+        ?.map((p) => find<Location>('Location', p.actor?.reference))
+        .find((l) => l !== undefined);
       const visit = {
         encounterId: encounter.id!,
         appointmentId: appointment?.id,
         // A follow-up note shares its visit's appointment, so it is dated by its own encounter.
         visitDate:
           (encounter.partOf ? encounter.period?.start : undefined) ?? appointment?.start ?? encounter.period?.start,
+        visitTimezone: location ? getTimezone(location) : undefined,
       };
       const sentForm = qrSentManually(qr) ? formsByCanonical.get(qr.questionnaire ?? '') : undefined;
       if (sentForm) return [{ ...makeStandaloneFormDTO(sentForm, qr), ...visit, deletable: true }];

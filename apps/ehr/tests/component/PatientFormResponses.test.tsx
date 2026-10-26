@@ -5,7 +5,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ReactElement } from 'react';
+import { ComponentProps, ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { PatientFormResponse } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
@@ -17,6 +17,11 @@ vi.mock('../../src/api/api', () => ({
   deleteVisitForm: vi.fn(),
 }));
 vi.mock('../../src/hooks/useAppClients', () => ({ useApiClients: vi.fn(() => ({ oystehrZambda: {} })) }));
+vi.mock('../../src/components/dialogs/EditFormResponseDialog', () => ({
+  EditFormResponseDialog: ({ form }: { form: { questionnaireTitle: string } }) => (
+    <div>Editing {form.questionnaireTitle}</div>
+  ),
+}));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: vi.fn(() => ({
     appointment: { id: 'appt-now' },
@@ -70,11 +75,14 @@ const response = (id: string, encounterId: string, visitDate: string): PatientFo
   deletable: true,
 });
 
-const renderWithProviders = (ui: ReactElement): void => {
+const renderWithProviders = (
+  ui: ReactElement,
+  initialEntries?: ComponentProps<typeof MemoryRouter>['initialEntries']
+): void => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
     </QueryClientProvider>
   );
 };
@@ -108,6 +116,49 @@ describe('PatientFormResponses', () => {
     expect(await screen.findByText(/This visit/)).toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.visitDetailsPage.customFormMenuButton('sdoh-qr-now'))).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add form' })).toBeNull();
+  });
+
+  it('opens a form started from another page in its edit dialog', async () => {
+    renderWithProviders(<PatientFormResponses placement="questionnaires" scope="all-visits" />, [
+      { pathname: '/in-person/appt-now/questionnaires', state: { openFormResponseId: 'qr-now' } },
+    ]);
+
+    expect(await screen.findByText('Editing SDOH')).toBeInTheDocument();
+  });
+
+  // Visit Details can start a Screening or Clinical Forms response on a signed visit; landing on the locked
+  // chart page must not hand staff an editor for it.
+  it('does not open a form started from another page once the visit is locked', async () => {
+    (useGetAppointmentAccessibility as Mock).mockReturnValue({ isAppointmentReadOnly: true });
+    renderWithProviders(<PatientFormResponses placement="questionnaires" scope="all-visits" />, [
+      { pathname: '/in-person/appt-now/questionnaires', state: { openFormResponseId: 'qr-now' } },
+    ]);
+
+    expect(await screen.findByText(/This visit/)).toBeInTheDocument();
+    expect(screen.queryByText('Editing SDOH')).toBeNull();
+  });
+
+  // Forms answered in the visit's paperwork are separate entries that share the paperwork's one response.
+  it('renders each form of a shared paperwork response as its own entry', async () => {
+    const flowForm = (questionnaireId: string, title: string): PatientFormResponse => ({
+      ...response('qr-intake', 'enc-now', '2026-10-09T14:00:00Z'),
+      questionnaireId,
+      questionnaireTitle: title,
+      questionnaireUrl: questionnaireId,
+      placement: 'screening',
+      deletable: false,
+    });
+    (getPatientFormResponses as Mock).mockResolvedValue({
+      responses: [flowForm('vanderbilt', 'Vanderbilt'), flowForm('phq9', 'PHQ-9')],
+    });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    renderWithProviders(<PatientFormResponses placement="screening" scope="this-visit" />);
+
+    expect(await screen.findByText('Vanderbilt')).toBeInTheDocument();
+    expect(screen.getByText('PHQ-9')).toBeInTheDocument();
+    expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/same key/);
+    consoleError.mockRestore();
   });
 
   it('shows only the Screening section of this visit on the Screening page', async () => {

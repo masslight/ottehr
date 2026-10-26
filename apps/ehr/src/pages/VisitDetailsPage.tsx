@@ -317,8 +317,6 @@ export default function VisitDetailsPage(): ReactElement {
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
   const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
-  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms,
-  // but only a manually-sent form owns its QuestionnaireResponse outright, so only it can be deleted.
   // A form started from another page's dialog arrives here to be filled out.
   const location = useLocation();
   const openFormResponseId = (location.state as OpenFormResponseState | null)?.openFormResponseId;
@@ -329,6 +327,8 @@ export default function VisitDetailsPage(): ReactElement {
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
   }, [standAloneForms, openFormResponseId, location.pathname, location.search, navigate]);
 
+  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms,
+  // but only a manually-sent form owns its QuestionnaireResponse outright, so only it can be deleted.
   const allCustomForms = useMemo(
     () =>
       [

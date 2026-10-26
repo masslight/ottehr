@@ -4,6 +4,7 @@ import z from 'zod';
 import type { FormPlacement } from '../../../helpers/practice-managed-questionnaires';
 import { QAndQRResponse } from '../paperwork/paperwork.types';
 import {
+  GetPatientFormResponsesInputSchema,
   GetStandAlonePaperworkInputSchema,
   PracticeManagedQuestionnaireItemSchema,
   PracticeManagedQuestionnaireSchema,
@@ -45,6 +46,10 @@ export const DATA_TYPES_BY_ITEM_TYPE: Partial<Record<QuestionnaireItemType, Otte
 export const OTTEHR_INPUT_WIDTHS = ['s', 'm', 'l'] as const;
 export type OttehrInputWidth = (typeof OTTEHR_INPUT_WIDTHS)[number];
 
+/** Placements stored as a tag on the form; Visit details is the untagged default. */
+export const TAGGED_FORM_PLACEMENTS = ['screening', 'questionnaires'] as const;
+export type TaggedFormPlacement = (typeof TAGGED_FORM_PLACEMENTS)[number];
+
 export type PracticeManagedQuestionnaireItem = Omit<QuestionnaireItem, 'item'> &
   z.infer<typeof PracticeManagedQuestionnaireItemSchema> & {
     item?: PracticeManagedQuestionnaireItem[];
@@ -78,14 +83,13 @@ export type PatientFormResponse = StandaloneFormDTO & {
   encounterId: string;
   appointmentId?: string;
   visitDate?: string;
+  /** IANA zone of the visit's office, so its date reads as it did there. */
+  visitTimezone?: string;
   /** False for forms answered inside the visit's paperwork, which are deleted with the paperwork. */
   deletable: boolean;
 };
 
-/** Placements stored as a tag on the form; Visit details is the untagged default. */
-export type TaggedFormPlacement = Exclude<FormPlacement, 'visit-details'>;
-
-export type GetPatientFormResponsesInput = { patientId: string; placements: TaggedFormPlacement[] };
+export type GetPatientFormResponsesInput = z.infer<typeof GetPatientFormResponsesInputSchema>;
 export type GetPatientFormResponsesOutput = { responses: PatientFormResponse[] };
 
 // ============= api input / output types ===============

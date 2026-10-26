@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
+import { FORM_PLACEMENT_TAG_SYSTEM, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { PAPERWORK_FLOW_BASE_VERSION } from '../../paperwork-flow/shared';
 import {
@@ -8,6 +9,7 @@ import {
   FhirQuestionnaireSubset,
   isLatestVersion,
   patchQuestionnaireVersion,
+  placementTagOperations,
 } from './index';
 
 const questionnaire = (overrides: Partial<FhirQuestionnaireSubset> = {}): FhirQuestionnaireSubset => ({
@@ -315,5 +317,54 @@ describe('ensureUniqueQuestionnaire', () => {
       'ensureUniqueQuestionnaire requires a questionnaire with a url'
     );
     expect(search).not.toHaveBeenCalled();
+  });
+});
+
+describe('placementTagOperations', () => {
+  const screeningTag = { system: FORM_PLACEMENT_TAG_SYSTEM, code: 'screening' };
+  const version = (id: string, tag: Questionnaire['meta']): Questionnaire => ({
+    resourceType: 'Questionnaire',
+    id,
+    status: 'retired',
+    meta: tag,
+  });
+
+  // A response points at the exact version it answered, so earlier versions must carry the form's current
+  // placement too, or moving a form to another page would leave every earlier response behind.
+  it('moves every earlier version to the new placement, keeping their other tags', () => {
+    const operations = placementTagOperations(
+      [
+        version('v1', { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] }),
+        version('v2', { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG, screeningTag] }),
+      ],
+      'questionnaires'
+    );
+
+    const questionnairesTags = [
+      PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+      { system: FORM_PLACEMENT_TAG_SYSTEM, code: 'questionnaires' },
+    ];
+    expect(operations.get('v1')).toEqual([{ op: 'replace', path: '/meta/tag', value: questionnairesTags }]);
+    expect(operations.get('v2')).toEqual([{ op: 'replace', path: '/meta/tag', value: questionnairesTags }]);
+  });
+
+  it('moves a version back to Visit Details by dropping its placement tag', () => {
+    const operations = placementTagOperations(
+      [version('v1', { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG, screeningTag] })],
+      'visit-details'
+    );
+
+    expect(operations.get('v1')).toEqual([
+      { op: 'replace', path: '/meta/tag', value: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] },
+    ]);
+  });
+
+  it('leaves versions alone when the placement did not change', () => {
+    const operations = placementTagOperations(
+      [version('v1', { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG, screeningTag] })],
+      'screening'
+    );
+
+    expect(operations.size).toBe(0);
   });
 });

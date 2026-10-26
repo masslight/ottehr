@@ -13,6 +13,7 @@ import {
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
 } from '../../fhir/constants';
+import { flattenIntakeQuestionnaireItems } from '../../types/data/paperwork/paperwork.types';
 import {
   DataTypeSchema,
   InputWidthSchema,
@@ -23,6 +24,7 @@ import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
   StandaloneFormDTO,
+  TAGGED_FORM_PLACEMENTS,
 } from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork/paperwork';
 import { slugify } from '../slugify';
@@ -208,7 +210,7 @@ export function isPracticeManagedQ(q: Questionnaire | undefined): boolean {
 }
 
 /** Where a practice-managed form's answers appear. Visit Details is the default (no tag). */
-export const FORM_PLACEMENTS = ['visit-details', 'screening', 'questionnaires'] as const;
+export const FORM_PLACEMENTS = ['visit-details', ...TAGGED_FORM_PLACEMENTS] as const;
 export type FormPlacement = (typeof FORM_PLACEMENTS)[number];
 
 export const FORM_PLACEMENT_LABELS: Record<FormPlacement, string> = {
@@ -251,22 +253,28 @@ export const formatQuestionnaireItemValueToString = (item: QuestionnaireResponse
 };
 
 /** A filled-out form as question/answer lines, in form order; unanswered questions have an empty answer. */
-export const formResponseLines = (form: StandaloneFormDTO): { linkId: string; question: string; answer: string }[] => {
-  const answers = new Map<string, string>();
+export const formResponseLines = (
+  form: StandaloneFormDTO
+): { linkId: string; question: string; answer: string; answered: boolean }[] => {
+  const answers = new Map<string, QuestionnaireResponseItem>();
   const walk = (items: QuestionnaireResponseItem[]): void =>
     items.forEach((item) => {
-      if (item.answer?.length) answers.set(item.linkId, formatQuestionnaireItemValueToString(item));
-      if (item.item) walk(item.item);
+      if (item.answer?.length) answers.set(item.linkId, item);
+      walk([...(item.item ?? []), ...(item.answer ?? []).flatMap((answer) => answer.item ?? [])]);
     });
   walk(form.questionnaireResponse.item ?? []);
-  return form.allItems
-    .flatMap((page) => page.item ?? [])
-    .filter((q) => q.type !== 'display')
-    .map((q) => ({ linkId: q.linkId, question: q.text ?? '', answer: answers.get(q.linkId) ?? '' }));
+  return flattenIntakeQuestionnaireItems(form.allItems)
+    .filter((q) => q.type !== 'group' && q.type !== 'display')
+    .map((q) => ({
+      linkId: q.linkId,
+      question: q.text ?? '',
+      answer: formatQuestionnaireItemValueToString(answers.get(q.linkId)),
+      answered: answers.has(q.linkId),
+    }));
 };
 
-/** True once at least one question has an answer; a sent-but-unopened form has none. */
-export const hasAnyAnswer = (form: StandaloneFormDTO): boolean => formResponseLines(form).some((line) => line.answer);
+/** True once at least one of the form's questions has an answer; a sent-but-unopened form has none. */
+export const hasAnyAnswer = (form: StandaloneFormDTO): boolean => formResponseLines(form).some((line) => line.answered);
 
 export const makePracticeManagedUrl = (slug: string): string => {
   return `https://ottehr.com/FHIR/Questionnaire/${slug}`;

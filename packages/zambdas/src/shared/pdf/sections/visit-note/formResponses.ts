@@ -3,7 +3,7 @@ import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questio
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection } from '../../pdf-common';
-import { FormResponseLines, PdfSection, PdfStyles, QuestionnaireForms } from '../../types';
+import { EncounterInfo, FormResponseLines, PdfSection, PdfStyles, QuestionnaireForms } from '../../types';
 
 /** The visit's forms with the given placement, as printed question/answer lines. */
 export const composeFormResponses = (
@@ -25,14 +25,13 @@ export const drawFormResponses = (
   });
 };
 
-export const createQuestionnairesSection = <TData extends { questionnaires?: QuestionnaireForms }>(): PdfSection<
-  TData,
-  QuestionnaireForms
-> =>
+export const createQuestionnairesSection = <
+  TData extends { encounter?: EncounterInfo; questionnaires?: QuestionnaireForms },
+>(): PdfSection<TData, QuestionnaireForms> =>
   createConfiguredSection(null, () => ({
     title: 'Clinical Forms',
     dataSelector: (data) => data.questionnaires,
-    shouldRender: (sectionData) => sectionData.forms.length > 0,
+    shouldRender: (sectionData, rootData) => !rootData?.encounter?.isFollowup && sectionData.forms.length > 0,
     render: (client, data, styles) => {
       drawFormResponses(client, styles, data.forms);
       client.drawSeparatedLine(styles.lineStyles.separator);

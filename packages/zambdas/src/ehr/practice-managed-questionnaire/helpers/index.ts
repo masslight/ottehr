@@ -1,8 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 import { Questionnaire } from 'fhir/r4b';
 import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
-import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION } from 'utils/lib/helpers/practice-managed-questionnaires';
+import {
+  FormPlacement,
+  getFormPlacement,
+  PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
+  withFormPlacement,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
 import { compareVersions } from '../../../shared/fhir';
 import {
@@ -35,6 +41,23 @@ export const patchQuestionnaireVersion = (version: string): string => {
   const [major, minor, patch] = version.split('.').map(Number);
   return `${major}.${minor}.${patch + 1}`;
 };
+
+/** Patches moving each version of a form to `placement`; a response follows the version it answered. */
+export const placementTagOperations = (versions: Questionnaire[], placement: FormPlacement): Map<string, Operation[]> =>
+  new Map(
+    versions
+      .filter((version) => version.id && getFormPlacement(version) !== placement)
+      .map((version): [string, Operation[]] => [
+        version.id!,
+        [
+          {
+            op: version.meta?.tag ? 'replace' : 'add',
+            path: '/meta/tag',
+            value: withFormPlacement(version.meta?.tag, placement),
+          },
+        ],
+      ])
+  );
 
 export const validateQisPracticeManaged = (questionnaire: Questionnaire, questionnaireId: string): void => {
   const isPracticeManaged = questionnaire.meta?.tag?.some(

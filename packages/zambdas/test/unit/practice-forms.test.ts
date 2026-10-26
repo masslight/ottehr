@@ -10,8 +10,9 @@ import {
   PAPERWORK_FLOW_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
-import { getPatientFormResponses } from '../../src/shared/practice-forms';
+import { getEncounterFormResponses, getPatientFormResponses } from '../../src/shared/practice-forms';
 
 const form = (url: string, title: string, placement: string): Questionnaire => ({
   resourceType: 'Questionnaire',
@@ -64,8 +65,25 @@ describe('getPatientFormResponses', () => {
       return [
         { resourceType: 'Encounter', id: 'enc-old', appointment: [{ reference: 'Appointment/appt-old' }] },
         { resourceType: 'Encounter', id: 'enc-new', appointment: [{ reference: 'Appointment/appt-new' }] },
-        { resourceType: 'Appointment', id: 'appt-old', start: '2025-10-02T14:00:00Z', status: 'fulfilled' },
-        { resourceType: 'Appointment', id: 'appt-new', start: '2026-10-09T14:00:00Z', status: 'arrived' },
+        {
+          resourceType: 'Appointment',
+          id: 'appt-old',
+          start: '2025-10-02T14:00:00Z',
+          status: 'fulfilled',
+          participant: [{ actor: { reference: 'Location/office' }, status: 'accepted' }],
+        },
+        {
+          resourceType: 'Appointment',
+          id: 'appt-new',
+          start: '2026-10-09T14:00:00Z',
+          status: 'arrived',
+          participant: [],
+        },
+        {
+          resourceType: 'Location',
+          id: 'office',
+          extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: 'America/Los_Angeles' }],
+        },
         qr('qr-sdoh-old', 'enc-old', 'sdoh|1.0.0'),
         qr('qr-sdoh-new', 'enc-new', 'sdoh|1.0.0'),
         qr('qr-flow', 'enc-new', 'vanderbilt-flow|1.0.0', false),
@@ -91,6 +109,19 @@ describe('getPatientFormResponses', () => {
     expect(responses.find((r) => r.questionnaireResponse.id === 'qr-sdoh-old')?.visitDate).toBe('2025-10-02T14:00:00Z');
   });
 
+  it("dates each response in its visit office's timezone", async () => {
+    const responses = await getPatientFormResponses({
+      patientId: 'patient-1',
+      placements: ['questionnaires'],
+      oystehr: {} as Oystehr,
+    });
+
+    expect(responses.find((r) => r.questionnaireResponse.id === 'qr-sdoh-old')?.visitTimezone).toBe(
+      'America/Los_Angeles'
+    );
+    expect(responses.find((r) => r.questionnaireResponse.id === 'qr-sdoh-new')?.visitTimezone).toBeUndefined();
+  });
+
   it("asks only for responses to the placement's forms and the flows that contain them", async () => {
     await getPatientFormResponses({ patientId: 'patient-1', placements: ['questionnaires'], oystehr: {} as Oystehr });
 
@@ -113,5 +144,42 @@ describe('getPatientFormResponses', () => {
 
     expect(responses).toEqual([]);
     expect(mockGetAllPages).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('getEncounterFormResponses', () => {
+  const flowForm: Questionnaire = { ...form('vanderbilt', 'Vanderbilt', 'questionnaires'), id: 'vanderbilt-id' };
+  const flowQuestionnaire: Questionnaire = { ...flow('vanderbilt-flow', ['vanderbilt|1.0.0']), id: 'flow-id' };
+  const intakeQr = (encounterId: string): QuestionnaireResponse => ({
+    ...qr('qr-intake', encounterId, 'vanderbilt-flow|1.0.0', false),
+    item: [{ linkId: 'page', item: [{ linkId: 'q1', answer: [{ valueString: 'Yes' }] }] }],
+  });
+
+  const oystehr = {
+    fhir: {
+      search: vi.fn(async ({ resourceType, params }: FhirSearchParams<FhirResource>) => ({
+        unbundle: () =>
+          resourceType === 'QuestionnaireResponse'
+            ? []
+            : [flowForm, flowQuestionnaire].filter((q) => params?.some((p) => p.name === 'url' && p.value === q.url)),
+      })),
+    },
+  } as unknown as Oystehr;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it("prints the forms the patient answered in this visit's paperwork", async () => {
+    const forms = await getEncounterFormResponses(oystehr, 'enc-main', intakeQr('enc-main'), null);
+
+    expect(forms.map((f) => f.questionnaireTitle)).toEqual(['Vanderbilt']);
+  });
+
+  // A follow-up note's resources carry its visit's paperwork, which belongs to the visit's own encounter:
+  // the follow-up note shows none of it in the app, so its PDF must not print it either.
+  it("leaves another encounter's paperwork out of a follow-up note", async () => {
+    const forms = await getEncounterFormResponses(oystehr, 'enc-follow-up', intakeQr('enc-main'), null);
+
+    expect(forms).toEqual([]);
+    expect(oystehr.fhir.search).toHaveBeenCalledTimes(1);
   });
 });

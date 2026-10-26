@@ -509,8 +509,46 @@ describe('formResponseLines', () => {
     );
 
     expect(lines).toEqual([
-      { linkId: 'cig', question: 'Cigarettes', answer: 'No' },
-      { linkId: 'perday', question: 'How many per day', answer: '' },
+      { linkId: 'cig', question: 'Cigarettes', answer: 'No', answered: true },
+      { linkId: 'perday', question: 'How many per day', answer: '', answered: false },
+    ]);
+  });
+
+  it('includes questions outside a page and inside nested groups, as imported forms have them', () => {
+    const questionnaire = baseFhirQuestionnaire({
+      item: [
+        { linkId: 'top', type: 'string', text: 'Top-level question' },
+        {
+          linkId: 'page',
+          type: 'group',
+          item: [
+            {
+              linkId: 'section',
+              type: 'group',
+              text: 'Section',
+              item: [{ linkId: 'nested', type: 'string', text: 'Nested question' }],
+            },
+          ],
+        },
+      ],
+    });
+    const lines = formResponseLines(
+      makeStandaloneFormDTO(questionnaire, {
+        resourceType: 'QuestionnaireResponse',
+        status: 'completed',
+        item: [
+          { linkId: 'top', answer: [{ valueString: 'A' }] },
+          {
+            linkId: 'page',
+            item: [{ linkId: 'section', item: [{ linkId: 'nested', answer: [{ valueString: 'B' }] }] }],
+          },
+        ],
+      })
+    );
+
+    expect(lines.map(({ linkId, answer }) => [linkId, answer])).toEqual([
+      ['top', 'A'],
+      ['nested', 'B'],
     ]);
   });
 });
@@ -536,5 +574,23 @@ describe('hasAnyAnswer', () => {
       item: [{ linkId: 'page', item: [{ linkId: 'q', answer: [{ valueString: 'Yes' }] }] }],
     });
     expect(hasAnyAnswer(form)).toBe(true);
+  });
+
+  it('counts an answer that has no display text, so the form still reaches the note', () => {
+    const form = makeStandaloneFormDTO(questionnaire, {
+      resourceType: 'QuestionnaireResponse',
+      status: 'completed',
+      item: [{ linkId: 'page', item: [{ linkId: 'q', answer: [{ valueCoding: { code: 'y' } }] }] }],
+    });
+    expect(hasAnyAnswer(form)).toBe(true);
+  });
+
+  it("ignores answers to other forms' questions on a shared paperwork response", () => {
+    const form = makeStandaloneFormDTO(questionnaire, {
+      resourceType: 'QuestionnaireResponse',
+      status: 'completed',
+      item: [{ linkId: 'demographics', item: [{ linkId: 'first-name', answer: [{ valueString: 'Sam' }] }] }],
+    });
+    expect(hasAnyAnswer(form)).toBe(false);
   });
 });

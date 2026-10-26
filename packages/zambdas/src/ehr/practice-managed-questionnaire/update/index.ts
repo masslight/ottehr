@@ -1,12 +1,21 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { practiceManagedQuestionnaireToFhir } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import {
+  getFormPlacement,
+  practiceManagedQuestionnaireToFhir,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { handleFormInFlows, patchQuestionnaireVersion, validateFormIsExcludedFromFlows } from '../helpers';
+import {
+  handleFormInFlows,
+  patchQuestionnaireVersion,
+  placementTagOperations,
+  validateFormIsExcludedFromFlows,
+} from '../helpers';
 import { validateQuestionnaire, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -54,11 +63,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       resource: fhirQuestionnaire,
     };
 
+    const earlierVersions = await getAllFhirSearchPages<Questionnaire>(
+      { resourceType: 'Questionnaire', params: [{ name: 'url', value: rest.url }] },
+      oystehr
+    );
+    const retagOperations = placementTagOperations(earlierVersions, getFormPlacement(fhirQuestionnaire));
+    const retagRequests = [...retagOperations]
+      .filter(([id]) => id !== previousId)
+      .map(
+        ([id, operations]): BatchInputPatchRequest<Questionnaire> => ({
+          method: 'PATCH',
+          url: `Questionnaire/${id}`,
+          operations,
+        })
+      );
+
     console.log('configuring patch request for previous resource version');
     const supersedeQPatchRequest: BatchInputPatchRequest<Questionnaire> = {
       method: 'PATCH',
       url: `Questionnaire/${previousId}`,
-      operations: [{ op: 'replace', path: '/status', value: 'retired' }],
+      operations: [{ op: 'replace', path: '/status', value: 'retired' }, ...(retagOperations.get(previousId!) ?? [])],
     };
 
     console.log('checking if form is contained in any flows');
@@ -77,7 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(`Creating version ${nextVersion} of "${rest.url}", "superseding" Questionnaire/${previousId}`);
     const res = (
       await oystehr.fhir.transaction<Questionnaire>({
-        requests: [supersedeQPatchRequest, updatedQPostRequest, ...flowRequests],
+        requests: [supersedeQPatchRequest, ...retagRequests, updatedQPostRequest, ...flowRequests],
       })
     ).unbundle();
 

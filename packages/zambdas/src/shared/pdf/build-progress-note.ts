@@ -12,6 +12,6 @@ export async function buildProgressNoteBytes(args: {
   signed: boolean;
 }): Promise<Uint8Array> {
   const { oystehr, token, secrets, visitResources, signed } = args;
-  const input = await assembleProgressNoteInput(oystehr, token, visitResources, { signed });
+  const input = await assembleProgressNoteInput(oystehr, token, visitResources, secrets, { signed });
   return createProgressNotePdfBytes(input, secrets, token);
 }

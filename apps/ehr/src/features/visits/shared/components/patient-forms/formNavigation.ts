@@ -1,11 +1,12 @@
 import { FormPlacement } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { TaggedFormPlacement } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 
 /** Navigation state asking the destination page to open this response in its edit dialog. */
 export type OpenFormResponseState = { openFormResponseId?: string };
 
 // Literal in-person route segments (ROUTER_PATH.SCREENING / QUESTIONNAIRES): importing the route table
 // here would cycle through the pages that render these forms.
-const IN_PERSON_SEGMENT: Record<Exclude<FormPlacement, 'visit-details'>, string> = {
+const IN_PERSON_SEGMENT: Record<TaggedFormPlacement, string> = {
   screening: 'screening-questions',
   questionnaires: 'questionnaires',
 };

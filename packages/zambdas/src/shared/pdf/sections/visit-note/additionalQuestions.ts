@@ -45,9 +45,9 @@ export const createAdditionalQuestionsSection = <
     dataSelector: (data) => data.screening,
     shouldRender: (sectionData, rootData) =>
       !rootData?.encounter?.isFollowup &&
-      (!!sectionData.additionalQuestions?.length ||
+      (Object.keys(sectionData.additionalQuestions ?? {}).length > 0 ||
         !!sectionData.currentASQ ||
-        !!sectionData.notes ||
+        !!sectionData.notes?.length ||
         !!sectionData.forms?.length),
     render: (client, data, styles) => {
       if (data.additionalQuestions) {
