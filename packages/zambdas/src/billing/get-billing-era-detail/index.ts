@@ -14,7 +14,7 @@ import { RAW_X12_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { codeableConcept, getExtension, getNPI, getTaxID } from 'utils/lib/fhir/helpers';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_PROCESS_PRIORITY } from 'utils/lib/helpers/rcm/constants';
-import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
+import { ERA_SOURCE, ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants';
 import { GetEraDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { EraAttachment, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
@@ -192,6 +192,7 @@ export async function performEffect(
     // so fall back to the charge the payer reported (CLP03 / line charges) on the latest remit
     const billed =
       claim.total?.value ?? orderedResponses.map(extractReportedCharge).findLast((charge) => charge != null) ?? 0;
+    // This calculation does not include patient payments or write offs since it only pertains to the data on the ERA
     const payments = summarizeClaimPayments(claimResponses, billed);
 
     const coverageId = coverageIdByClaimId.get(claim.id ?? '');
@@ -236,6 +237,7 @@ export async function performEffect(
   return {
     id: params.eraId,
     source,
+    status: pr.status === ERA_VOID_STATUS ? 'voided' : 'active',
     // every ERA has these: the server versions each write, and FHIR requires the rest
     versionId: assertDefined(pr.meta?.versionId, `PaymentReconciliation/${params.eraId} version`),
     checkNumber,

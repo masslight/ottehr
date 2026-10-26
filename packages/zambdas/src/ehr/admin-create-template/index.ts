@@ -329,7 +329,7 @@ const performEffect = async (
   // Materialize each captured external lab order as a "plan" ServiceRequest on
   // the template. Like in-house labs, we don't snapshot the live order graph;
   // the plan stores the lab + test combo (lab GUID + name, orderable item
-  // code), the Dx reason codes, the clinical info note, and the PSC flag. At
+  // code), the Dx reason codes, the clinical info note, and the PSC and stat flags. At
   // apply time the test is re-resolved against the lab's current compendium,
   // the ordering office is derived from the encounter the template is applied
   // to, and the payment method defaults from that visit's payment details -
@@ -370,6 +370,7 @@ const performEffect = async (
       ],
       ...(order.reasonCode ? { reasonCode: order.reasonCode } : {}),
       ...(clinicalInfoNote ? { note: [{ text: clinicalInfoNote }] } : {}),
+      ...(order.priority === 'stat' ? { priority: 'stat' as const } : {}),
       ...(isPSCOrder(order)
         ? {
             orderDetail: [

@@ -730,7 +730,8 @@ export const ENCOUNTER_LAYERS = {
     label: 'Radiology orders',
     description:
       "Radiology studies ordered on the visit: names, counts, each order's status timeline (through the final read " +
-      'and its review), CPT and laterality, STAT, external orders, ordering provider, diagnoses and safety flags.',
+      'and its review), whether the study was sent to the outside teleradiologist for an over-read or finalized ' +
+      'in-house, CPT and laterality, STAT, external orders, ordering provider, diagnoses and safety flags.',
     schema: z.object({
       imagingOrders: z.array(z.string()).describe('Radiology studies ordered (excl. cancelled).'),
       imagingOrderCount: z.number().describe('Number of radiology studies ordered. 0 when none.'),
@@ -763,8 +764,40 @@ export const ENCOUNTER_LAYERS = {
             pendingFinalAt: z
               .string()
               .nullable()
-              .describe('Full ISO instant the study was sent for the final read. Null until then / never sent.'),
-            finalAt: z.string().nullable().describe('Full ISO instant the final read was issued. Null until then.'),
+              .describe(
+                'Full ISO instant a user pressed "Send for Final Read", sending the study to the OUTSIDE ' +
+                  'teleradiologist (an over-read, billed by the teleradiology vendor). Stays set after the final ' +
+                  'read arrives. Null = never sent out. Use THIS for "sent for a final read" / over-read counts.'
+              ),
+            pendingFinalBy: z
+              .string()
+              .nullable()
+              .describe(
+                'Who pressed "Send for Final Read" (may differ from orderedBy). Not recorded on older studies — ' +
+                  'null there even when pendingFinalAt is set.'
+              ),
+            finalAt: z
+              .string()
+              .nullable()
+              .describe(
+                'Full ISO instant the final read was issued — by EITHER the teleradiologist OR the provider ' +
+                  'finalizing in-house, so it does NOT mean the study was sent out (see finalReadSource). Null until then.'
+              ),
+            finalReadSource: z
+              .enum(['teleradiology', 'in-house'])
+              .nullable()
+              .describe(
+                'Where the final read came from: "teleradiology" = the study was sent with "Send for Final Read" ' +
+                  '(an over-read; pendingFinalAt is set), "in-house" = finalized without being sent (the provider\'s ' +
+                  'own final read). Null until finalized.'
+              ),
+            finalReadBy: z
+              .string()
+              .nullable()
+              .describe(
+                'In-house finals: the provider who wrote the final read. Null for teleradiology finals, studies ' +
+                  'not yet final, and older in-house finals where the author was not recorded.'
+              ),
             reviewedAt: z
               .string()
               .nullable()

@@ -278,6 +278,8 @@ export const dataTestIds = {
     hpiCurrentMedicationsInput: 'telemed-hpi-current-medications-input',
     hpiCurrentMedicationsDoseInput: 'telemed-hpi-current-medications-dose-input',
     hpiCurrentMedicationsDateTimeInput: 'telemed-hpi-current-medications-date-time-input',
+    hpiCurrentMedicationsLastFilledInput: 'telemed-hpi-current-medications-last-filled-input',
+    hpiCurrentMedicationsRefillsInput: 'telemed-hpi-current-medications-refills-input',
     hpiCurrentMedicationsAddButton: 'telemed-hpi-current-medications-add-button',
     hpiCurrentMedicationsScheduledList: 'telemed-hpi-current-medications-scheduled-list',
     hpiCurrentMedicationsAsNeededList: 'telemed-hpi-current-medications-as-needed-list',
@@ -509,6 +511,8 @@ export const dataTestIds = {
     medicationHistoryTableMedication: 'medication-history-table-medication',
     medicationHistoryTableType: 'medication-history-table-type',
     medicationHistoryTableWhoAdded: 'medication-history-table-who-added',
+    medicationHistoryTableLastFilled: 'medication-history-table-last-filled',
+    medicationHistoryTableRefills: 'medication-history-table-refills',
     medicationHistoryTableRow: 'medication-history-table-row',
   },
   orderMedicationPage: {
@@ -625,6 +629,7 @@ export const dataTestIds = {
   },
   patientDocsPage: {
     faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,
+    downloadSelectedDocumentsButton: 'download-selected-documents-button',
   },
   addInsuranceDialog: {
     id: 'add-insurance-dialog',

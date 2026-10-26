@@ -26,7 +26,6 @@ import {
   Radio,
   RadioGroup,
   Select,
-  Stack,
   Switch,
   Tab,
   Table,
@@ -105,6 +104,7 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { AccidentInfoFields } from '../components/AccidentInfoFields';
+import { Amount } from '../components/Amount';
 import { AttachmentsSection } from '../components/attachments/AttachmentsSection';
 import { ClaimDownloadsMenu } from '../components/claim/ClaimDownloadsMenu';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
@@ -134,7 +134,7 @@ import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
-import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { WriteOffsSection } from '../components/WriteOffsSection';
 import { AccidentInfoData } from '../constants/accidentInfo';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
@@ -149,6 +149,7 @@ import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/use
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
+import { claimPayerNames } from '../utils/claimRemits';
 import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
@@ -589,6 +590,7 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Allowed" value={claim.allowed} />
             <Amount label="Payments" sublabel="Insurance Paid" value={claim.insurancePaid} />
             <Amount label="Patient Paid" value={claim.patientPaid} />
+            {claim.writeOffsTotal > 0 ? <Amount label="Write-offs" value={claim.writeOffsTotal} /> : <></>}
             <Amount
               label="Balance"
               value={claim.balance}
@@ -618,8 +620,8 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Claim Properties" value="1" />
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Attachments" value="3" />
-            <Tab label="Write offs & Patient payments" value="4" />
-            <Tab label="Other claims" value="5" />
+            <Tab label="Patient Payments & Write-offs" value="4" />
+            <Tab label="Other Claims" value="5" />
             <Tab label="History" value="6" />
           </TabList>
 
@@ -704,7 +706,7 @@ export default function ClaimDetail(): ReactElement {
             <RemitHighlightProvider>
               <DiagnosesSection claim={claim} updateResource={updateResource} />
               <ServiceLinesSection claim={claim} updateResource={updateResource} />
-              <RemitsSection remits={claim.remits} />
+              <RemitsSection remits={claim.remits} claimPayers={claimPayerNames(claim)} />
               <InsurancePaymentsSection payments={claim.insurancePayments} />
             </RemitHighlightProvider>
           </TabPanel>
@@ -714,8 +716,21 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
-            <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
             <PatientPaymentsSection payments={claim.patientPayments} />
+            <WriteOffsSection
+              claimId={claim.id}
+              refetchClaim={fetchDetail}
+              writeOffs={claim.writeOffs}
+              balance={claim.balance}
+              payerName={claim.payerName}
+              payerId={claim.payerId}
+              secondaryPayerName={claim.secondaryPayerName}
+              secondaryPayerId={claim.secondaryPayerId}
+              tertiaryPayerName={claim.tertiaryPayerName}
+              tertiaryPayerId={claim.tertiaryPayerId}
+              quaternaryPayerName={claim.quaternaryPayerName}
+              quaternaryPayerId={claim.quaternaryPayerId}
+            />
           </TabPanel>
 
           <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
@@ -1892,7 +1907,7 @@ function OtherClaimsSection({
 
 function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['patientPayments'] }): ReactElement {
   return (
-    <ReadOnlySection title="Patient payments">
+    <ReadOnlySection title="Patient Payments">
       {payments.length === 0 ? (
         'No patient payments yet'
       ) : (
@@ -1948,39 +1963,6 @@ export function Meta({ label, value, copyable }: { label: string; value: string;
       ) : (
         displayedValue
       )}
-    </Box>
-  );
-}
-
-function Amount({
-  label,
-  sublabel,
-  value,
-  hint,
-}: {
-  label: string;
-  sublabel?: string;
-  value: number;
-  hint?: string;
-}): ReactElement {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 48 }}>
-      <Box>
-        <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
-          {label}
-        </Typography>
-        {sublabel && (
-          <Typography variant="caption" display="block" color="text.secondary" fontSize={10} lineHeight={1.2}>
-            {sublabel}
-          </Typography>
-        )}
-      </Box>
-      <Stack direction="row" alignItems="center" gap={0.5}>
-        <Typography variant="body1" fontWeight={600}>
-          {formatCurrency(value)}
-        </Typography>
-        {hint && <WarningIconWithTooltip tooltipText={hint} />}
-      </Stack>
     </Box>
   );
 }

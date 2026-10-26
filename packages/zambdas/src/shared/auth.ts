@@ -173,7 +173,6 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
   }
   const expiryStatus = getTokenExpiryStatus(token);
   if (expiryStatus === 'fresh') {
-    console.log('already have token');
     return token;
   }
   if (expiryStatus === 'near-expiry') {

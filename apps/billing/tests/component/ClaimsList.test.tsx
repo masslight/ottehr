@@ -164,6 +164,7 @@ const makeRow = (
   insurancePaid: 0,
   patientResp: 0,
   patientPaid: 0,
+  writeOffsTotal: 0,
   claimBalance: 0,
   adjudicated: true,
   responsibleParty: '',

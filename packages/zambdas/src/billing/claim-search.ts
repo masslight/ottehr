@@ -1,5 +1,15 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
-import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import {
+  Claim,
+  ClaimResponse,
+  Coverage,
+  Location,
+  Organization,
+  Patient,
+  PaymentNotice,
+  Practitioner,
+  Resource,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
@@ -18,7 +28,12 @@ import {
 import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
+import {
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaymentsByClaimId,
+  summarizeClaimPayments,
+  sumPatientPaymentsByClaimId,
+} from './claim-amounts';
 import { resolvePayerIssuerFilter } from './custom-insurance-org.helpers';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
@@ -38,6 +53,7 @@ import {
   SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
 } from './shared';
+import { fetchWriteOffsByClaimIds, sumWriteOffs } from './write-offs';
 
 export const CLAIM_LIST_INCLUDE_PARAMS: ClaimSearchParam[] = [
   {
@@ -358,6 +374,7 @@ export async function scanClaimIds({
   maxMatches,
   withServiceDate,
   withTotal,
+  beforePage,
 }: {
   oystehr: Oystehr;
   params: ClaimSearchParam[];
@@ -365,6 +382,8 @@ export async function scanClaimIds({
   withServiceDate: boolean;
   // Also read Claim.total, for sorting or summing by billed amount.
   withTotal?: boolean;
+  // Runs before each page is requested; a caller with a time budget throws from it to stop the scan.
+  beforePage?: () => void;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const searchParams = {
     resourceType: 'Claim' as const,
@@ -377,6 +396,7 @@ export async function scanClaimIds({
   let serverTotal: number | undefined;
 
   while (scanned.size < maxMatches) {
+    beforePage?.();
     const requested = Math.min(pageSize, maxMatches - scanned.size);
     const page = await searchPageWithSizeRetry<Claim>(oystehr, searchParams, {
       offset: claims.length,
@@ -555,9 +575,12 @@ export function sortScannedClaims<T extends Claim>(claims: T[], sort: ClaimSort)
 export async function fetchClaimsPageByIds({
   oystehr,
   claimIds,
+  extraElements = [],
 }: {
   oystehr: Oystehr;
   claimIds: string[];
+  // Claim fields a caller reads beyond what the claims list renders (CLAIM_LIST_ELEMENTS).
+  extraElements?: string[];
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; includedResources: Resource[] }> {
   if (claimIds.length === 0) {
     return {
@@ -573,7 +596,15 @@ export async function fetchClaimsPageByIds({
         name: '_id',
         value: claimIds.join(','),
       },
-      ...CLAIM_LIST_PARAMS,
+      ...(extraElements.length > 0
+        ? [
+            ...CLAIM_LIST_INCLUDE_PARAMS,
+            {
+              name: '_elements',
+              value: [CLAIM_LIST_ELEMENTS, ...extraElements].join(','),
+            },
+          ]
+        : CLAIM_LIST_PARAMS),
       {
         name: '_count',
         value: String(claimIds.length),
@@ -608,8 +639,28 @@ export async function enrichAndMapClaims({
   claims: Claim[];
   includedResources: Resource[];
 }): Promise<BillingClaimItem[]> {
+  const lookups = await buildClaimLookups({
+    oystehr,
+    claims,
+    includedResources,
+  });
+  return claims.map((claim) => mapClaimToItem(claim, lookups));
+}
+
+export async function buildClaimLookups({
+  oystehr,
+  claims,
+  includedResources,
+  payersByRef,
+}: {
+  oystehr: Oystehr;
+  claims: Claim[];
+  includedResources: Resource[];
+  payersByRef?: Map<string, Organization>;
+}): Promise<ClaimLookups> {
   const patients = includedResources.filter((r): r is Patient => r.resourceType === 'Patient');
   const locations = includedResources.filter((r): r is Location => r.resourceType === 'Location');
+
   const providers = includedResources.filter(
     (r): r is Practitioner | Organization => r.resourceType === 'Practitioner' || r.resourceType === 'Organization'
   );
@@ -617,9 +668,11 @@ export async function enrichAndMapClaims({
   const coverageIds = claims
     .map((c) => sortClaimInsurance(c)[0]?.coverage?.reference?.replace('Coverage/', ''))
     .filter(Boolean) as string[];
+
   const uniqueCoverageIds = [...new Set(coverageIds)];
 
   let coverages: Coverage[] = [];
+
   if (uniqueCoverageIds.length > 0) {
     coverages = await getAllFhirSearchPages<Coverage>(
       {
@@ -640,28 +693,31 @@ export async function enrichAndMapClaims({
     );
   }
 
-  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
-    resolvePayersByRef(
-      oystehr,
-      claims.map((c) => c.insurer?.reference)
-    ),
+  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaymentsByClaimId, writeOffs] = await Promise.all([
+    payersByRef ??
+      resolvePayersByRef(
+        oystehr,
+        claims.map((c) => c.insurer?.reference)
+      ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
-    fetchPatientPaidByClaimId({
+    fetchPatientPaymentsByClaimId({
       oystehr,
       claims,
     }),
+    fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
   ]);
 
-  const lookups: ClaimLookups = {
+  return {
     patients,
-    payersByRef,
+    payersByRef: resolvedPayersByRef,
     locations,
     providers,
     coverages,
     claimResponsesByClaimId,
-    patientPaidByClaimId,
+    patientPaidByClaimId: sumPatientPaymentsByClaimId(patientPaymentsByClaimId),
+    patientPaymentsByClaimId,
+    writeOffs,
   };
-  return claims.map((claim) => mapClaimToItem(claim, lookups));
 }
 
 export interface ClaimLookups {
@@ -672,6 +728,9 @@ export interface ClaimLookups {
   coverages: Coverage[];
   claimResponsesByClaimId: Map<string, ClaimResponse[]>;
   patientPaidByClaimId: Map<string, number>;
+  // The notices patientPaidByClaimId sums; set by buildClaimLookups.
+  patientPaymentsByClaimId?: Map<string, PaymentNotice[]>;
+  writeOffs: Map<string, PaymentNotice[]>;
 }
 
 export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
@@ -681,17 +740,18 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
   const sortedInsurance = sortClaimInsurance(claim);
   const coverage = findRef<Coverage>(lookups.coverages, sortedInsurance[0]?.coverage?.reference);
   const billed = claim.total?.value ?? 0;
-
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
   const renderingProvider = findRef<Practitioner | Organization>(lookups.providers, renderingRef);
   const patientName = fhirName(patient);
-
   const serviceDate = getClaimServiceDate(claim);
   const patientPaid = lookups.patientPaidByClaimId.get(claim.id ?? '') ?? 0;
+  const writeOffsTotal = sumWriteOffs(lookups.writeOffs.get(claim.id ?? '') ?? []);
+
   const payments = summarizeClaimPayments(
     lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [],
     billed,
-    patientPaid
+    patientPaid,
+    writeOffsTotal
   );
 
   return {
@@ -715,6 +775,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     insurancePaid: payments.insurancePaid,
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
+    writeOffsTotal: payments.writeOffsTotal,
     claimBalance: payments.balance,
     adjudicated: payments.adjudicated,
     responsibleParty: 'Primary',

@@ -17,19 +17,21 @@ import { LocationSelectInput } from './input/LocationSelectInput';
 import { SelectInput } from './input/SelectInput';
 
 // keys are the appointment-type strings get-appointments uses:
-// `${'in-person' | 'virtual'}-${AppointmentType}`
+// `${'in-person' | 'virtual'}-${AppointmentType}` for standard visit types,
+// plus 'in-person-scheduled-follow-up' for scheduled follow-up appointments.
 const ALL_VISIT_TYPE_LABELS = {
   'in-person-walk-in': 'Walk-in In Person Visit',
   'in-person-pre-booked': 'Pre-booked In Person Visit',
   'in-person-post-telemed': 'Post Telemed Lab Only',
+  'in-person-scheduled-follow-up': 'Scheduled follow-up',
   'virtual-walk-in': 'On-demand Telemed',
   'virtual-pre-booked': 'Pre-booked Telemed',
-} as const satisfies Partial<Record<`${'in-person' | 'virtual'}-${AppointmentType}`, string>>;
+} as const satisfies Partial<Record<`${'in-person' | 'virtual'}-${AppointmentType | 'scheduled-follow-up'}`, string>>;
 type VisitTypeFilterKey = keyof typeof ALL_VISIT_TYPE_LABELS;
 
 // this map bridges visit and appointment types so we can filter only the options configured for the
-// project
-const FILTER_KEY_TO_BOOKING_OPTION_ID: Record<VisitTypeFilterKey, VisitType> = {
+// project. Keys without an entry here are always shown regardless of booking config.
+const FILTER_KEY_TO_BOOKING_OPTION_ID: Partial<Record<VisitTypeFilterKey, VisitType>> = {
   'in-person-walk-in': VisitType.InPersonWalkIn,
   'in-person-pre-booked': VisitType.InPersonPreBook,
   'in-person-post-telemed': VisitType.InPersonPostTelemed,
@@ -40,9 +42,10 @@ const FILTER_KEY_TO_BOOKING_OPTION_ID: Record<VisitTypeFilterKey, VisitType> = {
 const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   const enabledBookingOptionIds = new Set(BOOKING_CONFIG.ehrBookingOptions.map((opt) => opt.id));
   return Object.fromEntries(
-    (Object.entries(ALL_VISIT_TYPE_LABELS) as [VisitTypeFilterKey, string][]).filter(([key]) =>
-      enabledBookingOptionIds.has(FILTER_KEY_TO_BOOKING_OPTION_ID[key])
-    )
+    (Object.entries(ALL_VISIT_TYPE_LABELS) as [VisitTypeFilterKey, string][]).filter(([key]) => {
+      const bookingOptionId = FILTER_KEY_TO_BOOKING_OPTION_ID[key];
+      return !bookingOptionId || enabledBookingOptionIds.has(bookingOptionId);
+    })
   );
 };
 
@@ -279,6 +282,8 @@ export default function AppointmentsFilters(): ReactElement {
                 size="medium"
                 dataTestId={dataTestIds.dashboard.locationSelect}
                 multiple
+                withSelectAll
+                limitTags={2}
               />
             </Box>
             <Box sx={{ flex: 1, width: '100%' }}>

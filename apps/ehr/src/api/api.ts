@@ -387,6 +387,8 @@ import {
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
   PracticeManagedQuestionnaireGetOutput,
+  PracticeManagedQuestionnaireImportJsonInput,
+  PracticeManagedQuestionnaireImportJsonOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
@@ -431,6 +433,7 @@ const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const GENERATE_ADHOC_REPORT_ZAMBDA_ID = 'generate-adhoc-report';
 const INFER_ADHOC_REPORT_LAYERS_ZAMBDA_ID = 'infer-adhoc-report-layers';
 const ADHOC_REPORT_ZAMBDA_ID = 'adhoc-report';
+export const ADHOC_BILLING_DATASET_ZAMBDA_ID = 'adhoc-billing-dataset';
 const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
 const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
 const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
@@ -548,6 +551,7 @@ const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get'
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const MANAGED_QUESTIONNAIRE_IMPORT_JSON_ZAMBDA_ID = 'practice-managed-questionnaire-import-json';
 const PAPERWORK_FLOW_LIST_ZAMBDA_ID = 'paperwork-flow-list';
 const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
 const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
@@ -712,11 +716,12 @@ export const inferAdHocReportLayers = async (
 
 export const startAdHocReport = async (
   oystehr: Oystehr,
-  parameters: StartAdHocReportInput
+  parameters: StartAdHocReportInput,
+  zambdaId: string = ADHOC_REPORT_ZAMBDA_ID
 ): Promise<StartAdHocReportResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADHOC_REPORT_ZAMBDA_ID,
+      id: zambdaId,
       ...parameters,
     });
     return chooseJson(response);
@@ -726,10 +731,14 @@ export const startAdHocReport = async (
   }
 };
 
-export const getAdHocReportStatus = async (oystehr: Oystehr, taskId: string): Promise<AdHocReportStatus> => {
+export const getAdHocReportStatus = async (
+  oystehr: Oystehr,
+  taskId: string,
+  zambdaId: string = ADHOC_REPORT_ZAMBDA_ID
+): Promise<AdHocReportStatus> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADHOC_REPORT_ZAMBDA_ID,
+      id: zambdaId,
       taskId,
     });
     return chooseJson(response);
@@ -3715,6 +3724,22 @@ export const practiceManagedQuestionnaireCreate = async (
   try {
     const response = await oystehr.zambda.execute({
       id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const practiceManagedQuestionnaireImportJson = async (
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireImportJsonInput
+): Promise<PracticeManagedQuestionnaireImportJsonOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_IMPORT_JSON_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

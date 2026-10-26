@@ -4,6 +4,7 @@ export interface StatementServiceLine {
   charged: string;
   insurancePaid: string;
   patientPaid: string;
+  writeOffs: string;
   patientOwes: string;
 }
 
@@ -67,6 +68,7 @@ export interface StatementDetails {
     charged: string;
     insurancePaid: string;
     patientPaid: string;
+    writeOffs: string;
     balanceDue: string;
     deductible: string;
   };
@@ -123,7 +125,15 @@ export function generateStatement(template: string, details: StatementDetails): 
     .map(
       (line) =>
         '<tr>' +
-        [line.cpt, line.description, line.charged, line.insurancePaid, line.patientPaid, line.patientOwes]
+        [
+          line.cpt,
+          line.description,
+          line.charged,
+          line.insurancePaid,
+          line.patientPaid,
+          line.writeOffs,
+          line.patientOwes,
+        ]
           .map((cell) => `<td>${escapeHtml(cell ?? '')}</td>`)
           .join('') +
         '</tr>'
