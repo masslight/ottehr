@@ -2,6 +2,8 @@ import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { describe, expect, it } from 'vitest';
 import { applyDmeQuickPick, buildDmeQuickPick, DmeOrderFormValues } from './dmeQuickPick';
 
+const NO_THIRD_PARTY = { name: '', address: '', phone: '', fax: '' };
+
 const emptyValues = (overrides: Partial<DmeOrderFormValues> = {}): DmeOrderFormValues => ({
   itemName: '',
   diagnoses: [],
@@ -55,16 +57,16 @@ describe('applyDmeQuickPick', () => {
   it('ignores a menuItemId left on a pick saved before the DME menu was removed', () => {
     const legacy = { name: 'Crutches', itemName: 'Crutches', menuItemId: 'crutches' } as DmeQuickPickData;
 
-    expect(applyDmeQuickPick(legacy)).toEqual({ itemName: 'Crutches', billingCodes: [] });
+    expect(applyDmeQuickPick(legacy)).toEqual({ itemName: 'Crutches', billingCodes: [], thirdParty: NO_THIRD_PARTY });
   });
 
   it('keeps the current DME name when a pick has none', () => {
     const patch = applyDmeQuickPick({ name: 'Two units', itemName: '  ', quantity: 2 });
 
-    expect(patch).toEqual({ billingCodes: [], quantity: '2' });
+    expect(patch).toEqual({ billingCodes: [], quantity: '2', thirdParty: NO_THIRD_PARTY });
   });
 
-  it('does not fill third party information for an in-house pick', () => {
+  it('clears third party information for an in-house pick, even one with a stored vendor', () => {
     const patch = applyDmeQuickPick({
       name: 'In house',
       itemName: 'Sling',
@@ -72,7 +74,25 @@ describe('applyDmeQuickPick', () => {
       thirdParty: { name: 'Acme' },
     });
 
-    expect(patch).toEqual({ itemName: 'Sling', billingCodes: [], external: false });
+    expect(patch).toEqual({ itemName: 'Sling', billingCodes: [], external: false, thirdParty: NO_THIRD_PARTY });
+  });
+
+  it('does not keep the previous vendor when switching to a pick without one', () => {
+    const vendorPick: DmeQuickPickData = {
+      name: 'Crutches - External',
+      itemName: 'Crutches',
+      external: true,
+      thirdParty: { name: 'Acme Medical Supply', address: '1 Main St', phone: '5559876543', fax: '5551234567' },
+    };
+    let values = { ...emptyValues(), ...applyDmeQuickPick(vendorPick) };
+    expect(values.thirdParty.fax).toBe('5551234567');
+
+    values = { ...values, ...applyDmeQuickPick({ name: 'Wheelchair', itemName: 'Wheelchair', external: true }) };
+    expect(values).toMatchObject({ itemName: 'Wheelchair', external: true, thirdParty: NO_THIRD_PARTY });
+
+    values = { ...emptyValues(), ...applyDmeQuickPick(vendorPick) };
+    values = { ...values, ...applyDmeQuickPick({ name: 'Old collar', itemName: 'Cervical collar' }) };
+    expect(values).toMatchObject({ external: true, thirdParty: NO_THIRD_PARTY });
   });
 });
 

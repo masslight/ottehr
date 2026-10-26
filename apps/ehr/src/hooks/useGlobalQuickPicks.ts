@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
+import { withEncounterIdParam } from '../features/visits/in-person/routing/helpers';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
 import { useGetAppointmentAccessibility } from '../features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';
@@ -85,9 +86,14 @@ export function useGlobalQuickPicks(): void {
         itemId,
         payload,
       });
-      navigate(`${inPersonBasePath}/${targetPath}`);
+      navigate(
+        withEncounterIdParam(
+          `${inPersonBasePath}/${targetPath}`,
+          new URLSearchParams(location.search).get('encounterId')
+        )
+      );
     },
-    [inPersonBasePath, navigate, setPendingQuickPick]
+    [inPersonBasePath, location.search, navigate, setPendingQuickPick]
   );
 
   const isOnAllergiesPage = currentSubPath === 'allergies';

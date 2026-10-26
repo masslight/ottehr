@@ -43,14 +43,14 @@ export function applyDmeQuickPick(quickPick: DmeQuickPickData): DmeQuickPickPatc
   }
   if (quickPick.instructions !== undefined) patch.instructions = quickPick.instructions;
   if (quickPick.external !== undefined) patch.external = quickPick.external;
-  if (quickPick.thirdParty && quickPick.external !== false) {
-    patch.thirdParty = {
-      name: quickPick.thirdParty.name ?? '',
-      address: quickPick.thirdParty.address ?? '',
-      phone: quickPick.thirdParty.phone ?? '',
-      fax: quickPick.thirdParty.fax ?? '',
-    };
-  }
+  // always replaced, so a previous pick's supplier and fax never carry over
+  const thirdParty = quickPick.external === false ? undefined : quickPick.thirdParty;
+  patch.thirdParty = {
+    name: thirdParty?.name ?? '',
+    address: thirdParty?.address ?? '',
+    phone: thirdParty?.phone ?? '',
+    fax: thirdParty?.fax ?? '',
+  };
 
   return patch;
 }

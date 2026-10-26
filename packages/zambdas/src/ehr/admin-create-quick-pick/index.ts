@@ -5,13 +5,7 @@ import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedur
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import { Secrets } from 'utils/lib/secrets';
-import {
-  DME_DURATION_UNITS,
-  DME_LATERALITY_OPTIONS,
-  DME_MODIFIER_OPTIONS,
-  DmeOrderFieldsSchema,
-  DmeThirdPartySchema,
-} from 'utils/lib/types/api/dme.types';
+import { DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -80,21 +74,19 @@ const procedureQuickPickSchema = z
   })
   .passthrough();
 
-const dmeCodeSchema = z.object({ code: z.string().min(1), display: z.string() });
-
-const dmeQuickPickSchema = z
-  .object({
-    name: z.string().trim().min(1),
-    itemName: DmeOrderFieldsSchema.shape.itemName,
-    billingCodes: z.array(dmeCodeSchema).optional(),
-    quantity: z.number().int().positive().optional(),
-    laterality: z.enum(DME_LATERALITY_OPTIONS).optional(),
-    modifier: z.enum(DME_MODIFIER_OPTIONS).optional(),
-    duration: z.object({ value: z.number().positive(), unit: z.enum(DME_DURATION_UNITS) }).optional(),
-    instructions: z.string().optional(),
-    external: z.boolean().optional(),
-    thirdParty: DmeThirdPartySchema.optional(),
-  })
+// Same limits as the DME order endpoint, so a saved pick can always be ordered as is.
+const dmeQuickPickSchema = DmeOrderFieldsSchema.pick({
+  billingCodes: true,
+  quantity: true,
+  laterality: true,
+  modifier: true,
+  duration: true,
+  instructions: true,
+  external: true,
+  thirdParty: true,
+})
+  .partial()
+  .extend({ name: z.string().trim().min(1), itemName: DmeOrderFieldsSchema.shape.itemName })
   .passthrough();
 
 const CATEGORIES: CategoryConfig[] = [

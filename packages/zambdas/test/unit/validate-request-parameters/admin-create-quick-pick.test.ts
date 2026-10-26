@@ -213,6 +213,24 @@ describe('admin-create-quick-pick - DME quick pick payload', () => {
     ).resolves.toBeUndefined();
   });
 
+  test('should accept values at the order limits', async () => {
+    await expect(
+      validateDmeQuickPick({
+        quantity: 999,
+        duration: { value: 999, unit: 'days' },
+        instructions: 'x'.repeat(2000),
+        billingCodes: Array(50).fill({ code: 'L4361', display: 'Walking boot' }),
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  // The order endpoint uppercases and trims codes the same way, so a lowercase pick stays orderable.
+  test('should accept a lowercase billing code with surrounding spaces', async () => {
+    await expect(
+      validateDmeQuickPick({ billingCodes: [{ code: ' l4361 ', display: 'Walking boot' }] })
+    ).resolves.toBeUndefined();
+  });
+
   test('should accept a DME quick pick with only a name and a DME name', async () => {
     await expect(validateDmeQuickPick({})).resolves.toBeUndefined();
   });
@@ -249,6 +267,14 @@ describe('admin-create-quick-pick - DME quick pick payload', () => {
     ['a whitespace-only DME name', { itemName: '   ' }],
     ['a DME name that is not text', { itemName: 42 }],
     ['a DME name over 200 characters', { itemName: 'x'.repeat(201) }],
+    ['quantity above the order limit', { quantity: 1000 }],
+    ['a duration above the order limit', { duration: { value: 1000, unit: 'days' } }],
+    ['a billing code that is not 5 characters', { billingCodes: [{ code: 'L43', display: 'Walking boot' }] }],
+    ['a billing code with symbols', { billingCodes: [{ code: 'L4-61', display: 'Walking boot' }] }],
+    ['a billing code with an empty display', { billingCodes: [{ code: 'L4361', display: '' }] }],
+    ['more than 50 billing codes', { billingCodes: Array(51).fill({ code: 'L4361', display: 'Walking boot' }) }],
+    ['instructions over 2000 characters', { instructions: 'x'.repeat(2001) }],
+    ['a third party phone with letters', { thirdParty: { phone: 'call me' } }],
   ])('should throw for %s', async (_label, fields) => {
     await expectDmeRejected(fields);
   });

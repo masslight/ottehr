@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  Link,
   Paper,
   Table,
   TableBody,
@@ -22,7 +23,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useDmeQuickPicksQuery, useRemoveDmeQuickPickMutation, useRenameDmeQuickPickMutation } from './admin.queries';
@@ -143,7 +144,21 @@ export default function DmeQuickPicksPage(): ReactElement {
                 sx={{ cursor: 'pointer' }}
                 onClick={() => qp.id && navigate(`/admin/quick-picks/dme/${qp.id}`)}
               >
-                <TableCell>{qp.name}</TableCell>
+                <TableCell>
+                  {qp.id ? (
+                    <Link
+                      component={RouterLink}
+                      to={`/admin/quick-picks/dme/${qp.id}`}
+                      underline="hover"
+                      color="inherit"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {qp.name}
+                    </Link>
+                  ) : (
+                    qp.name
+                  )}
+                </TableCell>
                 <TableCell>{qp.itemName || '-'}</TableCell>
                 <TableCell>{qp.billingCodes?.map((c) => c.code).join(', ') || '-'}</TableCell>
                 <TableCell>{formatOrderSettings(qp) || '-'}</TableCell>

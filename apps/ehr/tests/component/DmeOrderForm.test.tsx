@@ -283,6 +283,27 @@ describe('DmeOrderForm', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('does not carry the previous pick vendor over to a pick without one', async () => {
+    renderForm();
+
+    await openQuickPicks();
+    await userEvent.click(await screen.findByRole('menuitem', { name: KNEE_BRACE_QUICK_PICK.name }));
+    expect(inputOf(ids.thirdPartyName)).toHaveValue('Acme Medical Supply');
+
+    await openQuickPicks();
+    await userEvent.click(await screen.findByRole('menuitem', { name: COLLAR_QUICK_PICK.name }));
+
+    expect(screen.getByTestId(ids.externalSwitch)).toBeChecked();
+    expect(inputOf(ids.thirdPartyName)).toHaveValue('');
+    expect(inputOf(ids.thirdPartyAddress)).toHaveValue('');
+
+    await userEvent.click(screen.getByTestId(ids.submitButton));
+
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+    expect(createOrder.mock.calls[0][0]).toMatchObject({ itemName: 'Cervical collar', external: true });
+    expect(createOrder.mock.calls[0][0].thirdParty).toBeUndefined();
+  });
+
   it('saves the current DME name and codes as a new quick pick', async () => {
     renderForm();
 

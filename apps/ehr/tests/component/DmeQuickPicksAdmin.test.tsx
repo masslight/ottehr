@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -143,7 +144,24 @@ describe('DME quick picks list', () => {
   it('opens the detail page when a row is clicked', () => {
     renderAt('/admin/quick-picks/dme');
 
-    fireEvent.click(screen.getByText('Adult crutches'));
+    fireEvent.click(screen.getByText('Crutches'));
+    expect(screen.getByRole('heading', { name: 'Adult crutches' })).toBeInTheDocument();
+    expect(screen.getByText('Order Details')).toBeInTheDocument();
+  });
+
+  it('opens the detail page from the name link with the keyboard', async () => {
+    const user = userEvent.setup();
+    renderAt('/admin/quick-picks/dme');
+
+    const link = screen.getByRole('link', { name: 'Adult crutches' });
+    expect(link).toHaveAttribute('href', '/admin/quick-picks/dme/qp-crutches');
+    expect(screen.getByRole('link', { name: 'Walking boot (vendor)' })).toHaveAttribute(
+      'href',
+      '/admin/quick-picks/dme/qp-boot'
+    );
+
+    link.focus();
+    await user.keyboard('{Enter}');
     expect(screen.getByRole('heading', { name: 'Adult crutches' })).toBeInTheDocument();
     expect(screen.getByText('Order Details')).toBeInTheDocument();
   });
