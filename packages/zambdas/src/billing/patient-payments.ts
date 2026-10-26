@@ -1,7 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { Identifier, PaymentNotice, Reference } from 'fhir/r4b';
-import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  BILLING_RESOURCE_TAG,
+  PAYMENT_METHOD_EXTENSION_URL,
+  PAYMENT_VOID_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { getTaskResource } from 'utils/lib/fhir/helpers';
+import {
+  buildPaymentVoidExtension,
+  isPendingReservation,
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+  upsertPaymentRefundsExtension,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation, getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -97,15 +108,48 @@ const withSubmitterFrom = (billingNotice: PaymentNotice, legacyNotice: PaymentNo
   };
 };
 
-// Patient payments (refund offset notices excluded): billing notices plus the legacy EHR notices
-// no billing notice shadows.
+// Refund and void state that only the legacy EHR notice carries. The bridge and webhook create the
+// billing copy asynchronously and never copy this state, so a refund or void recorded before the copy
+// existed (or whose billing-side step failed) lives on the legacy notice alone. Billing entries win on
+// an id match as the newer record; legacy pending reservations belong to refund attempts that can
+// no longer finish, so they are not carried over.
+const withLegacyRefundAndVoidState = (billingNotice: PaymentNotice, legacyNotice: PaymentNotice): PaymentNotice => {
+  const billingRefunds = parsePaymentRefundsFromNotice(billingNotice) ?? [];
+  const knownRefundIds = new Set(billingRefunds.map((refund) => refund.stripeRefundId));
+  const legacyOnlyRefunds = (parsePaymentRefundsFromNotice(legacyNotice) ?? []).filter(
+    (refund) => !knownRefundIds.has(refund.stripeRefundId) && !isPendingReservation(refund)
+  );
+  const legacyVoid = legacyNotice.status === 'cancelled' ? parsePaymentVoidFromNotice(legacyNotice) : undefined;
+  const voidToCarry =
+    legacyVoid && billingNotice.status !== 'cancelled' && !parsePaymentVoidFromNotice(billingNotice)
+      ? legacyVoid
+      : undefined;
+  if (legacyOnlyRefunds.length === 0 && !voidToCarry) return billingNotice;
+
+  const withRefunds = legacyOnlyRefunds.length
+    ? upsertPaymentRefundsExtension(billingNotice.extension, [...billingRefunds, ...legacyOnlyRefunds])
+    : billingNotice.extension ?? [];
+  return {
+    ...billingNotice,
+    extension: voidToCarry
+      ? [...withRefunds.filter((ext) => ext.url !== PAYMENT_VOID_EXTENSION_URL), buildPaymentVoidExtension(voidToCarry)]
+      : withRefunds,
+    ...(voidToCarry ? { status: 'cancelled' as const } : {}),
+  };
+};
+
+const withLegacyStateFrom = (billingNotice: PaymentNotice, legacyNotice: PaymentNotice): PaymentNotice =>
+  withLegacyRefundAndVoidState(withSubmitterFrom(billingNotice, legacyNotice), legacyNotice);
+
+// Patient payments (refund offset notices excluded): billing notices, carrying what the legacy EHR
+// notice they shadow knows, plus the legacy notices no billing notice shadows.
 export const mergeBillingAndLegacyPaymentNotices = (
   billingNotices: PaymentNotice[],
   legacyNotices: PaymentNotice[]
 ): PaymentNotice[] => {
   const billing = billingNotices.filter(isPositivePayment).map((billingNotice) => {
     const shadowed = legacyNotices.find((legacyNotice) => shadowsLegacyNotice(billingNotice, legacyNotice));
-    return shadowed ? withSubmitterFrom(billingNotice, shadowed) : billingNotice;
+    return shadowed ? withLegacyStateFrom(billingNotice, shadowed) : billingNotice;
   });
   const unshadowedLegacy = legacyNotices.filter(
     (legacyNotice) => !billing.some((billingNotice) => shadowsLegacyNotice(billingNotice, legacyNotice))
@@ -206,9 +250,62 @@ const adoptLegacyPaymentNotice = async (
   );
 };
 
+// the legacy EHR notice a billing notice was copied from, or that records the same Stripe payment
+const findLegacyCounterpart = async (
+  clinicalOystehr: Oystehr,
+  billingNotice: PaymentNotice,
+  encounterId: string
+): Promise<PaymentNotice | undefined> => {
+  const legacyId = billingNotice.identifier?.find(
+    (identifier) => identifier.system === CLINICAL_PAYMENT_NOTICE_ID_SYSTEM
+  )?.value;
+  if (legacyId) return getPaymentNoticeIfVisible(clinicalOystehr, legacyId);
+
+  const stripeIds = stripeIdsForPaymentNotice(billingNotice);
+  if (stripeIds.length === 0) return undefined;
+  return (
+    await clinicalOystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [
+        { name: 'request', value: `Encounter/${encounterId}` },
+        { name: 'identifier', value: stripeIds.map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`).join(',') },
+      ],
+    })
+  ).unbundle()[0];
+};
+
+// Persists legacy-only refund and void state onto the billing notice before a write validates
+// against it. Version guarded, so a concurrent writer fails this request instead of being overwritten.
+const persistLegacyState = async (
+  billingOystehr: Oystehr,
+  billingNotice: PaymentNotice,
+  legacyNotice: PaymentNotice | undefined
+): Promise<PaymentNotice> => {
+  const synced = legacyNotice ? withLegacyRefundAndVoidState(billingNotice, legacyNotice) : billingNotice;
+  if (synced === billingNotice || !billingNotice.id) return billingNotice;
+  return billingOystehr.fhir.patch<PaymentNotice>({
+    resourceType: 'PaymentNotice',
+    id: billingNotice.id,
+    operations: [
+      ...(billingNotice.meta?.versionId
+        ? [{ op: 'test' as const, path: '/meta/versionId', value: billingNotice.meta.versionId }]
+        : []),
+      ...(synced.status !== billingNotice.status
+        ? [{ op: 'replace' as const, path: '/status', value: synced.status }]
+        : []),
+      {
+        op: billingNotice.extension !== undefined ? ('replace' as const) : ('add' as const),
+        path: '/extension',
+        value: synced.extension,
+      },
+    ],
+  });
+};
+
 /**
  * The billing notice a refund or void writes to. `paymentNoticeId` comes from the payments list,
- * so it is either a billing notice or a legacy EHR notice, which gets adopted into billing.
+ * so it is either a billing notice or a legacy EHR notice, which gets adopted into billing. Either
+ * way the result carries the legacy notice's refund and void state.
  */
 export const resolvePaymentNoticeForWrite = async (params: {
   clinicalOystehr: Oystehr;
@@ -222,7 +319,8 @@ export const resolvePaymentNoticeForWrite = async (params: {
   const billingNotice = await getPaymentNoticeIfVisible(billingOystehr, paymentNoticeId);
   if (billingNotice) {
     assertNoticeBelongsToEncounter(billingNotice, encounterId);
-    return billingNotice;
+    const legacyNotice = await findLegacyCounterpart(clinicalOystehr, billingNotice, encounterId);
+    return persistLegacyState(billingOystehr, billingNotice, legacyNotice);
   }
 
   const legacyNotice = await getPaymentNoticeIfVisible(clinicalOystehr, paymentNoticeId);
@@ -230,7 +328,8 @@ export const resolvePaymentNoticeForWrite = async (params: {
     throw FHIR_RESOURCE_NOT_FOUND('PaymentNotice');
   }
   assertNoticeBelongsToEncounter(legacyNotice, encounterId);
-  return adoptLegacyPaymentNotice(billingOystehr, legacyNotice, encounterId, secrets);
+  const adopted = await adoptLegacyPaymentNotice(billingOystehr, legacyNotice, encounterId, secrets);
+  return persistLegacyState(billingOystehr, adopted, legacyNotice);
 };
 
 // The Candid-sync / receipt Task is a clinical work item, so it is written with the clinical client

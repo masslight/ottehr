@@ -108,6 +108,7 @@ const clinicalSearch = vi.fn();
 const billingGet = vi.fn();
 const billingSearch = vi.fn();
 const billingCreate = vi.fn();
+const billingPatch = vi.fn();
 const candidGetMulti = vi.fn();
 const candidCreate = vi.fn();
 
@@ -155,7 +156,7 @@ beforeEach(() => {
     fhir: { get: clinicalGet, search: clinicalSearch },
   } as unknown as Oystehr);
   vi.mocked(createBillingClient).mockReturnValue({
-    fhir: { get: billingGet, search: billingSearch, create: billingCreate },
+    fhir: { get: billingGet, search: billingSearch, create: billingCreate, patch: billingPatch },
   } as unknown as Oystehr);
   vi.mocked(getOrCreateCandidApiClient).mockResolvedValue({
     patientRefunds: { v1: { getMulti: candidGetMulti, create: candidCreate } },
@@ -260,6 +261,44 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
 
     expect(billingCreate).not.toHaveBeenCalled();
     expect(vi.mocked(applyRefundsToPaymentNotice).mock.calls[0][1].id).toBe('bridged-1');
+  });
+
+  it('carries a refund recorded only on the legacy notice before validating the new one', async () => {
+    const legacyRefund: PaymentRefundDTO = {
+      stripeRefundId: 'manual_legacy',
+      amountInCents: 4000,
+      dateISO: '2026-04-20T13:00:00Z',
+      status: 'succeeded',
+      reason: 'Overcharge',
+    };
+    // the bridge copied the $50 payment after the refund was stamped clinically, without it
+    const bridgedCopy = {
+      ...makeBillingNotice([]),
+      meta: { versionId: '5', tag: [BILLING_RESOURCE_TAG] },
+      identifier: [{ system: CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, value: LEGACY_NOTICE_ID }],
+    };
+    billingGet.mockResolvedValue(bridgedCopy);
+    clinicalGet.mockResolvedValue({
+      ...makeLegacyNotice(),
+      extension: [
+        { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' },
+        buildPaymentRefundsExtension([legacyRefund]),
+      ],
+    });
+    billingPatch.mockImplementation(async ({ operations }) => ({
+      ...bridgedCopy,
+      meta: { versionId: '6', tag: [BILLING_RESOURCE_TAG] },
+      extension: operations.find((op: { path: string }) => op.path === '/extension').value,
+    }));
+
+    await expect(invoke('ottehr', { paymentNoticeId: NOTICE_ID, amountInCents: 2000 })).rejects.toMatchObject({
+      message: 'Refund amount exceeds the remaining refundable amount of 10.00.',
+    });
+
+    expect(clinicalGet).toHaveBeenCalledWith({ resourceType: 'PaymentNotice', id: LEGACY_NOTICE_ID });
+    const { operations } = billingPatch.mock.calls[0][0];
+    expect(operations[0]).toEqual({ op: 'test', path: '/meta/versionId', value: '5' });
+    expect(applyRefundsToPaymentNotice).not.toHaveBeenCalled();
   });
 
   it('reports a payment id that neither workspace knows as not found', async () => {

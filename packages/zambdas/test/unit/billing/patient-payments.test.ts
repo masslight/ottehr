@@ -1,5 +1,11 @@
 import { PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  buildPaymentRefundsExtension,
+  buildPaymentVoidExtension,
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it } from 'vitest';
@@ -93,6 +99,42 @@ describe('mergeBillingAndLegacyPaymentNotices', () => {
     expect(getPaymentNoticeSubmitterRef(merged[0])).toEqual({ reference: 'Practitioner/fd', display: 'Front Desk' });
     // the input is not mutated
     expect(getPaymentNoticeSubmitterRef(webhookCopy)).toBeUndefined();
+  });
+
+  it('carries refunds and a void that only the legacy notice recorded', () => {
+    const legacyRefund = {
+      stripeRefundId: 'manual_legacy',
+      amountInCents: 500,
+      dateISO: '2026-04-22T16:00:00Z',
+      status: 'succeeded',
+    };
+    const billingRefund = { ...legacyRefund, stripeRefundId: 'manual_billing', amountInCents: 300 };
+    const legacy: PaymentNotice = {
+      ...legacyNotice('clinical-1', { method: 'cash' }),
+      status: 'cancelled',
+      extension: [
+        { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' },
+        buildPaymentRefundsExtension([legacyRefund, { ...billingRefund, amountInCents: 999 }]),
+        buildPaymentVoidExtension({ reason: 'Other', voidedAtISO: '2026-04-22T17:00:00Z' }),
+      ],
+    };
+    const copy: PaymentNotice = {
+      ...billingNotice('billing-1', {
+        method: 'cash',
+        identifiers: [{ system: CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, value: 'clinical-1' }],
+      }),
+      extension: [
+        { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' },
+        buildPaymentRefundsExtension([billingRefund]),
+      ],
+    };
+
+    const [merged] = mergeBillingAndLegacyPaymentNotices([copy], [legacy]);
+
+    // the billing entry wins on an id match; the legacy-only one is added
+    expect(parsePaymentRefundsFromNotice(merged)).toEqual([billingRefund, legacyRefund]);
+    expect(merged.status).toBe('cancelled');
+    expect(parsePaymentVoidFromNotice(merged)?.reason).toBe('Other');
   });
 
   it('keeps legacy notices no billing notice records, and drops negative refund offsets', () => {
