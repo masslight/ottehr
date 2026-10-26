@@ -18,17 +18,26 @@ import { shouldUseCandid, shouldUseOttehrBilling } from './candid';
 
 interface InvoicingFlags {
   ottehrBillingInvoicingEnabled?: boolean;
+  invoicingInBillingApp?: boolean;
 }
 
 export function isCandidInvoicingEnabled(secrets: Secrets): boolean {
   return shouldUseCandid(secrets);
 }
 
-export function isOttehrBillingInvoicingEnabled(
+function isOttehrBillingInvoicingEnabled(secrets: Secrets, flags: InvoicingFlags): boolean {
+  return shouldUseOttehrBilling(secrets) && (flags.ottehrBillingInvoicingEnabled ?? false);
+}
+
+export function isOttehrBillingInvoicingInEhr(secrets: Secrets, flags: InvoicingFlags = FEATURE_FLAGS_CONFIG): boolean {
+  return isOttehrBillingInvoicingEnabled(secrets, flags) && !flags.invoicingInBillingApp;
+}
+
+export function isOttehrBillingInvoicingInBillingApp(
   secrets: Secrets,
   flags: InvoicingFlags = FEATURE_FLAGS_CONFIG
 ): boolean {
-  return shouldUseOttehrBilling(secrets) && (flags.ottehrBillingInvoicingEnabled ?? false);
+  return isOttehrBillingInvoicingEnabled(secrets, flags) && (flags.invoicingInBillingApp ?? false);
 }
 
 export interface BuildInvoiceTaskParams {

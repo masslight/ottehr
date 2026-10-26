@@ -11,6 +11,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UnauthorizedPage } from './components/UnauthorizedPage';
 import { ChargeItemDefinitionLabels } from './constants/chargeItemDefinition';
+import { INVOICING_IN_BILLING_APP } from './constants/invoicing';
 import { useApiClients } from './hooks/useAppClients';
 import { useEvolveUser } from './hooks/useEvolveUser';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
@@ -118,7 +119,9 @@ export default function App(): ReactElement {
               <Route path="/eras/:id/edit" element={<ManualRemit />} />
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
-              <Route path="/invoicing-configuration" element={<InvoicingConfiguration />} />
+              {INVOICING_IN_BILLING_APP && (
+                <Route path="/invoicing-configuration" element={<InvoicingConfiguration />} />
+              )}
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/payments" element={<PaymentsReport />} />
               <Route path="/reports/cards-on-file" element={<CardsOnFileReport />} />

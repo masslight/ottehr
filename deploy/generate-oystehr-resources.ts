@@ -192,6 +192,7 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   const billingVars = { ...VAR_DEFAULTS, ...vars };
 
   assertBillingIntegrationSupportsNios(coreVars, env);
+  assertBillingAppInvoicingConfig(coreVars, env);
 
   await validateAndGenerateSpecFiles(coreSpecs, coreVars, outputPath);
   if (billingSpecs.length > 0) {
@@ -220,6 +221,32 @@ function assertBillingIntegrationSupportsNios(vars: { [key: string]: unknown }, 
         `feature flag is on. Non-insurance organizations need Ottehr billing as the system of record: set ` +
         `BILLING_INTEGRATION to 'ottehr' (or 'all' to also send comparison claims to Candid) in ` +
         `config/.env/${env}.json, or turn off customOrganizationsEnabled.`
+    );
+  }
+}
+
+/**
+ * invoicingInBillingApp moves Ottehr billing invoicing from the EHR to the billing app, so it only
+ * makes sense with that invoicing turned on and Ottehr billing claims in the claims path. The billing
+ * app can't read BILLING_INTEGRATION, so this check is what keeps it from showing invoicing to a
+ * Candid-only deployment.
+ */
+function assertBillingAppInvoicingConfig(vars: { [key: string]: unknown }, env: string): void {
+  if (!FEATURE_FLAGS_CONFIG.invoicingInBillingApp) {
+    return;
+  }
+  if (!FEATURE_FLAGS_CONFIG.ottehrBillingInvoicingEnabled) {
+    throw new Error(
+      `invoicingInBillingApp is on for env '${env}' but ottehrBillingInvoicingEnabled is off. ` +
+        `Turn on ottehrBillingInvoicingEnabled to invoice from the billing app, or turn off invoicingInBillingApp.`
+    );
+  }
+  const billingIntegration = vars.BILLING_INTEGRATION;
+  if (billingIntegration !== 'ottehr' && billingIntegration !== 'all') {
+    throw new Error(
+      `BILLING_INTEGRATION is '${billingIntegration || '(unset)'}' for env '${env}', but invoicingInBillingApp ` +
+        `is on. Billing app invoicing needs Ottehr billing claims: set BILLING_INTEGRATION to 'ottehr' or 'all' ` +
+        `in config/.env/${env}.json, or turn off invoicingInBillingApp.`
     );
   }
 }

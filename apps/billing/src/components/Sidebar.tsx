@@ -22,6 +22,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
+import { INVOICING_IN_BILLING_APP } from '../constants/invoicing';
 
 const DRAWER_WIDTH = 220;
 
@@ -145,12 +146,16 @@ export const Sidebar: FC = () => {
         {navItems.map(renderNavItem)}
         <Divider sx={{ my: 1 }} />
         {rulesNavItems.map(renderNavItem)}
-        <Divider sx={{ my: 1 }} />
-        {renderNavItem({
-          label: 'Invoicing Configuration',
-          path: '/invoicing-configuration',
-          icon: <SettingsIcon sx={{ fontSize: 18 }} />,
-        })}
+        {INVOICING_IN_BILLING_APP && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            {renderNavItem({
+              label: 'Invoicing Configuration',
+              path: '/invoicing-configuration',
+              icon: <SettingsIcon sx={{ fontSize: 18 }} />,
+            })}
+          </>
+        )}
       </List>
 
       <List sx={{ px: 1.25 }}>

@@ -20,8 +20,11 @@ export const FEATURE_FLAGS = {
   MAILING_PAPER_STATEMENTS_ENABLED: FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled,
   AUTOMATED_PATIENT_OUTREACH_ENABLED: FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled,
   CANDID_INVOICING_ENABLED: ['candid', 'all'].includes(BILLING_INTEGRATION),
+  // Off once a deployment moves its Ottehr billing invoicing to the billing app.
   OTTEHR_BILLING_INVOICING_ENABLED:
-    ['ottehr', 'all'].includes(BILLING_INTEGRATION) && (FEATURE_FLAGS_CONFIG.ottehrBillingInvoicingEnabled ?? false),
+    ['ottehr', 'all'].includes(BILLING_INTEGRATION) &&
+    (FEATURE_FLAGS_CONFIG.ottehrBillingInvoicingEnabled ?? false) &&
+    !FEATURE_FLAGS_CONFIG.invoicingInBillingApp,
   EMPLOYEE_CHAT_ENABLED: FEATURE_FLAGS_CONFIG.employeeChatEnabled ?? false,
   CUSTOM_ORGANIZATIONS_ENABLED: FEATURE_FLAGS_CONFIG.customOrganizationsEnabled ?? false,
   EASY_CHART_ENABLED: FEATURE_FLAGS_CONFIG.easyChartEnabled ?? false,
