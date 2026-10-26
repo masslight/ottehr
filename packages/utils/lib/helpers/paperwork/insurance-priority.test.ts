@@ -1,6 +1,7 @@
-import { Account, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Coverage, QuestionnaireResponseItem } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { getCoverageSlotChanges } from '../../fhir/insurance';
+import { OrderedCoverages } from '../../types/data/account';
 import { isInsuranceCardId, isPrimaryInsuranceCardId, swapPrimarySecondaryInsuranceCardId } from './files-docs';
 import { getRequestedInsurancePriorityChanges, hasInsurancePriorityChange } from './paperwork';
 
@@ -11,13 +12,9 @@ const insuranceSection = (blocks: Record<string, string>): QuestionnaireResponse
   },
 ];
 
-const account = (primary?: string, secondary?: string): Account => ({
-  resourceType: 'Account',
-  status: 'active',
-  coverage: [
-    ...(primary ? [{ coverage: { reference: `Coverage/${primary}` }, priority: 1 }] : []),
-    ...(secondary ? [{ coverage: { reference: `Coverage/${secondary}` }, priority: 2 }] : []),
-  ],
+const coverages = (primary?: string, secondary?: string): OrderedCoverages => ({
+  primary: primary ? ({ id: primary } as Coverage) : undefined,
+  secondary: secondary ? ({ id: secondary } as Coverage) : undefined,
 });
 
 describe('hasInsurancePriorityChange', () => {
@@ -60,26 +57,26 @@ describe('getCoverageSlotChanges', () => {
   const nothingChanged = { primaryCoverageChanged: false, secondaryCoverageChanged: false };
 
   it('detects a swap', () => {
-    expect(getCoverageSlotChanges(account('a', 'b'), account('b', 'a'))).toEqual(bothChanged);
+    expect(getCoverageSlotChanges(coverages('a', 'b'), coverages('b', 'a'))).toEqual(bothChanged);
   });
 
   it('detects primary moved to secondary', () => {
-    expect(getCoverageSlotChanges(account('a'), account(undefined, 'a'))).toEqual({
+    expect(getCoverageSlotChanges(coverages('a'), coverages(undefined, 'a'))).toEqual({
       primaryCoverageChanged: false,
       secondaryCoverageChanged: true,
     });
   });
 
   it('detects a new coverage promoted to primary', () => {
-    expect(getCoverageSlotChanges(account('a'), account('b', 'a'))).toEqual(bothChanged);
+    expect(getCoverageSlotChanges(coverages('a'), coverages('b', 'a'))).toEqual(bothChanged);
   });
 
   it('detects a replaced coverage (corrected member ID)', () => {
-    expect(getCoverageSlotChanges(account('a', 'b'), account('b', 'a2'))).toEqual(bothChanged);
+    expect(getCoverageSlotChanges(coverages('a', 'b'), coverages('b', 'a2'))).toEqual(bothChanged);
   });
 
   it('detects nothing when the coverages were already moved (re-submitted form)', () => {
-    expect(getCoverageSlotChanges(account('b', 'a'), account('b', 'a'))).toEqual(nothingChanged);
+    expect(getCoverageSlotChanges(coverages('b', 'a'), coverages('b', 'a'))).toEqual(nothingChanged);
   });
 });
 
