@@ -8,17 +8,11 @@ import { Task } from 'utils/lib/types/data/tasks/types';
 interface TaskTitleProps {
   task: Task;
   notes: PatientNoteDTO[];
-  currentUserId: string | undefined;
   onOpenNotes: () => void;
 }
 
-/** The task's name opens its notes and previews them on hover; a dot marks unread notes for people involved. */
-export const TaskTitle: React.FC<TaskTitleProps> = ({ task, notes, currentUserId, onOpenNotes }) => {
-  const involved =
-    !!currentUserId &&
-    (task.assignee?.id === currentUserId ||
-      task.createdById === currentUserId ||
-      notes.some((note) => note.authorId === currentUserId));
+/** The task's name opens its notes and previews them on hover. */
+export const TaskTitle: React.FC<TaskTitleProps> = ({ task, notes, onOpenNotes }) => {
   const preview = notes.length ? (
     <Box sx={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
       {notes.map((note) => (
@@ -36,31 +30,21 @@ export const TaskTitle: React.FC<TaskTitleProps> = ({ task, notes, currentUserId
     ''
   );
   return (
-    <>
-      {involved && notes.some((note) => note.isUnread) && (
-        <Box
-          component="span"
-          role="img"
-          aria-label="Unread notes"
-          sx={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', bgcolor: 'warning.main', mr: 1 }}
-        />
-      )}
-      <GenericToolTip title={preview} customWidth={400} placement="bottom-start" describeChild>
-        <Link
-          component="button"
-          underline="hover"
-          onClick={onOpenNotes}
-          sx={{
-            color: '#000000DE',
-            fontWeight: 500,
-            fontSize: '1rem',
-            textAlign: 'left',
-            textDecoration: task.status === 'completed' ? 'line-through' : undefined,
-          }}
-        >
-          {task.title}
-        </Link>
-      </GenericToolTip>
-    </>
+    <GenericToolTip title={preview} customWidth={400} placement="bottom-start" describeChild>
+      <Link
+        component="button"
+        underline="none"
+        onClick={onOpenNotes}
+        sx={{
+          color: '#000000DE',
+          fontWeight: 500,
+          fontSize: '1rem',
+          textAlign: 'left',
+          textDecoration: task.status === 'completed' ? 'line-through' : undefined,
+        }}
+      >
+        {task.title}
+      </Link>
+    </GenericToolTip>
   );
 };

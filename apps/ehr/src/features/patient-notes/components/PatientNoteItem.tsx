@@ -48,7 +48,7 @@ export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note, target }
           <IconButton
             size="small"
             aria-label="edit note"
-            sx={{ color: theme.palette.primary.dark }}
+            sx={{ color: theme.palette.primary.main }}
             onClick={() => setIsEditOpen(true)}
             disabled={isDeleting}
           >

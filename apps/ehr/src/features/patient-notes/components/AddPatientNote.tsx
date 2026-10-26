@@ -26,14 +26,14 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ target, onCreate
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 3 }}>
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, px: 3, py: 1 }}>
       <Box sx={{ flex: 1 }}>
         <TextField
           variant="outlined"
           fullWidth
           autoComplete="off"
           multiline
-          label={`Enter ${noteKind(target)} note...`}
+          label={noteKind(target) === 'task' ? 'Add a Note' : 'Enter patient note...'}
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={isPending}
@@ -58,7 +58,7 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ target, onCreate
         sx={{ height: '56px', minWidth: '80px', px: 2 }}
         startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}
       >
-        {isPending ? 'Saving...' : `Save ${noteKind(target) === 'task' ? 'Task' : 'Patient'} Note`}
+        {isPending ? 'Saving...' : noteKind(target) === 'task' ? 'Add Note' : 'Save Patient Note'}
       </RoundedButton>
     </Box>
   );

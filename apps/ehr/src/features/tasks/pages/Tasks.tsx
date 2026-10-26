@@ -42,6 +42,7 @@ import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
 import { MoreTaskActions } from '../components/MoreTaskActions';
+import { TaskNotesButton } from '../components/TaskNotesButton';
 import { TaskNotesDialog } from '../components/TaskNotesDialog';
 import { TaskTitle } from '../components/TaskTitle';
 
@@ -344,12 +345,7 @@ export const Tasks: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Box>
-                            <TaskTitle
-                              task={task}
-                              notes={notes}
-                              currentUserId={currentUserProviderId}
-                              onOpenNotes={() => setNotesTaskId(task.id)}
-                            />
+                            <TaskTitle task={task} notes={notes} onOpenNotes={() => setNotesTaskId(task.id)} />
                             {task.alert ? renderAlertIcon(task.alert) : null}
                           </Box>
                           {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
@@ -382,7 +378,13 @@ export const Tasks: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Stack direction="row" justifyContent="space-between" spacing={1}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <TaskNotesButton
+                              task={task}
+                              notes={notes}
+                              currentUserId={currentUserProviderId}
+                              onOpenNotes={() => setNotesTaskId(task.id)}
+                            />
                             {renderActionButton(task)}
                             {renderCompleteButton(task)}
                           </Stack>
