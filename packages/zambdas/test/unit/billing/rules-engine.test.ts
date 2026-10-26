@@ -369,32 +369,35 @@ describe('rules-engine evaluator', () => {
     );
   });
 
-  it('compares the service by the name the claims list shows, however the rule spells it', () => {
+  it('compares the service by its code or the name the claims list shows, each exactly', () => {
     const m = makeModel();
     m.claim.meta = { tag: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'workers-comp' }] };
     const service = (operator: RuleOperator, value?: RuleConditionValue): boolean =>
       evaluateCondition({ type: 'field', field: 'service', operator, value }, m);
 
-    expect(readField(m, 'service')).toBe('Workers Comp');
-    // The name as shown, the code (how rules named it before), and other spellings of the name.
+    expect(readField(m, 'service')).toBe('workers-comp');
+    // Either spelling names the service; other spellings of the name don't.
     expect(service('eq', 'Workers Comp')).toBe(true);
     expect(service('eq', 'workers-comp')).toBe(true);
-    expect(service('eq', ' workers  comp ')).toBe(true);
-    expect(service('eq', 'Urgent Care')).toBe(false);
+    expect(service('eq', 'workers comp')).toBe(false);
     expect(service('neq', 'Workers Comp')).toBe(false);
     expect(service('in', ['Urgent Care', 'Workers Comp'])).toBe(true);
-    expect(service('notIn', ['Urgent Care', 'Occupational Medicine'])).toBe(true);
-    expect(service('contains', 'comp')).toBe(true);
-    expect(service('notContains', 'Urgent')).toBe(true);
+    expect(service('notIn', ['urgent-care', 'Occupational Medicine'])).toBe(true);
+    // Fragments and patterns test both spellings as written.
+    expect(service('contains', 'Comp')).toBe(true);
+    expect(service('contains', '-comp')).toBe(true);
     expect(service('startsWith', 'Workers C')).toBe(true);
-    expect(service('notStartsWith', 'Workers')).toBe(false);
-    // A pattern matches either the name as shown or the code.
+    expect(service('notStartsWith', 'workers-')).toBe(false);
     expect(service('matches', '^Workers Comp$')).toBe(true);
     expect(service('matches', '^workers-comp$')).toBe(true);
     expect(service('notMatches', '^Urgent')).toBe(true);
-    expect(service('exists')).toBe(true);
 
-    // Other text fields still compare exactly.
+    // A hyphen in a fragment stays a hyphen: "pre-" does not start "prenatal".
+    m.claim.meta = { tag: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'prenatal' }] };
+    expect(service('startsWith', 'pre-')).toBe(false);
+    expect(service('contains', '-')).toBe(false);
+
+    // Other text fields still compare their one value.
     expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'mem-123' }, m)).toBe(
       false
     );
@@ -465,16 +468,24 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'type')).toBe('institutional');
     expect(writeField(m, 'type', 'dental')).toBe(false);
 
-    // Rules name the service as the claims list shows it; the claim's tag stores the code. A code
-    // (how rules named it before names were supported) is stored as-is.
+    // A rule names the service by its code or its displayed name; the claim's tag stores the code of
+    // the listed service it names, so anything else fails (here nothing is listed yet).
+    expect(writeField(m, 'service', 'Workers Comp')).toBe(false);
+    m.billingServiceCodes = ['urgent-care', 'workers-comp', 'workers--comp'];
     const serviceCodes = (): (string | undefined)[] =>
       (m.claim.meta?.tag ?? []).filter((t) => t.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM).map((t) => t.code);
     expect(writeField(m, 'service', 'Workers Comp')).toBe(true);
     expect(serviceCodes()).toEqual(['workers-comp']);
-    expect(readField(m, 'service')).toBe('Workers Comp');
     expect(writeField(m, 'service', 'urgent-care')).toBe(true);
     expect(serviceCodes()).toEqual(['urgent-care']);
-    expect(readField(m, 'service')).toBe('Urgent Care');
+    // Codes are stored exactly as listed, even ones whose name doesn't read back as the code.
+    expect(writeField(m, 'service', 'workers--comp')).toBe(true);
+    expect(serviceCodes()).toEqual(['workers--comp']);
+    expect(writeField(m, 'service', 'Workers  Comp')).toBe(true);
+    expect(serviceCodes()).toEqual(['workers--comp']);
+    expect(writeField(m, 'service', 'Sports Physicals')).toBe(false);
+    expect(writeField(m, 'service', '-')).toBe(false);
+    expect(serviceCodes()).toEqual(['workers--comp']);
     expect(writeField(m, 'service', null)).toBe(true);
     expect(serviceCodes()).toEqual([]);
     expect(readField(m, 'service')).toBeUndefined();

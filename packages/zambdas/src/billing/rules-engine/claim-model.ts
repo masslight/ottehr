@@ -45,13 +45,11 @@ import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimStatusFieldKey,
-  formatAntCaseString,
   getClaimStatusFieldValue,
   isValidClaimStatusValue,
-  parseAntCaseString,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { getServiceLinePropertyDef, serviceCodeFor } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { updateExtension } from '../../shared/helpers';
@@ -121,6 +119,10 @@ export interface RulesEngineClaimModel {
   // Inactive (soft-deleted) organizations are kept, so the writer can fail the action instead of
   // mistaking the id for an RCM payer.
   customInsuranceOrganizations?: Map<string, Organization>;
+  // The codes of the services on claims created from visits (search-billing-services' list),
+  // prefetched by the engine when the rule set sets the service, so the synchronous writer can look up
+  // the code of the service a rule names.
+  billingServiceCodes?: string[];
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
@@ -437,12 +439,7 @@ const READERS: Record<string, FieldReader> = {
   payerId: (m) => extractPayerIdFromCoverageRef(primaryCoverage(m)?.payor?.[0]?.reference),
   nonInsurancePayerId: (m) => getClaimNonInsurancePayer(m.claim)?.reference?.replace('Organization/', ''),
   type: (m) => getClaimType(m.claim),
-  // The name the claim screens show (workers-comp reads as "Workers Comp"). Conditions compare through
-  // the service format's normalize, so rules that name the code still match.
-  service: (m) => {
-    const code = getClaimService(m.claim);
-    return code ? formatAntCaseString(code) : undefined;
-  },
+  service: (m) => getClaimService(m.claim),
   serviceDate: (m) => m.claim.item?.[0]?.servicedPeriod?.start ?? m.claim.item?.[0]?.servicedDate,
   created: (m) => m.claim.created,
   billingType: (m) => (claimHasRealCoverage(m.claim.insurance) ? 'Insurance Pay' : 'Self Pay'),
@@ -750,10 +747,13 @@ const setClaimType = (claim: Claim, value: string | null): boolean => {
   return true;
 };
 
-// Rules name the service the way the claim screens show it ("Workers Comp"); the claim's tag carries
-// its code (workers-comp). A value already in code form passes through unchanged.
-const setClaimService = (claim: Claim, value: string | null): boolean => {
-  const code = parseAntCaseString(value ?? undefined);
+// A rule names the service by its code or its displayed name; the claim's tag carries the code of the
+// listed service it names. A value naming none of them fails, rather than inventing a code.
+const setClaimService = (model: RulesEngineClaimModel, value: string | null): boolean => {
+  const wanted = value?.trim();
+  const code = wanted ? serviceCodeFor(model.billingServiceCodes ?? [], wanted) : undefined;
+  if (wanted && !code) return false;
+  const { claim } = model;
   claim.meta = claim.meta ?? {};
   const rest = (claim.meta.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM);
   claim.meta.tag = code ? [...rest, { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code }] : rest;
@@ -999,7 +999,7 @@ const WRITERS: Record<string, FieldWriter> = {
   payerId: (m, v) => setPayerId(m, v),
   nonInsurancePayerId: (m, v) => setNonInsurancePayer(m, v),
   type: (m, v) => setClaimType(m.claim, v),
-  service: (m, v) => setClaimService(m.claim, v),
+  service: (m, v) => setClaimService(m, v),
   serviceDate: (m, v) => setServiceDate(m.claim, v),
   billType: (m, v) => setBillType(m.claim, v),
   patientDischargeStatusCode: (m, v) => setPatientDischargeStatusCode(m.claim, v),

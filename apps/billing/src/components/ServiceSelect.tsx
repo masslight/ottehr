@@ -1,14 +1,12 @@
 import { Autocomplete, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { ReactElement, ReactNode, Ref, useMemo, useState } from 'react';
-import { parseAntCaseString } from 'utils/lib/types/data/billing/claim-status';
+import { HTMLAttributes, ReactElement, ReactNode, Ref, useMemo } from 'react';
+import { serviceCodeFor } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingServiceOption, useBillingServices } from '../hooks/useBillingServices';
-import { valueToText } from '../utils/format';
 
-// Service picker for the rules builder. It offers every service seen on a claim so far (the same list
-// and names as the claims list's Service filter) by the name the claim screens show ("Workers Comp",
-// not its workers-comp code), and stores that name: the engine compares services by name, ignoring
-// case and hyphens, so a name and its code are the same service. Free text is allowed so a rule can
-// name a service no claim has used yet.
+// Service picker for the rules builder: only the services on claims created from visits so far (the
+// same list and names as the claims list's Service filter), offered by name. It stores the picked
+// service's name. A value saved as a code shows as its service, and a saved value naming no listed
+// service stays visible so the rule renders as saved (saving rejects it on a set action).
 
 interface ServiceSelectProps {
   multiple: boolean;
@@ -22,26 +20,6 @@ interface ServiceSelectProps {
   inputRef?: Ref<HTMLInputElement>;
 }
 
-// One name per service: codes that differ only in case or separators read as the same name.
-const uniqueNames = (services: BillingServiceOption[]): string[] => {
-  const seen = new Set<string>();
-  return services
-    .map((service) => service.name)
-    .filter((name) => {
-      const key = parseAntCaseString(name);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-};
-
-// A name that spells a listed service differently ("workers comp", or the code workers-comp) becomes
-// that service's displayed name; anything else is kept as typed.
-const canonicalName = (text: string, names: string[]): string => {
-  const key = parseAntCaseString(text);
-  return names.find((name) => parseAntCaseString(name) === key) ?? text.trim();
-};
-
 export function ServiceSelect({
   multiple,
   value,
@@ -52,81 +30,67 @@ export function ServiceSelect({
   helperText,
   inputRef,
 }: ServiceSelectProps): ReactElement {
-  const services = useBillingServices();
-  const names = useMemo(() => uniqueNames(services), [services]);
-  // Multiple only: text typed but not yet added as a chip.
-  const [pending, setPending] = useState('');
+  const { services, load } = useBillingServices();
 
-  const renderInput = (params: AutocompleteRenderInputParams): ReactElement => (
-    <TextField
-      {...params}
-      label={label ?? (multiple ? 'Services' : 'Service')}
-      placeholder={multiple ? 'Pick or type services…' : 'Pick or type a service…'}
-      required={required}
-      error={error}
-      helperText={helperText}
-      inputRef={inputRef}
-    />
+  // The listed service each saved value names, else a stand-in showing the value as saved. Memoized so
+  // a re-render while typing doesn't reset the picker's input.
+  const selected = useMemo(() => {
+    const saved = Array.isArray(value) ? value : value ? [value] : [];
+    const codes = services.map((service) => service.code);
+    return saved.map((v) => {
+      const code = serviceCodeFor(codes, v);
+      return services.find((service) => service.code === code) ?? { code: v, name: v };
+    });
+  }, [value, services]);
+  const options = useMemo(
+    () => [...services, ...selected.filter((service) => !services.includes(service))],
+    [services, selected]
   );
 
+  // Props shared by the single- and multi-select variants (the NioSelect precedent).
+  const shared = {
+    size: 'small' as const,
+    options,
+    getOptionLabel: (o: BillingServiceOption): string => o.name,
+    isOptionEqualToValue: (o: BillingServiceOption, v: BillingServiceOption): boolean => o.code === v.code,
+    renderOption: (props: HTMLAttributes<HTMLLIElement>, o: BillingServiceOption): ReactElement => (
+      <li {...props} key={o.code}>
+        {o.name}
+      </li>
+    ),
+    onOpen: load,
+    renderInput: (params: AutocompleteRenderInputParams): ReactElement => (
+      <TextField
+        {...params}
+        label={label ?? (multiple ? 'Services' : 'Service')}
+        placeholder={multiple ? 'Pick services…' : 'Pick a service…'}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    ),
+  };
+
   if (multiple) {
-    const values = Array.isArray(value) ? value : value ? [value] : [];
-    // Picked and typed names, in their displayed spelling, without repeats.
-    const commit = (next: string[]): void => {
-      const keys = new Set<string>();
-      onChange(
-        next
-          .map((name) => canonicalName(name, names))
-          .filter((name) => {
-            const key = parseAntCaseString(name);
-            if (!key || keys.has(key)) return false;
-            keys.add(key);
-            return true;
-          })
-      );
-    };
     return (
-      <Autocomplete<string, true, false, true>
+      <Autocomplete<BillingServiceOption, true, false, false>
+        {...shared}
         multiple
-        freeSolo
-        size="small"
-        options={names}
-        value={values}
-        inputValue={pending}
-        onInputChange={(_, text) => setPending(text)}
-        onChange={(_, next) => commit(next)}
-        // A name typed but not yet entered is added on blur rather than silently dropped.
-        onBlur={() => {
-          if (!pending.trim()) return;
-          commit([...values, pending]);
-          setPending('');
-        }}
-        renderInput={renderInput}
+        // Picked services leave the list, so Enter can't pick one again (which would remove it).
+        filterSelectedOptions
+        value={selected}
+        onChange={(_, next) => onChange(next.map((service) => service.name))}
         sx={{ minWidth: 260 }}
       />
     );
   }
 
-  // The typed text is the value (the ProcedureCodeAutocomplete precedent). It also drives the
-  // selected option whenever it names a listed service, so reopening the list offers every service
-  // rather than only the one already picked.
-  const text = valueToText(value);
   return (
-    <Autocomplete<string, false, false, true>
-      freeSolo
-      size="small"
-      options={names}
-      value={names.includes(text) ? text : null}
-      inputValue={text}
-      onInputChange={(_, next, reason) => {
-        if (reason !== 'reset') onChange(next); // an option pick arrives through onChange
-      }}
-      onChange={(_, next) => onChange(next ?? '')}
-      onBlur={() => {
-        const canonical = canonicalName(text, names);
-        if (canonical !== text) onChange(canonical);
-      }}
-      renderInput={renderInput}
+    <Autocomplete<BillingServiceOption, false, false, false>
+      {...shared}
+      value={selected[0] ?? null}
+      onChange={(_, next) => onChange(next?.name ?? '')}
       sx={{ minWidth: 240 }}
     />
   );

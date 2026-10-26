@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -220,13 +221,13 @@ describe('ConditionalEditor', () => {
   });
 
   describe('service picker', () => {
-    // The registry holds service codes; the picker shows them the way the claims list does.
+    // The list holds service codes; the picker shows them the way the claims list does.
     beforeEach(() => {
       searchBillingServicesMock.mockReset();
       searchBillingServicesMock.mockResolvedValue({ services: [{ name: 'urgent-care' }, { name: 'workers-comp' }] });
     });
 
-    it('offers the services seen on claims by the name the claims list shows, and stores that name', async () => {
+    it('offers the services on claims by the name the claims list shows, and stores that name', async () => {
       const conditional: RuleConditional = {
         branches: [
           { condition: { type: 'field', field: 'service', operator: 'eq', value: '' }, outcome: { type: 'noop' } },
@@ -235,7 +236,7 @@ describe('ConditionalEditor', () => {
       const onValid = vi.fn();
       render(<ConditionalForm conditional={conditional} onValid={onValid} />);
 
-      fireEvent.mouseDown(screen.getByPlaceholderText('Pick or type a service…'));
+      fireEvent.mouseDown(screen.getByPlaceholderText('Pick a service…'));
       expect(await screen.findByRole('option', { name: 'Urgent Care' })).toBeInTheDocument();
       fireEvent.click(screen.getByRole('option', { name: 'Workers Comp' }));
       expect(searchBillingServicesMock).toHaveBeenCalledWith(expect.anything(), {});
@@ -250,62 +251,87 @@ describe('ConditionalEditor', () => {
       });
     });
 
-    it('takes a typed service no claim has used yet, and spells a listed one the way the list does', async () => {
+    it('picks only listed services: typing filters the list rather than adding a new one', async () => {
       const conditional: RuleConditional = {
         branches: [
           {
-            condition: { type: 'field', field: 'service', operator: 'eq', value: '' },
+            condition: { type: 'all' },
             outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value: '' }] },
           },
         ],
       };
       const onValid = vi.fn();
+      const user = userEvent.setup();
       render(<ConditionalForm conditional={conditional} onValid={onValid} />);
-      const [conditionInput, actionInput] = screen.getAllByPlaceholderText('Pick or type a service…');
+      const input = screen.getByPlaceholderText('Pick a service…');
 
-      fireEvent.change(conditionInput, { target: { value: 'Sports Physicals' } });
-
-      // Wait for the registry, then type a listed service in another spelling.
-      fireEvent.mouseDown(actionInput);
-      expect(await screen.findByRole('option', { name: 'Workers Comp' })).toBeInTheDocument();
-      fireEvent.change(actionInput, { target: { value: 'workers comp' } });
-      fireEvent.blur(actionInput);
-      expect(actionInput).toHaveValue('Workers Comp');
+      await user.type(input, 'Sports');
+      expect(await screen.findByText('No options')).toBeInTheDocument();
+      await user.clear(input);
+      await user.type(input, 'work');
+      await user.click(await screen.findByRole('option', { name: 'Workers Comp' }));
 
       fireEvent.click(screen.getByText('Save'));
       await waitFor(() => expect(onValid).toHaveBeenCalled());
-      const branch = onValid.mock.calls[0][0].conditional.branches[0];
-      expect(branch.condition.value).toBe('Sports Physicals');
-      expect(branch.outcome.actions[0]).toEqual({ type: 'setField', field: 'service', value: 'Workers Comp' });
+      expect(onValid.mock.calls[0][0].conditional.branches[0].outcome.actions[0]).toEqual({
+        type: 'setField',
+        field: 'service',
+        value: 'Workers Comp',
+      });
     });
 
-    it('collects picked and typed services for "is one of", adding typed text on Enter or blur', async () => {
+    it('shows a value saved as a code as its service, and keeps one no listed service has as saved', async () => {
+      const conditional: RuleConditional = {
+        branches: [
+          {
+            condition: { type: 'field', field: 'service', operator: 'eq', value: 'workers-comp' },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value: 'Sports Physicals' }] },
+          },
+        ],
+      };
+      render(<ConditionalForm conditional={conditional} />);
+      const [conditionInput, actionInput] = screen.getAllByPlaceholderText('Pick a service…');
+
+      await waitFor(() => expect(conditionInput).toHaveValue('Workers Comp'));
+      expect(actionInput).toHaveValue('Sports Physicals');
+    });
+
+    it('collects listed services for "is one of", and Enter never removes one already picked', async () => {
       const conditional: RuleConditional = {
         branches: [
           { condition: { type: 'field', field: 'service', operator: 'in', value: [] }, outcome: { type: 'noop' } },
         ],
       };
       const onValid = vi.fn();
+      const user = userEvent.setup();
       render(<ConditionalForm conditional={conditional} onValid={onValid} />);
-      const input = screen.getByPlaceholderText('Pick or type services…');
+      const input = screen.getByPlaceholderText('Pick services…');
 
-      fireEvent.mouseDown(input);
-      fireEvent.click(await screen.findByRole('option', { name: 'Urgent Care' }));
-      fireEvent.change(input, { target: { value: 'Sports Physicals' } });
-      fireEvent.keyDown(input, { key: 'Enter' });
-      // A code spelling of a listed service becomes its name; a repeat is dropped.
-      fireEvent.change(input, { target: { value: 'workers-comp' } });
-      fireEvent.blur(input);
-      fireEvent.change(input, { target: { value: 'urgent care' } });
-      fireEvent.blur(input);
+      await user.click(input);
+      await user.click(await screen.findByRole('option', { name: 'Urgent Care' }));
+      await user.click(input); // the list closes after each pick
+      await user.click(await screen.findByRole('option', { name: 'Workers Comp' }));
+      // MUI highlights the first picked service when the text matches it; Enter must not un-pick it.
+      await user.type(input, 'Urgent{Enter}');
 
       fireEvent.click(screen.getByText('Save'));
       await waitFor(() => expect(onValid).toHaveBeenCalled());
-      expect(onValid.mock.calls[0][0].conditional.branches[0].condition.value).toEqual([
-        'Urgent Care',
-        'Sports Physicals',
-        'Workers Comp',
-      ]);
+      expect(onValid.mock.calls[0][0].conditional.branches[0].condition.value).toEqual(['Urgent Care', 'Workers Comp']);
+    });
+
+    it('takes free text for contains / starts with, which match part of a code or name', () => {
+      const conditional: RuleConditional = {
+        branches: [
+          {
+            condition: { type: 'field', field: 'service', operator: 'contains', value: 'Comp' },
+            outcome: { type: 'noop' },
+          },
+        ],
+      };
+      render(<ConditionalForm conditional={conditional} />);
+
+      expect(screen.getByLabelText('Value *')).toHaveValue('Comp');
+      expect(screen.queryByPlaceholderText('Pick a service…')).not.toBeInTheDocument();
     });
   });
 

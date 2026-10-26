@@ -336,7 +336,7 @@ export default function ClaimsList(): ReactElement {
   const [bulkSetSFModalOpen, setBulkSetSFModalOpen] = useState(false);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
-  const services = useBillingServices();
+  const { services, load: loadServices } = useBillingServices();
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -806,6 +806,7 @@ export default function ClaimsList(): ReactElement {
           limitTags={1}
           size="small"
           options={services}
+          onOpen={loadServices}
           getOptionLabel={(o) => o.name}
           value={selectedServiceOptions}
           onChange={(_, v) => {

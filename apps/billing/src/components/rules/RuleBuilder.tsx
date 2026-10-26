@@ -47,6 +47,7 @@ import {
   operatorIsMultiValue,
   operatorIsRegex,
   operatorNeedsValue,
+  operatorTakesFragment,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
   RULE_LOGIC,
@@ -329,6 +330,7 @@ function FieldValueInput({
   fieldId,
   multiple,
   isRegex,
+  isFragment,
   value,
   onChange,
   label,
@@ -342,6 +344,9 @@ function FieldValueInput({
   multiple: boolean;
   // The regex operators take a pattern: a plain text input replaces the field's usual picker.
   isRegex?: boolean;
+  // The fragment operators (contains / starts with) take part of a value: a plain text input replaces
+  // a picker of whole values (services).
+  isFragment?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
@@ -418,7 +423,7 @@ function FieldValueInput({
       />
     );
   }
-  if (def?.format === 'service') {
+  if (def?.format === 'service' && !isFragment) {
     return (
       <ServiceSelect
         multiple={multiple}
@@ -763,6 +768,7 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
               fieldId={value.field}
               multiple={operatorIsMultiValue(value.operator)}
               isRegex={operatorIsRegex(value.operator)}
+              isFragment={operatorTakesFragment(value.operator)}
               value={fieldValue}
               onChange={onChange}
               required

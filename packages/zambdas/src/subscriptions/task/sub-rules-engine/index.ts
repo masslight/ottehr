@@ -31,6 +31,7 @@ import {
   collectSetNioIds,
   collectSetPayerIds,
   collectSetResourceRefs,
+  collectSetServiceValues,
   ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
@@ -68,6 +69,7 @@ import {
   findRulesEngineList,
   hasTag,
   listToRulesReportingMalformed,
+  searchBillingServiceCodes,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapTaskHandler } from '../helpers';
@@ -188,19 +190,27 @@ export async function complexValidation(
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations, customInsuranceOrganizations] =
-    await Promise.all([
-      loadReferenceResources(oystehr, rules),
-      loadChargeMasters(oystehr, rules),
-      loadPatientCoverageContext(oystehr, rules, model.patient),
-      loadNioOrganizations(oystehr, rules),
-      loadCustomInsuranceOrganizations(oystehr, rules),
-    ]);
+  const [
+    referenceResources,
+    chargeMasters,
+    patientCoverageContext,
+    nioOrganizations,
+    customInsuranceOrganizations,
+    billingServiceCodes,
+  ] = await Promise.all([
+    loadReferenceResources(oystehr, rules),
+    loadChargeMasters(oystehr, rules),
+    loadPatientCoverageContext(oystehr, rules, model.patient),
+    loadNioOrganizations(oystehr, rules),
+    loadCustomInsuranceOrganizations(oystehr, rules),
+    loadBillingServiceCodes(oystehr, rules),
+  ]);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
   model.patientCoverageContext = patientCoverageContext;
   model.nioOrganizations = nioOrganizations;
   model.customInsuranceOrganizations = customInsuranceOrganizations;
+  model.billingServiceCodes = billingServiceCodes;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
@@ -214,7 +224,8 @@ export async function complexValidation(
       (model.nioOrganizations ? `, nioOrganizations=${model.nioOrganizations.size}` : '') +
       (model.customInsuranceOrganizations
         ? `, customInsuranceOrganizations=${model.customInsuranceOrganizations.size}`
-        : '')
+        : '') +
+      (model.billingServiceCodes ? `, billingServiceCodes=${model.billingServiceCodes.length}` : '')
   );
   return {
     engine,
@@ -310,6 +321,17 @@ export async function loadCustomInsuranceOrganizations(
     if (org.id && isCustomInsuranceOrganization(org)) map.set(org.id, org);
   }
   return map;
+}
+
+// The codes of the services on claims created from visits, prefetched when an enabled rule sets the
+// service so the synchronous writer can look up the code of the service the rule names. Skipped when
+// no enabled rule sets it.
+export async function loadBillingServiceCodes(
+  oystehr: Oystehr,
+  rules: BillingRule[]
+): Promise<RulesEngineClaimModel['billingServiceCodes']> {
+  if (!rules.some((rule) => rule.enabled && collectSetServiceValues(rule).length > 0)) return undefined;
+  return searchBillingServiceCodes(oystehr);
 }
 
 // The candidate charge masters for the applyChargeMasterPrices action: every active billing

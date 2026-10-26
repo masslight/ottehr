@@ -660,6 +660,21 @@ describe('ClaimsList — service filter', () => {
       expect(stored.selectedServices).toEqual([{ name: 'workers-comp' }]);
     });
   });
+  it('retries loading the services when the filter opens after a failed load', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      searchBillingServicesMock.mockRejectedValueOnce(new Error('services unavailable'));
+      renderList();
+      const input = await screen.findByRole('combobox', { name: 'Service' });
+      await waitFor(() => expect(consoleError).toHaveBeenCalledWith('Failed to load services:', expect.any(Error)));
+
+      fireEvent.mouseDown(input);
+      expect(await screen.findByRole('option', { name: 'Workers Comp' })).toBeInTheDocument();
+      expect(searchBillingServicesMock).toHaveBeenCalledTimes(2);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });
 
 describe('ClaimsList — non-insurance organization filter', () => {

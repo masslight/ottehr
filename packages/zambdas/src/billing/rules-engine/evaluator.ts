@@ -67,16 +67,15 @@ export const evaluateOperator = (
   // numeric: eq/neq/in/notIn compare numerically when both sides parse ('100' matches '100.00' —
   // readers normalize amounts but rule values keep the author's formatting). Only number-typed
   // properties opt in: ids like member IDs must stay distinct strings ('00123' ≠ '123').
-  // normalize: the canonical form of a value with more than one spelling (a service's name and its
-  // code). Equality, membership, contains and starts-with compare both sides' canonical forms; a
-  // pattern matches when it matches the value as read or its canonical form.
-  opts?: { numeric?: boolean; normalize?: (value: string) => string }
+  // spellings: every spelling a value read off the claim is known by (a service: its code and its
+  // displayed name); a comparison holds when it holds for any of them.
+  opts?: { numeric?: boolean; spellings?: (value: string) => string[] }
 ): boolean => {
   const expectedScalar = Array.isArray(expected) ? expected[0] : expected;
-  const normalize = opts?.normalize ?? ((value: string): string => value);
+  const spellings = (value: string): string[] => opts?.spellings?.(value) ?? [value];
 
   const scalarsEqual = (a: string, e: string): boolean => {
-    if (normalize(a) === normalize(e)) return true;
+    if (a === e) return true;
     if (!opts?.numeric) return false;
     const aNum = asFiniteNumber(a);
     const eNum = asFiniteNumber(e);
@@ -84,21 +83,20 @@ export const evaluateOperator = (
   };
   const equals = (): boolean => {
     const a = asScalar(actual);
-    return a != null && expectedScalar != null && scalarsEqual(a, expectedScalar);
+    return a != null && expectedScalar != null && spellings(a).some((s) => scalarsEqual(s, expectedScalar));
   };
   const includedIn = (): boolean => {
     const a = asScalar(actual);
-    return a != null && asArray(expected).some((e) => scalarsEqual(a, e));
+    return a != null && asArray(expected).some((e) => spellings(a).some((s) => scalarsEqual(s, e)));
   };
   const contains = (): boolean => {
     if (expectedScalar == null) return false;
-    const e = normalize(expectedScalar);
-    if (Array.isArray(actual)) return actual.some((entry) => normalize(entry) === e);
-    return typeof actual === 'string' && normalize(actual).includes(e);
+    if (Array.isArray(actual)) return actual.some((entry) => spellings(entry).includes(expectedScalar));
+    return typeof actual === 'string' && spellings(actual).some((s) => s.includes(expectedScalar));
   };
   const startsWith = (): boolean => {
     if (expectedScalar == null) return false;
-    return typeof actual === 'string' && normalize(actual).startsWith(normalize(expectedScalar));
+    return typeof actual === 'string' && spellings(actual).some((s) => s.startsWith(expectedScalar));
   };
   // Standard (unanchored) regex semantics: the pattern can match anywhere in the value; authors
   // anchor with ^/$ for a whole-value match. A list actual matches when any entry does. Save-time
@@ -112,8 +110,7 @@ export const evaluateOperator = (
     } catch {
       return false;
     }
-    const test = (value: string): boolean =>
-      pattern.test(value) || (opts?.normalize != null && pattern.test(opts.normalize(value)));
+    const test = (value: string): boolean => spellings(value).some((s) => pattern.test(s));
     if (Array.isArray(actual)) return actual.some(test);
     return typeof actual === 'string' && test(actual);
   };
@@ -187,7 +184,7 @@ export function evaluateCondition(condition: RuleCondition, model: RulesEngineCl
       const def = getRuleFieldDef(condition.field);
       return evaluateOperator(condition.operator, readField(model, condition.field), condition.value, {
         numeric: def?.valueType === 'number',
-        normalize: def?.format ? RULE_VALUE_FORMATS[def.format].normalize : undefined,
+        spellings: def?.format ? RULE_VALUE_FORMATS[def.format].spellings : undefined,
       });
     }
     default:

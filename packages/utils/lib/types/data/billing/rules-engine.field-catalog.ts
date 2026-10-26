@@ -7,7 +7,7 @@ import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
 import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
-import { CLAIM_STATUS_FIELDS, parseAntCaseString } from './claim-status';
+import { CLAIM_STATUS_FIELDS, formatAntCaseString } from './claim-status';
 import {
   AddServiceLineInput,
   DATE_SOURCE_KIND,
@@ -127,7 +127,8 @@ export interface RuleFieldOption {
 // exact-match condition values and written values (fragment operators like contains/startsWith
 // legitimately take partial values and skip them); `tag`, `cpt` and `service` carry no sync
 // validator — they pick the rule builder's input component (tag dropdown / CPT terminology
-// autocomplete / service picker), and tag existence is checked server-side at save time.
+// autocomplete / service picker), and tag existence is checked server-side at save time. `service`
+// also gives the engine a stored service's other spelling (see `spellings`).
 export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt' | 'service';
 
 export interface RuleValueFormatDef {
@@ -135,10 +136,22 @@ export interface RuleValueFormatDef {
   validate?: (value: string) => string | undefined;
   // One-line format hint for the generated docs and UI helper text.
   hint: string;
-  // For values with more than one spelling, the canonical form the engine compares: both sides of a
-  // condition are reduced to it, so a service's displayed name ("Workers Comp") and its code
-  // (workers-comp) are the same value.
-  normalize?: (value: string) => string;
+  // Every spelling a stored value is known by, for formats with more than one. A condition holds
+  // when it holds for any of them, each compared exactly.
+  spellings?: (value: string) => string[];
+}
+
+// A service is known by its code (workers-comp) and by the name the claim screens show for it
+// (formatAntCaseString: "Workers Comp").
+export function serviceSpellings(code: string): string[] {
+  return [code, formatAntCaseString(code)];
+}
+
+// The code among `codes` that `value` names as a service — by its code, else by its displayed name —
+// or undefined when it names none of them. Shared by the rule builder's service picker, save-time
+// validation and the engine's writer, so they agree with the spellings conditions match.
+export function serviceCodeFor(codes: string[], value: string): string | undefined {
+  return codes.find((code) => code === value) ?? codes.find((code) => serviceSpellings(code).includes(value));
 }
 
 // Messages mirror the billing app's form validation (billing.schemas.ts / the provider and
@@ -167,7 +180,7 @@ export const RULE_VALUE_FORMATS: Record<RuleValueFormat, RuleValueFormatDef> = {
   },
   tag: { hint: 'a tag defined on the Tags page' },
   cpt: { hint: 'a CPT/HCPCS code' },
-  service: { hint: 'a service name as the claims list shows it, e.g. Workers Comp', normalize: parseAntCaseString },
+  service: { hint: 'a service on claims created from visits, by name or code', spellings: serviceSpellings },
 };
 
 export interface RuleFieldDef {
@@ -556,9 +569,9 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description:
-      'The service category, by the name the claims list shows (e.g. Workers Comp). Pick a service seen on a claim so far, or type the name of one no claim has used yet. ' +
-      'Comparisons ignore case and treat hyphens as spaces, so the underlying code (workers-comp) matches too, and a pattern matches either form. ' +
-      'Setting it stores the code for the name (lowercased, words joined by hyphens).',
+      'The service category: one of the services on claims created from visits so far, named as the claims list shows it (e.g. Workers Comp) or by its code (workers-comp). ' +
+      'A condition holds when it holds for either spelling, compared exactly; contains, starts with and patterns test both. ' +
+      "Setting it stores the chosen service's code.",
     format: 'service',
   },
   {
@@ -1355,6 +1368,21 @@ export function ruleReferencesPatientCoverage(rule: { conditional: RuleCondition
 export interface SetResourceRef {
   field: string;
   ref: string;
+}
+
+export const SERVICE_FIELD_ID = 'service';
+
+// The service values a rule's setField actions assign (deduped, in tree order) — save-billing-rules
+// checks each names a service on claims created from visits, and the engine prefetches those services
+// so the synchronous writer can look up the code to store.
+export function collectSetServiceValues(rule: { conditional: RuleConditional }): string[] {
+  const values: string[] = [];
+  forEachRuleAction(rule, (action) => {
+    if (action.type !== 'setField' || action.field !== SERVICE_FIELD_ID) return;
+    const value = action.value?.trim();
+    if (value && !values.includes(value)) values.push(value);
+  });
+  return values;
 }
 
 export const NON_INSURANCE_PAYER_FIELD_ID = 'nonInsurancePayerId';
