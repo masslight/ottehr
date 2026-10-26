@@ -868,6 +868,52 @@ describe('sub-rules-engine performEffect', () => {
       ).toContainEqual(HOLD_TAG);
     });
 
+    it('still holds a retry of the same rules after reloading the incomplete holder the held run persisted', async () => {
+      const actions = [
+        { field: 'insurance.relationship', value: 'Spouse' },
+        { field: 'policyHolder.firstName', value: 'Sam' },
+      ];
+      const first = makeOystehrMock();
+      const firstResult = await run(first.oystehr, makeModel(AR_STAGE.insurancePayer), actions);
+      expect(firstResult.taskStatus).toBe('failed');
+
+      // Reload as loadClaimModel would: the persisted resources under their server ids, and no
+      // run-local createdCopyIds.
+      const persisted = first.transaction.mock.calls.flatMap((call) => call[0].requests);
+      const holderPost = persisted.find(
+        (r: { method: string; url: string }) => r.method === 'POST' && r.url === '/RelatedPerson'
+      );
+      const coveragePut = persisted.find(
+        (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Coverage/coverage-1'
+      );
+      const claimPut = persisted.find(
+        (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+      );
+      const reloaded = makeModel(AR_STAGE.insurancePayer);
+      reloaded.claim = { ...claimPut.resource, meta: { ...claimPut.resource.meta, versionId: '2' } };
+      // A retry is requested once the Hold is cleared.
+      reloaded.claim.meta!.tag = reloaded.claim.meta!.tag!.filter((t) => t.code !== HOLD_TAG.code);
+      reloaded.coverages = [
+        {
+          ...coveragePut.resource,
+          meta: { ...coveragePut.resource.meta, versionId: '2' },
+          subscriber: { reference: 'RelatedPerson/rp-persisted' },
+        },
+      ];
+      reloaded.subscribers = [
+        { ...holderPost.resource, id: 'rp-persisted', meta: { ...holderPost.resource.meta, versionId: '1' } },
+      ];
+      expect(reloaded.createdCopyIds).toBeUndefined();
+
+      const retry = makeOystehrMock();
+      retry.search.mockResolvedValue({ unbundle: () => [reloaded.claim] });
+      const retryResult = await run(retry.oystehr, reloaded, actions);
+
+      expect(retryResult.taskStatus).toBe('failed');
+      expect(retryResult.statusReason).toContain('Primary policy holder is missing last name, date of birth');
+      expect(retry.submitClaimRcm).not.toHaveBeenCalled();
+    });
+
     it('creates the policy holder alongside the coverage update once its details are filled in', async () => {
       const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
       const model = makeModel(AR_STAGE.insurancePayer);

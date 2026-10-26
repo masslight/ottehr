@@ -762,6 +762,7 @@ const setCoverageFromPatient = (
     patientReference: patientRef,
   });
   if (subscriberCopy) {
+    markRulesCreatedPolicyHolder(subscriberCopy);
     copy.subscriber = { reference: registerCreatedCopy(model, undefined, subscriberCopy) };
     model.subscribers = [...model.subscribers, subscriberCopy];
   }
@@ -785,6 +786,22 @@ const setCoverageFromPatient = (
   if (payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
   return true;
 };
+
+// Durable marker on a policy holder the rules engine created; see policyHolderProblems.
+export const RULES_CREATED_POLICY_HOLDER_TAG = {
+  system: 'https://fhir.ottehr.com/billing/rules-engine',
+  code: 'rules-created-policy-holder',
+};
+
+const hasRulesCreatedPolicyHolderTag = (holder: RelatedPerson): boolean =>
+  holder.meta?.tag?.some(
+    (t) => t.system === RULES_CREATED_POLICY_HOLDER_TAG.system && t.code === RULES_CREATED_POLICY_HOLDER_TAG.code
+  ) ?? false;
+
+function markRulesCreatedPolicyHolder(holder: RelatedPerson): void {
+  if (hasRulesCreatedPolicyHolderTag(holder)) return;
+  holder.meta = { ...holder.meta, tag: [...(holder.meta?.tag ?? []), RULES_CREATED_POLICY_HOLDER_TAG] };
+}
 
 // Change a coverage's relationship to insured with the same restructure the claim editor's coverage
 // save performs (saveCoverageSubscriber in update-billing-claim): Self points the subscriber at the
@@ -831,7 +848,7 @@ const setCoverageRelationshipField = (
   // Same shape buildCoverageSubscriberRelatedPerson gives a policy holder, minus the person details.
   const holder: RelatedPerson = {
     resourceType: 'RelatedPerson',
-    meta: { tag: [BILLING_WORKING_COPY_TAG] },
+    meta: { tag: [BILLING_WORKING_COPY_TAG, RULES_CREATED_POLICY_HOLDER_TAG] },
     patient: { reference: patientRef },
     gender: 'unknown',
     relationship: relationshipCoding,
@@ -843,14 +860,18 @@ const setCoverageRelationshipField = (
 
 const COVERAGE_SLOT_LABELS = ['Primary', 'Secondary', 'Tertiary', 'Quaternary'];
 
-// Policy holders minted by this run's writers (a relationship change away from Self, or a coverage
-// copied from the patient) must carry the details the claim editor requires of a policy holder
-// (BillingPolicyHolderSchema). Checked once all rules have run, so the relationship and the holder's
-// details may be set in any order. Pre-existing policy holders are left alone.
+// Policy holders minted by the rules engine's writers (a relationship change away from Self, or a
+// coverage copied from the patient) must carry the details the claim editor requires of a policy
+// holder (BillingPolicyHolderSchema). Checked once all rules have run, so the relationship and the
+// holder's details may be set in any order. The marker is persisted with the holder rather than read
+// from the run-local createdCopyIds: a held run still persists the incomplete holder, and a retry
+// reloads it as an ordinary resource, so only the tag keeps it checked. The claim editor's policy-
+// holder save rebuilds the resource (requiring the details), which drops the tag. Policy holders the
+// engine did not create are left alone.
 export const policyHolderProblems = (model: RulesEngineClaimModel): string[] =>
   model.coverages.flatMap((coverage, index) => {
     const holder = policyHolder(() => coverage)(model);
-    if (!holder?.id || !model.createdCopyIds?.has(holder.id)) return [];
+    if (!holder || !hasRulesCreatedPolicyHolderTag(holder)) return [];
     const missing = [
       !holder.name?.[0]?.given?.[0]?.trim() && 'first name',
       !holder.name?.[0]?.family?.trim() && 'last name',

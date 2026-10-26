@@ -42,6 +42,7 @@ import {
   readServiceLineProperty,
   resolveDateValue,
   resolveFacilityPlaceOfService,
+  RULES_CREATED_POLICY_HOLDER_TAG,
   RulesEngineClaimModel,
   SERVICE_LINE_READABLE_PROPERTY_IDS,
   SERVICE_LINE_WRITABLE_PROPERTY_IDS,
@@ -559,7 +560,7 @@ describe('rules-engine evaluator', () => {
       expect(holder).toMatchObject({
         resourceType: 'RelatedPerson',
         patient: { reference: 'Patient/p1' },
-        meta: { tag: [BILLING_WORKING_COPY_TAG] },
+        meta: { tag: [BILLING_WORKING_COPY_TAG, RULES_CREATED_POLICY_HOLDER_TAG] },
       });
       expect(m.coverages[1].subscriber).toEqual({ reference: `urn:uuid:${holder?.id}` });
       expect(m.createdCopyIds?.has(holder!.id!)).toBe(true);
