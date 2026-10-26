@@ -392,6 +392,60 @@ describe('billing-stripe-webhook', () => {
     expect(merged.contained[0].disposition).toBe('Stripe charge ch_1 succeeded');
   });
 
+  it('guards the update with the version it merged into', async () => {
+    const { oystehr, create, update } = makeOystehr([[claim]]);
+    create.mockResolvedValueOnce({ resourceType: 'PaymentNotice', id: 'pn-1', meta: { versionId: '7' } });
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets });
+
+    expect(update.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '7' });
+  });
+
+  it('re-reads and re-merges when the notice changed after it was read', async () => {
+    const { oystehr, create, update } = makeOystehr([[claim]]);
+    const get = vi.fn();
+    (oystehr.fhir as unknown as { get: Mock }).get = get;
+    const conflict = new Oystehr.OystehrFHIRError({
+      error: { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'conflict' }] },
+      code: 412,
+    });
+    const refundsExtension = { url: 'https://extensions.fhir.ottehr.com/payment-refunds', valueString: '[re_1]' };
+    create.mockResolvedValueOnce({ resourceType: 'PaymentNotice', id: 'pn-1', meta: { versionId: '1' } });
+    // a refund was stamped between the webhook's read and its write
+    get.mockResolvedValueOnce({
+      resourceType: 'PaymentNotice',
+      id: 'pn-1',
+      meta: { versionId: '2' },
+      extension: [refundsExtension],
+    });
+    update.mockRejectedValueOnce(conflict).mockResolvedValueOnce({});
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets });
+
+    expect(get).toHaveBeenCalledWith({ resourceType: 'PaymentNotice', id: 'pn-1' });
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update.mock.calls[1][1]).toEqual({ optimisticLockingVersionId: '2' });
+    expect(update.mock.calls[1][0].extension).toContainEqual(refundsExtension);
+  });
+
+  it('fails the event for redelivery when the conflict persists', async () => {
+    const { oystehr, create, update } = makeOystehr([[claim]]);
+    (oystehr.fhir as unknown as { get: Mock }).get = vi
+      .fn()
+      .mockResolvedValue({ resourceType: 'PaymentNotice', id: 'pn-1', meta: { versionId: '2' } });
+    const conflict = new Oystehr.OystehrFHIRError({
+      error: { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'conflict' }] },
+      code: 412,
+    });
+    create.mockResolvedValueOnce({ resourceType: 'PaymentNotice', id: 'pn-1', meta: { versionId: '1' } });
+    update.mockRejectedValue(conflict);
+
+    await expect(performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets })).rejects.toBe(
+      conflict
+    );
+    expect(update).toHaveBeenCalledTimes(3);
+  });
+
   it('puts the resolved billing provider in payee and recipient', async () => {
     const bp = { resourceType: 'Organization', id: 'bp-1' } as Organization;
     const { oystehr, create } = makeOystehr([[claim]], [[bp]]);

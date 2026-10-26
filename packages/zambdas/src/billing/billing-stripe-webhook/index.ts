@@ -246,6 +246,40 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId);
 };
 
+const UPSERT_ATTEMPTS = 3;
+
+// An existing claim link is kept if the claim search missed.
+const mergeStripeOwnedFields = (
+  stored: PaymentNotice,
+  desiredNotice: PaymentNotice,
+  claim: Claim | undefined
+): PaymentNotice => {
+  const reference = claim?.id ? `Claim/${claim.id}` : stored.request?.reference;
+  const storedReconciliation = getContainedReconciliation(stored);
+  const desiredReconciliation = getContainedReconciliation(desiredNotice);
+  return {
+    ...stored,
+    status: desiredNotice.status,
+    amount: desiredNotice.amount,
+    request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
+    identifier: unionIdentifiers(stored.identifier, desiredNotice.identifier),
+    contained:
+      storedReconciliation && desiredReconciliation
+        ? stored.contained?.map((resource) =>
+            resource === storedReconciliation
+              ? {
+                  ...storedReconciliation,
+                  status: desiredReconciliation.status,
+                  outcome: desiredReconciliation.outcome,
+                  disposition: desiredReconciliation.disposition,
+                  paymentAmount: desiredReconciliation.paymentAmount,
+                }
+              : resource
+          )
+        : desiredNotice.contained,
+  };
+};
+
 const persistPaymentNoticeUpsert = async (
   oystehr: Oystehr,
   desiredNotice: PaymentNotice,
@@ -262,32 +296,22 @@ const persistPaymentNoticeUpsert = async (
   });
 
   // Refresh what Stripe owns but keep the rest: the notice may have been written by
-  // post-billing-patient-payment (submitter, EHR identifier) and carry refund stamps. An existing
-  // claim link is kept if the claim search missed.
-  const reference = claim?.id ? `Claim/${claim.id}` : returned.request?.reference;
-  const storedReconciliation = getContainedReconciliation(returned);
-  const desiredReconciliation = getContainedReconciliation(desiredNotice);
-  await oystehr.fhir.update<PaymentNotice>({
-    ...returned,
-    status: desiredNotice.status,
-    amount: desiredNotice.amount,
-    request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
-    identifier: unionIdentifiers(returned.identifier, desiredNotice.identifier),
-    contained:
-      storedReconciliation && desiredReconciliation
-        ? returned.contained?.map((resource) =>
-            resource === storedReconciliation
-              ? {
-                  ...storedReconciliation,
-                  status: desiredReconciliation.status,
-                  outcome: desiredReconciliation.outcome,
-                  disposition: desiredReconciliation.disposition,
-                  paymentAmount: desiredReconciliation.paymentAmount,
-                }
-              : resource
-          )
-        : desiredNotice.contained,
-  });
+  // post-billing-patient-payment (submitter, EHR identifier) and carry refund stamps. The update is
+  // version guarded so a post or refund landing after the read is never overwritten; on conflict the
+  // notice is re-read and re-merged, and a conflict that persists fails the event for redelivery.
+  let stored = returned;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await oystehr.fhir.update<PaymentNotice>(mergeStripeOwnedFields(stored, desiredNotice, claim), {
+        optimisticLockingVersionId: stored.meta?.versionId,
+      });
+      break;
+    } catch (error) {
+      const versionConflict = error instanceof Oystehr.OystehrFHIRError && error.code === 412;
+      if (!versionConflict || attempt >= UPSERT_ATTEMPTS || !stored.id) throw error;
+      stored = await oystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: stored.id });
+    }
+  }
 
   if (!claim) {
     // the claim may have appeared while the notice was being stored
