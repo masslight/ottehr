@@ -1,8 +1,7 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { Account, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import {
@@ -19,51 +18,43 @@ import { CashPaymentDTO, PatientPaymentDTO, PaymentRefundDTO } from 'utils/lib/t
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
 import {
   applyRefundsToPaymentNotice,
-  STRIPE_PAYMENT_ID_SYSTEM,
   stripeEncounterMetadataQuery,
   stripeRefundToDTO,
-} from '../../shared/stripeIntegration';
+} from '../shared/stripeIntegration';
+import {
+  fetchEncounterPaymentNotices,
+  isBillingPaymentNotice,
+  paymentMethodForNotice,
+  stripePaymentIntentIdForNotice,
+} from './patient-payments';
 
 interface GetPaymentsForEncounterInput {
-  oystehrClient: Oystehr;
+  // reads Account, Encounter, Practitioner and legacy EHR PaymentNotices
+  clinicalOystehr: Oystehr;
+  // reads billing PaymentNotices and keeps their refund stamps current
+  billingOystehr: Oystehr;
   stripeClient: Stripe;
   account: Account;
   encounterId: string;
-  patientId: string;
-}
-
-interface GetPaymentsForPatientInput {
-  oystehrClient: Oystehr;
-  stripeClient: Stripe;
-  account: Account;
-  patientId: string;
-  encounterId?: string;
 }
 
 export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInput): Promise<PatientPaymentDTO[]> => {
-  const { oystehrClient, stripeClient, account, encounterId } = input;
+  const { clinicalOystehr, billingOystehr, stripeClient, account, encounterId } = input;
 
-  const fhirPaymentNotices: PaymentNotice[] = (
-    await oystehrClient.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [
-        {
-          name: 'request',
-          value: `Encounter/${encounterId}`,
-        },
-      ],
-    })
-  ).unbundle();
+  const fhirPaymentNotices =
+    (await fetchEncounterPaymentNotices({ clinicalOystehr, billingOystehr, encounterIds: [encounterId] })).get(
+      encounterId
+    ) ?? [];
 
   const stripePayments: Stripe.PaymentIntent[] = [];
   const paymentMethods: Stripe.PaymentMethod[] = [];
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
+  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
   console.log('found a stripe account from the schedule owner, ', stripeAccount);
 
   const customerId = getStripeCustomerIdFromAccount(account, stripeAccount);
 
-  if (encounterId && customerId) {
+  if (customerId) {
     try {
       const [paymentIntents, pms] = await Promise.all([
         stripeClient.paymentIntents.search(
@@ -94,36 +85,6 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
       console.error('Error fetching payment intents or payment methods for encounter:', error);
       throw checkForStripeCustomerDeletedError(error);
     }
-  } else if (customerId) {
-    try {
-      const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.list(
-          {
-            customer: customerId,
-            expand: ['data.latest_charge'],
-          },
-          {
-            stripeAccount, // Connected account ID if any
-          }
-        ),
-        stripeClient.paymentMethods.list(
-          {
-            customer: customerId,
-            type: 'card',
-          },
-          {
-            stripeAccount, // Connected account ID if any
-          }
-        ),
-      ]);
-
-      console.log('Payment Intent list results (fallback):', JSON.stringify(paymentIntents, null, 2));
-      stripePayments.push(...paymentIntents.data);
-      paymentMethods.push(...pms.data);
-    } catch (error) {
-      console.error('Error fetching payment intents or payment methods:', error);
-      throw checkForStripeCustomerDeletedError(error);
-    }
   }
 
   return buildPaymentDTOs(
@@ -132,104 +93,8 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     paymentMethods,
     stripeClient,
     stripeAccount,
-    oystehrClient,
-    encounterId
-  );
-};
-
-export const getPaymentsForPatient = async (input: GetPaymentsForPatientInput): Promise<PatientPaymentDTO[]> => {
-  const { oystehrClient, stripeClient, account, patientId, encounterId } = input;
-
-  const params: SearchParam[] = encounterId
-    ? [{ name: 'request', value: `Encounter/${encounterId}` }]
-    : [{ name: 'request.patient._id', value: patientId }];
-
-  const fhirPaymentNotices: PaymentNotice[] = (
-    await oystehrClient.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params,
-    })
-  ).unbundle();
-
-  const stripePayments: Stripe.PaymentIntent[] = [];
-  const paymentMethods: Stripe.PaymentMethod[] = [];
-
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
-  console.log('found a stripe account from the schedule owner, ', stripeAccount);
-
-  const customerId = getStripeCustomerIdFromAccount(account, stripeAccount);
-
-  if (encounterId && customerId) {
-    try {
-      const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.search(
-          {
-            query: stripeEncounterMetadataQuery(encounterId),
-            limit: 20,
-            expand: ['data.latest_charge'],
-          },
-          {
-            stripeAccount, // Connected account ID if any
-          }
-        ),
-        stripeClient.paymentMethods.list(
-          {
-            customer: customerId,
-            type: 'card',
-          },
-          {
-            stripeAccount, // Connected account ID if any
-          }
-        ),
-      ]);
-
-      console.log('Payment Intent created:', JSON.stringify(paymentIntents, null, 2));
-      stripePayments.push(...paymentIntents.data);
-      paymentMethods.push(...pms.data);
-    } catch (error) {
-      console.error('Error fetching payment intents or payment methods for encounter:', error);
-      throw checkForStripeCustomerDeletedError(error);
-    }
-  } else if (customerId) {
-    try {
-      const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.list(
-          {
-            customer: customerId,
-            expand: ['data.latest_charge'],
-          },
-          {
-            stripeAccount, // Connected account ID if any
-          }
-        ),
-        stripeClient.paymentMethods.list(
-          {
-            customer: customerId,
-            type: 'card',
-          },
-          {
-            stripeAccount, // Connected account ID if any
-          }
-        ),
-      ]);
-
-      console.log('Payment Intent list results:', JSON.stringify(paymentIntents, null, 2));
-      stripePayments.push(...paymentIntents.data);
-      paymentMethods.push(...pms.data);
-    } catch (error) {
-      console.error('Error fetching payment intents or payment methods:', error);
-      throw checkForStripeCustomerDeletedError(error);
-    }
-  }
-
-  return buildPaymentDTOs(
-    fhirPaymentNotices,
-    stripePayments,
-    paymentMethods,
-    stripeClient,
-    stripeAccount,
-    oystehrClient,
-    encounterId
+    clinicalOystehr,
+    billingOystehr
   );
 };
 
@@ -327,8 +192,13 @@ const resolveRefundsForPaymentNotice = async (
   paymentIntent: Stripe.PaymentIntent | undefined,
   stripeClient: Stripe,
   stripeAccount: string | undefined,
-  oystehrClient: Oystehr
+  billingOystehr: Oystehr
 ): Promise<PaymentRefundDTO[] | undefined> => {
+  // legacy EHR notices are read-only here; their state is re-derived from Stripe on every read
+  const persistRefunds = async (refunds: PaymentRefundDTO[], removeIds: string[]): Promise<void> => {
+    if (!isBillingPaymentNotice(paymentNotice)) return;
+    await applyRefundsToPaymentNotice(billingOystehr, paymentNotice, refunds, removeIds);
+  };
   const storedRefunds = parsePaymentRefundsFromNotice(paymentNotice);
   // reservations superseded by their Stripe refund or expired unclaimed must not keep counting
   const staleIds = staleReservationIds(storedRefunds);
@@ -346,7 +216,7 @@ const resolveRefundsForPaymentNotice = async (
   if (!paymentIntent || (!stripeShowsRefunds && !storedStripeRefunds.length)) {
     if (staleIds.length) {
       try {
-        await applyRefundsToPaymentNotice(oystehrClient, paymentNotice, activeStored ?? [], staleIds);
+        await persistRefunds(activeStored ?? [], staleIds);
       } catch (error) {
         console.error('Error clearing stale refund reservations on notice', paymentNotice.id, error);
       }
@@ -377,7 +247,7 @@ const resolveRefundsForPaymentNotice = async (
     // freshly created Stripe refunds may claim reservations the stored data didn't know about yet
     const allStaleIds = staleReservationIds([...(storedRefunds ?? []), ...stripeDTOs]);
     const refunds = mergeStripeRefundsWithStored(storedRefunds, stripeDTOs, allStaleIds);
-    await applyRefundsToPaymentNotice(oystehrClient, paymentNotice, refunds, allStaleIds);
+    await persistRefunds(refunds, allStaleIds);
     return refunds;
   } catch (error) {
     console.error('Error fetching refunds for payment intent', paymentIntent.id, error);
@@ -389,7 +259,7 @@ const resolveRefundsForPaymentNotice = async (
 // reference resolve locally; older ones fall back to one batched Practitioner lookup.
 const resolveTakenByNames = async (
   fhirPaymentNotices: PaymentNotice[],
-  oystehrClient: Oystehr
+  clinicalOystehr: Oystehr
 ): Promise<Map<string, string>> => {
   const takenByByNoticeId = new Map<string, string>();
   const noticeIdsByPractitionerId = new Map<string, string[]>();
@@ -410,7 +280,7 @@ const resolveTakenByNames = async (
   if (noticeIdsByPractitionerId.size > 0) {
     try {
       const practitioners = (
-        await oystehrClient.fhir.search<Practitioner>({
+        await clinicalOystehr.fhir.search<Practitioner>({
           resourceType: 'Practitioner',
           params: [{ name: '_id', value: [...noticeIdsByPractitionerId.keys()].join(',') }],
         })
@@ -438,22 +308,21 @@ async function buildPaymentDTOs(
   paymentMethods: Stripe.PaymentMethod[],
   stripeClient: Stripe,
   stripeAccount: string | undefined,
-  oystehrClient: Oystehr,
-  encounterId?: string
+  clinicalOystehr: Oystehr,
+  billingOystehr: Oystehr
 ): Promise<PatientPaymentDTO[]> {
   const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
   const paymentIntentCache = new Map<string, Stripe.PaymentIntent>(stripePayments.map((pi) => [pi.id, pi]));
-  const takenByByNoticeId = await resolveTakenByNames(fhirPaymentNotices, oystehrClient);
+  const takenByByNoticeId = await resolveTakenByNames(fhirPaymentNotices, clinicalOystehr);
 
   const cardPaymentsNested: PatientPaymentDTO[][] = await Promise.all(
     fhirPaymentNotices.map(async (paymentNotice) => {
-      const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
+      const pnStripeId = stripePaymentIntentIdForNotice(paymentNotice);
       if (!pnStripeId) {
         return [];
       }
 
-      const paymentMethodExtension = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
-        ?.valueString;
+      const paymentMethodExtension = paymentMethodForNotice(paymentNotice);
 
       if (paymentMethodExtension === 'cash' || paymentMethodExtension === 'check') {
         return [];
@@ -510,7 +379,7 @@ async function buildPaymentDTOs(
         paymentIntent,
         stripeClient,
         stripeAccount,
-        oystehrClient
+        billingOystehr
       );
       // in-flight reservations stay on the notice but are not refunds to show or count
       const displayRefunds = refunds?.filter((refund) => !isPendingReservation(refund));
@@ -558,7 +427,8 @@ async function buildPaymentDTOs(
 
   // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
   // but that awaits the candid integration portion
-  const cashPayments: CashPaymentDTO[] = convertPaymentNoticeListToCashPaymentDTOs(fhirPaymentNotices, encounterId).map(
+  // the notices are already scoped to the encounter; billing ones reference its claim, not the Encounter
+  const cashPayments: CashPaymentDTO[] = convertPaymentNoticeListToCashPaymentDTOs(fhirPaymentNotices).map(
     (cashPayment) => {
       if (cashPayment.takenBy || !cashPayment.fhirPaymentNotificationId) return cashPayment;
       const takenBy = takenByByNoticeId.get(cashPayment.fhirPaymentNotificationId);

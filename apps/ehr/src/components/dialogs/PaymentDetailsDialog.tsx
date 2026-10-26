@@ -161,7 +161,7 @@ function PaymentActionDialog({
     mutationFn: async () => {
       if (!oystehrZambda) throw new Error('Oystehr client is not available');
       await oystehrZambda.zambda.execute({
-        id: isRefund ? 'patient-payments-refund' : 'patient-payments-void',
+        id: isRefund ? 'refund-billing-patient-payment' : 'void-billing-patient-payment',
         encounterId,
         paymentNoticeId: payment.fhirPaymentNotificationId,
         reason,

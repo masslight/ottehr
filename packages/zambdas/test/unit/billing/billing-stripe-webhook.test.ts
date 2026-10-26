@@ -351,6 +351,47 @@ describe('billing-stripe-webhook', () => {
     expect(update.mock.calls[0][0].request.reference).toBe('Claim/previously-linked');
   });
 
+  it('merges into a notice the EHR posted for the charge instead of overwriting it', async () => {
+    const { oystehr, create, update } = makeOystehr([[claim]]);
+    const submitterDetail = { type: {}, submitter: { reference: 'Practitioner/pr-1', display: 'Front Desk' } };
+    const refundsExtension = { url: 'https://extensions.fhir.ottehr.com/payment-refunds', valueString: '[]' };
+    create.mockResolvedValueOnce({
+      resourceType: 'PaymentNotice',
+      id: 'pn-ehr',
+      status: 'active',
+      amount: { value: 10, currency: 'USD' },
+      payee: { reference: 'Organization/billing-org' },
+      identifier: [
+        { system: ottehrIdentifierSystem('ehr-patient-payment-id'), value: 'enc-1_key' },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      ],
+      extension: [{ url: 'https://extensions.fhir.zapehr.com/payment-method', valueString: 'card' }, refundsExtension],
+      contained: [
+        {
+          resourceType: 'PaymentReconciliation',
+          id: 'contained-reconciliation',
+          status: 'active',
+          outcome: 'complete',
+          disposition: 'card payment intent created and confirmed with Stripe',
+          detail: [submitterDetail],
+        },
+      ],
+    });
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets });
+
+    const merged = update.mock.calls[0][0];
+    expect(merged.id).toBe('pn-ehr');
+    expect(merged.request.reference).toBe('Claim/claim-1');
+    expect(merged.payee).toEqual({ reference: 'Organization/billing-org' });
+    // no identifier is duplicated or lost
+    expect(merged.identifier).toHaveLength(3);
+    expect(merged.extension).toContainEqual(refundsExtension);
+    expect(merged.contained[0].detail).toEqual([submitterDetail]);
+    expect(merged.contained[0].disposition).toBe('Stripe charge ch_1 succeeded');
+  });
+
   it('puts the resolved billing provider in payee and recipient', async () => {
     const bp = { resourceType: 'Organization', id: 'bp-1' } as Organization;
     const { oystehr, create } = makeOystehr([[claim]], [[bp]]);

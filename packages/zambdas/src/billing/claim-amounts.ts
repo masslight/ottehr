@@ -21,12 +21,7 @@ import {
 import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
-import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
-import {
-  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
-  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
-  MANUAL_REFUND_ID_SYSTEM,
-} from './payments';
+import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from './payments';
 import { ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
@@ -391,7 +386,7 @@ export async function fetchPatientPaymentsByEncounterIds(
       },
       {
         name: 'identifier',
-        value: `${MANUAL_REFUND_ID_SYSTEM}|,${STRIPE_PAYMENT_ID_SYSTEM}|,${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|,${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|`,
+        value: PATIENT_PAYMENT_IDENTIFIER_FILTER,
       },
     ],
     groupKeyOf: (notice) => notice.request?.identifier?.value,

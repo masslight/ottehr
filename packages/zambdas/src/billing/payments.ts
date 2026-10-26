@@ -7,6 +7,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
 import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
+import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { safeValidate } from '../shared/validation';
 import { reconcilePaymentNoticesForClaim } from './shared';
 
@@ -16,6 +17,9 @@ export const MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('man
 // makes task re-fires idempotent and links the billing notice back to its source
 export const CLINICAL_PAYMENT_NOTICE_ID_SYSTEM = ottehrIdentifierSystem('clinical-payment-notice-id');
 export const CHECK_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('check-number');
+// dedup identifier for post-billing-patient-payment calls: value is `<encounterId>_<idempotency key>`,
+// scoped to the encounter because the key is client supplied
+export const EHR_PATIENT_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('ehr-patient-payment-id');
 
 const PAYMENT_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/payment-type';
 
@@ -27,6 +31,18 @@ const RecordablePaymentSchema = z.object({
 
 // dedup identifier for manual (non-processor) refunds recorded from the EHR
 export const MANUAL_REFUND_ID_SYSTEM = ottehrIdentifierSystem('manual-refund-id');
+
+// identifier filter (`system|` matches any value) selecting patient payment and refund notices,
+// which keeps write-offs and other billing PaymentNotices out
+export const PATIENT_PAYMENT_IDENTIFIER_FILTER = [
+  MANUAL_REFUND_ID_SYSTEM,
+  STRIPE_PAYMENT_ID_SYSTEM,
+  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
+  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
+  EHR_PATIENT_PAYMENT_ID_SYSTEM,
+]
+  .map((system) => `${system}|`)
+  .join(',');
 
 // Mirrors the stripe webhook's negative refund notice so patient AR stays a plain sum over a
 // claim's notices; used for cash/check/external-reader refunds, which have no processor events.

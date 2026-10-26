@@ -21,7 +21,7 @@ export const useGetPatientPaymentsList = (
     queryFn: async (): Promise<ListPatientPaymentResponse> => {
       if (oystehrZambda && patientId) {
         const result = await oystehrZambda.zambda.execute({
-          id: 'patient-payments-list',
+          id: 'list-billing-patient-payments',
           patientId,
           encounterId,
         });

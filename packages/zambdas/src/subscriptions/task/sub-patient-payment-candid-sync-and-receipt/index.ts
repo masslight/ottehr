@@ -1,13 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, PaymentNotice } from 'fhir/r4b';
+import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { TIMEZONES } from 'utils/lib/types/constants';
+import {
+  encounterIdForPaymentNotice,
+  getPaymentNoticeForTask,
+  isBillingPaymentNotice,
+  stripePaymentIntentIdForNotice,
+} from '../../../billing/patient-payments';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingPatientPayment } from '../../../billing/payments';
 import { createBillingClient } from '../../../billing/shared';
 import { performCandidPreEncounterSync, shouldUseCandid, shouldUseOttehrBilling } from '../../../shared/candid';
@@ -15,7 +21,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { createPatientPaymentReceiptPdf } from '../../../shared/pdf/patient-payment-receipt-pdf';
 import { wrapHandler } from '../../../shared/sentry';
-import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../shared/stripeIntegration';
+import { getStripeClient } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -66,28 +72,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
 
       console.log('fetching payment notice');
-      const paymentNoticeSearchResult = await oystehr.fhir.search<PaymentNotice>({
-        resourceType: 'PaymentNotice',
-        params: [
-          {
-            name: '_id',
-            value: paymentNoticeId,
-          },
-        ],
+      const billingOystehr = createBillingClient(oystehrToken, secrets);
+      const paymentNotice = await getPaymentNoticeForTask({
+        clinicalOystehr: oystehr,
+        billingOystehr,
+        paymentNoticeId,
       });
-
-      const paymentNotices = paymentNoticeSearchResult.unbundle();
-      if (!paymentNotices || paymentNotices.length === 0) {
+      if (!paymentNotice) {
         throw new Error(`PaymentNotice ${paymentNoticeId} not found`);
       }
 
-      const paymentNotice = paymentNotices[0];
-
       // Make sure the payment belongs to the encounter on this task.
-      const encounterRef = paymentNotice.request?.reference;
-      if (encounterRef !== `Encounter/${encounterId}`) {
+      const noticeEncounterId = encounterIdForPaymentNotice(paymentNotice);
+      if (noticeEncounterId !== encounterId) {
         throw new Error(
-          `PaymentNotice ${paymentNoticeId} references ${encounterRef}, expected Encounter/${encounterId}`
+          `PaymentNotice ${paymentNoticeId} is for encounter ${noticeEncounterId}, expected Encounter/${encounterId}`
         );
       }
 
@@ -118,9 +117,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       // Get Stripe payment intent if this was a card payment
       let paymentIntent: Stripe.PaymentIntent | undefined;
-      const stripePaymentIntentId = paymentNotice.identifier?.find(
-        (identifier: { system?: string }) => identifier.system === STRIPE_PAYMENT_ID_SYSTEM
-      )?.value;
+      const stripePaymentIntentId = stripePaymentIntentIdForNotice(paymentNotice);
       const stripeClient = getStripeClient(secrets);
       const stripeAccountId = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
 
@@ -141,12 +138,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       let receiptPdfFailed = false;
       const errors: string[] = [];
 
-      // Stripe payments are handled separately and should not be recorded here.
-      const shouldRecordPaymentInBillingPlatform = !stripePaymentIntentId;
+      // Stripe records its own payments, both in Ottehr billing (webhook) and in Candid (import).
+      const isProcessorPayment = Boolean(stripePaymentIntentId);
+      // Payments posted through billing are already billing notices; only notices the EHR terminal
+      // flow still writes are copied over.
+      const needsBillingCopy = !isProcessorPayment && !isBillingPaymentNotice(paymentNotice);
 
       // Record the payment in Ottehr billing first.
       // If it fails, do not send it to Candid because a retry could record it twice there.
-      if (shouldUseOttehrBilling(secrets) && shouldRecordPaymentInBillingPlatform && amountInCents > 0) {
+      if (shouldUseOttehrBilling(secrets) && needsBillingCopy && amountInCents > 0) {
         try {
           if (paymentNotice.status !== 'active') {
             throw new Error(`PaymentNotice ${paymentNoticeId} has status ${paymentNotice.status}, expected active`);
@@ -166,7 +166,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }
           const paymentDate =
             reconciliation?.paymentDate ?? createdDateTime.setZone(TIMEZONES[0]).toFormat('yyyy-MM-dd');
-          const billingOystehr = createBillingClient(oystehrToken, secrets);
           console.time('Ottehr billing payment record');
           await recordBillingPatientPayment(billingOystehr, {
             encounterId,
@@ -202,7 +201,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               encounterId,
               oystehr,
               candidApiClient,
-              amountCents: shouldRecordPaymentInBillingPlatform ? amountInCents : undefined,
+              amountCents: isProcessorPayment ? undefined : amountInCents,
             });
             console.timeEnd('Candid pre-encounter sync');
           } catch (error) {

@@ -26,11 +26,7 @@ import {
   STRIPE_PAYMENT_ID_SYSTEM,
 } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
-import {
-  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
-  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
-  MANUAL_REFUND_ID_SYSTEM,
-} from '../../payments';
+import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, PATIENT_PAYMENT_IDENTIFIER_FILTER } from '../../payments';
 import { BILLING_WORKING_COPY_TAG, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import { listStripeAccounts, toDay, toMonth } from '../shared';
@@ -223,7 +219,7 @@ async function loadWindowNotices(
             { name: '_offset', value: String(offset) },
             {
               name: 'identifier',
-              value: `${MANUAL_REFUND_ID_SYSTEM}|,${STRIPE_PAYMENT_ID_SYSTEM}|,${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|,${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|`,
+              value: PATIENT_PAYMENT_IDENTIFIER_FILTER,
             },
           ],
         });

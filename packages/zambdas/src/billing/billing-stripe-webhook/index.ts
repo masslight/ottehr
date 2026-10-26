@@ -4,6 +4,7 @@ import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconcili
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
+import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -18,6 +19,7 @@ import {
 } from '../../shared/stripeIntegration';
 import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
+import { unionIdentifiers } from '../patient-payments';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -259,12 +261,32 @@ const persistPaymentNoticeUpsert = async (
     ],
   });
 
-  // refresh the notice but keep an existing link if the claim search missed
+  // Refresh what Stripe owns but keep the rest: the notice may have been written by
+  // post-billing-patient-payment (submitter, EHR identifier) and carry refund stamps. An existing
+  // claim link is kept if the claim search missed.
   const reference = claim?.id ? `Claim/${claim.id}` : returned.request?.reference;
+  const storedReconciliation = getContainedReconciliation(returned);
+  const desiredReconciliation = getContainedReconciliation(desiredNotice);
   await oystehr.fhir.update<PaymentNotice>({
-    ...desiredNotice,
-    id: returned.id,
+    ...returned,
+    status: desiredNotice.status,
+    amount: desiredNotice.amount,
     request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
+    identifier: unionIdentifiers(returned.identifier, desiredNotice.identifier),
+    contained:
+      storedReconciliation && desiredReconciliation
+        ? returned.contained?.map((resource) =>
+            resource === storedReconciliation
+              ? {
+                  ...storedReconciliation,
+                  status: desiredReconciliation.status,
+                  outcome: desiredReconciliation.outcome,
+                  disposition: desiredReconciliation.disposition,
+                  paymentAmount: desiredReconciliation.paymentAmount,
+                }
+              : resource
+          )
+        : desiredNotice.contained,
   });
 
   if (!claim) {

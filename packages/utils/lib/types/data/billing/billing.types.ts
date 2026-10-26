@@ -1143,15 +1143,6 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
-export interface RecordBillingRefundResponse {
-  billingNoticesStamped: number;
-  candidRefundsRecorded: number;
-}
-
-export interface RecordBillingVoidResponse {
-  billingNoticesVoided: number;
-}
-
 export interface AddClaimAttachmentResponse {
   documentReferenceId: string;
   uploadUrl: string;
