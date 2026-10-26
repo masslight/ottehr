@@ -68,7 +68,7 @@ export const evaluateOperator = (
   // readers normalize amounts but rule values keep the author's formatting). Only number-typed
   // properties opt in: ids like member IDs must stay distinct strings ('00123' ≠ '123').
   // spellings: every spelling a value read off the claim is known by (a service: its code and its
-  // displayed name); a comparison holds when it holds for any of them.
+  // displayed name); eq/neq/in/notIn hold when they hold for any of them.
   opts?: { numeric?: boolean; spellings?: (value: string) => string[] }
 ): boolean => {
   const expectedScalar = Array.isArray(expected) ? expected[0] : expected;
@@ -91,12 +91,12 @@ export const evaluateOperator = (
   };
   const contains = (): boolean => {
     if (expectedScalar == null) return false;
-    if (Array.isArray(actual)) return actual.some((entry) => spellings(entry).includes(expectedScalar));
-    return typeof actual === 'string' && spellings(actual).some((s) => s.includes(expectedScalar));
+    if (Array.isArray(actual)) return actual.includes(expectedScalar);
+    return typeof actual === 'string' && actual.includes(expectedScalar);
   };
   const startsWith = (): boolean => {
     if (expectedScalar == null) return false;
-    return typeof actual === 'string' && spellings(actual).some((s) => s.startsWith(expectedScalar));
+    return typeof actual === 'string' && actual.startsWith(expectedScalar);
   };
   // Standard (unanchored) regex semantics: the pattern can match anywhere in the value; authors
   // anchor with ^/$ for a whole-value match. A list actual matches when any entry does. Save-time
@@ -110,9 +110,8 @@ export const evaluateOperator = (
     } catch {
       return false;
     }
-    const test = (value: string): boolean => spellings(value).some((s) => pattern.test(s));
-    if (Array.isArray(actual)) return actual.some(test);
-    return typeof actual === 'string' && test(actual);
+    if (Array.isArray(actual)) return actual.some((entry) => pattern.test(entry));
+    return typeof actual === 'string' && pattern.test(actual);
   };
   // Ordering for gt/gte/lt/lte: numeric when both sides parse as numbers (amounts), otherwise
   // lexicographic — which is chronological for ISO dates (YYYY-MM-DD). Returns undefined (condition

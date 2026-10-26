@@ -387,19 +387,6 @@ describe('rules-engine evaluator', () => {
     expect(service('neq', 'Workers Comp')).toBe(false);
     expect(service('in', ['Urgent Care', 'Workers Comp'])).toBe(true);
     expect(service('notIn', ['urgent-care', 'Occupational Medicine'])).toBe(true);
-    // Fragments and patterns test both spellings as written.
-    expect(service('contains', 'Comp')).toBe(true);
-    expect(service('contains', '-comp')).toBe(true);
-    expect(service('startsWith', 'Workers C')).toBe(true);
-    expect(service('notStartsWith', 'workers-')).toBe(false);
-    expect(service('matches', '^Workers Comp$')).toBe(true);
-    expect(service('matches', '^workers-comp$')).toBe(true);
-    expect(service('notMatches', '^Urgent')).toBe(true);
-
-    // A hyphen in a fragment stays a hyphen: "pre-" does not start "prenatal".
-    m.claim.meta = { tag: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'prenatal' }] };
-    expect(service('startsWith', 'pre-')).toBe(false);
-    expect(service('contains', '-')).toBe(false);
 
     // Other text fields still compare their one value.
     expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'mem-123' }, m)).toBe(

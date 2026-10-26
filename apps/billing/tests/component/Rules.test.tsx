@@ -319,19 +319,17 @@ describe('ConditionalEditor', () => {
       expect(onValid.mock.calls[0][0].conditional.branches[0].condition.value).toEqual(['Urgent Care', 'Workers Comp']);
     });
 
-    it('takes free text for contains / starts with, which match part of a code or name', () => {
+    it('offers only whole-value operators: no contains, starts with or patterns', async () => {
       const conditional: RuleConditional = {
         branches: [
-          {
-            condition: { type: 'field', field: 'service', operator: 'contains', value: 'Comp' },
-            outcome: { type: 'noop' },
-          },
+          { condition: { type: 'field', field: 'service', operator: 'eq', value: '' }, outcome: { type: 'noop' } },
         ],
       };
       render(<ConditionalForm conditional={conditional} />);
 
-      expect(screen.getByLabelText('Value *')).toHaveValue('Comp');
-      expect(screen.queryByPlaceholderText('Pick a service…')).not.toBeInTheDocument();
+      fireEvent.mouseDown(screen.getByText('equals'));
+      const offered = (await screen.findAllByRole('option')).map((option) => option.textContent);
+      expect(offered).toEqual(['equals', 'does not equal', 'is one of', 'is not one of', 'is present', 'is empty']);
     });
   });
 

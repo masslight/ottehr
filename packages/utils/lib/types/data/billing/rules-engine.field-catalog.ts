@@ -144,8 +144,8 @@ export interface RuleValueFormatDef {
   validate?: (value: string) => string | undefined;
   // One-line format hint for the generated docs and UI helper text.
   hint: string;
-  // Every spelling a stored value is known by, for formats with more than one. A condition holds
-  // when it holds for any of them, each compared exactly.
+  // Every spelling a stored value is known by, for formats with more than one. An equality or
+  // membership condition holds when it holds for any of them, each compared exactly.
   spellings?: (value: string) => string[];
 }
 
@@ -231,8 +231,9 @@ const SCALAR_OPS: RuleOperator[] = [
   'notExists',
 ];
 const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'matches', 'notMatches', 'exists', 'notExists'];
-// Provider/facility reference values ("Practitioner/<id>") are opaque ids — pattern matching them
-// is meaningless, so ref-typed fields skip the regex operators.
+// Provider/facility reference values ("Practitioner/<id>") are opaque ids and services are picked
+// whole from the list of services on claims — matching part of them or a pattern is meaningless, so
+// these fields take whole values only.
 const REF_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
@@ -595,12 +596,11 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     label: 'Service category',
     group: 'claim',
     valueType: 'string',
-    operators: SCALAR_OPS,
+    operators: REF_OPS,
     settable: true,
     description:
       'The service category: one of the services on claims created from visits so far, named as the claims list shows it (e.g. Workers Comp) or by its code (workers-comp). ' +
-      'A condition holds when it holds for either spelling, compared exactly; contains, starts with and patterns test both. ' +
-      "Setting it stores the chosen service's code.",
+      "Conditions match either spelling exactly; setting it stores the chosen service's code.",
     format: 'service',
   },
   {
