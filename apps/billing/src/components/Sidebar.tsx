@@ -13,6 +13,7 @@ import {
   People as PeopleIcon,
   Receipt as ReceiptIcon,
   Rule as RuleIcon,
+  SettingsOutlined as SettingsIcon,
   ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
@@ -144,6 +145,12 @@ export const Sidebar: FC = () => {
         {navItems.map(renderNavItem)}
         <Divider sx={{ my: 1 }} />
         {rulesNavItems.map(renderNavItem)}
+        <Divider sx={{ my: 1 }} />
+        {renderNavItem({
+          label: 'Invoicing Configuration',
+          path: '/invoicing-configuration',
+          icon: <SettingsIcon sx={{ fontSize: 18 }} />,
+        })}
       </List>
 
       <List sx={{ px: 1.25 }}>
