@@ -23,6 +23,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { ExternalLabOrderResult, InHouseLabResult as InHouseLabResultPdfData } from 'utils/lib/types/api/lab';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -625,6 +626,10 @@ export interface Procedures extends PdfData {
   }[];
 }
 
+export interface DmeOrdersData extends PdfData {
+  dmeOrders: { itemName: string; lines: string[] }[];
+}
+
 export interface ContactInfo extends PdfData {
   streetAddress: string;
   addressLineOptional: string;
@@ -1073,6 +1078,7 @@ export interface ProgressNoteInput {
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
+  dmeOrders?: DmeOrderDTO[];
   signatures?: ProgressNoteSignatures;
   signed?: boolean;
 }
@@ -1105,6 +1111,7 @@ export interface ProgressNoteData extends PdfData {
   emCode: EmCode;
   cptCodes: CptCodes;
   procedures: Procedures;
+  dmeOrders: DmeOrdersData;
   prescriptions: Prescriptions;
   plan: PlanData;
   followupCompleted: FollowupCompleted;
