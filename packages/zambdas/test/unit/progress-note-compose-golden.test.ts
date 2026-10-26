@@ -5,6 +5,16 @@
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Per-project overlays may replace patientScreeningQuestionsConfig with a reduced field set that
+// omits COVID/travel fields, causing composeAdditionalQuestions to return {}. Force the base config
+// so this golden test remains overlay-agnostic.
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = (await vi.importActual(
+    'utils/lib/types/data/screening-questions/config'
+  )) as typeof import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';

@@ -56,6 +56,17 @@ import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
+// Per-project overlays may replace patientScreeningQuestionsConfig with a reduced field set that
+// omits COVID fields. The module-level SCREENING_FIELD_BY_CODE map in encounters.ts is built at
+// import time, so we must mock before the module loads (vi.mock is hoisted). Force the base config
+// so tests remain overlay-agnostic.
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = (await vi.importActual(
+    'utils/lib/types/data/screening-questions/config'
+  )) as typeof import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
+
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
 // uses." The fetch+map pipeline runs against a stubbed Oystehr client returning a small FHIR graph;
