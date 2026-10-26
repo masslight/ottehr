@@ -65,9 +65,13 @@ describe('getCoverageSlotChanges', () => {
 
   it('detects primary moved to secondary', () => {
     expect(getCoverageSlotChanges(account('a'), account(undefined, 'a'))).toEqual({
-      primaryCoverageChanged: true,
-      secondaryCoverageChanged: false,
+      primaryCoverageChanged: false,
+      secondaryCoverageChanged: true,
     });
+  });
+
+  it('detects a new coverage promoted to primary', () => {
+    expect(getCoverageSlotChanges(account('a'), account('b', 'a'))).toEqual(bothChanged);
   });
 
   it('detects a replaced coverage (corrected member ID)', () => {
@@ -76,13 +80,6 @@ describe('getCoverageSlotChanges', () => {
 
   it('detects nothing when the coverages were already moved (re-submitted form)', () => {
     expect(getCoverageSlotChanges(account('b', 'a'), account('b', 'a'))).toEqual(nothingChanged);
-  });
-
-  it('ignores a slot that was empty before', () => {
-    expect(getCoverageSlotChanges(account(undefined, 'a'), account('a'))).toEqual({
-      primaryCoverageChanged: false,
-      secondaryCoverageChanged: true,
-    });
   });
 });
 

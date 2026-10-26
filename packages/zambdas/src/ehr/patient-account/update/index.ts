@@ -6,7 +6,13 @@ import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } 
 import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { AUDIT_EVENT_OUTCOME_CODE, PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
-import { checkBundleOutcomeOk, getVersionedReferencesFromBundleResources } from 'utils/lib/fhir/helpers';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import {
+  checkBundleOutcomeOk,
+  getVersionedReferencesFromBundleResources,
+  makeOptimisticLockIfMatchHeader,
+  withVersionConflictRetries,
+} from 'utils/lib/fhir/helpers';
 import { getCoverageSlotChanges } from 'utils/lib/fhir/insurance';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import {
@@ -259,9 +265,11 @@ const moveInsuranceCardImagesForSavedAccount = async (
 
   const { primaryCoverageChanged, secondaryCoverageChanged } = getCoverageSlotChanges(previousAccount, savedAccount);
 
+  // A requested move is applied only when the destination slot really got a different coverage, so re-submitting the
+  // same form moves nothing.
   await moveInsuranceCardImages(patientId, oystehr, {
-    primaryBecameSecondary: requestedPriorityChanges.primaryBecameSecondary && primaryCoverageChanged,
-    secondaryBecamePrimary: requestedPriorityChanges.secondaryBecamePrimary && secondaryCoverageChanged,
+    primaryBecameSecondary: requestedPriorityChanges.primaryBecameSecondary && secondaryCoverageChanged,
+    secondaryBecamePrimary: requestedPriorityChanges.secondaryBecamePrimary && primaryCoverageChanged,
   });
 };
 
@@ -275,18 +283,34 @@ const moveInsuranceCardImages = async (
     return;
   }
 
-  const docRefs = (
-    await oystehr.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: [
-        { name: 'status', value: 'current' },
-        { name: 'related', value: `Patient/${patientId}` },
-        { name: 'type', value: `${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}` },
-        { name: '_sort', value: '-_lastUpdated' },
-      ],
-    })
-  ).unbundle();
+  // Each image is patched with If-Match: when an overlapping save changes the same images, this re-reads them and
+  // applies the move on top of that change instead of overwriting it.
+  await withVersionConflictRetries(async () => {
+    const docRefs = await getAllFhirSearchPages<DocumentReference>(
+      {
+        resourceType: 'DocumentReference',
+        params: [
+          { name: 'status', value: 'current' },
+          { name: 'related', value: `Patient/${patientId}` },
+          { name: 'type', value: `${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}` },
+          { name: '_sort', value: '-_lastUpdated' },
+        ],
+      },
+      oystehr
+    );
 
+    const requests = getInsuranceCardMoveRequests(docRefs, { primaryBecameSecondary, secondaryBecamePrimary });
+
+    if (requests.length) {
+      await oystehr.fhir.transaction({ requests });
+    }
+  });
+};
+
+const getInsuranceCardMoveRequests = (
+  docRefs: DocumentReference[],
+  { primaryBecameSecondary, secondaryBecamePrimary }: InsurancePriorityChanges
+): BatchInputPatchRequest<DocumentReference>[] => {
   const requests: BatchInputPatchRequest<DocumentReference>[] = [];
   const movedTitles = new Set<InsuranceCardId>();
 
@@ -306,6 +330,7 @@ const moveInsuranceCardImages = async (
         requests.push({
           method: 'PATCH',
           url: `DocumentReference/${docRef.id}`,
+          ifMatch: makeOptimisticLockIfMatchHeader(docRef),
           operations: [{ op: 'replace', path: '/status', value: 'superseded' }],
         });
       }
@@ -320,12 +345,15 @@ const moveInsuranceCardImages = async (
       : [{ op: 'replace', path: '/content/0/attachment/title', value: swapPrimarySecondaryInsuranceCardId(title) }];
 
     movedTitles.add(title);
-    requests.push({ method: 'PATCH', url: `DocumentReference/${docRef.id}`, operations });
+    requests.push({
+      method: 'PATCH',
+      url: `DocumentReference/${docRef.id}`,
+      ifMatch: makeOptimisticLockIfMatchHeader(docRef),
+      operations,
+    });
   }
 
-  if (requests.length) {
-    await oystehr.fhir.transaction({ requests });
-  }
+  return requests;
 };
 
 interface AuditEventInput {
