@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { Claim, Coverage, FhirResource, Organization, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Coverage, FhirResource, Organization, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
 import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { UpdateBillingResourceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -8,6 +8,7 @@ import {
   NIO_ORGANIZATION_KIND_SYSTEM,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
+import { BILLING_WORKING_COPY_TAG } from '../../../src/billing/shared';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateWithSchema } from '../../../src/shared/validation';
 
@@ -534,5 +535,62 @@ describe('update-billing-claim non-insurance payer', () => {
         secrets: {},
       })
     ).toThrow();
+  });
+});
+
+describe('update-billing-claim coverage policy holder', () => {
+  const policyHolder = { firstName: 'Sam', lastName: 'Doe', dob: '1980-01-01', gender: 'male' as const };
+
+  // The claim's coverage, as a per-claim working copy, optionally with a standalone policy holder.
+  const makeOystehr = (subscriberId?: string): { oystehr: Oystehr; transaction: ReturnType<typeof vi.fn> } => {
+    const claimCoverage: Coverage = {
+      ...coverage,
+      meta: { tag: [BILLING_WORKING_COPY_TAG] },
+      subscriber: subscriberId ? { reference: `RelatedPerson/${subscriberId}` } : { reference: 'Patient/p' },
+    };
+    const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Coverage') return Promise.resolve({ unbundle: () => [structuredClone(claimCoverage)] });
+      if (resourceType === 'RelatedPerson' && subscriberId) {
+        return Promise.resolve({
+          unbundle: () => [{ resourceType: 'RelatedPerson', id: subscriberId, patient: { reference: 'Patient/p' } }],
+        });
+      }
+      return Promise.resolve({ unbundle: () => [] });
+    });
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
+    return { oystehr: { fhir: { search, transaction } } as unknown as Oystehr, transaction };
+  };
+
+  const save = (oystehr: Oystehr): Promise<unknown> =>
+    performEffect(
+      oystehr,
+      {
+        resourceType: 'Coverage',
+        resourceId: 'cov-1',
+        claimId: CLAIM_ID,
+        fields: { relationship: 'Spouse', policyHolder },
+        secrets: {},
+      },
+      agent
+    );
+
+  const subscriberWrite = (transaction: ReturnType<typeof vi.fn>): RelatedPerson =>
+    transaction.mock.calls
+      .flatMap((call): BatchInputRequest<FhirResource>[] => call[0].requests)
+      .map((r) => (r as { resource?: FhirResource }).resource)
+      .find((r): r is RelatedPerson => r?.resourceType === 'RelatedPerson')!;
+
+  it('keeps the working-copy tag when it rebuilds an existing policy holder', async () => {
+    const { oystehr, transaction } = makeOystehr('rp-1');
+    await save(oystehr);
+    const written = subscriberWrite(transaction);
+    expect(written.id).toBe('rp-1');
+    expect(written.meta?.tag).toEqual([BILLING_WORKING_COPY_TAG]);
+  });
+
+  it('tags a newly created policy holder as a working copy', async () => {
+    const { oystehr, transaction } = makeOystehr();
+    await save(oystehr);
+    expect(subscriberWrite(transaction).meta?.tag).toEqual([BILLING_WORKING_COPY_TAG]);
   });
 });

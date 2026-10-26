@@ -95,6 +95,7 @@ import {
   getClaimTypeCoding,
   getProviderLicense,
   getTaxonomy,
+  isWorkingCopy,
   prepareWorkingCopy,
   removeClaimSupportingInfo,
   resourceDisplayName,
@@ -841,8 +842,18 @@ const setCoverageRelationshipField = (
       ],
     },
   ];
-  if (current) {
+  if (current && isWorkingCopy<RelatedPerson>(current)) {
     current.relationship = relationshipCoding;
+    return true;
+  }
+  if (current) {
+    // A policy holder without the working-copy tag (saved by the claim editor before it kept the
+    // tag) may be shared, so it is never edited in place: re-point the coverage at a fresh working
+    // copy carrying the new relationship. The original leaves the model untouched.
+    const copy = prepareWorkingCopy<RelatedPerson>(current, current.id!);
+    copy.relationship = relationshipCoding;
+    model.subscribers = [...model.subscribers.filter((s) => s.id !== current.id), copy];
+    coverage.subscriber = { reference: registerCreatedCopy(model, current, copy) };
     return true;
   }
   // Same shape buildCoverageSubscriberRelatedPerson gives a policy holder, minus the person details.

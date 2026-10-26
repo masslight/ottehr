@@ -914,6 +914,40 @@ describe('sub-rules-engine performEffect', () => {
       expect(retry.submitClaimRcm).not.toHaveBeenCalled();
     });
 
+    it('completes a relationship change on a policy holder the claim editor saved without the working-copy tag', async () => {
+      const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      search.mockResolvedValue({ unbundle: () => [model.claim] });
+      model.coverages[0].subscriber = { reference: 'RelatedPerson/rp-editor' };
+      model.coverages[0].relationship = { coding: [{ code: 'parent', display: 'Parent' }] };
+      model.subscribers = [
+        {
+          resourceType: 'RelatedPerson',
+          id: 'rp-editor',
+          meta: { versionId: '1' },
+          patient: { reference: 'Patient/patient-1' },
+          name: [{ given: ['Pat'], family: 'Doe' }],
+          birthDate: '1960-01-01',
+        },
+      ];
+
+      const result = await run(oystehr, model, [{ field: 'insurance.relationship', value: 'Spouse' }]);
+
+      expect(result.taskStatus).toBe('completed');
+      expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+      const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+      // The untagged original is never written; the coverage points at a new working copy.
+      expect(requests.some((r: { url: string }) => r.url === 'RelatedPerson/rp-editor')).toBe(false);
+      const holderPost = requests.find(
+        (r: { method: string; url: string }) => r.method === 'POST' && r.url === '/RelatedPerson'
+      );
+      expect(holderPost.resource.name).toEqual([{ given: ['Pat'], family: 'Doe' }]);
+      const coveragePut = requests.find(
+        (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Coverage/coverage-1'
+      );
+      expect(coveragePut.resource.subscriber).toEqual({ reference: holderPost.fullUrl });
+    });
+
     it('creates the policy holder alongside the coverage update once its details are filled in', async () => {
       const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
       const model = makeModel(AR_STAGE.insurancePayer);

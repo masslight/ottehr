@@ -533,6 +533,7 @@ describe('rules-engine evaluator', () => {
   describe('relationship to insured', () => {
     it('re-codes the coverage and keeps the existing policy holder for a non-Self value', () => {
       const m = makeModel();
+      m.subscribers[0].meta = { tag: [BILLING_WORKING_COPY_TAG] };
       expect(writeField(m, 'insurance.relationship', 'Parent')).toBe(true);
       expect(readField(m, 'insurance.relationship')).toBe('Parent');
       expect(m.coverages[0].relationship?.coding?.[0]).toMatchObject({ code: 'parent', display: 'Parent' });
@@ -541,6 +542,25 @@ describe('rules-engine evaluator', () => {
       expect(m.subscribers[0].relationship?.[0]?.coding?.[0]).toMatchObject({ code: 'parent', display: 'Parent' });
       expect(readField(m, 'policyHolder.firstName')).toBe('Pat');
       expect(m.createdCopyIds).toBeUndefined();
+    });
+
+    it('re-points the coverage at a working copy instead of editing an untagged policy holder', () => {
+      const m = makeModel();
+      const original = structuredClone(m.subscribers[0]);
+      expect(writeField(m, 'insurance.relationship', 'Spouse')).toBe(true);
+
+      const copy = m.subscribers.find((s) => s.id !== 'rp-1');
+      expect(m.subscribers).toHaveLength(1);
+      expect(m.coverages[0].subscriber).toEqual({ reference: `urn:uuid:${copy?.id}` });
+      expect(m.createdCopyIds?.has(copy!.id!)).toBe(true);
+      expect(copy?.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
+      expect(copy?.relationship?.[0]?.coding?.[0]).toMatchObject({ code: 'spouse', display: 'Spouse' });
+      // The person's details carry over; the original is left as it was.
+      expect(readField(m, 'policyHolder.firstName')).toBe('Pat');
+      expect(readField(m, 'policyHolder.birthDate')).toBe('1980-05-05');
+      expect(original.relationship).toBeUndefined();
+      // A complete copy of an existing holder isn't subject to the rules-created details check.
+      expect(policyHolderProblems(m)).toEqual([]);
     });
 
     it('makes the patient the subscriber and drops the policy holder for Self', () => {

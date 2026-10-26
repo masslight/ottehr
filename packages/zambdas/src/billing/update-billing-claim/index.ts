@@ -47,6 +47,7 @@ import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../
 import {
   assertOrderingProvidersExist,
   attachCoverageToClaim,
+  BILLING_WORKING_COPY_TAG,
   buildAddress,
   buildClaimCoverageCopies,
   buildClaimItemDrugDetail,
@@ -64,6 +65,7 @@ import {
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchById,
   getClaimTypeCoding,
+  isWorkingCopy,
   payerDisplay,
   prepareWorkingCopy,
   removeClaimSupportingInfo,
@@ -196,6 +198,9 @@ async function saveCoverageSubscriber(input: {
     if (currentSubscriberId) post.push({ method: 'DELETE', url: `RelatedPerson/${currentSubscriberId}` });
   } else {
     newSubscriber = buildSubscriberRelatedPerson(patientId, relationship, policyHolder);
+    // A claim's coverage is a per-claim working copy, so its policy holder is one too; the tag is what
+    // lets the rules engine edit it (findUnwritableChanges treats untagged resources as shared).
+    if (isWorkingCopy<Coverage>(coverage)) newSubscriber.meta = { tag: [BILLING_WORKING_COPY_TAG] };
     if (currentSubscriberId) {
       newSubscriber.id = currentSubscriberId;
       pre.push({ method: 'PUT', url: `RelatedPerson/${currentSubscriberId}`, resource: newSubscriber });
