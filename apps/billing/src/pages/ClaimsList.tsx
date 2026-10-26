@@ -768,7 +768,11 @@ export function ClaimsListView({
     if (!oystehrZambda || selected.length === 0) return;
     setSubmittingRunRules(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimIds: selected.map(String) });
+      await runBillingRulesEngine(oystehrZambda, {
+        claimIds: selected.map(String),
+        submissionType: 'new',
+        submissionInsurance: 'primary',
+      });
       enqueueSnackbar(
         `Rules started for ${selected.length} claim(s) — each claim will be submitted, made ready to invoice, ` +
           'or held shortly. Refresh to see the results.',
@@ -1178,8 +1182,8 @@ export function ClaimsListView({
         onCancel={() => setRunRulesModalOpen(false)}
       >
         Run rules for {selected.length} claim(s)? Each claim runs its AR stage's rules engine — when every rule passes,
-        Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a Hold
-        keeps a claim for review.
+        Insurance Payer AR claims are submitted to the primary insurance payer and pre-invoice claims are made ready to
+        invoice; a Hold keeps a claim for review.
       </ConfirmDialog>
 
       <BulkAddTagModal
