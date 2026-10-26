@@ -36,6 +36,7 @@ import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { describe, expect, it } from 'vitest';
 import {
+  policyHolderProblems,
   READABLE_FIELD_IDS,
   readField,
   readServiceLineProperty,
@@ -517,6 +518,76 @@ describe('rules-engine evaluator', () => {
     // Self-subscribed coverage (no RelatedPerson): the target is missing, so the write fails.
     m.coverages[0].subscriber = { reference: 'Patient/p1' };
     expect(writeField(m, 'policyHolder.lastName', 'X')).toBe(false);
+  });
+
+  it('writes the plan type on the addressed coverage only', () => {
+    const m = makeModel();
+    expect(writeField(m, 'secondaryInsurance.planType', '12')).toBe(true);
+    expect(readField(m, 'secondaryInsurance.planType')).toBe('12');
+    expect(m.coverages[0].id).toBe('cov-primary');
+    expect(m.coverages[1].id).toBe('cov-secondary');
+    expect(readField(m, 'insurance.planType')).toBeUndefined();
+  });
+
+  describe('relationship to insured', () => {
+    it('re-codes the coverage and keeps the existing policy holder for a non-Self value', () => {
+      const m = makeModel();
+      expect(writeField(m, 'insurance.relationship', 'Parent')).toBe(true);
+      expect(readField(m, 'insurance.relationship')).toBe('Parent');
+      expect(m.coverages[0].relationship?.coding?.[0]).toMatchObject({ code: 'parent', display: 'Parent' });
+      expect(m.coverages[0].subscriber).toEqual({ reference: 'RelatedPerson/rp-1' });
+      expect(m.subscribers).toHaveLength(1);
+      expect(m.subscribers[0].relationship?.[0]?.coding?.[0]).toMatchObject({ code: 'parent', display: 'Parent' });
+      expect(readField(m, 'policyHolder.firstName')).toBe('Pat');
+      expect(m.createdCopyIds).toBeUndefined();
+    });
+
+    it('makes the patient the subscriber and drops the policy holder for Self', () => {
+      const m = makeModel();
+      expect(writeField(m, 'insurance.relationship', 'Self')).toBe(true);
+      expect(readField(m, 'insurance.relationship')).toBe('Self');
+      expect(m.coverages[0].subscriber).toEqual({ reference: 'Patient/p1' });
+      expect(m.subscribers).toEqual([]);
+      expect(readField(m, 'policyHolder.firstName')).toBeUndefined();
+    });
+
+    it('creates an empty policy holder that later writes fill in when the coverage was Self', () => {
+      const m = makeModel();
+      // The secondary coverage has no standalone policy holder.
+      expect(writeField(m, 'secondaryInsurance.relationship', 'Child')).toBe(true);
+      const holder = m.subscribers.find((s) => s.id !== 'rp-1');
+      expect(holder).toMatchObject({
+        resourceType: 'RelatedPerson',
+        patient: { reference: 'Patient/p1' },
+        meta: { tag: [BILLING_WORKING_COPY_TAG] },
+      });
+      expect(m.coverages[1].subscriber).toEqual({ reference: `urn:uuid:${holder?.id}` });
+      expect(m.createdCopyIds?.has(holder!.id!)).toBe(true);
+      expect(policyHolderProblems(m)).toEqual([
+        'Secondary policy holder is missing first name, last name, date of birth',
+      ]);
+
+      expect(writeField(m, 'secondaryPolicyHolder.firstName', 'Kid')).toBe(true);
+      expect(writeField(m, 'secondaryPolicyHolder.lastName', 'Doe')).toBe(true);
+      expect(writeField(m, 'secondaryPolicyHolder.birthDate', '2015-03-03')).toBe(true);
+      expect(policyHolderProblems(m)).toEqual([]);
+      // The pre-existing primary policy holder is never checked.
+      expect(writeField(m, 'policyHolder.lastName', '')).toBe(true);
+      expect(policyHolderProblems(m)).toEqual([]);
+
+      // Switching the same coverage back to Self discards the pending copy, so it is never created.
+      expect(writeField(m, 'secondaryInsurance.relationship', 'Self')).toBe(true);
+      expect(m.createdCopyIds?.size).toBe(0);
+      expect(m.subscribers.map((s) => s.id)).toEqual(['rp-1']);
+    });
+
+    it('fails for an unknown or empty value, or a missing coverage', () => {
+      const m = makeModel();
+      expect(writeField(m, 'insurance.relationship', 'Cousin')).toBe(false);
+      expect(writeField(m, 'insurance.relationship', '')).toBe(false);
+      expect(writeField(m, 'tertiaryInsurance.relationship', 'Self')).toBe(false);
+      expect(m.coverages[0].relationship).toBeUndefined();
+    });
   });
 
   it('writes provider and facility detail fields', () => {

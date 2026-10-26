@@ -464,9 +464,14 @@ const coverageFields = (
       group,
       valueType: 'select',
       operators: ENUM_OPS,
-      // Explicitly false, since this requires also mutating another resource
-      settable: false,
-      description: `The patient's relationship to the ${countingWord} policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead.`,
+      settable,
+      description:
+        `The patient's relationship to the ${countingWord} policy holder. Setting it restructures the policy holder ` +
+        'the way the claim editor does: "Self" makes the patient the subscriber and drops the separate policy-holder ' +
+        "record; any other value keeps the existing policy holder's details, or — when the coverage was Self — creates " +
+        `an empty policy holder for later actions to fill in. A policy holder created this way must have a first name, ` +
+        'last name and date of birth once all rules have run, or the claim is held.',
+      requiredOnSet: true,
       options: RELATIONSHIP_OPTIONS,
     },
   ];

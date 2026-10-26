@@ -824,6 +824,77 @@ describe('sub-rules-engine performEffect', () => {
     });
   });
 
+  describe('policy holder details check', () => {
+    const run = (
+      oystehr: Oystehr,
+      model: RulesEngineClaimModel,
+      actions: { field: string; value: string }[]
+    ): ReturnType<typeof performEffect> =>
+      performEffect(
+        oystehr,
+        {
+          engine: 'claim-submission',
+          claimId: 'claim-1',
+          rules: [
+            alwaysRule('holder', {
+              type: 'actions',
+              actions: actions.map(({ field, value }) => ({ type: 'setField' as const, field, value })),
+            }),
+          ],
+          model,
+          skipRules: false,
+          submissionType: null,
+          payerClaimControlNumber: null,
+        },
+        [AGENT]
+      );
+
+    it('holds the claim when a relationship change away from Self leaves the new policy holder incomplete', async () => {
+      const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+
+      const result = await run(oystehr, model, [
+        { field: 'insurance.relationship', value: 'Spouse' },
+        { field: 'policyHolder.firstName', value: 'Sam' },
+      ]);
+
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Primary policy holder is missing last name, date of birth');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
+      const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+      expect(
+        requests.find((r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1').resource
+          .meta.tag
+      ).toContainEqual(HOLD_TAG);
+    });
+
+    it('creates the policy holder alongside the coverage update once its details are filled in', async () => {
+      const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+      const result = await run(oystehr, model, [
+        { field: 'insurance.relationship', value: 'Spouse' },
+        { field: 'policyHolder.firstName', value: 'Sam' },
+        { field: 'policyHolder.lastName', value: 'Doe' },
+        { field: 'policyHolder.birthDate', value: '1985-02-02' },
+      ]);
+
+      expect(result.taskStatus).toBe('completed');
+      expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+      const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+      const holderPost = requests.find(
+        (r: { method: string; url: string }) => r.method === 'POST' && r.url === '/RelatedPerson'
+      );
+      expect(holderPost.resource.name).toEqual([{ given: ['Sam'], family: 'Doe' }]);
+      const coveragePut = requests.find(
+        (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Coverage/coverage-1'
+      );
+      expect(coveragePut.resource.subscriber).toEqual({ reference: holderPost.fullUrl });
+      expect(coveragePut.resource.relationship.coding[0]).toMatchObject({ code: 'spouse', display: 'Spouse' });
+    });
+  });
+
   it("does not blame a rule for the engine's own unwritable-changes Hold", async () => {
     const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.insurancePayer);

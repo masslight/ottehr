@@ -18,8 +18,20 @@ import {
   getCoveragePlanType,
   setCoveragePlanType,
 } from 'utils/lib/fhir/billing';
-import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
-import { codeableConcept, getCoding, getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import {
+  RELATED_PERSON_RELATIONSHIP_SYSTEM,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  SUBSCRIBER_RELATIONSHIPS,
+} from 'utils/lib/fhir/constants';
+import {
+  codeableConcept,
+  getCoding,
+  getExtension,
+  getNPI,
+  getSubscriberRelationshipCodeableConcept,
+  getTaxID,
+  setNpi,
+} from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
 import {
   extractPayerIdFromUrl,
@@ -66,6 +78,7 @@ import { removeExtension, updateExtension } from '../../shared/helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   attachCoverageToClaim,
+  BILLING_WORKING_COPY_TAG,
   buildClaimCoverageCopies,
   buildUpdatedClaimStatusTags,
   claimHasRealCoverage,
@@ -773,6 +786,81 @@ const setCoverageFromPatient = (
   return true;
 };
 
+// Change a coverage's relationship to insured with the same restructure the claim editor's coverage
+// save performs (saveCoverageSubscriber in update-billing-claim): Self points the subscriber at the
+// patient and drops the policy-holder copy from the model (left unreferenced, like a swapped-out
+// copy); any other value keeps the existing policy holder and re-codes its relationship, or — for a
+// coverage that was Self — mints an empty policy-holder working copy for later actions in the run to
+// fill in (policyHolderProblems holds the claim if they don't).
+const setCoverageRelationshipField = (
+  model: RulesEngineClaimModel,
+  value: string | null,
+  resolve: (m: RulesEngineClaimModel) => Coverage | undefined
+): boolean => {
+  const relationship = SUBSCRIBER_RELATIONSHIPS.find((r) => r === value);
+  const coverage = resolve(model);
+  const patientRef = coverage?.beneficiary?.reference ?? model.claim.patient?.reference;
+  if (!relationship || !coverage || !patientRef) return false;
+
+  const current = policyHolder(resolve)(model);
+  coverage.relationship = getSubscriberRelationshipCodeableConcept(relationship);
+  if (relationship === 'Self') {
+    coverage.subscriber = { reference: patientRef };
+    if (current?.id) {
+      model.subscribers = model.subscribers.filter((s) => s.id !== current.id);
+      model.createdCopyIds?.delete(current.id);
+    }
+    return true;
+  }
+
+  const relationshipCoding: RelatedPerson['relationship'] = [
+    {
+      coding: [
+        {
+          system: RELATED_PERSON_RELATIONSHIP_SYSTEM,
+          code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other',
+          display: relationship,
+        },
+      ],
+    },
+  ];
+  if (current) {
+    current.relationship = relationshipCoding;
+    return true;
+  }
+  // Same shape buildCoverageSubscriberRelatedPerson gives a policy holder, minus the person details.
+  const holder: RelatedPerson = {
+    resourceType: 'RelatedPerson',
+    meta: { tag: [BILLING_WORKING_COPY_TAG] },
+    patient: { reference: patientRef },
+    gender: 'unknown',
+    relationship: relationshipCoding,
+  };
+  coverage.subscriber = { reference: registerCreatedCopy(model, undefined, holder) };
+  model.subscribers = [...model.subscribers, holder];
+  return true;
+};
+
+const COVERAGE_SLOT_LABELS = ['Primary', 'Secondary', 'Tertiary', 'Quaternary'];
+
+// Policy holders minted by this run's writers (a relationship change away from Self, or a coverage
+// copied from the patient) must carry the details the claim editor requires of a policy holder
+// (BillingPolicyHolderSchema). Checked once all rules have run, so the relationship and the holder's
+// details may be set in any order. Pre-existing policy holders are left alone.
+export const policyHolderProblems = (model: RulesEngineClaimModel): string[] =>
+  model.coverages.flatMap((coverage, index) => {
+    const holder = policyHolder(() => coverage)(model);
+    if (!holder?.id || !model.createdCopyIds?.has(holder.id)) return [];
+    const missing = [
+      !holder.name?.[0]?.given?.[0] && 'first name',
+      !holder.name?.[0]?.family && 'last name',
+      !holder.birthDate && 'date of birth',
+    ].filter((m): m is string => !!m);
+    return missing.length
+      ? [`${COVERAGE_SLOT_LABELS[index] ?? `Coverage ${index + 1}`} policy holder is missing ${missing.join(', ')}`]
+      : [];
+  });
+
 const setProviderFamily = (p: Provider | undefined, value: string | null): boolean => {
   if (!p) return false;
   // `|| undefined`: an empty value clears the field — a literal '' is invalid FHIR.
@@ -899,7 +987,7 @@ const writePlanType = (
   if (!coverage || !value || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(value)) return false;
   // setCoveragePlanType returns an updated copy; swap it into the model (same resource id, so the
   // engine's snapshot/dirty check still pairs it with the original).
-  model.coverages[0] = setCoveragePlanType(coverage, value);
+  model.coverages[model.coverages.indexOf(coverage)] = setCoveragePlanType(coverage, value);
   return true;
 };
 
@@ -976,7 +1064,7 @@ const coverageWriters = (
     return true;
   },
   [`${prefix}.planType`]: (m, v) => writePlanType(m, v, resolve),
-  // [`${prefix}.relationship`]: (m) => readRelationship(resolve(m)),
+  [`${prefix}.relationship`]: (m, v) => setCoverageRelationshipField(m, v, resolve),
 });
 
 // Writers for a provider (rendering or billing), paired with providerReaders.

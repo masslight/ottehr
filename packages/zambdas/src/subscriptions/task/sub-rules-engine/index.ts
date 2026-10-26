@@ -50,7 +50,11 @@ import {
   recordedNow,
   resolveClaimActor,
 } from '../../../billing/provenance';
-import { readAccidentInfo, RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
+import {
+  policyHolderProblems,
+  readAccidentInfo,
+  RulesEngineClaimModel,
+} from '../../../billing/rules-engine/claim-model';
 import { RULES_ENGINE_TASK_SYSTEM, rulesEngineForTaskCode } from '../../../billing/rules-engine/constants';
 import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
 import {
@@ -460,6 +464,15 @@ export async function performEffect(
     attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
   }
 
+  // Likewise for policy holders the rules created (e.g. a relationship changed away from Self): their
+  // details are checked once all rules have run, against what the claim editor requires.
+  const holderProblems =
+    failure || heldBy || unwritable.length > 0 || accidentProblems.length > 0 ? [] : policyHolderProblems(model);
+  if (holderProblems.length > 0) {
+    applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+    attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
+  }
+
   // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
   const written = await persistModel(oystehr, model, unchanged, agent, attribution);
   console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
@@ -481,6 +494,14 @@ export async function performEffect(
       statusReason: `The claim's accident details are incomplete: ${accidentProblems.join(
         '; '
       )}. The claim was held for review.`,
+    };
+  }
+
+  if (holderProblems.length > 0) {
+    console.log(`[rules-engine] Claim/${claimId} held: incomplete policy holder details`);
+    return {
+      taskStatus: 'failed',
+      statusReason: `${holderProblems.join('; ')}. The claim was held for review.`,
     };
   }
 
