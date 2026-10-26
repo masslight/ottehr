@@ -509,6 +509,17 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
     expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(expect.anything(), 'claim-1');
   });
 
+  it('reads the ERA remits through the billing client and only the untagged submissions without it', async () => {
+    const billingClient = makeBillingClient([]);
+    const untaggedClient = {} as unknown as Oystehr;
+
+    await performEffect(billingClient, untaggedClient, { claimId: 'claim-1', secrets: {} } as never);
+
+    expect(fetchClaimResponsesByClaimIds).toHaveBeenCalledWith(billingClient, ['claim-1']);
+    expect(fetchClaimEraLinks).toHaveBeenCalledWith(billingClient, expect.anything());
+    expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(untaggedClient, 'claim-1');
+  });
+
   it('has a payer claim control number', async () => {
     const response = await run();
 
