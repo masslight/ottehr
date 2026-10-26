@@ -106,7 +106,7 @@ describe('Exam "Select all" request locking', () => {
   });
 });
 
-describe('ROS "Select all" request locking', () => {
+describe('ROS "Denies all" request locking', () => {
   const ITEMS = {
     'ros-constitutional-fever': { label: 'Fever' },
     'ros-constitutional-chills': { label: 'Chills' },
@@ -142,7 +142,7 @@ describe('ROS "Select all" request locking', () => {
     resetPendingObservationFields();
   });
 
-  it('disables every finding of the system while the Select all request is in flight', async () => {
+  it('disables every finding of the system while the Denies all request is in flight', async () => {
     const user = userEvent.setup();
     render(<RosSystem />);
 
@@ -168,7 +168,7 @@ describe('ROS "Select all" request locking', () => {
     expect(findingCheckbox('Chills', 'reports')).toBeEnabled();
   });
 
-  it('locks a single toggled finding and the Select all, but not the other findings', async () => {
+  it('locks a single toggled finding and the Denies all, but not the other findings', async () => {
     const user = userEvent.setup();
     render(<RosSystem />);
 

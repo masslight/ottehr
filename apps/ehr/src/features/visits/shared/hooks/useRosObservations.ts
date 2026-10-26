@@ -93,7 +93,7 @@ export function useRosObservations(): {
       // Merge into store (same pattern as useExamObservations). Fields being deleted are stored
       // without their resourceId: the Observation is about to be gone, so re-checking the box has to
       // create a new one rather than PUT the id that was just deleted — which a "Clear ROS" or a
-      // "Select all" turned off would otherwise do for a whole system at a time.
+      // "Denies all" turned off would otherwise do for a whole system at a time.
       useRosObservationsStore.setState(
         arrayToObject(
           observations.map((o) =>

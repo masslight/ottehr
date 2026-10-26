@@ -32,17 +32,6 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
             }}
           >
             <TableCell
-              sx={{
-                fontWeight: 500,
-                fontSize: 13,
-                py: 0.5,
-                borderBottom: '2px solid #e0e0e0',
-                color: theme.palette.primary.dark,
-              }}
-            >
-              {system.label}
-            </TableCell>
-            <TableCell
               align="center"
               sx={{
                 ...ROS_FINDING_CELL_STYLE,
@@ -59,6 +48,18 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
               }}
             >
               R
+            </TableCell>
+            <TableCell
+              sx={{
+                fontWeight: 500,
+                fontSize: 13,
+                py: 0.5,
+                pl: 1,
+                borderBottom: '2px solid #e0e0e0',
+                color: theme.palette.primary.dark,
+              }}
+            >
+              {system.label}
             </TableCell>
           </TableRow>
         </TableHead>
