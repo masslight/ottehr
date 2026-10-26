@@ -149,3 +149,69 @@ All definitions live in `packages/zambdas/src/billing/reports/definitions/`.
 All cached as gzipped JSON objects in the billing-app Z3 bucket under `billing-reports/`;
 a `cacheVersion` bump abandons old objects in place. The pipeline history is the one
 FHIR-resident piece, a `DocumentReference` under `ottehrIdentifierSystem('billing-report')`.
+
+---
+
+## Ad-hoc datasets (billing data for ad-hoc reporting)
+
+Ad-hoc reporting (the EHR report builder) reads billing-app data only through a billing-owned
+zambda, so clinical code never reads billing FHIR. Unlike the reports above there is no cache:
+each run builds the rows fresh.
+
+- **`adhoc-billing-dataset`** (http_auth, billing config): the same start/poll contract as the
+  EHR `adhoc-report` — `{ datasetId, dateRange, options }` → `{ taskId }`; `{ taskId }` →
+  `{ status, downloadUrl?, error? }`. Gated by `AD_HOC_REPORT_VIEW_ROLES`; rejects a `datasetId`
+  it does not serve; a poll answers only Tasks of its own code.
+- **`sub-adhoc-billing-dataset`** (subscription on
+  `Task?code=…/adhoc-report-task|adhoc-billing-dataset&status=requested`): builds the rows with
+  the billing client, uploads JSON to `${PROJECT_ID}-billing-claim-exports/adhoc-billing-dataset-<taskId>.json`
+  and records the url on `Task.output` (`adhoc-report-output-url`).
+- **Cleanup**: `cleanup-billing-claim-exports` deletes the JSON 60 min after its Task finished.
+
+### billing-claims — Claims (billing app)
+
+One row per Claim whose service date (first line) falls in the range, scanned with
+`scanClaimIds` and filtered by `claimMatchesServiceDateRange`, then hydrated 100 at a time like
+the claims list. Base columns and amounts come from `mapClaimToItem`, so they match the claims
+list.
+
+- **Scan**: the claim count is read before the scan. Claims are never deleted, so a scan that returns
+  fewer claims than that count fails the Task; a claim created mid-scan behind the offset only grows
+  the running total and is not an error.
+- **Lookups**: payers and user names are resolved once per run, and the outcome holds for every row. A
+  payer lookup is retried up to 3 times on the spot before the payer counts as unresolved; a failed
+  user-name lookup fails the Task rather than leaving names empty.
+- **Budget**: the build stops at 12 min with "Too many claims for one run — narrow the date range", so
+  the Task fails instead of the lambda being killed with the Task left in-progress.
+- **Dates**: every field the schema describes as `yyyy-MM-dd` is sent as a day (`report-dates.ts`):
+  instants on their America/New_York day, the zone the report range is drawn in; the service date in its
+  own zone, as the range filter reads it.
+
+Layers:
+
+- No extra queries: `codes` (lines + ICD-10, reads `Claim.diagnosis`; `emCode` from the EHR E&M code
+  list, one ValueSet read per run), `writeOffs` (reasons as the app labels them), `patientPayments`
+  (every payment and refund the claim's `patientPaid` sums — EHR-mirrored, manual, card), `timeline`
+  (status date extensions, reads `Claim.extension`), `claimDetails` (provider / facility NPIs, POS,
+  PCN / ICN, institutional and accident fields, attachments, patient sex / state / ZIP).
+- Extra queries per page: `remits` (matched ERA ClaimResponses, CARC codes, each remit attributed to
+  the payer that issued its ERA, as the claim detail does; reads the untagged ERA links), `coverage`
+  (all insurances on the claim; one Coverage read), `insurancePayments` (ERA checks; reads the
+  untagged PaymentReconciliations and era-processing Provenances), `history` (claim-history
+  Provenances: status changes, submissions, acknowledgments, notes; one Provenance search).
+
+### billing-rules — Billing rules (billing app)
+
+One row per rule of every rules engine, as configured now (the report date range does not apply):
+engine, order, enabled, condition fields (and which read service lines), service-line match
+properties, action types. The billing app does not record who created or changed a rule, so the
+dataset has no authorship.
+
+### Adding the next billing dataset
+
+1. Row schema + layers in `packages/utils/lib/types/adhoc/datasets/<name>.ts`.
+2. Row builder in `packages/zambdas/src/billing/adhoc/<name>.ts` (billing client only).
+3. Its id in `BILLING_ADHOC_DATASET_IDS` (`adhoc-billing-dataset/validateRequestParameters.ts`) and
+   a `case` in `sub-adhoc-billing-dataset`.
+4. An EHR registry entry (`apps/ehr/src/features/report-builder/datasets/`) calling
+   `runAdHocReport(…, ADHOC_BILLING_DATASET_ZAMBDA_ID)`.

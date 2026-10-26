@@ -72,7 +72,7 @@ export const resolveFaxPacketPlan = async (args: {
         sourceType: source.type,
         patientId: source.patientId,
         visitTypeLabel: 'Medical Record',
-        collect: () => collectMedicalRecordParts(oystehr, source.patientId),
+        collect: () => collectMedicalRecordParts(oystehr, source.patientId, source.dateRange),
       });
     case 'document':
       return resolvePatientDocuments({

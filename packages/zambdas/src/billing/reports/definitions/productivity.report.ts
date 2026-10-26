@@ -1,5 +1,5 @@
-import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, Device, Practitioner, Provenance } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -7,11 +7,9 @@ import {
   ProductivityReportRow,
 } from 'utils/lib/types/data/billing/billing.types';
 import { CLAIM_PROVENANCE_ACTIVITY, CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
-import { fhirName } from '../../shared';
 import { ReportDefinition } from '../framework/types';
-import { searchAllViaBulk } from '../shared';
+import { resolveActorNames, searchAllViaBulk } from '../shared';
 
-const ACTOR_BATCH_SIZE = 100;
 const CLAIM_ACTIVITY_SYSTEM = CLAIM_PROVENANCE_ACTIVITY.create.system;
 
 type ProductivityReportPayload = Omit<GetBillingProductivityReportResponse, 'fromCache' | 'status'>;
@@ -108,41 +106,4 @@ async function computeProductivityReport(
     totals: { actions: totalActions, claimsTouched: allClaimIds.size, actors: rows.length },
     generatedAt: DateTime.now().toUTC().toISO(),
   };
-}
-
-async function resolveActorNames(untaggedClient: Oystehr, actorRefs: string[]): Promise<Map<string, string>> {
-  const idsByType = new Map<'Practitioner' | 'Device', string[]>();
-  for (const ref of actorRefs) {
-    const [type, id] = ref.split('/');
-    if ((type === 'Practitioner' || type === 'Device') && id) {
-      idsByType.set(type, [...(idsByType.get(type) ?? []), id]);
-    }
-  }
-
-  const requests: BatchInputGetRequest[] = [];
-  for (const [type, ids] of idsByType) {
-    for (let i = 0; i < ids.length; i += ACTOR_BATCH_SIZE) {
-      const batch = ids.slice(i, i + ACTOR_BATCH_SIZE);
-      requests.push({ method: 'GET', url: `/${type}?_id=${batch.join(',')}` });
-    }
-  }
-
-  const nameByRef = new Map<string, string>();
-  if (requests.length === 0) return nameByRef;
-  try {
-    const result = await untaggedClient.fhir.batch<Bundle<Practitioner | Device>>({ requests });
-    for (const entry of result.entry ?? []) {
-      for (const inner of entry.resource?.entry ?? []) {
-        const resource = inner.resource;
-        if (!resource?.id || (resource.resourceType !== 'Practitioner' && resource.resourceType !== 'Device')) continue;
-        const name =
-          resource.resourceType === 'Practitioner' ? fhirName(resource) : resource.deviceName?.[0]?.name ?? 'System';
-        nameByRef.set(`${resource.resourceType}/${resource.id}`, name);
-      }
-    }
-  } catch (err) {
-    // unresolved names fall back to the raw refs in the report rows
-    console.warn('Failed to resolve actor names:', (err as Error)?.message);
-  }
-  return nameByRef;
 }

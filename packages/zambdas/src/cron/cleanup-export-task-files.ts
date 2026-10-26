@@ -12,6 +12,7 @@ export interface CleanupExportTaskFilesInput {
   taskCode: string;
   bucketName: string;
   ageMinutes: number;
+  outputCode?: string;
 }
 
 export interface CleanupExportTaskFilesResult {
@@ -25,6 +26,7 @@ export async function cleanupExportTaskFiles({
   taskCode,
   bucketName,
   ageMinutes,
+  outputCode = EXPORT_CSV_OUTPUT_URL_CODE,
 }: CleanupExportTaskFilesInput): Promise<CleanupExportTaskFilesResult> {
   const tasks = await getAllFhirSearchPages<Task>(
     {
@@ -50,18 +52,22 @@ export async function cleanupExportTaskFiles({
   // An export the caller may still be downloading is left alone until its window has passed.
   const cutoff = DateTime.now().minus({ minutes: ageMinutes });
   const uncleaned = tasks.filter((task) => !isCleaned(task));
+
   if (uncleaned.length !== tasks.length) {
     console.warn(
       `\`_tag:not\` was not honored: ${tasks.length - uncleaned.length} already-cleaned export task(s) came back`
     );
   }
+
   const expired = uncleaned.filter((task) => {
     const lastUpdated = task.meta?.lastUpdated;
     return lastUpdated && DateTime.fromISO(lastUpdated) < cutoff;
   });
+
   console.log(`found ${uncleaned.length} uncleaned export task(s), ${expired.length} older than ${ageMinutes}m`);
 
   let deletedFiles = 0;
+
   for (const task of expired) {
     const taskId = task.id;
     if (!taskId) {
@@ -71,9 +77,10 @@ export async function cleanupExportTaskFiles({
 
     // A finished export Task holds the Z3 url of the CSV it produced. A failed export has none, so
     // there is nothing to delete and the task only needs tagging.
-    const outputIndex = exportOutputIndex(task);
+    const outputIndex = exportOutputIndex(task, outputCode);
     const objectUrl = outputIndex === -1 ? undefined : task.output?.[outputIndex]?.valueString;
     const objectPath = exportObjectPath(objectUrl, bucketName);
+
     if (objectUrl && !objectPath) {
       console.warn(`Task/${taskId} holds an output url outside ${bucketName}, leaving its object in place`);
     }
@@ -84,6 +91,7 @@ export async function cleanupExportTaskFiles({
           bucketName,
           'objectPath+': objectPath,
         });
+
         deletedFiles += 1;
       } catch (error) {
         console.error(`Failed to delete Z3 object ${objectPath}:`, error);
@@ -95,12 +103,14 @@ export async function cleanupExportTaskFiles({
     // a deleted object. The tag drops the task out of the search above, so neither the deletes nor
     // the pages this cron reads grow with the number of exports the project has run.
     const operations: Operation[] = [];
+
     if (objectPath) {
       operations.push({
         op: 'remove',
         path: `/output/${outputIndex}`,
       });
     }
+
     operations.push(getPatchOperationForNewMetaTag(task, EXPORT_FILE_CLEANED_TAG));
 
     try {
@@ -125,10 +135,8 @@ const isCleaned = (task: Task): boolean =>
     (tag) => tag.system === EXPORT_FILE_CLEANED_TAG.system && tag.code === EXPORT_FILE_CLEANED_TAG.code
   ) ?? false;
 
-const exportOutputIndex = (task: Task): number =>
-  task.output?.findIndex(
-    (output) => output.type?.coding?.some((coding) => coding.code === EXPORT_CSV_OUTPUT_URL_CODE)
-  ) ?? -1;
+const exportOutputIndex = (task: Task, outputCode: string): number =>
+  task.output?.findIndex((output) => output.type?.coding?.some((coding) => coding.code === outputCode)) ?? -1;
 
 const exportObjectPath = (url: string | undefined, bucketName: string): string | undefined => {
   if (!url) return undefined;

@@ -240,7 +240,7 @@ export async function renderQrPdf(
       const qItem = qItemByLinkId.get(child.linkId);
       if (isHidden(qItem)) continue;
       const label = qItem?.text || child.linkId;
-      const value = formatQuestionnaireItemValueToString(child);
+      const value = formatQuestionnaireItemValueToString(child, qItemByLinkId);
       drawIndented(label, textStyles.label, 10);
       drawIndented(value, textStyles.value, 10);
     }

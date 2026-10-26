@@ -9,6 +9,7 @@ import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
 } from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { CalculableItem } from '../paperwork/calculated-answers';
 import {
   fhirQuestionnaireItemToManaged,
   fhirQuestionnaireToPracticeManaged,
@@ -348,12 +349,15 @@ describe('qrSentManually', () => {
 });
 
 describe('formatQuestionnaireItemValueToString', () => {
+  const format = (item: QuestionnaireResponseItem | undefined): string =>
+    formatQuestionnaireItemValueToString(item, new Map());
+
   it('returns an empty string for an undefined item', () => {
-    expect(formatQuestionnaireItemValueToString(undefined)).toBe('');
+    expect(format(undefined)).toBe('');
   });
 
   it('returns an empty string when there is no answer', () => {
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1' })).toBe('');
+    expect(format({ linkId: 'item-1' })).toBe('');
   });
 
   it('prefers valueCoding.display', () => {
@@ -362,40 +366,32 @@ describe('formatQuestionnaireItemValueToString', () => {
       answer: [{ valueCoding: { display: 'Yes' } }],
     };
 
-    expect(formatQuestionnaireItemValueToString(item)).toBe('Yes');
+    expect(format(item)).toBe('Yes');
   });
 
   it('formats valueString, including an empty string', () => {
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueString: 'hello' }] })).toBe(
-      'hello'
-    );
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueString: '' }] })).toBe('');
+    expect(format({ linkId: 'item-1', answer: [{ valueString: 'hello' }] })).toBe('hello');
+    expect(format({ linkId: 'item-1', answer: [{ valueString: '' }] })).toBe('');
   });
 
   it('formats valueBoolean as Positive/Negative', () => {
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueBoolean: true }] })).toBe(
-      'Positive'
-    );
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueBoolean: false }] })).toBe(
-      'Negative'
-    );
+    expect(format({ linkId: 'item-1', answer: [{ valueBoolean: true }] })).toBe('Positive');
+    expect(format({ linkId: 'item-1', answer: [{ valueBoolean: false }] })).toBe('Negative');
   });
 
   it('formats valueInteger, including zero', () => {
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueInteger: 42 }] })).toBe('42');
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueInteger: 0 }] })).toBe('0');
+    expect(format({ linkId: 'item-1', answer: [{ valueInteger: 42 }] })).toBe('42');
+    expect(format({ linkId: 'item-1', answer: [{ valueInteger: 0 }] })).toBe('0');
   });
 
   it('formats valueDecimal', () => {
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueDecimal: 1.5 }] })).toBe('1.5');
+    expect(format({ linkId: 'item-1', answer: [{ valueDecimal: 1.5 }] })).toBe('1.5');
   });
 
   it('formats valueDate and valueDateTime', () => {
-    expect(formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueDate: '2024-01-01' }] })).toBe(
-      '2024-01-01'
-    );
+    expect(format({ linkId: 'item-1', answer: [{ valueDate: '2024-01-01' }] })).toBe('2024-01-01');
     expect(
-      formatQuestionnaireItemValueToString({
+      format({
         linkId: 'item-1',
         answer: [{ valueDateTime: '2024-01-01T00:00:00Z' }],
       })
@@ -403,9 +399,36 @@ describe('formatQuestionnaireItemValueToString', () => {
   });
 
   it('returns an empty string for an unrecognized answer type', () => {
-    expect(
-      formatQuestionnaireItemValueToString({ linkId: 'item-1', answer: [{ valueReference: { reference: 'x' } }] })
-    ).toBe('');
+    expect(format({ linkId: 'item-1', answer: [{ valueReference: { reference: 'x' } }] })).toBe('');
+  });
+
+  describe('calculated items', () => {
+    const calculated: CalculableItem = {
+      linkId: 'total',
+      type: 'integer',
+      calculatedExpression: { language: 'text/javascript', expression: 'answers["a"]||0' },
+    };
+    const questions = new Map<string, CalculableItem>([['total', calculated]]);
+
+    it('formats a calculated number with formatCalculatedValue', () => {
+      expect(formatQuestionnaireItemValueToString({ linkId: 'total', answer: [{ valueInteger: 7 }] }, questions)).toBe(
+        '7'
+      );
+    });
+
+    it('formats a calculated boolean as Yes/No rather than Positive/Negative', () => {
+      const boolQuestions = new Map([['flag', { ...calculated, linkId: 'flag', type: 'boolean' }]]);
+      expect(
+        formatQuestionnaireItemValueToString({ linkId: 'flag', answer: [{ valueBoolean: true }] }, boolQuestions)
+      ).toBe('Yes');
+    });
+
+    it('formats a non-calculated question as before', () => {
+      const plain = new Map<string, CalculableItem>([['total', { linkId: 'total', type: 'boolean' }]]);
+      expect(formatQuestionnaireItemValueToString({ linkId: 'total', answer: [{ valueBoolean: true }] }, plain)).toBe(
+        'Positive'
+      );
+    });
   });
 });
 

@@ -107,6 +107,7 @@ describe('parseExternalLabPlan', () => {
         },
       ],
       note: [{ text: 'fasting required' }],
+      priority: 'stat',
       orderDetail: [
         {
           coding: [{ system: PSC_HOLD_CONFIG.system, code: PSC_HOLD_CONFIG.code, display: PSC_HOLD_CONFIG.display }],
@@ -125,6 +126,7 @@ describe('parseExternalLabPlan', () => {
       dx: [{ code: 'J02.9', display: 'Acute pharyngitis', isPrimary: false }],
       note: 'fasting required',
       psc: true,
+      isStat: true,
     });
   });
 
@@ -134,6 +136,7 @@ describe('parseExternalLabPlan', () => {
       dx: [],
       note: undefined,
       psc: false,
+      isStat: false,
     });
   });
 

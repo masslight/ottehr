@@ -77,7 +77,7 @@ import {
   setNpi,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
@@ -299,7 +299,7 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
 // A working copy can itself be copied, so a copy is not always one hop from its main Patient
-const MAX_COPY_CHAIN_HOPS = 10;
+export const MAX_COPY_CHAIN_HOPS = 10;
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
@@ -348,6 +348,9 @@ export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/Revenue
 
 export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
   'claim-payer-claim-control-number'
+);
+export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM = ottehrCodeSystemUrl(
+  'claim-payer-claim-control-number-insurance-ordinal'
 );
 
 export interface ClaimLineDrug {
@@ -514,6 +517,7 @@ export function getEraExtensionString(
 // ERA's resources are linked to each other.
 export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'http://hl7.org/fhir/ValueSet/provenance-activity-type';
 export const ERA_PROCESSING_ACTIVITY_CODE = 'era-processing';
+export const ERA_VOID_ACTIVITY_CODE = 'era-void';
 
 export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity'>): boolean {
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
@@ -899,6 +903,7 @@ export function createBillingClient(
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
 ): Oystehr {
+  // eslint-disable-next-line no-restricted-syntax -- the billing client factory
   return new Oystehr({
     accessToken: token,
     services: {
@@ -912,6 +917,7 @@ export function createBillingClient(
 
 // ERA resources are untagged by Oystehr
 export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+  // eslint-disable-next-line no-restricted-syntax -- the unscoped client factory; its importers are restricted instead
   return new Oystehr({
     accessToken: token,
     services: {

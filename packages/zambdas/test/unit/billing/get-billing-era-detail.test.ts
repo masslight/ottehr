@@ -225,23 +225,18 @@ const coverage: Coverage = {
   payor: [{ display: 'Acme' }],
 };
 
-const makeEraReadClient = (): Oystehr =>
-  ({
-    fhir: {
-      search: vi.fn().mockResolvedValue({
-        unbundle: () => [paymentReconciliation],
-        link: [],
-      }),
-      get: vi.fn(),
-    },
-  }) as unknown as Oystehr;
-
-const makeBillingClient = (): Oystehr =>
+// The billing client reads the ERA too: sub-tag-era-resources gives it the billing tag.
+const makeBillingClient = (eras: PaymentReconciliation[] = [paymentReconciliation]): Oystehr =>
   ({
     fhir: {
       search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
         Promise.resolve({
-          unbundle: () => (resourceType === 'Coverage' ? [coverage] : [submittedClaim, patient]),
+          unbundle: () =>
+            resourceType === 'PaymentReconciliation'
+              ? eras
+              : resourceType === 'Coverage'
+              ? [coverage]
+              : [submittedClaim, patient],
           link: [],
         })
       ),
@@ -273,7 +268,7 @@ describe('get-billing-era-detail performEffect', () => {
     );
 
     const billingClient = makeBillingClient();
-    const response = await performEffect(billingClient, makeEraReadClient(), { eraId: 'era-1', secrets: {} });
+    const response = await performEffect(billingClient, { eraId: 'era-1', secrets: {} });
 
     // the contained '#patient' ref is not a real patient, so there is nothing to fetch
     expect(billingClient.fhir.search).not.toHaveBeenCalledWith(
@@ -285,6 +280,7 @@ describe('get-billing-era-detail performEffect', () => {
     // header — pre-existing fields unchanged, new fields populated
     expect(response).toMatchObject({
       id: 'era-1',
+      status: 'active',
       checkNumber: 'CHK-100',
       checkDate: '2026-07-18',
       createdDate: '2026-07-20T10:00:00Z',
@@ -355,6 +351,17 @@ describe('get-billing-era-detail performEffect', () => {
     });
   });
 
+  it('returns original claim amounts when the ERA is voided', async () => {
+    const billingClient = makeBillingClient([{ ...paymentReconciliation, status: 'cancelled' }]);
+    vi.mocked(fetchClaimResponsesByPaymentReconciliations).mockResolvedValue(
+      new Map([['era-1', [matchedResponse('cr-1', '2026-07-15', '1', { paid: 60, allowed: 80, pr: ['1', 20] })]]])
+    );
+    const result = await performEffect(billingClient, { eraId: 'era-1', secrets: {} });
+    expect(result.status).toBe('voided');
+    expect(result.claims[0]).toMatchObject({ paid: 60, allowed: 80, patientResp: 20, matched: true });
+    expect(result.claims[0].remits[0].serviceLines[0].paid).toBe(60);
+  });
+
   it('reads the patient DOB off a real patient an unmatched remit references', async () => {
     const referencingResponse: ClaimResponse = {
       ...structuredClone(unmatchedResponse),
@@ -367,7 +374,7 @@ describe('get-billing-era-detail performEffect', () => {
     );
 
     const billingClient = makeBillingClient();
-    const response = await performEffect(billingClient, makeEraReadClient(), { eraId: 'era-1', secrets: {} });
+    const response = await performEffect(billingClient, { eraId: 'era-1', secrets: {} });
 
     expect(billingClient.fhir.search).toHaveBeenCalledWith({
       resourceType: 'Patient',
@@ -386,7 +393,7 @@ describe('get-billing-era-detail performEffect', () => {
     });
   });
 
-  it('returns a manual remit with its keyed details, attachments and editable form', async () => {
+  it.each(['active', 'cancelled'] as const)('reads a %s manual ERA', async (status) => {
     const header = {
       payerId: 'payer-uhc',
       billingProviderRef: 'Organization/org-1',
@@ -409,6 +416,7 @@ describe('get-billing-era-detail performEffect', () => {
         editedAt: '2026-09-23T15:00:00Z',
       }),
       id: 'era-m',
+      status,
       meta: { versionId: '7' },
     };
     const keyed: ClaimResponse = {
@@ -435,16 +443,15 @@ describe('get-billing-era-detail performEffect', () => {
     };
     (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(new Map([['era-m', [keyed]]]));
 
-    const eraReadClient = {
-      fhir: { search: vi.fn().mockResolvedValue({ unbundle: () => [manualPr], link: [] }) },
-    } as unknown as Oystehr;
     // who keyed the remit in comes from its era-processing Provenance, which carries the billing tag
     const billingClient = {
       fhir: {
         search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
           Promise.resolve({
             unbundle: () =>
-              resourceType === 'Provenance'
+              resourceType === 'PaymentReconciliation'
+                ? [manualPr]
+                : resourceType === 'Provenance'
                 ? [
                     {
                       resourceType: 'Provenance',
@@ -481,10 +488,11 @@ describe('get-billing-era-detail performEffect', () => {
       },
     } as unknown as Oystehr;
 
-    const result = await performEffect(billingClient, eraReadClient, { eraId: 'era-m', secrets: {} });
+    const result = await performEffect(billingClient, { eraId: 'era-m', secrets: {} });
 
     expect(result).toMatchObject({
       source: 'manual',
+      status: status === 'cancelled' ? 'voided' : 'active',
       versionId: '7',
       checkNumber: '557801',
       payee: { name: 'some org', npi: '8675309123', taxId: '' },
@@ -492,7 +500,12 @@ describe('get-billing-era-detail performEffect', () => {
         { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-23T16:00:00Z' },
       ],
     });
-    expect(result.claims[0]).toMatchObject({ matched: false, patientName: 'Schmoe, Joe', dos: '2026-08-15', paid: 50 });
+    expect(result.claims[0]).toMatchObject({
+      matched: false,
+      patientName: 'Schmoe, Joe',
+      dos: '2026-08-15',
+      paid: 50,
+    });
     expect(result.claims[0].remits[0].serviceLines[0].remarkCodes).toEqual(['N130']);
     // what was keyed from the paper remit, and by whom, is in its manual entry
     expect(result).not.toHaveProperty('remitDate');
@@ -505,27 +518,12 @@ describe('get-billing-era-detail performEffect', () => {
 
   it('fails rather than return an ERA without the version every write gets', async () => {
     const { meta: _meta, ...unversioned } = paymentReconciliation;
-    const eraReadClient = {
-      fhir: {
-        search: vi.fn().mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
-          unbundle: () => (resourceType === 'PaymentReconciliation' ? [unversioned] : []),
-          link: [],
-        })),
-      },
-    } as unknown as Oystehr;
-    await expect(performEffect(makeBillingClient(), eraReadClient, { eraId: 'era-1', secrets: {} })).rejects.toThrow(
+    await expect(performEffect(makeBillingClient([unversioned]), { eraId: 'era-1', secrets: {} })).rejects.toThrow(
       '"PaymentReconciliation/era-1 version" is undefined'
     );
   });
 
   it('throws when the PaymentReconciliation does not exist', async () => {
-    const eraReadClient = {
-      fhir: {
-        search: vi.fn().mockResolvedValue({ unbundle: () => [], link: [] }),
-      },
-    } as unknown as Oystehr;
-    await expect(
-      performEffect(makeBillingClient(), eraReadClient, { eraId: 'missing', secrets: {} })
-    ).rejects.toThrow();
+    await expect(performEffect(makeBillingClient([]), { eraId: 'missing', secrets: {} })).rejects.toThrow();
   });
 });

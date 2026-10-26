@@ -246,6 +246,59 @@ describe('search-billing-claims service date branch', () => {
   });
 });
 
+const billedClaim = (id: string, billed: number, servicedDate = '2026-01-10'): Claim =>
+  ({ ...servicedClaim(id, servicedDate), total: { value: billed, currency: 'USD' } }) as Claim;
+
+describe('search-billing-claims sort', () => {
+  let handler!: ZambdaHandler;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    ({ index: handler } = (await import('../../../src/billing/search-billing-claims/index')) as {
+      index: ZambdaHandler;
+    });
+  });
+
+  const search = async (input: SearchBillingClaimsInput): Promise<SearchBillingClaimsResponse> => {
+    const result = await handler(makeInput(input));
+    expect(result.statusCode).toBe(200);
+    return JSON.parse(result.body) as SearchBillingClaimsResponse;
+  };
+
+  it('keeps the newest-updated-first order when no sort is asked for', async () => {
+    stubSearches([servicedClaim('claim-1', '2026-01-10')]);
+
+    await search({ pageSize: 25 });
+
+    expect(paramNamed(claimSearches()[0].params, '_sort')?.value).toBe('-_lastUpdated');
+  });
+
+  it('sorts by billed amount in memory, reading the totals in the scan', async () => {
+    stubSearches([billedClaim('small', 50), billedClaim('large', 300), billedClaim('medium', 120)]);
+
+    const response = await search({ sort: { field: 'billed', direction: 'desc' } });
+
+    expect(paramNamed(scanSearches()[0].params, '_elements')?.value).toBe('id,meta,total');
+    expect(response.claims.map((claim) => claim.id)).toEqual(['large', 'medium', 'small']);
+    expect(response.total).toBe(3);
+  });
+
+  it('sorts by service date in memory before settling on the page', async () => {
+    stubSearches([
+      billedClaim('feb', 1, '2026-02-01'),
+      billedClaim('jan', 1, '2026-01-01'),
+      billedClaim('mar', 1, '2026-03-01'),
+    ]);
+
+    const response = await search({ sort: { field: 'serviceDate', direction: 'asc' }, offset: 1, pageSize: 1 });
+
+    expect(paramNamed(scanSearches()[0].params, '_elements')?.value).toBe('id,meta,created,item');
+    expect(response.claims.map((claim) => claim.id)).toEqual(['feb']);
+    expect(paramNamed(hydrationSearches()[0].params, '_id')?.value).toBe('feb');
+  });
+});
+
 describe('search-billing-claims response size limit', () => {
   let handler!: ZambdaHandler;
 

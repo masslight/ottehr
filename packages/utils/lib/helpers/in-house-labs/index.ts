@@ -325,7 +325,6 @@ export const convertActivityDefinitionToDataEntryTestItem = (
         containedResources as (ObservationDefinition | ValueSet)[],
         resultObs
       );
-      console.log('this is the componentInfo', componentInfo);
       if (componentInfo) {
         if (
           componentInfo.displayType === 'Select' ||

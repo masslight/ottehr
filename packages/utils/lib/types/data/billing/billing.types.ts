@@ -1,7 +1,7 @@
 import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
-import type { EraClaimStatusCode, EraSource, X12AdjustmentGroupCode } from './billing.constants';
+import type { EraClaimStatusCode, EraSource, EraStatus, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
@@ -298,6 +298,7 @@ export interface SaveManualEraResponse {
 export interface EraDetailResponse {
   id: string;
   source: EraSource;
+  status: EraStatus;
   // PaymentReconciliation version, sent back when saving a manual ERA so stale edits are refused
   versionId: string;
   checkNumber: string;
@@ -500,6 +501,7 @@ export interface ClaimDetailResponse {
   payorFhirId: string;
   payerName: string;
   payerId: string;
+  payerClaimControlNumber?: string;
   memberId: string;
   subscriberId: string;
   planType: string;
@@ -510,14 +512,17 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  secondaryPayerClaimControlNumber?: string;
   tertiaryCoverageFhirId: string;
   tertiaryPayerName: string;
   tertiaryPayerId: string;
   tertiaryMemberId: string;
+  tertiaryPayerClaimControlNumber?: string;
   quaternaryCoverageFhirId: string;
   quaternaryPayerName: string;
   quaternaryPayerId: string;
   quaternaryMemberId: string;
+  quaternaryPayerClaimControlNumber?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
@@ -593,7 +598,6 @@ export interface ClaimDetailResponse {
   accidentState: string;
   accidentDate: string;
   attachments: ClaimAttachment[];
-  payerClaimControlNumber?: string;
   writeOffs: ClaimWriteOff[];
 }
 
