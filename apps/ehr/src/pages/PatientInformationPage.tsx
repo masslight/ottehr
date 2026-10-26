@@ -273,8 +273,9 @@ const useFormData = (
   // Populate form when data loads, and re-populate when navigating to a different
   // patient on the same mounted component (defaultValues only applies at mount time).
   const initializedForPatientRef = useRef<string | null>(null);
+  const coveragesRefetching = coveragesFetching && Boolean(insuranceData);
   useEffect(() => {
-    if (!defaultFormVals) return;
+    if (!defaultFormVals || coveragesRefetching) return;
     if (initializedForPatientRef.current !== (patientId ?? null)) {
       // New patient: fully populate the form from the freshly loaded defaults.
       methods.reset(defaultFormVals);
@@ -287,7 +288,7 @@ const useFormData = (
       // population of every field and overwrote user edits, breaking the discard-changes flow.)
       methods.reset(defaultFormVals, { keepDirtyValues: true });
     }
-  }, [defaultFormVals, methods, patientId]);
+  }, [defaultFormVals, coveragesRefetching, methods, patientId]);
 
   const appointmentContextSyncRef = useRef<string | null>(null);
   useEffect(() => {
@@ -370,8 +371,10 @@ const useMutations = (): {
   const queryClient = useQueryClient();
 
   const submitQR = useUpdatePatientAccount(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
-    await queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['patient-account-get'] }),
+      queryClient.invalidateQueries({ queryKey: ['patient-coverages'] }),
+    ]);
   });
 
   const removeCoverage = useRemovePatientCoverage();
