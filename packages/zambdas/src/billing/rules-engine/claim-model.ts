@@ -852,8 +852,8 @@ export const policyHolderProblems = (model: RulesEngineClaimModel): string[] =>
     const holder = policyHolder(() => coverage)(model);
     if (!holder?.id || !model.createdCopyIds?.has(holder.id)) return [];
     const missing = [
-      !holder.name?.[0]?.given?.[0] && 'first name',
-      !holder.name?.[0]?.family && 'last name',
+      !holder.name?.[0]?.given?.[0]?.trim() && 'first name',
+      !holder.name?.[0]?.family?.trim() && 'last name',
       !holder.birthDate && 'date of birth',
     ].filter((m): m is string => !!m);
     return missing.length
