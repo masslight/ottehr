@@ -105,6 +105,8 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
+// Local development only: every eRx suggestion and dose calculator look with sample props.
+const ErxLooksPreviewLazy = lazy(() => import('./features/visits/in-person/components/erx-looks/ErxLooksPreview'));
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -171,6 +173,16 @@ function App(): ReactElement {
       )}
       <BrowserRouter>
         <Routes>
+          {import.meta.env.VITE_APP_IS_LOCAL === 'true' && (
+            <Route
+              path="/erx-looks"
+              element={
+                <Suspense fallback={<LoadingScreen />}>
+                  <ErxLooksPreviewLazy />
+                </Suspense>
+              }
+            />
+          )}
           <Route
             path="/in-person/:id/*"
             element={
