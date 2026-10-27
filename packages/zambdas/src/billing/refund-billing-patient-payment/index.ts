@@ -68,12 +68,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets,
   });
 
-  // the account the payment was taken on, which is not the schedule's for an outreach invoice
-  const stripeAccount = await createStripeAccountResolver({
-    billingOystehr,
-    clinicalOystehr,
-    encounterId: validatedParameters.encounterId,
-  })(notice);
+  // the account the payment was taken on, which is not the schedule's for an outreach invoice; a
+  // payment outside Stripe has none, and its encounter need not have a schedule to fall back on
+  const stripeAccount = stripePaymentIntentIdForNotice(notice)
+    ? await createStripeAccountResolver({
+        billingOystehr,
+        clinicalOystehr,
+        encounterId: validatedParameters.encounterId,
+      })(notice)
+    : undefined;
   const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);
 
   const refundedBy = (await practitionerRefForUser(user, clinicalOystehr)).display;

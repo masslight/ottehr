@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { buildPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -391,5 +392,15 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
         { stripeAccount: 'acct_clinic' }
       );
     });
+  });
+
+  it('refunds a cash payment without looking up a Stripe account, so it needs no schedule', async () => {
+    // a manual billing payment's encounter may have no appointment, so there is no schedule owner
+    vi.mocked(getStripeAccountForAppointmentOrEncounter).mockRejectedValueOnce(new Error('Appointment not found'));
+
+    await invoke('candid');
+
+    expect(getStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+    expect(stampedRefunds()).toContainEqual(expect.objectContaining({ amountInCents: 500, status: 'succeeded' }));
   });
 });
