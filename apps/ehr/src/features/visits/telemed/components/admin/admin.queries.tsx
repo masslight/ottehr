@@ -14,10 +14,12 @@ import {
   adminUpdateSupportDialog,
   bulkUpdateInsuranceStatus,
   createEmCode,
+  createPrescriptionQuickPick,
   deleteEmCode,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
   getLabelPrintingConfig,
+  getPrescriptionQuickPicks,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   getSupportDialog,
@@ -29,6 +31,7 @@ import {
   updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
+  updatePrescriptionQuickPick,
   updateProcedureQuickPick,
   updateRadiologyQuickPick,
 } from 'src/api/api';
@@ -45,6 +48,7 @@ import {
 import {
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
+  PrescriptionQuickPickData,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
@@ -284,6 +288,29 @@ export const useRenameInHouseMedicationQuickPickMutation = makeRenameQuickPickMu
 export const useRemoveInHouseMedicationQuickPickMutation = makeRemoveQuickPickMutation(
   'in-house-medication-quick-picks'
 );
+
+export const usePrescriptionQuickPicksQuery = makeQuickPicksQuery(
+  'prescription-quick-picks',
+  getPrescriptionQuickPicks
+);
+export const useRemovePrescriptionQuickPickMutation = makeRemoveQuickPickMutation('prescription-quick-picks');
+/** Adds a prescription quick pick, or replaces the one with the id. */
+export const useSavePrescriptionQuickPickMutation = (): UseMutationResult<
+  void,
+  Error,
+  { id?: string; quickPick: Omit<PrescriptionQuickPickData, 'id'> }
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, quickPick }) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
+      if (id) await updatePrescriptionQuickPick(oystehrZambda, id, quickPick);
+      else await createPrescriptionQuickPick(oystehrZambda, { quickPick });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['prescription-quick-picks'] }),
+  });
+};
 
 export const useProcedureQuickPicksQuery = makeQuickPicksQuery('procedure-quick-picks', getProcedureQuickPicks);
 export const useRenameProcedureQuickPickMutation = makeRenameQuickPickMutation<ProcedureQuickPickData>(

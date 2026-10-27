@@ -344,6 +344,12 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
     {}
   );
 
+/** The product one strength of a drug is, as the order sends it: its first NDC and "Amoxicillin 250 mg Cap". */
+export const productOf = (drug: MedicationSearchDrug, strength: MedicationStrength): MedicationSearchResult => ({
+  ndc: strength.ndcs[0],
+  description: `${drug.name} ${strength.strength}`,
+});
+
 /** The line on one strength of a drug: the unit and route follow the product when its name makes them obvious.
  * Directions written for another drug don't carry over; a strength change keeps the picks, with the doses
  * re-measured for the new strength (each with a note on how far it lands from the mg it was), and rewrites the
@@ -353,7 +359,7 @@ export const withProduct = (
   drug: MedicationSearchDrug,
   strength: MedicationStrength
 ): PrescriptionLine => {
-  const medication = { ndc: strength.ndcs[0], description: `${drug.name} ${strength.strength}` };
+  const medication = productOf(drug, strength);
   const otherDrug = drug.name !== line.drug?.name;
   const changed = medication.ndc !== line.medication?.ndc;
   const from = line.medication?.description;
@@ -573,6 +579,33 @@ export const prescriptionLineToQuickPick = (
     : {}),
 });
 
+/** What a quick pick saved from a line always writes, set or not. */
+const LINE_QUICK_PICK_KEYS: readonly string[] = [
+  'name',
+  'ndc',
+  'medicationDescription',
+  'quantityValue',
+  'quantityUnit',
+  'daysSupply',
+  'numberOfRefills',
+  'substitutionAllowed',
+  'patientInstructions',
+  'noteToPharmacy',
+  'dosing',
+] satisfies (keyof PrescriptionQuickPickData)[];
+
+/** A line saved over an existing quick pick: what the line sets replaces it, and everything else the quick pick has
+ * (its source) stays. */
+export const quickPickOverwrite = (
+  existing: PrescriptionQuickPickData | undefined,
+  fromLine: Omit<PrescriptionQuickPickData, 'id'>
+): Omit<PrescriptionQuickPickData, 'id'> => {
+  if (!existing) return fromLine;
+  const { id: _id, ...rest } = existing;
+  const kept = Object.fromEntries(Object.entries(rest).filter(([key]) => !LINE_QUICK_PICK_KEYS.includes(key)));
+  return { ...kept, ...fromLine };
+};
+
 const mgText = (mg: number): string => `${roundNumberToDecimalPlaces(mg, 2)} mg`;
 
 /** UNCONFIRMED (dabrams to decide; drop this helper and its one call to undo): before "Use this dose" on a quick pick
@@ -585,16 +618,23 @@ export const withQuickPickDaysAsDuration = (line: PrescriptionLine): Prescriptio
 
 /** What the save dialog says a quick pick keeps from the calculator: "Saved by weight: 25 mg/kg per dose, twice
  * daily, 10 days, max 500 mg per dose (from the calculator)". */
-export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing): string => {
+export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing): string =>
+  `${dosing.basis === 'fixed' ? 'Saved dose' : 'Saved by weight'}: ${quickPickDosingSummary(
+    dosing
+  )} (from the calculator)`;
+
+/** "25 mg/kg per dose, twice daily, 10 days, max 500 mg per dose". */
+export const quickPickDosingSummary = (dosing: PrescriptionQuickPickDosing): string => {
   const { rate, basis, dosesPerDay, frequency, durationDays, maxPerDoseMg, maxPerDayMg } = dosing;
-  const parts = [
+  return [
     basis === 'fixed' ? `${mgText(rate)} per dose` : `${rate} mg/kg per ${basis === 'mg/kg/day' ? 'day' : 'dose'}`,
     frequency ?? (dosesPerDay !== undefined ? `${dosesPerDay} doses a day` : undefined),
     durationDays !== undefined ? `${durationDays} ${durationDays === 1 ? 'day' : 'days'}` : undefined,
     maxPerDoseMg !== undefined ? `max ${mgText(maxPerDoseMg)} per dose` : undefined,
     maxPerDayMg !== undefined ? `max ${mgText(maxPerDayMg)} per day` : undefined,
-  ].filter((part): part is string => part !== undefined);
-  return `${basis === 'fixed' ? 'Saved dose' : 'Saved by weight'}: ${parts.join(', ')} (from the calculator)`;
+  ]
+    .filter((part): part is string => part !== undefined)
+    .join(', ');
 };
 
 /** "Amoxicillin 500 MG Oral Capsule, 20 Capsule": the quick pick's name with what it dispenses, as the list reads. */

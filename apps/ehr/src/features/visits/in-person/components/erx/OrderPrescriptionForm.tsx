@@ -42,6 +42,7 @@ import {
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   quickPickDosingText,
+  quickPickOverwrite,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { withListedQuickPick } from './prescriptionSuggestions';
@@ -230,7 +231,8 @@ export const OrderPrescriptionForm: FC = () => {
     try {
       const quickPickData = prescriptionLineToQuickPick(line, quickPickName);
       if (overwriteId) {
-        await updatePrescriptionQuickPick(oystehrZambda, overwriteId, quickPickData);
+        const existing = existingQuickPicks.find((quickPick) => quickPick.id === overwriteId);
+        await updatePrescriptionQuickPick(oystehrZambda, overwriteId, quickPickOverwrite(existing, quickPickData));
         enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
       } else {
         await createPrescriptionQuickPick(oystehrZambda, { quickPick: quickPickData });

@@ -35,6 +35,7 @@ import {
 import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import InsuranceQuickPickPage from './InsuranceQuickPickPage';
+import PrescriptionQuickPicksPage from './PrescriptionQuickPicksPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 import { QuickTextTemplateField } from './QuickTextTemplateField';
@@ -411,6 +412,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
             <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
             <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Prescriptions" value="prescriptions" sx={{ textTransform: 'none' }} />
             <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none' }} />
             <Tab label="Patient Instructions" value="patient-instructions" sx={{ textTransform: 'none' }} />
             <Tab label="Quick Texts" value="quick-texts" sx={{ textTransform: 'none' }} />
@@ -513,6 +515,9 @@ export default function QuickPicksAdminPage(): ReactElement {
         </TabPanel>
         <TabPanel value="in-house-medications" sx={{ px: 0 }}>
           <InHouseMedicationQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="prescriptions" sx={{ px: 0 }}>
+          <PrescriptionQuickPicksPage />
         </TabPanel>
         <TabPanel value="insurance" sx={{ px: 0 }}>
           <InsuranceQuickPickPage />

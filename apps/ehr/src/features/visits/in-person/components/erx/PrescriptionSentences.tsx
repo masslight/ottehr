@@ -119,13 +119,17 @@ const ReportSearchIssue: FC = () => {
   );
 };
 
-const MedicationSearch: FC<{ onPick: (drug: MedicationSearchDrug) => void }> = ({ onPick }) => {
+/** The drug search: also the quick pick admin's product search, at its dialog's width. */
+export const MedicationSearch: FC<{ onPick: (drug: MedicationSearchDrug) => void; width?: number | string }> = ({
+  onPick,
+  width = 360,
+}) => {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const { debounce } = useDebounce(300);
   const { data: drugs = [], isFetching, isError } = useSearchMedications(debouncedQuery);
   return (
-    <Box sx={{ width: 360, pt: 0.5 }}>
+    <Box sx={{ width, pt: 0.5 }}>
       <Autocomplete<MedicationSearchDrug>
         options={drugs}
         loading={isFetching}
