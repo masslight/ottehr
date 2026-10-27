@@ -78,8 +78,8 @@ export function getBillingInvoiceClaims(invoice: Invoice): BillingInvoiceClaim[]
 export const getBillingInvoiceDueDate = (invoice: Invoice): string | undefined =>
   invoice.extension?.find((ext) => ext.url === INVOICE_DUE_DATE_EXTENSION_URL)?.valueDate;
 
-export const getBillingInvoiceSmsAccepted = (invoice: Invoice): boolean =>
-  invoice.extension?.find((ext) => ext.url === INVOICE_SMS_ACCEPTED_EXTENSION_URL)?.valueBoolean === true;
+export const getBillingInvoiceSmsAccepted = (invoice: Invoice): boolean | undefined =>
+  invoice.extension?.find((ext) => ext.url === INVOICE_SMS_ACCEPTED_EXTENSION_URL)?.valueBoolean;
 
 // Same shape as the Stripe customer IDs on Account. Projects without connected accounts have no account extension.
 export function withStripeInvoiceLink(invoice: Invoice, link: StripeInvoiceLink): Invoice {

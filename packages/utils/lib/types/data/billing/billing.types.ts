@@ -1156,8 +1156,9 @@ export interface GetBillingInvoiceRecipientResponse {
 export interface CreateBillingInvoiceResponse {
   invoiceId: string;
   stripeInvoiceId: string;
-  // True when at least one SMS request was accepted. This does not confirm delivery.
-  smsSent: boolean;
+  // True when at least one SMS request was accepted, which does not confirm delivery. False when
+  // sending failed. Missing when the result wasn't saved, or the invoice was paid before any SMS.
+  smsSent?: boolean;
 }
 
 export interface RecordBillingRefundResponse {

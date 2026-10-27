@@ -228,10 +228,24 @@ async function sendDraft(
     }
     stripeInvoice = await stripe.invoices.finalizeInvoice(stripeInvoice.id, undefined, options);
   }
-  if (stripeInvoice.status !== 'open') {
+  if (stripeInvoice.status === 'open') {
+    // Keyed by the FHIR invoice so overlapping or repeated attempts send one email. Stripe keeps the
+    // first result for 24 hours and rejects a second send while the first is still running.
+    stripeInvoice = await stripe.invoices.sendInvoice(stripeInvoice.id, undefined, {
+      ...options,
+      idempotencyKey: `billing-invoice-send-${invoice.id}`,
+    });
+  } else if (stripeInvoice.status !== 'paid') {
     throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}, expected open`);
   }
-  stripeInvoice = await stripe.invoices.sendInvoice(stripeInvoice.id, undefined, options);
+
+  // Saved before the SMS, so a retry from here on does not send the email or SMS again.
+  // The patient may have paid between attempts, and nothing updates the status after that.
+  invoice = await updateInvoice(oystehr, {
+    ...invoice,
+    status: stripeInvoice.status === 'paid' ? 'balanced' : 'issued',
+  });
+  if (stripeInvoice.status === 'paid') return invoice;
 
   let smsSent = false;
   try {
@@ -245,10 +259,9 @@ async function sendDraft(
     console.warn('Invoice emailed but SMS request failed', { invoiceId: invoice.id, error });
   }
 
-  // Save the SMS result with the issued status so retries return it without resending.
+  // Saved so a retry can report it without sending the SMS again.
   return updateInvoice(oystehr, {
     ...invoice,
-    status: 'issued',
     extension: [
       ...(invoice.extension ?? []).filter((extension) => extension.url !== INVOICE_SMS_ACCEPTED_EXTENSION_URL),
       { url: INVOICE_SMS_ACCEPTED_EXTENSION_URL, valueBoolean: smsSent },

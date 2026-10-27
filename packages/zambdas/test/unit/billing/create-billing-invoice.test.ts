@@ -6,6 +6,7 @@ import {
   buildBillingInvoice,
   getStripeInvoiceLink,
   INVOICE_CLAIM_TAG_SYSTEM,
+  INVOICE_SMS_ACCEPTED_EXTENSION_URL,
   withStripeInvoiceLink,
 } from 'utils/lib/fhir/billing-invoice';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -15,7 +16,7 @@ import {
   SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY,
 } from 'utils/lib/types/api/invoicing.types';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { index, performEffect } from '../../../src/billing/create-billing-invoice';
 import { index as sendBillingInvoiceSms } from '../../../src/ehr/send-billing-invoice-sms';
 import type { ZambdaInput } from '../../../src/shared/types/common';
@@ -231,7 +232,10 @@ describe('create-billing-invoice', () => {
       expect.objectContaining({ amount: 5000, invoice: 'in_new' }),
       expect.objectContaining({ stripeAccount: 'acct_1' })
     );
-    expect(stripeInvoices.sendInvoice).toHaveBeenCalledWith('in_new', undefined, { stripeAccount: 'acct_1' });
+    expect(stripeInvoices.sendInvoice).toHaveBeenCalledWith('in_new', undefined, {
+      stripeAccount: 'acct_1',
+      idempotencyKey: 'billing-invoice-send-inv-1',
+    });
     expect(execute).toHaveBeenCalledWith({
       id: SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY,
       encounterId: ENCOUNTER_ID,
@@ -336,7 +340,7 @@ describe('create-billing-invoice', () => {
 
     const result = await performEffect(oystehr, stripe, params(), agent);
 
-    expect(result).toEqual({ invoiceId: 'inv-old', stripeInvoiceId: 'in_old', smsSent: false });
+    expect(result).toEqual({ invoiceId: 'inv-old', stripeInvoiceId: 'in_old', smsSent: undefined });
     expect(stripeInvoices.create).not.toHaveBeenCalled();
     expect(stripeInvoices.sendInvoice).not.toHaveBeenCalled();
     expect(smsCalls(execute)).toHaveLength(0);
@@ -405,10 +409,64 @@ describe('create-billing-invoice', () => {
     expect(result).toEqual({ invoiceId: 'inv-old', stripeInvoiceId: 'in_old', smsSent: true });
     expect(stripeInvoices.del).not.toHaveBeenCalled();
     expect(stripeInvoices.create).not.toHaveBeenCalled();
-    expect(stripeInvoices.sendInvoice).toHaveBeenCalledWith('in_old', undefined, { stripeAccount: 'acct_1' });
+    expect(stripeInvoices.sendInvoice).toHaveBeenCalledWith('in_old', undefined, {
+      stripeAccount: 'acct_1',
+      idempotencyKey: 'billing-invoice-send-inv-old',
+    });
     expect(smsCalls(execute)).toHaveLength(1);
     expect(invoices).toHaveLength(1);
     expect(invoices[0].status).toBe('issued');
+  });
+
+  it('does not send the email or SMS again when only saving the SMS result failed', async () => {
+    const claim = makeClaim();
+    const { oystehr, invoices, execute } = makeOystehr(claim);
+    const { stripe, invoices: stripeInvoices } = makeStripe();
+    const update = oystehr.fhir.update as unknown as Mock<(invoice: Invoice, options?: object) => Promise<Invoice>>;
+    const save = update.getMockImplementation()!;
+    let failSmsResult = true;
+    update.mockImplementation(async (invoice: Invoice, options) => {
+      if (
+        failSmsResult &&
+        invoice.extension?.some((extension) => extension.url === INVOICE_SMS_ACCEPTED_EXTENSION_URL)
+      ) {
+        failSmsResult = false;
+        throw new Error('FHIR unavailable');
+      }
+      return save(invoice, options);
+    });
+
+    await expect(performEffect(oystehr, stripe, params(), agent)).rejects.toThrow('FHIR unavailable');
+    expect(invoices[0].status).toBe('issued');
+
+    const result = await performEffect(oystehr, stripe, params(), agent);
+
+    expect(result).toEqual({ invoiceId: 'inv-1', stripeInvoiceId: 'in_new', smsSent: undefined });
+    expect(stripeInvoices.sendInvoice).toHaveBeenCalledTimes(1);
+    expect(smsCalls(execute)).toHaveLength(1);
+    expect(mockApplyClaimStatusField).toHaveBeenCalledExactlyOnceWith(
+      oystehr,
+      claim,
+      'patientArStatus',
+      'invoiced',
+      agent
+    );
+  });
+
+  it('marks the invoice balanced without sending when the patient paid before the retry', async () => {
+    const claim = makeClaim();
+    const { oystehr, invoices, execute } = makeOystehr(claim, [
+      existingInvoice('draft', 'key-1', { stripeInvoiceId: 'in_old' }),
+    ]);
+    const { stripe, invoices: stripeInvoices } = makeStripe([{ id: 'in_old', status: 'paid', lines: { data: [{}] } }]);
+
+    const result = await performEffect(oystehr, stripe, params(), agent);
+
+    expect(result).toEqual({ invoiceId: 'inv-old', stripeInvoiceId: 'in_old', smsSent: undefined });
+    expect(invoices[0].status).toBe('balanced');
+    expect(stripeInvoices.sendInvoice).not.toHaveBeenCalled();
+    expect(smsCalls(execute)).toHaveLength(0);
+    expect(mockApplyClaimStatusField).toHaveBeenCalledWith(oystehr, claim, 'patientArStatus', 'invoiced', agent);
   });
 
   it('does not finish a finalized invoice from another request with a different amount', async () => {

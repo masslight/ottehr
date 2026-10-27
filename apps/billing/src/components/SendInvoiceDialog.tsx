@@ -123,8 +123,8 @@ export function SendInvoiceDialog({ claim, onClose, onSent }: SendInvoiceDialogP
         memo: values.memo,
         idempotencyKey: lastAttempt.current.idempotencyKey,
       });
-      if (smsSent) enqueueSnackbar('Invoice sent', { variant: 'success' });
-      else enqueueSnackbar('Invoice emailed, but the SMS could not be sent', { variant: 'warning' });
+      if (smsSent === false) enqueueSnackbar('Invoice emailed, but the SMS could not be sent', { variant: 'warning' });
+      else enqueueSnackbar('Invoice sent', { variant: 'success' });
       onSent();
     } catch (error) {
       setSendError(getApiError({ error, defaultError: 'Failed to send invoice' }));

@@ -119,6 +119,16 @@ describe('Send Invoice dialog', () => {
     expect(onSent).toHaveBeenCalled();
   });
 
+  it('does not report an SMS failure when the SMS result is unknown', async () => {
+    const user = userEvent.setup();
+    mocks.create.mockResolvedValue({ invoiceId: 'inv-1', stripeInvoiceId: 'in_1' });
+    renderDialog();
+
+    await user.click(await screen.findByRole('button', { name: 'Send Invoice' }));
+
+    await waitFor(() => expect(mocks.snackbar).toHaveBeenCalledWith('Invoice sent', { variant: 'success' }));
+  });
+
   it('blocks sending when the responsible party has no email', async () => {
     mocks.getRecipient.mockResolvedValue(recipient());
     renderDialog();
