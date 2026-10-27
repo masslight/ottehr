@@ -186,3 +186,35 @@ describe('prescription quick pick dosing - stored config round trip', () => {
     expect(loaded).not.toHaveProperty('dosing');
   });
 });
+
+// As the medication search gives them: amoxicillin 80 MG/ML / clavulanate 11.4 MG/ML Oral Suspension.
+const DETAILS = {
+  rxcui: '617430',
+  doseForm: 'Oral Suspension',
+  ingredients: [
+    { name: 'amoxicillin', amount: 80, unit: 'MG', per: 1, perUnit: 'ML' },
+    { name: 'clavulanate', amount: 11.4, unit: 'MG', per: 1, perUnit: 'ML' },
+  ],
+};
+
+describe.each([
+  ['admin-create-quick-pick', validateCreate],
+  ['admin-update-quick-pick', validateUpdate],
+])('%s - prescription product details', (_endpoint, validate) => {
+  test('accepts the product’s RxCUI, dose form and ingredients', async () => {
+    await expect(validate({ ...AMOX_STREP, ...DETAILS })).resolves.toBeUndefined();
+  });
+
+  test.each([
+    ['an RxCUI that isn’t digits', { rxcui: '617430a' }],
+    ['an empty dose form', { doseForm: '' }],
+    ['no ingredients', { ingredients: [] }],
+    ['an amount as text', { ingredients: [{ ...DETAILS.ingredients[0], amount: '80' }] }],
+    ['a zero "per"', { ingredients: [{ ...DETAILS.ingredients[0], per: 0 }] }],
+    ['an ingredient without a unit', { ingredients: [{ ...DETAILS.ingredients[0], unit: '' }] }],
+  ])('rejects %s', async (_label, details) => {
+    const error = await rejection(validate({ ...AMOX_STREP, ...DETAILS, ...details }));
+    expect(error, 'expected the request to be rejected').toBeDefined();
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+  });
+});

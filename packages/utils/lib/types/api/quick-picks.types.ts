@@ -1,5 +1,6 @@
 import type { DoseBasis } from '../../helpers/medications/plain-dose';
 import type { StructuredFacts } from '../../procedure-coding/structured-fields';
+import type { MedicationProductDetails } from './erx-search.types';
 import type { QuantityUnit } from './order-prescription.types';
 // ── Generic CRUD types for all quick pick categories ──
 
@@ -171,8 +172,9 @@ export interface PrescriptionQuickPickSource {
 }
 
 /** A whole prescription: the medication with its dispense details and directions. The diagnosis and pharmacy
- * are encounter-specific and never saved. */
-export interface PrescriptionQuickPickData {
+ * are encounter-specific and never saved. The product's RxCUI, dose form and ingredients are kept from the picked
+ * strength; one saved before them has none. */
+export interface PrescriptionQuickPickData extends MedicationProductDetails {
   id?: string;
   name: string;
   ndc?: string;

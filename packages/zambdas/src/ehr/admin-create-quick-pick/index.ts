@@ -125,6 +125,15 @@ const prescriptionSourceSchema = z.object({
     .optional(),
 });
 
+// One ingredient of the product, as the medication search gives it: amoxicillin 80 MG per 1 ML.
+const prescriptionIngredientSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  amount: z.number().nonnegative(),
+  unit: z.string().trim().min(1).max(20),
+  per: z.number().positive(),
+  perUnit: z.string().trim().min(1).max(20),
+});
+
 // Same limits as the eRx order form, so a saved pick always fits the order endpoint.
 const prescriptionQuickPickSchema = z
   .object({
@@ -133,6 +142,10 @@ const prescriptionQuickPickSchema = z
       .regex(/^\d{11}$/, 'must be an 11-digit NDC')
       .optional(),
     medicationDescription: z.string().max(105).optional(),
+    // The product's details from the medication search, kept so the order form needn't read its name.
+    rxcui: z.string().regex(/^\d+$/, 'must be digits').optional(),
+    doseForm: z.string().trim().min(1).max(100).optional(),
+    ingredients: z.array(prescriptionIngredientSchema).min(1).max(20).optional(),
     quantityValue: z.number().positive().optional(),
     quantityUnit: z.enum(QUANTITY_UNITS).optional(),
     daysSupply: z.number().int().min(1).max(999).optional(),
