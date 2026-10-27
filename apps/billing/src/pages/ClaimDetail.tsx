@@ -17,14 +17,10 @@ import {
   CardContent,
   Chip,
   CircularProgress,
-  FormControl,
   FormControlLabel,
-  FormLabel,
   IconButton,
   Link as MuiLink,
   MenuItem,
-  Radio,
-  RadioGroup,
   Select,
   Switch,
   Tab,
@@ -40,6 +36,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { isCustomInsuranceOrgBusinessId } from 'utils/lib/helpers/helpers';
@@ -79,7 +76,6 @@ import {
 import {
   RULES_ENGINES,
   RulesEngineDef,
-  RulesEngineSubmissionInsurance,
   RulesEngineSubmissionType,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -122,6 +118,11 @@ import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
+import {
+  ClaimSubmissionFields,
+  ClaimSubmissionForm,
+  ClaimSubmissionFormDefaults,
+} from '../components/ClaimSubmissionFields';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
@@ -197,11 +198,9 @@ export default function ClaimDetail(): ReactElement {
   const [serviceDate, setServiceDate] = useState('');
   const [claimType, setClaimType] = useState('');
   const [service, setService] = useState('');
+  const submitMethods = useForm<ClaimSubmissionForm>({ defaultValues: ClaimSubmissionFormDefaults });
+  const submissionType = submitMethods.watch('type');
   const [skipRules, setSkipRules] = useState(false);
-  const [submissionType, setSubmissionType] = useState<RulesEngineSubmissionType>('new');
-  const [submissionInsurance, setSubmissionInsurance] = useState<RulesEngineSubmissionInsurance>('primary');
-  const [submissionPayerClaimControlNumber, setSubmissionPayerClaimControlNumber] = useState<string>('');
-  const [submissionPayerClaimControlNumberDirty, setSubmissionPayerClaimControlNumberDirty] = useState(false);
   const rulesEngine = useMemo<RulesEngineType | undefined>(() => {
     if (!claim) return;
     return applicableRulesEngine(claim)?.type;
@@ -260,24 +259,6 @@ export default function ClaimDetail(): ReactElement {
       quaternary: !!claim?.quaternaryCoverageFhirId,
     });
   }, [claim]);
-
-  // Reset pccn and type on insurance selection change
-  useEffect(() => {
-    if (!claim) return;
-    setSubmissionType('new');
-    setSubmissionPayerClaimControlNumber(getPccnForInsuranceOrdinal(claim, submissionInsurance) ?? '');
-  }, [claim, submissionInsurance]);
-
-  // Reset pccn on type selection change, respecting dirtiness
-  useEffect(() => {
-    if (!claim) return;
-    if (submissionType === 'new') {
-      setSubmissionPayerClaimControlNumber(getPccnForInsuranceOrdinal(claim, submissionInsurance) ?? '');
-      return;
-    }
-    if (submissionPayerClaimControlNumberDirty) return;
-    setSubmissionPayerClaimControlNumber(getPccnForInsuranceOrdinal(claim, submissionInsurance) ?? '');
-  }, [claim, submissionInsurance, submissionPayerClaimControlNumberDirty, submissionType]);
 
   const updateResource = useCallback(
     async (
@@ -354,15 +335,16 @@ export default function ClaimDetail(): ReactElement {
     const engine = RULES_ENGINES[rulesEngine];
     setSubmitting(true);
     try {
+      const values = submitMethods.getValues();
       await runBillingRulesEngine(
         oystehrZambda,
         rulesEngine === 'claim-submission'
           ? {
               claimIds: [id],
               skipRules,
-              submissionType: submissionType,
-              submissionInsurance: submissionInsurance,
-              payerClaimControlNumber: submissionType === 'new' ? undefined : submissionPayerClaimControlNumber,
+              submissionType: values.type,
+              submissionInsurance: values.insurance,
+              payerClaimControlNumber: values.type === 'new' ? undefined : values.payerClaimControlNumber,
             }
           : {
               claimIds: [id],
@@ -386,17 +368,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [
-    oystehrZambda,
-    id,
-    claim,
-    rulesEngine,
-    skipRules,
-    submissionType,
-    submissionInsurance,
-    submissionPayerClaimControlNumber,
-    fetchDetail,
-  ]);
+  }, [oystehrZambda, id, claim, rulesEngine, submitMethods, skipRules, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -590,7 +562,16 @@ export default function ClaimDetail(): ReactElement {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           fileName={`claim-${claim.id}-${(claim.type === 'professional' ? '837P' : '837I').toLowerCase()}.txt`}
-          x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
+          type="claim"
+          x12Provider={(params: ClaimSubmissionForm) =>
+            exportClaimX12(oystehrZambda, {
+              claimId: claim.id,
+              submissionType: params.type,
+              submissionInsurance: params.insurance,
+              payerClaimControlNumber: params.type !== 'new' ? params.payerClaimControlNumber : undefined,
+            }).then((data) => data.x12)
+          }
+          claim={claim}
         />
       )}
       <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
@@ -804,89 +785,9 @@ export default function ClaimDetail(): ReactElement {
               {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
             </Typography>
             {rulesEngine === 'claim-submission' ? (
-              <>
-                {claim.secondaryCoverageFhirId ? (
-                  <FormControl>
-                    <FormLabel id="submission-type-label">Select Insurance</FormLabel>
-
-                    <RadioGroup
-                      aria-labelledby="submission-type-label"
-                      name="submission-type-group"
-                      value={submissionInsurance}
-                      onChange={(event) => setSubmissionInsurance(event.target.value as RulesEngineSubmissionInsurance)}
-                    >
-                      <FormControlLabel
-                        value="primary"
-                        control={<Radio />}
-                        label={`Primary — ${claim.payerName} (${claim.payerId})`}
-                      />
-                      {claim.secondaryCoverageFhirId ? (
-                        <FormControlLabel
-                          value="secondary"
-                          control={<Radio />}
-                          label={`Secondary — ${claim.secondaryPayerName} (${claim.secondaryPayerId})`}
-                        />
-                      ) : (
-                        <></>
-                      )}
-                      {claim.tertiaryCoverageFhirId ? (
-                        <FormControlLabel
-                          value="tertiary"
-                          control={<Radio />}
-                          label={`Tertiary — ${claim.tertiaryPayerName} (${claim.tertiaryPayerId})`}
-                        />
-                      ) : (
-                        <></>
-                      )}
-                      {claim.quaternaryCoverageFhirId ? (
-                        <FormControlLabel
-                          value="quaternary"
-                          control={<Radio />}
-                          label={`Quaternary — ${claim.quaternaryPayerName} (${claim.quaternaryPayerId})`}
-                        />
-                      ) : (
-                        <></>
-                      )}
-                    </RadioGroup>
-                  </FormControl>
-                ) : (
-                  <></>
-                )}
-                <FormControl>
-                  <FormLabel id="submission-type-label">Select Submission Type</FormLabel>
-                  <RadioGroup
-                    aria-labelledby="submission-type-label"
-                    name="submission-type-group"
-                    value={submissionType}
-                    onChange={(event) => setSubmissionType(event.target.value as RulesEngineSubmissionType)}
-                  >
-                    <FormControlLabel value="new" control={<Radio />} label="New Submission" />
-                    <FormControlLabel
-                      disabled={!submissionPayerClaimControlNumber}
-                      value="correction"
-                      control={<Radio />}
-                      label="Correction"
-                    />
-                    <FormControlLabel
-                      disabled={!submissionPayerClaimControlNumber}
-                      value="void"
-                      control={<Radio />}
-                      label="Void Claim"
-                    />
-                  </RadioGroup>
-                </FormControl>
-              </>
-            ) : (
-              <></>
-            )}
-            {submissionType !== 'new' ? (
-              <TextField
-                value={submissionPayerClaimControlNumber}
-                onChange={(event) => {
-                  setSubmissionPayerClaimControlNumber(event.target.value);
-                  setSubmissionPayerClaimControlNumberDirty(true);
-                }}
-              />
+              <FormProvider {...submitMethods}>
+                <ClaimSubmissionFields claim={claim} />
+              </FormProvider>
             ) : (
               <></>
             )}
@@ -2160,17 +2061,4 @@ function TagAdder({
       )}
     </>
   );
-}
-
-function getPccnForInsuranceOrdinal(
-  claim: ClaimDetailResponse,
-  insurance: RulesEngineSubmissionInsurance
-): string | undefined {
-  return insurance === 'primary'
-    ? claim.payerClaimControlNumber
-    : insurance === 'secondary'
-    ? claim.secondaryPayerClaimControlNumber
-    : insurance === 'tertiary'
-    ? claim.tertiaryPayerClaimControlNumber
-    : claim.quaternaryPayerClaimControlNumber;
 }
