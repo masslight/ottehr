@@ -15,7 +15,8 @@ export const isValidSupplementalO2FlowRate = (flowRate: number): boolean => Numb
 /**
  * The supplemental O2 details that apply to a reading: none unless the qualifier is supplemental O2, and the Other
  * text only while the type is Other. Applied wherever details are built, saved, read or shown, so values left behind
- * by a qualifier or type change never surface.
+ * by a qualifier or type change never surface. It does not judge the flow rate: the draft keeps an invalid one for the
+ * user to correct, and saving and reading check it with isValidSupplementalO2FlowRate.
  */
 export const getActiveSupplementalO2Details = (
   observationMethod: VitalsOxygenSatObservationMethod | undefined,
@@ -26,7 +27,7 @@ export const getActiveSupplementalO2Details = (
   const deliveryTypeOther =
     deliveryType === VitalsSupplementalO2DeliveryType.Other ? details.deliveryTypeOther?.trim() : undefined;
   const active: VitalsSupplementalO2Details = {
-    ...(flowRate !== undefined && isValidSupplementalO2FlowRate(flowRate) && { flowRate }),
+    ...(flowRate !== undefined && Number.isFinite(flowRate) && { flowRate }),
     ...(deliveryType && { deliveryType }),
     ...(deliveryTypeOther && { deliveryTypeOther }),
   };

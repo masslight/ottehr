@@ -345,6 +345,21 @@ describe('VitalsOxygenSatCard — supplemental O2 details', () => {
       expect(otherTextInput()).toHaveValue('Face tent');
     });
 
+    it('keeps an invalid flow rate for the user to correct', async () => {
+      const { unmount } = render(<Harness />);
+      typeInto(satInput(), '92');
+      await selectOption('Qualifier', OnSupplementalO2);
+      typeInto(flowRateInput()!, '-2');
+      unmount();
+
+      render(<Harness />);
+
+      await waitFor(() => expect(flowRateInput()).toHaveValue(-2));
+      await clickAdd();
+      expect(saveVitals).not.toHaveBeenCalled();
+      expect(flowRateInput()).toHaveAttribute('aria-invalid', 'true');
+    });
+
     it('does not keep dropped details in the draft', async () => {
       render(<Harness />);
       typeInto(satInput(), '92');

@@ -3,6 +3,7 @@ import { VitalsSchema } from '../helpers/vitals/config-schema';
 import { getVitalObservationFhirComponentInterpretations } from '../helpers/vitals/utils';
 import {
   getActiveSupplementalO2Details,
+  isValidSupplementalO2FlowRate,
   SUPPLEMENTAL_O2_FLOW_RATE_UNIT,
 } from '../helpers/vitals/vitals-oxygen-saturation.helper';
 import {
@@ -67,6 +68,15 @@ export const VITAL_OXY_SATURATION_FLOW_RATE_LOINC_CODE = '3151-8';
 export const VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/supplemental-o2`;
 export const VITAL_OXY_SATURATION_DELIVERY_TYPE_CODE = 'delivery-type';
 export const VITAL_OXY_SATURATION_DELIVERY_TYPE_OTHER_CODE = 'delivery-type-other';
+// Each type is saved by a stable code rather than its label, so renaming a label never orphans saved readings.
+const SUPPLEMENTAL_O2_DELIVERY_TYPE_CODES: Record<VitalsSupplementalO2DeliveryType, string> = {
+  [VitalsSupplementalO2DeliveryType.NasalCannula]: 'nasal-cannula',
+  [VitalsSupplementalO2DeliveryType.NonRebreatherMask]: 'non-rebreather-mask',
+  [VitalsSupplementalO2DeliveryType.SimpleFaceMask]: 'simple-face-mask',
+  [VitalsSupplementalO2DeliveryType.TracheostomyCollar]: 'tracheostomy-collar',
+  [VitalsSupplementalO2DeliveryType.VenturiMask]: 'venturi-mask',
+  [VitalsSupplementalO2DeliveryType.Other]: 'other',
+};
 
 export const VITAL_LEFT_EYE_SNOMED_CODE = '8976008';
 export const VITAL_RIGHT_EYE_SNOMED_CODE = '8977004';
@@ -477,7 +487,7 @@ export const getSupplementalO2ObservationComponents = (
   if (!details) return [];
   const components: ObservationComponent[] = [];
 
-  if (details.flowRate !== undefined) {
+  if (details.flowRate !== undefined && isValidSupplementalO2FlowRate(details.flowRate)) {
     components.push({
       code: {
         coding: [
@@ -507,7 +517,15 @@ export const getSupplementalO2ObservationComponents = (
           },
         ],
       },
-      valueString: details.deliveryType,
+      valueCodeableConcept: {
+        coding: [
+          {
+            system: VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM,
+            code: SUPPLEMENTAL_O2_DELIVERY_TYPE_CODES[details.deliveryType],
+            display: details.deliveryType,
+          },
+        ],
+      },
     });
   }
   if (details.deliveryTypeOther) {
@@ -534,11 +552,17 @@ export const extractSupplementalO2Details = (observation: Observation): VitalsSu
       (cmp) => cmp.code?.coding?.some((coding) => coding.system === system && coding.code === code)
     );
 
+  const flowRate = findComponent(LOINC_SYSTEM, VITAL_OXY_SATURATION_FLOW_RATE_LOINC_CODE)?.valueQuantity?.value;
+  const deliveryTypeCode = findComponent(
+    VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM,
+    VITAL_OXY_SATURATION_DELIVERY_TYPE_CODE
+  )?.valueCodeableConcept?.coding?.find((coding) => coding.system === VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM)
+    ?.code;
+
   return getActiveSupplementalO2Details(extractOxySaturationObservationMethod(observation), {
-    flowRate: findComponent(LOINC_SYSTEM, VITAL_OXY_SATURATION_FLOW_RATE_LOINC_CODE)?.valueQuantity?.value,
-    deliveryType: toVitalsSupplementalO2DeliveryType(
-      findComponent(VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM, VITAL_OXY_SATURATION_DELIVERY_TYPE_CODE)
-        ?.valueString
+    flowRate: flowRate !== undefined && isValidSupplementalO2FlowRate(flowRate) ? flowRate : undefined,
+    deliveryType: Object.values(VitalsSupplementalO2DeliveryType).find(
+      (deliveryType) => SUPPLEMENTAL_O2_DELIVERY_TYPE_CODES[deliveryType] === deliveryTypeCode
     ),
     deliveryTypeOther: findComponent(
       VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM,

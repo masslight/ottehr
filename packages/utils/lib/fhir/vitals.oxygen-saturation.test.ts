@@ -1,4 +1,4 @@
-import { Observation } from 'fhir/r4b';
+import { Coding, Observation } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { mapVitalsToDisplay } from '../helpers/visit-note/map-vitals-to-display.helper';
 import { formatOxygenSatObservationMethod } from '../helpers/vitals/vitals-oxygen-saturation.helper';
@@ -150,6 +150,21 @@ describe('supplemental O2 details — stale and invalid values', () => {
     expect(roundTrip(makeDTO(OnSupplementalO2, { flowRate: -1 })).observation.component).toBeUndefined();
   });
 
+  it('ignores a negative flow rate stored on the observation', () => {
+    const { observation } = roundTrip(
+      makeDTO(OnSupplementalO2, { flowRate: 2, deliveryType: VitalsSupplementalO2DeliveryType.NasalCannula })
+    );
+    const parsed = makeVitalsObservationDTO({
+      ...observation,
+      component: observation.component?.map((cmp) =>
+        cmp.valueQuantity ? { ...cmp, valueQuantity: { ...cmp.valueQuantity, value: -2 } } : cmp
+      ),
+    });
+    expect(parsed?.field === VitalFieldNames.VitalOxygenSaturation && parsed.supplementalO2).toEqual({
+      deliveryType: VitalsSupplementalO2DeliveryType.NasalCannula,
+    });
+  });
+
   it('ignores details stored on an observation whose qualifier is not supplemental O2', () => {
     const { observation } = roundTrip(makeDTO(OnSupplementalO2, { flowRate: 4 }));
     const roomAirObservation = makeVitalsObservationDTO({
@@ -163,16 +178,59 @@ describe('supplemental O2 details — stale and invalid values', () => {
     const { observation } = roundTrip(
       makeDTO(OnSupplementalO2, { flowRate: 2, deliveryType: VitalsSupplementalO2DeliveryType.NasalCannula })
     );
-    const parsed = makeVitalsObservationDTO({
-      ...observation,
-      component: observation.component?.map((cmp) =>
-        cmp.code.coding?.[0]?.system === VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM
-          ? { ...cmp, valueString: 'Hyperbaric chamber' }
-          : cmp
-      ),
-    });
-    expect(parsed).toMatchObject({ supplementalO2: { flowRate: 2 } });
+    const parsed = makeVitalsObservationDTO(
+      withDeliveryTypeCoding(observation, (coding) => ({ ...coding, code: 'hyperbaric-chamber' }))
+    );
+    expect(parsed?.field === VitalFieldNames.VitalOxygenSaturation && parsed.supplementalO2).toEqual({ flowRate: 2 });
   });
+});
+
+// Rewrites the coded value of the stored delivery type component.
+const withDeliveryTypeCoding = (observation: Observation, rewrite: (coding: Coding) => Coding): Observation => ({
+  ...observation,
+  component: observation.component?.map((cmp) =>
+    cmp.valueCodeableConcept
+      ? { ...cmp, valueCodeableConcept: { coding: cmp.valueCodeableConcept.coding?.map(rewrite) } }
+      : cmp
+  ),
+});
+
+describe('supplemental O2 details — delivery type coding', () => {
+  it('stores the type as a coded value in the supplemental O2 system, with its label as display', () => {
+    const { observation } = roundTrip(
+      makeDTO(OnSupplementalO2, { deliveryType: VitalsSupplementalO2DeliveryType.VenturiMask })
+    );
+    expect(observation.component?.[0]?.valueString).toBeUndefined();
+    expect(observation.component?.[0]?.valueCodeableConcept?.coding).toEqual([
+      {
+        system: VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM,
+        code: expect.any(String),
+        display: VitalsSupplementalO2DeliveryType.VenturiMask,
+      },
+    ]);
+  });
+
+  it('gives every type its own code', () => {
+    const codes = Object.values(VitalsSupplementalO2DeliveryType).map(
+      (deliveryType) =>
+        roundTrip(makeDTO(OnSupplementalO2, { deliveryType })).observation.component?.[0]?.valueCodeableConcept
+          ?.coding?.[0]?.code
+    );
+    expect(new Set(codes).size).toBe(Object.values(VitalsSupplementalO2DeliveryType).length);
+  });
+
+  it.each(Object.values(VitalsSupplementalO2DeliveryType))(
+    'reads %s back by its code even if its label was renamed since',
+    (deliveryType) => {
+      const { observation } = roundTrip(makeDTO(OnSupplementalO2, { deliveryType }));
+      const parsed = makeVitalsObservationDTO(
+        withDeliveryTypeCoding(observation, (coding) => ({ ...coding, display: 'A label from an older release' }))
+      );
+      expect(parsed?.field === VitalFieldNames.VitalOxygenSaturation && parsed.supplementalO2).toEqual({
+        deliveryType,
+      });
+    }
+  );
 });
 
 describe('supplemental O2 details — legacy records', () => {
