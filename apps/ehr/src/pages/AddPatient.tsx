@@ -2,7 +2,9 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
+  Checkbox,
   FormControl,
+  FormControlLabel,
   FormHelperText,
   Grid,
   InputLabel,
@@ -186,6 +188,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
     followUpState?.prefill?.serviceCategoryCode ?? defaultServiceCategory
   );
   const [slot, setSlot] = useState<Slot | undefined>();
+  const [showPastSlots, setShowPastSlots] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
     submit: false,
@@ -339,6 +342,20 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       }))
       .sort((a, b) => a.display.localeCompare(b.display));
   }, [mergedSourcedCategories, visitType]);
+
+  const slotListKey = visitType === VisitType.InPersonPostTelemed ? 'telemedAvailable' : 'available';
+
+  const isSlotPickerShown =
+    visitType === VisitType.InPersonPreBook ||
+    visitType === VisitType.InPersonPostTelemed ||
+    visitType === VisitType.VirtualScheduled;
+
+  const handleShowPastSlotsChange = (checked: boolean): void => {
+    setShowPastSlots(checked);
+    if (!checked && slot && DateTime.fromISO(slot.start) < DateTime.now()) {
+      setSlot(undefined);
+    }
+  };
 
   // Symmetric filter on the visit-type dropdown: when a service category is
   // picked first, only offer visit types the category actually supports. This
@@ -567,12 +584,10 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       return;
     }
 
-    if (
-      (visitType === VisitType.InPersonPreBook ||
-        visitType === VisitType.InPersonPostTelemed ||
-        visitType === VisitType.VirtualScheduled) &&
-      slot === undefined
-    ) {
+    const isSelectedSlotInPast = !!slot && DateTime.fromISO(slot.start) < DateTime.now();
+    const isSelectedSlotHidden = isSelectedSlotInPast && !showPastSlots;
+
+    if (isSlotPickerShown && (!slot || isSelectedSlotHidden)) {
       setSelectSlotDialogOpen(true);
       return;
     }
@@ -941,15 +956,9 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                         )}
                       </FormControl>
                     </Box>
-                    {(visitType === VisitType.InPersonPreBook ||
-                      visitType === VisitType.InPersonPostTelemed ||
-                      visitType === VisitType.VirtualScheduled) && (
+                    {isSlotPickerShown && (
                       <SlotPicker
-                        slotData={
-                          visitType === VisitType.InPersonPostTelemed
-                            ? locationWithSlotData?.telemedAvailable?.map((si) => si.slot)
-                            : locationWithSlotData?.available?.map((si) => si.slot)
-                        }
+                        slotData={locationWithSlotData?.[slotListKey]?.map((si) => si.slot)}
                         slotsLoading={loadingSlotState.status === 'loading'}
                         bookableSlug={selectedBookable?.slug}
                         bookableScheduleType={
@@ -960,6 +969,8 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                             : ScheduleType.location
                         }
                         serviceCategoryCode={serviceCategory as any}
+                        slotListKey={slotListKey}
+                        showPastSlots={showPastSlots}
                         timezone={locationWithSlotData?.location?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}
@@ -980,33 +991,58 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                       Please search for patients before adding
                     </Typography>
                   )}
-                  <LoadingButton
-                    data-testid={dataTestIds.addPatientPage.addButton}
-                    variant="contained"
-                    type="submit"
-                    loading={loading}
+                  <Box
                     sx={{
-                      borderRadius: 100,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      marginRight: 1,
+                      display: 'flex',
+                      flexWrap: 'wrap-reverse',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 2,
                     }}
                   >
-                    {patientOnly ? patientInfo?.id ? 'Open patient record' : 'Add patient' : <>Add {visitType}</>}
-                  </LoadingButton>
-                  <Button
-                    data-testid={dataTestIds.addPatientPage.cancelButton}
-                    sx={{
-                      borderRadius: 100,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                    }}
-                    onClick={() => {
-                      navigate(patientOnly ? '/patients' : '/visits');
-                    }}
-                  >
-                    Cancel
-                  </Button>
+                    <Box>
+                      <LoadingButton
+                        data-testid={dataTestIds.addPatientPage.addButton}
+                        variant="contained"
+                        type="submit"
+                        loading={loading}
+                        sx={{
+                          borderRadius: 100,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          marginRight: 1,
+                        }}
+                      >
+                        {patientOnly ? patientInfo?.id ? 'Open patient record' : 'Add patient' : <>Add {visitType}</>}
+                      </LoadingButton>
+                      <Button
+                        data-testid={dataTestIds.addPatientPage.cancelButton}
+                        sx={{
+                          borderRadius: 100,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                        }}
+                        onClick={() => {
+                          navigate(patientOnly ? '/patients' : '/visits');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </Box>
+                    {isSlotPickerShown && (
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={showPastSlots}
+                            onChange={(_, checked) => handleShowPastSlotsChange(checked)}
+                          />
+                        }
+                        label="Show past slots"
+                        sx={{ mr: 0 }}
+                      />
+                    )}
+                  </Box>
                 </Box>
               </Stack>
             </form>

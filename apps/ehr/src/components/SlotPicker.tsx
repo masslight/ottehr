@@ -2,6 +2,7 @@ import { Box, Button, Tab, Tabs, Typography, useTheme } from '@mui/material';
 import { StaticDatePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { useQuery } from '@tanstack/react-query';
 import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useMemo, useState } from 'react';
@@ -10,7 +11,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
 import { ScheduleType } from 'utils/lib/types/common';
 import { nextAvailableFrom } from 'utils/lib/utils/scheduleUtils';
-import { Slots } from './Slots';
+import { Slots, SlotsLoader } from './Slots';
 interface TabPanelProps {
   children?: ReactNode;
   dir?: string;
@@ -63,6 +64,8 @@ interface SlotPickerProps {
   bookableScheduleType?: ScheduleType;
   /** Service category (required for group bookings; inferred or omitted otherwise). */
   serviceCategoryCode?: ServiceCategoryCode;
+  slotListKey: 'available' | 'telemedAvailable';
+  showPastSlots: boolean;
   timezone: string;
   selectedSlot: Slot | undefined;
   setSelectedSlot: (slot: Slot | undefined) => void;
@@ -74,6 +77,8 @@ const SlotPicker = ({
   bookableSlug,
   bookableScheduleType = ScheduleType.location,
   serviceCategoryCode,
+  slotListKey,
+  showPastSlots,
   timezone,
   selectedSlot,
   setSelectedSlot,
@@ -89,6 +94,11 @@ const SlotPicker = ({
   const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);
   const [otherDateSlotsLoading, setOtherDateSlotsLoading] = useState(false);
   const [selectedOtherDate, setSelectedOtherDate] = useState<DateTime | undefined>();
+
+  const visibleOtherDate =
+    !showPastSlots && selectedOtherDate && selectedOtherDate < DateTime.now().startOf('day')
+      ? undefined
+      : selectedOtherDate;
 
   const [slotsList, daySlotsMap] = useMemo(() => {
     if (slotData) {
@@ -151,12 +161,12 @@ const SlotPicker = ({
     } else if (secondAvailableDay && currentTab === 1) {
       return secondAvailableDay;
     } else {
-      if (selectedOtherDate) {
-        return selectedOtherDate;
+      if (visibleOtherDate) {
+        return visibleOtherDate;
       }
       return firstAvailableDay;
     }
-  }, [currentTab, firstAvailableDay, secondAvailableDay, selectedOtherDate]);
+  }, [currentTab, firstAvailableDay, secondAvailableDay, visibleOtherDate]);
 
   const getSlotsForDate = useCallback(
     (date: DateTime | undefined): Slot[] => {
@@ -197,6 +207,31 @@ const SlotPicker = ({
     },
     [oystehrZambda, bookableSlug, bookableScheduleType, serviceCategoryCode]
   );
+
+  const isFirstAvailableDayToday = firstAvailableDay?.hasSame(DateTime.now().setZone(timezone), 'day') ?? false;
+
+  const { data: todayPastSlots = [], isLoading: todayPastSlotsLoading } = useQuery({
+    queryKey: [
+      'today-past-slots',
+      bookableSlug,
+      bookableScheduleType,
+      serviceCategoryCode,
+      slotListKey,
+      firstAvailableDay?.toISO(),
+    ],
+    queryFn: async () => {
+      const response = await getLocations(oystehrZambda!, {
+        slug: bookableSlug!,
+        scheduleType: bookableScheduleType,
+        selectedDate: firstAvailableDay!.toISODate() ?? undefined,
+        ...(serviceCategoryCode ? { serviceCategoryCode } : {}),
+      });
+      return (response[slotListKey] ?? [])
+        .map((s) => s.slot)
+        .filter((slot) => DateTime.fromISO(slot.start) < firstAvailableDay!);
+    },
+    enabled: showPastSlots && isFirstAvailableDayToday && Boolean(oystehrZambda) && Boolean(bookableSlug),
+  });
 
   return (
     <Box sx={{ backgroundColor: theme.palette.background.default, padding: 2, borderRadius: 2, marginTop: 2 }}>
@@ -318,8 +353,15 @@ const SlotPicker = ({
                   >
                     {firstAvailableDay?.toFormat(DATE_FULL_NO_YEAR)}
                   </Typography>
+                  {showPastSlots && todayPastSlotsLoading && <SlotsLoader />}
                   <Slots
-                    slots={getSlotsForDate(firstAvailableDay)}
+                    slots={
+                      showPastSlots
+                        ? [...todayPastSlots, ...getSlotsForDate(firstAvailableDay)]
+                        : getSlotsForDate(firstAvailableDay).filter(
+                            (slot) => DateTime.fromISO(slot.start) >= DateTime.now()
+                          )
+                    }
                     timezone={timezone}
                     selectedSlot={selectedSlot}
                     setSelectedSlot={setSelectedSlot}
@@ -346,28 +388,28 @@ const SlotPicker = ({
                       displayStaticWrapperAs="desktop"
                       disableHighlightToday={true}
                       views={['month', 'day']}
-                      value={selectedOtherDate ?? null}
+                      value={visibleOtherDate ?? null}
                       onChange={handleSelectOtherDate}
                       shouldDisableDate={(date) => {
                         const today = DateTime.now().startOf('day');
                         const tomorrow = today.plus({ days: 1 });
-                        return date <= tomorrow.endOf('day');
+                        return date <= tomorrow.endOf('day') && (!showPastSlots || date >= today);
                       }}
                       // Minus one day for timezone shenanigans
-                      minDate={firstAvailableDay?.minus({ days: 1 })}
+                      minDate={showPastSlots ? undefined : firstAvailableDay?.minus({ days: 1 })}
                       // Allow booking up to prebookMonthsAhead out (default 1).
                       // Slots for the picked day are fetched on demand.
                       maxDate={firstAvailableDay?.plus({ months: prebookMonthsAhead })}
                     />
                   </LocalizationProvider>
-                  {selectedOtherDate && (
+                  {visibleOtherDate && (
                     <>
                       <Typography
                         variant="h3"
                         color="#000000"
-                        sx={{ textAlign: 'center', fontSize: '20px', color: theme.palette.primary.main }}
+                        sx={{ textAlign: 'center', fontSize: '20px', color: theme.palette.primary.main, mt: 3 }}
                       >
-                        {selectedOtherDate.toLocaleString(DateTime.DATE_HUGE)}
+                        {visibleOtherDate.toLocaleString(DateTime.DATE_HUGE)}
                       </Typography>
                       <Slots
                         slots={otherDateSlots}
@@ -388,9 +430,7 @@ const SlotPicker = ({
           )}
         </>
       ) : (
-        <Typography variant="body2" m={1} textAlign={'center'}>
-          Loading...
-        </Typography>
+        <SlotsLoader />
       )}
     </Box>
   );
