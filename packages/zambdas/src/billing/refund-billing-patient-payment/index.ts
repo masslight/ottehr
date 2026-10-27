@@ -25,7 +25,7 @@ import {
 import { RefundBillingPatientPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
-import { shouldUseCandid, shouldUseOttehrBilling, syncCandidPatientRefunds } from '../../shared/candid';
+import { shouldUseCandid, syncCandidPatientRefunds } from '../../shared/candid';
 // eslint-disable-next-line no-restricted-imports -- reads legacy clinical payment notices, the Stripe account and Candid client, and syncs refunds to Candid
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
@@ -36,10 +36,10 @@ import { validateWithSchema } from '../../shared/validation';
 import {
   PAYMENT_MANAGEMENT_ROLES,
   paymentMethodForNotice,
+  recordLocalRefundOffsets,
   resolvePaymentNoticeForWrite,
   stripePaymentIntentIdForNotice,
 } from '../patient-payments';
-import { recordBillingManualRefund } from '../payments';
 import { createBillingClient } from '../shared';
 
 const ZAMBDA_NAME = 'refund-billing-patient-payment';
@@ -308,22 +308,7 @@ const recordManualRefundOffsets = async (
   const manualRefunds = refunds.filter((refund) => isLocallyRecordedRefund(refund) && !isPendingReservation(refund));
   if (manualRefunds.length === 0) return;
 
-  if (shouldUseOttehrBilling(secrets)) {
-    for (const entry of manualRefunds) {
-      // external refunds carry the return medium; manual refunds use the payment's own method
-      const paymentMethod = entry.medium ?? paymentMethodForNotice(notice);
-      if (!paymentMethod) continue;
-      await recordBillingManualRefund(billingOystehr, {
-        encounterId,
-        refundId: entry.stripeRefundId,
-        amountInCents: entry.amountInCents,
-        paymentMethod,
-        createdISO: entry.dateISO,
-        reason: entry.reason ?? 'Other',
-        secrets,
-      });
-    }
-  }
+  await recordLocalRefundOffsets(billingOystehr, notice, encounterId, secrets, manualRefunds);
 
   if (shouldUseCandid(secrets)) {
     const candidApiClient = await getOrCreateCandidApiClient(clinicalOystehr, secrets);

@@ -10,6 +10,7 @@ import {
 import { getTaskResource } from 'utils/lib/fhir/helpers';
 import {
   buildPaymentVoidExtension,
+  isLocallyRecordedRefund,
   isPendingReservation,
   parsePaymentRefundsFromNotice,
   parsePaymentVoidFromNotice,
@@ -25,10 +26,16 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
+import { shouldUseOttehrBilling } from '../shared/candid';
 import { isFhirNotFoundError } from '../shared/errors';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { fetchPatientPaymentsByEncounterIds, fetchResourcesGrouped } from './claim-amounts';
-import { claimRequestFor, CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, findBillingClaimForEncounter } from './payments';
+import {
+  claimRequestFor,
+  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
+  findBillingClaimForEncounter,
+  recordBillingManualRefund,
+} from './payments';
 
 // Patient payments are owned by the billing app: new ones are billing-tagged PaymentNotices whose
 // request points at the encounter's claim. Notices the EHR wrote before the move are untagged,
@@ -411,6 +418,42 @@ const persistLegacyState = async (
  * so it is either a billing notice or a legacy EHR notice, which gets adopted into billing. Either
  * way the result carries the legacy notice's refund and void state.
  */
+/**
+ * Billing AR subtracts a refund only through its negative offset notice; the refund stamp on the
+ * payment notice is not counted. Stripe refunds get theirs from the billing webhook, refunds recorded
+ * locally (cash, check, external) from whoever records them, and an offset is missing when the
+ * refund was recorded before billing was on or that step failed. Re-recording every local refund on
+ * the notice repairs that; the writer dedups on the refund id, so a write that finds all offsets
+ * in place changes nothing.
+ */
+export const recordLocalRefundOffsets = async (
+  billingOystehr: Oystehr,
+  notice: PaymentNotice,
+  encounterId: string,
+  secrets: Secrets,
+  refunds = parsePaymentRefundsFromNotice(notice) ?? []
+): Promise<void> => {
+  if (!shouldUseOttehrBilling(secrets)) return;
+  for (const refund of refunds) {
+    if (!isLocallyRecordedRefund(refund) || isPendingReservation(refund)) continue;
+    // external refunds carry the return medium; manual refunds use the payment's own method
+    const paymentMethod = refund.medium ?? paymentMethodForNotice(notice);
+    if (!paymentMethod) continue;
+    await recordBillingManualRefund(billingOystehr, {
+      encounterId,
+      refundId: refund.stripeRefundId,
+      amountInCents: refund.amountInCents,
+      paymentMethod,
+      createdISO: refund.dateISO,
+      reason: refund.reason ?? 'Other',
+      secrets,
+    });
+  }
+};
+
+// Resolves the billing notice to refund or void, adopting a legacy one first. Refund state is
+// reconciled before the caller validates, so billing balances already reflect earlier refunds even
+// when validation then rejects the request.
 export const resolvePaymentNoticeForWrite = async (params: {
   clinicalOystehr: Oystehr;
   billingOystehr: Oystehr;
@@ -418,7 +461,7 @@ export const resolvePaymentNoticeForWrite = async (params: {
   getStripe: () => Stripe;
   paymentNoticeId: string;
   encounterId: string;
-  secrets: Secrets | null;
+  secrets: Secrets;
 }): Promise<PaymentNotice> => {
   const { clinicalOystehr, billingOystehr, getStripe, paymentNoticeId, encounterId, secrets } = params;
 
@@ -426,7 +469,9 @@ export const resolvePaymentNoticeForWrite = async (params: {
   if (billingNotice) {
     assertNoticeBelongsToEncounter(billingNotice, encounterId);
     const legacyNotice = await findLegacyCounterpart(clinicalOystehr, billingNotice, encounterId);
-    return persistLegacyState(billingOystehr, billingNotice, legacyNotice);
+    const resolved = await persistLegacyState(billingOystehr, billingNotice, legacyNotice);
+    await recordLocalRefundOffsets(billingOystehr, resolved, encounterId, secrets);
+    return resolved;
   }
 
   const legacyNotice = await getPaymentNoticeIfVisible(clinicalOystehr, paymentNoticeId);
@@ -442,7 +487,9 @@ export const resolvePaymentNoticeForWrite = async (params: {
     encounterId,
     secrets,
   });
-  return persistLegacyState(billingOystehr, adopted, legacyNotice);
+  const resolved = await persistLegacyState(billingOystehr, adopted, legacyNotice);
+  await recordLocalRefundOffsets(billingOystehr, resolved, encounterId, secrets);
+  return resolved;
 };
 
 // The Candid-sync / receipt Task is a clinical work item, so it is written with the clinical client

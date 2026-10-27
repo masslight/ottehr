@@ -38,7 +38,7 @@ vi.mock('../../../src/billing/payments', async (importOriginal) => ({
   findBillingClaimForEncounter: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../../src/billing/payments';
+import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, MANUAL_REFUND_ID_SYSTEM } from '../../../src/billing/payments';
 import { createBillingClient } from '../../../src/billing/shared';
 import { index } from '../../../src/billing/void-billing-patient-payment';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
@@ -79,12 +79,21 @@ const billingSearch = vi.fn();
 const billingCreate = vi.fn();
 const billingPatch = vi.fn();
 
-const invoke = (paymentNoticeId = NOTICE_ID): Promise<APIGatewayProxyResult> =>
+const invoke = (paymentNoticeId = NOTICE_ID, secrets: object = {}): Promise<APIGatewayProxyResult> =>
   (index as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)({
     body: JSON.stringify({ encounterId: ENCOUNTER_ID, paymentNoticeId, reason: 'Other' }),
     headers: { Authorization: 'Bearer user-token' },
-    secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/billing-org' },
+    secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/billing-org', ...secrets },
   } as unknown as ZambdaInput);
+
+const legacyRefund = buildPaymentRefundsExtension([
+  { stripeRefundId: 'manual_legacy', amountInCents: 5000, dateISO: '2026-04-20T13:00:00Z', status: 'succeeded' },
+]);
+
+const refundOffsetCreates = (): PaymentNotice[] =>
+  billingCreate.mock.calls
+    .map(([resource]) => resource as PaymentNotice)
+    .filter((resource) => (resource.amount?.value ?? 0) < 0);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -186,5 +195,42 @@ describe('void-billing-patient-payment', () => {
       value: `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${LEGACY_NOTICE_ID}`,
     });
     expect(vi.mocked(voidPaymentNotice).mock.calls[0][1].id).toBe('adopted-1');
+  });
+
+  it('records the billing offset of a refund that only the legacy notice carries, before rejecting', async () => {
+    billingGet.mockRejectedValue({ code: 404 });
+    clinicalGet.mockResolvedValue(legacyNotice([legacyRefund]));
+
+    await expect(invoke(LEGACY_NOTICE_ID, { BILLING_INTEGRATION: 'ottehr' })).rejects.toMatchObject({
+      message: 'This payment has refunds recorded and can no longer be voided.',
+    });
+
+    const [offset] = refundOffsetCreates();
+    expect(offset.amount).toEqual({ value: -50, currency: 'USD' });
+    expect(offset.identifier).toEqual([{ system: MANUAL_REFUND_ID_SYSTEM, value: 'manual_legacy' }]);
+    const offsetCall = billingCreate.mock.calls.find(([resource]) => resource === offset);
+    expect(offsetCall?.[1].ifNoneExist[0]).toEqual({
+      name: 'identifier',
+      value: `${MANUAL_REFUND_ID_SYSTEM}|manual_legacy`,
+    });
+  });
+
+  it('records the offset again when a retry finds the copy already made', async () => {
+    clinicalGet.mockResolvedValue(legacyNotice([legacyRefund]));
+
+    await expect(invoke(NOTICE_ID, { BILLING_INTEGRATION: 'ottehr' })).rejects.toMatchObject({
+      message: 'This payment has refunds recorded and can no longer be voided.',
+    });
+
+    expect(refundOffsetCreates()).toHaveLength(1);
+  });
+
+  it('writes no offsets while Ottehr billing is off', async () => {
+    billingGet.mockRejectedValue({ code: 404 });
+    clinicalGet.mockResolvedValue(legacyNotice([legacyRefund]));
+
+    await expect(invoke(LEGACY_NOTICE_ID)).rejects.toThrow();
+
+    expect(refundOffsetCreates()).toHaveLength(0);
   });
 });

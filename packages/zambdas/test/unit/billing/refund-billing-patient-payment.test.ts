@@ -190,8 +190,10 @@ describe('refund-billing-patient-payment manual refunds', () => {
     await invoke('ottehr');
 
     expect(getOrCreateCandidApiClient).not.toHaveBeenCalled();
+    // the existing refund's offset is reconciled when the notice is resolved, then every local
+    // refund is re-synced with the new one; the writer dedups on the refund id
     expect(vi.mocked(recordBillingManualRefund).mock.calls.map(([, entry]) => entry.amountInCents)).toEqual([
-      1000, 500,
+      1000, 1000, 500,
     ]);
     expect(vi.mocked(recordBillingManualRefund).mock.calls[0][1]).toMatchObject({
       encounterId: ENCOUNTER_ID,
@@ -202,7 +204,7 @@ describe('refund-billing-patient-payment manual refunds', () => {
   it('records both AR offsets and Candid refunds when BILLING_INTEGRATION is all', async () => {
     await invoke('all');
 
-    expect(recordBillingManualRefund).toHaveBeenCalledTimes(2);
+    expect(recordBillingManualRefund).toHaveBeenCalledTimes(3);
     expect(candidCreate).toHaveBeenCalledTimes(2);
   });
 
