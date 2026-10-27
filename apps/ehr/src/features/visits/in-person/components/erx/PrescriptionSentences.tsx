@@ -38,13 +38,13 @@ import { ErxSuggestionsBox } from '../erx-looks/ErxSuggestionsBox';
 import { BlankButton, PopoverBlank, SelectBlank, Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
 import { DoseCalculator } from './DoseCalculator';
 import {
-  defaultStrength,
   DoseNote,
   emptyPrescriptionStep,
   pickedStrength,
   PrescriptionLine,
   prescriptionQuickPickLabel,
   withDirections,
+  withDrug,
   withProduct,
   withSuggestion,
 } from './prescriptionLines';
@@ -224,8 +224,6 @@ interface PrescriptionSentencesProps {
   onSaveQuickPick?: () => void;
   /** The chart's diagnoses; the primary one leads the suggestions when the line has no diagnosis of its own. */
   visitDiagnoses: (IcdSearchResponse['codes'][number] & { isPrimary?: boolean })[];
-  /** The patient's age at the visit, which picks a drug's starting strength. */
-  patientAgeYears?: number;
   /** The age in months and the vitals weight, which pick the suggestions and work out weight-based doses. */
   patientAgeMonths?: number;
   weightKg?: number;
@@ -250,7 +248,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   onQuickPick,
   onSaveQuickPick,
   visitDiagnoses,
-  patientAgeYears,
   patientAgeMonths,
   weightKg,
   weightNote,
@@ -512,7 +509,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           {(close) => (
             <MedicationSearch
               onPick={(drug) => {
-                changeProduct(withProduct(line, drug, defaultStrength(drug, patientAgeYears)));
+                changeProduct(withDrug(line, drug));
                 close();
               }}
             />

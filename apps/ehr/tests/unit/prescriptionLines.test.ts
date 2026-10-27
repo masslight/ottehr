@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ageAtVisit,
   applyPrescriptionQuickPick,
-  defaultStrength,
   emptyPrescriptionLine,
+  pickedStrength,
   PrescriptionLine,
   prescriptionLineErrors,
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   withDirections,
+  withDrug,
   withProduct,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -69,44 +69,27 @@ describe('prescriptionLineErrors', () => {
   });
 });
 
-describe('ageAtVisit', () => {
-  it('counts whole years from the date of birth to the visit', () => {
-    expect(ageAtVisit('2017-10-23', '2026-10-22T14:00:00.000Z')).toBe(8);
-    expect(ageAtVisit('2017-10-22', '2026-10-22T14:00:00.000Z')).toBe(9);
-    expect(ageAtVisit(undefined, '2026-10-22')).toBeUndefined();
-  });
-});
-
-describe('defaultStrength', () => {
-  it('starts a child under 9 on the first liquid and anyone else on the first solid', () => {
-    expect(defaultStrength(AMOXICILLIN, 8).strength).toBe('250 mg/5ml Susp');
-    expect(defaultStrength(AMOXICILLIN, 9).strength).toBe('250 mg Cap');
-    expect(defaultStrength(AMOXICILLIN, undefined).strength).toBe('250 mg Cap');
-  });
-
-  it('falls back to the first strength when the drug has no such form', () => {
-    expect(defaultStrength(MUPIROCIN, 3).strength).toBe('2% Ointment');
-  });
-
-  it('starts on an immediate-release strength before a delayed- or extended-release one', () => {
-    const prednisone = {
-      name: 'predniSONE',
-      strengths: ['1 mg DR Tab', '1 mg Tab', '2 mg DR Tab', '5 mg Tab'].map((strength, i) => ({
-        strength,
-        ndcs: [`0000000000${i}`],
-      })),
-    };
-    expect(defaultStrength(prednisone, 30).strength).toBe('1 mg Tab');
-    const onlyDelayed = { name: 'Pantoprazole', strengths: [{ strength: '40 mg DR Tab', ndcs: ['00000000009'] }] };
-    expect(defaultStrength(onlyDelayed, 30).strength).toBe('40 mg DR Tab');
-    const extended = {
-      name: 'Guaifenesin',
-      strengths: [
-        { strength: '600 mg ER Tab', ndcs: ['00000000011'] },
-        { strength: '400 mg Tab', ndcs: ['00000000012'] },
-      ],
-    };
-    expect(defaultStrength(extended, 30).strength).toBe('400 mg Tab');
+describe('withDrug', () => {
+  it('leaves the strength to the provider and drops what was written for the product before', () => {
+    const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
+      dose: '5',
+      frequency: 'twice daily',
+    });
+    const picked = withDrug(liquid, MUPIROCIN);
+    expect(picked).toMatchObject({
+      drug: MUPIROCIN,
+      medication: null,
+      dose: '',
+      frequency: '',
+      patientInstructions: '',
+    });
+    expect(pickedStrength(picked)).toBeUndefined();
+    expect(prescriptionLineErrors(picked)).toContain('Pick a strength');
+    expect(prescriptionLineErrors(picked)).not.toContain('Pick a medication');
+    // The strength picked next names the product.
+    expect(withProduct(picked, MUPIROCIN, MUPIROCIN.strengths[0]).medication?.description).toBe(
+      'Mupirocin (Topical) 2% Ointment'
+    );
   });
 });
 

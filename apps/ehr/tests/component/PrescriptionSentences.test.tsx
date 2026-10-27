@@ -53,14 +53,12 @@ const Harness = ({
   initial,
   onRemove,
   onSaveQuickPick,
-  patientAgeYears,
   visitDiagnoses = [],
   weight,
 }: {
   initial: PrescriptionLine;
   onRemove?: () => void;
   onSaveQuickPick?: () => void;
-  patientAgeYears?: number;
   visitDiagnoses?: { code: string; display: string }[];
   weight?: VisitWeight;
 }): JSX.Element => {
@@ -75,7 +73,6 @@ const Harness = ({
       onQuickPick={() => undefined}
       onSaveQuickPick={onSaveQuickPick}
       visitDiagnoses={visitDiagnoses}
-      patientAgeYears={patientAgeYears}
       weight={weight}
       errors={[]}
       readOnly={false}
@@ -130,10 +127,17 @@ const DIAGNOSIS_ROW: PrescriptionSuggestionRow = {
   fill: () => FIELDS,
 };
 
-const pickAmoxicillin = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+const pickDrug = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   await user.click(screen.getByRole('button', { name: 'medication (empty)' }));
   await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
   await user.click(screen.getByRole('option', { name: 'Amoxicillin' }));
+};
+
+/** Picks the drug, then a strength: the provider picks both. */
+const pickAmoxicillin = async (user: ReturnType<typeof userEvent.setup>, strength = '250 mg Cap'): Promise<void> => {
+  await pickDrug(user);
+  await user.click(screen.getByRole('button', { name: 'strength (empty)' }));
+  await user.click(screen.getByRole('option', { name: strength }));
 };
 
 /** Picks the suggestions' last row, "Other", which shows the line's blanks empty. */
@@ -186,25 +190,40 @@ describe('PrescriptionSentences', () => {
     expect(quickPick.compareDocumentPosition(medication) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('shows the drug once, starting a young child on the liquid and anyone else on the solid', async () => {
-    const user = userEvent.setup();
-    const { unmount } = render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={8} />);
-    await pickAmoxicillin(user);
-    expect(screen.getByRole('button', { name: 'medication: Amoxicillin' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'strength: 250 mg/5ml Susp' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'unit: milliliters' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'route: by mouth' })).toBeInTheDocument();
-    unmount();
+  it(
+    'leaves the strength for the provider to pick; the suggestions and the line wait for it',
+    withRows([DOSED_ROW], async () => {
+      const user = userEvent.setup();
+      render(<Harness initial={emptyPrescriptionLine()} />);
+      await pickDrug(user);
+      expect(screen.getByRole('button', { name: 'medication: Amoxicillin' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'strength (empty)' })).toBeInTheDocument();
+      expect(screen.queryByText('Suggested prescriptions')).not.toBeInTheDocument();
+      expect(directionsShown()).toBe(false);
 
-    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={9} />);
-    await pickAmoxicillin(user);
-    expect(screen.getByRole('button', { name: 'strength: 250 mg Cap' })).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'strength (empty)' }));
+      await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
+      expect(screen.getByText('Suggested prescriptions')).toBeInTheDocument();
+      await pickOther(user);
+      expect(screen.getByRole('button', { name: 'unit: milliliters' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'route: by mouth' })).toBeInTheDocument();
+    })
+  );
+
+  it('opens a no-suggestion line only once the strength is picked', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} />);
+    await pickDrug(user);
+    expect(directionsShown()).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'strength (empty)' }));
+    await user.click(screen.getByRole('option', { name: '250 mg Cap' }));
+    expect(directionsShown()).toBe(true);
     expect(screen.getByRole('button', { name: 'unit: capsules' })).toBeInTheDocument();
   });
 
   it('writes the directions and dispense details from the blanks, but never over typed directions', async () => {
     const user = userEvent.setup();
-    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    render(<Harness initial={emptyPrescriptionLine()} />);
     await pickAmoxicillin(user);
     await user.click(screen.getByRole('button', { name: 'strength: 250 mg Cap' }));
     await user.click(screen.getByRole('option', { name: '875 mg Tab' }));
@@ -228,7 +247,7 @@ describe('PrescriptionSentences', () => {
 
   it('adds a "then" step whose blanks join the directions and the quantity, until it is removed', async () => {
     const user = userEvent.setup();
-    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    render(<Harness initial={emptyPrescriptionLine()} />);
     await pickAmoxicillin(user);
     await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '2');
     await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
@@ -271,7 +290,7 @@ describe('PrescriptionSentences', () => {
 
   it('reads "as directed" without a dose and leaves the quantity to the provider', async () => {
     const user = userEvent.setup();
-    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    render(<Harness initial={emptyPrescriptionLine()} />);
     await pickAmoxicillin(user);
     await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
     await user.click(screen.getByRole('option', { name: 'as directed' }));
@@ -281,7 +300,7 @@ describe('PrescriptionSentences', () => {
 
   it('offers instructions as a link, appends what is typed, and clears them with a way back', async () => {
     const user = userEvent.setup();
-    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    render(<Harness initial={emptyPrescriptionLine()} />);
     await pickAmoxicillin(user);
     await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '1');
     expect(screen.queryByRole('textbox', { name: 'instructions' })).not.toBeInTheDocument();
@@ -358,7 +377,7 @@ describe('PrescriptionSentences', () => {
 describe('PrescriptionSentences: suggestions first', () => {
   it('opens a medication with no suggestions straight away: no box, no "Other"', async () => {
     const user = userEvent.setup();
-    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    render(<Harness initial={emptyPrescriptionLine()} />);
     await pickAmoxicillin(user);
     expect(screen.queryByText('Suggested prescriptions')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Write my own' })).not.toBeInTheDocument();
@@ -430,7 +449,7 @@ describe('PrescriptionSentences: suggestions first', () => {
     'hides the line again when the strength or the medication changes',
     withRows([DOSED_ROW], async () => {
       const user = userEvent.setup();
-      render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+      render(<Harness initial={emptyPrescriptionLine()} />);
       await pickAmoxicillin(user);
       expect(directionsShown()).toBe(false);
       await pickOther(user);
@@ -442,7 +461,8 @@ describe('PrescriptionSentences: suggestions first', () => {
       await user.click(screen.getByRole('button', { name: 'medication: Amoxicillin' }));
       await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
       await user.click(screen.getByRole('option', { name: 'Amoxicillin' }));
-      expect(screen.getByRole('button', { name: 'strength: 250 mg Cap' })).toBeInTheDocument();
+      // Picking the drug again starts its strength over too.
+      expect(screen.getByRole('button', { name: 'strength (empty)' })).toBeInTheDocument();
       expect(directionsShown()).toBe(false);
     })
   );
@@ -526,7 +546,7 @@ describe('PrescriptionSentences: the dose', () => {
   it('is a normal blank with a calculator icon after it, which opens the calculator under the line only when clicked', async () => {
     const user = userEvent.setup();
     const weight: VisitWeight = { kg: 28.12, takenAt: '2026-10-08T14:00:00Z', thisVisit: true };
-    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} weight={weight} />);
+    render(<Harness initial={emptyPrescriptionLine()} weight={weight} />);
     await pickAmoxicillin(user);
     const dose = screen.getByRole('spinbutton', { name: 'dose' });
     const icon = screen.getByRole('button', { name: 'Dose calculator' });
@@ -551,7 +571,7 @@ describe('PrescriptionSentences: the dose', () => {
 
   it('keeps the nearest measurable dose on a new strength, with how far it is off behind the ⓘ', async () => {
     const user = userEvent.setup();
-    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    render(<Harness initial={emptyPrescriptionLine()} />);
     await pickAmoxicillin(user);
     await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '3');
     expect(screen.queryByRole('img', { name: 'dose re-measured' })).not.toBeInTheDocument();

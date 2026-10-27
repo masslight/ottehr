@@ -117,32 +117,9 @@ const wholeAgeAt = (
   return Math.floor(visit.diff(birth, unit).get(unit));
 };
 
-/** Whole years old at the visit; unknown without a date of birth. */
-export const ageAtVisit = (birthDate: string | undefined, visitDate: string | undefined): number | undefined =>
-  wholeAgeAt(birthDate, visitDate, 'years');
-
 /** Whole months old at the visit. */
 export const ageMonthsAtVisit = (birthDate: string | undefined, visitDate: string | undefined): number | undefined =>
   wholeAgeAt(birthDate, visitDate, 'months');
-
-/** Children under this age get a liquid by default; everyone else a tablet or capsule. */
-const LIQUID_UNTIL_AGE = 9;
-
-/** A name that says delayed or extended release ("DR Tab", "ER", "24 HR"). */
-const MODIFIED_RELEASE = /\b(extended|er|xr|xl|sr|12 hr|24 hr|delayed|dr|ec|enteric)\b/i;
-
-/** The strength to start a drug on: a liquid for a young child, otherwise a solid, or failing either the first; an
- * immediate-release one before a delayed- or extended-release one. */
-export const defaultStrength = (drug: MedicationSearchDrug, ageYears: number | undefined): MedicationStrength => {
-  const wanted = ageYears !== undefined && ageYears < LIQUID_UNTIL_AGE ? ['liquid'] : ['tablet', 'capsule'];
-  const immediate = drug.strengths.filter((strength) => !MODIFIED_RELEASE.test(`${drug.name} ${strength.strength}`));
-  const inForm = (strengths: MedicationStrength[]): MedicationStrength | undefined =>
-    strengths.find((strength) => {
-      const form = prescriptionDoseForm(`${drug.name} ${strength.strength}`);
-      return form !== undefined && wanted.includes(form);
-    });
-  return inForm(immediate) ?? inForm(drug.strengths) ?? immediate[0] ?? drug.strengths[0];
-};
 
 /** The strength the line's medication is, among its drug's. */
 export const pickedStrength = (line: Pick<PrescriptionLine, 'drug' | 'medication'>): MedicationStrength | undefined =>
@@ -217,6 +194,22 @@ const withoutQuickPick = (line: PrescriptionLine): Partial<PrescriptionLine> => 
     quickPicked: null,
   };
 };
+
+/** The line on a drug picked from the search, before its strength: the strength is the provider's to pick (none is
+ * chosen for them), and nothing written for the product before carries over. */
+export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): PrescriptionLine =>
+  withDirections(
+    {
+      ...line,
+      drug,
+      medication: null,
+      ...NO_DIRECTIONS,
+      patientInstructions: '',
+      ...withoutQuickPick(line),
+      doseNotes: undefined,
+    },
+    {}
+  );
 
 /** The line on one strength of a drug: the unit and route follow the product when its name makes them obvious.
  * Directions written for another drug don't carry over; a strength change keeps the picks, with the doses
@@ -312,9 +305,15 @@ const PrescriptionLineSchema = z.object({
 /** Every problem with the line, in sentence order; empty when it can be sent. */
 export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
   const result = PrescriptionLineSchema.safeParse(line);
+  // A drug with no strength yet is asked for its strength, before any pick among suggestions it can't have yet.
+  const noStrength = line.drug !== null && line.medication === null;
   return [
-    ...(line.awaitingPick ? ['Pick a suggestion or Write my own'] : []),
-    ...(result.success ? [] : new Set(result.error.issues.map((issue) => issue.message))),
+    ...(noStrength ? ['Pick a strength'] : line.awaitingPick ? ['Pick a suggestion or Write my own'] : []),
+    ...(result.success
+      ? []
+      : new Set(
+          result.error.issues.map((issue) => issue.message).filter((m) => !(noStrength && m === 'Pick a medication'))
+        )),
   ];
 };
 
