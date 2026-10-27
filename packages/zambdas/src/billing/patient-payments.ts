@@ -484,6 +484,19 @@ export const getPaymentNoticeForTask = async (params: {
   clinicalOystehr: Oystehr;
   billingOystehr: Oystehr;
   paymentNoticeId: string;
-}): Promise<PaymentNotice | undefined> =>
-  (await getPaymentNoticeIfVisible(params.billingOystehr, params.paymentNoticeId)) ??
-  (await getPaymentNoticeIfVisible(params.clinicalOystehr, params.paymentNoticeId));
+}): Promise<PaymentNotice | undefined> => {
+  const { clinicalOystehr, billingOystehr, paymentNoticeId } = params;
+  const billingNotice = await getPaymentNoticeIfVisible(billingOystehr, paymentNoticeId);
+  if (billingNotice) return billingNotice;
+
+  const legacyNotice = await getPaymentNoticeIfVisible(clinicalOystehr, paymentNoticeId);
+  if (!legacyNotice) return undefined;
+
+  const counterparts = await fetchPaymentNoticeCounterparts({
+    clinicalOystehr,
+    billingOystehr,
+    billingNotices: [],
+    legacyNotices: [legacyNotice],
+  });
+  return mergeBillingAndLegacyPaymentNotices(counterparts.billing, [legacyNotice])[0];
+};
