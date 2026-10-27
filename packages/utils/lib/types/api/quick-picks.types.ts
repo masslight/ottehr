@@ -163,6 +163,13 @@ export interface PrescriptionQuickPickDosing {
   maxPerDayMg?: number;
 }
 
+/** Where a quick pick's dosing comes from (a starter set's guideline): shown behind its ⓘ, as a link with a URL. */
+export interface PrescriptionQuickPickSource {
+  label: string;
+  /** https only. */
+  url?: string;
+}
+
 /** A whole prescription: the medication with its dispense details and directions. The diagnosis and pharmacy
  * are encounter-specific and never saved. */
 export interface PrescriptionQuickPickData {
@@ -179,6 +186,7 @@ export interface PrescriptionQuickPickData {
   noteToPharmacy?: string;
   /** Only when the dose came from the calculator's "Use this dose". */
   dosing?: PrescriptionQuickPickDosing;
+  source?: PrescriptionQuickPickSource;
 }
 
 export type CreatePrescriptionQuickPickInput = QuickPickCreateInput<PrescriptionQuickPickData>;

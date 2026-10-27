@@ -60,6 +60,7 @@ describe('plainDose', () => {
       amountText: '6 mL',
       working: '28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose → 6 mL = 480 mg',
       roundingNote: '6 mL = 480 mg, 20 mg (4%) under 500 mg (rounded down to stay at or under the max 500 mg per dose)',
+      capNote: 'Capped at the 500 mg maximum (703 mg by weight)',
     });
   });
 
@@ -79,6 +80,13 @@ describe('plainDose', () => {
       '28.12 kg × 90 mg/kg/day ÷ 2 = 1265.4 mg → capped at 1000 mg per day (500 mg per dose at 2 a day) → 2 capsules = 500 mg'
     );
     expect(dose?.roundingNote).toBeUndefined();
+    expect(dose?.capNote).toBe('Capped at the 1,000 mg a day maximum (2,530.8 mg a day by weight)');
+  });
+
+  it('says a dose not by weight was capped as entered', () => {
+    const dose = plainDose({ mgPerMeasure: 250, measure: 'capsule', basis: 'fixed', rate: 750, maxPerDoseMg: 500 });
+    expect(dose?.amountText).toBe('2 capsules');
+    expect(dose?.capNote).toBe('Capped at the 500 mg maximum (750 mg as entered)');
   });
 
   it('measures down when the nearest amount would go over a maximum the worked-out dose is under', () => {
@@ -89,6 +97,8 @@ describe('plainDose', () => {
     expect(dose?.roundingNote).toBe(
       '1 tablet = 300 mg, 170 mg (36%) under 470 mg (rounded down to stay at or under the max 500 mg per dose)'
     );
+    // Rounded down, but not capped: the dose worked out was under the maximum.
+    expect(dose?.capNote).toBeUndefined();
   });
 
   it('leaves a dose under its maximum as it is, and waits for the doses a day a per-day maximum needs', () => {

@@ -40,7 +40,13 @@ export interface PlainDose {
   working: string;
   /** "3 capsules = 750 mg, 47 mg (7%) over 703 mg"; none when the measured dose is the one worked out. */
   roundingNote?: string;
+  /** Shown under the result when a maximum stopped the dose: "Capped at the 500 mg maximum (703 mg by weight)". */
+  capNote?: string;
 }
+
+/** "1,920 mg": mg as the warnings read them, to 0.01 mg with thousands separators. */
+export const mgText = (mg: number): string =>
+  `${roundNumberToDecimalPlaces(mg, 2).toLocaleString('en-US', { maximumFractionDigits: 2 })} mg`;
 
 const num = (value: number): string => String(roundNumberToDecimalPlaces(value, 2));
 
@@ -68,16 +74,17 @@ const doseCap = (
   maxPerDoseMg: number | undefined,
   maxPerDayMg: number | undefined,
   dosesPerDay: number | undefined
-): { mg: number; text: string } | undefined => {
+): { mg: number; text: string; perDay: boolean } | undefined => {
   const perDay = maxPerDayMg && dosesPerDay ? roundNumberToDecimalPlaces(maxPerDayMg / dosesPerDay, 2) : undefined;
   if (maxPerDoseMg && (perDay === undefined || maxPerDoseMg <= perDay)) {
-    return { mg: maxPerDoseMg, text: `${num(maxPerDoseMg)} mg per dose` };
+    return { mg: maxPerDoseMg, text: `${num(maxPerDoseMg)} mg per dose`, perDay: false };
   }
   return perDay === undefined || !maxPerDayMg
     ? undefined
     : {
         mg: perDay,
         text: `${num(maxPerDayMg)} mg per day (${num(perDay)} mg per dose at ${num(dosesPerDay ?? 1)} a day)`,
+        perDay: true,
       };
 };
 
@@ -121,6 +128,12 @@ export const plainDose = ({
       : `${num(kg)} kg × ${num(rate)} mg/kg/day ÷ ${num(dosesPerDay ?? 1)} = ${num(worked)} mg`;
   const note = doseRoundingNote(amountText, delivered, aimed);
   const capText = cap?.text ?? '';
+  const how = basis === 'fixed' ? 'as entered' : 'by weight';
+  const capNote = !capped
+    ? undefined
+    : cap?.perDay
+    ? `Capped at the ${mgText(maxPerDayMg ?? 0)} a day maximum (${mgText(worked * (dosesPerDay ?? 1))} a day ${how})`
+    : `Capped at the ${mgText(capMg)} maximum (${mgText(worked)} ${how})`;
   return {
     amount,
     amountText,
@@ -129,5 +142,6 @@ export const plainDose = ({
       note && roundedDown && delivered <= capMg
         ? `${note} (rounded down to stay at or under the max ${capText})`
         : note,
+    ...(capNote ? { capNote } : {}),
   };
 };

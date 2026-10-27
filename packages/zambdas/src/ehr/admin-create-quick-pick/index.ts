@@ -95,6 +95,16 @@ const prescriptionDosingSchema = z
     path: ['dosesPerDay'],
   });
 
+// Where the pick's dosing is from, shown as a link: https only, so a saved link never opens anything else.
+const prescriptionSourceSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  url: z
+    .string()
+    .url()
+    .refine((url) => url.startsWith('https://'), 'must be an https link')
+    .optional(),
+});
+
 // Same limits as the eRx order form, so a saved pick always fits the order endpoint.
 const prescriptionQuickPickSchema = z
   .object({
@@ -111,6 +121,7 @@ const prescriptionQuickPickSchema = z
     patientInstructions: z.string().max(1000).optional(),
     noteToPharmacy: z.string().max(210).optional(),
     dosing: prescriptionDosingSchema.optional(),
+    source: prescriptionSourceSchema.optional(),
   })
   .passthrough();
 

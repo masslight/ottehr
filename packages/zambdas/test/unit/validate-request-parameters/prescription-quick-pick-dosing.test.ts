@@ -96,7 +96,50 @@ describe.each([
   });
 });
 
+const SOURCE = { label: 'AAP Red Book 2024–2027, amoxicillin', url: 'https://publications.aap.org/redbook' };
+
+describe.each([
+  ['admin-create-quick-pick', validateCreate],
+  ['admin-update-quick-pick', validateUpdate],
+])('%s - prescription source', (_endpoint, validate) => {
+  test('accepts a source with a label and an https link', async () => {
+    await expect(validate({ ...AMOX_STREP, source: SOURCE })).resolves.toBeUndefined();
+  });
+
+  test('accepts a source with only a label, and a label of 200 characters', async () => {
+    await expect(validate({ ...AMOX_STREP, source: { label: 'IDSA' } })).resolves.toBeUndefined();
+    await expect(validate({ ...AMOX_STREP, source: { label: 'x'.repeat(200) } })).resolves.toBeUndefined();
+  });
+
+  test.each([
+    ['no label', { url: SOURCE.url }],
+    ['an empty label', { label: '  ' }],
+    ['a label over 200 characters', { label: 'x'.repeat(201) }],
+    ['an http link', { label: 'AAP', url: 'http://publications.aap.org/redbook' }],
+    ['a javascript link', { label: 'AAP', url: 'javascript:alert(1)' }],
+    ['a link that is not a URL', { label: 'AAP', url: 'publications.aap.org' }],
+    ['a source that is not an object', 'AAP Red Book'],
+  ])('rejects %s', async (_label, source) => {
+    const error = await rejection(validate({ ...AMOX_STREP, source }));
+    expect(error, 'expected the request to be rejected').toBeDefined();
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+  });
+});
+
 describe('prescription quick pick dosing - stored config round trip', () => {
+  test('stores the source in the config extension and loads it back', () => {
+    const withSource = { ...AMOX_STREP, source: SOURCE };
+    const ad = quickPickToActivityDefinition(withSource, PRESCRIPTION_QUICK_PICK_CATEGORY);
+    const stored = JSON.parse(
+      ad.extension?.find((extension) => extension.url === QUICK_PICK_CONFIG_EXTENSION_URL)?.valueString ?? '{}'
+    );
+    expect(stored.source).toEqual(SOURCE);
+    expect(activityDefinitionToQuickPick({ ...ad, id: 'qp-3' }, PRESCRIPTION_QUICK_PICK_CATEGORY)).toEqual({
+      id: 'qp-3',
+      ...withSource,
+    });
+  });
+
   test('stores the dosing block in the config extension and loads it back', () => {
     const ad = quickPickToActivityDefinition(AMOX_STREP, PRESCRIPTION_QUICK_PICK_CATEGORY);
     const stored = JSON.parse(
