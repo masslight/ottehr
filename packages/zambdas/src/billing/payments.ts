@@ -13,9 +13,9 @@ import {
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
 import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
@@ -52,7 +52,7 @@ interface PaymentNoticeIdentifier {
 }
 
 export const paymentNoticeClaimId = (notice: PaymentNotice): string | undefined =>
-  removePrefix('Claim/', notice.request?.reference ?? '');
+  getIdFromReference(notice.request?.reference, 'Claim');
 
 // Without a claim, the entry targets only the notice until reconcilePaymentNoticesForClaim links it
 export function paymentNoticeHistoryRequest({
