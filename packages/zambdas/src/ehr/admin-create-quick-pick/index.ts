@@ -8,7 +8,10 @@ import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/s
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import { Secrets } from 'utils/lib/secrets';
 import { QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
-import { PRESCRIPTION_SET_STATUSES } from 'utils/lib/types/api/quick-picks.types';
+import {
+  PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX,
+  PRESCRIPTION_SET_STATUSES,
+} from 'utils/lib/types/api/quick-picks.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -154,6 +157,7 @@ const prescriptionQuickPickSchema = z
     patientInstructions: z.string().max(1000).optional(),
     noteToPharmacy: z.string().max(210).optional(),
     dosing: prescriptionDosingSchema.optional(),
+    additionalInstructions: z.string().max(PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX).optional(),
     source: prescriptionSourceSchema.optional(),
   })
   .passthrough();

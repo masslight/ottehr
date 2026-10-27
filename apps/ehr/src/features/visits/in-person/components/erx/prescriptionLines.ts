@@ -80,7 +80,16 @@ export interface PrescriptionLine extends PrescriptionDirections {
   /** The ingredient of a combination product the calculator dosed by, for its re-dosing and the maximum warnings.
    * Never saved with a quick pick; goes with the dosing's maximum, the drug or strength. */
   doseBy?: string;
+  /** A dosed quick pick's text written after the blanks' sentence ("Shake well. Take with food."), which the line
+   * shows to edit or remove. It outlives re-dosing and a new strength; goes with the drug or another quick pick. */
+  additionalInstructions?: string;
 }
+
+/** The blanks' directions sentence with the additional instructions after it. */
+export const withAdditionalInstructions = (directions: string, additional: string | undefined): string => {
+  const extra = additional?.trim();
+  return !extra ? directions : directions ? `${directions} ${extra}` : extra;
+};
 
 /** Where a line's maximum came from: the dose calculator, or a quick pick by name (with its source, if it has one). */
 export type MaximumOrigin = 'calculator' | { quickPick: string; source?: PrescriptionQuickPickSource };
@@ -221,9 +230,15 @@ const follows = (current: string, generated: string): boolean => current.trim() 
 
 /** The line with a dose, route, frequency or duration changed: the directions, quantity and days supply follow,
  * except where the provider typed something of their own, which stays. */
-export const withDirections = (line: PrescriptionLine, patch: Partial<PrescriptionDirections>): PrescriptionLine => {
+export const withDirections = (
+  line: PrescriptionLine,
+  patch: Partial<PrescriptionDirections & Pick<PrescriptionLine, 'additionalInstructions'>>
+): PrescriptionLine => {
   const next = { ...line, ...patch };
-  const patientInstructions = prescriptionDirectionsText(next.medication, next);
+  const patientInstructions = withAdditionalInstructions(
+    prescriptionDirectionsText(next.medication, next),
+    next.additionalInstructions
+  );
   const { quantityValue, daysSupply } = prescriptionDispense(next.medication, next);
   return {
     ...next,
@@ -396,6 +411,7 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
       dosing: undefined,
       maximum: undefined,
       doseBy: undefined,
+      additionalInstructions: undefined,
     },
     {}
   );
@@ -438,7 +454,7 @@ export const withProduct = (
     medication,
     quantityUnit: prescriptionQuantityUnit(medication) ?? line.quantityUnit,
     route: prescriptionRoute(medication) ?? line.route,
-    ...(otherDrug ? NO_DIRECTIONS : {}),
+    ...(otherDrug ? { ...NO_DIRECTIONS, additionalInstructions: undefined } : {}),
     ...(changed
       ? {
           patientInstructions: '',
@@ -574,7 +590,12 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     // Directions go with ASCII fractions ("1/2 tablet"): the blanks' written so, typed or quick-pick
     // ones converted; the screen keeps "½".
     patientInstructions: (line.patientInstructions === line.generated.patientInstructions
-      ? prescriptionDirectionsText(line.medication, line, { ascii: true })
+      ? asciiFractions(
+          withAdditionalInstructions(
+            prescriptionDirectionsText(line.medication, line, { ascii: true }),
+            line.additionalInstructions
+          )
+        )
       : asciiFractions(line.patientInstructions)
     ).trim(),
     ...(line.noteToPharmacy.trim() ? { noteToPharmacy: line.noteToPharmacy.trim() } : {}),
@@ -619,6 +640,8 @@ export const applyPrescriptionQuickPick = (
     dosing: undefined,
     maximum: undefined,
     doseBy: undefined,
+    // Written after the sentence its dosing re-doses; one as written has it all in its directions.
+    additionalInstructions: quickPick.dosing ? quickPick.additionalInstructions : undefined,
   };
   return {
     ...applied,
@@ -659,6 +682,7 @@ export const prescriptionLineToQuickPick = (
             ? { durationDays: numberOrUndefined(line.durationDays) }
             : {}),
         },
+        ...(line.additionalInstructions?.trim() ? { additionalInstructions: line.additionalInstructions.trim() } : {}),
       }
     : {}),
 });

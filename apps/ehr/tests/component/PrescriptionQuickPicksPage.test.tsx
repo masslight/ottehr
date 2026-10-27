@@ -124,6 +124,7 @@ describe('Prescription quick picks admin', () => {
     expect(within(dialog).getByLabelText('Doses a day')).toHaveValue(2);
     await user.type(within(dialog).getByLabelText('Duration (days)'), '10');
     await user.type(within(dialog).getByLabelText('Max per day (mg)'), '4000');
+    await user.type(within(dialog).getByLabelText(/^Additional instructions/), 'Shake well. Take with food.');
     await user.type(within(dialog).getByLabelText('Source (optional)'), 'AAP');
     await user.type(within(dialog).getByLabelText('Source link (optional)'), 'https://example.org/aap');
     await user.click(within(dialog).getByRole('button', { name: 'Add' }));
@@ -144,6 +145,7 @@ describe('Prescription quick picks admin', () => {
           durationDays: 10,
           maxPerDayMg: 4000,
         },
+        additionalInstructions: 'Shake well. Take with food.',
         numberOfRefills: 0,
         substitutionAllowed: true,
         source: { label: 'AAP', url: 'https://example.org/aap' },
@@ -159,6 +161,8 @@ describe('Prescription quick picks admin', () => {
     await user.click(within(row).getByTitle('Edit'));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Product: Amoxicillin 250 mg Cap')).toBeInTheDocument();
+    // Additional instructions are for a dose the order form works out; as written, the directions say it all.
+    expect(within(dialog).queryByLabelText(/^Additional instructions/)).not.toBeInTheDocument();
     const quantity = within(dialog).getByLabelText('Quantity');
     await user.clear(quantity);
     await user.type(quantity, '21');
@@ -320,6 +324,22 @@ describe('prescriptionQuickPickFromForm: the product’s details', () => {
     };
     expect(resaved).not.toHaveProperty('doseForm');
     expect(resaved).not.toHaveProperty('ingredients');
+  });
+});
+
+describe('prescriptionQuickPickFromForm: additional instructions', () => {
+  it('keeps them with dosing, up to 500 characters, and drops them as written', () => {
+    const saved = { ...BY_WEIGHT, additionalInstructions: 'Shake well.' };
+    const values = prescriptionQuickPickFormValues(saved);
+    expect(values.additionalInstructions).toBe('Shake well.');
+    expect(prescriptionQuickPickFromForm(values)).toMatchObject({
+      quickPick: { additionalInstructions: 'Shake well.' },
+    });
+    const { quickPick } = prescriptionQuickPickFromForm({ ...values, doseMode: 'as-written' }) as { quickPick: object };
+    expect(quickPick).not.toHaveProperty('additionalInstructions');
+    expect(prescriptionQuickPickFromForm({ ...values, additionalInstructions: 'x'.repeat(501) }).errors).toEqual({
+      additionalInstructions: 'Additional instructions must be up to 500 characters',
+    });
   });
 });
 

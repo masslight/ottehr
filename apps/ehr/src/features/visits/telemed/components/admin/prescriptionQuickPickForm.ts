@@ -5,7 +5,10 @@ import {
 } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { MedicationProductDetails } from 'utils/lib/types/api/erx-search.types';
 import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
-import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import {
+  PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX,
+  PrescriptionQuickPickData,
+} from 'utils/lib/types/api/quick-picks.types';
 import { z } from 'zod';
 import { productDetailsOf } from '../../../in-person/components/erx/prescriptionLines';
 
@@ -32,6 +35,8 @@ export interface PrescriptionQuickPickFormValues {
   durationDays: string;
   maxPerDoseMg: string;
   maxPerDayMg: string;
+  /** With dosing only: after the calculated directions. */
+  additionalInstructions: string;
   numberOfRefills: string;
   substitutionAllowed: boolean;
   noteToPharmacy: string;
@@ -67,6 +72,7 @@ export const emptyPrescriptionQuickPickForm = (): PrescriptionQuickPickFormValue
   durationDays: '',
   maxPerDoseMg: '',
   maxPerDayMg: '',
+  additionalInstructions: '',
   numberOfRefills: '0',
   substitutionAllowed: true,
   noteToPharmacy: '',
@@ -98,6 +104,7 @@ export const prescriptionQuickPickFormValues = (
           durationDays: text(dosing.durationDays),
           maxPerDoseMg: text(dosing.maxPerDoseMg),
           maxPerDayMg: text(dosing.maxPerDayMg),
+          additionalInstructions: quickPick.additionalInstructions ?? '',
         }
       : {}),
     numberOfRefills: text(quickPick.numberOfRefills ?? 0),
@@ -146,6 +153,13 @@ const FormSchema = z
     durationDays: wholeNumber('Duration', 1, 999),
     maxPerDoseMg: positive('Maximum per dose'),
     maxPerDayMg: positive('Maximum per day'),
+    additionalInstructions: z
+      .string()
+      .trim()
+      .max(
+        PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX,
+        `Additional instructions must be up to ${PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX} characters`
+      ),
     numberOfRefills: z
       .string()
       .refine(
@@ -191,7 +205,16 @@ export const prescriptionQuickPickFromForm = (
   const values: PrescriptionQuickPickFormValues =
     input.doseMode === 'dosing'
       ? { ...input, patientInstructions: '', quantityValue: '', quantityUnit: '', daysSupply: '' }
-      : { ...input, rate: '', frequency: '', dosesPerDay: '', durationDays: '', maxPerDoseMg: '', maxPerDayMg: '' };
+      : {
+          ...input,
+          rate: '',
+          frequency: '',
+          dosesPerDay: '',
+          durationDays: '',
+          maxPerDoseMg: '',
+          maxPerDayMg: '',
+          additionalInstructions: '',
+        };
   const result = FormSchema.safeParse(values);
   if (!result.success) {
     const errors: PrescriptionQuickPickFormErrors = {};
@@ -225,6 +248,7 @@ export const prescriptionQuickPickFromForm = (
               ...(maxPerDoseMg !== undefined ? { maxPerDoseMg } : {}),
               ...(maxPerDayMg !== undefined ? { maxPerDayMg } : {}),
             },
+            ...(v.additionalInstructions.trim() ? { additionalInstructions: v.additionalInstructions.trim() } : {}),
           }
         : {
             ...(v.patientInstructions.trim() ? { patientInstructions: v.patientInstructions.trim() } : {}),

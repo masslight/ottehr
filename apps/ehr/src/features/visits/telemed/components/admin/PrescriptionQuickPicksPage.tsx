@@ -42,7 +42,10 @@ import { DOSE_BASES, DoseBasis } from 'utils/lib/helpers/medications/plain-dose'
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { MedicationSearchDrug } from 'utils/lib/types/api/erx-search.types';
 import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
-import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import {
+  PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX,
+  PrescriptionQuickPickData,
+} from 'utils/lib/types/api/quick-picks.types';
 import {
   usePrescriptionQuickPicksQuery,
   usePrescriptionSetQuickPicksQuery,
@@ -391,6 +394,14 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                   {field('maxPerDoseMg', 'Max per dose (mg)', { type: 'number' })}
                   {field('maxPerDayMg', 'Max per day (mg)', { type: 'number' })}
                 </Stack>
+                {/* Written after the calculated directions on the order form. */}
+                {field('additionalInstructions', 'Additional instructions (optional)', {
+                  multiline: true,
+                  rows: 2,
+                  placeholder: 'e.g. Shake well. Take with food.',
+                  inputProps: { maxLength: PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX },
+                  helperText: `${values.additionalInstructions.length} / ${PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX}`,
+                })}
               </>
             )}
 

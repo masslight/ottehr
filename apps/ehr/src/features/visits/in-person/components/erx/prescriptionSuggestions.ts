@@ -39,6 +39,7 @@ import {
   NO_DETAILS_MESSAGE,
   PrescriptionLine,
   quickPickProduct,
+  withAdditionalInstructions,
   withSuggestion,
 } from './prescriptionLines';
 
@@ -221,7 +222,10 @@ const dosedRow = (
       ...prescriptionDispense(medication, directions),
       quantityUnit: quickPick.quantityUnit ?? prescriptionQuantityUnit(medication) ?? '',
       numberOfRefills: String(quickPick.numberOfRefills ?? 0),
-      patientInstructions: prescriptionDirectionsText(medication, directions),
+      patientInstructions: withAdditionalInstructions(
+        prescriptionDirectionsText(medication, directions),
+        quickPick.additionalInstructions
+      ),
     };
   };
   return {

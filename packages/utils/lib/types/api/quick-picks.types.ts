@@ -171,6 +171,10 @@ export interface PrescriptionQuickPickSource {
   url?: string;
 }
 
+/** The most an additional instructions text may be: with the calculated sentence it stays within the order's 1000
+ * characters of directions. */
+export const PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX = 500;
+
 /** A whole prescription: the medication with its dispense details and directions. The diagnosis and pharmacy
  * are encounter-specific and never saved. The product's RxCUI, dose form and ingredients are kept from the picked
  * strength; one saved before them has none. */
@@ -188,6 +192,9 @@ export interface PrescriptionQuickPickData extends MedicationProductDetails {
   noteToPharmacy?: string;
   /** Only when the dose came from the calculator's "Use this dose". */
   dosing?: PrescriptionQuickPickDosing;
+  /** With dosing only: written after the calculated directions ("Shake well. Take with food."), up to
+   * `PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX` characters so the whole sig fits the order's 1000. */
+  additionalInstructions?: string;
   source?: PrescriptionQuickPickSource;
 }
 

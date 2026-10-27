@@ -140,6 +140,27 @@ describe.each([
   });
 });
 
+describe.each([
+  ['admin-create-quick-pick', validateCreate],
+  ['admin-update-quick-pick', validateUpdate],
+])('%s - prescription additional instructions', (_endpoint, validate) => {
+  test('accepts additional instructions up to 500 characters', async () => {
+    await expect(
+      validate({ ...AMOX_STREP, additionalInstructions: 'Shake well. Take with food.' })
+    ).resolves.toBeUndefined();
+    await expect(validate({ ...AMOX_STREP, additionalInstructions: 'x'.repeat(500) })).resolves.toBeUndefined();
+  });
+
+  test.each([
+    ['over 500 characters', 'x'.repeat(501)],
+    ['not text', 5],
+  ])('rejects additional instructions %s', async (_label, additionalInstructions) => {
+    const error = await rejection(validate({ ...AMOX_STREP, additionalInstructions }));
+    expect(error, 'expected the request to be rejected').toBeDefined();
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+  });
+});
+
 const SOURCE = { label: 'AAP Red Book 2024–2027, amoxicillin', url: 'https://publications.aap.org/redbook' };
 
 describe.each([

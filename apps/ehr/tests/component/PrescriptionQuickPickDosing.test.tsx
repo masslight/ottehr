@@ -3,19 +3,26 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { describe, expect, it, vi } from 'vitest';
+import { withDose } from '../../src/features/visits/in-person/components/erx/DoseCalculator';
 import {
   emptyPrescriptionLine,
   PrescriptionLine,
   prescriptionLineErrors,
+  prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   quickPickDosingText,
   quickPickNameInUse,
   quickPickProductMissing,
+  withCalculatorDosing,
   withDirections,
+  withDrug,
   withProduct,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
 import { PrescriptionSentences } from '../../src/features/visits/in-person/components/erx/PrescriptionSentences';
-import { withListedQuickPick } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
+import {
+  prescriptionSuggestionsFor,
+  withListedQuickPick,
+} from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
 import { ProcedureQuickPickDialogs } from '../../src/features/visits/in-person/components/procedures/ProcedureQuickPickDialogs';
 import { detailed, ERX_PRODUCT_DETAILS } from './helpers/erxProducts';
@@ -742,5 +749,90 @@ describe('Maximum warnings on the line', () => {
     await user.click(screen.getByRole('option', { name: 'four times daily' }));
     await typeDose(user, '20');
     expect(screen.queryByTestId('dose-warnings-warning')).not.toBeInTheDocument();
+  });
+});
+
+describe('Additional instructions of a dosed quick pick', () => {
+  const EXTRA = 'Shake well. Take with food.';
+  const WITH_EXTRA: PrescriptionQuickPickData = {
+    ...BY_WEIGHT,
+    id: 'qp-extra',
+    name: 'Amox strep extra',
+    // The list sets the product from the quick pick's NDC and description.
+    medicationDescription: PRODUCT.description,
+    additionalInstructions: EXTRA,
+  };
+  /** The quick pick's suggestion row used on a line picked from the search, which keeps its drug and strength. */
+  const used = (quickPick: PrescriptionQuickPickData, weightKg = WEIGHT.kg): PrescriptionLine => {
+    const line = liquidLine();
+    const [row] = prescriptionSuggestionsFor({
+      drug: line.drug,
+      medication: line.medication!,
+      weightKg,
+      diagnosisCodes: [],
+      quickPicks: [quickPick],
+    });
+    return row.apply!(line, []);
+  };
+
+  it('follow the calculated sentence, and go to the pharmacy with it', () => {
+    const line = used(WITH_EXTRA);
+    expect(line.patientInstructions).toBe(`Take 9 mL by mouth twice daily for 10 days. ${EXTRA}`);
+    expect(line.additionalInstructions).toBe(EXTRA);
+    const order = prescriptionLineToOrder(line, {
+      patientId: 'p',
+      practitionerId: 'pr',
+      encounterId: 'e',
+      pharmacy: { ncpdpId: '1', npi: '2', name: 'Pharmacy', phone: '5555555555', address: '' } as never,
+      writtenDate: '2026-10-27',
+    });
+    expect(order.patientInstructions).toBe(`Take 9 mL by mouth twice daily for 10 days. ${EXTRA}`);
+    // The list's quick pick too.
+    expect(withListedQuickPick(emptyPrescriptionLine(), WITH_EXTRA, WEIGHT.kg).patientInstructions).toBe(
+      `Take 9 mL by mouth twice daily for 10 days. ${EXTRA}`
+    );
+  });
+
+  it('survive a new frequency, "Use this dose" and a new strength; go with the drug or another quick pick', () => {
+    const line = used(WITH_EXTRA);
+    const refrequenced = withDirections(withCalculatorDosing(line, { frequency: 'three times daily' }, WEIGHT.kg), {
+      frequency: 'three times daily',
+    });
+    expect(refrequenced.patientInstructions).toBe(`Take 9 mL by mouth three times daily for 10 days. ${EXTRA}`);
+    const redosed = withDose(line, { dose: '7', dosing: line.dosing });
+    expect(redosed.patientInstructions).toBe(`Take 7 mL by mouth twice daily for 10 days. ${EXTRA}`);
+    // 9 mL of 80 mg/mL = 720 mg = 14.4 mL of 50 mg/mL, measured to 14.5 mL.
+    const restrength = withProduct(line, LIQUIDS, LIQUIDS.strengths[1]);
+    expect(restrength.patientInstructions).toBe(`Take 14.5 mL by mouth twice daily for 10 days. ${EXTRA}`);
+    expect(withDrug(line, LIQUIDS).additionalInstructions).toBeUndefined();
+    expect(used(BY_WEIGHT).additionalInstructions).toBeUndefined();
+    expect(withListedQuickPick(line, SAVED_TEXT, WEIGHT.kg).additionalInstructions).toBeUndefined();
+  });
+
+  it('save with the dosing from the order form', () => {
+    expect(prescriptionLineToQuickPick(used(WITH_EXTRA), 'Again')).toMatchObject({
+      dosing: { rate: 25, basis: 'mg/kg/dose' },
+      additionalInstructions: EXTRA,
+    });
+    // A dose typed over the calculator's is saved as written: the directions hold the whole text.
+    const typed = withCalculatorDosing(used(WITH_EXTRA), { dose: '7' }, WEIGHT.kg);
+    expect(prescriptionLineToQuickPick(typed, 'Again')).not.toHaveProperty('additionalInstructions');
+  });
+
+  it('show on the line to edit or remove; the directions follow', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={used(WITH_EXTRA)} weight={WEIGHT} />);
+    const blank = screen.getByRole('textbox', { name: 'additional instructions' });
+    expect(blank).toHaveValue(EXTRA);
+    await user.clear(blank);
+    await user.type(blank, 'Shake well.');
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
+      'Take 9 mL by mouth twice daily for 10 days. Shake well.'
+    );
+    await user.click(screen.getByRole('button', { name: 'Remove additional instructions' }));
+    expect(screen.queryByRole('textbox', { name: 'additional instructions' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
+      'Take 9 mL by mouth twice daily for 10 days.'
+    );
   });
 });

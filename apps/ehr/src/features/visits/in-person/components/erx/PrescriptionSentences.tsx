@@ -498,6 +498,30 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       ) : (
         '.'
       )}
+      {/* A dosed quick pick's additional instructions follow the sentence as the directions write them, removed as the
+          instructions are. */}
+      {line.additionalInstructions !== undefined && (
+        <>
+          {' '}
+          <TextBlank
+            label="additional instructions"
+            multiline
+            value={line.additionalInstructions}
+            onChange={(additionalInstructions) => onChange(withDirections(line, { additionalInstructions }))}
+            readOnly={readOnly}
+          />
+          {!readOnly && (
+            <IconButton
+              size="small"
+              aria-label="Remove additional instructions"
+              onClick={() => onChange(withDirections(line, { additionalInstructions: undefined }))}
+              sx={{ p: '2px', ml: '2px' }}
+            >
+              <Close sx={{ fontSize: 16 }} />
+            </IconButton>
+          )}
+        </>
+      )}
       {!readOnly && (
         <>
           {' '}
