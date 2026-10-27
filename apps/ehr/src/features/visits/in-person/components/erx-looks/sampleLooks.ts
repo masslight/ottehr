@@ -102,7 +102,7 @@ export const SUGGESTION_LOOKS: SampleLook<ErxSuggestionsBoxProps<SuggestedSenten
   },
 ];
 
-const WEIGHT: DoseField = { id: 'weight', label: 'Weight', value: '28.12', unit: 'kg', from: 'this visit' };
+const WEIGHT: DoseField = { id: 'weight', label: 'Weight', value: '28.12', unit: 'kg' };
 const field = (id: string, label: string, value: string, unit?: string, from?: string): DoseField => ({
   id,
   label,

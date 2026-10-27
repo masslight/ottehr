@@ -38,7 +38,7 @@ const text = (value: number | undefined): string => (value === undefined ? '' : 
 const calculatorWeightText = (weightText: string | undefined, weight: VisitWeight | undefined): string =>
   weightText ?? (weight ? String(roundNumberToDecimalPlaces(weight.kg, 2)) : '');
 
-/** Where the vitals weight is from: "this visit, 10/8/2026 …" or "previous visit, …". */
+/** Where an earlier visit's weight is from: "previous visit, 10/8/2026 …". */
 const weightSourceText = (weight: VisitWeight): string =>
   `${weight.thisVisit ? 'this visit' : 'previous visit'}${
     weight.takenAt ? `, ${formatDateTimeToLocalTimezone(weight.takenAt)}` : ''
@@ -153,7 +153,15 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({ line, weight, weightTe
                 ? ` (${formatWeightLbs(weightKg)} lb)`
                 : ''
             }`,
-            from: weightText !== undefined ? undefined : weight ? weightSourceText(weight) : 'no weight in the vitals',
+            // This visit's weight needs no note; an earlier visit's says which.
+            from:
+              weightText !== undefined
+                ? undefined
+                : !weight
+                ? 'no weight in the vitals'
+                : weight.thisVisit
+                ? undefined
+                : weightSourceText(weight),
             // A typed weight stays, empty too, until the provider goes back to the vitals'.
             action:
               weightText !== undefined && weight
