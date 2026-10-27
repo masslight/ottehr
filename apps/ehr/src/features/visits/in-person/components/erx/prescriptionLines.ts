@@ -588,33 +588,6 @@ export const prescriptionLineToQuickPick = (
     : {}),
 });
 
-/** What a quick pick saved from a line always writes, set or not. */
-const LINE_QUICK_PICK_KEYS: readonly string[] = [
-  'name',
-  'ndc',
-  'medicationDescription',
-  'quantityValue',
-  'quantityUnit',
-  'daysSupply',
-  'numberOfRefills',
-  'substitutionAllowed',
-  'patientInstructions',
-  'noteToPharmacy',
-  'dosing',
-] satisfies (keyof PrescriptionQuickPickData)[];
-
-/** A line saved over an existing quick pick: what the line sets replaces it, and everything else the quick pick has
- * (its source) stays. */
-export const quickPickOverwrite = (
-  existing: PrescriptionQuickPickData | undefined,
-  fromLine: Omit<PrescriptionQuickPickData, 'id'>
-): Omit<PrescriptionQuickPickData, 'id'> => {
-  if (!existing) return fromLine;
-  const { id: _id, ...rest } = existing;
-  const kept = Object.fromEntries(Object.entries(rest).filter(([key]) => !LINE_QUICK_PICK_KEYS.includes(key)));
-  return { ...kept, ...fromLine };
-};
-
 const mgText = (mg: number): string => `${roundNumberToDecimalPlaces(mg, 2)} mg`;
 
 /** UNCONFIRMED (dabrams to decide; drop this helper and its one call to undo): before "Use this dose" on a quick pick

@@ -6,12 +6,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  emptyPrescriptionLine,
-  PrescriptionLine,
-  prescriptionLineToQuickPick,
-  quickPickOverwrite,
-} from '../../src/features/visits/in-person/components/erx/prescriptionLines';
-import {
   emptyPrescriptionQuickPickForm,
   prescriptionQuickPickFromForm,
 } from '../../src/features/visits/telemed/components/admin/prescriptionQuickPickForm';
@@ -225,37 +219,6 @@ describe('Prescription quick picks admin', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(api.removeQuickPick).toHaveBeenCalledWith({}, 'qp-1'));
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Quick pick removed', { variant: 'success' });
-  });
-});
-
-describe('"+ Add or Update Quick Pick" over an existing quick pick', () => {
-  const line: PrescriptionLine = {
-    ...emptyPrescriptionLine(),
-    medication: { ndc: '00093310701', description: 'Amoxicillin 250 mg Cap' },
-    quantityValue: '20',
-    quantityUnit: 'Capsule',
-    patientInstructions: 'Take 2 capsules by mouth twice daily.',
-  };
-
-  it('keeps the existing source and anything else the line doesn’t set; the line’s own fields replace it', () => {
-    const saved = quickPickOverwrite(
-      { ...BY_WEIGHT, extra: 'kept' } as PrescriptionQuickPickData,
-      prescriptionLineToQuickPick(line, 'Amoxicillin otitis')
-    );
-    expect(saved.source).toEqual(BY_WEIGHT.source);
-    expect((saved as Record<string, unknown>).extra).toBe('kept');
-    expect(saved).not.toHaveProperty('id');
-    // The line has no calculator settings, so the old dosing goes: its directions are the line's now.
-    expect(saved.dosing).toBeUndefined();
-    expect(saved.ndc).toBe('00093310701');
-    expect(saved.quantityValue).toBe(20);
-    expect(saved.patientInstructions).toBe('Take 2 capsules by mouth twice daily.');
-  });
-
-  it('a new quick pick is the line as it is', () => {
-    expect(quickPickOverwrite(undefined, prescriptionLineToQuickPick(line, 'New'))).toEqual(
-      prescriptionLineToQuickPick(line, 'New')
-    );
   });
 });
 

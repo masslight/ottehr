@@ -13,15 +13,14 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { createPrescriptionQuickPick, getPrescriptionQuickPicks, updatePrescriptionQuickPick } from 'src/api/api';
+import { createPrescriptionQuickPick } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { sortQuickPicks, useMergedPrescriptionQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { useMergedPrescriptionQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
-import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { AllergiesContainer } from '../../../shared/components/review-tab/components/AllergiesContainer';
 import { MedicationsContainer } from '../../../shared/components/review-tab/components/MedicationsContainer';
@@ -42,7 +41,6 @@ import {
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   quickPickDosingText,
-  quickPickOverwrite,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { withListedQuickPick } from './prescriptionSuggestions';
@@ -123,7 +121,6 @@ export const OrderPrescriptionForm: FC = () => {
 
   const [quickPickLineKey, setQuickPickLineKey] = useState<number | null>(null);
   const [quickPickName, setQuickPickName] = useState('');
-  const [existingQuickPicks, setExistingQuickPicks] = useState<PrescriptionQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
 
   const updateLine = (key: number, next: PrescriptionLine): void =>
@@ -206,20 +203,13 @@ export const OrderPrescriptionForm: FC = () => {
     }
   };
 
-  const openQuickPickDialog = async (line: PrescriptionLine): Promise<void> => {
-    if (!oystehrZambda) return;
-    try {
-      const response = await getPrescriptionQuickPicks(oystehrZambda);
-      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
-    } catch (error) {
-      console.error('Failed to load existing quick picks:', error);
-      setExistingQuickPicks(quickPicks);
-    }
+  // Only adds: existing quick picks are edited in Admin → Quick Picks.
+  const openQuickPickDialog = (line: PrescriptionLine): void => {
     setQuickPickName(line.medication?.description ?? '');
     setQuickPickLineKey(line.key);
   };
 
-  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
+  const onSaveAsQuickPick = async (): Promise<void> => {
     const line = lines.find((item) => item.key === quickPickLineKey);
     // A line hidden while it waits for a pick (its product changed after the dialog opened) holds text nobody has seen.
     if (!oystehrZambda || !line || line.awaitingPick) return;
@@ -230,14 +220,8 @@ export const OrderPrescriptionForm: FC = () => {
     setQuickPickSaving(true);
     try {
       const quickPickData = prescriptionLineToQuickPick(line, quickPickName);
-      if (overwriteId) {
-        const existing = existingQuickPicks.find((quickPick) => quickPick.id === overwriteId);
-        await updatePrescriptionQuickPick(oystehrZambda, overwriteId, quickPickOverwrite(existing, quickPickData));
-        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
-      } else {
-        await createPrescriptionQuickPick(oystehrZambda, { quickPick: quickPickData });
-        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
-      }
+      await createPrescriptionQuickPick(oystehrZambda, { quickPick: quickPickData });
+      enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
       setQuickPickLineKey(null);
       void refetchQuickPicks();
     } catch (error) {
@@ -333,7 +317,7 @@ export const OrderPrescriptionForm: FC = () => {
                       }
                       quickPicks={quickPicks}
                       onQuickPick={(quickPick) => updateLine(line.key, withListedQuickPick(line, quickPick, weightKg))}
-                      onSaveQuickPick={isAdmin ? () => void openQuickPickDialog(line) : undefined}
+                      onSaveQuickPick={isAdmin ? () => openQuickPickDialog(line) : undefined}
                       visitDiagnoses={visitDiagnoses}
                       patientAgeMonths={patientAgeMonths}
                       weightKg={weightKg}
@@ -392,10 +376,10 @@ export const OrderPrescriptionForm: FC = () => {
         open={quickPickLineKey != null}
         name={quickPickName}
         onNameChange={setQuickPickName}
-        existingQuickPicks={existingQuickPicks}
+        existingQuickPicks={[]}
         saving={quickPickSaving}
         onClose={() => setQuickPickLineKey(null)}
-        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        onSave={() => void onSaveAsQuickPick()}
         subject="prescription"
         details={savedDosing && quickPickDosingText(savedDosing)}
       />
