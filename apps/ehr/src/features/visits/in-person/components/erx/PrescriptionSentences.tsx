@@ -632,7 +632,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               {i === line.steps.length - 1 ? courseEnd : '.'}
             </Sentence>
           ))}
-          <Sentence>
+          <Sentence muted>
             Dispense{' '}
             <TextBlank
               label="quantity"

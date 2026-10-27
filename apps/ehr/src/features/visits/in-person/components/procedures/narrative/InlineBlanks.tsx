@@ -722,6 +722,8 @@ interface SentenceProps {
   onRemove?: () => void;
   removeLabel?: string;
   dataTestId?: string;
+  /** A sentence worked out from the ones above it (the eRx dispense line): smaller and gray, blanks still editable. */
+  muted?: boolean;
 }
 
 /** U+2060 WORD JOINER: no line break on either side, and it takes no space. */
@@ -795,9 +797,18 @@ function attachPunctuation(children: ReactNode): ReactNode[] {
   );
 }
 
-export const Sentence: FC<SentenceProps> = ({ children, onRemove, removeLabel, dataTestId }) => (
+export const Sentence: FC<SentenceProps> = ({ children, onRemove, removeLabel, dataTestId, muted }) => (
   <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }} data-testid={dataTestId}>
-    <Typography component="div" sx={{ ...SENTENCE_SX, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+    <Typography
+      component="div"
+      sx={{
+        ...SENTENCE_SX,
+        flex: 1,
+        minWidth: 0,
+        overflowWrap: 'anywhere',
+        ...(muted && { color: 'text.secondary', fontSize: '0.9em' }),
+      }}
+    >
       {attachPunctuation(children)}
     </Typography>
     {onRemove && (
