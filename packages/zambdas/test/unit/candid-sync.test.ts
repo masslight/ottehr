@@ -63,7 +63,12 @@ vi.mock('../../src/shared/getAuth0Token', async (importOriginal) => {
 // payment notices in these tests are legacy EHR notices the billing workspace cannot see
 vi.mock('../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  createBillingClient: vi.fn().mockReturnValue({ fhir: { get: vi.fn().mockRejectedValue({ code: 404 }) } }),
+  createBillingClient: vi.fn().mockReturnValue({
+    fhir: {
+      get: vi.fn().mockRejectedValue({ code: 404 }),
+      search: vi.fn().mockResolvedValue({ unbundle: () => [] }),
+    },
+  }),
 }));
 
 vi.mock('../../src/shared/helpers', async (importOriginal) => {
