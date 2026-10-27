@@ -38,6 +38,10 @@ vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   getStripeClient: vi.fn().mockReturnValue({}),
 }));
 vi.mock('utils/lib/helpers/candidApi', () => ({ getOrCreateCandidApiClient: vi.fn() }));
+vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_schedule'),
+}));
 // transitive imports of shared/candid that pull heavy modules
 vi.mock('../../../src/ehr/shared/harvest', () => ({ getAccountAndCoverageResourcesForPatient: vi.fn() }));
 vi.mock('../../../src/shared/chart-data', () => ({ chartDataResourceHasMetaTagByCode: vi.fn() }));
@@ -46,10 +50,14 @@ vi.mock('../../../src/shared/chart-data', () => ({ chartDataResourceHasMetaTagBy
 
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingManualRefund } from '../../../src/billing/payments';
 import { index } from '../../../src/billing/refund-billing-patient-payment';
-import { createBillingClient } from '../../../src/billing/shared';
+import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM } from '../../../src/shared/candid';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
-import { applyRefundsToPaymentNotice } from '../../../src/shared/stripeIntegration';
+import {
+  applyRefundsToPaymentNotice,
+  getStripeClient,
+  STRIPE_PAYMENT_ID_SYSTEM,
+} from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
@@ -308,6 +316,62 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
 
     await expect(invoke('ottehr', { paymentNoticeId: LEGACY_NOTICE_ID })).rejects.toMatchObject({
       message: 'The requested PaymentNotice resource could not be found',
+    });
+  });
+
+  describe('Stripe account', () => {
+    const refundsList = vi.fn();
+    const paymentIntentsRetrieve = vi.fn();
+    const cardNotice = (payee: string): PaymentNotice =>
+      ({
+        ...makeBillingNotice([]),
+        payee: { reference: payee },
+        identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
+        extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
+      }) as PaymentNotice;
+    const organizations: Record<string, object> = {
+      'clinic-org': {
+        resourceType: 'Organization',
+        id: 'clinic-org',
+        identifier: [{ system: STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, value: 'acct_clinic' }],
+      },
+      'platform-org': { resourceType: 'Organization', id: 'platform-org' },
+    };
+    const withPayee = (payee: string): void => {
+      billingGet.mockImplementation(async ({ resourceType, id }: { resourceType: string; id: string }) =>
+        resourceType === 'Organization' ? organizations[id] : cardNotice(payee)
+      );
+    };
+    const invokeExternal = (): Promise<APIGatewayProxyResult> =>
+      invoke('candid', { external: true, medium: 'cash', idempotencyKey: undefined });
+
+    beforeEach(() => {
+      refundsList.mockResolvedValue({ data: [] });
+      paymentIntentsRetrieve.mockResolvedValue({ metadata: {} });
+      vi.mocked(getStripeClient).mockReturnValue({
+        refunds: { list: refundsList },
+        paymentIntents: { retrieve: paymentIntentsRetrieve, update: vi.fn() },
+      } as unknown as ReturnType<typeof getStripeClient>);
+    });
+
+    it('uses the platform account for a payment whose payee has none, as outreach invoices do', async () => {
+      withPayee('Organization/platform-org');
+
+      await invokeExternal();
+
+      expect(refundsList).toHaveBeenCalledWith({ payment_intent: 'pi_1', limit: 100 }, { stripeAccount: undefined });
+      expect(paymentIntentsRetrieve).toHaveBeenCalledWith('pi_1', { stripeAccount: undefined });
+    });
+
+    it("uses the payee's connected account instead of the schedule's", async () => {
+      withPayee('Organization/clinic-org');
+
+      await invokeExternal();
+
+      expect(refundsList).toHaveBeenCalledWith(
+        { payment_intent: 'pi_1', limit: 100 },
+        { stripeAccount: 'acct_clinic' }
+      );
     });
   });
 });

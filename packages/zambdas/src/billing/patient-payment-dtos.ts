@@ -22,6 +22,7 @@ import {
   stripeRefundToDTO,
 } from '../shared/stripeIntegration';
 import {
+  createStripeAccountResolver,
   fetchEncounterPaymentNotices,
   isBillingPaymentNotice,
   paymentMethodForNotice,
@@ -49,8 +50,17 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
   const stripePayments: Stripe.PaymentIntent[] = [];
   const paymentMethods: Stripe.PaymentMethod[] = [];
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
+  // the encounter's payments are prefetched from the schedule owner's account, where the EHR takes
+  // them; each payment's own Stripe lookups use the account it was taken on
+  const scheduleAccount = getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
+  const stripeAccount = await scheduleAccount;
   console.log('found a stripe account from the schedule owner, ', stripeAccount);
+  const stripeAccountFor = createStripeAccountResolver({
+    billingOystehr,
+    clinicalOystehr,
+    encounterId,
+    scheduleAccount,
+  });
 
   const customerId = getStripeCustomerIdFromAccount(account, stripeAccount);
 
@@ -92,7 +102,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     stripePayments,
     paymentMethods,
     stripeClient,
-    stripeAccount,
+    stripeAccountFor,
     clinicalOystehr,
     billingOystehr
   );
@@ -307,7 +317,7 @@ async function buildPaymentDTOs(
   stripePayments: Stripe.PaymentIntent[],
   paymentMethods: Stripe.PaymentMethod[],
   stripeClient: Stripe,
-  stripeAccount: string | undefined,
+  stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
   clinicalOystehr: Oystehr,
   billingOystehr: Oystehr
 ): Promise<PatientPaymentDTO[]> {
@@ -329,6 +339,7 @@ async function buildPaymentDTOs(
       }
 
       const paymentMethod = paymentMethodExtension === 'card-reader' ? 'card-reader' : 'card';
+      const stripeAccount = await stripeAccountFor(paymentNotice);
       let paymentIntent = paymentIntentCache.get(pnStripeId);
       if (!paymentIntent) {
         const retrievedPaymentIntent = await resolvePaymentIntentById(pnStripeId, stripeClient, stripeAccount);

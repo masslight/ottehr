@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Identifier, PaymentNotice, Reference } from 'fhir/r4b';
+import { Identifier, Organization, PaymentNotice, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import {
@@ -37,7 +37,7 @@ import {
   findBillingClaimForEncounter,
   recordBillingManualRefund,
 } from './payments';
-import { reconcilePaymentNoticesForClaim } from './shared';
+import { reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
 
 // Patient payments are owned by the billing app: new ones are billing-tagged PaymentNotices whose
 // request points at the encounter's claim. Notices the EHR wrote before the move are untagged,
@@ -261,6 +261,48 @@ export const fetchEncounterPaymentNotices = async (params: {
       ),
     ])
   );
+};
+
+/**
+ * The Stripe account each payment was taken on. A billing notice names it through its payee: every
+ * writer of a Stripe payment's notice sets the payee to the billing provider carrying the account
+ * (billingProviderRefForStripeAccount), so a payee carrying none means the platform account, which
+ * outreach invoices are paid on. Legacy EHR notices predate that, so theirs is the account of the
+ * encounter's schedule owner, as the EHR used when taking them.
+ */
+export const createStripeAccountResolver = (params: {
+  billingOystehr: Oystehr;
+  clinicalOystehr: Oystehr;
+  encounterId: string;
+  // the schedule owner's account when the caller already looked it up
+  scheduleAccount?: Promise<string | undefined>;
+}): ((notice: PaymentNotice) => Promise<string | undefined>) => {
+  const { billingOystehr, clinicalOystehr, encounterId } = params;
+  const accountByOrgId = new Map<string, Promise<string | undefined>>();
+  let { scheduleAccount } = params;
+
+  // a payee outside billing (the default org) is not a billing provider, so carries no account
+  const accountForOrg = async (orgId: string): Promise<string | undefined> => {
+    let org: Organization;
+    try {
+      org = await billingOystehr.fhir.get<Organization>({ resourceType: 'Organization', id: orgId });
+    } catch (error) {
+      if (isFhirNotFoundError(error)) return undefined;
+      throw error;
+    }
+    return org.identifier?.find((identifier) => identifier.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value;
+  };
+
+  return async (notice) => {
+    if (!isBillingPaymentNotice(notice)) {
+      scheduleAccount ??= getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
+      return scheduleAccount;
+    }
+    const [resourceType, orgId] = notice.payee?.reference?.split('/') ?? [];
+    if (resourceType !== 'Organization' || !orgId) return undefined;
+    if (!accountByOrgId.has(orgId)) accountByOrgId.set(orgId, accountForOrg(orgId));
+    return accountByOrgId.get(orgId);
+  };
 };
 
 const getPaymentNoticeIfVisible = async (oystehr: Oystehr, id: string): Promise<PaymentNotice | undefined> => {

@@ -14,7 +14,6 @@ import {
   settledRefundTotalInCents,
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -34,6 +33,7 @@ import { applyRefundsToPaymentNotice, getStripeClient, stripeRefundToDTO } from 
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import {
+  createStripeAccountResolver,
   PAYMENT_MANAGEMENT_ROLES,
   paymentMethodForNotice,
   recordLocalRefundOffsets,
@@ -68,7 +68,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets,
   });
 
-  const effectInput = await complexValidation(validatedParameters, notice, clinicalOystehr, stripeClient);
+  // the account the payment was taken on, which is not the schedule's for an outreach invoice
+  const stripeAccount = await createStripeAccountResolver({
+    billingOystehr,
+    clinicalOystehr,
+    encounterId: validatedParameters.encounterId,
+  })(notice);
+  const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);
 
   const refundedBy = (await practitionerRefForUser(user, clinicalOystehr)).display;
 
@@ -117,7 +123,7 @@ interface RefundEffectInput {
 const complexValidation = async (
   params: RefundPatientPaymentInput,
   notice: PaymentNotice,
-  clinicalOystehr: Oystehr,
+  stripeAccount: string | undefined,
   stripeClient: Stripe
 ): Promise<RefundEffectInput> => {
   const {
@@ -196,8 +202,6 @@ const complexValidation = async (
       operationKey,
     };
   }
-
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
 
   const pendingReservationId = `${PENDING_RESERVATION_PREFIX}${operationKey ?? randomUUID()}`;
   let existingRefunds: PaymentRefundDTO[];
