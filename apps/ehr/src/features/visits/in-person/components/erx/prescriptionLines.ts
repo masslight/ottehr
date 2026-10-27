@@ -665,9 +665,8 @@ export const prescriptionLineToQuickPick = (
 
 const mgText = (mg: number): string => `${roundNumberToDecimalPlaces(mg, 2)} mg`;
 
-/** UNCONFIRMED (dabrams to decide; drop this helper and its one call to undo): before "Use this dose" on a quick pick
- * without saved dosing, a line with no duration takes the quick pick's saved days supply as its duration, so its
- * "for 10 days" isn't lost when the dispense is worked out again. */
+/** Before "Use this dose" on a quick pick without saved dosing, a line with no duration takes the quick pick's saved
+ * days supply as its duration, so its "for 10 days" isn't lost when the dispense is worked out again. */
 export const withQuickPickDaysAsDuration = (line: PrescriptionLine): PrescriptionLine =>
   line.durationDays.trim() === '' && numberOrUndefined(line.daysSupply) !== undefined
     ? { ...line, durationDays: line.daysSupply.trim() }
