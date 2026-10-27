@@ -108,7 +108,7 @@ export const createVitalsSectionForDischargeSummary = <
           },
           {
             leftBound: leftX + label1Width,
-            rightBound: leftX + colWidth,
+            rightBound: leftX + label1Width + colWidth,
           }
         );
 

@@ -8,26 +8,35 @@ import {
 } from '../../types/api/chart-data/chart-data.types';
 
 export const SUPPLEMENTAL_O2_FLOW_RATE_UNIT = 'L/min';
+export const SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH = 200;
 
 // Only values that cannot be a flow rate are rejected; there is no clinical upper limit.
 export const isValidSupplementalO2FlowRate = (flowRate: number): boolean => Number.isFinite(flowRate) && flowRate >= 0;
 
+export function toVitalsSupplementalO2DeliveryType(
+  value: string | undefined
+): VitalsSupplementalO2DeliveryType | undefined {
+  return Object.values(VitalsSupplementalO2DeliveryType).find((deliveryType) => deliveryType === value);
+}
+
 /**
- * The supplemental O2 details that apply to a reading: none unless the qualifier is supplemental O2, and the Other
- * text only while the type is Other. Applied wherever details are built, saved, read or shown, so values left behind
- * by a qualifier or type change never surface. It does not judge the flow rate: the draft keeps an invalid one for the
- * user to correct, and saving and reading check it with isValidSupplementalO2FlowRate.
+ * The supplemental O2 details a saved reading carries: none unless the qualifier is supplemental O2, only a known type
+ * and a valid flow rate, and the Other text (on one line) only while the type is Other. Applied wherever readings are
+ * built, saved, read or shown, so stale or malformed values never surface.
  */
 export const getActiveSupplementalO2Details = (
   observationMethod: VitalsOxygenSatObservationMethod | undefined,
   details: VitalsSupplementalO2Details | undefined
 ): VitalsSupplementalO2Details | undefined => {
   if (observationMethod !== VitalsOxygenSatObservationMethod.OnSupplementalO2 || !details) return undefined;
-  const { flowRate, deliveryType } = details;
+  const { flowRate } = details;
+  const deliveryType = toVitalsSupplementalO2DeliveryType(details.deliveryType);
   const deliveryTypeOther =
-    deliveryType === VitalsSupplementalO2DeliveryType.Other ? details.deliveryTypeOther?.trim() : undefined;
+    deliveryType === VitalsSupplementalO2DeliveryType.Other
+      ? details.deliveryTypeOther?.replace(/\s+/g, ' ').trim()
+      : undefined;
   const active: VitalsSupplementalO2Details = {
-    ...(flowRate !== undefined && Number.isFinite(flowRate) && { flowRate }),
+    ...(flowRate !== undefined && isValidSupplementalO2FlowRate(flowRate) && { flowRate }),
     ...(deliveryType && { deliveryType }),
     ...(deliveryTypeOther && { deliveryTypeOther }),
   };

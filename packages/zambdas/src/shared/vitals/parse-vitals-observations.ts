@@ -6,8 +6,7 @@ import {
   extractBloodPressureObservationMethod,
   extractDotVisionScreening,
   extractHeartbeatObservationMethod,
-  extractOxySaturationObservationMethod,
-  extractSupplementalO2Details,
+  extractOxygenSatObservationFields,
   extractTemperatureObservationMethod,
   extractVisionValues,
   LOINC_SYSTEM,
@@ -208,8 +207,7 @@ const parseNumericValueObservation = (
   if (field === VitalFieldNames.VitalOxygenSaturation) {
     return {
       ...baseFields,
-      observationMethod: extractOxySaturationObservationMethod(observation),
-      supplementalO2: extractSupplementalO2Details(observation),
+      ...extractOxygenSatObservationFields(observation),
     } as VitalsOxygenSatObservationDTO;
   }
   if (field === VitalFieldNames.VitalHeartbeat) {

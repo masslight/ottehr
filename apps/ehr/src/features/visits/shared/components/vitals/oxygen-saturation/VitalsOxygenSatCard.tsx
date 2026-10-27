@@ -5,7 +5,10 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { SUPPLEMENTAL_O2_FLOW_RATE_UNIT } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
+import {
+  SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH,
+  SUPPLEMENTAL_O2_FLOW_RATE_UNIT,
+} from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import {
   VitalsOxygenSatObservationMethod,
   VitalsSupplementalO2DeliveryType,
@@ -232,7 +235,10 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({ field }): JSX
                       <Grid item xs={12} sm={8} md={8} lg={8} order={{ xs: 6 }} sx={{ mt: 2 }}>
                         <VitalsTextFreeInputField
                           placeholder="Please specify"
-                          inputProps={{ 'aria-label': 'Please specify other type' }}
+                          inputProps={{
+                            'aria-label': 'Please specify other type',
+                            maxLength: SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH,
+                          }}
                           value={localState.deliveryTypeOther}
                           disabled={field.isSaving}
                           onChange={localState.handleDeliveryTypeOtherChange}

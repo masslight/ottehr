@@ -1,4 +1,7 @@
-import { isValidSupplementalO2FlowRate } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
+import {
+  isValidSupplementalO2FlowRate,
+  SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH,
+} from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { isStructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
@@ -32,10 +35,11 @@ const procedureSchema = z
 const supplementalO2Schema = z.object({
   flowRate: z.number().refine(isValidSupplementalO2FlowRate, { message: 'must be a non-negative number' }).optional(),
   deliveryType: z.nativeEnum(VitalsSupplementalO2DeliveryType).optional(),
-  deliveryTypeOther: z.string().optional(),
+  deliveryTypeOther: z.string().max(SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH).optional(),
 });
 
-const vitalsObservationSchema = z
+// Vitals arrive in vitalsObservations, but save-chart-data also saves a vital sent in observations.
+const observationSchema = z
   .object({
     supplementalO2: supplementalO2Schema.optional(),
   })
@@ -46,7 +50,8 @@ const SaveChartDataBodySchema = z
     encounterId: z.string().uuid(),
     procedures: z.array(procedureSchema).optional(),
     cleanupProcedureDiagnoses: z.boolean().optional(),
-    vitalsObservations: z.array(vitalsObservationSchema).optional(),
+    observations: z.array(observationSchema).optional(),
+    vitalsObservations: z.array(observationSchema).optional(),
   })
   .passthrough();
 

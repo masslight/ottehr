@@ -99,12 +99,15 @@ export interface RespirationRateLocalState {
   getDTO: () => VitalsRespirationRateObservationDTO | null;
 }
 
-export interface OxygenSatLocalState {
+export interface OxygenSatForm {
   value: string;
   observationQualifier: string;
   flowRate: string;
   deliveryType: string;
   deliveryTypeOther: string;
+}
+
+export interface OxygenSatLocalState extends OxygenSatForm {
   validationError: boolean;
   isValueInvalid: boolean;
   isFlowRateInvalid: boolean;
@@ -119,6 +122,8 @@ export interface OxygenSatLocalState {
   setValidationError: (error: boolean) => void;
   clearForm: () => void;
   getDTO: () => VitalsOxygenSatObservationDTO | null;
+  /** The form as of the latest change, including changes not yet rendered. */
+  getForm: () => OxygenSatForm;
 }
 
 export interface HeightLocalState {

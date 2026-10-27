@@ -146,6 +146,26 @@ describe('supplemental O2 details — stale and invalid values', () => {
     expect(parsed.supplementalO2).toEqual({ deliveryType: VitalsSupplementalO2DeliveryType.TracheostomyCollar });
   });
 
+  it('does not persist a delivery type it does not recognize', () => {
+    // As an untyped request body could carry it.
+    const unknownType = { deliveryType: 'Hyperbaric chamber' } as unknown as VitalsSupplementalO2Details;
+    const { observation, parsed } = roundTrip(makeDTO(OnSupplementalO2, { ...unknownType, flowRate: 2 }));
+    expect(observation.component).toHaveLength(1);
+    expect(JSON.stringify(observation)).not.toContain('Hyperbaric');
+    expect(parsed.supplementalO2).toEqual({ flowRate: 2 });
+  });
+
+  it('keeps the Other text on one line', () => {
+    const { parsed } = roundTrip(
+      makeDTO(OnSupplementalO2, {
+        deliveryType: VitalsSupplementalO2DeliveryType.Other,
+        deliveryTypeOther: 'Face\ntent\r\n  with   humidifier',
+      })
+    );
+    expect(parsed.supplementalO2?.deliveryTypeOther).toBe('Face tent with humidifier');
+    expect(formatOxygenSatObservationMethod(parsed)).toBe('On supplemental O2 - Other: Face tent with humidifier');
+  });
+
   it('does not persist a negative flow rate', () => {
     expect(roundTrip(makeDTO(OnSupplementalO2, { flowRate: -1 })).observation.component).toBeUndefined();
   });
@@ -289,6 +309,7 @@ describe('formatOxygenSatObservationMethod', () => {
       'On supplemental O2 - Other',
     ],
     ['stale details on room air', makeDTO(OnRoomAir, { flowRate: 3 }), 'On room air'],
+    ['a negative flow rate', makeDTO(OnSupplementalO2, { flowRate: -2 }), 'On supplemental O2'],
   ])('formats %s', (_label, dto, expected) => {
     expect(formatOxygenSatObservationMethod(dto)).toBe(expected);
   });

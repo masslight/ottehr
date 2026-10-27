@@ -1,4 +1,5 @@
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { join } from 'path';
+import { PDFPage } from 'pdf-lib';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import {
   VitalFieldNames,
@@ -11,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeObservationResource } from '../../src/shared/chart-data';
 import { clinicalDocumentAssetPaths, createClinicalDocumentStyles } from '../../src/shared/pdf/clinical-document-theme';
 import { renderPdf } from '../../src/shared/pdf/pdf-common';
+import { PDF_CLIENT_STYLES } from '../../src/shared/pdf/pdf-consts';
 import { progressNoteDataToText } from '../../src/shared/pdf/progress-note-text';
 import {
   composeVitalsForDischargeSummary,
@@ -72,15 +74,12 @@ const supplementalReading = (): VitalsObservationDTO =>
     '2024-04-28T17:18:00.000Z'
   );
 
-const pdfText = async (bytes: Uint8Array): Promise<string> => {
-  const pdf = await getDocument({ data: bytes }).promise;
-  const pages: string[] = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const content = await (await pdf.getPage(i)).getTextContent();
-    pages.push(content.items.map((item) => ('str' in item ? item.str : '')).join(' '));
-  }
-  return pages.join(' ').replace(/\s+/g, ' ');
-};
+// Resolved from this file rather than the working directory, which the theme's './assets/…' paths depend on.
+const fromPackageRoot = (paths: Record<string, string> | undefined): Record<string, string> | undefined =>
+  paths && Object.fromEntries(Object.entries(paths).map(([key, path]) => [key, join(__dirname, '..', '..', path)]));
+
+const { initialPage } = PDF_CLIENT_STYLES;
+const PAGE_RIGHT_BOUND = initialPage.width - (initialPage.pageMargins.right ?? 0);
 
 beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -92,21 +91,36 @@ afterEach(() => {
 });
 
 describe('discharge summary PDF — SpO2', () => {
+  // Renders the real section into a real PDF and returns its text, checking every line stays inside the page margin.
   const renderDischargeVitals = async (vitalsObservations: VitalsObservationDTO[]): Promise<string> => {
     const data: PdfData & { vitals: VitalsDataInDischargeSummary } = {
       vitals: composeVitalsForDischargeSummary({ allChartData: chartWith(vitalsObservations) }),
     };
-    const bytes = await renderPdf(
+    const drawText = vi.spyOn(PDFPage.prototype, 'drawText');
+    drawText.mockClear();
+    await renderPdf(
       data,
       {
         header: { title: 'DISCHARGE SUMMARY' },
-        assetPaths: clinicalDocumentAssetPaths,
+        assetPaths: {
+          fonts: fromPackageRoot(clinicalDocumentAssetPaths.fonts),
+          icons: fromPackageRoot(clinicalDocumentAssetPaths.icons),
+        },
         styleFactory: createClinicalDocumentStyles,
         sections: [createVitalsSectionForDischargeSummary()],
       },
       ''
     );
-    return pdfText(bytes);
+    for (const [text, options] of drawText.mock.calls) {
+      const width = options?.font?.widthOfTextAtSize(text, options.size ?? 0) ?? 0;
+      expect((options?.x ?? 0) + width, `"${text}" runs past the right margin`).toBeLessThanOrEqual(
+        PAGE_RIGHT_BOUND + 0.5
+      );
+    }
+    return drawText.mock.calls
+      .map(([text]) => text)
+      .join(' ')
+      .replace(/\s+/g, ' ');
   };
 
   it('composes the latest reading with its supplemental O2 details', () => {

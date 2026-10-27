@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FC } from 'react';
+import { ChangeEvent, FC } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================
@@ -58,6 +58,7 @@ import {
   VitalsOxygenSatObservationMethod,
   VitalsSupplementalO2DeliveryType,
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { VitalsOxygenSatObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useVitalsManagement } from '../../src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
 import VitalsOxygenSatCard from '../../src/features/visits/shared/components/vitals/oxygen-saturation/VitalsOxygenSatCard';
 import { useVitalsDraftStore } from '../../src/state/draft-data.store';
@@ -393,5 +394,78 @@ describe('VitalsOxygenSatCard — supplemental O2 details', () => {
       expect(flowRateInput()).toHaveValue(null);
       expect(otherTextInput()).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('useVitalsManagement — SpO2 draft', () => {
+  const changeEvent = (value: string): ChangeEvent<HTMLInputElement> =>
+    ({ target: { value } }) as ChangeEvent<HTMLInputElement>;
+
+  const draft = (): Partial<VitalsOxygenSatObservationDTO> | undefined =>
+    useVitalsDraftStore.getState().getDraft(ENCOUNTER_ID).oxygenSat;
+
+  beforeEach(() => {
+    useVitalsDraftStore.setState({ draftsByEncounterId: {} });
+  });
+
+  it('keeps every change made in the same batch', () => {
+    const { result } = renderHook(() => useVitalsManagement({ encounterId: ENCOUNTER_ID }));
+    // Handlers from a single render, as an event handler calling several of them would hold.
+    const { localState } = result.current.fields.oxygenSat;
+
+    act(() => {
+      localState.handleValueChange(changeEvent('92'));
+      localState.handleQualifierChange(OnSupplementalO2);
+      localState.handleFlowRateChange(changeEvent('3'));
+      localState.handleDeliveryTypeChange(VitalsSupplementalO2DeliveryType.Other);
+      localState.handleDeliveryTypeOtherChange(changeEvent('Face tent'));
+    });
+
+    expect(draft()).toEqual({
+      field: VitalFieldNames.VitalOxygenSaturation,
+      value: 92,
+      observationMethod: OnSupplementalO2,
+      supplementalO2: {
+        flowRate: 3,
+        deliveryType: VitalsSupplementalO2DeliveryType.Other,
+        deliveryTypeOther: 'Face tent',
+      },
+    });
+    expect(result.current.fields.oxygenSat.localState).toMatchObject({
+      flowRate: '3',
+      deliveryType: VitalsSupplementalO2DeliveryType.Other,
+      deliveryTypeOther: 'Face tent',
+    });
+  });
+
+  it('does not store a flow rate the form rejects as a number', () => {
+    const { result } = renderHook(() => useVitalsManagement({ encounterId: ENCOUNTER_ID }));
+    act(() => {
+      result.current.fields.oxygenSat.localState.handleValueChange(changeEvent('92'));
+      result.current.fields.oxygenSat.localState.handleQualifierChange(OnSupplementalO2);
+    });
+
+    act(() => result.current.fields.oxygenSat.localState.handleFlowRateChange(changeEvent('4abc')));
+
+    expect(result.current.fields.oxygenSat.localState.isFlowRateInvalid).toBe(true);
+    expect(draft()?.supplementalO2).toBeUndefined();
+  });
+
+  it('does not restore a delivery type that is no longer offered', async () => {
+    useVitalsDraftStore.getState().setDraft(ENCOUNTER_ID, {
+      oxygenSat: {
+        field: VitalFieldNames.VitalOxygenSaturation,
+        value: 92,
+        observationMethod: OnSupplementalO2,
+        // A label saved by an earlier release.
+        supplementalO2: { flowRate: 2, deliveryType: 'Non Rebreather' as unknown as VitalsSupplementalO2DeliveryType },
+      },
+    });
+
+    const { result } = renderHook(() => useVitalsManagement({ encounterId: ENCOUNTER_ID }));
+    await act(async () => {});
+
+    expect(result.current.fields.oxygenSat.localState).toMatchObject({ flowRate: '2', deliveryType: '' });
+    expect(result.current.fields.oxygenSat.localState.getDTO()?.supplementalO2).toEqual({ flowRate: 2 });
   });
 });

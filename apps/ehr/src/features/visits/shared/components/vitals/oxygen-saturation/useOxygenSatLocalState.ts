@@ -1,8 +1,9 @@
-import { ChangeEvent, useCallback, useState } from 'react';
-import { toVitalOxygenSatObservationMethod, toVitalsSupplementalO2DeliveryType } from 'utils/lib/fhir/vitals';
+import { ChangeEvent, useCallback, useRef, useState } from 'react';
+import { toVitalOxygenSatObservationMethod } from 'utils/lib/fhir/vitals';
 import {
   getActiveSupplementalO2Details,
   isValidSupplementalO2FlowRate,
+  toVitalsSupplementalO2DeliveryType,
 } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import {
   VitalFieldNames,
@@ -11,74 +12,81 @@ import {
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsOxygenSatObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { textToNumericValue } from 'utils/lib/utils/convert';
-import { OxygenSatLocalState } from '../types';
+import { OxygenSatForm, OxygenSatLocalState } from '../types';
 import { textToOxygenSatNumber } from './helpers';
 
+const EMPTY_FORM: OxygenSatForm = {
+  value: '',
+  observationQualifier: '',
+  flowRate: '',
+  deliveryType: '',
+  deliveryTypeOther: '',
+};
+
+// Fields hidden by a qualifier or type change are cleared rather than kept stale.
+const withChange = (form: OxygenSatForm, change: Partial<OxygenSatForm>): OxygenSatForm => {
+  const next = { ...form, ...change };
+  if (next.observationQualifier !== VitalsOxygenSatObservationMethod.OnSupplementalO2) {
+    return { ...next, flowRate: '', deliveryType: '', deliveryTypeOther: '' };
+  }
+  return next.deliveryType === VitalsSupplementalO2DeliveryType.Other ? next : { ...next, deliveryTypeOther: '' };
+};
+
 export function useOxygenSatLocalState(): OxygenSatLocalState {
-  const [oxySatValueText, setOxySatValueText] = useState('');
-  const [observationQualifier, setObservationsQualifier] = useState<string>('');
-  const [flowRateText, setFlowRateText] = useState('');
-  const [deliveryType, setDeliveryType] = useState('');
-  const [deliveryTypeOther, setDeliveryTypeOther] = useState('');
+  // Updated synchronously, so changes made in the same batch build on each other.
+  const latestForm = useRef(EMPTY_FORM);
+  const [form, setForm] = useState(EMPTY_FORM);
   const [isValidationError, setValidationError] = useState<boolean>(false);
 
-  const handleValueChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const oxySatAsText = e.target.value;
-    setOxySatValueText(oxySatAsText);
+  const change = useCallback((fields: Partial<OxygenSatForm>): void => {
+    latestForm.current = withChange(latestForm.current, fields);
+    setForm(latestForm.current);
     setValidationError(false);
   }, []);
 
-  const handleQualifierChange = useCallback((qualifier: string): void => {
-    setObservationsQualifier(qualifier);
-    // The supplemental O2 details are hidden for any other qualifier, so they are cleared rather than kept stale.
-    if (qualifier !== VitalsOxygenSatObservationMethod.OnSupplementalO2) {
-      setFlowRateText('');
-      setDeliveryType('');
-      setDeliveryTypeOther('');
-    }
-    setValidationError(false);
-  }, []);
+  const handleValueChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => change({ value: e.target.value }),
+    [change]
+  );
 
-  const handleFlowRateChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    setFlowRateText(e.target.value);
-    setValidationError(false);
-  }, []);
+  const handleQualifierChange = useCallback(
+    (observationQualifier: string): void => change({ observationQualifier }),
+    [change]
+  );
 
-  const handleDeliveryTypeChange = useCallback((type: string): void => {
-    setDeliveryType(type);
-    if (type !== VitalsSupplementalO2DeliveryType.Other) {
-      setDeliveryTypeOther('');
-    }
-    setValidationError(false);
-  }, []);
+  const handleFlowRateChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => change({ flowRate: e.target.value }),
+    [change]
+  );
 
-  const handleDeliveryTypeOtherChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    setDeliveryTypeOther(e.target.value);
-    setValidationError(false);
-  }, []);
+  const handleDeliveryTypeChange = useCallback((deliveryType: string): void => change({ deliveryType }), [change]);
+
+  const handleDeliveryTypeOtherChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => change({ deliveryTypeOther: e.target.value }),
+    [change]
+  );
 
   const clearForm = useCallback(() => {
-    setOxySatValueText('');
-    setObservationsQualifier('');
-    setFlowRateText('');
-    setDeliveryType('');
-    setDeliveryTypeOther('');
+    latestForm.current = EMPTY_FORM;
+    setForm(EMPTY_FORM);
     setValidationError(false);
   }, []);
 
+  const getForm = useCallback((): OxygenSatForm => latestForm.current, []);
+
   // An empty flow rate is simply not recorded; anything else must be a non-negative number.
-  const flowRate = textToNumericValue(flowRateText);
+  const flowRate = textToNumericValue(form.flowRate);
   const isFlowRateInvalid =
-    flowRateText.trim() !== '' && (flowRate === undefined || !isValidSupplementalO2FlowRate(flowRate));
+    form.flowRate.trim() !== '' && (flowRate === undefined || !isValidSupplementalO2FlowRate(flowRate));
 
   const getDTO = useCallback((): VitalsOxygenSatObservationDTO | null => {
-    const oxySatValueNumber = textToOxygenSatNumber(oxySatValueText);
+    const oxySatValueNumber = textToOxygenSatNumber(form.value);
     if (oxySatValueNumber === undefined || isFlowRateInvalid) return null;
-    const observationMethod = toVitalOxygenSatObservationMethod(observationQualifier);
+    const observationMethod = toVitalOxygenSatObservationMethod(form.observationQualifier);
     const supplementalO2 = getActiveSupplementalO2Details(observationMethod, {
       flowRate,
-      deliveryType: toVitalsSupplementalO2DeliveryType(deliveryType),
-      deliveryTypeOther,
+      deliveryType: toVitalsSupplementalO2DeliveryType(form.deliveryType),
+      deliveryTypeOther: form.deliveryTypeOther,
     });
     return {
       field: VitalFieldNames.VitalOxygenSaturation,
@@ -86,20 +94,16 @@ export function useOxygenSatLocalState(): OxygenSatLocalState {
       observationMethod,
       ...(supplementalO2 && { supplementalO2 }),
     };
-  }, [oxySatValueText, observationQualifier, flowRate, isFlowRateInvalid, deliveryType, deliveryTypeOther]);
+  }, [form, flowRate, isFlowRateInvalid]);
 
-  const hasData = oxySatValueText.length > 0 || observationQualifier.length > 0;
+  const hasData = form.value.length > 0 || form.observationQualifier.length > 0;
   const isValid = getDTO() !== null;
-  const isDisabled = !oxySatValueText;
+  const isDisabled = !form.value;
 
   return {
-    value: oxySatValueText,
-    observationQualifier,
-    flowRate: flowRateText,
-    deliveryType,
-    deliveryTypeOther,
+    ...form,
     validationError: isValidationError,
-    isValueInvalid: textToOxygenSatNumber(oxySatValueText) === undefined,
+    isValueInvalid: textToOxygenSatNumber(form.value) === undefined,
     isFlowRateInvalid,
     isDisabled,
     hasData,
@@ -112,5 +116,6 @@ export function useOxygenSatLocalState(): OxygenSatLocalState {
     setValidationError,
     clearForm,
     getDTO,
+    getForm,
   };
 }

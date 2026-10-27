@@ -5,11 +5,11 @@ import { useParams } from 'react-router-dom';
 import { uploadDotVisionDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useVitalsDraftStore } from 'src/state/draft-data.store';
-import { toVitalOxygenSatObservationMethod, toVitalsSupplementalO2DeliveryType } from 'utils/lib/fhir/vitals';
+import { toVitalOxygenSatObservationMethod } from 'utils/lib/fhir/vitals';
 import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
 import { areVitalsSameDay, calculateBMI } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
-import { getActiveSupplementalO2Details } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
+import { toVitalsSupplementalO2DeliveryType } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -22,12 +22,14 @@ import {
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
   VitalsRespirationRateObservationDTO,
+  VitalsSupplementalO2Details,
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
   VitalsVisionOption,
   VitalsWeightObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { textToNumericValue } from 'utils/lib/utils/convert';
 import { useBloodPressureLocalState } from '../blood-pressure/useBloodPressureLocalState';
 import { useHeartbeatLocalState } from '../heartbeat/useHeartbeatLocalState';
 import { useHeightLocalState } from '../heights/useHeightLocalState';
@@ -35,7 +37,7 @@ import { useLMPLocalState } from '../last-menstrual-period/useLMPLocalState';
 import { useOxygenSatLocalState } from '../oxygen-saturation/useOxygenSatLocalState';
 import { useRespirationRateLocalState } from '../respiration-rate/useRespirationRateLocalState';
 import { useTemperatureLocalState } from '../temperature/useTemperatureLocalState';
-import { OxygenSatLocalState, VitalLocalState } from '../types';
+import { OxygenSatForm, VitalLocalState } from '../types';
 import {
   DotVisionScreeningLocalState,
   useDotVisionScreeningLocalState,
@@ -187,9 +189,12 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       const ov = d.oxygenSat.value;
       if (ov !== undefined && isFinite(ov)) oxygenSatState.handleValueChange(e(String(ov)));
       if (d.oxygenSat.observationMethod) oxygenSatState.handleQualifierChange(d.oxygenSat.observationMethod);
-      const o2 = getActiveSupplementalO2Details(d.oxygenSat.observationMethod, d.oxygenSat.supplementalO2);
-      if (o2?.flowRate !== undefined) oxygenSatState.handleFlowRateChange(e(String(o2.flowRate)));
-      if (o2?.deliveryType) oxygenSatState.handleDeliveryTypeChange(o2.deliveryType);
+      // The local state drops details the qualifier or type does not allow; a type no longer offered is not restored.
+      const o2 = d.oxygenSat.supplementalO2;
+      if (o2?.flowRate !== undefined && isFinite(o2.flowRate))
+        oxygenSatState.handleFlowRateChange(e(String(o2.flowRate)));
+      const deliveryType = toVitalsSupplementalO2DeliveryType(o2?.deliveryType);
+      if (deliveryType) oxygenSatState.handleDeliveryTypeChange(deliveryType);
       if (o2?.deliveryTypeOther) oxygenSatState.handleDeliveryTypeOtherChange(e(o2.deliveryTypeOther));
     }
     const draftWeight = d.weight as { value?: number } | undefined;
@@ -400,21 +405,18 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     [bloodPressureState, encounterId, setDraft]
   );
 
+  // The draft keeps the form as typed, an invalid flow rate included, so the user can correct it after a reload.
   const writeOxygenSatDraft = useCallback(
-    (
-      form: Pick<
-        OxygenSatLocalState,
-        'value' | 'observationQualifier' | 'flowRate' | 'deliveryType' | 'deliveryTypeOther'
-      >
-    ): void => {
+    (form: OxygenSatForm): void => {
       const value = parseFloat(form.value);
-      const flowRate = parseFloat(form.flowRate);
       const observationMethod = toVitalOxygenSatObservationMethod(form.observationQualifier);
-      const supplementalO2 = getActiveSupplementalO2Details(observationMethod, {
-        flowRate: isFinite(flowRate) ? flowRate : undefined,
-        deliveryType: toVitalsSupplementalO2DeliveryType(form.deliveryType),
-        deliveryTypeOther: form.deliveryTypeOther,
-      });
+      const flowRate = textToNumericValue(form.flowRate);
+      const deliveryType = toVitalsSupplementalO2DeliveryType(form.deliveryType);
+      const supplementalO2: VitalsSupplementalO2Details = {
+        ...(flowRate !== undefined && isFinite(flowRate) && { flowRate }),
+        ...(deliveryType && { deliveryType }),
+        ...(form.deliveryTypeOther && { deliveryTypeOther: form.deliveryTypeOther }),
+      };
       setDraft(encounterId, {
         oxygenSat:
           isFinite(value) || observationMethod
@@ -422,7 +424,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
                 field: VitalFieldNames.VitalOxygenSaturation,
                 ...(isFinite(value) && { value }),
                 ...(observationMethod && { observationMethod }),
-                ...(supplementalO2 && { supplementalO2 }),
+                ...(Object.keys(supplementalO2).length > 0 && { supplementalO2 }),
               }
             : undefined,
       });
@@ -430,45 +432,38 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     [encounterId, setDraft]
   );
 
-  const handleOxygenSatValueChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      oxygenSatState.handleValueChange(e);
-      writeOxygenSatDraft({ ...oxygenSatState, value: e.target.value });
-    },
-    [oxygenSatState, writeOxygenSatDraft]
-  );
+  const {
+    getForm: getOxygenSatForm,
+    handleValueChange: setOxygenSatValue,
+    handleQualifierChange: setOxygenSatQualifier,
+    handleFlowRateChange: setOxygenSatFlowRate,
+    handleDeliveryTypeChange: setOxygenSatDeliveryType,
+    handleDeliveryTypeOtherChange: setOxygenSatDeliveryTypeOther,
+  } = oxygenSatState;
 
-  const handleOxygenSatQualifierChange = useCallback(
-    (qualifier: string): void => {
-      oxygenSatState.handleQualifierChange(qualifier);
-      writeOxygenSatDraft({ ...oxygenSatState, observationQualifier: qualifier });
-    },
-    [oxygenSatState, writeOxygenSatDraft]
-  );
-
-  const handleOxygenSatFlowRateChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      oxygenSatState.handleFlowRateChange(e);
-      writeOxygenSatDraft({ ...oxygenSatState, flowRate: e.target.value });
-    },
-    [oxygenSatState, writeOxygenSatDraft]
-  );
-
-  const handleOxygenSatDeliveryTypeChange = useCallback(
-    (deliveryType: string): void => {
-      oxygenSatState.handleDeliveryTypeChange(deliveryType);
-      writeOxygenSatDraft({ ...oxygenSatState, deliveryType });
-    },
-    [oxygenSatState, writeOxygenSatDraft]
-  );
-
-  const handleOxygenSatDeliveryTypeOtherChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      oxygenSatState.handleDeliveryTypeOtherChange(e);
-      writeOxygenSatDraft({ ...oxygenSatState, deliveryTypeOther: e.target.value });
-    },
-    [oxygenSatState, writeOxygenSatDraft]
-  );
+  const oxygenSatDraftHandlers = useMemo(() => {
+    const thenWriteDraft =
+      <TArgs extends unknown[]>(handler: (...args: TArgs) => void) =>
+      (...args: TArgs): void => {
+        handler(...args);
+        writeOxygenSatDraft(getOxygenSatForm());
+      };
+    return {
+      handleValueChange: thenWriteDraft(setOxygenSatValue),
+      handleQualifierChange: thenWriteDraft(setOxygenSatQualifier),
+      handleFlowRateChange: thenWriteDraft(setOxygenSatFlowRate),
+      handleDeliveryTypeChange: thenWriteDraft(setOxygenSatDeliveryType),
+      handleDeliveryTypeOtherChange: thenWriteDraft(setOxygenSatDeliveryTypeOther),
+    };
+  }, [
+    writeOxygenSatDraft,
+    getOxygenSatForm,
+    setOxygenSatValue,
+    setOxygenSatQualifier,
+    setOxygenSatFlowRate,
+    setOxygenSatDeliveryType,
+    setOxygenSatDeliveryTypeOther,
+  ]);
 
   const handleWeightKgInput = useCallback(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
@@ -1199,11 +1194,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       historical: (historicalVitals?.[VitalFieldNames.VitalOxygenSaturation] as VitalsOxygenSatObservationDTO[]) ?? [],
       localState: {
         ...oxygenSatState,
-        handleValueChange: handleOxygenSatValueChange,
-        handleQualifierChange: handleOxygenSatQualifierChange,
-        handleFlowRateChange: handleOxygenSatFlowRateChange,
-        handleDeliveryTypeChange: handleOxygenSatDeliveryTypeChange,
-        handleDeliveryTypeOtherChange: handleOxygenSatDeliveryTypeOtherChange,
+        ...oxygenSatDraftHandlers,
       },
       onClearForm: () => {
         oxygenSatState.clearForm();

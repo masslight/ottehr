@@ -1,5 +1,6 @@
 import { ServiceRequest } from 'fhir/r4b';
 import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import { REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import {
@@ -267,6 +268,44 @@ describe('save-chart-data - SpO2 supplemental O2 details', () => {
     ['non-text Other details', { deliveryType: 'Other', deliveryTypeOther: 42 }],
   ])('should throw for %s', (_label, supplementalO2) => {
     expectVitalRejected(oxygenSat(supplementalO2));
+  });
+
+  test('should accept Other text up to the length limit', () => {
+    const supplementalO2 = {
+      deliveryType: 'Other',
+      deliveryTypeOther: 'x'.repeat(SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH),
+    };
+    expect(validateVital(oxygenSat(supplementalO2))).toEqual(oxygenSat(supplementalO2));
+  });
+
+  test('should throw for Other text past the length limit', () => {
+    expectVitalRejected(
+      oxygenSat({
+        deliveryType: 'Other',
+        deliveryTypeOther: 'x'.repeat(SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH + 1),
+      })
+    );
+  });
+
+  test.each([
+    ['a negative flow rate', { flowRate: -3 }],
+    ['an unknown delivery type', { deliveryType: 'Hyperbaric chamber' }],
+  ])('should throw for %s on a vital sent in observations', (_label, supplementalO2) => {
+    const input = createMockZambdaInput({ encounterId: ENCOUNTER_ID, observations: [oxygenSat(supplementalO2)] });
+    try {
+      validateRequestParameters(input);
+      expect.fail('expected the request to be rejected');
+    } catch (error: any) {
+      expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+    }
+  });
+
+  test('should pass other observations through untouched', () => {
+    const observation = { field: 'additional-question', value: true };
+    const result = validateRequestParameters(
+      createMockZambdaInput({ encounterId: ENCOUNTER_ID, observations: [observation] })
+    );
+    expect(result.observations).toEqual([observation]);
   });
 
   test('should throw when vitalsObservations is not an array', () => {
