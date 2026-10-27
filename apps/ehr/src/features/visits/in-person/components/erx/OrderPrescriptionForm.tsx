@@ -333,32 +333,31 @@ export const OrderPrescriptionForm: FC = () => {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {lines.map((line, index) => (
-                  <Box key={line.key}>
-                    <PrescriptionSentences
-                      line={line}
-                      index={index}
-                      onChange={(next) => updateLine(line.key, next)}
-                      onRemove={
-                        lines.length > 1
-                          ? () => setLines((current) => current.filter((item) => item.key !== line.key))
-                          : undefined
-                      }
-                      quickPicks={quickPicks}
-                      onQuickPick={(quickPick) => updateLine(line.key, withListedQuickPick(line, quickPick, weightKg))}
-                      sets={sets}
-                      onSet={(set, used) => applySet(line, set, used)}
-                      onSaveQuickPick={isAdmin ? () => openQuickPickDialog(line) : undefined}
-                      visitDiagnoses={visitDiagnoses}
-                      patientAgeMonths={patientAgeMonths}
-                      weightKg={weightKg}
-                      weightNote={previousVisitWeightNote(weightText, weight)}
-                      weight={weight}
-                      weightText={weightText}
-                      onWeightText={setWeightText}
-                      errors={sendAttempted ? prescriptionLineErrors(line) : []}
-                      readOnly={readOnly}
-                    />
-                  </Box>
+                  <PrescriptionSentences
+                    key={line.key}
+                    line={line}
+                    index={index}
+                    onChange={(next) => updateLine(line.key, next)}
+                    onRemove={
+                      lines.length > 1
+                        ? () => setLines((current) => current.filter((item) => item.key !== line.key))
+                        : undefined
+                    }
+                    quickPicks={quickPicks}
+                    onQuickPick={(quickPick) => updateLine(line.key, withListedQuickPick(line, quickPick, weightKg))}
+                    sets={sets}
+                    onSet={(set, used) => applySet(line, set, used)}
+                    onSaveQuickPick={isAdmin ? () => openQuickPickDialog(line) : undefined}
+                    visitDiagnoses={visitDiagnoses}
+                    patientAgeMonths={patientAgeMonths}
+                    weightKg={weightKg}
+                    weightNote={previousVisitWeightNote(weightText, weight)}
+                    weight={weight}
+                    weightText={weightText}
+                    onWeightText={setWeightText}
+                    errors={sendAttempted ? prescriptionLineErrors(line) : []}
+                    readOnly={readOnly}
+                  />
                 ))}
               </Box>
               {!readOnly && (
