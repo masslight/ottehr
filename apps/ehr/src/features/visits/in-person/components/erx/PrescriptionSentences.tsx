@@ -34,6 +34,7 @@ import { PrescriptionQuickPickData, PrescriptionSetQuickPickData } from 'utils/l
 import { useSearchMedications } from '../../../shared/hooks/useErxSearch';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { DoseInfoHover, DoseWarningBoxes, SourceText } from '../erx-looks/DoseCalculatorCard';
+import { DoseCalculatorSpace } from '../erx-looks/DoseCalculatorPopup';
 import { ErxSuggestionsBox } from '../erx-looks/ErxSuggestionsBox';
 import { BlankButton, PopoverBlank, SelectBlank, Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
 import { DoseCalculator } from './DoseCalculator';
@@ -388,14 +389,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   /** The line used in a row: as the row's own apply has it, else as its fields fill it. */
   const withRow = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine =>
     row.apply ? row.apply(line, picks) : withSuggestion(line, row.fill(picks));
-  /** The line a row's calculator works on. For a quick pick without dosing its saved directions, quantity and days
-   * supply follow the calculator's dose, as a dosing row's do, rather than keep another dose's; what can't be worked
-   * out (as needed, no duration) is left empty. Its refills, substitution and note to pharmacy stay. */
-  const calculatorLine = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine => {
-    const used = withRow(row, picks);
-    const { patientInstructions, quantityValue, daysSupply } = used;
-    return row.calculator ? used : { ...used, generated: { patientInstructions, quantityValue, daysSupply } };
-  };
   // A dose over the maximum the line carries: orange under the dose sentence, its blank outlined; never blocks.
   const warnings = maximumWarnings(line);
   const warns = (blank: 'dose' | 'frequency'): boolean => warnings.some((warning) => warning.blank === blank);
@@ -542,12 +535,12 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               <DiagnosisSearch visitDiagnoses={visitDiagnoses} onPick={(diagnosis) => pick(diagnosisText(diagnosis))} />
             )
           }
-          // A quick pick's row opens the calculator with its settings, or empty ones ("Enter my own") for a quick pick
-          // without dosing; "Use this dose" uses the row with that dose.
+          // A quick pick with dosing opens the calculator with its settings; "Use this dose" uses the row with that
+          // dose. A quick pick saved as written has no calculator, only the icon's space, so the rows line up.
           renderDoseTool={(row, picks) =>
-            (row.calculator || row.quickPickName !== undefined) && (
+            row.calculator ? (
               <DoseCalculator
-                line={calculatorLine(row, picks)}
+                line={withRow(row, picks)}
                 initial={row.calculator}
                 label={`Dose calculator for ${row.quickPickName ?? 'this suggestion'}`}
                 weight={weight}
@@ -558,6 +551,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                   onChange(next);
                 }}
               />
+            ) : (
+              <DoseCalculatorSpace />
             )
           }
           onPick={(suggestion, picks) => {

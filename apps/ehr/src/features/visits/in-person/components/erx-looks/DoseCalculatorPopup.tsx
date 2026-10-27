@@ -1,5 +1,5 @@
 import { Calculate } from '@mui/icons-material';
-import { IconButton } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
 import { FC, ReactNode, useId, useState } from 'react';
 import { BlankPopper } from '../procedures/narrative/InlineBlanks';
 
@@ -45,3 +45,9 @@ export const DoseCalculatorPopup: FC<{ children: (close: () => void) => ReactNod
     </>
   );
 };
+
+/** Where a row has no calculator icon: an empty space its width (18px icon, 2px padding and margin each side), so the
+ * rows' sentences line up. */
+export const DoseCalculatorSpace: FC = () => (
+  <Box component="span" aria-hidden sx={{ display: 'inline-block', width: 22, mx: '2px' }} />
+);
