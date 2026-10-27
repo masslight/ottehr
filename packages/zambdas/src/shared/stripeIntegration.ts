@@ -135,14 +135,6 @@ const patchPaymentNotice = async (
   recordChange?: PaymentNoticeChangeRecorder
 ): Promise<void> => {
   const record = recordChange?.(change.before, change.after);
-  if (!record) {
-    await oystehr.fhir.patch<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      id: change.id,
-      operations: change.operations,
-    });
-    return;
-  }
   await oystehr.fhir.transaction<FhirResource>({
     requests: [
       {
@@ -150,7 +142,7 @@ const patchPaymentNotice = async (
         url: `/PaymentNotice/${change.id}`,
         operations: change.operations,
       },
-      record,
+      ...(record ? [record] : []),
     ],
   });
 };

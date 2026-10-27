@@ -30,27 +30,23 @@ const billingCopy: PaymentNotice = {
 const makeOystehr = (): {
   oystehr: Oystehr;
   transaction: ReturnType<typeof vi.fn>;
-  patch: ReturnType<typeof vi.fn>;
 } => {
   const transaction = vi.fn().mockResolvedValue({
     entry: [],
   });
-  const patch = vi.fn().mockResolvedValue({});
   return {
     oystehr: {
       fhir: {
         transaction,
-        patch,
       },
     } as unknown as Oystehr,
     transaction,
-    patch,
   };
 };
 
 describe('payment notice changes with a claim history recorder', () => {
   it('writes a void and its claim history entry together', async () => {
-    const { oystehr, transaction, patch } = makeOystehr();
+    const { oystehr, transaction } = makeOystehr();
 
     await voidPaymentNotice(
       oystehr,
@@ -62,7 +58,6 @@ describe('payment notice changes with a claim history recorder', () => {
       recordPaymentNoticeChange(TEST_AGENT)
     );
 
-    expect(patch).not.toHaveBeenCalled();
     const { requests } = transaction.mock.calls[0][0];
     expect(requests[0]).toMatchObject({
       method: 'PATCH',
@@ -93,20 +88,24 @@ describe('payment notice changes with a claim history recorder', () => {
     ]);
   });
 
-  it('patches a clinical notice on its own, as before', async () => {
-    const { oystehr, transaction, patch } = makeOystehr();
+  it('writes a clinical notice without a history entry', async () => {
+    const { oystehr, transaction } = makeOystehr();
 
     await voidPaymentNotice(oystehr, billingCopy, {
       reason: 'Entered in error',
       voidedAtISO: '2026-10-02T12:00:00Z',
     });
 
-    expect(transaction).not.toHaveBeenCalled();
-    expect(patch).toHaveBeenCalledTimes(1);
+    const { requests } = transaction.mock.calls[0][0];
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      method: 'PATCH',
+      url: '/PaymentNotice/pn-billing',
+    });
   });
 
   it('writes no history entry for a refund reservation, which moves no money', async () => {
-    const { oystehr, transaction, patch } = makeOystehr();
+    const { oystehr, transaction } = makeOystehr();
 
     await applyRefundsToPaymentNotice(
       oystehr,
@@ -123,8 +122,7 @@ describe('payment notice changes with a claim history recorder', () => {
       recordPaymentNoticeChange(TEST_AGENT)
     );
 
-    expect(transaction).not.toHaveBeenCalled();
-    expect(patch).toHaveBeenCalledTimes(1);
+    expect(claimHistoryEntries(transaction.mock.calls[0][0].requests)).toEqual([]);
   });
 });
 
