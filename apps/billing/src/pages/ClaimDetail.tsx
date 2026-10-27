@@ -562,7 +562,16 @@ export default function ClaimDetail(): ReactElement {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           fileName={`claim-${claim.id}-${(claim.type === 'professional' ? '837P' : '837I').toLowerCase()}.txt`}
-          x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
+          type="claim"
+          x12Provider={(params: ClaimSubmissionForm) =>
+            exportClaimX12(oystehrZambda, {
+              claimId: claim.id,
+              submissionType: params.type,
+              submissionInsurance: params.insurance,
+              payerClaimControlNumber: params.type !== 'new' ? params.payerClaimControlNumber : undefined,
+            }).then((data) => data.x12)
+          }
+          claim={claim}
         />
       )}
       <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
