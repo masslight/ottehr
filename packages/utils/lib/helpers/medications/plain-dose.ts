@@ -17,11 +17,16 @@ export type DoseBasis = (typeof DOSE_BASES)[number];
 /** The amount a dose is measured to: half a mL, a whole tablet, a whole capsule. */
 export const DOSE_STEP: Record<DoseMeasure, number> = { mL: 0.5, tablet: 1, capsule: 1 };
 
+/** The amounts a liquid's dose can be measured to, for the calculator's "Measure to"; tablets and capsules stay whole. */
+export const ML_MEASURE_STEPS = [0.1, 0.5, 1] as const;
+
 export interface PlainDoseInput {
   weightKg?: number;
   /** mg in one measure: per mL of a liquid, per tablet or capsule. */
   mgPerMeasure?: number;
   measure: DoseMeasure;
+  /** The amount to measure to, in place of the measure's `DOSE_STEP` (a liquid's "Measure to"). */
+  step?: number;
   basis: DoseBasis;
   rate?: number;
   dosesPerDay?: number;
@@ -53,8 +58,12 @@ const num = (value: number): string => String(roundNumberToDecimalPlaces(value, 
 
 /** The nearest amount of the product that can be measured for the mg, at least one step: a dose is never rounded
  * away to nothing. */
-export const nearestMeasurable = (mg: number, mgPerMeasure: number, measure: DoseMeasure): number => {
-  const step = DOSE_STEP[measure];
+export const nearestMeasurable = (
+  mg: number,
+  mgPerMeasure: number,
+  measure: DoseMeasure,
+  step = DOSE_STEP[measure]
+): number => {
   return Math.max(step, roundNumberToDecimalPlaces(Math.round(mg / mgPerMeasure / step) * step, 3));
 };
 
@@ -94,6 +103,7 @@ export const plainDose = ({
   weightKg,
   mgPerMeasure,
   measure,
+  step = DOSE_STEP[measure],
   basis,
   rate,
   dosesPerDay,
@@ -112,9 +122,8 @@ export const plainDose = ({
   const capMg = cap?.mg ?? Infinity;
   const capped = worked > capMg;
   const aimed = capped ? capMg : worked;
-  const nearest = nearestMeasurable(aimed, mgPerMeasure, measure);
+  const nearest = nearestMeasurable(aimed, mgPerMeasure, measure, step);
   // Under a maximum the dose is measured down, never up past it (still at least one step).
-  const step = DOSE_STEP[measure];
   const roundedDown = nearest * mgPerMeasure > capMg + 1e-9;
   const amount = roundedDown
     ? Math.max(step, roundNumberToDecimalPlaces(Math.floor(capMg / mgPerMeasure / step + 1e-9) * step, 3))

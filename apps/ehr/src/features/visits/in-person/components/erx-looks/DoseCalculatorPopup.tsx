@@ -8,11 +8,12 @@ const ICON_SX = { p: '2px', mx: '2px', verticalAlign: '-3px' };
 
 /** The calculator icon after a dose blank: a click opens the dose calculator under the line, and Escape, a click
  * away or `close` (from "Use this dose") shuts it. It never opens by itself. `label` names the icon where there are
- * several (a suggestion row's). */
-export const DoseCalculatorPopup: FC<{ children: (close: () => void) => ReactNode; label?: string }> = ({
-  children,
-  label = 'Dose calculator',
-}) => {
+ * several (a suggestion row's). `onOpen` runs on each opening. */
+export const DoseCalculatorPopup: FC<{
+  children: (close: () => void) => ReactNode;
+  label?: string;
+  onOpen?: () => void;
+}> = ({ children, label = 'Dose calculator', onOpen }) => {
   const popupId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = (restoreFocus = true): void => {
@@ -27,7 +28,11 @@ export const DoseCalculatorPopup: FC<{ children: (close: () => void) => ReactNod
         aria-haspopup="dialog"
         aria-expanded={Boolean(anchor)}
         aria-controls={anchor ? popupId : undefined}
-        onClick={(event) => (anchor ? close() : setAnchor(event.currentTarget))}
+        onClick={(event) => {
+          if (anchor) return close();
+          onOpen?.();
+          setAnchor(event.currentTarget);
+        }}
         color="primary"
         sx={{ ...ICON_SX, ...(anchor && { backgroundColor: 'action.selected' }) }}
       >

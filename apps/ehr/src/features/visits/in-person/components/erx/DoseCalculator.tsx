@@ -1,5 +1,5 @@
 import { FC, useState } from 'react';
-import { DoseBasis, plainDose } from 'utils/lib/helpers/medications/plain-dose';
+import { DOSE_STEP, DoseBasis, ML_MEASURE_STEPS, plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
   frequencyForDosesPerDay,
   isCombinationProduct,
@@ -48,6 +48,9 @@ interface Picks {
   maxPerDose?: string;
   maxPerDay?: string;
 }
+
+/** A liquid's "Measure to" choices: "0.1 mL", "0.5 mL", "1 mL". */
+const MEASURE_TO_OPTIONS = ML_MEASURE_STEPS.map((step) => ({ value: String(step), label: `${step} mL` }));
 
 const text = (value: number | undefined): string => (value === undefined ? '' : String(value));
 
@@ -172,6 +175,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     setSeed(initial);
     if (initial) setPicks(picksOf(initial, line));
   }
+  // What a liquid's dose is measured to: never saved, and each opening starts at half a mL.
+  const [measureTo, setMeasureTo] = useState(DOSE_STEP.mL);
   const ndc = line.medication?.ndc;
   const own = picks.ndc === ndc ? picks : {};
   const pick = (patch: Partial<Picks>): void => setPicks({ ...own, ...patch, ndc });
@@ -210,6 +215,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     weightKg,
     mgPerMeasure: numberOrUndefined(concentrationText),
     measure,
+    ...(measure === 'mL' ? { step: measureTo } : {}),
     basis,
     rate: numberOrUndefined(rateText),
     dosesPerDay,
@@ -269,6 +275,16 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       from: lineDosesPerDay !== undefined ? `from ${line.frequency}; change the frequency on the line` : undefined,
       disabled: lineDosesPerDay !== undefined,
     },
+    // Tablets and capsules stay whole: only a liquid has a choice.
+    ...(measure === 'mL'
+      ? [
+          {
+            id: 'measureTo',
+            label: 'Measure to',
+            choice: { title: 'Measure to', options: MEASURE_TO_OPTIONS, value: String(measureTo) },
+          },
+        ]
+      : []),
     { id: 'maxPerDose', label: 'Maximum per dose', value: own.maxPerDose ?? '', unit: 'mg per dose', optional: true },
     { id: 'maxPerDay', label: 'Maximum per day', value: own.maxPerDay ?? '', unit: 'mg per day', optional: true },
   ];
@@ -314,7 +330,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       };
 
   return (
-    <DoseCalculatorPopup label={label}>
+    <DoseCalculatorPopup label={label} onOpen={() => setMeasureTo(DOSE_STEP.mL)}>
       {(close) => (
         <DoseCalculatorCard
           picker={
@@ -333,7 +349,9 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
           }
           display={display}
           onFieldChange={(id, value) => (id === 'weight' ? onWeightText(value) : pick({ [id]: value }))}
-          onChoiceChange={(_id, value) => pick({ basis: value as DoseBasis })}
+          onChoiceChange={(id, value) =>
+            id === 'measureTo' ? setMeasureTo(Number(value)) : pick({ basis: value as DoseBasis })
+          }
           onUse={
             fill &&
             ((): void => {

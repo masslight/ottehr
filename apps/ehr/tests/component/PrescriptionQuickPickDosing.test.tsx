@@ -934,3 +934,45 @@ describe('The dose’s ⓘ on the line', () => {
     expect(screen.queryByRole('img', { name: 'How the dose was worked out' })).not.toBeInTheDocument();
   });
 });
+
+describe('The calculator’s "Measure to"', () => {
+  const openCalculator = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+    await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
+    return screen.getByRole('dialog', { name: 'Dose calculator' });
+  };
+
+  it('measures a liquid to 0.5 mL by default, to the step picked, and starts at 0.5 mL each opening', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={withDirections(liquidLine(), { frequency: 'twice daily' })} weight={WEIGHT} />);
+    let calculator = await openCalculator(user);
+    await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
+    await user.click(screen.getByRole('option', { name: 'dose' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '25');
+    // 28.12 kg × 25 mg/kg/dose = 703 mg = 8.79 mL.
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 9 mL by mouth twice daily');
+    await user.click(within(calculator).getByRole('button', { name: 'measure to: 0.5 mL' }));
+    await user.click(screen.getByRole('option', { name: '0.1 mL' }));
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 8.8 mL by mouth twice daily');
+    await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
+    expect(latest?.dose).toBe('8.8');
+    // Not kept: the next opening measures to half a mL again.
+    calculator = await openCalculator(user);
+    expect(within(calculator).getByRole('button', { name: 'measure to: 0.5 mL' })).toBeInTheDocument();
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 9 mL by mouth twice daily');
+  });
+
+  it('is not offered for tablets or capsules, which stay whole', async () => {
+    const user = userEvent.setup();
+    const CAPSULES = { name: 'Amoxicillin', strengths: [detailed({ strength: '250 mg Cap', ndcs: ['00093310701'] })] };
+    render(
+      <Harness
+        initial={withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
+          frequency: 'twice daily',
+        })}
+        weight={WEIGHT}
+      />
+    );
+    const calculator = await openCalculator(user);
+    expect(within(calculator).queryByRole('button', { name: /^measure to/ })).not.toBeInTheDocument();
+  });
+});

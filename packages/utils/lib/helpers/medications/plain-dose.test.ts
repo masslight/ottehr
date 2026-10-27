@@ -26,6 +26,48 @@ describe('plainDose', () => {
     expect(dose?.roundingNote).toBe('4.5 mL = 360 mg, 8.5 mg (2%) over 351.5 mg');
   });
 
+  it('measures a liquid to the step given: a tenth or a whole mL, with the rounding note at that step', () => {
+    const input = {
+      weightKg: 28.12,
+      mgPerMeasure: 80,
+      measure: 'mL' as const,
+      basis: 'mg/kg/day' as const,
+      rate: 25,
+      dosesPerDay: 2,
+    };
+    expect(plainDose({ ...input, step: 0.1 })).toMatchObject({
+      amount: 4.4,
+      working: '28.12 kg × 25 mg/kg/day ÷ 2 = 351.5 mg → 4.4 mL = 352 mg',
+      roundingNote: '4.4 mL = 352 mg, 0.5 mg (0%) over 351.5 mg',
+    });
+    expect(plainDose({ ...input, step: 1 })).toMatchObject({
+      amount: 4,
+      roundingNote: '4 mL = 320 mg, 31.5 mg (9%) under 351.5 mg',
+    });
+    expect(plainDose({ ...input, step: 0.5 })).toEqual(plainDose(input));
+  });
+
+  it('caps and measures down at a tenth of a mL', () => {
+    expect(
+      plainDose({
+        weightKg: 28.12,
+        mgPerMeasure: 80,
+        measure: 'mL',
+        step: 0.1,
+        basis: 'mg/kg/dose',
+        rate: 25,
+        maxPerDoseMg: 500,
+      })
+    ).toEqual({
+      amount: 6.2,
+      amountText: '6.2 mL',
+      working: '28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose → 6.2 mL = 496 mg',
+      roundingNote:
+        '6.2 mL = 496 mg, 4 mg (1%) under 500 mg (rounded down to stay at or under the max 500 mg per dose)',
+      capNote: 'Capped at the 500 mg maximum (703 mg by weight)',
+    });
+  });
+
   it('notes a dose measured under, and says nothing when the dose measures exactly', () => {
     expect(plainDose({ mgPerMeasure: 500, measure: 'capsule', basis: 'fixed', rate: 703 })?.roundingNote).toBe(
       '1 capsule = 500 mg, 203 mg (29%) under 703 mg'

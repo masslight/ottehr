@@ -14,7 +14,8 @@ import { BlankOption, SelectBlank, TextBlank } from '../procedures/narrative/Inl
 export interface DoseField {
   id: string;
   label: string;
-  value: string;
+  /** None for a field that is only its choice ("Measure to [0.5 mL]"). */
+  value?: string;
   unit?: string;
   /** A small pick after the unit, as "mg/kg per [day]". */
   choice?: { title: string; options: BlankOption[]; value: string };
@@ -130,7 +131,7 @@ const Fields: FC<{
           {field.label}
         </Box>
         <FieldBox sx={field.disabled ? { backgroundColor: 'action.disabledBackground' } : undefined}>
-          {field.disabled && !readOnly ? (
+          {field.value === undefined ? null : field.disabled && !readOnly ? (
             <InputBase
               type="number"
               value={field.value}
