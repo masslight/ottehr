@@ -467,6 +467,9 @@ export const resolvePaymentNoticeForWrite = async (params: {
 
   const billingNotice = await getPaymentNoticeIfVisible(billingOystehr, paymentNoticeId);
   if (billingNotice) {
+    if (!isPositivePayment(billingNotice)) {
+      throw INVALID_INPUT_ERROR('Only positive payment notices can be refunded or voided.');
+    }
     assertNoticeBelongsToEncounter(billingNotice, encounterId);
     const legacyNotice = await findLegacyCounterpart(clinicalOystehr, billingNotice, encounterId);
     const resolved = await persistLegacyState(billingOystehr, billingNotice, legacyNotice);
