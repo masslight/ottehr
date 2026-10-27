@@ -1,7 +1,10 @@
 import { Calculate } from '@mui/icons-material';
-import { Box, IconButton } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import { FC, ReactNode, useId, useState } from 'react';
 import { BlankPopper } from '../procedures/narrative/InlineBlanks';
+
+// The live icon and the disabled one sit alike, so the rows' sentences line up.
+const ICON_SX = { p: '2px', mx: '2px', verticalAlign: '-3px' };
 
 /** The calculator icon after a dose blank: a click opens the dose calculator under the line, and Escape, a click
  * away or `close` (from "Use this dose") shuts it. It never opens by itself. `label` names the icon where there are
@@ -26,7 +29,7 @@ export const DoseCalculatorPopup: FC<{ children: (close: () => void) => ReactNod
         aria-controls={anchor ? popupId : undefined}
         onClick={(event) => (anchor ? close() : setAnchor(event.currentTarget))}
         color="primary"
-        sx={{ p: '2px', mx: '2px', verticalAlign: '-3px', ...(anchor && { backgroundColor: 'action.selected' }) }}
+        sx={{ ...ICON_SX, ...(anchor && { backgroundColor: 'action.selected' }) }}
       >
         <Calculate sx={{ fontSize: 18 }} />
       </IconButton>
@@ -46,8 +49,14 @@ export const DoseCalculatorPopup: FC<{ children: (close: () => void) => ReactNod
   );
 };
 
-/** Where a row has no calculator icon: an empty space its width (18px icon, 2px padding and margin each side), so the
- * rows' sentences line up. */
-export const DoseCalculatorSpace: FC = () => (
-  <Box component="span" aria-hidden sx={{ display: 'inline-block', width: 22, mx: '2px' }} />
+/** Where a row's quick pick is saved as written: the calculator icon, disabled, so the rows' sentences line up, and a
+ * hover saying why. A disabled button gets no hover, so a span around it takes the tooltip. */
+export const DoseCalculatorAsWritten: FC<{ quickPickName: string; label: string }> = ({ quickPickName, label }) => (
+  <Tooltip title={`${quickPickName} is dispensed as-written, not calculated.`}>
+    <Box component="span">
+      <IconButton size="small" aria-label={label} disabled sx={ICON_SX}>
+        <Calculate sx={{ fontSize: 18 }} />
+      </IconButton>
+    </Box>
+  </Tooltip>
 );

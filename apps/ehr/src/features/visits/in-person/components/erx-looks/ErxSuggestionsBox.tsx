@@ -77,7 +77,8 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>(
       onAdd={(row, picks) => (isRow(row) ? onPick(row, picks) : onOther())}
       renderPicker={renderPicker && ((row, blank, pick) => (isRow(row) ? renderPicker(row, blank, pick) : undefined))}
       // A quick pick's row, or one with a dose blank: its dose tool starts the sentence (the calculator icon when it has
-      // saved dosing, else an empty space the icon's width). The ⓘ by its "+" has its quick pick and working.
+      // saved dosing, else the icon disabled, its hover saying it's as written). The ⓘ by its "+" has its quick pick
+      // and working.
       renderLead={(row, picks) =>
         isRow(row) && (row.doseAt !== undefined || row.quickPickName !== undefined) ? (
           <>

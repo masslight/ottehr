@@ -365,17 +365,18 @@ describe('Suggestions from quick picks', () => {
     expect(latest?.dosing).toBeUndefined();
   });
 
-  it('shows the calculator only on a quick pick with dosing; one saved as written keeps its space, so the rows line up', () => {
+  it('shows the calculator on a quick pick with dosing; one saved as written has it disabled, its hover saying so', async () => {
+    const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[SAVED_TEXT, CAPPED]} weight={WEIGHT} />);
     // In the list's order: "Amox as written", then "Amox capped".
-    const written = suggestionRow(0);
-    expect(within(written).queryByRole('button', { name: /^Dose calculator/ })).not.toBeInTheDocument();
-    const sentence = within(written).getByText(/^Take 5 mL by mouth twice daily for 10 days\.$/);
-    const space = sentence.firstElementChild;
-    expect(space?.tagName).toBe('SPAN');
-    expect(space).toHaveAttribute('aria-hidden', 'true');
-    expect(space).toBeEmptyDOMElement();
+    const written = within(suggestionRow(0)).getByRole('button', { name: 'Dose calculator for Amox as written' });
+    expect(written).toBeDisabled();
+    await user.hover(written.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      /^Amox as written is dispensed as-written, not calculated\.$/
+    );
     const icon = within(suggestionRow(1)).getByRole('button', { name: 'Dose calculator for Amox capped' });
+    expect(icon).toBeEnabled();
     expect(icon.parentElement?.firstElementChild).toBe(icon);
   });
 

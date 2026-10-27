@@ -34,7 +34,7 @@ import { PrescriptionQuickPickData, PrescriptionSetQuickPickData } from 'utils/l
 import { useSearchMedications } from '../../../shared/hooks/useErxSearch';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { DoseInfoHover, DoseWarningBoxes, SourceText } from '../erx-looks/DoseCalculatorCard';
-import { DoseCalculatorSpace } from '../erx-looks/DoseCalculatorPopup';
+import { DoseCalculatorAsWritten } from '../erx-looks/DoseCalculatorPopup';
 import { ErxSuggestionsBox } from '../erx-looks/ErxSuggestionsBox';
 import { BlankButton, PopoverBlank, SelectBlank, Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
 import { DoseCalculator } from './DoseCalculator';
@@ -536,7 +536,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             )
           }
           // A quick pick with dosing opens the calculator with its settings; "Use this dose" uses the row with that
-          // dose. A quick pick saved as written has no calculator, only the icon's space, so the rows line up.
+          // dose. A quick pick saved as written shows the icon disabled, its hover saying so, so the rows line up.
           renderDoseTool={(row, picks) =>
             row.calculator ? (
               <DoseCalculator
@@ -552,7 +552,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 }}
               />
             ) : (
-              <DoseCalculatorSpace />
+              <DoseCalculatorAsWritten
+                quickPickName={row.quickPickName ?? 'This suggestion'}
+                label={`Dose calculator for ${row.quickPickName ?? 'this suggestion'}`}
+              />
             )
           }
           onPick={(suggestion, picks) => {
