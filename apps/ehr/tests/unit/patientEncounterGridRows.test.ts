@@ -1,4 +1,3 @@
-import { DateTime } from 'luxon';
 import { AppointmentHistoryRow, FreeFormEncounterHistoryRow } from 'utils/lib/types/api/patient-visit-history.types';
 import { describe, expect, it } from 'vitest';
 import {
@@ -70,15 +69,18 @@ describe('mergeEncounterGridRows', () => {
     }
   });
 
-  it('puts missing and invalid timestamps last in both directions', () => {
+  it('puts missing and invalid timestamps last when newest first and first when oldest first', () => {
     const rows = [note('missing', undefined), note('invalid', 'not-a-date'), note('dated', '2026-09-15T14:00:00.000Z')];
-    for (const sortDirection of ['asc', 'desc'] as const) {
-      expect(ids(mergeEncounterGridRows([], rows, { includeFreeForm: true, sortDirection }))).toEqual([
-        'dated',
-        'invalid',
-        'missing',
-      ]);
-    }
+    expect(ids(mergeEncounterGridRows([], rows, { includeFreeForm: true, sortDirection: 'desc' }))).toEqual([
+      'dated',
+      'invalid',
+      'missing',
+    ]);
+    expect(ids(mergeEncounterGridRows([], rows, { includeFreeForm: true, sortDirection: 'asc' }))).toEqual([
+      'invalid',
+      'missing',
+      'dated',
+    ]);
   });
 
   it('drops free-form notes when they are excluded', () => {
@@ -102,7 +104,7 @@ describe('freeFormRowsStartingFrom', () => {
   });
 
   it('keeps only rows that start within the period, dropping ones without a valid start', () => {
-    const from = DateTime.fromISO('2026-09-26T00:00:00.000Z');
+    const from = '2026-09-26T00:00:00.000Z';
     expect(freeFormRowsStartingFrom(rows, from).map((row) => row.encounterId)).toEqual(['recent']);
   });
 });

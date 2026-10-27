@@ -263,7 +263,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   }, [visitHistory, hideCancelled, hideNoShow, serviceCategory]);
 
   const serverFreeFormEncounters = visitHistory?.freeFormEncounters;
-  const periodStart = useMemo(() => (period > 0 ? DateTime.now().minus({ months: period }) : undefined), [period]);
+  const periodStart = useMemo(
+    () => (period > 0 ? DateTime.now().minus({ months: period }).toISO() : undefined),
+    [period]
+  );
   const freeFormEncounters = useMemo(
     () =>
       applyLocalFreeFormSaves(

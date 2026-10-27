@@ -1,5 +1,5 @@
-import { DateTime } from 'luxon';
 import { AppointmentHistoryRow, FreeFormEncounterHistoryRow } from 'utils/lib/types/api/patient-visit-history.types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
 
 /**
  * Apply the Encounters table's Service Category filter to the visit list.
@@ -31,26 +31,13 @@ export type EncounterGridRow =
   | { kind: 'visit'; id: string; dateTime: string | undefined; visit: AppointmentHistoryRow }
   | { kind: 'free-form'; id: string; dateTime: string | undefined; encounter: FreeFormEncounterHistoryRow };
 
-const toMillis = (dateTime: string | undefined): number | undefined => {
-  if (!dateTime) return undefined;
-  const parsed = DateTime.fromISO(dateTime);
-  return parsed.isValid ? parsed.toMillis() : undefined;
-};
-
 export const compareEncounterGridRows = (
   a: EncounterGridRow,
   b: EncounterGridRow,
   direction: EncounterGridSortDirection
-): number => {
-  const aMillis = toMillis(a.dateTime);
-  const bMillis = toMillis(b.dateTime);
-  if (aMillis !== bMillis) {
-    if (aMillis === undefined) return 1;
-    if (bMillis === undefined) return -1;
-    return direction === 'asc' ? aMillis - bMillis : bMillis - aMillis;
-  }
-  return a.id.localeCompare(b.id);
-};
+): number =>
+  (direction === 'desc' ? compareDates(a.dateTime, b.dateTime) : compareDates(b.dateTime, a.dateTime)) ||
+  a.id.localeCompare(b.id);
 
 export const mergeEncounterGridRows = (
   visits: AppointmentHistoryRow[],
@@ -73,23 +60,15 @@ export const mergeEncounterGridRows = (
       : []),
   ].sort((a, b) => compareEncounterGridRows(a, b, sortDirection));
 
-const isOlderThan = (candidate: string | undefined, reference: string | undefined): boolean => {
-  const referenceMillis = toMillis(reference);
-  if (referenceMillis === undefined) return false;
-  const candidateMillis = toMillis(candidate);
-  return candidateMillis === undefined || candidateMillis < referenceMillis;
-};
+const isOlderThan = (candidate: string | undefined, reference: string | undefined): boolean =>
+  compareDates(candidate, reference) > 0;
 
 export const freeFormRowsStartingFrom = (
   rows: FreeFormEncounterHistoryRow[],
-  from: DateTime | undefined
+  from: string | undefined
 ): FreeFormEncounterHistoryRow[] => {
   if (!from) return rows;
-  const fromMillis = from.toMillis();
-  return rows.filter((row) => {
-    const startMillis = toMillis(row.dateTime);
-    return startMillis !== undefined && startMillis >= fromMillis;
-  });
+  return rows.filter((row) => compareDates(row.dateTime, from) <= 0);
 };
 
 export const applyLocalFreeFormSaves = (
