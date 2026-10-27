@@ -7,7 +7,7 @@ import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { PostBillingPatientPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -27,7 +27,12 @@ import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadata } fr
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { ensurePaymentTaskForNotice, unionIdentifiers } from '../patient-payments';
-import { claimRequestFor, EHR_PATIENT_PAYMENT_ID_SYSTEM, findBillingClaimForEncounter } from '../payments';
+import {
+  billingProviderRefForStripeAccount,
+  claimRequestFor,
+  EHR_PATIENT_PAYMENT_ID_SYSTEM,
+  findBillingClaimForEncounter,
+} from '../payments';
 import { createBillingClient, fetchById, reconcilePaymentNoticesForClaim } from '../shared';
 
 type PostBillingPatientPaymentParams = ValidatedZambdaInput<typeof PostBillingPatientPaymentInputSchema>;
@@ -95,24 +100,31 @@ const performEffect = async (
     }
   }
 
-  const paymentIntent =
+  const stripePayment =
     paymentDetails.paymentMethod === 'card'
       ? await chargeSavedCard(input, paymentDetails.paymentMethodId, clinicalOystehr)
       : undefined;
+  const paymentIntent = stripePayment?.paymentIntent;
   const chargeId =
     typeof paymentIntent?.latest_charge === 'string' ? paymentIntent.latest_charge : paymentIntent?.latest_charge?.id;
 
   const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
+  // the provider owed the money: for a card payment the org behind the Stripe account it landed in,
+  // as the billing webhook records it; otherwise the claim's provider when a claim exists, else the
+  // default billing organization (the same default claim creation uses)
+  const payeeRef: Reference = stripePayment
+    ? await billingProviderRefForStripeAccount(billingOystehr, stripePayment.stripeAccount, secrets)
+    : claim?.provider ?? { reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets) };
   const desiredNotice = makePaymentNotice({
     ...input,
     claim,
+    payeeRef,
     identifiers: [
       dedupIdentifier,
       ...[paymentIntent?.id, chargeId]
         .filter((id): id is string => Boolean(id))
         .map((value) => ({ system: STRIPE_PAYMENT_ID_SYSTEM, value })),
     ],
-    secrets,
   });
 
   // The billing stripe webhook records the same charge, keyed by the charge id, and may get there
@@ -152,7 +164,7 @@ const chargeSavedCard = async (
   input: EffectInput,
   paymentMethodId: string,
   clinicalOystehr: Oystehr
-): Promise<Stripe.PaymentIntent> => {
+): Promise<{ paymentIntent: Stripe.PaymentIntent; stripeAccount: string | undefined }> => {
   const { patientId, encounterId, paymentDetails, secrets } = input;
   const { account } = await getAccountAndCoverageResourcesForPatient(patientId, clinicalOystehr);
   if (!account) {
@@ -194,7 +206,7 @@ const chargeSavedCard = async (
     throw GENERIC_STRIPE_PAYMENT_ERROR;
   }
   console.log('Payment Intent created:', paymentIntent.id);
-  return paymentIntent;
+  return { paymentIntent, stripeAccount };
 };
 
 // The webhook's copy has no submitter or EHR identifier; add ours, keeping its refund stamps.
@@ -215,6 +227,8 @@ const mergeIntoWebhookNotice = async (
         {
           ...storedNotice,
           identifier: unionIdentifiers(storedNotice.identifier, desiredNotice.identifier),
+          payee: desiredNotice.payee,
+          recipient: desiredNotice.recipient,
           contained: desiredNotice.contained,
           extension: [
             ...(storedNotice.extension ?? []).filter((ext) => ext.url !== PAYMENT_METHOD_EXTENSION_URL),
@@ -239,10 +253,10 @@ const makePaymentNotice = (input: {
   paymentDetails: PostBillingPatientPaymentParams['paymentDetails'];
   submitterRef: Reference;
   claim: Claim | undefined;
+  payeeRef: Reference;
   identifiers: Identifier[];
-  secrets: Secrets | null;
 }): PaymentNotice => {
-  const { encounterId, paymentDetails, submitterRef, claim, identifiers, secrets } = input;
+  const { encounterId, paymentDetails, submitterRef, claim, payeeRef, identifiers } = input;
   const { paymentMethod, amountInCents } = paymentDetails;
 
   // the created timestamp is in UTC and the exact date in any timezone can always be derived from there
@@ -253,12 +267,6 @@ const makePaymentNotice = (input: {
     throw new Error('Failed to serialize the current time for PaymentNotice creation');
   }
   const paymentDate = now.setZone(TIMEZONES[0]).toFormat('yyyy-MM-dd');
-
-  // the provider owed the money: the claim's provider when a claim exists, else the default
-  // billing organization (the same default claim creation uses)
-  const payeeRef: Reference = claim?.provider ?? {
-    reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets),
-  };
 
   const paymentAmount: Money = {
     value: amountInCents / 100,

@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import { Claim, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -9,7 +9,7 @@ import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { safeValidate } from '../shared/validation';
-import { reconcilePaymentNoticesForClaim } from './shared';
+import { reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
 
 // dedup identifier for record-billing-manual-payment calls: value is the caller's idempotency key
 export const MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('manual-payment-idempotency-key');
@@ -106,6 +106,28 @@ export const recordBillingManualRefund = async (
       await reconcilePaymentNoticesForClaim(oystehr, lateClaim);
     }
   }
+};
+
+// The payee of a payment taken through Stripe: the billing provider org stamped with the connected
+// account id, or the default org otherwise. Every writer of a Stripe payment's notice uses this, so
+// the payee does not depend on which one stores it first. Providers sharing an account share a TIN,
+// so the first match is fine.
+export const billingProviderRefForStripeAccount = async (
+  oystehr: Oystehr,
+  stripeAccount: string | undefined,
+  secrets: Secrets | null
+): Promise<Reference> => {
+  if (stripeAccount) {
+    const providers = (
+      await oystehr.fhir.search<Organization>({
+        resourceType: 'Organization',
+        params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|${stripeAccount}` }],
+      })
+    ).unbundle();
+    if (providers[0]?.id) return { reference: `Organization/${providers[0].id}` };
+    console.warn(`No billing provider carries stripe account ${stripeAccount}, using the default organization`);
+  }
+  return { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` };
 };
 
 export const findBillingClaimForEncounter = async (

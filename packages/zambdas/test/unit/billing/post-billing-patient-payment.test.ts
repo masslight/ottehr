@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { buildPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
-import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
+import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -54,7 +54,7 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
 
 import { EHR_PATIENT_PAYMENT_ID_SYSTEM } from '../../../src/billing/payments';
 import { index } from '../../../src/billing/post-billing-patient-payment';
-import { createBillingClient } from '../../../src/billing/shared';
+import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
@@ -86,7 +86,10 @@ const storedAs = (id: string) => async (resource: PaymentNotice) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  billingSearch.mockResolvedValue({ unbundle: () => [] });
+  // the billing provider carrying the connected account; nothing else is found
+  billingSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+    unbundle: () => (resourceType === 'Organization' ? [{ resourceType: 'Organization', id: 'stripe-org' }] : []),
+  }));
   billingCreate.mockImplementation(storedAs('pn-1'));
   billingUpdate.mockImplementation(async (resource: PaymentNotice) => resource);
   vi.mocked(createBillingClient).mockReturnValue({
@@ -94,6 +97,7 @@ beforeEach(() => {
   } as unknown as Oystehr);
   vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { create: clinicalCreate } } as unknown as Oystehr);
   paymentIntentsCreate.mockResolvedValue({ id: 'pi_1', status: 'succeeded', latest_charge: 'ch_1' });
+  vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue('acct_1');
 });
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -174,6 +178,13 @@ describe('post-billing-patient-payment', () => {
       { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
     ]);
     expect(options.ifNoneExist[0]).toEqual({ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1` });
+    // payee is the org behind the connected account, as the webhook resolves it
+    expect(billingSearch).toHaveBeenCalledWith({
+      resourceType: 'Organization',
+      params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_1` }],
+    });
+    expect(notice.payee).toEqual({ reference: 'Organization/stripe-org' });
+    expect(notice.recipient).toEqual({ reference: 'Organization/stripe-org' });
     // the notice is ours, so there is nothing to merge
     expect(billingUpdate).not.toHaveBeenCalled();
   });
@@ -212,6 +223,7 @@ describe('post-billing-patient-payment', () => {
       { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
     ]);
     expect(merged.extension).toContainEqual(refunds);
+    expect(merged.payee).toEqual({ reference: 'Organization/stripe-org' });
     expect(getPaymentNoticeSubmitterRef(merged)).toEqual({ reference: 'Practitioner/pr-1', display: 'Front Desk' });
     expect(clinicalCreate.mock.calls[0][0].focus.reference).toBe('PaymentNotice/pn-webhook');
   });

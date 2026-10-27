@@ -1,11 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import { Claim, Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
-import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
@@ -20,8 +19,8 @@ import {
 import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
 import { unionIdentifiers } from '../patient-payments';
-import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
-import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
+import { billingProviderRefForStripeAccount, claimRequestFor, findBillingClaimForEncounter } from '../payments';
+import { createBillingClient, reconcilePaymentNoticesForClaim } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
@@ -85,26 +84,6 @@ export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParam
     default:
       console.log('Ignoring unhandled event type:', event.type);
   }
-};
-
-// picks the billing provider org stamped with the connected account id or default org otherwise,
-// providers sharing an account share a TIN so the first match is fine
-const billingProviderRefForStripeAccount = async (
-  oystehr: Oystehr,
-  stripeAccount: string | undefined,
-  secrets: ZambdaInput['secrets']
-): Promise<Reference> => {
-  if (stripeAccount) {
-    const providers = (
-      await oystehr.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|${stripeAccount}` }],
-      })
-    ).unbundle();
-    if (providers[0]?.id) return { reference: `Organization/${providers[0].id}` };
-    console.warn(`No billing provider carries stripe account ${stripeAccount}, using the default organization`);
-  }
-  return { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` };
 };
 
 const buildBillingPaymentNotice = (params: {
@@ -262,6 +241,9 @@ const mergeStripeOwnedFields = (
     status: desiredNotice.status,
     amount: desiredNotice.amount,
     request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
+    // the organization behind the Stripe account the money landed in, whichever writer stored first
+    payee: desiredNotice.payee,
+    recipient: desiredNotice.recipient,
     identifier: unionIdentifiers(stored.identifier, desiredNotice.identifier),
     contained:
       storedReconciliation && desiredReconciliation

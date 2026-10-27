@@ -39,7 +39,7 @@ vi.mock('../../../src/billing/payments', async (importOriginal) => ({
 }));
 
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, MANUAL_REFUND_ID_SYSTEM } from '../../../src/billing/payments';
-import { createBillingClient } from '../../../src/billing/shared';
+import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { index } from '../../../src/billing/void-billing-patient-payment';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM, voidPaymentNotice } from '../../../src/shared/stripeIntegration';
@@ -102,7 +102,9 @@ beforeEach(() => {
     fhir: { get: billingGet, search: billingSearch, create: billingCreate, patch: billingPatch },
   } as unknown as Oystehr);
   billingGet.mockResolvedValue(bridgedCopy);
-  billingSearch.mockResolvedValue({ unbundle: () => [] });
+  billingSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+    unbundle: () => (resourceType === 'Organization' ? [{ resourceType: 'Organization', id: 'stripe-org' }] : []),
+  }));
   billingCreate.mockImplementation(async (resource: PaymentNotice) => ({ ...resource, id: 'adopted-1' }));
   billingPatch.mockImplementation(async ({ operations }) => ({
     ...bridgedCopy,
@@ -181,6 +183,12 @@ describe('void-billing-patient-payment', () => {
       { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
     ]);
     expect(options.ifNoneExist[0]).toEqual({ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1` });
+    // the same payee the webhook gives the charge: the org behind its connected account
+    expect(billingSearch).toHaveBeenCalledWith({
+      resourceType: 'Organization',
+      params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_1` }],
+    });
+    expect(copy.payee).toEqual({ reference: 'Organization/stripe-org' });
   });
 
   it('does not touch Stripe when copying a cash payment', async () => {

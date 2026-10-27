@@ -384,7 +384,9 @@ describe('billing-stripe-webhook', () => {
     const merged = update.mock.calls[0][0];
     expect(merged.id).toBe('pn-ehr');
     expect(merged.request.reference).toBe('Claim/claim-1');
-    expect(merged.payee).toEqual({ reference: 'Organization/billing-org' });
+    // the payee is the org behind the Stripe account, whichever writer stored the notice first
+    expect(merged.payee).toEqual({ reference: 'Organization/org-1' });
+    expect(merged.recipient).toEqual({ reference: 'Organization/org-1' });
     // no identifier is duplicated or lost
     expect(merged.identifier).toHaveLength(3);
     expect(merged.extension).toContainEqual(refundsExtension);

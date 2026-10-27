@@ -31,6 +31,7 @@ import { isFhirNotFoundError } from '../shared/errors';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { fetchPatientPaymentsByEncounterIds, fetchResourcesGrouped } from './claim-amounts';
 import {
+  billingProviderRefForStripeAccount,
   claimRequestFor,
   CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
   findBillingClaimForEncounter,
@@ -276,14 +277,15 @@ const assertNoticeBelongsToEncounter = (notice: PaymentNotice, encounterId: stri
   }
 };
 
-// The charge behind a legacy Stripe payment: the billing webhook and post-billing-patient-payment
-// both key a card payment's notice on its charge id.
-const chargeIdForLegacyPayment = async (
+// The charge behind a legacy Stripe payment and the account it was taken on: the billing webhook and
+// post-billing-patient-payment both key a card payment's notice on its charge id and take its payee
+// from that account.
+const stripeChargeForLegacyPayment = async (
   getStripe: () => Stripe,
   clinicalOystehr: Oystehr,
   paymentIntentId: string,
   encounterId: string
-): Promise<string | undefined> => {
+): Promise<{ chargeId: string | undefined; stripeAccount: string | undefined }> => {
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
   let paymentIntent: Stripe.PaymentIntent;
   try {
@@ -291,9 +293,9 @@ const chargeIdForLegacyPayment = async (
   } catch (error) {
     throw parseStripeError(error);
   }
-  return typeof paymentIntent.latest_charge === 'string'
-    ? paymentIntent.latest_charge
-    : paymentIntent.latest_charge?.id;
+  const chargeId =
+    typeof paymentIntent.latest_charge === 'string' ? paymentIntent.latest_charge : paymentIntent.latest_charge?.id;
+  return { chargeId, stripeAccount };
 };
 
 // Copies a legacy EHR notice (refund and void stamps included) into billing, unless a billing
@@ -311,9 +313,10 @@ const adoptLegacyPaymentNotice = async (params: {
   const { clinicalOystehr, billingOystehr, getStripe, legacyNotice, encounterId, secrets } = params;
   if (!legacyNotice.id) throw new Error('Legacy PaymentNotice has no id');
   const stripePaymentIntentId = stripePaymentIntentIdForNotice(legacyNotice);
-  const chargeId = stripePaymentIntentId
-    ? await chargeIdForLegacyPayment(getStripe, clinicalOystehr, stripePaymentIntentId, encounterId)
+  const stripeCharge = stripePaymentIntentId
+    ? await stripeChargeForLegacyPayment(getStripe, clinicalOystehr, stripePaymentIntentId, encounterId)
     : undefined;
+  const chargeId = stripeCharge?.chargeId;
   const identifierValues = [
     `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${legacyNotice.id}`,
     ...[stripePaymentIntentId, chargeId]
@@ -334,9 +337,9 @@ const adoptLegacyPaymentNotice = async (params: {
   if (existing[0]) return existing[0];
 
   const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
-  const payeeRef: Reference = claim?.provider ?? {
-    reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets),
-  };
+  const payeeRef: Reference = stripeCharge
+    ? await billingProviderRefForStripeAccount(billingOystehr, stripeCharge.stripeAccount, secrets)
+    : claim?.provider ?? { reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets) };
   const { id: legacyId, meta: _meta, ...legacyFields } = legacyNotice;
   const dedupIdentifier: Identifier = chargeId
     ? { system: STRIPE_PAYMENT_ID_SYSTEM, value: chargeId }
