@@ -2,6 +2,7 @@ import { Alert } from '@mui/material';
 import { ReactElement, ReactNode, useMemo } from 'react';
 import { SentencePicks, SuggestedSentence, SuggestedSentences } from 'src/components/SuggestedSentences';
 import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
+import { DoseInfoHover } from './DoseCalculatorCard';
 
 /**
  * The suggestions box above a prescription line, as looks only. A row is the shared `SuggestedSentence`: its
@@ -11,7 +12,15 @@ import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
 
 export const OTHER_ROW: SuggestedSentence = { id: 'other', segments: ['Other'], addLabel: 'Write my own' };
 
-export type ErxSuggestionsBoxProps<T extends SuggestedSentence> =
+/** A row whose dose is a blank: the dose tool (a calculator icon) and an ⓘ with how the dose was worked out follow
+ * it. */
+export interface ErxSuggestionRow extends SuggestedSentence {
+  doseAt?: number;
+  /** Behind the ⓘ after the dose: the working, a maximum reached, how far the measured dose is off. */
+  doseInfo?: string[];
+}
+
+export type ErxSuggestionsBoxProps<T extends ErxSuggestionRow> =
   | {
       look: 'rows';
       rows: T[];
@@ -22,13 +31,15 @@ export type ErxSuggestionsBoxProps<T extends SuggestedSentence> =
       onOther: () => void;
       /** The popover body for a blank picked by search (a diagnosis); `undefined` keeps its options list. */
       renderPicker?: (row: T, blank: SentenceBlank, pick: (value: string) => void) => ReactNode;
+      /** After a row's dose blank, before its ⓘ: the calculator icon. */
+      renderDoseTool?: (row: T, picks: SentencePicks) => ReactNode;
     }
   /** The drug has no suggestions: no box, the line opens straight away. */
   | { look: 'none' }
   /** The label says the drug is contraindicated for this patient: a red box and no rows. */
   | { look: 'contraindicated'; message: string };
 
-export const ErxSuggestionsBox = <T extends SuggestedSentence>(
+export const ErxSuggestionsBox = <T extends ErxSuggestionRow>(
   props: ErxSuggestionsBoxProps<T>
 ): ReactElement | null => {
   const rows = props.look === 'rows' ? props.rows : undefined;
@@ -36,7 +47,7 @@ export const ErxSuggestionsBox = <T extends SuggestedSentence>(
   const withOther = useMemo<SuggestedSentence[]>(() => [...(rows ?? []), OTHER_ROW], [rows]);
   if (props.look === 'none') return null;
   if (props.look === 'contraindicated') return <Alert severity="error">{props.message}</Alert>;
-  const { weightNote, isAdded, onPick, onOther, renderPicker } = props;
+  const { weightNote, isAdded, onPick, onOther, renderPicker, renderDoseTool } = props;
   const isRow = (row: SuggestedSentence): row is T => row !== OTHER_ROW;
   return (
     <SuggestedSentences<SuggestedSentence>
@@ -46,6 +57,20 @@ export const ErxSuggestionsBox = <T extends SuggestedSentence>(
       isAdded={(row, picks) => isRow(row) && (isAdded?.(row, picks) ?? false)}
       onAdd={(row, picks) => (isRow(row) ? onPick(row, picks) : onOther())}
       renderPicker={renderPicker && ((row, blank, pick) => (isRow(row) ? renderPicker(row, blank, pick) : undefined))}
+      renderAfterBlank={(row, segment, picks) =>
+        isRow(row) && segment === row.doseAt ? (
+          <>
+            {renderDoseTool?.(row, picks)}
+            {row.doseInfo?.length ? (
+              <DoseInfoHover
+                label="How this dose was worked out"
+                lines={row.doseInfo}
+                testId="suggestion-dose-working"
+              />
+            ) : null}
+          </>
+        ) : null
+      }
       addLabel="Use this prescription"
       addedLabel="In use"
     />

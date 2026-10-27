@@ -28,6 +28,21 @@ describe('eRx suggestion looks', () => {
     ).toHaveAccessibleName('Write my own');
   });
 
+  it.each([
+    ['Quick pick saved by weight', 'Take 9 mL by mouth twice daily for 10 days.'],
+    ['Quick pick at its maximum', 'Take 6 mL by mouth twice daily for 10 days.'],
+    ['Quick pick by weight, no weight', 'Take (enter weight) mL by mouth twice daily for 10 days.'],
+    ['Quick pick without dosing', 'Take 5 mL by mouth twice daily for 10 days.'],
+  ])('%s', (title, text) => {
+    render(<ErxSuggestionsBox {...suggestionLook(title)} />);
+    expect(screen.getAllByText(/^Sample /)).toHaveLength(1);
+    expect(
+      screen.getByText(
+        (_content, element) => element?.tagName === 'P' && element.textContent?.startsWith(text) === true
+      )
+    ).toBeInTheDocument();
+  });
+
   it('shows a diagnosis blank empty or filled', () => {
     render(<ErxSuggestionsBox {...suggestionLook('Dosed row for a diagnosis')} />);
     expect(screen.getByRole('button', { name: 'Acute otitis media: not picked' })).toHaveTextContent(

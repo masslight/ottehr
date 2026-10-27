@@ -4,6 +4,7 @@ import {
   AlertColor,
   Autocomplete,
   Box,
+  Button,
   FormHelperText,
   IconButton,
   Link,
@@ -45,6 +46,7 @@ import {
   prescriptionQuickPickLabel,
   withDirections,
   withDrug,
+  withoutCalculatorDosing,
   withProduct,
   withSuggestion,
 } from './prescriptionLines';
@@ -143,6 +145,35 @@ const MedicationSearch: FC<{ onPick: (drug: MedicationSearchDrug) => void }> = (
         renderInput={(params) => <TextField {...params} size="small" label="Medication" />}
       />
       {isError && <ReportSearchIssue />}
+    </Box>
+  );
+};
+
+/** A suggestion row's dose blank: type the dose, Enter or "Use" picks it. */
+const DoseEntry: FC<{ initial?: string; onPick: (dose: string) => void }> = ({ initial, onPick }) => {
+  const [dose, setDose] = useState(initial ?? '');
+  const valid = Number(dose) > 0;
+  return (
+    <Box
+      component="form"
+      sx={{ display: 'flex', gap: 1, alignItems: 'center', pt: 0.5 }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (valid) onPick(dose);
+      }}
+    >
+      <TextField
+        size="small"
+        type="number"
+        label="Dose"
+        value={dose}
+        onChange={(event) => setDose(event.target.value)}
+        inputProps={{ min: 0, step: 0.5 }}
+        sx={{ width: 120 }}
+      />
+      <Button type="submit" size="small" disabled={!valid}>
+        Use
+      </Button>
     </Box>
   );
 };
@@ -279,9 +310,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             ageMonths: patientAgeMonths,
             weightKg,
             diagnosisCodes: diagnosisCodesKey.split(' ').filter(Boolean),
+            quickPicks,
           })
         : [],
-    [drug, medication, patientAgeMonths, weightKg, diagnosisCodesKey]
+    [drug, medication, patientAgeMonths, weightKg, diagnosisCodesKey, quickPicks]
   );
   // The directions and dispense blanks wait for a pick among the suggestions (or "Other"), unless the line opens
   // with directions (a quick pick, an edited line). A new medication or strength hides them again until a pick,
@@ -326,6 +358,9 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const instructionsShown = instructionsOpen || line.instructions !== '';
   const setSteps = (steps: PrescriptionStep[]): void => onChange(withDirections(line, { steps }));
+  /** The line used in a row: as the row's own apply has it, else as its fields fill it. */
+  const withRow = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine =>
+    row.apply ? row.apply(line, picks) : withSuggestion(line, row.fill(picks));
 
   /** The dose, frequency and duration blanks of one step; `at` names the step in later steps' labels, and the
    * route blank sits between the first step's dose and frequency. */
@@ -444,13 +479,36 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           weightNote={weightNote}
           isAdded={matches}
           renderPicker={(row, blank, pick) =>
-            // A row's diagnosis blank opens the line's pick-list.
-            row.diagnosisAt === undefined || row.segments[row.diagnosisAt] !== blank ? undefined : (
+            // A row's dose blank is typed in; its diagnosis blank opens the line's pick-list.
+            row.doseAt !== undefined && row.segments[row.doseAt] === blank ? (
+              <DoseEntry initial={blank.initial} onPick={pick} />
+            ) : row.diagnosisAt === undefined || row.segments[row.diagnosisAt] !== blank ? undefined : (
               <DiagnosisSearch visitDiagnoses={visitDiagnoses} onPick={(diagnosis) => pick(diagnosisText(diagnosis))} />
+            )
+          }
+          // A quick pick's row opens the calculator with its settings; "Use this dose" uses the row with that dose.
+          renderDoseTool={(row, picks) =>
+            row.calculator && (
+              <DoseCalculator
+                line={withRow(row, picks)}
+                initial={row.calculator}
+                label={`Dose calculator for ${row.subtitle ?? 'this suggestion'}`}
+                weight={weight}
+                weightText={weightText}
+                onWeightText={onWeightText}
+                onChange={(next) => {
+                  reveal();
+                  onChange(next);
+                }}
+              />
             )
           }
           onPick={(suggestion, picks) => {
             reveal();
+            if (suggestion.apply) {
+              onChange(suggestion.apply(line, picks));
+              return;
+            }
             // A row's diagnosis blank brings its value, if any; an empty one leaves the line's.
             const at = suggestion.diagnosisAt;
             const chosen =
@@ -598,7 +656,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             {stepBlanks(
               line,
               '',
-              (patch) => onChange(withDirections(line, patch)),
+              (patch) => onChange(withDirections(withoutCalculatorDosing(line, patch), patch)),
               line.doseNotes?.[0],
               <>
                 <SelectBlank

@@ -22,6 +22,8 @@ export interface DoseField {
   from?: string;
   /** A link after the note, as "use the vitals weight". */
   action?: { label: string; onClick: () => void };
+  /** May stay empty without looking like it's needed (a maximum). */
+  optional?: boolean;
 }
 
 /** The result: the sentence the line will read once the dose is used, and, behind the ⓘ, how it was worked out. */
@@ -124,12 +126,12 @@ const Fields: FC<{
         <FieldBox>
           <TextBlank
             label={field.label.toLowerCase()}
-            placeholder="—"
+            placeholder={field.optional ? 'optional' : '—'}
             kind="number"
             value={field.value}
             onChange={(value) => onFieldChange?.(field.id, value)}
             readOnly={readOnly}
-            need={!field.value}
+            need={!field.value && !field.optional}
             min={0}
             step={0.1}
           />

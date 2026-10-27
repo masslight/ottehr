@@ -25,6 +25,8 @@ interface ProcedureQuickPickDialogsProps {
   onSave: (overwriteId?: string) => void;
   /** What the quick pick holds, in the overwrite question ("the current procedure data"). */
   subject?: string;
+  /** A read-only line under the name on what else is saved ("Saved by weight: …"). */
+  details?: string;
 }
 
 export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
@@ -36,6 +38,7 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
   onClose,
   onSave,
   subject = 'procedure',
+  details,
 }) => {
   const [overwriteTarget, setOverwriteTarget] = useState<NamedQuickPick | null>(null);
 
@@ -61,6 +64,11 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
               />
             )}
           />
+          {details && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }} data-testid="quick-pick-details">
+              {details}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={onClose} disabled={saving}>

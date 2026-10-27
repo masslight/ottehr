@@ -3,6 +3,7 @@ import { DoseMeasure, doseRoundingNote, nearestMeasurable } from 'utils/lib/help
 import {
   doseAmountText,
   parseStrengthConcentration,
+  PRESCRIPTION_FREQUENCIES,
   PrescriptionDirections,
   prescriptionDirectionsText,
   prescriptionDispense,
@@ -20,7 +21,7 @@ import {
   PharmacySearchResult,
 } from 'utils/lib/types/api/erx-search.types';
 import { OrderPrescriptionInput, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
-import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { PrescriptionQuickPickData, PrescriptionQuickPickDosing } from 'utils/lib/types/api/quick-picks.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { z } from 'zod';
 
@@ -58,7 +59,13 @@ export interface PrescriptionLine extends PrescriptionDirections {
   awaitingPick?: boolean;
   /** The notes on the doses the last strength change re-measured: the first step's, then each "then" step's. */
   doseNotes?: (DoseNote | undefined)[];
+  /** The calculator's settings while the dose is the one its "Use this dose" wrote; a quick pick saved from the line
+   * keeps them. Gone once the dose is typed by hand or the product changes. */
+  dosing?: CalculatorDosing;
 }
+
+/** What the calculator worked the dose out from; the frequency and duration are the line's own. */
+export type CalculatorDosing = Omit<PrescriptionQuickPickDosing, 'frequency' | 'durationDays'>;
 
 /** How far a dose a strength change re-measured lands from the mg it was: shown beside the dose while it stays as
  * re-measured. */
@@ -146,6 +153,19 @@ export const withDirections = (line: PrescriptionLine, patch: Partial<Prescripti
   };
 };
 
+/** The line without the calculator's settings once a change by hand means its dose is no longer the one they worked
+ * out: a dose typed over it, or a frequency of other doses a day than it used. */
+export const withoutCalculatorDosing = (line: PrescriptionLine, patch: Partial<PrescriptionStep>): PrescriptionLine => {
+  const { dosing } = line;
+  if (!dosing) return line;
+  const typed = patch.dose !== undefined && patch.dose !== line.dose;
+  const otherDoses =
+    patch.frequency !== undefined &&
+    dosing.dosesPerDay !== undefined &&
+    PRESCRIPTION_FREQUENCIES[patch.frequency]?.dosesPerDay !== dosing.dosesPerDay;
+  return typed || otherDoses ? { ...line, dosing: undefined } : line;
+};
+
 /** A number as the blanks hold it, or nothing for an empty or unreadable one. */
 export const numberOrUndefined = (value: string): number | undefined =>
   value.trim() === '' || !Number.isFinite(Number(value)) ? undefined : Number(value);
@@ -207,6 +227,7 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
       patientInstructions: '',
       ...withoutQuickPick(line),
       doseNotes: undefined,
+      dosing: undefined,
     },
     {}
   );
@@ -231,7 +252,7 @@ export const withProduct = (
     quantityUnit: prescriptionQuantityUnit(medication.description) ?? line.quantityUnit,
     route: prescriptionRoute(medication.description) ?? line.route,
     ...(otherDrug ? NO_DIRECTIONS : {}),
-    ...(changed ? { patientInstructions: '', ...withoutQuickPick(line) } : {}),
+    ...(changed ? { patientInstructions: '', ...withoutQuickPick(line), dosing: undefined } : {}),
   };
   if (!changed || otherDrug || from === undefined) return withDirections({ ...next, doseNotes: undefined }, {});
   const first = remeasured(line.dose, from, next);
@@ -257,6 +278,7 @@ export const withSuggestion = (
   ...line,
   ...NO_DIRECTIONS,
   ...fields,
+  dosing: undefined,
   quantityUnit: fields.quantityUnit || line.quantityUnit,
   // Refills are the provider's: a suggestion has none of its own.
   numberOfRefills: line.numberOfRefills,
@@ -393,6 +415,8 @@ export const applyPrescriptionQuickPick = (
     patientInstructions: quickPick.patientInstructions ?? '',
     noteToPharmacy: quickPick.noteToPharmacy ?? '',
     generated: NOTHING_GENERATED,
+    // Its directions are text written for whoever it was saved from: not the calculator's for this patient.
+    dosing: undefined,
   };
   return {
     ...applied,
@@ -420,7 +444,36 @@ export const prescriptionLineToQuickPick = (
   patientInstructions: line.patientInstructions.trim() || undefined,
   noteToPharmacy: line.noteToPharmacy.trim() || undefined,
   // diagnosis excluded — encounter-specific
+  // The calculator's settings with the line's frequency and duration, for a dose "Use this dose" wrote; a course's
+  // later steps aren't the calculator's.
+  ...(line.dosing && line.steps.length === 0
+    ? {
+        dosing: {
+          ...line.dosing,
+          ...(line.frequency ? { frequency: line.frequency } : {}),
+          ...(numberOrUndefined(line.durationDays) !== undefined
+            ? { durationDays: numberOrUndefined(line.durationDays) }
+            : {}),
+        },
+      }
+    : {}),
 });
+
+const mgText = (mg: number): string => `${roundNumberToDecimalPlaces(mg, 2)} mg`;
+
+/** What the save dialog says a quick pick keeps from the calculator: "Saved by weight: 25 mg/kg per dose, twice
+ * daily, 10 days, max 500 mg per dose (from the calculator)". */
+export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing): string => {
+  const { rate, basis, dosesPerDay, frequency, durationDays, maxPerDoseMg, maxPerDayMg } = dosing;
+  const parts = [
+    basis === 'fixed' ? `${mgText(rate)} per dose` : `${rate} mg/kg per ${basis === 'mg/kg/day' ? 'day' : 'dose'}`,
+    frequency ?? (dosesPerDay !== undefined ? `${dosesPerDay} doses a day` : undefined),
+    durationDays !== undefined ? `${durationDays} ${durationDays === 1 ? 'day' : 'days'}` : undefined,
+    maxPerDoseMg !== undefined ? `max ${mgText(maxPerDoseMg)} per dose` : undefined,
+    maxPerDayMg !== undefined ? `max ${mgText(maxPerDayMg)} per day` : undefined,
+  ].filter((part): part is string => part !== undefined);
+  return `${basis === 'fixed' ? 'Saved dose' : 'Saved by weight'}: ${parts.join(', ')} (from the calculator)`;
+};
 
 /** "Amoxicillin 500 MG Oral Capsule, 20 Capsule": the quick pick's name with what it dispenses, as the list reads. */
 export const prescriptionQuickPickLabel = (quickPick: PrescriptionQuickPickData): string =>

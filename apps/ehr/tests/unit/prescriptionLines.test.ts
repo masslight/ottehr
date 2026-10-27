@@ -9,6 +9,7 @@ import {
   prescriptionLineToQuickPick,
   withDirections,
   withDrug,
+  withoutCalculatorDosing,
   withProduct,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -484,5 +485,33 @@ describe('product changes and suggestions', () => {
       patientInstructions: 'Take 4.5 mL by mouth twice daily for 10 days.',
     });
     expect(suggested.numberOfRefills).toBe('2');
+  });
+});
+
+describe('withoutCalculatorDosing', () => {
+  const dosed: PrescriptionLine = {
+    ...complete(),
+    dose: '3',
+    frequency: 'twice daily',
+    dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2 },
+  };
+
+  it('keeps the settings while the dose and the doses a day stay the calculator’s', () => {
+    expect(withoutCalculatorDosing(dosed, { durationDays: '10' }).dosing).toEqual(dosed.dosing);
+    expect(withoutCalculatorDosing(dosed, { frequency: 'every 12 hours' }).dosing).toEqual(dosed.dosing);
+    expect(withoutCalculatorDosing(dosed, { dose: '3' }).dosing).toEqual(dosed.dosing);
+  });
+
+  it('drops them for a typed dose or a frequency of other doses a day', () => {
+    expect(withoutCalculatorDosing(dosed, { dose: '4' }).dosing).toBeUndefined();
+    expect(withoutCalculatorDosing(dosed, { frequency: 'three times daily' }).dosing).toBeUndefined();
+    expect(withoutCalculatorDosing(dosed, { frequency: 'as needed' }).dosing).toBeUndefined();
+  });
+
+  it('drops them on a new product and saves none for a course', () => {
+    expect(withDrug(dosed, { name: 'Cefdinir', strengths: [] }).dosing).toBeUndefined();
+    const course = { ...dosed, steps: [{ dose: '1', frequency: 'once daily', durationDays: '2' }] };
+    expect(prescriptionLineToQuickPick(course, 'Course')).not.toHaveProperty('dosing');
+    expect(prescriptionLineToQuickPick(dosed, 'Dosed').dosing).toEqual({ ...dosed.dosing, frequency: 'twice daily' });
   });
 });

@@ -14,7 +14,14 @@ import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { formatDateTimeToLocalTimezone } from 'utils/lib/utils/date';
 import { DoseCalculatorCard, DoseCalculatorDisplay, DoseField } from '../erx-looks/DoseCalculatorCard';
 import { DoseCalculatorPopup } from '../erx-looks/DoseCalculatorPopup';
-import { MEASURE_OF, mgPerMeasure, numberOrUndefined, PrescriptionLine, withDirections } from './prescriptionLines';
+import {
+  CalculatorDosing,
+  MEASURE_OF,
+  mgPerMeasure,
+  numberOrUndefined,
+  PrescriptionLine,
+  withDirections,
+} from './prescriptionLines';
 import { VisitWeight } from './useVisitWeight';
 
 const BASIS_OPTIONS = [
@@ -30,9 +37,28 @@ interface Picks {
   rate?: string;
   basis?: DoseBasis;
   dosesPerDay?: string;
+  maxPerDose?: string;
+  maxPerDay?: string;
 }
 
 const text = (value: number | undefined): string => (value === undefined ? '' : String(value));
+
+/** A quick pick's settings as if typed in, for its product; its doses a day only where the line's frequency doesn't
+ * already say them. */
+const picksOf = (dosing: CalculatorDosing | undefined, line: PrescriptionLine): Picks =>
+  dosing
+    ? {
+        ndc: line.medication?.ndc,
+        rate: text(dosing.rate),
+        basis: dosing.basis,
+        ...(dosing.dosesPerDay !== undefined &&
+        dosing.dosesPerDay !== PRESCRIPTION_FREQUENCIES[line.frequency]?.dosesPerDay
+          ? { dosesPerDay: text(dosing.dosesPerDay) }
+          : {}),
+        ...(dosing.maxPerDoseMg !== undefined ? { maxPerDose: text(dosing.maxPerDoseMg) } : {}),
+        ...(dosing.maxPerDayMg !== undefined ? { maxPerDay: text(dosing.maxPerDayMg) } : {}),
+      }
+    : {};
 
 /** The weight in the calculator's blank: what was typed, else the vitals' kg to the 0.01 kg they store. */
 const calculatorWeightText = (weightText: string | undefined, weight: VisitWeight | undefined): string =>
@@ -68,13 +94,15 @@ export interface DoseFill {
   replaceFrequency?: boolean;
   durationDays?: string;
   steps?: PrescriptionStep[];
+  /** What the dose was worked out from, which the line keeps while its dose stays the one used. */
+  dosing?: CalculatorDosing;
 }
 
 /** The line with the calculator's dose used. Without steps of its own the dose is for the whole prescription: any
  * "then" steps go, and with them the first step's duration. */
 export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLine => {
   const quantityUnit = line.quantityUnit || prescriptionQuantityUnit(line.medication?.description ?? '') || '';
-  return withDirections(
+  const next = withDirections(
     { ...line, quantityUnit },
     {
       dose: fill.dose,
@@ -88,6 +116,7 @@ export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLi
         : {}),
     }
   );
+  return { ...next, dosing: fill.dosing };
 };
 
 interface DoseCalculatorProps {
@@ -99,13 +128,25 @@ interface DoseCalculatorProps {
   weightText?: string;
   onWeightText: (value: string | undefined) => void;
   onChange: (next: PrescriptionLine) => void;
+  /** Settings it opens with, as a quick pick's, in place of empty ones. */
+  initial?: CalculatorDosing;
+  /** The icon's name, where there are several. */
+  label?: string;
 }
 
 /** The calculator icon after the line's dose blank and the plain dose calculator it opens: weight from the vitals,
  * strength from the product, the rate typed and the doses a day from the line's frequency, all editable. Its result
  * reads as the line's sentence, with the working behind the ⓘ. Nothing on the line changes until "Use this dose". */
-export const DoseCalculator: FC<DoseCalculatorProps> = ({ line, weight, weightText, onWeightText, onChange }) => {
-  const [picks, setPicks] = useState<Picks>({});
+export const DoseCalculator: FC<DoseCalculatorProps> = ({
+  line,
+  weight,
+  weightText,
+  onWeightText,
+  onChange,
+  initial,
+  label,
+}) => {
+  const [picks, setPicks] = useState<Picks>(() => picksOf(initial, line));
   const ndc = line.medication?.ndc;
   const own = picks.ndc === ndc ? picks : {};
   const pick = (patch: Partial<Picks>): void => setPicks({ ...own, ...patch, ndc });
@@ -116,7 +157,9 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({ line, weight, weightTe
   if (!measure) {
     const message = description ? 'Not for this dose form: liquids, tablets and capsules only' : 'Pick a medication';
     return (
-      <DoseCalculatorPopup>{() => <DoseCalculatorCard display={{ look: 'waiting', message }} />}</DoseCalculatorPopup>
+      <DoseCalculatorPopup label={label}>
+        {() => <DoseCalculatorCard display={{ look: 'waiting', message }} />}
+      </DoseCalculatorPopup>
     );
   }
   const weightValue = calculatorWeightText(weightText, weight);
@@ -128,6 +171,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({ line, weight, weightTe
   const dosesPerDayText = own.dosesPerDay ?? text(lineDosesPerDay);
   const dosesPerDay = numberOrUndefined(dosesPerDayText);
   const rateText = own.rate ?? '';
+  const maxPerDoseMg = numberOrUndefined(own.maxPerDose ?? '');
+  const maxPerDayMg = numberOrUndefined(own.maxPerDay ?? '');
 
   const dose = plainDose({
     weightKg,
@@ -136,6 +181,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({ line, weight, weightTe
     basis,
     rate: numberOrUndefined(rateText),
     dosesPerDay,
+    maxPerDoseMg,
+    maxPerDayMg,
   });
   const frequencyOfDoses = (dosesPerDay && frequencyForDosesPerDay(dosesPerDay)) || '';
 
@@ -189,18 +236,27 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({ line, weight, weightTe
       value: dosesPerDayText,
       from: own.dosesPerDay === undefined && lineDosesPerDay !== undefined ? `from ${line.frequency}` : undefined,
     },
+    { id: 'maxPerDose', label: 'Maximum per dose', value: own.maxPerDose ?? '', unit: 'mg per dose', optional: true },
+    { id: 'maxPerDay', label: 'Maximum per day', value: own.maxPerDay ?? '', unit: 'mg per day', optional: true },
   ];
 
   const missing = [
     basis !== 'fixed' && !weightKg && 'the weight',
     !numberOrUndefined(concentrationText) && `the ${measure === 'mL' ? 'concentration' : 'strength'}`,
     !numberOrUndefined(rateText) && 'a rate',
-    basis === 'mg/kg/day' && !dosesPerDay && 'the doses a day',
+    (basis === 'mg/kg/day' || maxPerDayMg) && !dosesPerDay && 'the doses a day',
   ].filter((input): input is string => !!input);
   const fill: DoseFill | undefined = dose && {
     dose: String(dose.amount),
     frequency: frequencyOfDoses,
     replaceFrequency: own.dosesPerDay !== undefined,
+    dosing: {
+      rate: numberOrUndefined(rateText) ?? 0,
+      basis,
+      ...(dosesPerDay !== undefined ? { dosesPerDay } : {}),
+      ...(maxPerDoseMg !== undefined ? { maxPerDoseMg } : {}),
+      ...(maxPerDayMg !== undefined ? { maxPerDayMg } : {}),
+    },
   };
   const display: DoseCalculatorDisplay = fill
     ? {
@@ -221,7 +277,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({ line, weight, weightTe
       };
 
   return (
-    <DoseCalculatorPopup>
+    <DoseCalculatorPopup label={label}>
       {(close) => (
         <DoseCalculatorCard
           display={display}

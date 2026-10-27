@@ -1,7 +1,8 @@
-import { SuggestedSentence } from 'src/components/SuggestedSentences';
 import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
+import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { prescriptionSuggestionsFor } from '../erx/prescriptionSuggestions';
 import { DoseCalculatorCardProps, DoseField } from './DoseCalculatorCard';
-import { ErxSuggestionsBoxProps } from './ErxSuggestionsBox';
+import { ErxSuggestionRow, ErxSuggestionsBoxProps } from './ErxSuggestionsBox';
 
 /** Every look with the catalogue's sample props (a 10-year-old, 28.12 kg, unless a look says otherwise), for the
  * local preview page and the component tests. Display strings only: nothing here is dosing data. */
@@ -23,16 +24,42 @@ const diagnosisBlank = (title: string, initial?: string): SentenceBlank => ({
   optional: true,
 });
 
-type RowsProps = Extract<ErxSuggestionsBoxProps<SuggestedSentence>, { look: 'rows' }>;
+type RowsProps = Extract<ErxSuggestionsBoxProps<ErxSuggestionRow>, { look: 'rows' }>;
 
-const rows = (...list: Omit<SuggestedSentence, 'id'>[]): RowsProps => ({
+const rows = (...list: Omit<ErxSuggestionRow, 'id'>[]): RowsProps => ({
   look: 'rows',
   rows: list.map((row, i) => ({ id: String(i), ...row })),
   onPick: noop,
   onOther: noop,
 });
 
-export const SUGGESTION_LOOKS: SampleLook<ErxSuggestionsBoxProps<SuggestedSentence>>[] = [
+/** Sample quick picks for one product, as the order form's suggestions build their rows. */
+const SAMPLE_PRODUCT = { ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' };
+const SAMPLE_BY_WEIGHT: PrescriptionQuickPickData['dosing'] = {
+  rate: 25,
+  basis: 'mg/kg/dose',
+  dosesPerDay: 2,
+  frequency: 'twice daily',
+  durationDays: 10,
+};
+const quickPickRows = (weightKg: number | undefined, ...quickPicks: PrescriptionQuickPickData[]): RowsProps => ({
+  look: 'rows',
+  rows: prescriptionSuggestionsFor({
+    drug: null,
+    medication: SAMPLE_PRODUCT,
+    weightKg,
+    diagnosisCodes: [],
+    quickPicks: quickPicks.map((quickPick) => ({
+      ndc: SAMPLE_PRODUCT.ndc,
+      medicationDescription: SAMPLE_PRODUCT.description,
+      ...quickPick,
+    })),
+  }),
+  onPick: noop,
+  onOther: noop,
+});
+
+export const SUGGESTION_LOOKS: SampleLook<ErxSuggestionsBoxProps<ErxSuggestionRow>>[] = [
   {
     tag: 'Row 1',
     title: 'Dosed row',
@@ -78,6 +105,34 @@ export const SUGGESTION_LOOKS: SampleLook<ErxSuggestionsBoxProps<SuggestedSenten
     props: rows({ segments: ['Inject into the outer thigh once — 30 kg and up.'] }),
   },
   { tag: 'Row 7', title: 'Write my own', props: rows() },
+  {
+    tag: 'Quick pick',
+    title: 'Quick pick saved by weight',
+    props: quickPickRows(28.12, { id: 'a', name: 'Sample by weight', dosing: SAMPLE_BY_WEIGHT }),
+  },
+  {
+    tag: 'Quick pick',
+    title: 'Quick pick at its maximum',
+    props: quickPickRows(28.12, {
+      id: 'b',
+      name: 'Sample with a maximum',
+      dosing: { ...SAMPLE_BY_WEIGHT, maxPerDoseMg: 500 },
+    }),
+  },
+  {
+    tag: 'Quick pick',
+    title: 'Quick pick by weight, no weight',
+    props: quickPickRows(undefined, { id: 'c', name: 'Sample by weight', dosing: SAMPLE_BY_WEIGHT }),
+  },
+  {
+    tag: 'Quick pick',
+    title: 'Quick pick without dosing',
+    props: quickPickRows(28.12, {
+      id: 'd',
+      name: 'Sample saved sentence',
+      patientInstructions: 'Take 5 mL by mouth twice daily for 10 days.',
+    }),
+  },
   {
     tag: 'Overlay',
     title: 'Cautions, notes and the weight note',

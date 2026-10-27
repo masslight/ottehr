@@ -108,6 +108,16 @@ const LiveLine: FC = () => {
   );
 };
 
+/** The icon after a suggestion row's dose, as a look. */
+const CalculatorIcon: FC = () => (
+  <Box
+    component="span"
+    sx={{ display: 'inline-flex', verticalAlign: '-3px', p: '2px', mx: '2px', color: 'primary.main' }}
+  >
+    <Calculate sx={{ fontSize: 18 }} />
+  </Box>
+);
+
 /** The icon as it looks while its calculator is open. */
 const OpenIcon: FC = () => (
   <Box
@@ -146,6 +156,9 @@ export const ErxLooksPreview: FC = () => (
               <Typography variant="body2" color="text.secondary">
                 (Nothing renders: the line opens straight away.)
               </Typography>
+            ) : props.look === 'rows' ? (
+              // The calculator icon after a quick pick row's dose, here only for its look.
+              <ErxSuggestionsBox {...props} renderDoseTool={() => <CalculatorIcon />} />
             ) : (
               <ErxSuggestionsBox {...props} />
             )}

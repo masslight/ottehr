@@ -4,8 +4,12 @@ import { FC, ReactNode, useId, useState } from 'react';
 import { BlankPopper } from '../procedures/narrative/InlineBlanks';
 
 /** The calculator icon after a dose blank: a click opens the dose calculator under the line, and Escape, a click
- * away or `close` (from "Use this dose") shuts it. It never opens by itself. */
-export const DoseCalculatorPopup: FC<{ children: (close: () => void) => ReactNode }> = ({ children }) => {
+ * away or `close` (from "Use this dose") shuts it. It never opens by itself. `label` names the icon where there are
+ * several (a suggestion row's). */
+export const DoseCalculatorPopup: FC<{ children: (close: () => void) => ReactNode; label?: string }> = ({
+  children,
+  label = 'Dose calculator',
+}) => {
   const popupId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = (restoreFocus = true): void => {
@@ -16,7 +20,7 @@ export const DoseCalculatorPopup: FC<{ children: (close: () => void) => ReactNod
     <>
       <IconButton
         size="small"
-        aria-label="Dose calculator"
+        aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={Boolean(anchor)}
         aria-controls={anchor ? popupId : undefined}

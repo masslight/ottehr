@@ -97,7 +97,7 @@ const ROUTE_VERBS: Record<PrescriptionRoute, string> = {
 export const prescriptionVerb = (route: PrescriptionRoute | '' | undefined): string => ROUTE_VERBS[route || 'by mouth'];
 
 /** Routes the verb already says: "Inhale 2 puffs inhaled" would repeat itself. */
-const ROUTES_IN_VERB: readonly PrescriptionRoute[] = ['inhaled', 'by injection'];
+export const ROUTES_IN_VERB: readonly PrescriptionRoute[] = ['inhaled', 'by injection'];
 
 /** Liquids for these routes are dosed in drops, and come in bottles whose size the description doesn't give. */
 const DROP_ROUTES: readonly PrescriptionRoute[] = ['in the ear', 'in the eye', 'in the nose'];

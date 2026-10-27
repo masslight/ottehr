@@ -42,6 +42,7 @@ import {
   prescriptionLineErrors,
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
+  quickPickDosingText,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { useVisitWeight } from './useVisitWeight';
@@ -246,6 +247,9 @@ export const OrderPrescriptionForm: FC = () => {
   };
 
   const isPreferred = pharmacy != null && preferredPharmacy?.ncpdpId === pharmacy.ncpdpId;
+  // What the quick pick keeps from the calculator, for the save dialog to say.
+  const quickPickLine = lines.find((item) => item.key === quickPickLineKey);
+  const savedDosing = quickPickLine && prescriptionLineToQuickPick(quickPickLine, quickPickName).dosing;
 
   return (
     <>
@@ -391,6 +395,7 @@ export const OrderPrescriptionForm: FC = () => {
         onClose={() => setQuickPickLineKey(null)}
         onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
         subject="prescription"
+        details={savedDosing && quickPickDosingText(savedDosing)}
       />
     </>
   );

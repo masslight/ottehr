@@ -1,14 +1,43 @@
-import { SentencePicks, SuggestedSentence } from 'src/components/SuggestedSentences';
-import { SuggestedPrescriptionFields } from 'utils/lib/helpers/medications/prescription-suggestions';
+import { SentencePicks } from 'src/components/SuggestedSentences';
+import { plainDose } from 'utils/lib/helpers/medications/plain-dose';
+import {
+  doseUnitLabel,
+  frequencyForDosesPerDay,
+  PRESCRIPTION_FREQUENCIES,
+  prescriptionDirectionsText,
+  prescriptionDispense,
+  prescriptionDoseForm,
+  prescriptionDoseUnit,
+  prescriptionQuantityUnit,
+  prescriptionRoute,
+  prescriptionVerb,
+  ROUTES_IN_VERB,
+  SuggestedPrescriptionFields,
+} from 'utils/lib/helpers/medications/prescription-suggestions';
+import { SentenceBlank, SentenceSegment } from 'utils/lib/helpers/suggested-sentences';
 import { MedicationSearchDrug, MedicationSearchResult } from 'utils/lib/types/api/erx-search.types';
+import { PrescriptionQuickPickData, PrescriptionQuickPickDosing } from 'utils/lib/types/api/quick-picks.types';
+import { ErxSuggestionRow } from '../erx-looks/ErxSuggestionsBox';
+import {
+  applyPrescriptionQuickPick,
+  CalculatorDosing,
+  MEASURE_OF,
+  mgPerMeasure,
+  PrescriptionLine,
+  withSuggestion,
+} from './prescriptionLines';
 
 /** One suggested prescription: the sentence as it reads, and what "+" writes into the line. */
-export interface PrescriptionSuggestionRow extends SuggestedSentence {
+export interface PrescriptionSuggestionRow extends ErxSuggestionRow {
   /** The line's fields with the row's blanks as picked. */
   fill: (picks: SentencePicks) => SuggestedPrescriptionFields;
   /** Where a blank that picks the diagnosis by search sits ("— for [acute otitis media]"). Its value, as
    * "Display CODE", goes on the line with the row; an empty one leaves the line's. */
   diagnosisAt?: number;
+  /** The line with the row used, in place of `withSuggestion` with its fields (a quick pick's row). */
+  apply?: (line: PrescriptionLine, picks: SentencePicks) => PrescriptionLine;
+  /** The calculator after the dose blank opens with these settings. */
+  calculator?: CalculatorDosing;
 }
 
 /** What the suggestions are chosen by. */
@@ -19,8 +48,162 @@ export interface PrescriptionSuggestionQuery {
   weightKg?: number;
   /** The line's own diagnosis code, then the visit's, primary first. */
   diagnosisCodes: string[];
+  /** The practice's prescription quick picks, as the list has them. */
+  quickPicks?: PrescriptionQuickPickData[];
 }
 
-/** The suggestions for a product: none yet, so the box offers only "Other" (Write my own). Where suggestion data
+/** How many of the product's quick picks the box shows, before "Other". */
+export const QUICK_PICK_SUGGESTIONS = 3;
+
+/** The day counts a duration blank offers. */
+const DURATION_DAYS = ['3', '5', '7', '10', '14', '30'];
+
+/** A quick pick is for this product when its NDC is the product's, or, without NDCs on both, its description is. */
+export const isQuickPickFor = (quickPick: PrescriptionQuickPickData, medication: MedicationSearchResult): boolean =>
+  quickPick.ndc && medication.ndc
+    ? quickPick.ndc === medication.ndc
+    : quickPick.medicationDescription !== undefined && quickPick.medicationDescription === medication.description;
+
+/** The quick pick on the line as it would be from the quick pick list, keeping the line's product (and so its drug
+ * and strength blanks). */
+const withQuickPick = (line: PrescriptionLine, quickPick: PrescriptionQuickPickData): PrescriptionLine =>
+  applyPrescriptionQuickPick(line, { ...quickPick, ndc: undefined, medicationDescription: undefined });
+
+/** A quick pick without the calculator's settings: its saved directions as written, and "+" uses it as the quick
+ * pick list does. */
+const savedRow = (quickPick: PrescriptionQuickPickData, id: string): PrescriptionSuggestionRow => ({
+  id,
+  segments: [quickPick.patientInstructions || 'No directions saved.'],
+  subtitle: quickPick.name,
+  fill: () => ({
+    route: '',
+    dose: '',
+    frequency: '',
+    durationDays: '',
+    steps: [],
+    instructions: '',
+    quantityValue: quickPick.quantityValue === undefined ? '' : String(quickPick.quantityValue),
+    quantityUnit: quickPick.quantityUnit ?? '',
+    daysSupply: quickPick.daysSupply === undefined ? '' : String(quickPick.daysSupply),
+    numberOfRefills: String(quickPick.numberOfRefills ?? 0),
+    patientInstructions: quickPick.patientInstructions ?? '',
+  }),
+  apply: (line) => withQuickPick(line, quickPick),
+});
+
+/** A quick pick saved from the calculator, re-dosed for this patient's weight by the same calculator: "Take [6] mL by
+ * mouth [twice daily] for [10] days." with every blank editable, and the working behind the ⓘ. Without a weight the
+ * dose blank waits ("(enter weight)"); a dose typed into it is the provider's, so the line keeps no settings. */
+const dosedRow = (
+  quickPick: PrescriptionQuickPickData,
+  dosing: PrescriptionQuickPickDosing,
+  id: string,
+  medication: MedicationSearchResult,
+  weightKg: number | undefined
+): PrescriptionSuggestionRow => {
+  const { description } = medication;
+  const form = prescriptionDoseForm(description);
+  const measure = form && MEASURE_OF[form];
+  const route = prescriptionRoute(description) ?? 'by mouth';
+  const unit = prescriptionDoseUnit(form, route, description);
+  const frequency =
+    dosing.frequency && PRESCRIPTION_FREQUENCIES[dosing.frequency]
+      ? dosing.frequency
+      : dosing.dosesPerDay !== undefined
+      ? frequencyForDosesPerDay(dosing.dosesPerDay)
+      : undefined;
+  const { frequency: _frequency, durationDays, ...calculator } = dosing;
+  const dose =
+    measure &&
+    plainDose({
+      weightKg,
+      mgPerMeasure: mgPerMeasure(description),
+      measure,
+      basis: dosing.basis,
+      rate: dosing.rate,
+      dosesPerDay: dosing.dosesPerDay ?? (frequency ? PRESCRIPTION_FREQUENCIES[frequency]?.dosesPerDay : undefined),
+      maxPerDoseMg: dosing.maxPerDoseMg,
+      maxPerDayMg: dosing.maxPerDayMg,
+    });
+  const doseText = dose ? String(dose.amount) : undefined;
+  const doseBlank: SentenceBlank = {
+    title: 'Dose',
+    options: [],
+    initial: doseText,
+    ...(!doseText && dosing.basis !== 'fixed' && !weightKg ? { placeholder: '(enter weight)' } : {}),
+  };
+  const frequencyBlank: SentenceBlank = {
+    title: 'Frequency',
+    options: Object.keys(PRESCRIPTION_FREQUENCIES),
+    initial: frequency,
+  };
+  const days = durationDays === undefined ? undefined : String(durationDays);
+  const durationBlank: SentenceBlank = {
+    title: 'Duration',
+    options: days === undefined || DURATION_DAYS.includes(days) ? DURATION_DAYS : [...DURATION_DAYS, days],
+    initial: days,
+    optional: true,
+    placeholder: '#',
+  };
+  const where = ROUTES_IN_VERB.includes(route) ? '' : ` ${route}`;
+  const segments: SentenceSegment[] = [
+    `${prescriptionVerb(route)} `,
+    doseBlank,
+    `${unit ? ` ${doseUnitLabel(unit, dose?.amount)}` : ''}${where} `,
+    frequencyBlank,
+    ' for ',
+    durationBlank,
+    ' days.',
+  ];
+  const [doseAt, frequencyAt, durationAt] = [1, 3, 5];
+  const fill = (picks: SentencePicks): SuggestedPrescriptionFields => {
+    const directions = {
+      route,
+      dose: picks[doseAt] ?? doseText ?? '',
+      frequency: picks[frequencyAt] ?? frequency ?? '',
+      durationDays: picks[durationAt] ?? days ?? '',
+      steps: [],
+      instructions: '',
+    };
+    return {
+      ...directions,
+      ...prescriptionDispense(description, directions),
+      quantityUnit: quickPick.quantityUnit ?? prescriptionQuantityUnit(description) ?? '',
+      numberOfRefills: String(quickPick.numberOfRefills ?? 0),
+      patientInstructions: prescriptionDirectionsText(description, directions),
+    };
+  };
+  return {
+    id,
+    segments,
+    subtitle: quickPick.name,
+    doseAt,
+    doseInfo: dose ? [dose.working, ...(dose.roundingNote ? [dose.roundingNote] : [])] : undefined,
+    calculator,
+    fill,
+    apply: (line, picks) => {
+      const filled = withSuggestion(withQuickPick(line, quickPick), fill(picks));
+      // The calculator's dose keeps its settings on the line; one typed into the row is the provider's own.
+      const typed = picks[doseAt] !== undefined && picks[doseAt] !== doseText;
+      return doseText && !typed ? { ...filled, dosing: calculator } : filled;
+    },
+  };
+};
+
+/** The suggestions for a product: the practice's quick picks for exactly this product, up to
+ * `QUICK_PICK_SUGGESTIONS` in the list's order; the box adds "Other" (Write my own). Where more suggestion data
  * plugs in. */
-export const prescriptionSuggestionsFor = (_query: PrescriptionSuggestionQuery): PrescriptionSuggestionRow[] => [];
+export const prescriptionSuggestionsFor = ({
+  medication,
+  weightKg,
+  quickPicks = [],
+}: PrescriptionSuggestionQuery): PrescriptionSuggestionRow[] =>
+  quickPicks
+    .filter((quickPick) => isQuickPickFor(quickPick, medication))
+    .slice(0, QUICK_PICK_SUGGESTIONS)
+    .map((quickPick, i) => {
+      const id = `quick-pick-${quickPick.id ?? i}`;
+      return quickPick.dosing
+        ? dosedRow(quickPick, quickPick.dosing, id, medication, weightKg)
+        : savedRow(quickPick, id);
+    });

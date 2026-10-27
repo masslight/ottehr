@@ -11,6 +11,8 @@ export interface SentenceBlank {
   initial: string | undefined;
   /** May stay unpicked: shown as still to pick, but the sentence can be added without it. */
   optional?: boolean;
+  /** Shown while unpicked in place of the title ("(enter weight)"). */
+  placeholder?: string;
 }
 
 /** A number the provider entered, shown in the sentence as it was typed. */
