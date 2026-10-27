@@ -756,6 +756,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             {!readOnly && (
               <DoseCalculator
                 line={line}
+                // The rule the line holds (a suggestion's or "Use this dose"'s), as a suggestion row's is.
+                initial={line.dosing}
                 weight={weight}
                 weightText={weightText}
                 onWeightText={onWeightText}

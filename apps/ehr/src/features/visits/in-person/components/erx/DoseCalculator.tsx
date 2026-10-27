@@ -49,12 +49,13 @@ interface Picks {
 
 const text = (value: number | undefined): string => (value === undefined ? '' : String(value));
 
-/** A quick pick's settings as if typed in, for its product; its doses a day only where the line's frequency doesn't
- * already say them. */
+/** A quick pick's or the line's settings as if typed in, for its product; its doses a day only where the line's
+ * frequency doesn't already say them, and the ingredient a combination was dosed by, where the line has one. */
 const picksOf = (dosing: CalculatorDosing | undefined, line: PrescriptionLine): Picks =>
   dosing
     ? {
         ndc: line.medication?.ndc,
+        ...(line.doseBy !== undefined ? { doseBy: line.doseBy } : {}),
         rate: text(dosing.rate),
         basis: dosing.basis,
         ...(dosing.dosesPerDay !== undefined &&
@@ -134,7 +135,7 @@ interface DoseCalculatorProps {
   weightText?: string;
   onWeightText: (value: string | undefined) => void;
   onChange: (next: PrescriptionLine) => void;
-  /** Settings it opens with, as a quick pick's, in place of empty ones. */
+  /** Settings it opens with, as a quick pick's or the line's own, in place of empty ones. */
   initial?: CalculatorDosing;
   /** The icon's name, where there are several. */
   label?: string;
@@ -154,6 +155,13 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   label,
 }) => {
   const [picks, setPicks] = useState<Picks>(() => picksOf(initial, line));
+  // New settings from outside (the line's, once a suggestion or "Use this dose" sets them) seed it again; none (a dose
+  // typed by hand) leave what was typed here.
+  const [seed, setSeed] = useState(initial);
+  if (initial !== seed) {
+    setSeed(initial);
+    if (initial) setPicks(picksOf(initial, line));
+  }
   const ndc = line.medication?.ndc;
   const own = picks.ndc === ndc ? picks : {};
   const pick = (patch: Partial<Picks>): void => setPicks({ ...own, ...patch, ndc });

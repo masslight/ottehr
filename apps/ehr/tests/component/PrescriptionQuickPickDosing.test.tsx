@@ -836,3 +836,44 @@ describe('Additional instructions of a dosed quick pick', () => {
     );
   });
 });
+
+describe('The line’s own calculator', () => {
+  it('opens with the rule the line holds, its doses a day following the line’s frequency', async () => {
+    const user = userEvent.setup();
+    const line = liquidLine();
+    const [row] = prescriptionSuggestionsFor({
+      drug: line.drug,
+      medication: line.medication!,
+      weightKg: WEIGHT.kg,
+      diagnosisCodes: [],
+      quickPicks: [{ ...CAPPED, dosing: { ...CAPPED.dosing!, maxPerDayMg: 1500 } }],
+    });
+    render(<Harness initial={row.apply!(line, [])} weight={WEIGHT} />);
+    await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
+    let calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(25);
+    expect(within(calculator).getByRole('button', { name: 'per day or per dose: dose' })).toBeInTheDocument();
+    expect(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' })).toHaveValue(500);
+    expect(within(calculator).getByRole('spinbutton', { name: 'maximum per day' })).toHaveValue(1500);
+    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(2);
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 6 mL by mouth twice daily');
+    await user.keyboard('{Escape}');
+
+    // A new frequency: the doses a day are its own, the rest of the rule stays.
+    await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
+    await user.click(screen.getByRole('option', { name: 'three times daily' }));
+    await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
+    calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(3);
+    expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(25);
+    expect(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' })).toHaveValue(500);
+  });
+
+  it('opens empty on a line with no rule', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={liquidLine()} weight={WEIGHT} />);
+    await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
+    const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(null);
+  });
+});
