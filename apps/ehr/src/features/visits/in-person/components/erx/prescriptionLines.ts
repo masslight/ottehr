@@ -4,6 +4,7 @@ import {
   doseRoundingNote,
   mgText as warningMg,
   nearestMeasurable,
+  PlainDose,
   plainDose,
 } from 'utils/lib/helpers/medications/plain-dose';
 import {
@@ -159,13 +160,29 @@ export const maximumOriginText = (from: MaximumOrigin): string =>
 export type CalculatorDosing = Omit<PrescriptionQuickPickDosing, 'frequency' | 'durationDays'>;
 
 /** How far a dose a strength change re-measured lands from the mg it was, or how the calculator's settings worked it
- * out again for a new frequency: shown beside the dose while it stays so. */
+ * out (a dosing suggestion, "Use this dose", a new frequency): shown beside the dose while it stays so. */
 export interface DoseNote {
   dose: string;
   text: string;
-  /** The calculator's working, for a dose it worked out again (the text is then its rounding note, if any). */
+  /** The calculator's working, for a dose it worked out (the text is then its rounding note, if any). */
   working?: string;
+  /** Where a maximum stopped the dose: "Capped at the 500 mg maximum (703 mg by weight)". */
+  capNote?: string;
+  /** The quick pick whose dosing worked it out. */
+  quickPick?: { name: string; source?: PrescriptionQuickPickSource };
 }
+
+/** The ⓘ's note for a dose the calculator worked out. */
+export const calculatorDoseNote = (
+  dose: Pick<PlainDose, 'amount' | 'working' | 'roundingNote' | 'capNote'>,
+  quickPick?: DoseNote['quickPick']
+): DoseNote => ({
+  dose: String(dose.amount),
+  text: dose.roundingNote ?? '',
+  working: dose.working,
+  ...(dose.capNote ? { capNote: dose.capNote } : {}),
+  ...(quickPick ? { quickPick } : {}),
+});
 
 type QuickPickedFields = Pick<PrescriptionLine, 'quantityValue' | 'daysSupply' | 'numberOfRefills' | 'noteToPharmacy'>;
 
@@ -284,10 +301,8 @@ export const withCalculatorDosing = (
   return {
     ...kept,
     dose: amount,
-    doseNotes: [
-      { dose: amount, text: dose.roundingNote ?? '', working: dose.working },
-      ...(line.doseNotes ?? []).slice(1),
-    ],
+    // Still the quick pick's dosing, if it was.
+    doseNotes: [calculatorDoseNote(dose, line.doseNotes?.[0]?.quickPick), ...(line.doseNotes ?? []).slice(1)],
   };
 };
 
@@ -638,6 +653,7 @@ export const applyPrescriptionQuickPick = (
     generated: NOTHING_GENERATED,
     // Its directions are text written for whoever it was saved from: not the calculator's for this patient.
     dosing: undefined,
+    doseNotes: undefined,
     maximum: undefined,
     doseBy: undefined,
     // Written after the sentence its dosing re-doses; one as written has it all in its directions.

@@ -402,14 +402,25 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       ]
     : [];
 
-  /** Shown while the step's dose is as a strength change re-measured it: an ⓘ with how. */
+  /** Shown while the step's dose is as the calculator worked it out or a strength change re-measured it: an ⓘ with
+   * how, and the quick pick (with its source) whose dosing it is. */
   const doseInfo = (step: PrescriptionStep, at: string, doseNote: DoseNote | undefined): ReactNode =>
     doseNote &&
     doseNote.dose === step.dose &&
     (doseNote.working ? (
       <DoseInfoHover
         label={`How the ${at}dose was worked out`}
-        lines={[doseNote.working, ...(doseNote.text ? [doseNote.text] : [])]}
+        lines={[
+          doseNote.working,
+          ...(doseNote.text ? [doseNote.text] : []),
+          ...(doseNote.capNote ? [doseNote.capNote] : []),
+          ...(doseNote.quickPick
+            ? [
+                `From the quick pick: ${doseNote.quickPick.name}`,
+                ...(doseNote.quickPick.source ? [<SourceText key="source" source={doseNote.quickPick.source} />] : []),
+              ]
+            : []),
+        ]}
         testId={`${at}dose-working-note`}
       />
     ) : (

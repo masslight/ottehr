@@ -614,7 +614,11 @@ describe('The "+ quick pick" list', () => {
     await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
     await user.click(screen.getByRole('option', { name: 'three times daily' }));
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(9);
-    expect(screen.queryByRole('img', { name: 'How the dose was worked out' })).not.toBeInTheDocument();
+    // Still the quick pick's dose: its working stays behind the ⓘ.
+    await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
+    expect(await screen.findByTestId('dose-working-note')).toHaveTextContent(
+      '28.12 kg × 25 mg/kg/dose = 703 mg → 9 mL = 720 mg'
+    );
     expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual({
       rate: 25,
       basis: 'mg/kg/dose',
@@ -875,5 +879,58 @@ describe('The line’s own calculator', () => {
     await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
     const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
     expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(null);
+  });
+});
+
+describe('The dose’s ⓘ on the line', () => {
+  const lineOf = (quickPick: PrescriptionQuickPickData): PrescriptionLine => {
+    const line = liquidLine();
+    const [row] = prescriptionSuggestionsFor({
+      drug: line.drug,
+      medication: line.medication!,
+      weightKg: WEIGHT.kg,
+      diagnosisCodes: [],
+      quickPicks: [quickPick],
+    });
+    return row.apply!(line, []);
+  };
+  const SOURCED: PrescriptionQuickPickData = {
+    ...CAPPED,
+    source: { label: 'AAP Red Book', url: 'https://example.org/redbook' },
+  };
+
+  it('shows right after a dosing suggestion: the working, the rounding and cap notes, the quick pick and its source', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={lineOf(SOURCED)} weight={WEIGHT} />);
+    await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
+    const note = await screen.findByTestId('dose-working-note');
+    expect(note).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose → 6 mL = 480 mg');
+    expect(note).toHaveTextContent('6 mL = 480 mg, 20 mg (4%) under 500 mg');
+    expect(note).toHaveTextContent('Capped at the 500 mg maximum (703 mg by weight)');
+    expect(note).toHaveTextContent('From the quick pick: Amox capped');
+    expect(within(note).getByRole('link', { name: 'AAP Red Book' })).toHaveAttribute(
+      'href',
+      'https://example.org/redbook'
+    );
+  });
+
+  it('shows after "Use this dose", without a quick pick; typing over the dose removes it', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={withDirections(liquidLine(), { frequency: 'twice daily' })} weight={WEIGHT} />);
+    expect(screen.queryByRole('img', { name: 'How the dose was worked out' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
+    const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
+    await user.click(screen.getByRole('option', { name: 'dose' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '25');
+    await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
+    await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
+    const note = await screen.findByTestId('dose-working-note');
+    expect(note).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → 9 mL = 720 mg');
+    expect(note).not.toHaveTextContent('From the quick pick');
+
+    await user.clear(screen.getByRole('spinbutton', { name: 'dose' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '7');
+    expect(screen.queryByRole('img', { name: 'How the dose was worked out' })).not.toBeInTheDocument();
   });
 });

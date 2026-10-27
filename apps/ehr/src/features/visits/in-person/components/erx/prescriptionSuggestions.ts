@@ -30,6 +30,7 @@ import {
 import { ErxSuggestionRow } from '../erx-looks/ErxSuggestionsBox';
 import {
   applyPrescriptionQuickPick,
+  calculatorDoseNote,
   CalculatorDosing,
   COMBINATION_MESSAGE,
   emptyPrescriptionLine,
@@ -246,7 +247,11 @@ const dosedRow = (
       const typed = picks[doseAt] !== undefined && picks[doseAt] !== doseTextOf(picks);
       // Its maximum stays either way, for the warnings.
       const maximum = lineMaximumOf(calculator, { quickPick: quickPick.name, source: quickPick.source });
-      return typed ? { ...filled, maximum } : { ...filled, dosing: dosingFor(picks[frequencyAt]).settings, maximum };
+      if (typed) return { ...filled, maximum };
+      const { settings, dose } = dosingFor(picks[frequencyAt]);
+      // The working behind the dose's ⓘ, with the quick pick it is from.
+      const doseNotes = dose && [calculatorDoseNote(dose, { name: quickPick.name, source: quickPick.source })];
+      return { ...filled, dosing: settings, maximum, ...(doseNotes ? { doseNotes } : {}) };
     },
   };
 };

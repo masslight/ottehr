@@ -15,8 +15,10 @@ import { formatDateTimeToLocalTimezone } from 'utils/lib/utils/date';
 import { DoseCalculatorCard, DoseCalculatorDisplay, DoseField } from '../erx-looks/DoseCalculatorCard';
 import { DoseCalculatorPopup } from '../erx-looks/DoseCalculatorPopup';
 import {
+  calculatorDoseNote,
   CalculatorDosing,
   doseByIngredient,
+  DoseNote,
   ingredientText,
   lineMaximumOf,
   measureOf,
@@ -104,6 +106,8 @@ export interface DoseFill {
   dosing?: CalculatorDosing;
   /** A combination product's ingredient the dose went by. */
   doseBy?: string;
+  /** How it was worked out, behind the dose's ⓘ while it stays the one used. */
+  note?: DoseNote;
 }
 
 /** The line with the calculator's dose used. Without steps of its own the dose is for the whole prescription: any
@@ -123,7 +127,13 @@ export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLi
         : {}),
     }
   );
-  return { ...next, dosing: fill.dosing, maximum: lineMaximumOf(fill.dosing, 'calculator'), doseBy: fill.doseBy };
+  return {
+    ...next,
+    dosing: fill.dosing,
+    maximum: lineMaximumOf(fill.dosing, 'calculator'),
+    doseBy: fill.doseBy,
+    doseNotes: fill.note && [fill.note],
+  };
 };
 
 interface DoseCalculatorProps {
@@ -282,6 +292,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
         ...(maxPerDayMg !== undefined ? { maxPerDayMg } : {}),
       },
       ...(combination ? { doseBy: ingredient.name } : {}),
+      note: calculatorDoseNote(dose),
     };
   const display: DoseCalculatorDisplay = fill
     ? {
