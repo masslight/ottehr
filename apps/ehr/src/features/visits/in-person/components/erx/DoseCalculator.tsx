@@ -12,8 +12,8 @@ import { vitalsConfig } from 'utils/lib/helpers/vitals/config-schema';
 import { formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { formatDateTimeToLocalTimezone } from 'utils/lib/utils/date';
-import { DoseCalculatorCard, DoseCalculatorDisplay, DoseField } from '../erx-looks/DoseCalculatorCard';
-import { DoseCalculatorPopup } from '../erx-looks/DoseCalculatorPopup';
+import { DoseCalculatorCard, DoseCalculatorDisplay, DoseField } from './DoseCalculatorCard';
+import { DoseCalculatorPopup } from './DoseCalculatorPopup';
 import {
   calculatorDoseNote,
   CalculatorDosing,

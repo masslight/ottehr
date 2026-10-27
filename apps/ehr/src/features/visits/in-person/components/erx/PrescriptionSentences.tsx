@@ -33,11 +33,11 @@ import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescrip
 import { PrescriptionQuickPickData, PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useSearchMedications } from '../../../shared/hooks/useErxSearch';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
-import { DoseInfoHover, DoseWarningBoxes, SourceText } from '../erx-looks/DoseCalculatorCard';
-import { DoseCalculatorAsWritten } from '../erx-looks/DoseCalculatorPopup';
-import { ErxSuggestionsBox } from '../erx-looks/ErxSuggestionsBox';
 import { BlankButton, PopoverBlank, SelectBlank, Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
 import { DoseCalculator } from './DoseCalculator';
+import { DoseInfoHover, DoseWarningBoxes, SourceText } from './DoseCalculatorCard';
+import { DoseCalculatorAsWritten } from './DoseCalculatorPopup';
+import { ErxSuggestionsBox } from './ErxSuggestionsBox';
 import {
   DoseNote,
   emptyPrescriptionStep,

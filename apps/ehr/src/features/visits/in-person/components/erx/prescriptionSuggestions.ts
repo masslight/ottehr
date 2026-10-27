@@ -27,7 +27,7 @@ import {
   PrescriptionQuickPickDosing,
   PrescriptionSetQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
-import { ErxSuggestionRow } from '../erx-looks/ErxSuggestionsBox';
+import { ErxSuggestionRow } from './ErxSuggestionsBox';
 import {
   applyPrescriptionQuickPick,
   calculatorDoseNote,
