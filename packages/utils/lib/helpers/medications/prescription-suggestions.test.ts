@@ -1,78 +1,120 @@
 import { describe, expect, it } from 'vitest';
+import { MedicationIngredient } from '../../types/api/erx-search.types';
 import {
   frequencyForDosesPerDay,
-  isCombinationStrength,
-  parseStrengthConcentration,
+  isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
   prescriptionDirectionsText,
   prescriptionDispense,
   prescriptionDoseForm,
   prescriptionDoseUnit,
   prescriptionFrequency,
+  PrescriptionProduct,
   prescriptionQuantityUnit,
   prescriptionRoute,
 } from './prescription-suggestions';
 
-describe('prescriptionDoseForm', () => {
+/** Products as the medication search details them: RxNorm's dose form and ingredients. */
+const ingredient = (name: string, amount: number, perUnit: string): MedicationIngredient => ({
+  name,
+  amount,
+  unit: 'MG',
+  per: 1,
+  perUnit,
+});
+const liquid = (doseForm: string, name: string, mgPerMl: number): PrescriptionProduct => ({
+  doseForm,
+  ingredients: [ingredient(name, mgPerMl, 'ML')],
+});
+const each = (doseForm: string, name: string, mg: number): PrescriptionProduct => ({
+  doseForm,
+  ingredients: [ingredient(name, mg, 'EACH')],
+});
+/** A device: no dose form, no ingredients. */
+const SPACER: PrescriptionProduct = {};
+const IBUPROFEN_SUSP = liquid('Oral Suspension', 'ibuprofen', 20);
+const AMOXICILLIN_400_SUSP = liquid('Oral Suspension', 'amoxicillin', 80);
+const AMOXICILLIN_250_SUSP = liquid('Oral Suspension', 'amoxicillin', 50);
+const FLUCONAZOLE_SUSP = liquid('Powder for Oral Suspension', 'fluconazole', 40);
+const AZITHROMYCIN_TAB = each('Oral Tablet', 'azithromycin', 250);
+const PREDNISONE_TAB = each('Oral Tablet', 'prednisone', 10);
+const METHYLPREDNISOLONE_TAB = each('Oral Tablet', 'methylprednisolone', 4);
+const AMOXICILLIN_875_TAB = each('Oral Tablet', 'amoxicillin', 875);
+const IBUPROFEN_TAB = each('Oral Tablet', 'ibuprofen', 400);
+const ALBUTEROL_MDI = { doseForm: 'Metered Dose Inhaler', ingredients: [ingredient('albuterol', 0.09, 'ACTUAT')] };
+const OFLOXACIN_OTIC = liquid('Otic Solution', 'ofloxacin', 3);
+const MUPIROCIN_OINTMENT = { doseForm: 'Topical Ointment', ingredients: [ingredient('mupirocin', 0.02, 'MG')] };
+
+describe('the RxNorm dose form table', () => {
   it.each([
-    ['Amoxicillin 500 MG Oral Capsule', 'capsule'],
-    ['Azithromycin 250 MG Oral Tablet', 'tablet'],
-    ['Ondansetron 4 MG Disintegrating Oral Tablet (ODT)', 'tablet'],
-    ['Amoxicillin 400 MG/5ML Oral Suspension', 'liquid'],
-    ['Albuterol 90 MCG/ACTUAT Metered Dose Inhaler', 'inhaler'],
-    ['Mupirocin 2 % Topical Ointment', 'topical'],
-    ['Nicotine 21 MG/24HR Transdermal Patch', 'patch'],
-    ['Promethazine 25 MG Rectal Suppository', 'suppository'],
-    // RxTerms abbreviations, as the terminology search returns them.
-    ['Amoxicillin 250 mg Cap', 'capsule'],
-    ['Amoxicillin 875 mg Tab', 'tablet'],
-    ['Amoxicillin 250 mg/5ml Susp', 'liquid'],
-    ['Albuterol 90 mcg/puff MDI', 'inhaler'],
-    ['Ofloxacin (Otic) 0.3% Sol', 'liquid'],
-    ['Lidocaine 5 % Topical Spray', undefined],
-    // A nasal spray is a spray, not an inhaler, though RxNorm calls it "Metered Dose".
-    ['Fluticasone Propionate 0.05 MG/ACTUAT Metered Dose Nasal Spray', undefined],
-    ['Fluticasone Propionate (Nasal) 50 MCG/ACTUAT Spray', undefined],
-  ])('%s → %s', (description, form) => {
-    expect(prescriptionDoseForm(description)).toBe(form);
+    ['Oral Capsule', 'capsule', 'by mouth', 'capsule', 'Capsule'],
+    ['Oral Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
+    ['Disintegrating Oral Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
+    ['Chewable Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
+    ['Oral Suspension', 'liquid', 'by mouth', 'mL', 'Milliliter'],
+    ['Oral Solution', 'liquid', 'by mouth', 'mL', 'Milliliter'],
+    ['Metered Dose Inhaler', 'inhaler', 'inhaled', 'puff', 'Inhaler'],
+    ['Inhalation Spray', 'inhaler', 'inhaled', 'puff', 'Inhaler'],
+    ['Inhalation Solution', 'liquid', 'inhaled', 'mL', 'Milliliter'],
+    ['Nasal Spray', undefined, 'in the nose', 'spray', undefined],
+    ['Metered Dose Nasal Spray', undefined, 'in the nose', 'spray', undefined],
+    ['Nasal Solution', 'liquid', 'in the nose', 'drop', 'Milliliter'],
+    ['Ophthalmic Solution', 'liquid', 'in the eye', 'drop', 'Milliliter'],
+    ['Ophthalmic Ointment', 'topical', 'in the eye', undefined, 'Gram'],
+    ['Otic Solution', 'liquid', 'in the ear', 'drop', 'Milliliter'],
+    ['Topical Cream', 'topical', 'on the skin', undefined, 'Gram'],
+    ['Topical Ointment', 'topical', 'on the skin', undefined, 'Gram'],
+    ['Topical Spray', undefined, 'on the skin', undefined, undefined],
+    ['Transdermal System', 'patch', 'on the skin', 'patch', 'Patch'],
+    ['Rectal Suppository', 'suppository', 'rectally', 'suppository', 'Suppository'],
+    ['Injectable Solution', 'liquid', 'by injection', 'mL', 'Milliliter'],
+    ['Auto-Injector', undefined, 'by injection', undefined, undefined],
+    // A pack says nothing of how it is taken; a form not in the table, or a near spelling, implies nothing.
+    ['Pack', undefined, undefined, undefined, undefined],
+    ['Oral Lozenge', undefined, undefined, undefined, undefined],
+    ['oral tablet', undefined, undefined, undefined, undefined],
+    ['constructor', undefined, undefined, undefined, undefined],
+  ])('%s → %s, %s, %s, %s', (doseForm, form, route, unit, quantityUnit) => {
+    expect(prescriptionDoseForm({ doseForm })).toBe(form);
+    expect(prescriptionRoute({ doseForm })).toBe(route);
+    expect(prescriptionDoseUnit({ doseForm })).toBe(unit);
+    expect(prescriptionQuantityUnit({ doseForm })).toBe(quantityUnit);
+  });
+
+  it('implies nothing for a product without details', () => {
+    expect(prescriptionDoseForm({})).toBeUndefined();
+    expect(prescriptionRoute(undefined)).toBeUndefined();
+    expect(prescriptionDoseUnit(null)).toBeUndefined();
+  });
+
+  it('counts a nasal spray in sprays and nasal drops in drops', () => {
+    expect(
+      prescriptionDirectionsText(
+        { doseForm: 'Metered Dose Nasal Spray', ingredients: [ingredient('fluticasone', 0.05, 'ACTUAT')] },
+        { dose: '2', route: 'in the nose', frequency: 'once daily', durationDays: '' }
+      )
+    ).toBe('Put 2 sprays in the nose once daily.');
+    expect(
+      prescriptionDirectionsText(liquid('Nasal Solution', 'phenylephrine', 1.25), {
+        dose: '2',
+        route: 'in the nose',
+        frequency: 'once daily',
+        durationDays: '',
+      })
+    ).toBe('Put 2 drops in the nose once daily.');
   });
 });
 
-describe('prescriptionQuantityUnit', () => {
-  it.each([
-    ['Amoxicillin 875 mg Tab', 'Tablet'],
-    ['Ondansetron 4 MG Disintegrating Oral Tablet (ODT)', 'Tablet'],
-    ['Cephalexin 500 mg Cap', 'Capsule'],
-    ['Prednisolone 15 mg/5ml Sol', 'Milliliter'],
-    ['Albuterol 90 MCG/ACTUAT Metered Dose Inhaler', 'Inhaler'],
-    ['Mupirocin 2% Ointment', 'Gram'],
-    ['Nicotine 21 MG/24HR Transdermal Patch', 'Patch'],
-    ['Promethazine 25 MG Rectal Suppository', 'Suppository'],
-    ['Lidocaine 5 % Topical Spray', undefined],
-    ['Fluticasone Propionate 0.05 MG/ACTUAT Metered Dose Nasal Spray', undefined],
-  ])('%s → %s', (description, unit) => {
-    expect(prescriptionQuantityUnit(description)).toBe(unit);
-  });
-});
-
-describe('prescriptionRoute', () => {
-  it.each([
-    ['Amoxicillin 500 MG Oral Capsule', 'by mouth'],
-    ['Ondansetron 4 MG Disintegrating Oral Tablet (ODT)', 'by mouth'],
-    ['Amoxicillin 250 mg/5ml Susp', 'by mouth'],
-    ['Albuterol 90 MCG/ACTUAT Metered Dose Inhaler', 'inhaled'],
-    ['Ofloxacin (Otic) 0.3% Sol', 'in the ear'],
-    ['Prednisolone 1 % Ophthalmic Suspension', 'in the eye'],
-    ['Prednisolone/Sulfacetamide (Ophthalmic) 0.2-10% Ointment', 'in the eye'],
-    ['Fluticasone 50 MCG/ACTUAT Nasal Spray', 'in the nose'],
-    ['Fluticasone Propionate 0.05 MG/ACTUAT Metered Dose Nasal Spray', 'in the nose'],
-    ['Mupirocin 2 % Topical Ointment', 'on the skin'],
-    ['Nicotine 21 MG/24HR Transdermal Patch', 'on the skin'],
-    ['Promethazine 25 MG Rectal Suppository', 'rectally'],
-    ['Ondansetron (Injectable) 2 mg/ml Sol', 'by injection'],
-    ['Epinephrine 0.3 MG Auto-Injector', undefined],
-  ])('%s → %s', (description, route) => {
-    expect(prescriptionRoute(description)).toBe(route);
+describe('isCombinationProduct', () => {
+  it('is more than one ingredient', () => {
+    expect(
+      isCombinationProduct({
+        doseForm: 'Oral Suspension',
+        ingredients: [ingredient('amoxicillin', 80, 'ML'), ingredient('clavulanate', 11.4, 'ML')],
+      })
+    ).toBe(true);
+    expect(isCombinationProduct(AMOXICILLIN_400_SUSP)).toBe(false);
+    expect(isCombinationProduct({})).toBe(false);
   });
 });
 
@@ -116,11 +158,11 @@ describe('PRESCRIPTION_FREQUENCIES', () => {
 
   it('writes "every 6 to 8 hours" as the provider words it and counts the quantity at every 6 hours', () => {
     const directions = { dose: '5', route: 'by mouth' as const, frequency: 'every 6 to 8 hours', durationDays: '5' };
-    expect(prescriptionDirectionsText('Ibuprofen 100 mg/5ml Susp', directions)).toBe(
+    expect(prescriptionDirectionsText(IBUPROFEN_SUSP, directions)).toBe(
       'Take 5 mL by mouth every 6 to 8 hours for 5 days.'
     );
     // 5 mL × 4 a day × 5 days.
-    expect(prescriptionDispense('Ibuprofen 100 mg/5ml Susp', directions)).toEqual({
+    expect(prescriptionDispense(IBUPROFEN_SUSP, directions)).toEqual({
       quantityValue: '100',
       daysSupply: '5',
     });
@@ -154,29 +196,27 @@ describe('prescriptionFrequency', () => {
     expect(prescriptionFrequency('toString')).toBeUndefined();
     expect(prescriptionFrequency('__proto__')).toBeUndefined();
     const directions = { dose: '5', route: 'by mouth' as const, frequency: 'constructor', durationDays: '10' };
-    expect(prescriptionDirectionsText('Amoxicillin 400 mg/5ml Susp', directions)).toBe(
-      'Take 5 mL by mouth for 10 days.'
-    );
+    expect(prescriptionDirectionsText(AMOXICILLIN_400_SUSP, directions)).toBe('Take 5 mL by mouth for 10 days.');
   });
 });
 
 describe('multi-step directions', () => {
   it('reads each later step as "then", with the route, and adds up the quantity and days', () => {
-    expect(prescriptionDirectionsText('Azithromycin 250 mg Tab', AZITHROMYCIN)).toBe(
+    expect(prescriptionDirectionsText(AZITHROMYCIN_TAB, AZITHROMYCIN)).toBe(
       'Take 2 tablets by mouth once daily for 1 day, then 1 tablet by mouth once daily for 4 days.'
     );
-    expect(prescriptionDispense('Azithromycin 250 mg Tab', AZITHROMYCIN)).toEqual({
+    expect(prescriptionDispense(AZITHROMYCIN_TAB, AZITHROMYCIN)).toEqual({
       quantityValue: '6',
       daysSupply: '5',
     });
   });
 
   it('runs a taper of any length', () => {
-    expect(prescriptionDirectionsText('Prednisone 10 mg Tab', PREDNISONE)).toBe(
+    expect(prescriptionDirectionsText(PREDNISONE_TAB, PREDNISONE)).toBe(
       'Take 4 tablets by mouth once daily for 2 days, then 3 tablets by mouth once daily for 2 days, ' +
         'then 2 tablets by mouth once daily for 2 days, then 1 tablet by mouth once daily for 2 days.'
     );
-    expect(prescriptionDispense('Prednisone 10 mg Tab', PREDNISONE)).toEqual({ quantityValue: '20', daysSupply: '8' });
+    expect(prescriptionDispense(PREDNISONE_TAB, PREDNISONE)).toEqual({ quantityValue: '20', daysSupply: '8' });
   });
 
   it('measures a liquid’s steps in mL and rounds the total up once', () => {
@@ -187,10 +227,10 @@ describe('multi-step directions', () => {
       durationDays: '1',
       steps: [{ dose: '5', frequency: 'once daily', durationDays: '4' }],
     };
-    expect(prescriptionDirectionsText('Fluconazole 40 mg/ml Susp', fluconazole)).toBe(
+    expect(prescriptionDirectionsText(FLUCONAZOLE_SUSP, fluconazole)).toBe(
       'Take 10 mL by mouth once daily for 1 day, then 5 mL by mouth once daily for 4 days.'
     );
-    expect(prescriptionDispense('Fluconazole 40 mg/ml Susp', fluconazole)).toEqual({
+    expect(prescriptionDispense(FLUCONAZOLE_SUSP, fluconazole)).toEqual({
       quantityValue: '30',
       daysSupply: '5',
     });
@@ -199,20 +239,18 @@ describe('multi-step directions', () => {
       dose: '0.5',
       steps: [{ ...fluconazole.steps[0], dose: '0.5', durationDays: '1' }],
     };
-    expect(prescriptionDispense('Fluconazole 40 mg/ml Susp', halves).quantityValue).toBe('1');
+    expect(prescriptionDispense(FLUCONAZOLE_SUSP, halves).quantityValue).toBe('1');
   });
 
   it('ignores a step with nothing picked, and can’t count until a step is complete', () => {
     const empty = { ...AZITHROMYCIN, steps: [{ dose: '', frequency: '', durationDays: '' }] };
-    expect(prescriptionDirectionsText('Azithromycin 250 mg Tab', empty)).toBe(
-      'Take 2 tablets by mouth once daily for 1 day.'
-    );
-    expect(prescriptionDispense('Azithromycin 250 mg Tab', empty)).toEqual({ quantityValue: '2', daysSupply: '1' });
+    expect(prescriptionDirectionsText(AZITHROMYCIN_TAB, empty)).toBe('Take 2 tablets by mouth once daily for 1 day.');
+    expect(prescriptionDispense(AZITHROMYCIN_TAB, empty)).toEqual({ quantityValue: '2', daysSupply: '1' });
     const partial = { ...AZITHROMYCIN, steps: [{ dose: '1', frequency: '', durationDays: '' }] };
-    expect(prescriptionDirectionsText('Azithromycin 250 mg Tab', partial)).toBe(
+    expect(prescriptionDirectionsText(AZITHROMYCIN_TAB, partial)).toBe(
       'Take 2 tablets by mouth once daily for 1 day, then 1 tablet by mouth.'
     );
-    expect(prescriptionDispense('Azithromycin 250 mg Tab', partial)).toEqual({ quantityValue: '', daysSupply: '' });
+    expect(prescriptionDispense(AZITHROMYCIN_TAB, partial)).toEqual({ quantityValue: '', daysSupply: '' });
   });
 
   it('reads the later steps when the first is empty, so a taper is not lost', () => {
@@ -227,17 +265,17 @@ describe('multi-step directions', () => {
         { dose: '1', frequency: 'once daily', durationDays: '2' },
       ],
     };
-    expect(prescriptionDirectionsText('Prednisone 10 mg Tab', laterOnly)).toBe(
+    expect(prescriptionDirectionsText(PREDNISONE_TAB, laterOnly)).toBe(
       'Take 2 tablets by mouth once daily for 2 days, then 1 tablet by mouth once daily for 2 days.'
     );
-    expect(prescriptionDirectionsText('Prednisone 10 mg Tab', { ...laterOnly, instructions: 'with food' })).toBe(
+    expect(prescriptionDirectionsText(PREDNISONE_TAB, { ...laterOnly, instructions: 'with food' })).toBe(
       'Take 2 tablets by mouth once daily for 2 days, then 1 tablet by mouth once daily for 2 days, with food.'
     );
   });
 
   it('dispenses one inhaler for the whole course', () => {
     const inhaler = { ...AZITHROMYCIN, route: 'inhaled' as const };
-    expect(prescriptionDispense('Albuterol 90 mcg/puff MDI', inhaler)).toEqual({ quantityValue: '1', daysSupply: '5' });
+    expect(prescriptionDispense(ALBUTEROL_MDI, inhaler)).toEqual({ quantityValue: '1', daysSupply: '5' });
   });
 });
 
@@ -250,21 +288,21 @@ describe('directions without a dose', () => {
       durationDays: '',
       instructions: 'with albuterol inhaler',
     };
-    expect(prescriptionDirectionsText('Spacer Device', spacer)).toBe('Inhale with albuterol inhaler.');
-    expect(prescriptionDispense('Spacer Device', spacer)).toEqual({ quantityValue: '', daysSupply: '' });
+    expect(prescriptionDirectionsText(SPACER, spacer)).toBe('Inhale with albuterol inhaler.');
+    expect(prescriptionDispense(SPACER, spacer)).toEqual({ quantityValue: '', daysSupply: '' });
   });
 
   it('reads "as directed" with the route and the dose when given, with the duration if given, and counts nothing', () => {
     const directed = { dose: '', route: 'by mouth' as const, frequency: 'as directed', durationDays: '' };
-    expect(prescriptionDirectionsText('Methylprednisolone 4 mg Tab', directed)).toBe('Take by mouth as directed.');
-    expect(prescriptionDirectionsText('Methylprednisolone 4 mg Tab', { ...directed, durationDays: '6' })).toBe(
+    expect(prescriptionDirectionsText(METHYLPREDNISOLONE_TAB, directed)).toBe('Take by mouth as directed.');
+    expect(prescriptionDirectionsText(METHYLPREDNISOLONE_TAB, { ...directed, durationDays: '6' })).toBe(
       'Take by mouth as directed for 6 days.'
     );
-    expect(prescriptionDirectionsText('Ibuprofen 100 mg/5ml Susp', { ...directed, dose: '14' })).toBe(
+    expect(prescriptionDirectionsText(IBUPROFEN_SUSP, { ...directed, dose: '14' })).toBe(
       'Take 14 mL by mouth as directed.'
     );
-    expect(prescriptionDirectionsText('Spacer Device', { ...directed, route: '' })).toBe('Take as directed.');
-    expect(prescriptionDispense('Methylprednisolone 4 mg Tab', { ...directed, durationDays: '6' })).toEqual({
+    expect(prescriptionDirectionsText(SPACER, { ...directed, route: '' })).toBe('Take as directed.');
+    expect(prescriptionDispense(METHYLPREDNISOLONE_TAB, { ...directed, durationDays: '6' })).toEqual({
       quantityValue: '',
       daysSupply: '6',
     });
@@ -272,17 +310,17 @@ describe('directions without a dose', () => {
 
   it('dispenses one package "per package instructions"', () => {
     const pack = { dose: '', route: 'by mouth' as const, frequency: 'per package instructions', durationDays: '6' };
-    expect(prescriptionDirectionsText('Methylprednisolone 4 mg Tab', pack)).toBe(
+    expect(prescriptionDirectionsText(METHYLPREDNISOLONE_TAB, pack)).toBe(
       'Take by mouth per package instructions for 6 days.'
     );
-    expect(prescriptionDispense('Methylprednisolone 4 mg Tab', pack)).toEqual({ quantityValue: '1', daysSupply: '6' });
+    expect(prescriptionDispense(METHYLPREDNISOLONE_TAB, pack)).toEqual({ quantityValue: '1', daysSupply: '6' });
   });
 });
 
 describe('directions with instructions', () => {
   it('ends the sentence with them, after the last step, without doubling the full stop', () => {
     expect(
-      prescriptionDirectionsText('Albuterol 90 mcg/puff MDI', {
+      prescriptionDirectionsText(ALBUTEROL_MDI, {
         dose: '2',
         route: 'inhaled',
         frequency: 'every 4 hours as needed',
@@ -290,17 +328,20 @@ describe('directions with instructions', () => {
         instructions: 'with spacer.',
       })
     ).toBe('Inhale 2 puffs every 4 hours as needed for up to 7 days, with spacer.');
-    expect(prescriptionDirectionsText('Azithromycin 250 mg Tab', { ...AZITHROMYCIN, instructions: 'with food' })).toBe(
+    expect(prescriptionDirectionsText(AZITHROMYCIN_TAB, { ...AZITHROMYCIN, instructions: 'with food' })).toBe(
       'Take 2 tablets by mouth once daily for 1 day, then 1 tablet by mouth once daily for 4 days, with food.'
     );
     expect(
-      prescriptionDirectionsText('Permethrin 1% Lotion', {
-        dose: '',
-        route: 'on the skin',
-        frequency: 'once daily',
-        durationDays: '1',
-        instructions: 'leave in 10 minutes then rinse; repeat in 7 days if needed',
-      })
+      prescriptionDirectionsText(
+        { doseForm: 'Topical Lotion' },
+        {
+          dose: '',
+          route: 'on the skin',
+          frequency: 'once daily',
+          durationDays: '1',
+          instructions: 'leave in 10 minutes then rinse; repeat in 7 days if needed',
+        }
+      )
     ).toBe('Apply on the skin once daily for 1 day, leave in 10 minutes then rinse; repeat in 7 days if needed.');
   });
 });
@@ -308,7 +349,7 @@ describe('directions with instructions', () => {
 describe('prescriptionDirectionsText', () => {
   it('reads the dose in the form’s unit, then the route, frequency and duration', () => {
     expect(
-      prescriptionDirectionsText('Amoxicillin 250 mg/5ml Susp', {
+      prescriptionDirectionsText(AMOXICILLIN_250_SUSP, {
         dose: '5',
         route: 'by mouth',
         frequency: 'twice daily',
@@ -316,7 +357,7 @@ describe('prescriptionDirectionsText', () => {
       })
     ).toBe('Take 5 mL by mouth twice daily for 10 days.');
     expect(
-      prescriptionDirectionsText('Amoxicillin 875 mg Tab', {
+      prescriptionDirectionsText(AMOXICILLIN_875_TAB, {
         dose: '1',
         route: 'by mouth',
         frequency: 'at bedtime',
@@ -327,7 +368,7 @@ describe('prescriptionDirectionsText', () => {
 
   it('lets the verb say the route for an inhaler, and reads an as-needed duration as "up to"', () => {
     expect(
-      prescriptionDirectionsText('Albuterol 90 mcg/puff MDI', {
+      prescriptionDirectionsText(ALBUTEROL_MDI, {
         dose: '2',
         route: 'inhaled',
         frequency: 'every 4 hours as needed',
@@ -338,7 +379,7 @@ describe('prescriptionDirectionsText', () => {
 
   it('counts ear drops in drops and leaves out what is not picked', () => {
     expect(
-      prescriptionDirectionsText('Ofloxacin (Otic) 0.3% Sol', {
+      prescriptionDirectionsText(OFLOXACIN_OTIC, {
         dose: '5',
         route: 'in the ear',
         frequency: '',
@@ -346,7 +387,7 @@ describe('prescriptionDirectionsText', () => {
       })
     ).toBe('Put 5 drops in the ear.');
     expect(
-      prescriptionDirectionsText('Mupirocin 2% Ointment', {
+      prescriptionDirectionsText(MUPIROCIN_OINTMENT, {
         dose: '',
         route: 'on the skin',
         frequency: 'three times daily',
@@ -357,7 +398,7 @@ describe('prescriptionDirectionsText', () => {
 
   it('says nothing until a dose or frequency is picked', () => {
     expect(
-      prescriptionDirectionsText('Amoxicillin 875 mg Tab', {
+      prescriptionDirectionsText(AMOXICILLIN_875_TAB, {
         dose: '',
         route: 'by mouth',
         frequency: '',
@@ -370,7 +411,7 @@ describe('prescriptionDirectionsText', () => {
 describe('prescriptionDispense', () => {
   it('multiplies the dose by the doses a day and the days, rounding up, with the duration as days supply', () => {
     expect(
-      prescriptionDispense('Amoxicillin 250 mg/5ml Susp', {
+      prescriptionDispense(AMOXICILLIN_250_SUSP, {
         dose: '7.5',
         route: 'by mouth',
         frequency: 'twice daily',
@@ -378,7 +419,7 @@ describe('prescriptionDispense', () => {
       })
     ).toEqual({ quantityValue: '150', daysSupply: '10' });
     expect(
-      prescriptionDispense('Amoxicillin 875 mg Tab', {
+      prescriptionDispense(AMOXICILLIN_875_TAB, {
         dose: '1',
         route: 'by mouth',
         frequency: 'every other day',
@@ -394,8 +435,8 @@ describe('prescriptionDispense', () => {
       frequency: 'every 6 hours as needed',
       durationDays: '5',
     };
-    expect(prescriptionDispense('Ibuprofen 400 mg Tab', directions)).toEqual({ quantityValue: '20', daysSupply: '5' });
-    expect(prescriptionDispense('Ibuprofen 400 mg Tab', { ...directions, frequency: 'as needed' })).toEqual({
+    expect(prescriptionDispense(IBUPROFEN_TAB, directions)).toEqual({ quantityValue: '20', daysSupply: '5' });
+    expect(prescriptionDispense(IBUPROFEN_TAB, { ...directions, frequency: 'as needed' })).toEqual({
       quantityValue: '',
       daysSupply: '5',
     });
@@ -403,7 +444,7 @@ describe('prescriptionDispense', () => {
 
   it('dispenses one inhaler whatever the doses', () => {
     expect(
-      prescriptionDispense('Albuterol 90 mcg/puff MDI', {
+      prescriptionDispense(ALBUTEROL_MDI, {
         dose: '2',
         route: 'inhaled',
         frequency: 'every 4 hours as needed',
@@ -414,7 +455,7 @@ describe('prescriptionDispense', () => {
 
   it('leaves the quantity of a cream or of drops to the provider', () => {
     expect(
-      prescriptionDispense('Mupirocin 2% Ointment', {
+      prescriptionDispense(MUPIROCIN_OINTMENT, {
         dose: '1',
         route: 'on the skin',
         frequency: 'three times daily',
@@ -422,76 +463,12 @@ describe('prescriptionDispense', () => {
       })
     ).toEqual({ quantityValue: '', daysSupply: '7' });
     expect(
-      prescriptionDispense('Ofloxacin (Otic) 0.3% Sol', {
+      prescriptionDispense(OFLOXACIN_OTIC, {
         dose: '5',
         route: 'in the ear',
         frequency: 'twice daily',
         durationDays: '7',
       })
     ).toEqual({ quantityValue: '', daysSupply: '7' });
-  });
-});
-
-describe('parseStrengthConcentration', () => {
-  it.each([
-    ['400 MG/5ML', { mgPerMl: 80 }],
-    ['Amoxicillin 400 MG/5ML Oral Suspension', { mgPerMl: 80 }],
-    ['80 MG/ML', { mgPerMl: 80 }],
-    ['400 mg/5ml Susp', { mgPerMl: 80 }],
-    ['15 mg/5ml Sol', { mgPerMl: 3 }],
-    ['100 mg/5ml Susp', { mgPerMl: 20 }],
-    ['250 mg Cap', { mgPerUnit: 250 }],
-    ['1 GM Tab', { mgPerUnit: 1000 }],
-    ['4 mg ODT Tab', { mgPerUnit: 4 }],
-    ['Azithromycin 250 MG Oral Tablet', { mgPerUnit: 250 }],
-    ['90 mcg/puff HFA MDI', { mgPerUnit: 0.09 }],
-    ['1 g Tab', { mgPerUnit: 1000 }],
-    // A salt with its base: dosed on the base (pyrantel pamoate 144 mg = 50 mg pyrantel base).
-    ['Pinworm Medicine Oral Suspension 144 (50 Base) MG/ML', { mgPerMl: 50 }],
-    ['108 (90 Base) MCG/ACT', { mgPerUnit: 0.09 }],
-  ])('%s → %j', (text, expected) => {
-    expect(parseStrengthConcentration(text)).toEqual(expected);
-  });
-
-  it.each(['2% Ointment', '0.3% Sol', 'Insulin 100 UNT/ML', 'Albuterol'])('%s → nothing', (text) => {
-    expect(parseStrengthConcentration(text)).toBeUndefined();
-  });
-
-  // A combination has more than one ingredient amount: no single mg to dose by (pending dabrams).
-  it.each([
-    '400-57 mg/5ml Susp',
-    'Amoxicillin-Clavulanate 200-28.5 mg/5ml Susp',
-    'Sulfamethoxazole-Trimethoprim 200-40 mg/5mL Susp',
-    'Acetaminophen-Codeine 300-30 mg Tab',
-    'amoxicillin 80 MG/ML / clavulanate 11.4 MG/ML Oral Suspension',
-    'Amoxicillin 875 MG / Clavulanate 125 MG Oral Tablet',
-  ])('%s → a combination, nothing', (text) => {
-    expect(isCombinationStrength(text)).toBe(true);
-    expect(parseStrengthConcentration(text)).toBeUndefined();
-  });
-
-  it.each([
-    'Amoxicillin 400 MG/5ML Oral Suspension',
-    'Pinworm Medicine Oral Suspension 144 (50 Base) MG/ML',
-    'Nicotine 21 MG/24HR Transdermal Patch',
-    '250 mg Cap',
-  ])('%s → one ingredient', (text) => {
-    expect(isCombinationStrength(text)).toBe(false);
-  });
-});
-
-describe('prescriptionDoseUnit', () => {
-  it('counts a nasal spray in sprays, nasal drops in drops, and a spray in sprays in the directions', () => {
-    expect(prescriptionDoseUnit('liquid', 'in the nose', 'Fluticasone 50 MCG/ACTUAT Nasal Suspension')).toBe('spray');
-    expect(prescriptionDoseUnit(undefined, 'in the nose', 'Saline 0.65 % Nasal Spray')).toBe('spray');
-    expect(prescriptionDoseUnit('liquid', 'in the nose', 'Phenylephrine 0.125 % Nasal Solution')).toBe('drop');
-    expect(
-      prescriptionDirectionsText('Fluticasone Propionate 50 MCG/ACTUAT Nasal Spray', {
-        dose: '2',
-        route: 'in the nose',
-        frequency: 'once daily',
-        durationDays: '',
-      })
-    ).toBe('Put 2 sprays in the nose once daily.');
   });
 });

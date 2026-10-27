@@ -3,11 +3,10 @@ import { plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseUnitLabel,
   frequencyForDosesPerDay,
-  isCombinationStrength,
+  isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
   prescriptionDirectionsText,
   prescriptionDispense,
-  prescriptionDoseForm,
   prescriptionDoseUnit,
   prescriptionFrequency,
   prescriptionQuantityUnit,
@@ -35,9 +34,11 @@ import {
   COMBINATION_MESSAGE,
   emptyPrescriptionLine,
   lineMaximumOf,
-  MEASURE_OF,
+  measureOf,
   mgPerMeasure,
+  NO_DETAILS_MESSAGE,
   PrescriptionLine,
+  quickPickProduct,
   withSuggestion,
 } from './prescriptionLines';
 
@@ -115,7 +116,7 @@ const savedRow = (quickPick: PrescriptionQuickPickData, id: string): Prescriptio
  * dose blank waits ("(enter weight)"); a dose typed into it is the provider's, so the line keeps no settings. A
  * frequency picked on the row does as on the line (`withCalculatorDosing`): another count of doses a day keeps the
  * rate and basis with the new count, and by mg/kg/day the dose is worked out again. A combination product's dose is
- * left to enter, with a note (pending dabrams). */
+ * left to enter, with a note: which ingredient to dose by is the provider's pick in the calculator. */
 const dosedRow = (
   quickPick: PrescriptionQuickPickData,
   dosing: PrescriptionQuickPickDosing,
@@ -123,12 +124,13 @@ const dosedRow = (
   medication: MedicationSearchResult,
   weightKg: number | undefined
 ): PrescriptionSuggestionRow & Required<Pick<PrescriptionSuggestionRow, 'apply'>> => {
-  const { description } = medication;
-  const form = prescriptionDoseForm(description);
-  const measure = form && MEASURE_OF[form];
-  const route = prescriptionRoute(description) ?? 'by mouth';
-  const unit = prescriptionDoseUnit(form, route, description);
-  const combination = isCombinationStrength(description);
+  const measure = measureOf(medication);
+  // No route the product's dose form doesn't give: the provider fills it.
+  const route = prescriptionRoute(medication);
+  const unit = prescriptionDoseUnit(medication);
+  const combination = isCombinationProduct(medication);
+  // A product saved before the search gave its details (an older quick pick's) has no strength to dose by.
+  const noDetails = !medication.ingredients?.length;
   const frequency =
     dosing.frequency && prescriptionFrequency(dosing.frequency)
       ? dosing.frequency
@@ -141,7 +143,7 @@ const dosedRow = (
     measure &&
     plainDose({
       weightKg,
-      mgPerMeasure: mgPerMeasure(description),
+      mgPerMeasure: mgPerMeasure(medication),
       measure,
       basis: settings.basis,
       rate: settings.rate,
@@ -172,7 +174,9 @@ const dosedRow = (
       title: 'Dose',
       options: [],
       initial: doseText,
-      ...(!doseText && !combination && dosing.basis !== 'fixed' && !weightKg ? { placeholder: '(enter weight)' } : {}),
+      ...(!doseText && !combination && !noDetails && dosing.basis !== 'fixed' && !weightKg
+        ? { placeholder: '(enter weight)' }
+        : {}),
     };
     const frequencyBlank: SentenceBlank = {
       title: 'Frequency',
@@ -186,7 +190,7 @@ const dosedRow = (
       optional: true,
       placeholder: '#',
     };
-    const where = ROUTES_IN_VERB.includes(route) ? '' : ` ${route}`;
+    const where = !route || ROUTES_IN_VERB.includes(route) ? '' : ` ${route}`;
     return [
       `${prescriptionVerb(route)} `,
       doseBlank,
@@ -198,13 +202,14 @@ const dosedRow = (
     ];
   };
   const doseInfoFor = (picks: SentencePicks): string[] | undefined => {
+    if (noDetails) return [NO_DETAILS_MESSAGE];
     if (combination) return [COMBINATION_MESSAGE];
     const { dose } = dosingFor(picks[frequencyAt]);
     return dose ? [dose.working, ...(dose.roundingNote ? [dose.roundingNote] : [])] : undefined;
   };
   const fill = (picks: SentencePicks): SuggestedPrescriptionFields => {
     const directions = {
-      route,
+      route: route ?? ('' as const),
       dose: picks[doseAt] ?? doseTextOf(picks) ?? '',
       frequency: picks[frequencyAt] ?? frequency ?? '',
       durationDays: picks[durationAt] ?? days ?? '',
@@ -213,10 +218,10 @@ const dosedRow = (
     };
     return {
       ...directions,
-      ...prescriptionDispense(description, directions),
-      quantityUnit: quickPick.quantityUnit ?? prescriptionQuantityUnit(description) ?? '',
+      ...prescriptionDispense(medication, directions),
+      quantityUnit: quickPick.quantityUnit ?? prescriptionQuantityUnit(medication) ?? '',
       numberOfRefills: String(quickPick.numberOfRefills ?? 0),
-      patientInstructions: prescriptionDirectionsText(description, directions),
+      patientInstructions: prescriptionDirectionsText(medication, directions),
     };
   };
   return {
@@ -268,9 +273,10 @@ const rowFor = (
 /** Another quick pick of a set as its row would read for its own product: "Ibuprofen 100 mg/5ml Susp. Take 5 mL by
  * mouth every 6 hours as needed for 5 days." */
 const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | undefined): string => {
-  const { ndc, medicationDescription } = quickPick;
-  const segments = medicationDescription
-    ? rowFor(quickPick, '', { ndc: ndc ?? '', description: medicationDescription }, weightKg).segments
+  const { medicationDescription } = quickPick;
+  const product = quickPickProduct(quickPick);
+  const segments = product
+    ? rowFor(quickPick, '', product, weightKg).segments
     : [quickPick.patientInstructions || 'No directions saved.'];
   const sentence = assembleSentence(
     segments.map((segment) =>

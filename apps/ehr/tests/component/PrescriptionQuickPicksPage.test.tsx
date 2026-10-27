@@ -7,11 +7,13 @@ import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   emptyPrescriptionQuickPickForm,
+  prescriptionQuickPickFormValues,
   prescriptionQuickPickFromForm,
 } from '../../src/features/visits/telemed/components/admin/prescriptionQuickPickForm';
 import PrescriptionQuickPicksPage, {
   setsRemovalText,
 } from '../../src/features/visits/telemed/components/admin/PrescriptionQuickPicksPage';
+import { detailed, ERX_PRODUCT_DETAILS } from './helpers/erxProducts';
 
 const mockEnqueueSnackbar = vi.fn();
 vi.mock('notistack', () => ({ enqueueSnackbar: (...args: unknown[]) => mockEnqueueSnackbar(...args) }));
@@ -29,8 +31,8 @@ vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambd
 const AMOXICILLIN_DRUG = {
   name: 'Amoxicillin',
   strengths: [
-    { strength: '250 mg Cap', ndcs: ['00093310701'] },
-    { strength: '400 mg/5ml Susp', ndcs: ['00093416173'] },
+    detailed({ strength: '250 mg Cap', ndcs: ['00093310701'] }),
+    detailed({ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }),
   ],
 };
 vi.mock('src/features/visits/shared/hooks/useErxSearch', () => ({
@@ -132,6 +134,8 @@ describe('Prescription quick picks admin', () => {
         name: 'Amox by weight',
         ndc: '00093416173',
         medicationDescription: 'Amoxicillin 400 mg/5ml Susp',
+        // The picked strength's details, so the order form needn't read the product's name.
+        ...ERX_PRODUCT_DETAILS['00093416173'],
         dosing: {
           rate: 45,
           basis: 'mg/kg/day',
@@ -266,6 +270,24 @@ describe('setsRemovalText', () => {
       "It's in 3 sets: A, B, C. Removing it takes it out of all of them and makes them Inactive until someone reviews them."
     );
     expect(setsRemovalText([])).toBeUndefined();
+  });
+});
+
+describe('prescriptionQuickPickFromForm: the product’s details', () => {
+  it('keeps the details a quick pick was saved with, and saves none for one saved before them', () => {
+    const saved = {
+      name: 'Amox',
+      ndc: '00093416173',
+      medicationDescription: 'Amoxicillin 400 mg/5ml Susp',
+      ...ERX_PRODUCT_DETAILS['00093416173'],
+    };
+    expect(prescriptionQuickPickFromForm(prescriptionQuickPickFormValues(saved))).toMatchObject({ quickPick: saved });
+    const older = { name: 'Amox', ndc: '00093416173', medicationDescription: 'Amoxicillin 400 mg/5ml Susp' };
+    const { quickPick: resaved } = prescriptionQuickPickFromForm(prescriptionQuickPickFormValues(older)) as {
+      quickPick: object;
+    };
+    expect(resaved).not.toHaveProperty('doseForm');
+    expect(resaved).not.toHaveProperty('ingredients');
   });
 });
 

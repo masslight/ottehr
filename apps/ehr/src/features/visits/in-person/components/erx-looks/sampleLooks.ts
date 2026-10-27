@@ -34,7 +34,13 @@ const rows = (...list: Omit<ErxSuggestionRow, 'id'>[]): RowsProps => ({
 });
 
 /** Sample quick picks for one product, as the order form's suggestions build their rows. */
-const SAMPLE_PRODUCT = { ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' };
+const SAMPLE_PRODUCT = {
+  ndc: '00093416173',
+  description: 'Amoxicillin 400 mg/5ml Susp',
+  rxcui: '308189',
+  doseForm: 'Oral Suspension',
+  ingredients: [{ name: 'amoxicillin', amount: 80, unit: 'MG', per: 1, perUnit: 'ML' }],
+};
 const SAMPLE_BY_WEIGHT: PrescriptionQuickPickData['dosing'] = {
   rate: 25,
   basis: 'mg/kg/dose',
@@ -52,6 +58,9 @@ const quickPickRows = (weightKg: number | undefined, ...quickPicks: Prescription
     quickPicks: quickPicks.map((quickPick) => ({
       ndc: SAMPLE_PRODUCT.ndc,
       medicationDescription: SAMPLE_PRODUCT.description,
+      rxcui: SAMPLE_PRODUCT.rxcui,
+      doseForm: SAMPLE_PRODUCT.doseForm,
+      ingredients: SAMPLE_PRODUCT.ingredients,
       ...quickPick,
     })),
   }),

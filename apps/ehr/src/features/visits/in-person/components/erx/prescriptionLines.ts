@@ -8,19 +8,21 @@ import {
 } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseAmountText,
-  parseStrengthConcentration,
   PrescriptionDirections,
   prescriptionDirectionsText,
   prescriptionDispense,
   PrescriptionDoseForm,
   prescriptionDoseForm,
   prescriptionFrequency,
+  PrescriptionProduct,
   prescriptionQuantityUnit,
   prescriptionRoute,
   PrescriptionStep,
   SuggestedPrescriptionFields,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
 import {
+  MedicationIngredient,
+  MedicationProductDetails,
   MedicationSearchDrug,
   MedicationSearchResult,
   MedicationStrength,
@@ -75,6 +77,9 @@ export interface PrescriptionLine extends PrescriptionDirections {
   /** The maximum the calculator or a quick pick brought, for the warnings only. It outlives a dose typed by hand (the
    * dosing doesn't), is never saved with a quick pick, and goes with the drug or strength. */
   maximum?: LineMaximum;
+  /** The ingredient of a combination product the calculator dosed by, for its re-dosing and the maximum warnings.
+   * Never saved with a quick pick; goes with the dosing's maximum, the drug or strength. */
+  doseBy?: string;
 }
 
 /** Where a line's maximum came from: the dose calculator, or a quick pick by name (with its source, if it has one). */
@@ -109,9 +114,7 @@ export interface MaximumWarning {
  * first step's dose in mg (a measured form only) and, where the frequency gives a count, its doses a day. */
 export const maximumWarnings = (line: PrescriptionLine): MaximumWarning[] => {
   const { maximum } = line;
-  const description = line.medication?.description ?? '';
-  const form = prescriptionDoseForm(description);
-  const mg = form && MEASURE_OF[form] ? mgPerMeasure(description) : undefined;
+  const mg = mgPerMeasure(line.medication, doseByIngredient(line.medication, line.doseBy));
   const dose = numberOrUndefined(line.dose);
   if (!maximum || !mg || !dose || dose <= 0) return [];
   const perDose = roundNumberToDecimalPlaces(dose * mg, 2);
@@ -220,9 +223,8 @@ const follows = (current: string, generated: string): boolean => current.trim() 
  * except where the provider typed something of their own, which stays. */
 export const withDirections = (line: PrescriptionLine, patch: Partial<PrescriptionDirections>): PrescriptionLine => {
   const next = { ...line, ...patch };
-  const description = next.medication?.description ?? '';
-  const patientInstructions = prescriptionDirectionsText(description, next);
-  const { quantityValue, daysSupply } = prescriptionDispense(description, next);
+  const patientInstructions = prescriptionDirectionsText(next.medication, next);
+  const { quantityValue, daysSupply } = prescriptionDispense(next.medication, next);
   return {
     ...next,
     patientInstructions: follows(line.patientInstructions, line.generated.patientInstructions)
@@ -249,14 +251,12 @@ export const withCalculatorDosing = (
   if (dosesPerDay === undefined || dosesPerDay === dosing.dosesPerDay) return line;
   const kept: PrescriptionLine = { ...line, dosing: { ...dosing, dosesPerDay } };
   if (dosing.basis !== 'mg/kg/day') return kept;
-  const description = line.medication?.description ?? '';
-  const form = prescriptionDoseForm(description);
-  const measure = form && MEASURE_OF[form];
+  const measure = measureOf(line.medication);
   const dose =
     measure &&
     plainDose({
       weightKg,
-      mgPerMeasure: mgPerMeasure(description),
+      mgPerMeasure: mgPerMeasure(line.medication, doseByIngredient(line.medication, line.doseBy)),
       measure,
       basis: dosing.basis,
       rate: dosing.rate,
@@ -287,29 +287,75 @@ export const MEASURE_OF: Partial<Record<PrescriptionDoseForm, DoseMeasure>> = {
   capsule: 'capsule',
 };
 
-/** What the calculator, and a quick pick's row, say for a combination product (pending dabrams): no one mg to dose by. */
-export const COMBINATION_MESSAGE = 'Combination product: enter the dose directly';
+/** The measure the calculator doses a product in, when its dose form is one it measures. */
+export const measureOf = (product: PrescriptionProduct | null | undefined): DoseMeasure | undefined => {
+  const form = prescriptionDoseForm(product);
+  return form && MEASURE_OF[form];
+};
 
-/** mg in one measure of a product (a mL of a liquid, a tablet or capsule), when its description says: never for a
- * combination, whose first ingredient isn't the product's mg. */
-export const mgPerMeasure = (description: string): number | undefined => {
-  const parsed = parseStrengthConcentration(description);
-  return prescriptionDoseForm(description) === 'liquid' ? parsed?.mgPerMl : parsed?.mgPerUnit;
+/** What a quick pick's row says for a combination product with weight dosing: which ingredient is the provider's
+ * pick, in the calculator. */
+export const COMBINATION_MESSAGE = 'Combination product: open the calculator to choose which ingredient to dose by';
+
+/** What the calculator says for a product without structured strength details (a quick pick saved before them). */
+export const NO_DETAILS_MESSAGE = 'Strength details unavailable: enter the dose directly';
+
+/** What an ingredient amount is per, for each measure: a mL of a liquid, one tablet or capsule. */
+const PER_UNIT_OF: Record<DoseMeasure, string> = { mL: 'ML', tablet: 'EACH', capsule: 'EACH' };
+
+/** mg in one of RxNorm's strength units. */
+const MG_PER_UNIT: Record<string, number> = { MG: 1, MCG: 0.001, GM: 1000 };
+
+/** The product's one ingredient; none for a combination, whose ingredient to dose by is the provider's pick. */
+const soleIngredient = (product: PrescriptionProduct | null | undefined): MedicationIngredient | undefined =>
+  product?.ingredients?.length === 1 ? product.ingredients[0] : undefined;
+
+/** The ingredient a dose goes by: the one named (a combination's, as the calculator picked), else the only one. */
+export const doseByIngredient = (
+  product: PrescriptionProduct | null | undefined,
+  name: string | undefined
+): MedicationIngredient | undefined =>
+  name === undefined ? soleIngredient(product) : product?.ingredients?.find((ingredient) => ingredient.name === name);
+
+/** mg of an ingredient in one measure of the product (a mL of a liquid, a tablet or capsule), when its amount is in
+ * mg, mcg or g per that measure. The product's only ingredient unless one is given. */
+export const mgPerMeasure = (
+  product: PrescriptionProduct | null | undefined,
+  ingredient: MedicationIngredient | undefined = soleIngredient(product)
+): number | undefined => {
+  const measure = measureOf(product);
+  const factor = ingredient && MG_PER_UNIT[ingredient.unit];
+  if (!measure || !ingredient || !factor || ingredient.perUnit !== PER_UNIT_OF[measure] || !(ingredient.per > 0)) {
+    return undefined;
+  }
+  return roundNumberToDecimalPlaces((ingredient.amount * factor) / ingredient.per, 6);
+};
+
+/** "amoxicillin 80 mg/mL", "ondansetron 4 mg/tablet": an ingredient as the calculator's "Dose by" lists it. */
+export const ingredientText = (
+  product: PrescriptionProduct | null | undefined,
+  ingredient: MedicationIngredient
+): string => {
+  const measure = measureOf(product);
+  const mg = mgPerMeasure(product, ingredient);
+  return mg === undefined || !measure ? ingredient.name : `${ingredient.name} ${mg} mg/${measure}`;
 };
 
 /** The dose as the same mg measured in another product, to the nearest amount it can measure (half a mL, a whole
  * tablet or capsule, at least one), with a note on how far that is from the mg: the provider decides whether it will
  * do. Blank when either strength can't be read, so a dose is never carried over in the wrong measure. A form that
  * isn't measured in mg (puffs, drops, a cream) keeps its dose as it was. */
-const remeasured = (dose: string, from: string, to: PrescriptionLine): { dose: string; note?: DoseNote } => {
+const remeasured = (
+  dose: string,
+  from: MedicationSearchResult,
+  to: PrescriptionLine
+): { dose: string; note?: DoseNote } => {
   const amount = numberOrUndefined(dose);
   if (amount === undefined || amount <= 0) return { dose };
-  const toDescription = to.medication?.description ?? '';
-  const form = prescriptionDoseForm(toDescription);
-  const measure = form && MEASURE_OF[form];
+  const measure = measureOf(to.medication);
   if (measure === undefined) return { dose };
   const fromMg = mgPerMeasure(from);
-  const toMg = mgPerMeasure(toDescription);
+  const toMg = mgPerMeasure(to.medication);
   if (fromMg === undefined || toMg === undefined) return { dose: '' };
   const mg = roundNumberToDecimalPlaces(amount * fromMg, 2);
   const measures = nearestMeasurable(mg, toMg, measure);
@@ -349,17 +395,31 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
       doseNotes: undefined,
       dosing: undefined,
       maximum: undefined,
+      doseBy: undefined,
     },
     {}
   );
 
-/** The product one strength of a drug is, as the order sends it: its first NDC and "Amoxicillin 250 mg Cap". */
+/** The product one strength of a drug is, as the order sends it: its first NDC and "Amoxicillin 250 mg Cap", with
+ * the strength's RxCUI, dose form and ingredients when the search has them. */
 export const productOf = (drug: MedicationSearchDrug, strength: MedicationStrength): MedicationSearchResult => ({
   ndc: strength.ndcs[0],
   description: `${drug.name} ${strength.strength}`,
+  ...productDetailsOf(strength),
 });
 
-/** The line on one strength of a drug: the unit and route follow the product when its name makes them obvious.
+/** A product's structured details, those it has. */
+export const productDetailsOf = ({
+  rxcui,
+  doseForm,
+  ingredients,
+}: MedicationProductDetails): MedicationProductDetails => ({
+  ...(rxcui !== undefined ? { rxcui } : {}),
+  ...(doseForm !== undefined ? { doseForm } : {}),
+  ...(ingredients !== undefined ? { ingredients } : {}),
+});
+
+/** The line on one strength of a drug: the unit and route follow the product when its dose form makes them obvious.
  * Directions written for another drug don't carry over; a strength change keeps the picks, with the doses
  * re-measured for the new strength (each with a note on how far it lands from the mg it was), and rewrites the
  * directions. */
@@ -371,17 +431,25 @@ export const withProduct = (
   const medication = productOf(drug, strength);
   const otherDrug = drug.name !== line.drug?.name;
   const changed = medication.ndc !== line.medication?.ndc;
-  const from = line.medication?.description;
+  const from = line.medication;
   const next: PrescriptionLine = {
     ...line,
     drug,
     medication,
-    quantityUnit: prescriptionQuantityUnit(medication.description) ?? line.quantityUnit,
-    route: prescriptionRoute(medication.description) ?? line.route,
+    quantityUnit: prescriptionQuantityUnit(medication) ?? line.quantityUnit,
+    route: prescriptionRoute(medication) ?? line.route,
     ...(otherDrug ? NO_DIRECTIONS : {}),
-    ...(changed ? { patientInstructions: '', ...withoutQuickPick(line), dosing: undefined, maximum: undefined } : {}),
+    ...(changed
+      ? {
+          patientInstructions: '',
+          ...withoutQuickPick(line),
+          dosing: undefined,
+          maximum: undefined,
+          doseBy: undefined,
+        }
+      : {}),
   };
-  if (!changed || otherDrug || from === undefined) return withDirections({ ...next, doseNotes: undefined }, {});
+  if (!changed || otherDrug || from === null) return withDirections({ ...next, doseNotes: undefined }, {});
   const first = remeasured(line.dose, from, next);
   const steps = line.steps.map((step) => remeasured(step.dose, from, next));
   return withDirections(
@@ -407,6 +475,7 @@ export const withSuggestion = (
   ...fields,
   dosing: undefined,
   maximum: undefined,
+  doseBy: undefined,
   quantityUnit: fields.quantityUnit || line.quantityUnit,
   // Refills are the provider's: a suggestion has none of its own.
   numberOfRefills: line.numberOfRefills,
@@ -505,7 +574,7 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     // Directions go with ASCII fractions ("1/2 tablet"): the blanks' written so, typed or quick-pick
     // ones converted; the screen keeps "½".
     patientInstructions: (line.patientInstructions === line.generated.patientInstructions
-      ? prescriptionDirectionsText(line.medication.description, line, { ascii: true })
+      ? prescriptionDirectionsText(line.medication, line, { ascii: true })
       : asciiFractions(line.patientInstructions)
     ).trim(),
     ...(line.noteToPharmacy.trim() ? { noteToPharmacy: line.noteToPharmacy.trim() } : {}),
@@ -519,21 +588,24 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
   };
 };
 
+/** The product a quick pick orders, with the details it was saved with (none on one saved before them). */
+export const quickPickProduct = (quickPick: PrescriptionQuickPickData): MedicationSearchResult | null =>
+  quickPick.ndc && quickPick.medicationDescription
+    ? { ndc: quickPick.ndc, description: quickPick.medicationDescription, ...productDetailsOf(quickPick) }
+    : null;
+
 /** A quick pick sets the whole prescription except the diagnosis, which belongs to the visit. Its directions were
- * written out, so the blanks start empty (the route from the product's name) and never overwrite them. */
+ * written out, so the blanks start empty (the route from the product's dose form) and never overwrite them. */
 export const applyPrescriptionQuickPick = (
   line: PrescriptionLine,
   quickPick: PrescriptionQuickPickData
 ): PrescriptionLine => {
-  const medication =
-    quickPick.ndc && quickPick.medicationDescription
-      ? { ndc: quickPick.ndc, description: quickPick.medicationDescription }
-      : line.medication;
+  const medication = quickPickProduct(quickPick) ?? line.medication;
   const applied: PrescriptionLine = {
     ...line,
     drug: medication === line.medication ? line.drug : null,
     medication,
-    route: (medication && prescriptionRoute(medication.description)) ?? '',
+    route: prescriptionRoute(medication) ?? '',
     ...NO_DIRECTIONS,
     quantityValue: quickPick.quantityValue === undefined ? '' : String(quickPick.quantityValue),
     quantityUnit: quickPick.quantityUnit ?? '',
@@ -546,6 +618,7 @@ export const applyPrescriptionQuickPick = (
     // Its directions are text written for whoever it was saved from: not the calculator's for this patient.
     dosing: undefined,
     maximum: undefined,
+    doseBy: undefined,
   };
   return {
     ...applied,
@@ -565,6 +638,8 @@ export const prescriptionLineToQuickPick = (
   name: name.trim(),
   ndc: line.medication?.ndc,
   medicationDescription: line.medication?.description,
+  // The product's details, so the quick pick's product doses as the picked one did.
+  ...(line.medication ? productDetailsOf(line.medication) : {}),
   quantityValue: numberOrUndefined(line.quantityValue),
   quantityUnit: line.quantityUnit || undefined,
   daysSupply: numberOrUndefined(line.daysSupply),

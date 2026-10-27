@@ -2,9 +2,8 @@ import { FC, useState } from 'react';
 import { DoseBasis, plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
   frequencyForDosesPerDay,
-  isCombinationStrength,
+  isCombinationProduct,
   prescriptionDirectionsText,
-  prescriptionDoseForm,
   prescriptionFrequency,
   prescriptionQuantityUnit,
   PrescriptionStep,
@@ -17,10 +16,12 @@ import { DoseCalculatorCard, DoseCalculatorDisplay, DoseField } from '../erx-loo
 import { DoseCalculatorPopup } from '../erx-looks/DoseCalculatorPopup';
 import {
   CalculatorDosing,
-  COMBINATION_MESSAGE,
+  doseByIngredient,
+  ingredientText,
   lineMaximumOf,
-  MEASURE_OF,
+  measureOf,
   mgPerMeasure,
+  NO_DETAILS_MESSAGE,
   numberOrUndefined,
   PrescriptionLine,
   withDirections,
@@ -36,6 +37,8 @@ const BASIS_OPTIONS = [
 /** What the provider typed, kept only for the product it was typed on. */
 interface Picks {
   ndc?: string;
+  /** A combination product's ingredient to dose by, by name: picked each time, never from a quick pick. */
+  doseBy?: string;
   concentration?: string;
   rate?: string;
   basis?: DoseBasis;
@@ -99,12 +102,14 @@ export interface DoseFill {
   steps?: PrescriptionStep[];
   /** What the dose was worked out from, which the line keeps while its dose stays the one used. */
   dosing?: CalculatorDosing;
+  /** A combination product's ingredient the dose went by. */
+  doseBy?: string;
 }
 
 /** The line with the calculator's dose used. Without steps of its own the dose is for the whole prescription: any
  * "then" steps go, and with them the first step's duration. */
 export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLine => {
-  const quantityUnit = line.quantityUnit || prescriptionQuantityUnit(line.medication?.description ?? '') || '';
+  const quantityUnit = line.quantityUnit || prescriptionQuantityUnit(line.medication) || '';
   const next = withDirections(
     { ...line, quantityUnit },
     {
@@ -119,7 +124,7 @@ export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLi
         : {}),
     }
   );
-  return { ...next, dosing: fill.dosing, maximum: lineMaximumOf(fill.dosing, 'calculator') };
+  return { ...next, dosing: fill.dosing, maximum: lineMaximumOf(fill.dosing, 'calculator'), doseBy: fill.doseBy };
 };
 
 interface DoseCalculatorProps {
@@ -154,17 +159,14 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const own = picks.ndc === ndc ? picks : {};
   const pick = (patch: Partial<Picks>): void => setPicks({ ...own, ...patch, ndc });
 
-  const description = line.medication?.description ?? '';
-  const form = prescriptionDoseForm(description);
-  const measure = form && MEASURE_OF[form];
-  // PENDING dabrams (Claude's call): a combination's strength has no one mg to work a dose out from.
-  const combination = isCombinationStrength(description);
-  if (!measure || combination) {
-    const message = combination
-      ? COMBINATION_MESSAGE
-      : description
-      ? 'Not for this dose form: liquids, tablets and capsules only'
-      : 'Pick a medication';
+  const product = line.medication;
+  const measure = measureOf(product);
+  if (!product || !product.ingredients?.length || !measure) {
+    const message = !product
+      ? 'Pick a medication'
+      : !product.ingredients?.length
+      ? NO_DETAILS_MESSAGE
+      : 'Not for this dose form: liquids, tablets and capsules only';
     return (
       <DoseCalculatorPopup label={label}>
         {() => <DoseCalculatorCard display={{ look: 'waiting', message }} />}
@@ -173,7 +175,10 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   }
   const weightValue = calculatorWeightText(weightText, weight);
   const weightKg = numberOrUndefined(weightValue);
-  const derivedConcentration = mgPerMeasure(description);
+  // A combination doses by the ingredient the provider picks; its result, rounding and maximum are that one's.
+  const combination = isCombinationProduct(product);
+  const ingredient = doseByIngredient(product, combination ? own.doseBy : undefined);
+  const derivedConcentration = ingredient && mgPerMeasure(product, ingredient);
   const concentrationText = own.concentration ?? text(derivedConcentration);
   const basis = own.basis ?? 'mg/kg/day';
   const lineDosesPerDay = prescriptionFrequency(line.frequency)?.dosesPerDay;
@@ -251,28 +256,31 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
 
   const missing = [
     basis !== 'fixed' && !weightKg && 'the weight',
+    !ingredient && 'the ingredient to dose by',
     !numberOrUndefined(concentrationText) && `the ${measure === 'mL' ? 'concentration' : 'strength'}`,
     !numberOrUndefined(rateText) && 'a rate',
     (basis === 'mg/kg/day' || maxPerDayMg) && !dosesPerDay && 'the doses a day',
   ].filter((input): input is string => !!input);
-  const fill: DoseFill | undefined = dose && {
-    dose: String(dose.amount),
-    frequency: frequencyOfDoses,
-    replaceFrequency: own.dosesPerDay !== undefined,
-    dosing: {
-      rate: numberOrUndefined(rateText) ?? 0,
-      basis,
-      ...(dosesPerDay !== undefined ? { dosesPerDay } : {}),
-      ...(maxPerDoseMg !== undefined ? { maxPerDoseMg } : {}),
-      ...(maxPerDayMg !== undefined ? { maxPerDayMg } : {}),
-    },
-  };
+  const fill: DoseFill | undefined = dose &&
+    ingredient && {
+      dose: String(dose.amount),
+      frequency: frequencyOfDoses,
+      replaceFrequency: own.dosesPerDay !== undefined,
+      dosing: {
+        rate: numberOrUndefined(rateText) ?? 0,
+        basis,
+        ...(dosesPerDay !== undefined ? { dosesPerDay } : {}),
+        ...(maxPerDoseMg !== undefined ? { maxPerDoseMg } : {}),
+        ...(maxPerDayMg !== undefined ? { maxPerDayMg } : {}),
+      },
+      ...(combination ? { doseBy: ingredient.name } : {}),
+    };
   const display: DoseCalculatorDisplay = fill
     ? {
         look: 'own',
         fields,
         result: {
-          sentence: prescriptionDirectionsText(description, withDose(line, fill)),
+          sentence: prescriptionDirectionsText(product, withDose(line, fill)),
           working: dose?.working,
           roundingNote: dose?.roundingNote,
           capNote: dose?.capNote,
@@ -290,6 +298,20 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     <DoseCalculatorPopup label={label}>
       {(close) => (
         <DoseCalculatorCard
+          picker={
+            combination
+              ? {
+                  title: 'Dose by',
+                  options: (product.ingredients ?? []).map((option) => ingredientText(product, option)),
+                  value: ingredient && ingredientText(product, ingredient),
+                  onChange: (value) =>
+                    pick({
+                      doseBy: product.ingredients?.find((option) => ingredientText(product, option) === value)?.name,
+                      concentration: undefined,
+                    }),
+                }
+              : undefined
+          }
           display={display}
           onFieldChange={(id, value) => (id === 'weight' ? onWeightText(value) : pick({ [id]: value }))}
           onChoiceChange={(_id, value) => pick({ basis: value as DoseBasis })}

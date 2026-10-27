@@ -15,6 +15,7 @@ import {
   withPrescriptionSet,
 } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
+import { detailed, ERX_PRODUCT_DETAILS } from './helpers/erxProducts';
 
 // The real suggestions seam: the rows here come from the quick picks and sets given.
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
@@ -32,11 +33,11 @@ vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => 
 const LIQUIDS = {
   name: 'Amoxicillin',
   strengths: [
-    { strength: '400 mg/5ml Susp', ndcs: ['00093416173'] },
-    { strength: '250 mg/5ml Susp', ndcs: ['00093415573'] },
+    detailed({ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }),
+    detailed({ strength: '250 mg/5ml Susp', ndcs: ['00093415573'] }),
   ],
 };
-const AMOX = { ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' };
+const AMOX = detailed({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' });
 const WEIGHT: VisitWeight = { kg: 28.12, takenAt: '2026-10-08T14:00:00Z', thisVisit: true };
 
 const BY_WEIGHT: PrescriptionQuickPickData = {
@@ -44,6 +45,7 @@ const BY_WEIGHT: PrescriptionQuickPickData = {
   name: 'Amox strep',
   ndc: AMOX.ndc,
   medicationDescription: AMOX.description,
+  ...ERX_PRODUCT_DETAILS[AMOX.ndc],
   quantityValue: 120,
   quantityUnit: 'Milliliter',
   daysSupply: 10,
@@ -57,6 +59,7 @@ const SAVED_TEXT: PrescriptionQuickPickData = {
   name: 'Amox as written',
   ndc: AMOX.ndc,
   medicationDescription: AMOX.description,
+  ...ERX_PRODUCT_DETAILS[AMOX.ndc],
   quantityValue: 100,
   quantityUnit: 'Milliliter',
   daysSupply: 10,
@@ -67,6 +70,7 @@ const IBUPROFEN: PrescriptionQuickPickData = {
   name: 'Ibuprofen pain',
   ndc: '00904585354',
   medicationDescription: 'Ibuprofen 100 mg/5ml Susp',
+  ...ERX_PRODUCT_DETAILS['00904585354'],
   quantityValue: 120,
   quantityUnit: 'Milliliter',
   patientInstructions: 'Take 5 mL by mouth every 6 hours as needed for pain',

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   applyPrescriptionQuickPick,
   emptyPrescriptionLine,
+  ingredientText,
   maximumWarnings,
+  mgPerMeasure,
   pickedStrength,
   PrescriptionLine,
   prescriptionLineErrors,
@@ -15,10 +17,11 @@ import {
   withQuickPickDaysAsDuration,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
+import { detailed, ERX_PRODUCT_DETAILS } from '../component/helpers/erxProducts';
 
 const complete = (): PrescriptionLine => ({
   ...emptyPrescriptionLine(),
-  medication: { ndc: '00093310901', description: 'Amoxicillin 500 MG Oral Capsule' },
+  medication: detailed({ ndc: '00093310901', description: 'Amoxicillin 500 MG Oral Capsule' }),
   route: 'by mouth',
   quantityValue: '20',
   quantityUnit: 'Capsule',
@@ -36,18 +39,48 @@ const PHARMACY = {
   address: '123 Main St, Washington, DC 20001',
 };
 
-/** One drug in every form, as the terminology search returns it. */
+/** One drug in every form, as the terminology search returns it, with each strength's dose form and ingredients. */
 const AMOXICILLIN = {
   name: 'Amoxicillin',
   strengths: [
-    { strength: '250 mg Cap', ndcs: ['00093310701'] },
-    { strength: '875 mg Tab', ndcs: ['00093226401'] },
-    { strength: '250 mg/5ml Susp', ndcs: ['00093415573'] },
-    { strength: '400 mg/5ml Susp', ndcs: ['00093416173'] },
+    detailed({ strength: '250 mg Cap', ndcs: ['00093310701'] }),
+    detailed({ strength: '875 mg Tab', ndcs: ['00093226401'] }),
+    detailed({ strength: '250 mg/5ml Susp', ndcs: ['00093415573'] }),
+    detailed({ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }),
+  ],
+};
+const AMOXICILLIN_500_TAB = detailed({ strength: '500 mg Tab', ndcs: ['00093226301'] });
+
+const MUPIROCIN = {
+  name: 'Mupirocin (Topical)',
+  strengths: [detailed({ strength: '2% Ointment', ndcs: ['00093101042'] })],
+};
+
+const ALBUTEROL = {
+  name: 'Albuterol',
+  strengths: [
+    detailed({ strength: '90 mcg/puff MDI', ndcs: ['00054074287'] }),
+    detailed({ strength: '0.083% Neb Soln', ndcs: ['00487950101'] }),
+    detailed({ strength: '108 (90 Base) mcg/act HFA', ndcs: ['59310057922'] }),
   ],
 };
 
-const MUPIROCIN = { name: 'Mupirocin (Topical)', strengths: [{ strength: '2% Ointment', ndcs: ['00093101042'] }] };
+/** A dose pack (RxNorm's "Pack", rxcui 2587899): its dose form says nothing of a unit or route. */
+const PAXLOVID = {
+  name: 'Paxlovid',
+  strengths: [
+    {
+      strength: '300 mg-100 mg Dose Pack',
+      ndcs: ['00069110104'],
+      rxcui: '2587899',
+      doseForm: 'Pack',
+      ingredients: [
+        { name: 'nirmatrelvir', amount: 150, unit: 'MG', per: 1, perUnit: 'EACH' },
+        { name: 'ritonavir', amount: 100, unit: 'MG', per: 1, perUnit: 'EACH' },
+      ],
+    },
+  ],
+};
 
 describe('prescriptionLineErrors', () => {
   it('names everything an empty line still needs, in sentence order', () => {
@@ -133,17 +166,19 @@ describe('withDrug: what the old product implied goes', () => {
       quantityValue: '',
     });
     // A product that implies no unit or route leaves them empty, not the old drug's.
-    const pen = { name: 'Epinephrine', strengths: [{ strength: '0.3 mg Auto-Injector', ndcs: ['49502010202'] }] };
-    expect(withProduct(withDrug(typed, pen), pen, pen.strengths[0])).toMatchObject({ quantityUnit: '', route: '' });
+    expect(withProduct(withDrug(typed, PAXLOVID), PAXLOVID, PAXLOVID.strengths[0])).toMatchObject({
+      quantityUnit: '',
+      route: '',
+    });
   });
 });
 
-describe('combination products (pending dabrams)', () => {
+describe('combination products', () => {
   const AUGMENTIN = {
     name: 'Amoxicillin-Clavulanate',
     strengths: [
-      { strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] },
-      { strength: '600-42.9 mg/5ml Susp', ndcs: ['00093227873'] },
+      detailed({ strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] }),
+      detailed({ strength: '600-42.9 mg/5ml Susp', ndcs: ['00093227873'] }),
     ],
   };
 
@@ -157,7 +192,7 @@ describe('combination products (pending dabrams)', () => {
     expect(next.doseNotes).toEqual([undefined]);
   });
 
-  it('checks no maximum', () => {
+  it('checks no maximum until the calculator doses by one ingredient, then checks that one’s', () => {
     const line: PrescriptionLine = {
       ...withProduct(emptyPrescriptionLine(), AUGMENTIN, AUGMENTIN.strengths[0]),
       dose: '20',
@@ -165,13 +200,82 @@ describe('combination products (pending dabrams)', () => {
       maximum: { maxPerDoseMg: 500, from: 'calculator' },
     };
     expect(maximumWarnings(line)).toEqual([]);
+    // 20 mL × 80 mg/mL amoxicillin = 1,600 mg; 20 mL × 11.4 mg/mL clavulanate = 228 mg.
+    expect(maximumWarnings({ ...line, doseBy: 'amoxicillin' })).toEqual([
+      { blank: 'dose', text: '1,600 mg per dose is above the 500 mg maximum.' },
+    ]);
+    expect(maximumWarnings({ ...line, doseBy: 'clavulanate' })).toEqual([]);
+  });
+
+  it('names each ingredient by its mg per measure, and has no mg of its own', () => {
+    const product = withProduct(emptyPrescriptionLine(), AUGMENTIN, AUGMENTIN.strengths[0]).medication;
+    expect(product?.ingredients?.map((ingredient) => ingredientText(product, ingredient))).toEqual([
+      'amoxicillin 80 mg/mL',
+      'clavulanate 11.4 mg/mL',
+    ]);
+    expect(mgPerMeasure(product)).toBeUndefined();
+  });
+});
+
+describe('mgPerMeasure', () => {
+  const product = (ndc: string): (typeof ERX_PRODUCT_DETAILS)[string] => ERX_PRODUCT_DETAILS[ndc];
+
+  it('reads mg per mL of a liquid and per tablet or capsule from the one ingredient', () => {
+    expect(mgPerMeasure(product('00093416173'))).toBe(80);
+    expect(mgPerMeasure(product('00093310701'))).toBe(250);
+    expect(mgPerMeasure(product('00093226401'))).toBe(875);
+    expect(
+      mgPerMeasure({
+        doseForm: 'Oral Tablet',
+        ingredients: [{ ...product('00093226401').ingredients![0], unit: 'GM', amount: 1 }],
+      })
+    ).toBe(1000);
+    expect(
+      mgPerMeasure({
+        doseForm: 'Oral Suspension',
+        ingredients: [{ name: 'x', amount: 400, unit: 'MCG', per: 5, perUnit: 'ML' }],
+      })
+    ).toBe(0.08);
+  });
+
+  it('has none for a form the calculator doesn’t measure, a unit that isn’t mg, or no details', () => {
+    expect(mgPerMeasure(product('00054074287'))).toBeUndefined();
+    expect(mgPerMeasure(product('00093101042'))).toBeUndefined();
+    expect(
+      mgPerMeasure({
+        doseForm: 'Oral Suspension',
+        ingredients: [{ name: 'x', amount: 1, unit: 'UNT', per: 1, perUnit: 'ML' }],
+      })
+    ).toBeUndefined();
+    expect(
+      mgPerMeasure({
+        doseForm: 'Oral Tablet',
+        ingredients: [{ name: 'x', amount: 1, unit: 'MG', per: 1, perUnit: 'ML' }],
+      })
+    ).toBeUndefined();
+    expect(mgPerMeasure({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' } as never)).toBeUndefined();
+  });
+});
+
+describe('a product without structured details', () => {
+  it('implies no unit or route, and no dose is re-measured into it', () => {
+    const bare = { name: 'Amoxicillin', strengths: [{ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }] };
+    const line = withProduct({ ...emptyPrescriptionLine(), quantityUnit: 'Each' }, bare, bare.strengths[0]);
+    expect(line).toMatchObject({ quantityUnit: 'Each', route: '' });
+    expect(withDirections(line, { dose: '5', frequency: 'twice daily' }).patientInstructions).toBe(
+      'Take 5 twice daily.'
+    );
   });
 });
 
 describe('withProduct', () => {
-  it('names the product by drug and strength, with the unit and route read from them', () => {
+  it('names the product by drug and strength, with the unit and route from its dose form', () => {
     const line = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]);
-    expect(line.medication).toEqual({ ndc: '00093415573', description: 'Amoxicillin 250 mg/5ml Susp' });
+    expect(line.medication).toEqual({
+      ndc: '00093415573',
+      description: 'Amoxicillin 250 mg/5ml Susp',
+      ...ERX_PRODUCT_DETAILS['00093415573'],
+    });
     expect(line.quantityUnit).toBe('Milliliter');
     expect(line.route).toBe('by mouth');
 
@@ -181,10 +285,18 @@ describe('withProduct', () => {
   });
 
   it('leaves the unit and route alone when the product does not say', () => {
-    const pen = { name: 'Epinephrine', strengths: [{ strength: '0.3 mg Auto-Injector', ndcs: ['49502010202'] }] };
-    const line = withProduct({ ...emptyPrescriptionLine(), quantityUnit: 'Each' }, pen, pen.strengths[0]);
+    const line = withProduct({ ...emptyPrescriptionLine(), quantityUnit: 'Each' }, PAXLOVID, PAXLOVID.strengths[0]);
     expect(line.quantityUnit).toBe('Each');
     expect(line.route).toBe('');
+    // An auto-injector is by injection, in a unit the provider picks.
+    const pen = {
+      name: 'Epinephrine',
+      strengths: [detailed({ strength: '0.3 mg Auto-Injector', ndcs: ['49502010202'] })],
+    };
+    expect(withProduct({ ...emptyPrescriptionLine(), quantityUnit: 'Each' }, pen, pen.strengths[0])).toMatchObject({
+      quantityUnit: 'Each',
+      route: 'by injection',
+    });
   });
 
   it('keeps the picks across a strength change and rewrites the directions for the new strength', () => {
@@ -203,7 +315,7 @@ describe('withProduct', () => {
     expect(tablet.patientInstructions).toBe('Take 1 tablet by mouth twice daily for 10 days.');
     expect(tablet.quantityValue).toBe('20');
     // A tablet is given whole, as the calculator does: 250 mg is half a 500 mg tablet, rounded to one.
-    const halves = withProduct(liquid, AMOXICILLIN, { strength: '500 mg Tab', ndcs: ['00093226301'] });
+    const halves = withProduct(liquid, AMOXICILLIN, AMOXICILLIN_500_TAB);
     expect(halves.dose).toBe('1');
     expect(halves.doseNotes?.[0]?.text).toBe('1 tablet = 500 mg, 250 mg (100%) over 250 mg');
   });
@@ -234,14 +346,7 @@ describe('withProduct', () => {
     // The same strength again, or another drug, leaves no notes.
     expect(withProduct(tablets, AMOXICILLIN, AMOXICILLIN.strengths[1]).doseNotes).toBeUndefined();
 
-    const albuterol = {
-      name: 'Albuterol',
-      strengths: [
-        { strength: '90 mcg/puff MDI', ndcs: ['00054074287'] },
-        { strength: '0.083% Neb Soln', ndcs: ['00487950101'] },
-        { strength: '108 (90 Base) mcg/act HFA', ndcs: ['59310057922'] },
-      ],
-    };
+    const albuterol = ALBUTEROL;
     const puffs = withDirections(withProduct(emptyPrescriptionLine(), albuterol, albuterol.strengths[0]), {
       dose: '2',
     });
@@ -328,7 +433,7 @@ describe('withDirections', () => {
   });
 
   it('fills an inhaler as one unit and leaves a cream’s quantity empty', () => {
-    const albuterol = { name: 'Albuterol', strengths: [{ strength: '90 mcg/puff MDI', ndcs: ['00054074287'] }] };
+    const albuterol = ALBUTEROL;
     const inhaler = withDirections(withProduct(emptyPrescriptionLine(), albuterol, albuterol.strengths[0]), {
       dose: '2',
       frequency: 'every 4 hours as needed',
@@ -387,7 +492,7 @@ describe('prescriptionLineToOrder', () => {
     const line = withDirections(
       {
         ...complete(),
-        medication: { ndc: '00093117401', description: 'Penicillin V Potassium 500 MG Oral Tablet' },
+        medication: detailed({ ndc: '00093117401', description: 'Penicillin V Potassium 500 MG Oral Tablet' }),
         quantityUnit: 'Tablet',
         patientInstructions: '',
       },
@@ -530,7 +635,7 @@ describe('product changes and suggestions', () => {
       doseNotes: [{ dose: '1', text: '1 tablet = 875 mg, 437.5 mg (100%) over 437.5 mg' }],
     });
     // 5 mL of 250/5 is 250 mg: a 500 mg tablet is given whole, one.
-    expect(withProduct(liquid(2, '5'), AMOXICILLIN, { strength: '500 mg Tab', ndcs: ['00093226301'] }).dose).toBe('1');
+    expect(withProduct(liquid(2, '5'), AMOXICILLIN, AMOXICILLIN_500_TAB).dose).toBe('1');
     // 9.5 mL of 400/5 is 760 mg: 15.2 mL of 250/5, measured to the half mL (98.7%).
     expect(withProduct(liquid(3, '9.5'), AMOXICILLIN, AMOXICILLIN.strengths[2]).dose).toBe('15');
   });
@@ -582,7 +687,7 @@ describe('withCalculatorDosing', () => {
     patientInstructions: '',
     quantityValue: '',
     daysSupply: '',
-    medication: { ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' },
+    medication: detailed({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' }),
     quantityUnit: 'Milliliter',
     dose: '10',
     frequency: 'twice daily',
@@ -672,7 +777,7 @@ describe('withCalculatorDosing', () => {
 describe('maximumWarnings', () => {
   const liquid = (patch: Partial<PrescriptionLine>): PrescriptionLine => ({
     ...emptyPrescriptionLine(),
-    medication: { ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' },
+    medication: detailed({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' }),
     maximum: { maxPerDoseMg: 500, maxPerDayMg: 1000, from: 'calculator' },
     ...patch,
   });
@@ -696,7 +801,7 @@ describe('maximumWarnings', () => {
     expect(maximumWarnings(liquid({ dose: '6', frequency: 'as needed' }))).toEqual([]);
     expect(
       maximumWarnings(
-        liquid({ dose: '20', medication: { ndc: '00054074287', description: 'Albuterol 90 mcg/puff MDI' } })
+        liquid({ dose: '20', medication: detailed({ ndc: '00054074287', description: 'Albuterol 90 mcg/puff MDI' }) })
       )
     ).toEqual([]);
   });

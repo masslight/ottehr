@@ -16,9 +16,10 @@ import {
   withProduct,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
+import { detailed } from './helpers/erxProducts';
 
-const CAPSULES = { name: 'Amoxicillin', strengths: [{ strength: '250 mg Cap', ndcs: ['00093310701'] }] };
-const INHALER = { name: 'Albuterol', strengths: [{ strength: '90 mcg/puff MDI', ndcs: ['00054074287'] }] };
+const CAPSULES = { name: 'Amoxicillin', strengths: [detailed({ strength: '250 mg Cap', ndcs: ['00093310701'] })] };
+const INHALER = { name: 'Albuterol', strengths: [detailed({ strength: '90 mcg/puff MDI', ndcs: ['00054074287'] })] };
 const WEIGHT: VisitWeight = { kg: 28.12, takenAt: '2026-10-08T14:00:00Z', thisVisit: true };
 
 let latest: PrescriptionLine | undefined;
@@ -160,19 +161,46 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(latest?.frequency).toBe('twice daily');
   });
 
-  it('works out no dose from a combination product’s strength (pending dabrams)', async () => {
+  it('doses a combination product by the ingredient the provider picks, each time', async () => {
     const user = userEvent.setup();
     const augmentin = {
       name: 'Amoxicillin-Clavulanate',
-      strengths: [{ strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] }],
+      strengths: [detailed({ strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] })],
     };
-    render(
-      <Harness initial={withProduct(emptyPrescriptionLine(), augmentin, augmentin.strengths[0])} weight={WEIGHT} />
-    );
+    const initial = withDirections(withProduct(emptyPrescriptionLine(), augmentin, augmentin.strengths[0]), {
+      frequency: 'twice daily',
+    });
+    render(<Harness initial={initial} weight={WEIGHT} />);
     const calculator = await openCalculator(user);
-    expect(calculator).toHaveTextContent('Combination product: enter the dose directly');
-    expect(within(calculator).queryByRole('spinbutton', { name: 'concentration' })).not.toBeInTheDocument();
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '45');
+    expect(within(calculator).getByRole('spinbutton', { name: 'concentration' })).toHaveValue(null);
+    expect(calculator).toHaveTextContent('Enter the ingredient to dose by and the concentration to work out the dose');
     expect(within(calculator).queryByRole('button', { name: 'Use this dose' })).not.toBeInTheDocument();
+
+    await user.click(within(calculator).getByRole('button', { name: /^dose by/ }));
+    expect(screen.getByRole('option', { name: 'clavulanate 11.4 mg/mL' })).toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'amoxicillin 80 mg/mL' }));
+    expect(within(calculator).getByRole('spinbutton', { name: 'concentration' })).toHaveValue(80);
+    // 28.12 kg × 45 mg/kg/day ÷ 2 = 632.7 mg of amoxicillin → 8 mL = 640 mg.
+    expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 8 mL by mouth twice daily.');
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' }), '500');
+    await user.click(screen.getByRole('button', { name: 'Use this dose' }));
+    expect(latest).toMatchObject({ dose: '6', doseBy: 'amoxicillin', maximum: { maxPerDoseMg: 500 } });
+    // The choice isn't the quick pick's: its dosing has no ingredient.
+    expect(latest?.dosing).not.toHaveProperty('doseBy');
+    // A dose typed over it is checked against the amoxicillin maximum.
+    expect(maximumWarnings({ ...latest!, dose: '10' })).toEqual([
+      { blank: 'dose', text: '800 mg per dose is above the 500 mg maximum.' },
+    ]);
+  });
+
+  it('says when a product has no strength details, and guesses nothing', async () => {
+    const user = userEvent.setup();
+    const bare = { name: 'Amoxicillin', strengths: [{ strength: '250 mg Cap', ndcs: ['00093310701'] }] };
+    render(<Harness initial={withProduct(emptyPrescriptionLine(), bare, bare.strengths[0])} weight={WEIGHT} />);
+    const calculator = await openCalculator(user);
+    expect(calculator).toHaveTextContent('Strength details unavailable: enter the dose directly');
+    expect(within(calculator).queryByRole('spinbutton', { name: 'strength' })).not.toBeInTheDocument();
   });
 
   it('gives one capsule when the maximum is under one, says it is above the maximum, and the line warns', async () => {

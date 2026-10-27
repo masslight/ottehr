@@ -1,53 +1,17 @@
+import { MedicationProductDetails } from '../../types/api/erx-search.types';
 import { QuantityUnit } from '../../types/api/order-prescription.types';
 import { assembleSentence } from '../suggested-sentences';
 
 /**
- * What an eRx line can work out from a medication's description alone: its dose form and route, the unit it is
- * dispensed in, and, from the dose, frequency and duration picked, the directions sentence and the quantity to
- * dispense. Nothing here depends on the drug itself or the chart.
+ * What an eRx line can work out from a product's structured details (its RxNorm dose form and ingredients, never its
+ * name): its dose form and route, the unit it is dispensed in, and, from the dose, frequency and duration picked, the
+ * directions sentence and the quantity to dispense. Nothing here depends on the drug itself or the chart.
  */
 
+/** The product facts the helpers read. */
+export type PrescriptionProduct = Pick<MedicationProductDetails, 'doseForm' | 'ingredients'>;
+
 export type PrescriptionDoseForm = 'tablet' | 'capsule' | 'liquid' | 'inhaler' | 'topical' | 'patch' | 'suppository';
-
-// Descriptions come as RxNorm names ("Oral Suspension", "Metered Dose Inhaler") or RxTerms abbreviations
-// ("Susp", "MDI", "90 mcg/puff"), so each form knows both spellings.
-const DOSE_FORM_PATTERNS: [PrescriptionDoseForm, RegExp][] = [
-  // Inhalers first: "Albuterol 90 MCG/ACTUAT Metered Dose Inhaler" also mentions inhalation.
-  ['inhaler', /\b(inhaler|hfa|metered dose|inhalation aerosol|mdi|dpi|puffs?)\b/i],
-  // A patch before topical: "Transdermal Patch" and "Topical Patch" are both patches.
-  ['patch', /\bpatch(es)?\b/i],
-  ['suppository', /\b(suppositor(y|ies)|supp)\b/i],
-  ['capsule', /\b(capsules?|caps?)\b/i],
-  ['tablet', /\b(tablets?|caplets?|odt|tabs?|chewable|oral disintegrating)\b/i],
-  ['liquid', /\b(solution|suspension|syrup|elixir|soln?|susp|oral liquid|drops?)\b/i],
-  ['topical', /\b(cream|ointment|oint|gel)\b/i],
-];
-
-/** A nasal spray: RxNorm names one "Metered Dose Nasal Spray", which isn't an inhaler. */
-const NASAL_SPRAY_FORM = /\bnasal\b[^]*\bspray\b|\bspray\b[^]*\bnasal\b/i;
-
-/** The dose form named in a medication description ("Amoxicillin 500 MG Oral Capsule" → capsule), if one is known.
- * A spray has none: the quantity unit stays the provider's. */
-export const prescriptionDoseForm = (description: string): PrescriptionDoseForm | undefined =>
-  NASAL_SPRAY_FORM.test(description)
-    ? undefined
-    : DOSE_FORM_PATTERNS.find(([, pattern]) => pattern.test(description))?.[0];
-
-const QUANTITY_UNIT: Record<PrescriptionDoseForm, QuantityUnit> = {
-  tablet: 'Tablet',
-  capsule: 'Capsule',
-  liquid: 'Milliliter',
-  inhaler: 'Inhaler',
-  topical: 'Gram',
-  patch: 'Patch',
-  suppository: 'Suppository',
-};
-
-/** The unit a product of this description is dispensed in, when its dose form says. */
-export const prescriptionQuantityUnit = (description: string): QuantityUnit | undefined => {
-  const form = prescriptionDoseForm(description);
-  return form && QUANTITY_UNIT[form];
-};
 
 /** Plain-English routes, as the directions read them. */
 export const PRESCRIPTION_ROUTES = [
@@ -65,26 +29,106 @@ export const PRESCRIPTION_ROUTES = [
 
 export type PrescriptionRoute = (typeof PRESCRIPTION_ROUTES)[number];
 
-// The specific routes first: "Ophthalmic Ointment" is for the eye, not the skin, and only an oral form is by mouth.
-const ROUTE_PATTERNS: [PrescriptionRoute, RegExp][] = [
-  ['in the ear', /\botic\b/i],
-  ['in the eye', /\bophthalmic\b/i],
-  ['in the nose', /\b(nasal|intranasal)\b/i],
-  ['inhaled', /\b(inhaler|hfa|metered dose|inhalation|inhalant|mdi|dpi|puffs?|nebuli[sz]er)\b/i],
-  ['under the tongue', /\bsublingual\b/i],
-  ['rectally', /\b(rectal|suppositor(y|ies)|supp)\b/i],
-  ['vaginally', /\bvaginal\b/i],
-  ['by injection', /\b(injection|injectable|syringe|subcutaneous|intramuscular)\b/i],
-  ['on the skin', /\b(topical|transdermal|cream|ointment|oint|gel|patch(es)?)\b/i],
-  [
-    'by mouth',
-    /\b(oral|tablets?|tabs?|caplets?|capsules?|caps?|odt|chewable|solution|suspension|syrup|elixir|soln?|susp)\b/i,
-  ],
-];
+/** What a dose form says: how the line counts and dispenses it, its route, and the unit a dose is counted in. */
+interface DoseFormFacts {
+  form?: PrescriptionDoseForm;
+  route?: PrescriptionRoute;
+  unit?: string;
+}
 
-/** The route a medication description makes obvious ("Ofloxacin 0.3 % Otic Solution" → in the ear), if any. */
-export const prescriptionRoute = (description: string): PrescriptionRoute | undefined =>
-  ROUTE_PATTERNS.find(([, pattern]) => pattern.test(description))?.[0];
+const ORAL_TABLET: DoseFormFacts = { form: 'tablet', route: 'by mouth', unit: 'tablet' };
+const ORAL_CAPSULE: DoseFormFacts = { form: 'capsule', route: 'by mouth', unit: 'capsule' };
+const ORAL_LIQUID: DoseFormFacts = { form: 'liquid', route: 'by mouth', unit: 'mL' };
+const INHALER: DoseFormFacts = { form: 'inhaler', route: 'inhaled', unit: 'puff' };
+const NASAL_SPRAY: DoseFormFacts = { route: 'in the nose', unit: 'spray' };
+
+/** RxNorm dose forms by their exact names (a controlled vocabulary), matched exactly: a form not listed implies
+ * nothing, and the provider fills the route and unit. A spray has no dose form of the line's: its quantity unit stays
+ * the provider's. A pack (a dose pack, a kit) says nothing of how it is taken. */
+const DOSE_FORMS: Record<string, DoseFormFacts> = {
+  'Oral Tablet': ORAL_TABLET,
+  'Chewable Tablet': ORAL_TABLET,
+  'Disintegrating Oral Tablet': ORAL_TABLET,
+  'Delayed Release Oral Tablet': ORAL_TABLET,
+  'Extended Release Oral Tablet': ORAL_TABLET,
+  'Sublingual Tablet': { form: 'tablet', route: 'under the tongue', unit: 'tablet' },
+  'Oral Capsule': ORAL_CAPSULE,
+  'Delayed Release Oral Capsule': ORAL_CAPSULE,
+  'Extended Release Oral Capsule': ORAL_CAPSULE,
+  'Oral Suspension': ORAL_LIQUID,
+  'Oral Solution': ORAL_LIQUID,
+  'Powder for Oral Suspension': ORAL_LIQUID,
+  'Powder for Oral Solution': ORAL_LIQUID,
+  'Metered Dose Inhaler': INHALER,
+  'Inhalation Spray': INHALER,
+  'Dry Powder Inhaler': INHALER,
+  'Inhalation Solution': { form: 'liquid', route: 'inhaled', unit: 'mL' },
+  'Inhalation Suspension': { form: 'liquid', route: 'inhaled', unit: 'mL' },
+  'Nasal Spray': NASAL_SPRAY,
+  'Metered Dose Nasal Spray': NASAL_SPRAY,
+  'Nasal Solution': { form: 'liquid', route: 'in the nose', unit: 'drop' },
+  'Ophthalmic Solution': { form: 'liquid', route: 'in the eye', unit: 'drop' },
+  'Ophthalmic Suspension': { form: 'liquid', route: 'in the eye', unit: 'drop' },
+  'Ophthalmic Ointment': { form: 'topical', route: 'in the eye' },
+  'Otic Solution': { form: 'liquid', route: 'in the ear', unit: 'drop' },
+  'Otic Suspension': { form: 'liquid', route: 'in the ear', unit: 'drop' },
+  'Topical Cream': { form: 'topical', route: 'on the skin' },
+  'Topical Ointment': { form: 'topical', route: 'on the skin' },
+  'Topical Gel': { form: 'topical', route: 'on the skin' },
+  'Topical Lotion': { route: 'on the skin' },
+  'Topical Solution': { route: 'on the skin' },
+  'Topical Spray': { route: 'on the skin' },
+  'Transdermal System': { form: 'patch', route: 'on the skin', unit: 'patch' },
+  'Rectal Suppository': { form: 'suppository', route: 'rectally', unit: 'suppository' },
+  'Vaginal Cream': { form: 'topical', route: 'vaginally' },
+  'Injectable Solution': { form: 'liquid', route: 'by injection', unit: 'mL' },
+  'Injectable Suspension': { form: 'liquid', route: 'by injection', unit: 'mL' },
+  'Auto-Injector': { route: 'by injection' },
+  Pack: {},
+};
+
+/** The facts of the product's dose form, if it has one the table lists. Object.hasOwn, as utils' lib setting (no
+ * es2022) spells it: "constructor" is no dose form. */
+const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFormFacts | undefined => {
+  const doseForm = product?.doseForm;
+  return doseForm !== undefined && Object.prototype.hasOwnProperty.call(DOSE_FORMS, doseForm)
+    ? DOSE_FORMS[doseForm]
+    : undefined;
+};
+
+/** The line's dose form for a product ("Oral Capsule" → capsule), if its RxNorm dose form says. */
+export const prescriptionDoseForm = (
+  product: PrescriptionProduct | null | undefined
+): PrescriptionDoseForm | undefined => doseFormFacts(product)?.form;
+
+/** The route a product's dose form makes obvious ("Otic Solution" → in the ear), if any. */
+export const prescriptionRoute = (product: PrescriptionProduct | null | undefined): PrescriptionRoute | undefined =>
+  doseFormFacts(product)?.route;
+
+/** How a dose of the product is counted ("tablet", "mL", "puff", "spray", "drop"); none when its dose form doesn't
+ * say (a cream). */
+export const prescriptionDoseUnit = (product: PrescriptionProduct | null | undefined): string | undefined =>
+  doseFormFacts(product)?.unit;
+
+/** More than one active ingredient: no one mg the calculator, a strength change or a maximum goes by on its own. */
+export const isCombinationProduct = (product: PrescriptionProduct | null | undefined): boolean =>
+  (product?.ingredients?.length ?? 0) > 1;
+
+const QUANTITY_UNIT: Record<PrescriptionDoseForm, QuantityUnit> = {
+  tablet: 'Tablet',
+  capsule: 'Capsule',
+  liquid: 'Milliliter',
+  inhaler: 'Inhaler',
+  topical: 'Gram',
+  patch: 'Patch',
+  suppository: 'Suppository',
+};
+
+/** The unit a product is dispensed in, when its dose form says. */
+export const prescriptionQuantityUnit = (product: PrescriptionProduct | null | undefined): QuantityUnit | undefined => {
+  const form = prescriptionDoseForm(product);
+  return form && QUANTITY_UNIT[form];
+};
 
 const ROUTE_VERBS: Record<PrescriptionRoute, string> = {
   'by mouth': 'Take',
@@ -104,71 +148,6 @@ export const prescriptionVerb = (route: PrescriptionRoute | '' | undefined): str
 
 /** Routes the verb already says: "Inhale 2 puffs inhaled" would repeat itself. */
 export const ROUTES_IN_VERB: readonly PrescriptionRoute[] = ['inhaled', 'by injection'];
-
-/** Liquids for these routes are dosed in drops, and come in bottles whose size the description doesn't give. */
-const DROP_ROUTES: readonly PrescriptionRoute[] = ['in the ear', 'in the eye', 'in the nose'];
-
-const NASAL_SPRAY = /\b(spray|actuat(ion)?)\b|\/\s*(act|spray)\b/i;
-
-/** How a dose of this form is counted ("tablet", "mL", "puff"); none when the form doesn't say (a cream). */
-export const prescriptionDoseUnit = (
-  form: PrescriptionDoseForm | undefined,
-  route: PrescriptionRoute | undefined,
-  description = ''
-): string | undefined => {
-  // A nasal spray is counted in sprays, as its label doses it ("2 sprays in each nostril").
-  if (route === 'in the nose' && NASAL_SPRAY.test(description)) return 'spray';
-  switch (form) {
-    case 'liquid':
-      return route && DROP_ROUTES.includes(route) ? 'drop' : 'mL';
-    case 'inhaler':
-      return 'puff';
-    case 'tablet':
-    case 'capsule':
-    case 'patch':
-    case 'suppository':
-      return form;
-    default:
-      return undefined;
-  }
-};
-
-/** How much drug is in one measure of a product: mg per mL of a liquid, or mg per tablet, capsule or puff. */
-export interface StrengthConcentration {
-  mgPerMl?: number;
-  mgPerUnit?: number;
-}
-
-const MG_PER_UNIT: Record<string, number> = { mg: 1, mcg: 0.001, g: 1000, gm: 1000 };
-
-// "400 MG/5ML", "80 MG/ML", "250 mg Cap", "1 GM Tab", "4 mg ODT Tab", "90 mcg/puff";
-// a salt with its base, dosed on the base ("144 (50 Base) MG/ML" is 50 mg/mL).
-const STRENGTH_PATTERN =
-  /(\d+(?:\.\d+)?)\s*(?:\(\s*(\d+(?:\.\d+)?)\s*base\s*\)\s*)?(mg|mcg|gm|g)\b\s*(?:\/\s*(\d+(?:\.\d+)?)?\s*(ml)\b)?/i;
-
-// More than one ingredient amount: "200-40 mg/5mL", "300-30 mg", or "875 MG / Clavulanate 125 MG".
-const COMBINATION_PATTERNS = [
-  /\d\s*-\s*\d+(?:\.\d+)?\s*(?:mg|mcg|gm|g)\b/i,
-  /(?:mg|mcg|gm|g)\b[^]*\d\s*(?:mg|mcg|gm|g)\b/i,
-];
-
-/** PENDING dabrams (Claude's call, to keep mg/kg maths off the wrong ingredient): a strength with more than one
- * ingredient amount is a combination, with no one mg the calculator, a strength change or a maximum can go by. */
-export const isCombinationStrength = (text: string): boolean =>
-  COMBINATION_PATTERNS.some((pattern) => pattern.test(text));
-
-/** The concentration a strength or description states, in mg: per mL when it names a volume ("400 MG/5ML" →
- * 80 mg/mL), else per unit ("250 mg Cap" → 250); of the base when it names one ("144 (50 Base) MG/ML" → 50 mg/mL).
- * Nothing for a percentage, units the mg don't follow from, or a combination (`isCombinationStrength`). */
-export const parseStrengthConcentration = (text: string): StrengthConcentration | undefined => {
-  if (isCombinationStrength(text)) return undefined;
-  const match = STRENGTH_PATTERN.exec(text);
-  if (!match) return undefined;
-  const mg = parseFloat(match[2] ?? match[1]) * MG_PER_UNIT[match[3].toLowerCase()];
-  if (!match[5]) return { mgPerUnit: mg };
-  const volume = match[4] === undefined ? 1 : parseFloat(match[4]);
-  return volume > 0 ? { mgPerMl: mg / volume } : undefined;
-};
 
 /** "tablet" → "tablets" unless the amount is exactly 1; "mL" never changes. */
 export const doseUnitLabel = (unit: string, amount: number | undefined): string =>
@@ -305,12 +284,12 @@ const total = (values: (number | undefined)[]): number | undefined =>
 /** The quantity to dispense and the days supply for the picks, as the form holds them: `''` when they can't be
  * worked out. Dose × doses a day × days, summed over the steps and rounded up, an as-needed frequency at its most
  * frequent; one inhaler or dose pack whatever the doses; nothing for a cream or for drops, whose package sizes the
- * description doesn't give. */
+ * product's details don't give. */
 export const prescriptionDispense = (
-  description: string,
+  product: PrescriptionProduct | null | undefined,
   directions: PrescriptionDirections
 ): { quantityValue: string; daysSupply: string } => {
-  const form = prescriptionDoseForm(description);
+  const form = prescriptionDoseForm(product);
   const steps = courseSteps(directions);
   const stepDays = steps.map((step) => leadingNumber(step.durationDays));
   const days = total(stepDays);
@@ -318,10 +297,7 @@ export const prescriptionDispense = (
   if (form === 'inhaler' || steps.some((step) => step.frequency === PER_PACKAGE_FREQUENCY)) {
     return { quantityValue: '1', daysSupply };
   }
-  const uncounted =
-    form === undefined ||
-    form === 'topical' ||
-    (form === 'liquid' && DROP_ROUTES.includes(directions.route as PrescriptionRoute));
+  const uncounted = form === undefined || form === 'topical' || prescriptionDoseUnit(product) === 'drop';
   const doses = total(
     steps.map((step, i) => {
       const amount = leadingNumber(step.dose);
@@ -340,12 +316,12 @@ export const prescriptionDispense = (
  * 4 days", a "directed" frequency keeps the route ("Take 14 mL by mouth as directed."), and the instructions end
  * the sentence (", with spacer"). `ascii` writes tablet fractions "1/2" for the text sent to the pharmacy. */
 export const prescriptionDirectionsText = (
-  description: string,
+  product: PrescriptionProduct | null | undefined,
   directions: PrescriptionDirections,
   { ascii = false }: { ascii?: boolean } = {}
 ): string => {
   const route = directions.route || undefined;
-  const unit = prescriptionDoseUnit(prescriptionDoseForm(description), route, description);
+  const unit = prescriptionDoseUnit(product);
   const phrase = (step: PrescriptionStep, opening: string): string => {
     const amount = leadingNumber(step.dose);
     const frequency = pickedFrequency(step);

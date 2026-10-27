@@ -14,14 +14,15 @@ import {
 } from '../../src/features/visits/in-person/components/erx/PrescriptionSentences';
 import { PrescriptionSuggestionRow } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
+import { detailed } from './helpers/erxProducts';
 
 /** One drug in every form, as the terminology search returns it. */
 const AMOXICILLIN_DRUG = {
   name: 'Amoxicillin',
   strengths: [
-    { strength: '250 mg Cap', ndcs: ['00093310701'] },
-    { strength: '875 mg Tab', ndcs: ['00093226401'] },
-    { strength: '250 mg/5ml Susp', ndcs: ['00093415573'] },
+    detailed({ strength: '250 mg Cap', ndcs: ['00093310701'] }),
+    detailed({ strength: '875 mg Tab', ndcs: ['00093226401'] }),
+    detailed({ strength: '250 mg/5ml Susp', ndcs: ['00093415573'] }),
   ],
 };
 
@@ -83,8 +84,8 @@ const Harness = ({
 const LIQUIDS = {
   name: 'Amoxicillin',
   strengths: [
-    { strength: '400 mg/5ml Susp', ndcs: ['00093416173'] },
-    { strength: '250 mg/5ml Susp', ndcs: ['00093415573'] },
+    detailed({ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }),
+    detailed({ strength: '250 mg/5ml Susp', ndcs: ['00093415573'] }),
   ],
 };
 

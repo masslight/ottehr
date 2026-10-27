@@ -3,9 +3,11 @@ import {
   PRESCRIPTION_FREQUENCIES,
   prescriptionFrequency,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
+import { MedicationProductDetails } from 'utils/lib/types/api/erx-search.types';
 import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { z } from 'zod';
+import { productDetailsOf } from '../../../in-person/components/erx/prescriptionLines';
 
 /** How the quick pick doses: its directions as written, or the dose calculator's settings, re-dosed per patient. */
 export type PrescriptionDoseMode = 'as-written' | 'dosing';
@@ -15,6 +17,9 @@ export interface PrescriptionQuickPickFormValues {
   name: string;
   ndc: string;
   medicationDescription: string;
+  /** The picked product's RxCUI, dose form and ingredients, saved with it; none on a quick pick saved before them
+   * until its product is picked again. */
+  productDetails: MedicationProductDetails;
   doseMode: PrescriptionDoseMode;
   patientInstructions: string;
   quantityValue: string;
@@ -49,6 +54,7 @@ export const emptyPrescriptionQuickPickForm = (): PrescriptionQuickPickFormValue
   name: '',
   ndc: '',
   medicationDescription: '',
+  productDetails: {},
   doseMode: 'as-written',
   patientInstructions: '',
   quantityValue: '',
@@ -77,6 +83,7 @@ export const prescriptionQuickPickFormValues = (
     name: quickPick.name,
     ndc: quickPick.ndc ?? '',
     medicationDescription: quickPick.medicationDescription ?? '',
+    productDetails: productDetailsOf(quickPick),
     doseMode: dosing ? 'dosing' : 'as-written',
     patientInstructions: quickPick.patientInstructions ?? '',
     quantityValue: text(quickPick.quantityValue),
@@ -203,7 +210,9 @@ export const prescriptionQuickPickFromForm = (
   return {
     quickPick: {
       name: v.name.trim(),
-      ...(v.ndc ? { ndc: v.ndc, medicationDescription: v.medicationDescription.trim() } : {}),
+      ...(v.ndc
+        ? { ndc: v.ndc, medicationDescription: v.medicationDescription.trim(), ...productDetailsOf(v.productDetails) }
+        : {}),
       ...(v.doseMode === 'dosing'
         ? {
             dosing: {

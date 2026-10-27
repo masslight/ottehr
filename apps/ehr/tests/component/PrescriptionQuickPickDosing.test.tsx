@@ -16,6 +16,7 @@ import { PrescriptionSentences } from '../../src/features/visits/in-person/compo
 import { withListedQuickPick } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
 import { ProcedureQuickPickDialogs } from '../../src/features/visits/in-person/components/procedures/ProcedureQuickPickDialogs';
+import { detailed, ERX_PRODUCT_DETAILS } from './helpers/erxProducts';
 
 // The real suggestions seam: the rows here come from the quick picks given.
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
@@ -33,11 +34,11 @@ vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => 
 const LIQUIDS = {
   name: 'Amoxicillin',
   strengths: [
-    { strength: '400 mg/5ml Susp', ndcs: ['00093416173'] },
-    { strength: '250 mg/5ml Susp', ndcs: ['00093415573'] },
+    detailed({ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }),
+    detailed({ strength: '250 mg/5ml Susp', ndcs: ['00093415573'] }),
   ],
 };
-const PRODUCT = { ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' };
+const PRODUCT = detailed({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' });
 const WEIGHT: VisitWeight = { kg: 28.12, takenAt: '2026-10-08T14:00:00Z', thisVisit: true };
 
 const BY_WEIGHT: PrescriptionQuickPickData = {
@@ -74,6 +75,7 @@ const OTHER_PRODUCT: PrescriptionQuickPickData = {
   name: 'Amox 250',
   ndc: '00093415573',
   medicationDescription: 'Amoxicillin 250 mg/5ml Susp',
+  ...ERX_PRODUCT_DETAILS['00093415573'],
 };
 
 let latest: PrescriptionLine | undefined;
@@ -460,11 +462,11 @@ describe('Suggestion rows: review fixes', () => {
     expect(within(suggestionRow(0)).getByRole('button', { name: 'Frequency: twice daily' })).toBeInTheDocument();
   });
 
-  it('a quick pick with dosing on a combination product leaves the dose to enter, with the note (pending dabrams)', async () => {
+  it('a quick pick with dosing on a combination product leaves the dose to enter, with the note', async () => {
     const user = userEvent.setup();
     const augmentin = {
       name: 'Amoxicillin-Clavulanate',
-      strengths: [{ strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] }],
+      strengths: [detailed({ strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] })],
     };
     const combo: PrescriptionQuickPickData = {
       ...BY_WEIGHT,
@@ -472,6 +474,7 @@ describe('Suggestion rows: review fixes', () => {
       name: 'Augmentin by weight',
       ndc: '00093227573',
       medicationDescription: 'Amoxicillin-Clavulanate 400-57 mg/5ml Susp',
+      ...ERX_PRODUCT_DETAILS['00093227573'],
     };
     render(
       <Harness
@@ -482,7 +485,33 @@ describe('Suggestion rows: review fixes', () => {
     );
     const row = suggestionRow(0);
     expect(within(row).getByRole('button', { name: 'Dose: not picked' })).not.toHaveTextContent('(enter weight)');
-    expect(await hoverInfo(user, row)).toHaveTextContent('Combination product: enter the dose directly');
+    expect(await hoverInfo(user, row)).toHaveTextContent(
+      'Combination product: open the calculator to choose which ingredient to dose by'
+    );
+  });
+});
+
+describe('A quick pick saved before products had details', () => {
+  it('works out no dose and says why: nothing is read from the product’s name', async () => {
+    const user = userEvent.setup();
+    const bare = { name: 'Amoxicillin', strengths: [{ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }] };
+    const older: PrescriptionQuickPickData = {
+      ...BY_WEIGHT,
+      id: 'qp-older',
+      rxcui: undefined,
+      doseForm: undefined,
+      ingredients: undefined,
+    };
+    render(
+      <Harness
+        initial={withProduct(emptyPrescriptionLine(), bare, bare.strengths[0])}
+        quickPicks={[older]}
+        weight={WEIGHT}
+      />
+    );
+    const row = suggestionRow(0);
+    expect(within(row).getByRole('button', { name: 'Dose: not picked' })).not.toHaveTextContent('(enter weight)');
+    expect(await hoverInfo(user, row)).toHaveTextContent('Strength details unavailable: enter the dose directly');
   });
 });
 

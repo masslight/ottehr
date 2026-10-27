@@ -32,7 +32,11 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { productOf, quickPickDosingSummary } from 'src/features/visits/in-person/components/erx/prescriptionLines';
+import {
+  productDetailsOf,
+  productOf,
+  quickPickDosingSummary,
+} from 'src/features/visits/in-person/components/erx/prescriptionLines';
 import { MedicationSearch } from 'src/features/visits/in-person/components/erx/PrescriptionSentences';
 import { DOSE_BASES, DoseBasis } from 'utils/lib/helpers/medications/plain-dose';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
@@ -270,7 +274,7 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                 width="100%"
                 onPick={(picked) => {
                   setDrug(picked);
-                  set({ ndc: '', medicationDescription: '' });
+                  set({ ndc: '', medicationDescription: '', productDetails: {} });
                 }}
               />
               {drug && (
@@ -282,7 +286,11 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                     const strength = drug.strengths.find((option) => option.strength === e.target.value);
                     if (!strength) return;
                     const product = productOf(drug, strength);
-                    set({ ndc: product.ndc, medicationDescription: product.description });
+                    set({
+                      ndc: product.ndc,
+                      medicationDescription: product.description,
+                      productDetails: productDetailsOf(product),
+                    });
                   }}
                   fullWidth
                   size="small"

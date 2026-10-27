@@ -21,7 +21,6 @@ import {
   doseUnitLabel,
   PRESCRIPTION_FREQUENCIES,
   PRESCRIPTION_ROUTES,
-  prescriptionDoseForm,
   prescriptionDoseUnit,
   PrescriptionRoute,
   PrescriptionStep,
@@ -382,7 +381,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     );
   };
   const strength = pickedStrength(line);
-  const doseUnit = prescriptionDoseUnit(prescriptionDoseForm(description ?? ''), line.route || undefined, description);
+  const doseUnit = prescriptionDoseUnit(line.medication);
   // The instructions blank is offered as a link, like "+ urgent", and stays once opened or written in.
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const instructionsShown = instructionsOpen || line.instructions !== '';
