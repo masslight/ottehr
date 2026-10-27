@@ -6,6 +6,7 @@ import {
   Coding,
   Coverage,
   Device,
+  DocumentReference,
   Extension,
   FhirResource,
   Location,
@@ -230,6 +231,16 @@ function projectRelatedPerson(r: RelatedPerson): FieldProjection[] {
   ];
 }
 
+function projectDocumentReference(documentReference: DocumentReference): FieldProjection[] {
+  return [
+    {
+      field: 'name',
+      label: 'Name',
+      value: documentReference.content[0]?.attachment.title ?? '',
+    },
+  ];
+}
+
 function projectResource(resource: Resource): FieldProjection[] {
   switch (resource.resourceType) {
     case 'Claim':
@@ -246,6 +257,8 @@ function projectResource(resource: Resource): FieldProjection[] {
       return projectLocation(resource as Location);
     case 'RelatedPerson':
       return projectRelatedPerson(resource as RelatedPerson);
+    case 'DocumentReference':
+      return projectDocumentReference(resource as DocumentReference);
     default:
       return [];
   }
@@ -421,7 +434,7 @@ export interface ClaimProvenanceArgs {
   // which the server resolves to a literal reference.
   targetReference: string;
   // Reference to the claim this change belongs to (may equal targetReference).
-  claimReference: string;
+  claimReference?: string;
   before?: Resource;
   after?: Resource;
   agent: ProvenanceAgent | ProvenanceAgent[];
@@ -510,7 +523,11 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     return null;
 
   const target = [{ reference: args.targetReference }];
-  if (args.claimReference !== args.targetReference) target.push({ reference: args.claimReference });
+  if (args.claimReference && args.claimReference !== args.targetReference) {
+    target.push({
+      reference: args.claimReference,
+    });
+  }
 
   const entity: ProvenanceEntity[] = [
     ...(args.sourceReference
@@ -629,6 +646,20 @@ export function claimResourceChangeRequests(change: ClaimResourceChange): BatchI
     { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource, ...(ifMatch ? { ifMatch } : {}) },
     ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
   ];
+}
+
+export function claimEventProvenanceRequest({
+  claimId,
+  ...args
+}: Omit<ClaimProvenanceArgs, 'claimReference' | 'recorded' | 'priorVersionReference'> & {
+  claimId: string | undefined;
+}): BatchInputPostRequest<Provenance> | null {
+  return claimProvenanceRequest({
+    ...args,
+    claimReference: claimId ? `Claim/${claimId}` : undefined,
+    recorded: recordedNow(),
+    priorVersionReference: versionedReference(args.before),
+  });
 }
 
 /**
