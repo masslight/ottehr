@@ -1,24 +1,66 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   emptyPrescriptionLine,
   PrescriptionLine,
+  prescriptionLineErrors,
+  withProduct,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
-import { PrescriptionSentences } from '../../src/features/visits/in-person/components/erx/PrescriptionSentences';
+import {
+  ADD_QUICK_PICK_LABEL,
+  PrescriptionSentences,
+} from '../../src/features/visits/in-person/components/erx/PrescriptionSentences';
+import { PrescriptionSuggestionRow } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
 
-// The searches behind the medication and diagnosis popovers are network calls; these tests never open them.
-vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
-  useSearchMedications: () => ({ data: [], isFetching: false }),
+/** One drug in every form, as the terminology search returns it. */
+const AMOXICILLIN_DRUG = {
+  name: 'Amoxicillin',
+  strengths: [
+    { strength: '250 mg Cap', ndcs: ['00093310701'] },
+    { strength: '875 mg Tab', ndcs: ['00093226401'] },
+    { strength: '250 mg/5ml Susp', ndcs: ['00093415573'] },
+  ],
+};
+
+// The suggestions come from the provider seam, empty in the app; a test sets `rows` to see the rows' behaviour.
+const suggestions = vi.hoisted(() => ({ rows: [] as unknown[] }));
+vi.mock('../../src/features/visits/in-person/components/erx/prescriptionSuggestions', () => ({
+  prescriptionSuggestionsFor: () => suggestions.rows,
 }));
+// The searches behind the medication and diagnosis popovers are network calls; the medication one answers with the
+// drug above whatever is typed. A test sets `failed` to make the search request fail.
+const medicationSearch = vi.hoisted(() => ({ failed: false }));
+vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
+  useSearchMedications: () =>
+    medicationSearch.failed
+      ? { data: undefined, isFetching: false, isError: true }
+      : { data: [AMOXICILLIN_DRUG], isFetching: false, isError: false },
+}));
+// A failed search offers the visit's Report Issue dialog, which reads the visit and the API clients.
+vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useAppointmentData: () => ({ encounter: { resourceType: 'Encounter', id: 'encounter-1', status: 'in-progress' } }),
+}));
+vi.mock('../../src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehr: undefined }) }));
+vi.mock('../../src/hooks/useEvolveUser', () => ({ default: () => undefined }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),
 }));
 
-const AMOXICILLIN = { ndc: '00093310901', description: 'Amoxicillin 500 MG Oral Capsule' };
-
-const Harness = ({ initial, onRemove }: { initial: PrescriptionLine; onRemove?: () => void }): JSX.Element => {
+const Harness = ({
+  initial,
+  onRemove,
+  onSaveQuickPick,
+  patientAgeYears,
+  visitDiagnoses = [],
+}: {
+  initial: PrescriptionLine;
+  onRemove?: () => void;
+  onSaveQuickPick?: () => void;
+  patientAgeYears?: number;
+  visitDiagnoses?: { code: string; display: string }[];
+}): JSX.Element => {
   const [line, setLine] = useState(initial);
   return (
     <PrescriptionSentences
@@ -28,48 +70,263 @@ const Harness = ({ initial, onRemove }: { initial: PrescriptionLine; onRemove?: 
       onRemove={onRemove}
       quickPicks={[]}
       onQuickPick={() => undefined}
-      visitDiagnoses={[]}
+      onSaveQuickPick={onSaveQuickPick}
+      visitDiagnoses={visitDiagnoses}
+      patientAgeYears={patientAgeYears}
       errors={[]}
       readOnly={false}
     />
   );
 };
 
+const LIQUIDS = {
+  name: 'Amoxicillin',
+  strengths: [
+    { strength: '400 mg/5ml Susp', ndcs: ['00093416173'] },
+    { strength: '250 mg/5ml Susp', ndcs: ['00093415573'] },
+  ],
+};
+
+/** A line as picking the drug's first strength leaves it. */
+const lineFor = (drug: typeof LIQUIDS): PrescriptionLine =>
+  withProduct(emptyPrescriptionLine(), drug, drug.strengths[0]);
+
+const STREP = { code: 'J02.0', display: 'Streptococcal pharyngitis' };
+
+/** What the test rows write: a whole course, as a suggestion would. */
+const FIELDS = {
+  dose: '5',
+  route: 'by mouth' as const,
+  frequency: 'twice daily',
+  durationDays: '10',
+  steps: [],
+  instructions: '',
+  quantityValue: '100',
+  quantityUnit: 'Milliliter' as const,
+  daysSupply: '10',
+  numberOfRefills: '0',
+  patientInstructions: 'Take 5 mL by mouth twice daily for 10 days.',
+};
+const DOSED_ROW: PrescriptionSuggestionRow = {
+  id: 'dosed',
+  segments: ['Take 5 mL by mouth twice daily for 10 days.'],
+  reason: '18 kg × 45 mg/kg/day ÷ 2 = 405 mg → 5 mL = 400 mg',
+  caution: 'a caution in the source’s words',
+  note: 'another source’s dosing',
+  fill: () => FIELDS,
+};
+const DIAGNOSIS_ROW: PrescriptionSuggestionRow = {
+  id: 'for-diagnosis',
+  segments: [
+    'Take 5 mL by mouth twice daily for 10 days — for ',
+    { title: 'Strep throat', options: [], initial: undefined, optional: true },
+    '.',
+  ],
+  diagnosisAt: 1,
+  fill: () => FIELDS,
+};
+
+const pickAmoxicillin = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+  await user.click(screen.getByRole('button', { name: 'medication (empty)' }));
+  await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
+  await user.click(screen.getByRole('option', { name: 'Amoxicillin' }));
+};
+
+/** Picks the suggestions' last row, "Other", which shows the line's blanks empty. */
+const pickOther = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+  await user.click(screen.getByRole('button', { name: 'Write my own' }));
+};
+
+/** Runs a test with these suggestion rows, then goes back to none. */
+const withRows = (rows: PrescriptionSuggestionRow[], test: () => Promise<void>) => async (): Promise<void> => {
+  suggestions.rows = rows;
+  try {
+    await test();
+  } finally {
+    suggestions.rows = [];
+  }
+};
+
+const directionsShown = (): boolean => screen.queryByRole('textbox', { name: 'directions' }) !== null;
+
 describe('PrescriptionSentences', () => {
   it('numbers the line and waits for a medication before suggesting anything', () => {
     render(<Harness initial={emptyPrescriptionLine()} />);
     expect(screen.getByText('Prescription 1:')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'medication (empty)' })).toBeInTheDocument();
-    expect(screen.getByText('pick a medication to see suggestions')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'route (empty)' })).not.toBeInTheDocument();
+    // Nothing shows above the sentence until a medication is picked.
+    expect(screen.queryByText('Suggested prescriptions')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Use this prescription' })).not.toBeInTheDocument();
   });
 
-  it('fills the dispense details and directions from a suggestion, then shows it in use', async () => {
+  it('shows the suggestions above the line’s first sentence once a medication is picked', async () => {
     const user = userEvent.setup();
-    render(<Harness initial={{ ...emptyPrescriptionLine(), medication: AMOXICILLIN }} />);
-
-    const [scheduled] = screen.getAllByRole('button', { name: 'Use this prescription' });
-    await user.click(scheduled);
-
-    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
-      'Take 1 capsule by mouth twice daily for 10 days.'
-    );
-    expect(screen.getByRole('spinbutton', { name: 'quantity' })).toHaveValue(20);
-    expect(screen.getByRole('spinbutton', { name: 'days supply' })).toHaveValue(10);
-    expect(screen.getByRole('button', { name: 'unit: capsules' })).toBeInTheDocument();
-    expect(screen.getByTitle('In use')).toBeInTheDocument();
+    render(<Harness initial={emptyPrescriptionLine()} />);
+    await pickAmoxicillin(user);
+    const box = screen.getByText('Suggested prescriptions');
+    const sentence = screen.getByText('Prescription 1:');
+    expect(box.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('re-arms the suggestion once a filled field is edited', async () => {
+  it('puts "+ quick pick" in the first sentence, after "Prescription 1:" and before the medication blank', () => {
+    render(<Harness initial={emptyPrescriptionLine()} />);
+    const sentence = screen.getByText('Prescription 1:').closest('.MuiTypography-root') as HTMLElement;
+    const quickPick = screen.getByRole('button', { name: '+ quick pick (empty)' });
+    const medication = screen.getByRole('button', { name: 'medication (empty)' });
+    expect(sentence).toContainElement(quickPick);
+    expect(sentence).toContainElement(medication);
+    expect(quickPick.compareDocumentPosition(medication) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows the drug once, starting a young child on the liquid and anyone else on the solid', async () => {
     const user = userEvent.setup();
-    render(<Harness initial={{ ...emptyPrescriptionLine(), medication: AMOXICILLIN }} />);
-    await user.click(screen.getAllByRole('button', { name: 'Use this prescription' })[0]);
+    const { unmount } = render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={8} />);
+    await pickAmoxicillin(user);
+    await pickOther(user);
+    expect(screen.getByRole('button', { name: 'medication: Amoxicillin' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'strength: 250 mg/5ml Susp' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'unit: milliliters' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'route: by mouth' })).toBeInTheDocument();
+    unmount();
 
-    const quantity = screen.getByRole('spinbutton', { name: 'quantity' });
-    await user.clear(quantity);
-    await user.type(quantity, '30');
+    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={9} />);
+    await pickAmoxicillin(user);
+    await pickOther(user);
+    expect(screen.getByRole('button', { name: 'strength: 250 mg Cap' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'unit: capsules' })).toBeInTheDocument();
+  });
 
-    expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
+  it('writes the directions and dispense details from the blanks, but never over typed directions', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    await pickAmoxicillin(user);
+    await user.click(screen.getByRole('button', { name: 'strength: 250 mg Cap' }));
+    await user.click(screen.getByRole('option', { name: '875 mg Tab' }));
+    await pickOther(user);
+
+    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '1');
+    await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'twice daily' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'duration' }), '10');
+
+    const directions = screen.getByRole('textbox', { name: 'directions' });
+    expect(directions).toHaveValue('Take 1 tablet by mouth twice daily for 10 days.');
+    expect(screen.getByRole('spinbutton', { name: 'quantity' })).toHaveValue(20);
+    expect(screen.getByRole('spinbutton', { name: 'days supply' })).toHaveValue(10);
+
+    await user.type(directions, ' Take with food.');
+    await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
+    await user.click(screen.getByRole('option', { name: 'three times daily' }));
+    expect(directions).toHaveValue('Take 1 tablet by mouth twice daily for 10 days. Take with food.');
+    expect(screen.getByRole('spinbutton', { name: 'quantity' })).toHaveValue(30);
+  });
+
+  it('adds a "then" step whose blanks join the directions and the quantity, until it is removed', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    await pickAmoxicillin(user);
+    await pickOther(user);
+    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '2');
+    await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'once daily' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'duration' }), '1');
+    // The sentence's own unit follows the number, as the directions do (the input's value is not in the text).
+    expect(screen.getByRole('spinbutton', { name: 'duration' }).closest('.MuiTypography-root')).toHaveTextContent(
+      /for\s+day\./
+    );
+
+    await user.click(screen.getByRole('button', { name: '+ then (empty)' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'step 2 dose' }), '1');
+    await user.click(screen.getByRole('button', { name: 'step 2 frequency (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'once daily' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'step 2 duration' }), '4');
+    expect(
+      screen.getByRole('spinbutton', { name: 'step 2 duration' }).closest('.MuiTypography-root')
+    ).toHaveTextContent(/for\s+days\./);
+
+    const directions = screen.getByRole('textbox', { name: 'directions' });
+    expect(directions).toHaveValue(
+      'Take 2 capsules by mouth once daily for 1 day, then 1 capsule by mouth once daily for 4 days.'
+    );
+    expect(screen.getByRole('spinbutton', { name: 'quantity' })).toHaveValue(6);
+    expect(screen.getByRole('spinbutton', { name: 'days supply' })).toHaveValue(5);
+    // The links move to the last step; the route stays on the first.
+    expect(screen.getAllByRole('button', { name: '+ then (empty)' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^route/ })).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: 'Remove step 2' }));
+    expect(screen.queryByRole('spinbutton', { name: 'step 2 dose' })).not.toBeInTheDocument();
+    expect(directions).toHaveValue('Take 2 capsules by mouth once daily for 1 day.');
+    expect(screen.getByRole('spinbutton', { name: 'quantity' })).toHaveValue(2);
+
+    await user.type(directions, ' Finish all.');
+    await user.click(screen.getByRole('button', { name: '+ then (empty)' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'step 2 dose' }), '1');
+    expect(directions).toHaveValue('Take 2 capsules by mouth once daily for 1 day. Finish all.');
+  });
+
+  it('reads "as directed" without a dose and leaves the quantity to the provider', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    await pickAmoxicillin(user);
+    await pickOther(user);
+    await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'as directed' }));
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take by mouth as directed.');
+    expect(screen.getByRole('spinbutton', { name: 'quantity' })).toHaveValue(null);
+  });
+
+  it('offers instructions as a link, appends what is typed, and clears them with a way back', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    await pickAmoxicillin(user);
+    await pickOther(user);
+    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '1');
+    expect(screen.queryByRole('textbox', { name: 'instructions' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '+ instructions (empty)' }));
+    expect(screen.queryByRole('button', { name: '+ instructions (empty)' })).not.toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'instructions' }), 'with food');
+    const directions = screen.getByRole('textbox', { name: 'directions' });
+    expect(directions).toHaveValue('Take 1 capsule by mouth, with food.');
+
+    await user.click(screen.getByRole('button', { name: 'Remove instructions' }));
+    expect(screen.queryByRole('textbox', { name: 'instructions' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ instructions (empty)' })).toBeInTheDocument();
+    expect(directions).toHaveValue('Take 1 capsule by mouth.');
+  });
+
+  it('offers urgent as a link until it is wanted, then shows it with a way back', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} />);
+    expect(screen.queryByText('yes')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '+ urgent (empty)' }));
+    expect(screen.getByText('yes')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ urgent (empty)' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Remove urgent' }));
+    expect(screen.queryByText('yes')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ urgent (empty)' })).toBeInTheDocument();
+  });
+
+  it('puts "Add or Update Quick Pick" in the quick pick list for admins only', async () => {
+    const user = userEvent.setup();
+    const onSaveQuickPick = vi.fn();
+    const { unmount } = render(<Harness initial={emptyPrescriptionLine()} onSaveQuickPick={onSaveQuickPick} />);
+    expect(screen.queryByRole('button', { name: /save as quick pick/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
+    await user.click(
+      within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText('+ Add or Update Quick Pick')
+    );
+    expect(onSaveQuickPick).toHaveBeenCalledTimes(1);
+    unmount();
+
+    render(<Harness initial={emptyPrescriptionLine()} />);
+    await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
+    expect(screen.queryByText('+ Add or Update Quick Pick')).not.toBeInTheDocument();
+    expect(screen.getByText('No quick picks yet')).toBeInTheDocument();
   });
 
   it('offers removal only when the page passes a remove handler', () => {
@@ -79,5 +336,162 @@ describe('PrescriptionSentences', () => {
 
     render(<Harness initial={emptyPrescriptionLine()} onRemove={() => undefined} />);
     expect(screen.getByRole('button', { name: 'Remove prescription 1' })).toBeInTheDocument();
+  });
+
+  it('says the medication search is unavailable when the request fails, and offers the visit’s Report Issue dialog', async () => {
+    medicationSearch.failed = true;
+    try {
+      const user = userEvent.setup();
+      render(<Harness initial={emptyPrescriptionLine()} />);
+      await user.click(screen.getByRole('button', { name: 'medication (empty)' }));
+      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
+      expect(screen.queryByText('Nothing found for this search criteria')).not.toBeInTheDocument();
+      await user.click(await screen.findByRole('button', { name: 'Report an issue' }));
+      expect(await screen.findByText('Report Issue')).toBeInTheDocument();
+    } finally {
+      medicationSearch.failed = false;
+    }
+  });
+});
+
+describe('PrescriptionSentences: suggestions first', () => {
+  it('offers only "Other" with no suggestions, and hides the line until it is picked', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={lineFor(LIQUIDS)} />);
+    expect(screen.getByText('Suggested prescriptions')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })).toHaveLength(1);
+    for (const name of ['dose', 'duration', 'quantity', 'days supply', 'refills']) {
+      expect(screen.queryByRole('spinbutton', { name })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole('button', { name: /^substitution/ })).not.toBeInTheDocument();
+    expect(directionsShown()).toBe(false);
+
+    await pickOther(user);
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(null);
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('');
+    expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
+  });
+
+  it(
+    'shows a row with its working, caution and note, "Other" last, and fills the line from it',
+    withRows([DOSED_ROW], async () => {
+      const user = userEvent.setup();
+      render(<Harness initial={lineFor(LIQUIDS)} />);
+      expect(screen.getByText(/^Because 18 kg × 45 mg\/kg\/day/)).toBeInTheDocument();
+      expect(screen.getByTestId('suggestion-caution')).toHaveTextContent('Caution: a caution in the source’s words');
+      expect(screen.getByTestId('suggestion-note')).toHaveTextContent('Note: another source’s dosing');
+      const buttons = screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ });
+      expect(buttons.at(-1)).toHaveAccessibleName('Write my own');
+
+      await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
+      expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(5);
+      expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(FIELDS.patientInstructions);
+      expect(screen.getByTitle('In use')).toBeInTheDocument();
+
+      // Editing a filled field re-arms the row.
+      const quantity = screen.getByRole('spinbutton', { name: 'quantity' });
+      await user.clear(quantity);
+      await user.type(quantity, '150');
+      expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
+    })
+  );
+
+  it(
+    'picks a row’s diagnosis by search, which goes on the line with the row',
+    withRows([DIAGNOSIS_ROW], async () => {
+      const user = userEvent.setup();
+      render(<Harness initial={lineFor(LIQUIDS)} visitDiagnoses={[STREP]} />);
+      await user.click(screen.getByRole('button', { name: 'Strep throat: not picked' }));
+      await user.click(await screen.findByRole('option', { name: 'J02.0 - Streptococcal pharyngitis' }));
+      expect(screen.getByRole('button', { name: 'Strep throat: Streptococcal pharyngitis J02.0' })).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
+      expect(screen.getByRole('button', { name: 'diagnosis: Streptococcal pharyngitis J02.0' })).toBeInTheDocument();
+    })
+  );
+
+  it('hides the line again when the strength or the medication changes', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} patientAgeYears={30} />);
+    await pickAmoxicillin(user);
+    expect(directionsShown()).toBe(false);
+    await pickOther(user);
+    expect(directionsShown()).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'strength: 250 mg Cap' }));
+    await user.click(screen.getByRole('option', { name: '875 mg Tab' }));
+    expect(directionsShown()).toBe(false);
+    await pickOther(user);
+    await user.click(screen.getByRole('button', { name: 'medication: Amoxicillin' }));
+    await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
+    await user.click(screen.getByRole('option', { name: 'Amoxicillin' }));
+    expect(screen.getByRole('button', { name: 'strength: 250 mg Cap' })).toBeInTheDocument();
+    expect(directionsShown()).toBe(false);
+  });
+
+  it('a line hidden after a new strength can’t be sent until a pick', async () => {
+    let latest = lineFor(LIQUIDS);
+    /** As the order form: the send check's errors under the line. */
+    const Sending = (): JSX.Element => {
+      const [line, setLine] = useState(latest);
+      latest = line;
+      return (
+        <PrescriptionSentences
+          line={line}
+          index={0}
+          onChange={setLine}
+          quickPicks={[]}
+          onQuickPick={() => undefined}
+          visitDiagnoses={[]}
+          errors={prescriptionLineErrors(line)}
+          readOnly={false}
+        />
+      );
+    };
+    const user = userEvent.setup();
+    render(<Sending />);
+    await pickOther(user);
+    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '5');
+    await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'twice daily' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'quantity' }), '150');
+    expect(prescriptionLineErrors(latest)).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'strength: 400 mg/5ml Susp' }));
+    await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
+    expect(directionsShown()).toBe(false);
+    expect(prescriptionLineErrors(latest)).toContain('Pick a suggestion or Write my own');
+    expect(screen.getByText(/Pick a suggestion or Write my own/)).toBeInTheDocument();
+    await pickOther(user);
+    expect(directionsShown()).toBe(true);
+    expect(prescriptionLineErrors(latest)).not.toContain('Pick a suggestion or Write my own');
+  });
+
+  it('a line hidden after a new strength can’t be saved as a quick pick until a pick', async () => {
+    const onSaveQuickPick = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness initial={lineFor(LIQUIDS)} onSaveQuickPick={onSaveQuickPick} />);
+    const saveOffered = async (): Promise<boolean> => {
+      await user.click(screen.getByRole('button', { name: /^\+ quick pick/ }));
+      const offered = within(screen.getByRole('listbox', { name: 'Quick pick' })).queryByText(ADD_QUICK_PICK_LABEL);
+      await user.keyboard('{Escape}');
+      return offered !== null;
+    };
+    await pickOther(user);
+    expect(await saveOffered()).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'strength: 400 mg/5ml Susp' }));
+    await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
+    expect(await saveOffered()).toBe(false);
+    await pickOther(user);
+    expect(await saveOffered()).toBe(true);
+    expect(onSaveQuickPick).not.toHaveBeenCalled();
+  });
+
+  it('opens a line that already has directions (a quick pick, an edited line) shown', () => {
+    const { unmount } = render(
+      <Harness initial={{ ...lineFor(LIQUIDS), patientInstructions: 'Take 5 mL by mouth twice daily.' }} />
+    );
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take 5 mL by mouth twice daily.');
+    unmount();
+
+    render(<Harness initial={{ ...lineFor(LIQUIDS), dose: '5' }} />);
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(5);
   });
 });

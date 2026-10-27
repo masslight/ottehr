@@ -83,7 +83,11 @@ import {
   OpenEmployeeChatInput,
   OpenEmployeeChatResponse,
 } from 'utils/lib/types/api/employee-chat.types';
-import { MedicationSearchResult, PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
+import {
+  MedicationSearchDrug,
+  MedicationSearchResponse,
+  PharmacySearchResult,
+} from 'utils/lib/types/api/erx-search.types';
 import { ExtractCardInput, ExtractCardResponse } from 'utils/lib/types/api/extract-card.types';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { GetConversationInput, GetConversationZambdaOutput } from 'utils/lib/types/api/get-conversation.types';
@@ -660,11 +664,7 @@ const SAMPLE_PHARMACIES: PharmacySearchResult[] = [
 
 const TERMINOLOGY_API_URL = import.meta.env.VITE_APP_TERMINOLOGY_API_URL ?? 'https://terminology-api.zapehr.com/v1';
 
-interface MedicationSearchResponse {
-  medications: { name: string; strengths: { strength: string; ndcs: string[] }[] }[];
-}
-
-export const searchMedications = async (token: string, query: string): Promise<MedicationSearchResult[]> => {
+export const searchMedications = async (token: string, query: string): Promise<MedicationSearchDrug[]> => {
   const projectId = import.meta.env.VITE_APP_PROJECT_ID;
   const response = await fetch(`${TERMINOLOGY_API_URL}/medication/search?${new URLSearchParams({ query })}`, {
     headers: {
@@ -676,12 +676,10 @@ export const searchMedications = async (token: string, query: string): Promise<M
   if (!response.ok) {
     throw new Error(body?.message ?? `Failed to search medications (${response.status})`);
   }
-  // An order needs an NDC, so a strength without one can't be picked. The first NDC stands in for the strength.
-  return (body as MedicationSearchResponse).medications.flatMap(({ name, strengths }) =>
-    strengths
-      .filter(({ ndcs }) => ndcs.length > 0)
-      .map(({ strength, ndcs }) => ({ ndc: ndcs[0], description: `${name} ${strength}` }))
-  );
+  // An order needs an NDC, so a strength without one can't be picked, and a drug with no such strength is left out.
+  return (body as MedicationSearchResponse).medications
+    .map(({ name, strengths }) => ({ name, strengths: strengths.filter(({ ndcs }) => ndcs.length > 0) }))
+    .filter(({ strengths }) => strengths.length > 0);
 };
 
 export const searchPharmacies = async (query: string): Promise<PharmacySearchResult[]> => {

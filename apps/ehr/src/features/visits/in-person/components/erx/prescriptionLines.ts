@@ -1,13 +1,46 @@
-import { MedicationSearchResult, PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
+import { DateTime } from 'luxon';
+import { DOSE_STEP, DoseMeasure } from 'utils/lib/helpers/medications/plain-dose';
+import {
+  parseStrengthConcentration,
+  PrescriptionDirections,
+  prescriptionDirectionsText,
+  prescriptionDispense,
+  PrescriptionDoseForm,
+  prescriptionDoseForm,
+  prescriptionQuantityUnit,
+  prescriptionRoute,
+  PrescriptionStep,
+  SuggestedPrescriptionFields,
+} from 'utils/lib/helpers/medications/prescription-suggestions';
+import {
+  MedicationSearchDrug,
+  MedicationSearchResult,
+  MedicationStrength,
+  PharmacySearchResult,
+} from 'utils/lib/types/api/erx-search.types';
 import { OrderPrescriptionInput, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { z } from 'zod';
 
+/** What the dose, route, frequency and duration blanks last wrote, so only their own text is ever overwritten. */
+interface GeneratedFields {
+  patientInstructions: string;
+  quantityValue: string;
+  daysSupply: string;
+}
+
 /** One numbered prescription on the eRx page, as the sentences hold it: numbers stay strings while typed. */
-export interface PrescriptionLine {
+export interface PrescriptionLine extends PrescriptionDirections {
   /** Stable React key; lines are added and removed in any order. */
   key: number;
+  /** The search hit the medication was picked from; its strengths fill the strength blank. A quick pick has none. */
+  drug: MedicationSearchDrug | null;
   medication: MedicationSearchResult | null;
+  /** Shown on the line only: the order service has no urgent flag yet. */
+  urgent: boolean;
+  steps: PrescriptionStep[];
+  instructions: string;
   quantityValue: string;
   quantityUnit: QuantityUnit | '';
   daysSupply: string;
@@ -16,13 +49,41 @@ export interface PrescriptionLine {
   patientInstructions: string;
   noteToPharmacy: string;
   diagnosis: { code: string; display: string } | null;
+  generated: GeneratedFields;
+  /** What the quick pick in use set beyond the directions, which a new product clears where still unchanged. */
+  quickPicked: QuickPickedFields | null;
+  /** The line's details are hidden after a new medication or strength until a suggestion or "Write my own" is picked:
+   * it can't be sent, since what it carries over isn't on screen. */
+  awaitingPick?: boolean;
 }
+
+type QuickPickedFields = Pick<PrescriptionLine, 'quantityValue' | 'daysSupply' | 'numberOfRefills' | 'noteToPharmacy'>;
 
 let nextKey = 0;
 
+const NOTHING_GENERATED: GeneratedFields = { patientInstructions: '', quantityValue: '', daysSupply: '' };
+
+/** The blanks of a "then" step before anything is picked. */
+export const emptyPrescriptionStep = (): PrescriptionStep => ({ dose: '', frequency: '', durationDays: '' });
+
+/** The directions blanks as they start, and as they go back to when the drug changes. */
+const NO_DIRECTIONS: Pick<PrescriptionLine, keyof PrescriptionStep | 'steps' | 'instructions'> = {
+  ...emptyPrescriptionStep(),
+  steps: [],
+  instructions: '',
+};
+
 export const emptyPrescriptionLine = (): PrescriptionLine => ({
   key: nextKey++,
+  drug: null,
   medication: null,
+  route: '',
+  dose: '',
+  frequency: '',
+  durationDays: '',
+  steps: [],
+  instructions: '',
+  urgent: false,
   quantityValue: '',
   quantityUnit: '',
   daysSupply: '',
@@ -31,6 +92,180 @@ export const emptyPrescriptionLine = (): PrescriptionLine => ({
   patientInstructions: '',
   noteToPharmacy: '',
   diagnosis: null,
+  generated: NOTHING_GENERATED,
+  quickPicked: null,
+});
+
+const wholeAgeAt = (
+  birthDate: string | undefined,
+  visitDate: string | undefined,
+  unit: 'years' | 'months'
+): number | undefined => {
+  const birth = birthDate ? DateTime.fromISO(birthDate) : undefined;
+  if (!birth?.isValid) return undefined;
+  const visit = visitDate ? DateTime.fromISO(visitDate) : DateTime.now();
+  return Math.floor(visit.diff(birth, unit).get(unit));
+};
+
+/** Whole years old at the visit; unknown without a date of birth. */
+export const ageAtVisit = (birthDate: string | undefined, visitDate: string | undefined): number | undefined =>
+  wholeAgeAt(birthDate, visitDate, 'years');
+
+/** Whole months old at the visit. */
+export const ageMonthsAtVisit = (birthDate: string | undefined, visitDate: string | undefined): number | undefined =>
+  wholeAgeAt(birthDate, visitDate, 'months');
+
+/** Children under this age get a liquid by default; everyone else a tablet or capsule. */
+const LIQUID_UNTIL_AGE = 9;
+
+/** A name that says delayed or extended release ("DR Tab", "ER", "24 HR"). */
+const MODIFIED_RELEASE = /\b(extended|er|xr|xl|sr|12 hr|24 hr|delayed|dr|ec|enteric)\b/i;
+
+/** The strength to start a drug on: a liquid for a young child, otherwise a solid, or failing either the first; an
+ * immediate-release one before a delayed- or extended-release one. */
+export const defaultStrength = (drug: MedicationSearchDrug, ageYears: number | undefined): MedicationStrength => {
+  const wanted = ageYears !== undefined && ageYears < LIQUID_UNTIL_AGE ? ['liquid'] : ['tablet', 'capsule'];
+  const immediate = drug.strengths.filter((strength) => !MODIFIED_RELEASE.test(`${drug.name} ${strength.strength}`));
+  const inForm = (strengths: MedicationStrength[]): MedicationStrength | undefined =>
+    strengths.find((strength) => {
+      const form = prescriptionDoseForm(`${drug.name} ${strength.strength}`);
+      return form !== undefined && wanted.includes(form);
+    });
+  return inForm(immediate) ?? inForm(drug.strengths) ?? immediate[0] ?? drug.strengths[0];
+};
+
+/** The strength the line's medication is, among its drug's. */
+export const pickedStrength = (line: Pick<PrescriptionLine, 'drug' | 'medication'>): MedicationStrength | undefined =>
+  line.drug?.strengths.find((strength) => strength.ndcs[0] === line.medication?.ndc);
+
+/** A value the provider left alone: empty, or exactly what the blanks last wrote. */
+const follows = (current: string, generated: string): boolean => current.trim() === '' || current === generated;
+
+/** The line with a dose, route, frequency or duration changed: the directions, quantity and days supply follow,
+ * except where the provider typed something of their own, which stays. */
+export const withDirections = (line: PrescriptionLine, patch: Partial<PrescriptionDirections>): PrescriptionLine => {
+  const next = { ...line, ...patch };
+  const description = next.medication?.description ?? '';
+  const patientInstructions = prescriptionDirectionsText(description, next);
+  const { quantityValue, daysSupply } = prescriptionDispense(description, next);
+  return {
+    ...next,
+    patientInstructions: follows(line.patientInstructions, line.generated.patientInstructions)
+      ? patientInstructions
+      : line.patientInstructions,
+    quantityValue: follows(line.quantityValue, line.generated.quantityValue) ? quantityValue : line.quantityValue,
+    daysSupply: follows(line.daysSupply, line.generated.daysSupply) ? daysSupply : line.daysSupply,
+    generated: { patientInstructions, quantityValue, daysSupply },
+  };
+};
+
+/** A number as the blanks hold it, or nothing for an empty or unreadable one. */
+export const numberOrUndefined = (value: string): number | undefined =>
+  value.trim() === '' || !Number.isFinite(Number(value)) ? undefined : Number(value);
+
+/** The forms the calculator measures a dose in; anything else (an inhaler, a cream) it leaves alone. */
+export const MEASURE_OF: Partial<Record<PrescriptionDoseForm, DoseMeasure>> = {
+  liquid: 'mL',
+  tablet: 'tablet',
+  capsule: 'capsule',
+};
+
+/** mg in one measure of a product (a mL of a liquid, a tablet or capsule), when its description says. */
+export const mgPerMeasure = (description: string): number | undefined => {
+  const parsed = parseStrengthConcentration(description);
+  return prescriptionDoseForm(description) === 'liquid' ? parsed?.mgPerMl : parsed?.mgPerUnit;
+};
+
+/** How far a dose carried over to another strength may land from the same mg: beyond it the dose is cleared. */
+const REMEASURE_TOLERANCE = 0.1;
+
+/** The dose as the same mg measured in another product, to the calculator's steps (half a mL, a whole tablet or
+ * capsule). Blank when either strength can't be read, or when the new product can't measure the mg within 10%, so a
+ * dose is never carried over in the wrong measure or quietly made a different dose. A form that isn't measured in mg
+ * (puffs, drops, a cream) keeps its dose as it was. */
+const remeasured = (dose: string, from: string, to: PrescriptionLine): string => {
+  const amount = numberOrUndefined(dose);
+  if (amount === undefined) return dose;
+  const toDescription = to.medication?.description ?? '';
+  const form = prescriptionDoseForm(toDescription);
+  const measure = form && MEASURE_OF[form];
+  if (measure === undefined) return dose;
+  const fromMg = mgPerMeasure(from);
+  const toMg = mgPerMeasure(toDescription);
+  if (fromMg === undefined || toMg === undefined) return '';
+  const mg = amount * fromMg;
+  const step = DOSE_STEP[measure];
+  const measures = roundNumberToDecimalPlaces(Math.round(mg / toMg / step) * step, 3);
+  const offAim = Math.abs((measures * toMg) / mg - 1) > REMEASURE_TOLERANCE + 1e-9;
+  return measures > 0 && !offAim ? String(measures) : '';
+};
+
+/** The quick pick's values a new product clears: those still as the quick pick set them. */
+const withoutQuickPick = (line: PrescriptionLine): Partial<PrescriptionLine> => {
+  const picked = line.quickPicked;
+  if (!picked) return {};
+  const empty = emptyPrescriptionLine();
+  const keys = ['quantityValue', 'daysSupply', 'numberOfRefills', 'noteToPharmacy'] as const;
+  return {
+    ...Object.fromEntries(keys.filter((key) => line[key] === picked[key]).map((key) => [key, empty[key]])),
+    quickPicked: null,
+  };
+};
+
+/** The line on one strength of a drug: the unit and route follow the product when its name makes them obvious.
+ * Directions written for another drug don't carry over; a strength change keeps the picks, with the doses
+ * re-measured for the new strength, and rewrites the directions. */
+export const withProduct = (
+  line: PrescriptionLine,
+  drug: MedicationSearchDrug,
+  strength: MedicationStrength
+): PrescriptionLine => {
+  const medication = { ndc: strength.ndcs[0], description: `${drug.name} ${strength.strength}` };
+  const otherDrug = drug.name !== line.drug?.name;
+  const changed = medication.ndc !== line.medication?.ndc;
+  const from = line.medication?.description;
+  const next: PrescriptionLine = {
+    ...line,
+    drug,
+    medication,
+    quantityUnit: prescriptionQuantityUnit(medication.description) ?? line.quantityUnit,
+    route: prescriptionRoute(medication.description) ?? line.route,
+    ...(otherDrug ? NO_DIRECTIONS : {}),
+    ...(changed ? { patientInstructions: '', ...withoutQuickPick(line) } : {}),
+  };
+  return withDirections(
+    {
+      ...next,
+      ...(changed && !otherDrug && from !== undefined
+        ? {
+            dose: remeasured(line.dose, from, next),
+            steps: line.steps.map((step) => ({ ...step, dose: remeasured(step.dose, from, next) })),
+          }
+        : {}),
+    },
+    {}
+  );
+};
+
+/** A suggestion fills the line as the blanks would have, so changing a blank afterwards rewrites it: its steps
+ * and instructions replace any there were. The diagnosis it brings replaces the line's; none leaves the line's. */
+export const withSuggestion = (
+  line: PrescriptionLine,
+  fields: SuggestedPrescriptionFields,
+  suggested: { diagnosis?: { code: string; display: string } } = {}
+): PrescriptionLine => ({
+  ...line,
+  ...NO_DIRECTIONS,
+  ...fields,
+  quantityUnit: fields.quantityUnit || line.quantityUnit,
+  // Refills are the provider's: a suggestion has none of its own.
+  numberOfRefills: line.numberOfRefills,
+  diagnosis: suggested.diagnosis ?? line.diagnosis ?? null,
+  generated: {
+    patientInstructions: fields.patientInstructions,
+    quantityValue: fields.quantityValue,
+    daysSupply: fields.daysSupply,
+  },
 });
 
 const isWholeNumberInRange = (value: string, min: number, max: number): boolean => {
@@ -70,7 +305,10 @@ const PrescriptionLineSchema = z.object({
 /** Every problem with the line, in sentence order; empty when it can be sent. */
 export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
   const result = PrescriptionLineSchema.safeParse(line);
-  return result.success ? [] : [...new Set(result.error.issues.map((issue) => issue.message))];
+  return [
+    ...(line.awaitingPick ? ['Pick a suggestion or Write my own'] : []),
+    ...(result.success ? [] : new Set(result.error.issues.map((issue) => issue.message))),
+  ];
 };
 
 interface OrderContext {
@@ -81,7 +319,17 @@ interface OrderContext {
   writtenDate: string;
 }
 
-/** The order input for a line that passed `prescriptionLineErrors`. */
+const ASCII_FRACTIONS: Record<string, string> = { '¼': '1/4', '½': '1/2', '¾': '3/4' };
+
+/** "Take 1½ tablets, then ½ tablet" → "Take 1 1/2 tablets, then 1/2 tablet", for the text sent. */
+export const asciiFractions = (text: string): string =>
+  text.replace(
+    /(\d?)([¼½¾])/g,
+    (_, digit: string, fraction: string) => `${digit ? `${digit} ` : ''}${ASCII_FRACTIONS[fraction]}`
+  );
+
+/** The order input for a line that passed `prescriptionLineErrors`. The route, dose, frequency, duration and
+ * urgent flag stay on the line: the order service has no fields for them yet, and the directions carry them. */
 export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderContext): OrderPrescriptionInput => {
   if (!line.medication || !line.quantityUnit) {
     throw new Error('Prescription line is incomplete');
@@ -98,7 +346,12 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     writtenDate: context.writtenDate,
     substitutionAllowed: line.substitutionAllowed,
     numberOfRefills: Number(line.numberOfRefills),
-    patientInstructions: line.patientInstructions.trim(),
+    // Directions go with ASCII fractions ("1/2 tablet"): the blanks' written so, typed or quick-pick
+    // ones converted; the screen keeps "½".
+    patientInstructions: (line.patientInstructions === line.generated.patientInstructions
+      ? prescriptionDirectionsText(line.medication.description, line, { ascii: true })
+      : asciiFractions(line.patientInstructions)
+    ).trim(),
     ...(line.noteToPharmacy.trim() ? { noteToPharmacy: line.noteToPharmacy.trim() } : {}),
     pharmacyId: context.pharmacy.ncpdpId,
     pharmacyNpi: context.pharmacy.npi,
@@ -110,27 +363,41 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
   };
 };
 
-/** A quick pick sets the whole prescription except the diagnosis, which belongs to the visit. */
+/** A quick pick sets the whole prescription except the diagnosis, which belongs to the visit. Its directions were
+ * written out, so the blanks start empty (the route from the product's name) and never overwrite them. */
 export const applyPrescriptionQuickPick = (
   line: PrescriptionLine,
   quickPick: PrescriptionQuickPickData
-): PrescriptionLine => ({
-  ...line,
-  medication:
+): PrescriptionLine => {
+  const medication =
     quickPick.ndc && quickPick.medicationDescription
       ? { ndc: quickPick.ndc, description: quickPick.medicationDescription }
-      : line.medication,
-  quantityValue: quickPick.quantityValue === undefined ? '' : String(quickPick.quantityValue),
-  quantityUnit: quickPick.quantityUnit ?? '',
-  daysSupply: quickPick.daysSupply === undefined ? '' : String(quickPick.daysSupply),
-  numberOfRefills: String(quickPick.numberOfRefills ?? 0),
-  substitutionAllowed: quickPick.substitutionAllowed ?? true,
-  patientInstructions: quickPick.patientInstructions ?? '',
-  noteToPharmacy: quickPick.noteToPharmacy ?? '',
-});
-
-const numberOrUndefined = (value: string): number | undefined =>
-  value.trim() === '' || !Number.isFinite(Number(value)) ? undefined : Number(value);
+      : line.medication;
+  const applied: PrescriptionLine = {
+    ...line,
+    drug: medication === line.medication ? line.drug : null,
+    medication,
+    route: (medication && prescriptionRoute(medication.description)) ?? '',
+    ...NO_DIRECTIONS,
+    quantityValue: quickPick.quantityValue === undefined ? '' : String(quickPick.quantityValue),
+    quantityUnit: quickPick.quantityUnit ?? '',
+    daysSupply: quickPick.daysSupply === undefined ? '' : String(quickPick.daysSupply),
+    numberOfRefills: String(quickPick.numberOfRefills ?? 0),
+    substitutionAllowed: quickPick.substitutionAllowed ?? true,
+    patientInstructions: quickPick.patientInstructions ?? '',
+    noteToPharmacy: quickPick.noteToPharmacy ?? '',
+    generated: NOTHING_GENERATED,
+  };
+  return {
+    ...applied,
+    quickPicked: {
+      quantityValue: applied.quantityValue,
+      daysSupply: applied.daysSupply,
+      numberOfRefills: applied.numberOfRefills,
+      noteToPharmacy: applied.noteToPharmacy,
+    },
+  };
+};
 
 export const prescriptionLineToQuickPick = (
   line: PrescriptionLine,

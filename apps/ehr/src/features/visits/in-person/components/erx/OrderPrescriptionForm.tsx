@@ -33,7 +33,10 @@ import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription
 import { useAppointmentData, useSaveChartData } from '../../../shared/stores/appointment/appointment.store';
 import { PopoverBlank, Sentence } from '../procedures/narrative/InlineBlanks';
 import { ProcedureQuickPickDialogs } from '../procedures/ProcedureQuickPickDialogs';
+import { calculatorWeightKg, DoseCalculator, previousVisitWeightNote } from './DoseCalculator';
 import {
+  ageAtVisit,
+  ageMonthsAtVisit,
   applyPrescriptionQuickPick,
   emptyPrescriptionLine,
   PrescriptionLine,
@@ -42,6 +45,7 @@ import {
   prescriptionLineToQuickPick,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
+import { useVisitWeight } from './useVisitWeight';
 
 // Layout from the procedure page: the side column sits beside the form once the page is wide enough.
 const SIDE_COLUMN_WIDTH = 340;
@@ -90,7 +94,13 @@ const PharmacySearch: FC<{ onPick: (pharmacy: PharmacySearchResult) => void }> =
 
 export const OrderPrescriptionForm: FC = () => {
   const theme = useTheme();
-  const { patient, encounter } = useAppointmentData();
+  const { patient, encounter, appointment } = useAppointmentData();
+  const patientAgeYears = ageAtVisit(patient?.birthDate, appointment?.start);
+  const patientAgeMonths = ageMonthsAtVisit(patient?.birthDate, appointment?.start);
+  const weight = useVisitWeight();
+  // A weight typed in the dose calculator stands in for the vitals' everywhere on the page.
+  const [weightText, setWeightText] = useState<string>();
+  const weightKg = calculatorWeightKg(weightText, weight);
   const user = useEvolveUser();
   const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
   const { isAppointmentReadOnly: readOnly } = useGetAppointmentAccessibility();
@@ -103,6 +113,9 @@ export const OrderPrescriptionForm: FC = () => {
   const { quickPicks, refetch: refetchQuickPicks } = useMergedPrescriptionQuickPicks();
 
   const [lines, setLines] = useState<PrescriptionLine[]>(() => [emptyPrescriptionLine()]);
+  // The dose calculator works on the prescription last clicked or typed in; the first until then or once it goes.
+  const [activeLineKey, setActiveLineKey] = useState<number | null>(null);
+  const activeLine = lines.find((line) => line.key === activeLineKey) ?? lines[0];
   const [sendAttempted, setSendAttempted] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -211,7 +224,8 @@ export const OrderPrescriptionForm: FC = () => {
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
     const line = lines.find((item) => item.key === quickPickLineKey);
-    if (!oystehrZambda || !line) return;
+    // A line hidden while it waits for a pick (its product changed after the dialog opened) holds text nobody has seen.
+    if (!oystehrZambda || !line || line.awaitingPick) return;
     if (!quickPickName.trim()) {
       enqueueSnackbar('Quick pick name is required', { variant: 'error' });
       return;
@@ -306,23 +320,32 @@ export const OrderPrescriptionForm: FC = () => {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {lines.map((line, index) => (
-                  <PrescriptionSentences
+                  <Box
                     key={line.key}
-                    line={line}
-                    index={index}
-                    onChange={(next) => updateLine(line.key, next)}
-                    onRemove={
-                      lines.length > 1
-                        ? () => setLines((current) => current.filter((item) => item.key !== line.key))
-                        : undefined
-                    }
-                    quickPicks={quickPicks}
-                    onQuickPick={(quickPick) => updateLine(line.key, applyPrescriptionQuickPick(line, quickPick))}
-                    onSaveQuickPick={isAdmin ? () => void openQuickPickDialog(line) : undefined}
-                    visitDiagnoses={visitDiagnoses}
-                    errors={sendAttempted ? prescriptionLineErrors(line) : []}
-                    readOnly={readOnly}
-                  />
+                    onFocus={() => setActiveLineKey(line.key)}
+                    onClick={() => setActiveLineKey(line.key)}
+                  >
+                    <PrescriptionSentences
+                      line={line}
+                      index={index}
+                      onChange={(next) => updateLine(line.key, next)}
+                      onRemove={
+                        lines.length > 1
+                          ? () => setLines((current) => current.filter((item) => item.key !== line.key))
+                          : undefined
+                      }
+                      quickPicks={quickPicks}
+                      onQuickPick={(quickPick) => updateLine(line.key, applyPrescriptionQuickPick(line, quickPick))}
+                      onSaveQuickPick={isAdmin ? () => void openQuickPickDialog(line) : undefined}
+                      visitDiagnoses={visitDiagnoses}
+                      patientAgeYears={patientAgeYears}
+                      patientAgeMonths={patientAgeMonths}
+                      weightKg={weightKg}
+                      weightNote={previousVisitWeightNote(weightText, weight)}
+                      errors={sendAttempted ? prescriptionLineErrors(line) : []}
+                      readOnly={readOnly}
+                    />
+                  </Box>
                 ))}
               </Box>
               {!readOnly && (
@@ -360,6 +383,15 @@ export const OrderPrescriptionForm: FC = () => {
               <Stack spacing={1.5} style={{ padding: '24px' }}>
                 <AllergiesContainer />
                 <MedicationsContainer />
+                <DoseCalculator
+                  line={activeLine}
+                  label={lines.length > 1 ? `Prescription ${lines.indexOf(activeLine) + 1}` : undefined}
+                  weight={weight}
+                  weightText={weightText}
+                  onWeightText={setWeightText}
+                  onChange={(next) => updateLine(activeLine.key, next)}
+                  readOnly={readOnly}
+                />
               </Stack>
             </AccordionCard>
           </Box>
