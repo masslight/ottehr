@@ -727,6 +727,85 @@ describe('PatientEncountersGrid free-form encounters', () => {
       expect(countOf('Old note, edited')).toBe(0);
     });
 
+    it('keeps unsaved text when the server note changes while its save is failing', async () => {
+      const user = userEvent.setup();
+      const versionOne = freeForm('note-1', 'Server v1', { lastUpdated: '2026-10-26T12:00:01.000Z' });
+      const versionTwo = { ...versionOne, note: 'Server v2', lastUpdated: '2026-10-26T12:10:00.000Z' };
+      const failingSave = deferred<FreeFormEncounterHistoryRow>();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [versionOne]), historyOf(olderVisits(1), [versionTwo]));
+      saveMock.mockReturnValueOnce(failingSave.promise).mockReturnValueOnce(new Promise(() => undefined));
+      const { queryClient } = renderGrid();
+      await waitForVisits();
+      const input = noteInputs().find((element) => element.value === 'Server v1')!;
+
+      await user.clear(input);
+      await user.type(input, 'My edit');
+      await user.click(document.body);
+      await act(async () => {
+        await queryClient.invalidateQueries({ queryKey: ['get-patient-visit-history'] });
+      });
+      expect(input.value).toBe('My edit');
+      await act(async () => failingSave.reject(new Error('boom')));
+
+      expect(input.value).toBe('My edit');
+      await user.click(input);
+      await user.click(document.body);
+      expect(saveMock).toHaveBeenCalledTimes(2);
+      expect(saveMock.mock.calls[1][1]).toEqual({ patientId: PATIENT_A, encounterId: 'note-1', note: 'My edit' });
+    });
+
+    it('keeps the saved text while the refresh after the save is pending and when it returns older data', async () => {
+      const user = userEvent.setup();
+      const original = freeForm('note-1', 'Old text', { lastUpdated: '2026-10-26T12:00:01.000Z' });
+      const saved = { ...original, note: 'New text', lastUpdated: '2026-10-26T12:05:00.000Z' };
+      const pendingRefresh = deferred<PatientVisitListResponse>();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [original]), pendingRefresh.promise);
+      saveMock.mockResolvedValue(saved);
+      renderGrid();
+      await waitForVisits();
+      const input = noteInputs().find((element) => element.value === 'Old text')!;
+
+      await user.clear(input);
+      await user.type(input, 'New text');
+      await user.click(document.body);
+      await waitFor(() => expect(historyCalls).toHaveLength(2));
+      await waitFor(() => expect(input).not.toHaveAttribute('readonly'));
+
+      expect(input.value).toBe('New text');
+      await act(async () => pendingRefresh.resolve(historyOf(olderVisits(1), [original])));
+      expect(input.value).toBe('New text');
+    });
+
+    it('restores the newest server note on Escape after a failed save', async () => {
+      const user = userEvent.setup();
+      const versionOne = freeForm('note-1', 'Server v1', { lastUpdated: '2026-10-26T12:00:01.000Z' });
+      const versionTwo = { ...versionOne, note: 'Server v2', lastUpdated: '2026-10-26T12:10:00.000Z' };
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [versionOne]), historyOf(olderVisits(1), [versionTwo]));
+      saveMock.mockRejectedValue(new Error('boom'));
+      const { queryClient } = renderGrid();
+      await waitForVisits();
+      const input = noteInputs().find((element) => element.value === 'Server v1')!;
+
+      await user.clear(input);
+      await user.type(input, 'My edit');
+      await user.click(document.body);
+      await waitFor(() =>
+        expect(enqueueSnackbarMock).toHaveBeenCalledWith("Couldn't save the note. Please try again.", {
+          variant: 'error',
+        })
+      );
+      await act(async () => {
+        await queryClient.invalidateQueries({ queryKey: ['get-patient-visit-history'] });
+      });
+      expect(input.value).toBe('My edit');
+
+      await user.click(input);
+      await user.keyboard('{Escape}');
+
+      expect(input.value).toBe('Server v2');
+      expect(saveMock).toHaveBeenCalledTimes(1);
+    });
+
     it('reverts on Escape without saving', async () => {
       const user = userEvent.setup();
       setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Original text')]));

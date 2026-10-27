@@ -40,25 +40,11 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const focusedRef = useRef(false);
   const savingRef = useRef(false);
   const cancelBlurSaveRef = useRef(false);
-  const latestNoteRef = useRef(note);
   const [value, setValue] = useState(note);
   const [savedNote, setSavedNote] = useState(note);
   const [focused, setFocused] = useState(false);
-
-  useEffect(() => {
-    latestNoteRef.current = note;
-    if (focusedRef.current) return;
-    setSavedNote(note);
-    setValue(note);
-  }, [note]);
-
-  const syncToLatestNote = (): void => {
-    setSavedNote(latestNoteRef.current);
-    setValue(latestNoteRef.current);
-  };
 
   const saveMutation = useMutation({
     mutationFn: (input: SaveFreeFormEncounterInput) => {
@@ -74,6 +60,12 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
     onEditingChange?.(editing);
   }, [editing, onEditingChange]);
 
+  useEffect(() => {
+    if (editing) return;
+    setSavedNote(note);
+    setValue(note);
+  }, [note, editing]);
+
   const discardUnsavedDraft = (): boolean => {
     if (!isDraft || encounterId) return false;
     onDiscardDraft?.();
@@ -81,12 +73,10 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
   };
 
   const handleFocus = (): void => {
-    focusedRef.current = true;
     setFocused(true);
   };
 
   const handleBlur = async (): Promise<void> => {
-    focusedRef.current = false;
     setFocused(false);
     const cancelled = cancelBlurSaveRef.current;
     cancelBlurSaveRef.current = false;
@@ -97,13 +87,10 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
   const saveOnBlur = async (cancelled: boolean): Promise<void> => {
     const nextNote = value.trim();
     if (cancelled || !nextNote) {
-      if (!discardUnsavedDraft()) syncToLatestNote();
+      if (!discardUnsavedDraft()) setValue(savedNote);
       return;
     }
-    if (nextNote === savedNote.trim()) {
-      syncToLatestNote();
-      return;
-    }
+    if (nextNote === savedNote.trim()) return;
 
     const session = startSave();
     savingRef.current = true;
