@@ -74,6 +74,18 @@ describe.each([
     await expect(validate(older)).resolves.toBeUndefined();
   });
 
+  test('accepts a maximum per day with the count from the frequency, and an as-needed frequency with its doses a day', async () => {
+    await expect(
+      validate({
+        ...AMOX_STREP,
+        dosing: { rate: 25, basis: 'mg/kg/dose', frequency: 'twice daily', maxPerDayMg: 1000 },
+      })
+    ).resolves.toBeUndefined();
+    await expect(
+      validate({ ...AMOX_STREP, dosing: { rate: 25, basis: 'mg/kg/dose', frequency: 'as needed', dosesPerDay: 3 } })
+    ).resolves.toBeUndefined();
+  });
+
   test('accepts a dose not by weight with only a rate and a basis', async () => {
     await expect(validate({ ...AMOX_STREP, dosing: { rate: 500, basis: 'fixed' } })).resolves.toBeUndefined();
   });
@@ -89,6 +101,20 @@ describe.each([
     ['a negative maximum per dose', { rate: 25, basis: 'mg/kg/dose', maxPerDoseMg: -1 }],
     ['a zero maximum per day', { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2, maxPerDayMg: 0 }],
     ['dosing that is not an object', 'twice daily'],
+    ['a frequency every object has ("constructor")', { rate: 25, basis: 'mg/kg/dose', frequency: 'constructor' }],
+    ['a frequency every object has ("toString")', { rate: 25, basis: 'mg/kg/dose', frequency: 'toString' }],
+    [
+      'doses a day its frequency disagrees with',
+      { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 3, frequency: 'twice daily' },
+    ],
+    [
+      'a maximum per day without doses a day or a counted frequency',
+      { rate: 25, basis: 'mg/kg/dose', maxPerDayMg: 1000 },
+    ],
+    [
+      'a maximum per day with only "as needed"',
+      { rate: 25, basis: 'mg/kg/dose', frequency: 'as needed', maxPerDayMg: 1000 },
+    ],
   ])('rejects %s', async (_label, dosing) => {
     const error = await rejection(validate({ ...AMOX_STREP, dosing }));
     expect(error, 'expected the request to be rejected').toBeDefined();

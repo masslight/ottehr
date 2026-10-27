@@ -1,5 +1,8 @@
 import { DOSE_BASES, DoseBasis } from 'utils/lib/helpers/medications/plain-dose';
-import { PRESCRIPTION_FREQUENCIES } from 'utils/lib/helpers/medications/prescription-suggestions';
+import {
+  PRESCRIPTION_FREQUENCIES,
+  prescriptionFrequency,
+} from 'utils/lib/helpers/medications/prescription-suggestions';
 import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { z } from 'zod';
@@ -129,7 +132,9 @@ const FormSchema = z
     daysSupply: wholeNumber('Days supply', 1, 999),
     rate: z.string(),
     basis: z.enum(DOSE_BASES),
-    frequency: z.string().refine((value) => blank(value) || value in PRESCRIPTION_FREQUENCIES, 'Pick a frequency'),
+    frequency: z
+      .string()
+      .refine((value) => blank(value) || prescriptionFrequency(value) !== undefined, 'Pick a frequency'),
     dosesPerDay: positive('Doses a day'),
     durationDays: wholeNumber('Duration', 1, 999),
     maxPerDoseMg: positive('Maximum per dose'),
@@ -154,6 +159,14 @@ const FormSchema = z
     if (blank(values.rate) || !(Number(values.rate) > 0)) issue('rate', 'Dose must be greater than 0');
     if (values.basis === 'mg/kg/day' && blank(values.dosesPerDay)) {
       issue('dosesPerDay', 'Doses a day is required for mg/kg per day');
+    }
+    // The doses a day follow a frequency that gives a count (picking one fills them in), as the backend checks.
+    const count = dosesPerDayOf(values.frequency);
+    if (count !== undefined && !blank(values.dosesPerDay) && Number(values.dosesPerDay) !== count) {
+      issue('dosesPerDay', `Doses a day must be ${count} for ${values.frequency}`);
+    }
+    if (!blank(values.maxPerDayMg) && blank(values.dosesPerDay) && count === undefined) {
+      issue('maxPerDayMg', 'A maximum per day needs the doses a day or a frequency that gives them');
     }
   });
 
@@ -223,5 +236,4 @@ export const prescriptionQuickPickFromForm = (
 export const FREQUENCY_OPTIONS = Object.keys(PRESCRIPTION_FREQUENCIES);
 
 /** The doses a day a frequency gives, when it gives a count ("as needed" doesn't). */
-export const dosesPerDayOf = (frequency: string): number | undefined =>
-  PRESCRIPTION_FREQUENCIES[frequency]?.dosesPerDay;
+export const dosesPerDayOf = (frequency: string): number | undefined => prescriptionFrequency(frequency)?.dosesPerDay;

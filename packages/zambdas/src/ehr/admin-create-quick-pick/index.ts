@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
 import { DOSE_BASES } from 'utils/lib/helpers/medications/plain-dose';
-import { PRESCRIPTION_FREQUENCIES } from 'utils/lib/helpers/medications/prescription-suggestions';
+import { prescriptionFrequency } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
@@ -76,7 +76,8 @@ const procedureQuickPickSchema = z
   })
   .passthrough();
 
-// The calculator's settings, so the pick can be re-dosed by weight; a per-day rate needs its doses a day.
+// The calculator's settings, so the pick can be re-dosed by weight; a per-day rate needs its doses a day, which agree
+// with the frequency's where it gives a count, and a per-day maximum needs a count from one or the other.
 const prescriptionDosingSchema = z
   .object({
     rate: z.number().positive(),
@@ -84,7 +85,10 @@ const prescriptionDosingSchema = z
     dosesPerDay: z.number().positive().optional(),
     frequency: z
       .string()
-      .refine((frequency) => frequency in PRESCRIPTION_FREQUENCIES, 'must be one of the order form frequencies')
+      .refine(
+        (frequency) => prescriptionFrequency(frequency) !== undefined,
+        'must be one of the order form frequencies'
+      )
       .optional(),
     durationDays: z.number().int().min(1).max(999).optional(),
     maxPerDoseMg: z.number().positive().optional(),
@@ -93,7 +97,21 @@ const prescriptionDosingSchema = z
   .refine((dosing) => dosing.basis !== 'mg/kg/day' || dosing.dosesPerDay !== undefined, {
     message: 'dosesPerDay is required for a mg/kg/day rate',
     path: ['dosesPerDay'],
-  });
+  })
+  .refine(
+    (dosing) => {
+      const count = prescriptionFrequency(dosing.frequency)?.dosesPerDay;
+      return dosing.dosesPerDay === undefined || count === undefined || dosing.dosesPerDay === count;
+    },
+    { message: 'dosesPerDay must be the doses a day of the frequency', path: ['dosesPerDay'] }
+  )
+  .refine(
+    (dosing) =>
+      dosing.maxPerDayMg === undefined ||
+      dosing.dosesPerDay !== undefined ||
+      prescriptionFrequency(dosing.frequency)?.dosesPerDay !== undefined,
+    { message: 'maxPerDayMg needs dosesPerDay or a frequency with a count of doses a day', path: ['maxPerDayMg'] }
+  );
 
 // Where the pick's dosing is from, shown as a link: https only, so a saved link never opens anything else.
 const prescriptionSourceSchema = z.object({

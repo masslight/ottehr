@@ -11,6 +11,10 @@ import {
   prescriptionLineToQuickPick,
   quickPickOverwrite,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
+import {
+  emptyPrescriptionQuickPickForm,
+  prescriptionQuickPickFromForm,
+} from '../../src/features/visits/telemed/components/admin/prescriptionQuickPickForm';
 import PrescriptionQuickPicksPage from '../../src/features/visits/telemed/components/admin/PrescriptionQuickPicksPage';
 
 const mockEnqueueSnackbar = vi.fn();
@@ -252,5 +256,52 @@ describe('"+ Add or Update Quick Pick" over an existing quick pick', () => {
     expect(quickPickOverwrite(undefined, prescriptionLineToQuickPick(line, 'New'))).toEqual(
       prescriptionLineToQuickPick(line, 'New')
     );
+  });
+});
+
+describe('prescriptionQuickPickFromForm: frequency and doses a day', () => {
+  const dosed = {
+    ...emptyPrescriptionQuickPickForm(),
+    name: 'Amox',
+    ndc: '00093416173',
+    medicationDescription: 'Amoxicillin 400 mg/5ml Susp',
+    doseMode: 'dosing' as const,
+    rate: '25',
+    basis: 'mg/kg/dose' as const,
+  };
+
+  it('takes only the form’s own frequencies, never a key every object has', () => {
+    expect(prescriptionQuickPickFromForm({ ...dosed, frequency: 'constructor' }).errors?.frequency).toBe(
+      'Pick a frequency'
+    );
+    expect(prescriptionQuickPickFromForm({ ...dosed, frequency: 'toString' }).errors?.frequency).toBe(
+      'Pick a frequency'
+    );
+  });
+
+  it('wants the doses a day the frequency gives, when it gives a count', () => {
+    expect(
+      prescriptionQuickPickFromForm({ ...dosed, frequency: 'twice daily', dosesPerDay: '3' }).errors?.dosesPerDay
+    ).toBe('Doses a day must be 2 for twice daily');
+    expect(
+      prescriptionQuickPickFromForm({ ...dosed, frequency: 'twice daily', dosesPerDay: '2' }).errors
+    ).toBeUndefined();
+    // "As needed" gives no count: any doses a day will do.
+    expect(
+      prescriptionQuickPickFromForm({ ...dosed, frequency: 'as needed', dosesPerDay: '3' }).errors
+    ).toBeUndefined();
+  });
+
+  it('wants a count of doses a day for a maximum per day', () => {
+    expect(prescriptionQuickPickFromForm({ ...dosed, maxPerDayMg: '1000' }).errors?.maxPerDayMg).toBe(
+      'A maximum per day needs the doses a day or a frequency that gives them'
+    );
+    expect(
+      prescriptionQuickPickFromForm({ ...dosed, frequency: 'as needed', maxPerDayMg: '1000' }).errors?.maxPerDayMg
+    ).toBe('A maximum per day needs the doses a day or a frequency that gives them');
+    expect(
+      prescriptionQuickPickFromForm({ ...dosed, frequency: 'twice daily', maxPerDayMg: '1000' }).errors
+    ).toBeUndefined();
+    expect(prescriptionQuickPickFromForm({ ...dosed, dosesPerDay: '2', maxPerDayMg: '1000' }).errors).toBeUndefined();
   });
 });
