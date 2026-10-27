@@ -14,7 +14,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { assertClaimResponseEraNotVoided } from '../era-write';
-import { createBillingClient, createEraReadClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'match-claim-response';
@@ -24,8 +24,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, params);
 
   return {
     statusCode: 200,
@@ -33,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: Params): Promise<ClaimResponse> {
+export async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimResponse> {
   const claim = await oystehr.fhir.get<Claim>({
     resourceType: 'Claim',
     id: params.claimId,
@@ -42,7 +41,7 @@ export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, pa
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
-  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
+  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
   const bundle = await oystehr.fhir.transaction({
     requests: [
       getPatchBinary({

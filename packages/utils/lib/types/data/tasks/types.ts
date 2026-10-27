@@ -91,7 +91,26 @@ export const FAX_TASK = {
     pdfUrl: 'pdf-url',
     receivedDate: 'received-date',
   },
+  businessStatus: {
+    filed: 'filed',
+    deleting: 'deleting',
+  },
 } as const;
+
+const hasInboundFaxBusinessStatus = (task: FhirTask, code: string): boolean =>
+  !!task.businessStatus?.coding?.some((coding) => coding.system === FAX_TASK.system && coding.code === code);
+
+/**
+ * True once an inbound fax has been filed into a patient's chart. Filing records this on the Task's
+ * `businessStatus` but leaves the Task open: like a manual task, it is completed by a person pressing
+ * Complete in the Tasks queue.
+ */
+export const isInboundFaxFiled = (task: FhirTask): boolean =>
+  hasInboundFaxBusinessStatus(task, FAX_TASK.businessStatus.filed);
+
+/** True while a delete has reserved the fax (its PDF may already be gone); filing must refuse it. */
+export const isInboundFaxDeleting = (task: FhirTask): boolean =>
+  hasInboundFaxBusinessStatus(task, FAX_TASK.businessStatus.deleting);
 
 /**
  * Reads a valueString Task.input from a Task created via the zambdas' `createTask` helper,

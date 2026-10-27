@@ -13,6 +13,8 @@ import {
   People as PeopleIcon,
   Receipt as ReceiptIcon,
   Rule as RuleIcon,
+  SettingsOutlined as SettingsIcon,
+  ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
@@ -26,6 +28,7 @@ const DRAWER_WIDTH = 220;
 const navItems = [
   // { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Work Queues', path: '/work-queues', icon: <ViewListIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claim Creation Queue', path: '/claim-creation-queue', icon: <ListIcon sx={{ fontSize: 18 }} /> },
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
   {
@@ -142,6 +145,12 @@ export const Sidebar: FC = () => {
         {navItems.map(renderNavItem)}
         <Divider sx={{ my: 1 }} />
         {rulesNavItems.map(renderNavItem)}
+        <Divider sx={{ my: 1 }} />
+        {renderNavItem({
+          label: 'Invoicing Configuration',
+          path: '/invoicing-configuration',
+          icon: <SettingsIcon sx={{ fontSize: 18 }} />,
+        })}
       </List>
 
       <List sx={{ px: 1.25 }}>

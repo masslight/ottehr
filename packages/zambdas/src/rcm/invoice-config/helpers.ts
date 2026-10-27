@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Extension, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ParsedInvoiceConfig, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
+import { InvoiceConfigResponse } from 'utils/lib/types/api/invoice-config.types';
 import {
   DEFAULT_INVOICE_DUE_DAYS,
   DEFAULT_INVOICE_MEMO_TEMPLATE,
@@ -126,11 +127,6 @@ function buildDefaultQuestionnaireResponse(questionnaireId: string): Omit<Questi
   };
 }
 
-export interface InvoicingConfigPair {
-  questionnaire: Questionnaire;
-  questionnaireResponse: QuestionnaireResponse;
-}
-
 export type ParsedInvoicingConfig = ParsedInvoiceConfig;
 
 export function parseInvoicingConfig(qr: QuestionnaireResponse): ParsedInvoicingConfig {
@@ -143,7 +139,7 @@ export function parseInvoicingConfig(qr: QuestionnaireResponse): ParsedInvoicing
  * Guarantees at most one Questionnaire and one QuestionnaireResponse exist;
  * logs a warning if duplicates are detected.
  */
-export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<InvoicingConfigPair> {
+export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<InvoiceConfigResponse> {
   // Search for existing Questionnaire tagged as rcm + invoice-config
   const questionnaireBundle = await oystehr.fhir.search<Questionnaire>({
     resourceType: 'Questionnaire',

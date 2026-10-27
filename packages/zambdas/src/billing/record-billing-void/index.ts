@@ -6,6 +6,7 @@ import { RecordBillingVoidInputSchema } from 'utils/lib/types/data/billing/billi
 import { RecordBillingVoidResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+// eslint-disable-next-line no-restricted-imports -- reads the voided clinical payment notice
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { voidPaymentNotice } from '../../shared/stripeIntegration';

@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { RULES_ENGINE_SUBMISSION_TYPES, RULES_ENGINE_TYPES, RulesEngineType } from './rules-engine.constants';
+import {
+  RULES_ENGINE_SUBMISSION_INSURANCES,
+  RULES_ENGINE_SUBMISSION_TYPES,
+  RULES_ENGINE_TYPES,
+  RulesEngineType,
+} from './rules-engine.constants';
 import { HOLD_TAG_NAME } from './system-tags';
 
 // ---------------------------------------------------------------------------
@@ -406,28 +411,32 @@ export const MAX_RUN_RULES_ENGINE_CLAIMS = 20;
 // claim's engine from its AR stage and enqueues that engine's Task; a Subscription then runs it
 // asynchronously.
 export const RunBillingRulesEngineInputSchema = z
-  .object({
-    claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
-    skipRules: z.boolean().default(false),
-    submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES).optional(),
-    payerClaimControlNumber: z.string().min(1).optional(),
-  })
+  .union([
+    z.object({
+      claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+      skipRules: z.boolean().default(false),
+      submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES),
+      submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES),
+      payerClaimControlNumber: z.string().min(1).optional(),
+    }),
+    z.object({
+      claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+      skipRules: z.boolean().default(false),
+    }),
+  ])
   .superRefine((data, ctx) => {
-    if (!data.skipRules && data.submissionType && data.submissionType !== 'new') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['submissionType'],
-        message: `"submissionType" must be "new" when "skipRules" is "false"`,
-      });
-    }
-    if (data.submissionType === 'new' && data.payerClaimControlNumber) {
+    if ('submissionType' in data && data.submissionType === 'new' && data.payerClaimControlNumber) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['payerClaimControlNumber'],
         message: `"payerClaimControlNumber" must not be present when "submissionType" is "new"`,
       });
     }
-    if ((data.submissionType === 'correction' || data.submissionType === 'void') && !data.payerClaimControlNumber) {
+    if (
+      'submissionType' in data &&
+      (data.submissionType === 'correction' || data.submissionType === 'void') &&
+      !data.payerClaimControlNumber
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['payerClaimControlNumber'],

@@ -12,7 +12,7 @@ import {
   StructuredRow,
   StructuredValue,
 } from 'utils/lib/procedure-coding/structured-fields';
-import { MultiBlank, SelectBlank, Sentence, TextBlank } from './InlineBlanks';
+import { ClockTimeBlank, MultiBlank, SelectBlank, Sentence, TextBlank } from './InlineBlanks';
 
 const YES_NO = ['yes', 'no'];
 
@@ -61,6 +61,16 @@ function fieldBlank(
         need={need}
         clearable
         helperText={field.helperText}
+      />
+    );
+  if (field.kind === 'time')
+    return (
+      <ClockTimeBlank
+        label={label.toLowerCase()}
+        value={typeof current === 'string' ? current : undefined}
+        onChange={change}
+        readOnly={readOnly}
+        need={need}
       />
     );
   return (

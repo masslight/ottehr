@@ -1538,6 +1538,7 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     fillerLab: labOrg?.name || '',
     orderStatus: parseLabOrderStatusWithSpecificTask(diagnosticReport, task, undefined, null),
     isPSC: false,
+    isStat: false,
     lastResultReceivedDate: diagnosticReport.effectiveDateTime || '',
     accessionNumbers: [parseAccessionNumberFromDr(diagnosticReport)],
     history: [], // todo post mvp
