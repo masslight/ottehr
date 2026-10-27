@@ -41,6 +41,7 @@ import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescrip
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   usePrescriptionQuickPicksQuery,
+  usePrescriptionSetQuickPicksQuery,
   useRemovePrescriptionQuickPickMutation,
   useSavePrescriptionQuickPickMutation,
 } from './admin.queries';
@@ -60,9 +61,19 @@ import {
 export const prescriptionQuickPickDoseText = (quickPick: PrescriptionQuickPickData): string =>
   quickPick.dosing ? quickPickDosingSummary(quickPick.dosing) : quickPick.patientInstructions ?? '';
 
+/** What removing a quick pick does to the sets that have it, for the remove confirmation. */
+export const setsRemovalText = (setNames: string[]): string | undefined => {
+  if (!setNames.length) return undefined;
+  const one = setNames.length === 1;
+  return `It's in ${one ? '1 set' : `${setNames.length} sets`}: ${setNames.join(', ')}. Removing it takes it out of ${
+    one ? 'the set and makes the set' : setNames.length === 2 ? 'both and makes them' : 'all of them and makes them'
+  } Inactive until someone reviews ${one ? 'it' : 'them'}.`;
+};
+
 export default function PrescriptionQuickPicksPage(): ReactElement {
   const theme = useTheme();
   const { data: quickPicks = [], isLoading } = usePrescriptionQuickPicksQuery();
+  const { data: sets = [] } = usePrescriptionSetQuickPicksQuery();
   const saveMutation = useSavePrescriptionQuickPickMutation();
   const removeMutation = useRemovePrescriptionQuickPickMutation();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -198,6 +209,9 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                     </IconButton>
                     <ConfirmationDialog
                       title={`Remove Quick Pick "${item.name}"?`}
+                      description={setsRemovalText(
+                        sets.filter((set) => item.id && set.memberIds.includes(item.id)).map((set) => set.name)
+                      )}
                       response={() => handleDelete(item)}
                       actionButtons={{ proceed: { text: 'Remove', color: 'error' }, back: { text: 'Cancel' } }}
                     >

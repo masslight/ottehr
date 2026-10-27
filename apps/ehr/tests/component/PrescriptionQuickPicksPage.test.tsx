@@ -9,13 +9,16 @@ import {
   emptyPrescriptionQuickPickForm,
   prescriptionQuickPickFromForm,
 } from '../../src/features/visits/telemed/components/admin/prescriptionQuickPickForm';
-import PrescriptionQuickPicksPage from '../../src/features/visits/telemed/components/admin/PrescriptionQuickPicksPage';
+import PrescriptionQuickPicksPage, {
+  setsRemovalText,
+} from '../../src/features/visits/telemed/components/admin/PrescriptionQuickPicksPage';
 
 const mockEnqueueSnackbar = vi.fn();
 vi.mock('notistack', () => ({ enqueueSnackbar: (...args: unknown[]) => mockEnqueueSnackbar(...args) }));
 
 const api = vi.hoisted(() => ({
   getPrescriptionQuickPicks: vi.fn(),
+  getPrescriptionSetQuickPicks: vi.fn(),
   createPrescriptionQuickPick: vi.fn(),
   updatePrescriptionQuickPick: vi.fn(),
   removeQuickPick: vi.fn(),
@@ -83,6 +86,7 @@ describe('Prescription quick picks admin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.getPrescriptionQuickPicks.mockResolvedValue({ quickPicks: [BY_WEIGHT, AS_WRITTEN] });
+    api.getPrescriptionSetQuickPicks.mockResolvedValue({ quickPicks: [] });
     api.createPrescriptionQuickPick.mockResolvedValue({ quickPick: { id: 'new' } });
     api.updatePrescriptionQuickPick.mockResolvedValue({ quickPick: { id: 'qp-2' } });
     api.removeQuickPick.mockResolvedValue(undefined);
@@ -219,6 +223,49 @@ describe('Prescription quick picks admin', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(api.removeQuickPick).toHaveBeenCalledWith({}, 'qp-1'));
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Quick pick removed', { variant: 'success' });
+  });
+
+  it('names the sets a quick pick is in before removing it, and fetches the sets again after', async () => {
+    api.getPrescriptionSetQuickPicks.mockResolvedValue({
+      quickPicks: [
+        { id: 'set-1', name: 'Ear infection', status: 'Active', memberIds: ['qp-1', 'qp-2'] },
+        { id: 'set-2', name: 'Strep throat', status: 'Active', memberIds: ['qp-1'] },
+        { id: 'set-3', name: 'Cough', status: 'Active', memberIds: ['qp-2'] },
+      ],
+    });
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Amoxicillin otitis')).closest('tr') as HTMLElement;
+    await waitFor(() => expect(api.getPrescriptionSetQuickPicks).toHaveBeenCalledTimes(1));
+    await user.click(within(row).getByTitle('Remove'));
+    const confirm = await screen.findByRole('dialog');
+    expect(
+      within(confirm).getByText(
+        "It's in 2 sets: Ear infection, Strep throat. Removing it takes it out of both and makes them Inactive until someone reviews them."
+      )
+    ).toBeInTheDocument();
+    await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(api.getPrescriptionSetQuickPicks).toHaveBeenCalledTimes(2));
+  });
+
+  it('says nothing about sets for a quick pick in none', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Amoxicillin caps')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByTitle('Remove'));
+    expect(within(await screen.findByRole('dialog')).queryByText(/It's in/)).not.toBeInTheDocument();
+  });
+});
+
+describe('setsRemovalText', () => {
+  it('words one set, two and more', () => {
+    expect(setsRemovalText(['Ear infection'])).toBe(
+      "It's in 1 set: Ear infection. Removing it takes it out of the set and makes the set Inactive until someone reviews it."
+    );
+    expect(setsRemovalText(['A', 'B', 'C'])).toBe(
+      "It's in 3 sets: A, B, C. Removing it takes it out of all of them and makes them Inactive until someone reviews them."
+    );
+    expect(setsRemovalText([])).toBeUndefined();
   });
 });
 

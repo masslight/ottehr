@@ -15,11 +15,13 @@ import {
   bulkUpdateInsuranceStatus,
   createEmCode,
   createPrescriptionQuickPick,
+  createPrescriptionSetQuickPick,
   deleteEmCode,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
   getLabelPrintingConfig,
   getPrescriptionQuickPicks,
+  getPrescriptionSetQuickPicks,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   getSupportDialog,
@@ -32,6 +34,7 @@ import {
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
   updatePrescriptionQuickPick,
+  updatePrescriptionSetQuickPick,
   updateProcedureQuickPick,
   updateRadiologyQuickPick,
 } from 'src/api/api';
@@ -49,6 +52,7 @@ import {
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   PrescriptionQuickPickData,
+  PrescriptionSetQuickPickData,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
@@ -251,7 +255,8 @@ function makeRenameQuickPickMutation<T extends { id?: string; name: string }>(
   };
 }
 
-function makeRemoveQuickPickMutation(queryKey: string): () => UseMutationResult<void, Error, string> {
+/** Other lists the removal changes (a prescription quick pick's sets) are fetched again too. */
+function makeRemoveQuickPickMutation(...queryKeys: string[]): () => UseMutationResult<void, Error, string> {
   return () => {
     const { oystehrZambda } = useApiClients();
     const queryClient = useQueryClient();
@@ -260,7 +265,8 @@ function makeRemoveQuickPickMutation(queryKey: string): () => UseMutationResult<
         if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
         await removeQuickPick(oystehrZambda, id);
       },
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryKey] }),
+      onSuccess: () =>
+        Promise.all(queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey: [queryKey] }))),
     });
   };
 }
@@ -293,7 +299,10 @@ export const usePrescriptionQuickPicksQuery = makeQuickPicksQuery(
   'prescription-quick-picks',
   getPrescriptionQuickPicks
 );
-export const useRemovePrescriptionQuickPickMutation = makeRemoveQuickPickMutation('prescription-quick-picks');
+export const useRemovePrescriptionQuickPickMutation = makeRemoveQuickPickMutation(
+  'prescription-quick-picks',
+  'prescription-set-quick-picks'
+);
 /** Adds a prescription quick pick, or replaces the one with the id. */
 export const useSavePrescriptionQuickPickMutation = (): UseMutationResult<
   void,
@@ -309,6 +318,29 @@ export const useSavePrescriptionQuickPickMutation = (): UseMutationResult<
       else await createPrescriptionQuickPick(oystehrZambda, { quickPick });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['prescription-quick-picks'] }),
+  });
+};
+
+export const usePrescriptionSetQuickPicksQuery = makeQuickPicksQuery(
+  'prescription-set-quick-picks',
+  getPrescriptionSetQuickPicks
+);
+export const useRemovePrescriptionSetQuickPickMutation = makeRemoveQuickPickMutation('prescription-set-quick-picks');
+/** Adds a prescription set, or replaces the one with the id. */
+export const useSavePrescriptionSetQuickPickMutation = (): UseMutationResult<
+  void,
+  Error,
+  { id?: string; quickPick: Omit<PrescriptionSetQuickPickData, 'id'> }
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, quickPick }) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
+      if (id) await updatePrescriptionSetQuickPick(oystehrZambda, id, quickPick);
+      else await createPrescriptionSetQuickPick(oystehrZambda, { quickPick });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['prescription-set-quick-picks'] }),
   });
 };
 
