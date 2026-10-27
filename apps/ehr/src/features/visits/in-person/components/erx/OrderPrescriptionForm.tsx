@@ -36,7 +36,6 @@ import { ProcedureQuickPickDialogs } from '../procedures/ProcedureQuickPickDialo
 import { calculatorWeightKg, previousVisitWeightNote } from './DoseCalculator';
 import {
   ageMonthsAtVisit,
-  applyPrescriptionQuickPick,
   emptyPrescriptionLine,
   PrescriptionLine,
   prescriptionLineErrors,
@@ -45,6 +44,7 @@ import {
   quickPickDosingText,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
+import { withListedQuickPick } from './prescriptionSuggestions';
 import { useVisitWeight } from './useVisitWeight';
 
 // Layout from the procedure page: the side column sits beside the form once the page is wide enough.
@@ -330,7 +330,7 @@ export const OrderPrescriptionForm: FC = () => {
                           : undefined
                       }
                       quickPicks={quickPicks}
-                      onQuickPick={(quickPick) => updateLine(line.key, applyPrescriptionQuickPick(line, quickPick))}
+                      onQuickPick={(quickPick) => updateLine(line.key, withListedQuickPick(line, quickPick, weightKg))}
                       onSaveQuickPick={isAdmin ? () => void openQuickPickDialog(line) : undefined}
                       visitDiagnoses={visitDiagnoses}
                       patientAgeMonths={patientAgeMonths}

@@ -100,7 +100,7 @@ const dosedRow = (
   id: string,
   medication: MedicationSearchResult,
   weightKg: number | undefined
-): PrescriptionSuggestionRow => {
+): PrescriptionSuggestionRow & Required<Pick<PrescriptionSuggestionRow, 'apply'>> => {
   const { description } = medication;
   const form = prescriptionDoseForm(description);
   const measure = form && MEASURE_OF[form];
@@ -183,9 +183,10 @@ const dosedRow = (
     fill,
     apply: (line, picks) => {
       const filled = withSuggestion(withQuickPick(line, quickPick), fill(picks));
-      // The calculator's dose keeps its settings on the line; one typed into the row is the provider's own.
+      // The calculator's dose keeps its settings on the line, as does its blank waiting for a weight; a dose typed into
+      // the row is the provider's own.
       const typed = picks[doseAt] !== undefined && picks[doseAt] !== doseText;
-      return doseText && !typed ? { ...filled, dosing: calculator } : filled;
+      return typed ? filled : { ...filled, dosing: calculator };
     },
   };
 };
@@ -207,3 +208,16 @@ export const prescriptionSuggestionsFor = ({
         ? dosedRow(quickPick, quickPick.dosing, id, medication, weightKg)
         : savedRow(quickPick, id);
     });
+
+/** A quick pick chosen from the "+ quick pick" list: one saved from the calculator is re-dosed for this patient's
+ * weight exactly as its suggestion row is (no weight: the dose waits, the settings stay); one without, as saved. */
+export const withListedQuickPick = (
+  line: PrescriptionLine,
+  quickPick: PrescriptionQuickPickData,
+  weightKg: number | undefined
+): PrescriptionLine => {
+  const applied = applyPrescriptionQuickPick(line, quickPick);
+  return quickPick.dosing && applied.medication
+    ? dosedRow(quickPick, quickPick.dosing, '', applied.medication, weightKg).apply(applied, [])
+    : applied;
+};

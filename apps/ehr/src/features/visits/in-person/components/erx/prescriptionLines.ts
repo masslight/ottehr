@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { DoseMeasure, doseRoundingNote, nearestMeasurable } from 'utils/lib/helpers/medications/plain-dose';
+import { DoseMeasure, doseRoundingNote, nearestMeasurable, plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseAmountText,
   parseStrengthConcentration,
@@ -67,11 +67,13 @@ export interface PrescriptionLine extends PrescriptionDirections {
 /** What the calculator worked the dose out from; the frequency and duration are the line's own. */
 export type CalculatorDosing = Omit<PrescriptionQuickPickDosing, 'frequency' | 'durationDays'>;
 
-/** How far a dose a strength change re-measured lands from the mg it was: shown beside the dose while it stays as
- * re-measured. */
+/** How far a dose a strength change re-measured lands from the mg it was, or how the calculator's settings worked it
+ * out again for a new frequency: shown beside the dose while it stays so. */
 export interface DoseNote {
   dose: string;
   text: string;
+  /** The calculator's working, for a dose it worked out again (the text is then its rounding note, if any). */
+  working?: string;
 }
 
 type QuickPickedFields = Pick<PrescriptionLine, 'quantityValue' | 'daysSupply' | 'numberOfRefills' | 'noteToPharmacy'>;
@@ -153,17 +155,47 @@ export const withDirections = (line: PrescriptionLine, patch: Partial<Prescripti
   };
 };
 
-/** The line without the calculator's settings once a change by hand means its dose is no longer the one they worked
- * out: a dose typed over it, or a frequency of other doses a day than it used. */
-export const withoutCalculatorDosing = (line: PrescriptionLine, patch: Partial<PrescriptionStep>): PrescriptionLine => {
+/** The line's calculator settings after a change by hand to its dose or frequency. A dose typed over the calculator's
+ * drops them. A frequency of other doses a day keeps them, with the new doses a day: by mg/kg/day the dose is worked out
+ * again for the weight (blank without one), with the working behind the ⓘ; per dose, or not by weight, it stays. */
+export const withCalculatorDosing = (
+  line: PrescriptionLine,
+  patch: Partial<PrescriptionStep>,
+  weightKg: number | undefined
+): PrescriptionLine => {
   const { dosing } = line;
   if (!dosing) return line;
-  const typed = patch.dose !== undefined && patch.dose !== line.dose;
-  const otherDoses =
-    patch.frequency !== undefined &&
-    dosing.dosesPerDay !== undefined &&
-    PRESCRIPTION_FREQUENCIES[patch.frequency]?.dosesPerDay !== dosing.dosesPerDay;
-  return typed || otherDoses ? { ...line, dosing: undefined } : line;
+  if (patch.dose !== undefined && patch.dose !== line.dose) return { ...line, dosing: undefined };
+  const dosesPerDay =
+    patch.frequency === undefined ? undefined : PRESCRIPTION_FREQUENCIES[patch.frequency]?.dosesPerDay;
+  if (dosesPerDay === undefined || dosesPerDay === dosing.dosesPerDay) return line;
+  const kept: PrescriptionLine = { ...line, dosing: { ...dosing, dosesPerDay } };
+  if (dosing.basis !== 'mg/kg/day') return kept;
+  const description = line.medication?.description ?? '';
+  const form = prescriptionDoseForm(description);
+  const measure = form && MEASURE_OF[form];
+  const dose =
+    measure &&
+    plainDose({
+      weightKg,
+      mgPerMeasure: mgPerMeasure(description),
+      measure,
+      basis: dosing.basis,
+      rate: dosing.rate,
+      dosesPerDay,
+      maxPerDoseMg: dosing.maxPerDoseMg,
+      maxPerDayMg: dosing.maxPerDayMg,
+    });
+  if (!dose) return { ...kept, dose: '' };
+  const amount = String(dose.amount);
+  return {
+    ...kept,
+    dose: amount,
+    doseNotes: [
+      { dose: amount, text: dose.roundingNote ?? '', working: dose.working },
+      ...(line.doseNotes ?? []).slice(1),
+    ],
+  };
 };
 
 /** A number as the blanks hold it, or nothing for an empty or unreadable one. */

@@ -12,6 +12,7 @@ import {
   withProduct,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
 import { PrescriptionSentences } from '../../src/features/visits/in-person/components/erx/PrescriptionSentences';
+import { withListedQuickPick } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
 import { ProcedureQuickPickDialogs } from '../../src/features/visits/in-person/components/procedures/ProcedureQuickPickDialogs';
 
@@ -87,15 +88,17 @@ const Harness = ({
   const [line, setLine] = useState(initial);
   const [weightText, setWeightText] = useState<string>();
   latest = line;
+  const weightKg = weightText !== undefined ? Number(weightText) || undefined : weight?.kg;
   return (
     <PrescriptionSentences
       line={line}
       index={0}
       onChange={setLine}
       quickPicks={quickPicks}
-      onQuickPick={() => undefined}
+      // As the order form does it.
+      onQuickPick={(quickPick) => setLine((current) => withListedQuickPick(current, quickPick, weightKg))}
       visitDiagnoses={[]}
-      weightKg={weightText !== undefined ? Number(weightText) || undefined : weight?.kg}
+      weightKg={weightKg}
       weight={weight}
       weightText={weightText}
       onWeightText={setWeightText}
@@ -301,5 +304,112 @@ describe('Suggestions from quick picks', () => {
     await user.click(within(rowNamed('Amox strep')).getByRole('button', { name: 'Use this prescription' }));
     expect(latest).toMatchObject({ dose: '8', patientInstructions: 'Take 8 mL by mouth twice daily for 10 days.' });
     expect(latest?.dosing).toBeUndefined();
+  });
+});
+
+describe('The "+ quick pick" list', () => {
+  // The list sets the product from the quick pick's NDC and description.
+  const LISTED = { ...BY_WEIGHT, medicationDescription: PRODUCT.description };
+  const LISTED_TEXT = { ...SAVED_TEXT, medicationDescription: PRODUCT.description };
+  const PER_DAY: PrescriptionQuickPickData = {
+    ...LISTED,
+    id: 'qp-per-day',
+    name: 'Amox per day',
+    patientInstructions: 'Take 10 mL by mouth twice daily for 10 days.',
+    dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+  };
+
+  const choose = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
+    await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
+    await user.click(within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText(label));
+  };
+
+  it('re-doses a quick pick saved by weight for this patient, as its suggestion row does', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED]} weight={{ ...WEIGHT, kg: 12.4 }} />);
+    await choose(user, 'Amox strep, 120 milliliter');
+    // 12.4 kg × 25 = 310 mg = 3.875 mL: the nearest half mL is 4 mL.
+    expect(latest).toMatchObject({
+      medication: PRODUCT,
+      dose: '4',
+      frequency: 'twice daily',
+      durationDays: '10',
+      quantityValue: '80',
+      quantityUnit: 'Milliliter',
+      daysSupply: '10',
+      substitutionAllowed: false,
+      noteToPharmacy: 'Shake well',
+      patientInstructions: 'Take 4 mL by mouth twice daily for 10 days.',
+      dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2 },
+    });
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(4);
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
+      'Take 4 mL by mouth twice daily for 10 days.'
+    );
+  });
+
+  it('without a weight leaves the dose to enter and keeps the settings on the line', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED]} />);
+    await choose(user, 'Amox strep, 120 milliliter');
+    expect(latest).toMatchObject({ medication: PRODUCT, dose: '', frequency: 'twice daily', durationDays: '10' });
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveAttribute('placeholder', '(enter weight)');
+    expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual(BY_WEIGHT.dosing);
+  });
+
+  it('uses a quick pick without dosing as saved', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED_TEXT]} weight={WEIGHT} />);
+    await choose(user, 'Amox as written, 100 milliliter');
+    expect(latest).toMatchObject({
+      medication: PRODUCT,
+      dose: '',
+      quantityValue: '100',
+      patientInstructions: 'Take 5 mL by mouth twice daily for 10 days.',
+    });
+    expect(latest?.dosing).toBeUndefined();
+  });
+
+  it('a new frequency keeps the settings: by mg/kg/day the dose is worked out again, with the working behind the ⓘ', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} quickPicks={[PER_DAY]} weight={{ ...WEIGHT, kg: 20 }} />);
+    await choose(user, 'Amox per day, 120 milliliter');
+    // 20 kg × 80 mg/kg/day ÷ 2 = 800 mg = 10 mL.
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(10);
+    await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
+    await user.click(screen.getByRole('option', { name: 'three times daily' }));
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(6.5);
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
+      'Take 6.5 mL by mouth three times daily for 10 days.'
+    );
+    await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
+    const working = await screen.findByTestId('dose-working-note');
+    expect(working).toHaveTextContent('20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → 6.5 mL = 520 mg');
+    expect(working).toHaveTextContent('6.5 mL = 520 mg, 13.3 mg (2%) under 533.33 mg');
+    expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual({
+      rate: 80,
+      basis: 'mg/kg/day',
+      dosesPerDay: 3,
+      frequency: 'three times daily',
+      durationDays: 10,
+    });
+  });
+
+  it('a new frequency keeps the settings: by mg/kg/dose the dose stays', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED]} weight={WEIGHT} />);
+    await choose(user, 'Amox strep, 120 milliliter');
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(9);
+    await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
+    await user.click(screen.getByRole('option', { name: 'three times daily' }));
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(9);
+    expect(screen.queryByRole('img', { name: 'How the dose was worked out' })).not.toBeInTheDocument();
+    expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual({
+      rate: 25,
+      basis: 'mg/kg/dose',
+      dosesPerDay: 3,
+      frequency: 'three times daily',
+      durationDays: 10,
+    });
   });
 });

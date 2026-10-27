@@ -7,9 +7,9 @@ import {
   prescriptionLineErrors,
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
+  withCalculatorDosing,
   withDirections,
   withDrug,
-  withoutCalculatorDosing,
   withProduct,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -488,24 +488,103 @@ describe('product changes and suggestions', () => {
   });
 });
 
-describe('withoutCalculatorDosing', () => {
+describe('withCalculatorDosing', () => {
+  // Nothing typed into the directions or dispense blanks, so they follow.
   const dosed: PrescriptionLine = {
     ...complete(),
+    patientInstructions: '',
+    quantityValue: '',
+    daysSupply: '',
     dose: '3',
     frequency: 'twice daily',
     dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2 },
   };
+  /** A blank changed on the line, as the dose and frequency blanks do it. */
+  const changed = (line: PrescriptionLine, patch: Partial<PrescriptionLine>, kg?: number): PrescriptionLine =>
+    withDirections(withCalculatorDosing(line, patch, kg), patch);
+  // 400 mg/5 mL = 80 mg/mL; 20 kg × 80 mg/kg/day ÷ 2 = 800 mg = 10 mL.
+  const perDay: PrescriptionLine = {
+    ...complete(),
+    patientInstructions: '',
+    quantityValue: '',
+    daysSupply: '',
+    medication: { ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' },
+    quantityUnit: 'Milliliter',
+    dose: '10',
+    frequency: 'twice daily',
+    durationDays: '10',
+    dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 2 },
+  };
 
   it('keeps the settings while the dose and the doses a day stay the calculator’s', () => {
-    expect(withoutCalculatorDosing(dosed, { durationDays: '10' }).dosing).toEqual(dosed.dosing);
-    expect(withoutCalculatorDosing(dosed, { frequency: 'every 12 hours' }).dosing).toEqual(dosed.dosing);
-    expect(withoutCalculatorDosing(dosed, { dose: '3' }).dosing).toEqual(dosed.dosing);
+    expect(withCalculatorDosing(dosed, { durationDays: '10' }, 20)).toBe(dosed);
+    expect(withCalculatorDosing(dosed, { frequency: 'every 12 hours' }, 20)).toBe(dosed);
+    expect(withCalculatorDosing(dosed, { dose: '3' }, 20)).toBe(dosed);
+    // A frequency with no doses a day says nothing new to work from.
+    expect(withCalculatorDosing(dosed, { frequency: 'as needed' }, 20)).toBe(dosed);
   });
 
-  it('drops them for a typed dose or a frequency of other doses a day', () => {
-    expect(withoutCalculatorDosing(dosed, { dose: '4' }).dosing).toBeUndefined();
-    expect(withoutCalculatorDosing(dosed, { frequency: 'three times daily' }).dosing).toBeUndefined();
-    expect(withoutCalculatorDosing(dosed, { frequency: 'as needed' }).dosing).toBeUndefined();
+  it('drops them for a typed dose', () => {
+    expect(withCalculatorDosing(dosed, { dose: '4' }, 20).dosing).toBeUndefined();
+  });
+
+  it('mg/kg/dose: keeps the rate and the per-dose amount for a frequency of other doses a day; a quick pick saves it', () => {
+    const next = changed(dosed, { frequency: 'three times daily' }, 20);
+    expect(next).toMatchObject({
+      dose: '3',
+      frequency: 'three times daily',
+      dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 3 },
+      patientInstructions: 'Take 3 capsules by mouth three times daily.',
+    });
+    expect(next.doseNotes).toBeUndefined();
+    expect(prescriptionLineToQuickPick(next, 'Dosed').dosing).toEqual({
+      rate: 25,
+      basis: 'mg/kg/dose',
+      dosesPerDay: 3,
+      frequency: 'three times daily',
+    });
+  });
+
+  it('mg/kg/day: works the per-dose amount out again for the new doses a day, with the working behind the ⓘ', () => {
+    const next = changed(perDay, { frequency: 'three times daily' }, 20);
+    expect(next).toMatchObject({
+      dose: '6.5',
+      frequency: 'three times daily',
+      dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 },
+      patientInstructions: 'Take 6.5 mL by mouth three times daily for 10 days.',
+      quantityValue: '195',
+    });
+    expect(next.doseNotes).toEqual([
+      {
+        dose: '6.5',
+        working: '20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → 6.5 mL = 520 mg',
+        text: '6.5 mL = 520 mg, 13.3 mg (2%) under 533.33 mg',
+      },
+    ]);
+    expect(prescriptionLineToQuickPick(next, 'Per day').dosing).toEqual({
+      rate: 80,
+      basis: 'mg/kg/day',
+      dosesPerDay: 3,
+      frequency: 'three times daily',
+      durationDays: 10,
+    });
+    // Back to twice daily: 10 mL again, measured exactly, so no rounding note.
+    expect(changed(next, { frequency: 'twice daily' }, 20)).toMatchObject({
+      dose: '10',
+      doseNotes: [{ dose: '10', working: '20 kg × 80 mg/kg/day ÷ 2 = 800 mg → 10 mL = 800 mg', text: '' }],
+    });
+  });
+
+  it('mg/kg/day: keeps to the maximum, measuring down, and leaves the dose blank without a weight', () => {
+    const capped = { ...perDay, dosing: { ...perDay.dosing!, maxPerDoseMg: 500 } };
+    const next = changed(capped, { frequency: 'three times daily' }, 20);
+    expect(next.dose).toBe('6');
+    expect(next.doseNotes?.[0]?.working).toBe(
+      '20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → capped at 500 mg per dose → 6 mL = 480 mg'
+    );
+    expect(next.dosing).toEqual({ rate: 80, basis: 'mg/kg/day', dosesPerDay: 3, maxPerDoseMg: 500 });
+    const noWeight = changed(perDay, { frequency: 'three times daily' });
+    expect(noWeight).toMatchObject({ dose: '', dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 } });
   });
 
   it('drops them on a new product and saves none for a course', () => {

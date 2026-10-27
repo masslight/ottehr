@@ -44,9 +44,9 @@ import {
   pickedStrength,
   PrescriptionLine,
   prescriptionQuickPickLabel,
+  withCalculatorDosing,
   withDirections,
   withDrug,
-  withoutCalculatorDosing,
   withProduct,
   withSuggestion,
 } from './prescriptionLines';
@@ -374,6 +374,12 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     <>
       <TextBlank
         label={`${at}dose`}
+        // The calculator's settings by weight wait for one, as a quick pick's suggestion row does.
+        placeholder={
+          at === '' && line.dosing && line.dosing.basis !== 'fixed' && !weightKg && !step.dose
+            ? '(enter weight)'
+            : undefined
+        }
         kind="number"
         value={step.dose}
         onChange={(dose) => onStep({ dose })}
@@ -393,9 +399,17 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       )}
       {doseUnit && ` ${doseUnitLabel(doseUnit, Number(step.dose) || undefined)}`}
       {/* Shown while the dose is as a strength change re-measured it. */}
-      {doseNote && doseNote.dose === step.dose && (
-        <DoseInfoHover label={`${at}dose re-measured`} lines={[doseNote.text]} testId={`${at}dose-note`} />
-      )}{' '}
+      {doseNote &&
+        doseNote.dose === step.dose &&
+        (doseNote.working ? (
+          <DoseInfoHover
+            label={`How the ${at}dose was worked out`}
+            lines={[doseNote.working, ...(doseNote.text ? [doseNote.text] : [])]}
+            testId={`${at}dose-working-note`}
+          />
+        ) : (
+          <DoseInfoHover label={`${at}dose re-measured`} lines={[doseNote.text]} testId={`${at}dose-note`} />
+        ))}{' '}
       {route}
       <SelectBlank
         label={`${at}frequency`}
@@ -656,7 +670,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             {stepBlanks(
               line,
               '',
-              (patch) => onChange(withDirections(withoutCalculatorDosing(line, patch), patch)),
+              (patch) => onChange(withDirections(withCalculatorDosing(line, patch, weightKg), patch)),
               line.doseNotes?.[0],
               <>
                 <SelectBlank
