@@ -73,7 +73,7 @@ jobs:
       - name: HashiCorp - Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
-          terraform_version: "1.12.2"
+          terraform_version: "1.16.4"
 
       - name: Cache node modules
         id: npm-cache
