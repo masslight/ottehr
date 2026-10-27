@@ -361,13 +361,13 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   /** The line used in a row: as the row's own apply has it, else as its fields fill it. */
   const withRow = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine =>
     row.apply ? row.apply(line, picks) : withSuggestion(line, row.fill(picks));
-  /** The line a row's calculator works on. For a quick pick without dosing its saved directions follow the calculator's
-   * dose, as a dosing row's do, rather than keep saying another one. */
+  /** The line a row's calculator works on. For a quick pick without dosing its saved directions, quantity and days
+   * supply follow the calculator's dose, as a dosing row's do, rather than keep another dose's; what can't be worked
+   * out (as needed, no duration) is left empty. Its refills, substitution and note to pharmacy stay. */
   const calculatorLine = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine => {
     const used = withRow(row, picks);
-    return row.calculator
-      ? used
-      : { ...used, generated: { ...used.generated, patientInstructions: used.patientInstructions } };
+    const { patientInstructions, quantityValue, daysSupply } = used;
+    return row.calculator ? used : { ...used, generated: { patientInstructions, quantityValue, daysSupply } };
   };
 
   /** Shown while the step's dose is as a strength change re-measured it: an ⓘ with how. */
