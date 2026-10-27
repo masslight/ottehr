@@ -1,6 +1,11 @@
+import { applyPatch, deepClone, Operation } from 'fast-json-patch';
 import { Encounter } from 'fhir/r4b';
 import { buildFollowupEncounterType, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { describe, expect, it } from 'vitest';
+import {
+  assertFreeFormEncounterOfPatient,
+  buildFreeFormNotePatchOperations,
+} from '../src/ehr/save-free-form-encounter/helpers';
 import {
   freeFormEncounterHistoryRowFromEncounter,
   getFreeFormEncounterSearchParams,
@@ -8,6 +13,7 @@ import {
 } from '../src/ehr/shared/free-form-encounters';
 
 const PATIENT_ID = 'patient-1';
+const OTHER_EXTENSION = { url: 'https://example.com/other', valueString: 'keep me' };
 
 const freeFormEncounter = (overrides: Partial<Encounter> = {}): Encounter => ({
   resourceType: 'Encounter',
@@ -136,5 +142,101 @@ describe('getFreeFormEncounterSearchParams', () => {
       { name: 'date', value: 'ge2026-01-01' },
       { name: 'date', value: 'le2026-02-01' },
     ]);
+  });
+});
+
+describe('buildFreeFormNotePatchOperations', () => {
+  const patched = (encounter: Encounter, operations: Operation[]): Encounter =>
+    applyPatch(deepClone(encounter), operations).newDocument;
+
+  const touchedPaths = (operations: Operation[]): string[] => operations.map((operation) => operation.path);
+
+  it('replaces only the message value, guarded by a test on its url', () => {
+    const encounter = freeFormEncounter({
+      extension: [OTHER_EXTENSION, OTHER_EXTENSION, { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'old' }],
+    });
+    const operations = buildFreeFormNotePatchOperations(encounter, 'new');
+    expect(operations).toEqual([
+      { op: 'test', path: '/extension/2/url', value: FOLLOWUP_SYSTEMS.messageUrl },
+      { op: 'replace', path: '/extension/2/valueString', value: 'new' },
+    ]);
+    expect(patched(encounter, operations).extension).toEqual([
+      OTHER_EXTENSION,
+      OTHER_EXTENSION,
+      { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'new' },
+    ]);
+  });
+
+  it('adds the value to a message extension that has no valueString', () => {
+    const encounter = freeFormEncounter({
+      extension: [OTHER_EXTENSION, OTHER_EXTENSION, { url: FOLLOWUP_SYSTEMS.messageUrl }],
+    });
+    const operations = buildFreeFormNotePatchOperations(encounter, 'new');
+    expect(operations).toEqual([
+      { op: 'test', path: '/extension/2/url', value: FOLLOWUP_SYSTEMS.messageUrl },
+      { op: 'add', path: '/extension/2/valueString', value: 'new' },
+    ]);
+    expect(patched(encounter, operations).extension).toEqual([
+      OTHER_EXTENSION,
+      OTHER_EXTENSION,
+      { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'new' },
+    ]);
+  });
+
+  it('appends the message when the extensions have none', () => {
+    const encounter = freeFormEncounter({ extension: [OTHER_EXTENSION] });
+    const operations = buildFreeFormNotePatchOperations(encounter, 'new');
+    expect(operations).toEqual([
+      { op: 'add', path: '/extension/-', value: { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'new' } },
+    ]);
+    expect(patched(encounter, operations).extension).toEqual([
+      OTHER_EXTENSION,
+      { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'new' },
+    ]);
+  });
+
+  it('creates the extension array when there is none', () => {
+    const operations = buildFreeFormNotePatchOperations(freeFormEncounter({ extension: undefined }), 'new');
+    expect(operations).toEqual([
+      { op: 'add', path: '/extension', value: [{ url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'new' }] },
+    ]);
+  });
+
+  it('returns no operations when the note is unchanged', () => {
+    expect(buildFreeFormNotePatchOperations(freeFormEncounter(), 'Called about the prescription')).toEqual([]);
+  });
+
+  it('leaves participants, reason and other fields of a legacy follow-up untouched', () => {
+    const legacy = freeFormEncounter({
+      type: legacyFollowupType,
+      status: 'in-progress',
+      reasonCode: [{ text: 'Result - Lab' }],
+      participant: [{ type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.callerUrl, display: 'Mother' }] }] }],
+      location: [{ location: { reference: 'Location/loc-1' } }],
+      extension: [OTHER_EXTENSION, { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'old' }],
+    });
+    const operations = buildFreeFormNotePatchOperations(legacy, 'new');
+    expect(touchedPaths(operations).every((path) => path.startsWith('/extension/1'))).toBe(true);
+    const { extension, ...rest } = patched(legacy, operations);
+    const { extension: _originalExtension, ...originalRest } = legacy;
+    expect(rest).toEqual(originalRest);
+    expect(extension).toEqual([OTHER_EXTENSION, { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'new' }]);
+  });
+});
+
+describe('assertFreeFormEncounterOfPatient', () => {
+  it('accepts a free-form encounter of the patient', () => {
+    expect(() => assertFreeFormEncounterOfPatient(freeFormEncounter(), PATIENT_ID)).not.toThrow();
+  });
+
+  it('rejects an encounter that belongs to another patient', () => {
+    expect(() => assertFreeFormEncounterOfPatient(freeFormEncounter(), 'patient-2')).toThrow(
+      /not a free-form encounter of patient patient-2/
+    );
+  });
+
+  it('rejects a follow-up attached to a visit', () => {
+    const parented = freeFormEncounter({ partOf: { reference: 'Encounter/parent' } });
+    expect(() => assertFreeFormEncounterOfPatient(parented, PATIENT_ID)).toThrow();
   });
 });
