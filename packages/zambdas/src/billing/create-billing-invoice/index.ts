@@ -7,10 +7,8 @@ import {
   buildBillingInvoice,
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
-  getBillingInvoiceSmsAccepted,
   getStripeInvoiceLink,
   INVOICE_CLAIM_TAG_SYSTEM,
-  INVOICE_SMS_ACCEPTED_EXTENSION_URL,
   withStripeInvoiceLink,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
@@ -74,14 +72,17 @@ export async function performEffect(
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
   const encounterId = getInvoiceableEncounterId(claim);
 
-  // Runs before the draft exists, so a patient without a usable Stripe customer leaves nothing behind.
+  // Runs before the draft exists, so a visit the EHR invoices or a patient without a usable Stripe
+  // customer leaves nothing behind.
   const visit = chooseJson<PrepareBillingInvoiceResponse>(
     await oystehr.zambda.execute({ id: PREPARE_BILLING_INVOICE_ZAMBDA_KEY, encounterId })
   );
 
   let invoice = await findOrCreateDraft(oystehr, stripe, claim, params);
+  // Only the request that sends the invoice knows whether its SMS went out.
+  let smsSent: boolean | undefined;
   if (invoice.status === 'draft') {
-    invoice = await sendDraft(oystehr, stripe, invoice, { encounterId, visit, params });
+    ({ invoice, smsSent } = await sendDraft(oystehr, stripe, invoice, { encounterId, visit, params }));
   }
 
   if (getClaimStatusValues(claim).patientArStatus === 'ready-to-invoice') {
@@ -91,7 +92,7 @@ export async function performEffect(
   return {
     invoiceId: invoice.id!,
     stripeInvoiceId: getStripeInvoiceLink(invoice)!.stripeInvoiceId,
-    smsSent: getBillingInvoiceSmsAccepted(invoice),
+    smsSent,
   };
 }
 
@@ -176,7 +177,7 @@ async function sendDraft(
   stripe: Stripe,
   draft: Invoice,
   context: { encounterId: string; visit: PrepareBillingInvoiceResponse; params: CreateBillingInvoiceParams }
-): Promise<Invoice> {
+): Promise<{ invoice: Invoice; smsSent?: boolean }> {
   const { encounterId, visit, params } = context;
   const amountCents = getBillingInvoiceClaims(draft)[0].amountCents;
   const dueDate = getBillingInvoiceDueDate(draft)!;
@@ -245,28 +246,19 @@ async function sendDraft(
     ...invoice,
     status: stripeInvoice.status === 'paid' ? 'balanced' : 'issued',
   });
-  if (stripeInvoice.status === 'paid') return invoice;
+  if (stripeInvoice.status === 'paid') return { invoice };
 
-  let smsSent = false;
   try {
     const smsMessage = fillInvoiceTemplate(params.smsMessage, {
       ...placeholders,
       invoiceLink: stripeInvoice.hosted_invoice_url ?? undefined,
     });
     await oystehr.zambda.execute({ id: SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY, encounterId, message: smsMessage });
-    smsSent = true;
+    return { invoice, smsSent: true };
   } catch (error) {
     console.warn('Invoice emailed but SMS request failed', { invoiceId: invoice.id, error });
+    return { invoice, smsSent: false };
   }
-
-  // Saved so a retry can report it without sending the SMS again.
-  return updateInvoice(oystehr, {
-    ...invoice,
-    extension: [
-      ...(invoice.extension ?? []).filter((extension) => extension.url !== INVOICE_SMS_ACCEPTED_EXTENSION_URL),
-      { url: INVOICE_SMS_ACCEPTED_EXTENSION_URL, valueBoolean: smsSent },
-    ],
-  });
 }
 
 // Versioned, so a request working on an invoice another request has replaced stops here.

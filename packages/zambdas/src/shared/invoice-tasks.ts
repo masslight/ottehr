@@ -1,4 +1,5 @@
-import { Encounter, Task } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Basic, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { createReference } from 'utils/lib/fhir/helpers';
@@ -100,6 +101,34 @@ export function buildInvoiceTask(params: BuildInvoiceTaskParams): Task {
       : {}),
     input: createInvoiceTaskInput(prefilledInvoiceInfo),
   };
+}
+
+// One Basic per visit the billing app invoices, so the Candid cron doesn't give it an EHR invoice too.
+const BILLING_APP_INVOICE_MARKER_SYSTEM = 'https://fhir.ottehr.com/visit-invoicing';
+const BILLING_APP_INVOICE_MARKER_CODE = 'billing-app';
+
+const billingAppInvoiceMarkerQuery = (encounterId: string): { name: string; value: string }[] => [
+  { name: 'subject', value: `Encounter/${encounterId}` },
+  { name: 'code', value: `${BILLING_APP_INVOICE_MARKER_SYSTEM}|${BILLING_APP_INVOICE_MARKER_CODE}` },
+];
+
+export async function markInvoicedFromBillingApp(oystehr: Oystehr, encounterId: string): Promise<void> {
+  await oystehr.fhir.create<Basic>(
+    {
+      resourceType: 'Basic',
+      code: { coding: [{ system: BILLING_APP_INVOICE_MARKER_SYSTEM, code: BILLING_APP_INVOICE_MARKER_CODE }] },
+      subject: { reference: `Encounter/${encounterId}` },
+    },
+    { ifNoneExist: billingAppInvoiceMarkerQuery(encounterId) }
+  );
+}
+
+export async function isInvoicedFromBillingApp(oystehr: Oystehr, encounterId: string): Promise<boolean> {
+  const markers = await oystehr.fhir.search<Basic>({
+    resourceType: 'Basic',
+    params: [...billingAppInvoiceMarkerQuery(encounterId), { name: '_count', value: '1' }],
+  });
+  return markers.unbundle().length > 0;
 }
 
 export function sendInvoiceTaskDedupeQuery(encounterId: string): { name: string; value: string }[] {

@@ -1,16 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Task } from 'fhir/r4b';
 import { Secrets } from 'utils/lib/secrets';
 import {
   PREPARE_BILLING_INVOICE_ZAMBDA_KEY,
   PrepareBillingInvoiceInputSchema,
   PrepareBillingInvoiceResponse,
 } from 'utils/lib/types/api/invoicing.types';
-import { MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
+import { BILLING_INVOICE_CONFLICT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient, resolveTimezone } from '../../shared/helpers';
-import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
+import {
+  isOttehrBillingInvoicingInBillingApp,
+  markInvoicedFromBillingApp,
+  sendInvoiceTaskDedupeQuery,
+} from '../../shared/invoice-tasks';
 import { getInvoiceVisitResources, resolveInvoiceStripeCustomerId } from '../../shared/invoice-visit';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
@@ -54,6 +59,16 @@ async function performEffect(
   secrets: Secrets,
   encounterId: string
 ): Promise<PrepareBillingInvoiceResponse> {
+  // A visit with an EHR invoice task is invoiced from the EHR. Checked before any Stripe customer is created.
+  const ehrInvoiceTasks = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [...sendInvoiceTaskDedupeQuery(encounterId), { name: '_count', value: '1' }],
+    })
+  ).unbundle();
+  if (ehrInvoiceTasks.length > 0) throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
+  await markInvoicedFromBillingApp(oystehr, encounterId);
+
   const { patient, account, appointment, location, schedule, stripeAccountId } = await getInvoiceVisitResources(
     oystehr,
     encounterId

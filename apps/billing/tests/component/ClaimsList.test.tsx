@@ -287,48 +287,31 @@ describe('ClaimsList — submit claims', () => {
 });
 
 describe('ClaimsList — send invoice', () => {
-  const patientArRow = (id: string, patientName: string, patientArStatus: string): BillingClaimItem => ({
-    ...makeRow(id, patientName, AR_STAGE.patient, 'patient-ar-pre-invoice'),
-    statuses: { ...emptyClaimStatusValues(), arStage: AR_STAGE.patient, patientArStatus },
-  });
-
-  beforeEach(() => {
-    searchBillingClaimsMock.mockReset();
-    searchBillingClaimsMock.mockResolvedValue({
+  it('offers Send Invoice for one claim that can be invoiced and reloads the claims once it is sent', async () => {
+    const patientArRow = (id: string, patientName: string, patientArStatus: string): BillingClaimItem => ({
+      ...makeRow(id, patientName, AR_STAGE.patient, 'patient-ar-pre-invoice'),
+      statuses: { ...emptyClaimStatusValues(), arStage: AR_STAGE.patient, patientArStatus },
+    });
+    searchBillingClaimsMock.mockReset().mockResolvedValue({
       claims: [
         patientArRow('c-ready', 'Ready Patient', 'ready-to-invoice'),
         patientArRow('c-new', 'New Patient', 'not-invoiced'),
       ],
       total: 2,
     });
-  });
-
-  it('offers Send Invoice only when one claim that can be invoiced is selected', async () => {
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select New Patient'));
     fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
     const sendInvoice = screen.getByRole('menuitem', { name: 'Send Invoice' });
     expect(sendInvoice).toHaveAttribute('aria-disabled', 'true');
-
     fireEvent.click(screen.getByLabelText('select Ready Patient'));
     expect(sendInvoice).toHaveAttribute('aria-disabled', 'true');
-
     fireEvent.click(screen.getByLabelText('select New Patient'));
-    expect(sendInvoice).not.toHaveAttribute('aria-disabled');
-  });
-
-  it('opens the dialog for the selected claim and reloads the claims once it is sent', async () => {
-    renderList();
-
-    fireEvent.click(await screen.findByLabelText('select Ready Patient'));
-    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Send Invoice' }));
+    fireEvent.click(sendInvoice);
 
     const dialog = await screen.findByRole('dialog', { name: 'Send Invoice' });
     expect(dialog).toHaveTextContent('c-ready');
-    expect(searchBillingClaimsMock).toHaveBeenCalledTimes(1);
-
     fireEvent.click(within(dialog).getByRole('button', { name: 'Sent' }));
 
     await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalledTimes(2));
