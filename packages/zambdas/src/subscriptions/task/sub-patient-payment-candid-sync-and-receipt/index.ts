@@ -201,7 +201,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               encounterId,
               oystehr,
               candidApiClient,
-              amountCents: isProcessorPayment ? undefined : amountInCents,
+              amountCents: isProcessorPayment || paymentNotice.status !== 'active' ? undefined : amountInCents,
             });
             console.timeEnd('Candid pre-encounter sync');
           } catch (error) {
