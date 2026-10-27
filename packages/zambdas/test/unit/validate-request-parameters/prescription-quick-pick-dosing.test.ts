@@ -122,6 +122,24 @@ describe.each([
   });
 });
 
+describe.each([
+  ['admin-create-quick-pick', validateCreate],
+  ['admin-update-quick-pick', validateUpdate],
+])('%s - prescription product', (_endpoint, validate) => {
+  test.each([
+    ['no NDC', { ndc: undefined }],
+    ['an empty NDC', { ndc: '' }],
+    ['no medication description', { medicationDescription: undefined }],
+  ])('rejects a quick pick with %s, with or without dosing', async (_label, product) => {
+    const { dosing: _dosing, ...asWritten } = AMOX_STREP;
+    for (const quickPick of [AMOX_STREP, asWritten]) {
+      const error = await rejection(validate({ ...quickPick, ...product }));
+      expect(error, 'expected the request to be rejected').toBeDefined();
+      expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+    }
+  });
+});
+
 const SOURCE = { label: 'AAP Red Book 2024–2027, amoxicillin', url: 'https://publications.aap.org/redbook' };
 
 describe.each([

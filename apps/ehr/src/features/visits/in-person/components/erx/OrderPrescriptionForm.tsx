@@ -43,6 +43,7 @@ import {
   prescriptionLineToQuickPick,
   quickPickDosingText,
   quickPickNameInUse,
+  quickPickProductMissing,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
@@ -218,8 +219,13 @@ export const OrderPrescriptionForm: FC = () => {
     }
   };
 
-  // Only adds: existing quick picks are edited in Admin → Quick Picks.
+  // Only adds: existing quick picks are edited in Admin → Quick Picks. Every quick pick orders a product.
   const openQuickPickDialog = (line: PrescriptionLine): void => {
+    const noProduct = quickPickProductMissing(line);
+    if (noProduct) {
+      enqueueSnackbar(noProduct, { variant: 'error' });
+      return;
+    }
     setQuickPickName(line.medication?.description ?? '');
     setQuickPickNameError(undefined);
     setQuickPickLineKey(line.key);

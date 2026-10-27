@@ -206,7 +206,8 @@ const CATEGORIES: CategoryConfig[] = [
   { category: PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY, requiredStringFields: ['name', 'text'] },
   {
     category: PRESCRIPTION_QUICK_PICK_CATEGORY,
-    requiredStringFields: ['name'],
+    // Every prescription quick pick orders a product, as written or dosed by the calculator.
+    requiredStringFields: ['name', 'ndc', 'medicationDescription'],
     validator: async (_oystehr, quickPick) => {
       safeValidate(prescriptionQuickPickSchema, quickPick);
     },

@@ -193,7 +193,7 @@ describe('Prescription quick picks admin', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Add' }));
 
     expect(within(dialog).getByText('Name is required')).toBeInTheDocument();
-    expect(within(dialog).getByText('Pick a medication and strength to dose by weight')).toBeInTheDocument();
+    expect(within(dialog).getByText('Pick a medication and strength')).toBeInTheDocument();
     expect(within(dialog).getByText('Dose must be greater than 0')).toBeInTheDocument();
     expect(within(dialog).getByText('Doses a day is required for mg/kg per day')).toBeInTheDocument();
     expect(within(dialog).getByText('Link must be an https link')).toBeInTheDocument();
@@ -203,6 +203,13 @@ describe('Prescription quick picks admin', () => {
     await user.click(within(dialog).getByLabelText('As written'));
     await user.clear(within(dialog).getByLabelText('Source link (optional)'));
     await user.type(within(dialog).getByLabelText(/^Name/), 'Something');
+    // As written needs its product too.
+    await user.click(within(dialog).getByRole('button', { name: 'Add' }));
+    expect(within(dialog).getByText('Pick a medication and strength')).toBeInTheDocument();
+    expect(api.createPrescriptionQuickPick).not.toHaveBeenCalled();
+    await user.type(within(dialog).getByRole('combobox', { name: 'Medication' }), 'amox');
+    await user.click(await screen.findByRole('option', { name: 'Amoxicillin' }));
+    await chooseOption(user, 'Strength', '250 mg Cap');
     api.createPrescriptionQuickPick.mockRejectedValueOnce({
       output: { message: 'quickPick.ndc: must be an 11-digit NDC' },
     });
@@ -211,6 +218,31 @@ describe('Prescription quick picks admin', () => {
       expect(mockEnqueueSnackbar).toHaveBeenCalledWith('quickPick.ndc: must be an 11-digit NDC', { variant: 'error' })
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('loads a quick pick saved without a product, and asks for one before saving it again', async () => {
+    const { ndc: _ndc, medicationDescription: _description, ...noProduct } = AS_WRITTEN;
+    api.getPrescriptionQuickPicks.mockResolvedValue({ quickPicks: [noProduct] });
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Amoxicillin caps')).closest('tr') as HTMLElement;
+    expect(within(row).getByText(AS_WRITTEN.patientInstructions!)).toBeInTheDocument();
+    await user.click(within(row).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Product: none')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(within(dialog).getByText('Pick a medication and strength')).toBeInTheDocument();
+    expect(api.updatePrescriptionQuickPick).not.toHaveBeenCalled();
+
+    await user.type(within(dialog).getByRole('combobox', { name: 'Medication' }), 'amox');
+    await user.click(await screen.findByRole('option', { name: 'Amoxicillin' }));
+    await chooseOption(user, 'Strength', '250 mg Cap');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.updatePrescriptionQuickPick).toHaveBeenCalledTimes(1));
+    expect(api.updatePrescriptionQuickPick.mock.calls[0][2]).toMatchObject({
+      ndc: '00093310701',
+      medicationDescription: 'Amoxicillin 250 mg Cap',
+    });
   });
 
   it('removes a quick pick only after the confirmation', async () => {

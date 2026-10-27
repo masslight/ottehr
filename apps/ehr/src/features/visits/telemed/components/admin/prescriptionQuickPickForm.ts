@@ -161,8 +161,9 @@ const FormSchema = z
     const issue = (path: keyof PrescriptionQuickPickFormValues, message: string): void =>
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
     if (!blank(values.sourceUrl) && blank(values.sourceLabel)) issue('sourceLabel', 'Source is required with a link');
+    // Every quick pick orders a product, either way of dosing; one saved before this gets one when next edited.
+    if (blank(values.ndc)) issue('ndc', 'Pick a medication and strength');
     if (values.doseMode !== 'dosing') return;
-    if (blank(values.ndc)) issue('ndc', 'Pick a medication and strength to dose by weight');
     if (blank(values.rate) || !(Number(values.rate) > 0)) issue('rate', 'Dose must be greater than 0');
     if (values.basis === 'mg/kg/day' && blank(values.dosesPerDay)) {
       issue('dosesPerDay', 'Doses a day is required for mg/kg per day');

@@ -10,6 +10,7 @@ import {
   prescriptionLineToQuickPick,
   quickPickDosingText,
   quickPickNameInUse,
+  quickPickProductMissing,
   withDirections,
   withProduct,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -206,6 +207,15 @@ describe('Save as quick pick: the calculator’s dosing', () => {
     await user.clear(screen.getByRole('spinbutton', { name: 'dose' }));
     await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '7');
     expect(prescriptionLineToQuickPick(latest!, 'Amox strep')).not.toHaveProperty('dosing');
+  });
+});
+
+describe('Save as quick pick: the product', () => {
+  it('is needed: a line without a product says to pick one; a drug without its strength has none yet', () => {
+    const message = 'Pick a medication and strength before saving a quick pick';
+    expect(quickPickProductMissing(emptyPrescriptionLine())).toBe(message);
+    expect(quickPickProductMissing({ ...liquidLine(), medication: null })).toBe(message);
+    expect(quickPickProductMissing(liquidLine())).toBeUndefined();
   });
 });
 
