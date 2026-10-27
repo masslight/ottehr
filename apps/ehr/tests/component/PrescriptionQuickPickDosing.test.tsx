@@ -774,7 +774,7 @@ describe('Additional instructions of a dosed quick pick', () => {
       diagnosisCodes: [],
       quickPicks: [quickPick],
     });
-    return row.apply!(line, []);
+    return row.apply(line, []);
   };
 
   it('follow the calculated sentence, and go to the pharmacy with it', () => {
@@ -850,7 +850,7 @@ describe('The line’s own calculator', () => {
       diagnosisCodes: [],
       quickPicks: [{ ...CAPPED, dosing: { ...CAPPED.dosing!, maxPerDayMg: 1500 } }],
     });
-    render(<Harness initial={row.apply!(line, [])} weight={WEIGHT} />);
+    render(<Harness initial={row.apply(line, [])} weight={WEIGHT} />);
     await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
     let calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
     expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(25);
@@ -881,7 +881,7 @@ describe('The line’s own calculator', () => {
       diagnosisCodes: [],
       quickPicks: [{ ...BY_WEIGHT, dosing: { ...BY_WEIGHT.dosing!, rate: 80, basis: 'mg/kg/day' } }],
     });
-    render(<Harness initial={row.apply!(line, [])} weight={WEIGHT} />);
+    render(<Harness initial={row.apply(line, [])} weight={WEIGHT} />);
     const typeRate = async (calculator: HTMLElement, rate: string): Promise<void> => {
       await user.clear(within(calculator).getByRole('spinbutton', { name: 'rate' }));
       await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), rate);
@@ -924,23 +924,16 @@ describe('The line’s own calculator', () => {
     expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(25);
   });
 
-  it('drops what was typed on a line with no rule, reopening empty', async () => {
+  it('opens empty on a line with no rule, and drops what was typed, reopening empty', async () => {
     const user = userEvent.setup();
     render(<Harness initial={liquidLine()} weight={WEIGHT} />);
     await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
     let calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(null);
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '40');
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
     calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
-    expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(null);
-  });
-
-  it('opens empty on a line with no rule', async () => {
-    const user = userEvent.setup();
-    render(<Harness initial={liquidLine()} weight={WEIGHT} />);
-    await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
-    const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
     expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(null);
   });
 });
@@ -955,7 +948,7 @@ describe('The dose’s ⓘ on the line', () => {
       diagnosisCodes: [],
       quickPicks: [quickPick],
     });
-    return row.apply!(line, []);
+    return row.apply(line, []);
   };
   const SOURCED: PrescriptionQuickPickData = {
     ...CAPPED,

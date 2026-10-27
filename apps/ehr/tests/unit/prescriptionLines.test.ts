@@ -357,13 +357,23 @@ describe('withProduct', () => {
     });
   });
 
-  it('drops the picks and directions when another drug is picked', () => {
+  it('drops the picks, steps, instructions and directions when another drug is picked', () => {
     const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
       dose: '5',
       frequency: 'twice daily',
+      durationDays: '1',
+      steps: [{ dose: '2.5', frequency: 'once daily', durationDays: '4' }],
+      instructions: 'with food',
     });
     const ointment = withProduct(liquid, MUPIROCIN, MUPIROCIN.strengths[0]);
-    expect(ointment).toMatchObject({ dose: '', frequency: '', patientInstructions: '', quantityValue: '' });
+    expect(ointment).toMatchObject({
+      dose: '',
+      frequency: '',
+      patientInstructions: '',
+      quantityValue: '',
+      steps: [],
+      instructions: '',
+    });
   });
 });
 
@@ -418,17 +428,6 @@ describe('withDirections', () => {
     expect(line.patientInstructions).toBe('Inhale with albuterol inhaler.');
     expect(line.quantityValue).toBe('');
     expect(prescriptionLineErrors({ ...line, quantityValue: '1', quantityUnit: 'Each' })).toEqual([]);
-  });
-
-  it('starts over on steps and instructions when another drug is picked', () => {
-    const taper = withDirections(tablet(), {
-      dose: '2',
-      frequency: 'once daily',
-      durationDays: '1',
-      steps: [{ dose: '1', frequency: 'once daily', durationDays: '4' }],
-      instructions: 'with food',
-    });
-    expect(withProduct(taper, MUPIROCIN, MUPIROCIN.strengths[0])).toMatchObject({ steps: [], instructions: '' });
   });
 
   it('fills an inhaler as one unit and leaves a cream’s quantity empty', () => {
