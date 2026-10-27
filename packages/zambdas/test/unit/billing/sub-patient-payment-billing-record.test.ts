@@ -59,7 +59,12 @@ vi.mock('../../../src/billing/payments', async (importOriginal) => ({
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  createBillingClient: vi.fn().mockReturnValue({ fhir: { get: (...args: unknown[]) => mockBillingFhirGet(...args) } }),
+  createBillingClient: vi.fn().mockReturnValue({
+    fhir: {
+      get: (...args: unknown[]) => mockBillingFhirGet(...args),
+      search: vi.fn().mockResolvedValue({ unbundle: () => [] }),
+    },
+  }),
 }));
 
 vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
