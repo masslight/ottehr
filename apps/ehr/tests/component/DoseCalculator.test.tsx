@@ -10,6 +10,7 @@ import {
 } from '../../src/features/visits/in-person/components/erx/DoseCalculator';
 import {
   emptyPrescriptionLine,
+  maximumWarnings,
   PrescriptionLine,
   withDirections,
   withProduct,
@@ -141,6 +142,53 @@ describe('DoseCalculator (plain, inline)', () => {
       steps: [{ dose: '3.5', frequency: 'once daily', durationDays: '4' }],
     });
     expect(course).toMatchObject({ dose: '7', durationDays: '1', steps: [{ dose: '3.5', durationDays: '4' }] });
+  });
+
+  it('keeps the line’s frequency when the doses a day typed match no frequency', async () => {
+    const user = userEvent.setup();
+    const initial = withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
+      frequency: 'twice daily',
+    });
+    render(<Harness initial={initial} weight={WEIGHT} />);
+    const calculator = await openCalculator(user);
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '50');
+    await user.clear(within(calculator).getByRole('spinbutton', { name: 'doses a day' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '5');
+    // The sentence is what "Use this dose" writes: the line's frequency, not none.
+    expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 1 capsule by mouth twice daily.');
+    await user.click(screen.getByRole('button', { name: 'Use this dose' }));
+    expect(latest?.frequency).toBe('twice daily');
+  });
+
+  it('works out no dose from a combination product’s strength (pending dabrams)', async () => {
+    const user = userEvent.setup();
+    const augmentin = {
+      name: 'Amoxicillin-Clavulanate',
+      strengths: [{ strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] }],
+    };
+    render(
+      <Harness initial={withProduct(emptyPrescriptionLine(), augmentin, augmentin.strengths[0])} weight={WEIGHT} />
+    );
+    const calculator = await openCalculator(user);
+    expect(calculator).toHaveTextContent('Combination product: enter the dose directly');
+    expect(within(calculator).queryByRole('spinbutton', { name: 'concentration' })).not.toBeInTheDocument();
+    expect(within(calculator).queryByRole('button', { name: 'Use this dose' })).not.toBeInTheDocument();
+  });
+
+  it('gives one capsule when the maximum is under one, says it is above the maximum, and the line warns', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0])} weight={WEIGHT} />);
+    const calculator = await openCalculator(user);
+    await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
+    await user.click(screen.getByRole('option', { name: 'dose, not by weight' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '200');
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' }), '100');
+    expect(within(calculator).getByTestId('dose-cap')).toHaveTextContent(
+      '1 capsule = 250 mg, above the 100 mg maximum; the smallest measurable amount'
+    );
+    await user.click(screen.getByRole('button', { name: 'Use this dose' }));
+    expect(latest?.dose).toBe('1');
+    expect(maximumWarnings(latest!)).toEqual([{ blank: 'dose', text: '250 mg per dose is above the 100 mg maximum.' }]);
   });
 
   it('says what it is not for', async () => {

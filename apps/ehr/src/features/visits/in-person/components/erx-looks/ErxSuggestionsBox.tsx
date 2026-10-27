@@ -18,6 +18,8 @@ export interface ErxSuggestionRow extends SuggestedSentence {
   doseAt?: number;
   /** Behind the ⓘ by the "+", after the quick pick: the working, a maximum reached, how far the measured dose is off. */
   doseInfo?: string[];
+  /** `doseInfo` as the row's picks so far make it (a dose worked out again for the frequency picked). */
+  doseInfoFor?: (picks: SentencePicks) => string[] | undefined;
   /** The quick pick the row came from: the first line behind the ⓘ ("Quick pick: Amox strep"), never on the row. */
   quickPickName?: string;
   /** The quick pick's source, after its name: "Source: AAP Red Book", a link with a URL. */
@@ -25,11 +27,14 @@ export interface ErxSuggestionRow extends SuggestedSentence {
 }
 
 /** What the ⓘ by a row's "+" says: its quick pick and source, then its dose's working. */
-const rowInfo = (row: ErxSuggestionRow): ReactNode[] => [
+const rowInfo = (row: ErxSuggestionRow, picks: SentencePicks): ReactNode[] => [
   ...(row.quickPickName ? [`Quick pick: ${row.quickPickName}`] : []),
   ...(row.quickPickSource ? [<SourceText key="source" source={row.quickPickSource} />] : []),
-  ...(row.doseAt !== undefined ? row.doseInfo ?? [] : []),
+  ...(row.doseAt !== undefined ? doseInfoOf(row, picks) ?? [] : []),
 ];
+
+const doseInfoOf = (row: ErxSuggestionRow, picks: SentencePicks): string[] | undefined =>
+  row.doseInfoFor ? row.doseInfoFor(picks) : row.doseInfo;
 
 export type ErxSuggestionsBoxProps<T extends ErxSuggestionRow> =
   | {
@@ -75,12 +80,12 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>(
           ? renderDoseTool?.(row, picks)
           : null
       }
-      renderBesideAdd={(row) => {
-        const lines = isRow(row) ? rowInfo(row) : [];
+      renderBesideAdd={(row, picks) => {
+        const lines = isRow(row) ? rowInfo(row, picks) : [];
         return lines.length ? (
           <DoseInfoHover
             label={
-              isRow(row) && row.doseAt !== undefined && row.doseInfo?.length
+              isRow(row) && row.doseAt !== undefined && doseInfoOf(row, picks)?.length
                 ? 'How this dose was worked out'
                 : 'About this suggestion'
             }

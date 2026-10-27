@@ -3,11 +3,13 @@ import { plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseUnitLabel,
   frequencyForDosesPerDay,
+  isCombinationStrength,
   PRESCRIPTION_FREQUENCIES,
   prescriptionDirectionsText,
   prescriptionDispense,
   prescriptionDoseForm,
   prescriptionDoseUnit,
+  prescriptionFrequency,
   prescriptionQuantityUnit,
   prescriptionRoute,
   prescriptionVerb,
@@ -21,6 +23,7 @@ import { ErxSuggestionRow } from '../erx-looks/ErxSuggestionsBox';
 import {
   applyPrescriptionQuickPick,
   CalculatorDosing,
+  COMBINATION_MESSAGE,
   lineMaximumOf,
   MEASURE_OF,
   mgPerMeasure,
@@ -95,7 +98,10 @@ const savedRow = (quickPick: PrescriptionQuickPickData, id: string): Prescriptio
 
 /** A quick pick saved from the calculator, re-dosed for this patient's weight by the same calculator: "Take [6] mL by
  * mouth [twice daily] for [10] days." with every blank editable, and the working behind the ⓘ. Without a weight the
- * dose blank waits ("(enter weight)"); a dose typed into it is the provider's, so the line keeps no settings. */
+ * dose blank waits ("(enter weight)"); a dose typed into it is the provider's, so the line keeps no settings. A
+ * frequency picked on the row does as on the line (`withCalculatorDosing`): another count of doses a day keeps the
+ * rate and basis with the new count, and by mg/kg/day the dose is worked out again. A combination product's dose is
+ * left to enter, with a note (pending dabrams). */
 const dosedRow = (
   quickPick: PrescriptionQuickPickData,
   dosing: PrescriptionQuickPickDosing,
@@ -108,60 +114,84 @@ const dosedRow = (
   const measure = form && MEASURE_OF[form];
   const route = prescriptionRoute(description) ?? 'by mouth';
   const unit = prescriptionDoseUnit(form, route, description);
+  const combination = isCombinationStrength(description);
   const frequency =
-    dosing.frequency && PRESCRIPTION_FREQUENCIES[dosing.frequency]
+    dosing.frequency && prescriptionFrequency(dosing.frequency)
       ? dosing.frequency
       : dosing.dosesPerDay !== undefined
       ? frequencyForDosesPerDay(dosing.dosesPerDay)
       : undefined;
   const { frequency: _frequency, durationDays, ...calculator } = dosing;
-  const dose =
+  const savedDosesPerDay = dosing.dosesPerDay ?? prescriptionFrequency(frequency)?.dosesPerDay;
+  const doseOf = (settings: CalculatorDosing, dosesPerDay: number | undefined): ReturnType<typeof plainDose> =>
     measure &&
     plainDose({
       weightKg,
       mgPerMeasure: mgPerMeasure(description),
       measure,
-      basis: dosing.basis,
-      rate: dosing.rate,
-      dosesPerDay: dosing.dosesPerDay ?? (frequency ? PRESCRIPTION_FREQUENCIES[frequency]?.dosesPerDay : undefined),
-      maxPerDoseMg: dosing.maxPerDoseMg,
-      maxPerDayMg: dosing.maxPerDayMg,
+      basis: settings.basis,
+      rate: settings.rate,
+      dosesPerDay,
+      maxPerDoseMg: settings.maxPerDoseMg,
+      maxPerDayMg: settings.maxPerDayMg,
     });
-  const doseText = dose ? String(dose.amount) : undefined;
-  const doseBlank: SentenceBlank = {
-    title: 'Dose',
-    options: [],
-    initial: doseText,
-    ...(!doseText && dosing.basis !== 'fixed' && !weightKg ? { placeholder: '(enter weight)' } : {}),
+  const savedDose = doseOf(calculator, savedDosesPerDay);
+  /** The settings and the dose for the frequency picked on the row, as `withCalculatorDosing` has them on the line. */
+  const dosingFor = (
+    picked: string | undefined
+  ): { settings: CalculatorDosing; dose: ReturnType<typeof plainDose> } => {
+    const dosesPerDay = picked === undefined ? undefined : prescriptionFrequency(picked)?.dosesPerDay;
+    if (dosesPerDay === undefined || dosesPerDay === savedDosesPerDay) return { settings: calculator, dose: savedDose };
+    const settings = { ...calculator, dosesPerDay };
+    return { settings, dose: settings.basis === 'mg/kg/day' ? doseOf(settings, dosesPerDay) : savedDose };
   };
-  const frequencyBlank: SentenceBlank = {
-    title: 'Frequency',
-    options: Object.keys(PRESCRIPTION_FREQUENCIES),
-    initial: frequency,
+  const [doseAt, frequencyAt, durationAt] = [1, 3, 5];
+  const doseTextOf = (picks: SentencePicks): string | undefined => {
+    const { dose } = dosingFor(picks[frequencyAt]);
+    return dose ? String(dose.amount) : undefined;
   };
   const days = durationDays === undefined ? undefined : String(durationDays);
-  const durationBlank: SentenceBlank = {
-    title: 'Duration',
-    options: days === undefined || DURATION_DAYS.includes(days) ? DURATION_DAYS : [...DURATION_DAYS, days],
-    initial: days,
-    optional: true,
-    placeholder: '#',
+  const segmentsFor = (picks: SentencePicks): SentenceSegment[] => {
+    const { dose } = dosingFor(picks[frequencyAt]);
+    const doseText = dose ? String(dose.amount) : undefined;
+    const doseBlank: SentenceBlank = {
+      title: 'Dose',
+      options: [],
+      initial: doseText,
+      ...(!doseText && !combination && dosing.basis !== 'fixed' && !weightKg ? { placeholder: '(enter weight)' } : {}),
+    };
+    const frequencyBlank: SentenceBlank = {
+      title: 'Frequency',
+      options: Object.keys(PRESCRIPTION_FREQUENCIES),
+      initial: frequency,
+    };
+    const durationBlank: SentenceBlank = {
+      title: 'Duration',
+      options: days === undefined || DURATION_DAYS.includes(days) ? DURATION_DAYS : [...DURATION_DAYS, days],
+      initial: days,
+      optional: true,
+      placeholder: '#',
+    };
+    const where = ROUTES_IN_VERB.includes(route) ? '' : ` ${route}`;
+    return [
+      `${prescriptionVerb(route)} `,
+      doseBlank,
+      `${unit ? ` ${doseUnitLabel(unit, dose?.amount)}` : ''}${where} `,
+      frequencyBlank,
+      ' for ',
+      durationBlank,
+      ' days.',
+    ];
   };
-  const where = ROUTES_IN_VERB.includes(route) ? '' : ` ${route}`;
-  const segments: SentenceSegment[] = [
-    `${prescriptionVerb(route)} `,
-    doseBlank,
-    `${unit ? ` ${doseUnitLabel(unit, dose?.amount)}` : ''}${where} `,
-    frequencyBlank,
-    ' for ',
-    durationBlank,
-    ' days.',
-  ];
-  const [doseAt, frequencyAt, durationAt] = [1, 3, 5];
+  const doseInfoFor = (picks: SentencePicks): string[] | undefined => {
+    if (combination) return [COMBINATION_MESSAGE];
+    const { dose } = dosingFor(picks[frequencyAt]);
+    return dose ? [dose.working, ...(dose.roundingNote ? [dose.roundingNote] : [])] : undefined;
+  };
   const fill = (picks: SentencePicks): SuggestedPrescriptionFields => {
     const directions = {
       route,
-      dose: picks[doseAt] ?? doseText ?? '',
+      dose: picks[doseAt] ?? doseTextOf(picks) ?? '',
       frequency: picks[frequencyAt] ?? frequency ?? '',
       durationDays: picks[durationAt] ?? days ?? '',
       steps: [],
@@ -177,21 +207,23 @@ const dosedRow = (
   };
   return {
     id,
-    segments,
+    segments: segmentsFor([]),
+    segmentsFor,
     quickPickName: quickPick.name,
     quickPickSource: quickPick.source,
     doseAt,
-    doseInfo: dose ? [dose.working, ...(dose.roundingNote ? [dose.roundingNote] : [])] : undefined,
+    doseInfo: doseInfoFor([]),
+    doseInfoFor,
     calculator,
     fill,
     apply: (line, picks) => {
       const filled = withSuggestion(withQuickPick(line, quickPick), fill(picks));
       // The calculator's dose keeps its settings on the line, as does its blank waiting for a weight; a dose typed into
-      // the row is the provider's own.
-      const typed = picks[doseAt] !== undefined && picks[doseAt] !== doseText;
+      // the row is the provider's own (a combination product's always is: it has no dose of the calculator's).
+      const typed = picks[doseAt] !== undefined && picks[doseAt] !== doseTextOf(picks);
       // Its maximum stays either way, for the warnings.
       const maximum = lineMaximumOf(calculator, { quickPick: quickPick.name, source: quickPick.source });
-      return typed ? { ...filled, maximum } : { ...filled, dosing: calculator, maximum };
+      return typed ? { ...filled, maximum } : { ...filled, dosing: dosingFor(picks[frequencyAt]).settings, maximum };
     },
   };
 };

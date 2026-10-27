@@ -2,9 +2,10 @@ import { FC, useState } from 'react';
 import { DoseBasis, plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
   frequencyForDosesPerDay,
-  PRESCRIPTION_FREQUENCIES,
+  isCombinationStrength,
   prescriptionDirectionsText,
   prescriptionDoseForm,
+  prescriptionFrequency,
   prescriptionQuantityUnit,
   PrescriptionStep,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
@@ -16,6 +17,7 @@ import { DoseCalculatorCard, DoseCalculatorDisplay, DoseField } from '../erx-loo
 import { DoseCalculatorPopup } from '../erx-looks/DoseCalculatorPopup';
 import {
   CalculatorDosing,
+  COMBINATION_MESSAGE,
   lineMaximumOf,
   MEASURE_OF,
   mgPerMeasure,
@@ -53,7 +55,7 @@ const picksOf = (dosing: CalculatorDosing | undefined, line: PrescriptionLine): 
         rate: text(dosing.rate),
         basis: dosing.basis,
         ...(dosing.dosesPerDay !== undefined &&
-        dosing.dosesPerDay !== PRESCRIPTION_FREQUENCIES[line.frequency]?.dosesPerDay
+        dosing.dosesPerDay !== prescriptionFrequency(line.frequency)?.dosesPerDay
           ? { dosesPerDay: text(dosing.dosesPerDay) }
           : {}),
         ...(dosing.maxPerDoseMg !== undefined ? { maxPerDose: text(dosing.maxPerDoseMg) } : {}),
@@ -155,8 +157,14 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const description = line.medication?.description ?? '';
   const form = prescriptionDoseForm(description);
   const measure = form && MEASURE_OF[form];
-  if (!measure) {
-    const message = description ? 'Not for this dose form: liquids, tablets and capsules only' : 'Pick a medication';
+  // PENDING dabrams (Claude's call): a combination's strength has no one mg to work a dose out from.
+  const combination = isCombinationStrength(description);
+  if (!measure || combination) {
+    const message = combination
+      ? COMBINATION_MESSAGE
+      : description
+      ? 'Not for this dose form: liquids, tablets and capsules only'
+      : 'Pick a medication';
     return (
       <DoseCalculatorPopup label={label}>
         {() => <DoseCalculatorCard display={{ look: 'waiting', message }} />}
@@ -168,7 +176,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const derivedConcentration = mgPerMeasure(description);
   const concentrationText = own.concentration ?? text(derivedConcentration);
   const basis = own.basis ?? 'mg/kg/day';
-  const lineDosesPerDay = PRESCRIPTION_FREQUENCIES[line.frequency]?.dosesPerDay;
+  const lineDosesPerDay = prescriptionFrequency(line.frequency)?.dosesPerDay;
   const dosesPerDayText = own.dosesPerDay ?? text(lineDosesPerDay);
   const dosesPerDay = numberOrUndefined(dosesPerDayText);
   const rateText = own.rate ?? '';
@@ -185,7 +193,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     maxPerDoseMg,
     maxPerDayMg,
   });
-  const frequencyOfDoses = (dosesPerDay && frequencyForDosesPerDay(dosesPerDay)) || '';
+  // Doses a day that match no frequency leave the line's as it is.
+  const frequencyOfDoses = (dosesPerDay && frequencyForDosesPerDay(dosesPerDay)) || undefined;
 
   const fields: DoseField[] = [
     ...(basis === 'fixed'

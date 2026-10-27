@@ -96,6 +96,78 @@ describe('withDrug', () => {
   });
 });
 
+describe('withDrug: what the old product implied goes', () => {
+  it('clears a typed quantity, the unit, days supply and route; the new product sets its own', () => {
+    const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
+      dose: '5',
+      frequency: 'twice daily',
+      durationDays: '10',
+    });
+    // Typed by hand, so the blanks would never overwrite them.
+    const typed = {
+      ...liquid,
+      quantityValue: '150',
+      daysSupply: '7',
+      numberOfRefills: '2',
+      substitutionAllowed: false,
+      noteToPharmacy: 'Shake well',
+    };
+    const picked = withDrug(typed, MUPIROCIN);
+    expect(picked).toMatchObject({
+      quantityValue: '',
+      quantityUnit: '',
+      daysSupply: '',
+      route: '',
+      dose: '',
+      frequency: '',
+      durationDays: '',
+      patientInstructions: '',
+      // Not the product's: the provider's refills, substitution and note stay.
+      numberOfRefills: '2',
+      substitutionAllowed: false,
+      noteToPharmacy: 'Shake well',
+    });
+    expect(withProduct(picked, MUPIROCIN, MUPIROCIN.strengths[0])).toMatchObject({
+      quantityUnit: 'Gram',
+      route: 'on the skin',
+      quantityValue: '',
+    });
+    // A product that implies no unit or route leaves them empty, not the old drug's.
+    const pen = { name: 'Epinephrine', strengths: [{ strength: '0.3 mg Auto-Injector', ndcs: ['49502010202'] }] };
+    expect(withProduct(withDrug(typed, pen), pen, pen.strengths[0])).toMatchObject({ quantityUnit: '', route: '' });
+  });
+});
+
+describe('combination products (pending dabrams)', () => {
+  const AUGMENTIN = {
+    name: 'Amoxicillin-Clavulanate',
+    strengths: [
+      { strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] },
+      { strength: '600-42.9 mg/5ml Susp', ndcs: ['00093227873'] },
+    ],
+  };
+
+  it('never re-measures a dose by the first ingredient: a strength change leaves the dose to enter', () => {
+    const line = withDirections(withProduct(emptyPrescriptionLine(), AUGMENTIN, AUGMENTIN.strengths[0]), {
+      dose: '5',
+      frequency: 'twice daily',
+    });
+    const next = withProduct(line, AUGMENTIN, AUGMENTIN.strengths[1]);
+    expect(next.dose).toBe('');
+    expect(next.doseNotes).toEqual([undefined]);
+  });
+
+  it('checks no maximum', () => {
+    const line: PrescriptionLine = {
+      ...withProduct(emptyPrescriptionLine(), AUGMENTIN, AUGMENTIN.strengths[0]),
+      dose: '20',
+      frequency: 'twice daily',
+      maximum: { maxPerDoseMg: 500, from: 'calculator' },
+    };
+    expect(maximumWarnings(line)).toEqual([]);
+  });
+});
+
 describe('withProduct', () => {
   it('names the product by drug and strength, with the unit and route read from them', () => {
     const line = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]);

@@ -22,6 +22,9 @@ export interface SuggestedSentence {
   note?: string;
   /** This row's own name for its "+" (a row that is not a suggestion, as "Other"), in place of `addLabel`. */
   addLabel?: string;
+  /** The segments as the row's picks so far make them (a dose worked out again for the frequency picked), with the
+   * same blanks at the same places; `segments` until then. */
+  segmentsFor?: (picks: SentencePicks) => SentenceSegment[];
 }
 
 /** The current value of each segment: a pick for a blank, `undefined` for text and for a blank left on its default. */
@@ -113,13 +116,14 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
       {children}
       {rows.map((suggestion, row) => {
         const picks = rowPicks(row);
-        const mustPick = findUnpickedBlank(suggestion.segments, picks);
+        const segments = suggestion.segmentsFor?.(picks) ?? suggestion.segments;
+        const mustPick = findUnpickedBlank(segments, picks);
         const added = !mustPick && isAdded(suggestion, picks);
         return (
           <Box key={suggestion.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, py: 0.5 }}>
             <Typography variant="body2" sx={{ flex: 1, lineHeight: 1.8 }}>
               {renderLead?.(suggestion, picks)}
-              {suggestion.segments.map((segment, i) => {
+              {segments.map((segment, i) => {
                 if (typeof segment === 'string') return segment;
                 if (!isSentenceBlank(segment))
                   return (

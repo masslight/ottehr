@@ -350,9 +350,14 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     setPicked(true);
     setAwaitingPick(false);
   };
+  /** A row is "In use" when using it would change none of the line's quantity, days supply and directions, and the
+   * line has one of them: on an empty line a row that fills none (a quick pick saved without them) still shows its
+   * "+", which then sets its refills, substitution and note. */
   const matches = (suggestion: PrescriptionSuggestionRow, picks: SentencePicks): boolean => {
     const filled = suggestion.fill(picks);
+    const empty = [line.quantityValue, line.daysSupply, line.patientInstructions].every((value) => value.trim() === '');
     return (
+      !empty &&
       line.quantityValue.trim() === filled.quantityValue &&
       (filled.quantityUnit === '' || line.quantityUnit === filled.quantityUnit) &&
       line.daysSupply.trim() === filled.daysSupply &&

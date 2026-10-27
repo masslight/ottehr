@@ -408,6 +408,84 @@ describe('Suggestions from quick picks', () => {
   });
 });
 
+describe('Suggestion rows: review fixes', () => {
+  const PER_DAY_ROW: PrescriptionQuickPickData = {
+    ...BY_WEIGHT,
+    id: 'qp-per-day-row',
+    name: 'Amox per day',
+    dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+  };
+
+  it('a new frequency on a row by mg/kg/day works the dose out again, and "+" uses the new doses a day', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={liquidLine()} quickPicks={[PER_DAY_ROW]} weight={WEIGHT} />);
+    // 28.12 kg × 80 mg/kg/day ÷ 2 = 1,124.8 mg = 14 mL.
+    expect(within(suggestionRow(0)).getByRole('button', { name: 'Dose: 14' })).toBeInTheDocument();
+    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Frequency: twice daily' }));
+    await user.click(screen.getByRole('option', { name: 'three times daily' }));
+    // ÷ 3 = 749.87 mg = 9.5 mL: still 80 mg/kg/day, not 120.
+    const row = suggestionRow(0);
+    expect(within(row).getByRole('button', { name: 'Dose: 9.5' })).toBeInTheDocument();
+    expect(await hoverInfo(user, row)).toHaveTextContent('28.12 kg × 80 mg/kg/day ÷ 3 = 749.87 mg → 9.5 mL = 760 mg');
+    // The row's calculator opens on the new doses a day too.
+    await user.click(within(row).getByRole('button', { name: 'Dose calculator for Amox per day' }));
+    const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(3);
+    expect(within(calculator).getByText('from three times daily')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));
+    expect(latest).toMatchObject({
+      dose: '9.5',
+      frequency: 'three times daily',
+      patientInstructions: 'Take 9.5 mL by mouth three times daily for 10 days.',
+      dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 },
+    });
+  });
+
+  it('a quick pick with no directions or quantity is not "In use" on an empty line', () => {
+    const bare: PrescriptionQuickPickData = { id: 'qp-bare', name: 'Amox bare', ...PRODUCT };
+    render(<Harness initial={liquidLine()} quickPicks={[bare]} weight={WEIGHT} />);
+    expect(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' })).toBeEnabled();
+    expect(within(suggestionRow(0)).queryByTitle('In use')).not.toBeInTheDocument();
+  });
+
+  it('a saved frequency that is not one of the form’s own ("constructor") is not offered', () => {
+    const odd: PrescriptionQuickPickData = {
+      ...BY_WEIGHT,
+      id: 'qp-odd',
+      dosing: { ...BY_WEIGHT.dosing!, frequency: 'constructor' },
+    };
+    render(<Harness initial={liquidLine()} quickPicks={[odd]} weight={WEIGHT} />);
+    // Its doses a day name the frequency instead.
+    expect(within(suggestionRow(0)).getByRole('button', { name: 'Frequency: twice daily' })).toBeInTheDocument();
+  });
+
+  it('a quick pick with dosing on a combination product leaves the dose to enter, with the note (pending dabrams)', async () => {
+    const user = userEvent.setup();
+    const augmentin = {
+      name: 'Amoxicillin-Clavulanate',
+      strengths: [{ strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] }],
+    };
+    const combo: PrescriptionQuickPickData = {
+      ...BY_WEIGHT,
+      id: 'qp-combo',
+      name: 'Augmentin by weight',
+      ndc: '00093227573',
+      medicationDescription: 'Amoxicillin-Clavulanate 400-57 mg/5ml Susp',
+    };
+    render(
+      <Harness
+        initial={withProduct(emptyPrescriptionLine(), augmentin, augmentin.strengths[0])}
+        quickPicks={[combo]}
+        weight={WEIGHT}
+      />
+    );
+    const row = suggestionRow(0);
+    expect(within(row).getByRole('button', { name: 'Dose: not picked' })).not.toHaveTextContent('(enter weight)');
+    expect(await hoverInfo(user, row)).toHaveTextContent('Combination product: enter the dose directly');
+  });
+});
+
 describe('The "+ quick pick" list', () => {
   // The list sets the product from the quick pick's NDC and description.
   const LISTED = { ...BY_WEIGHT, medicationDescription: PRODUCT.description };

@@ -9,12 +9,12 @@ import {
 import {
   doseAmountText,
   parseStrengthConcentration,
-  PRESCRIPTION_FREQUENCIES,
   PrescriptionDirections,
   prescriptionDirectionsText,
   prescriptionDispense,
   PrescriptionDoseForm,
   prescriptionDoseForm,
+  prescriptionFrequency,
   prescriptionQuantityUnit,
   prescriptionRoute,
   PrescriptionStep,
@@ -115,7 +115,7 @@ export const maximumWarnings = (line: PrescriptionLine): MaximumWarning[] => {
   const dose = numberOrUndefined(line.dose);
   if (!maximum || !mg || !dose || dose <= 0) return [];
   const perDose = roundNumberToDecimalPlaces(dose * mg, 2);
-  const dosesPerDay = PRESCRIPTION_FREQUENCIES[line.frequency]?.dosesPerDay;
+  const dosesPerDay = prescriptionFrequency(line.frequency)?.dosesPerDay;
   const perDay = dosesPerDay === undefined ? undefined : roundNumberToDecimalPlaces(perDose * dosesPerDay, 2);
   const over = (amount: number | undefined, max: number | undefined): max is number =>
     amount !== undefined && max !== undefined && amount > max + 1e-9;
@@ -245,8 +245,7 @@ export const withCalculatorDosing = (
   const { dosing } = line;
   if (!dosing) return line;
   if (patch.dose !== undefined && patch.dose !== line.dose) return { ...line, dosing: undefined };
-  const dosesPerDay =
-    patch.frequency === undefined ? undefined : PRESCRIPTION_FREQUENCIES[patch.frequency]?.dosesPerDay;
+  const dosesPerDay = patch.frequency === undefined ? undefined : prescriptionFrequency(patch.frequency)?.dosesPerDay;
   if (dosesPerDay === undefined || dosesPerDay === dosing.dosesPerDay) return line;
   const kept: PrescriptionLine = { ...line, dosing: { ...dosing, dosesPerDay } };
   if (dosing.basis !== 'mg/kg/day') return kept;
@@ -288,7 +287,11 @@ export const MEASURE_OF: Partial<Record<PrescriptionDoseForm, DoseMeasure>> = {
   capsule: 'capsule',
 };
 
-/** mg in one measure of a product (a mL of a liquid, a tablet or capsule), when its description says. */
+/** What the calculator, and a quick pick's row, say for a combination product (pending dabrams): no one mg to dose by. */
+export const COMBINATION_MESSAGE = 'Combination product: enter the dose directly';
+
+/** mg in one measure of a product (a mL of a liquid, a tablet or capsule), when its description says: never for a
+ * combination, whose first ingredient isn't the product's mg. */
 export const mgPerMeasure = (description: string): number | undefined => {
   const parsed = parseStrengthConcentration(description);
   return prescriptionDoseForm(description) === 'liquid' ? parsed?.mgPerMl : parsed?.mgPerUnit;
@@ -327,7 +330,9 @@ const withoutQuickPick = (line: PrescriptionLine): Partial<PrescriptionLine> => 
 };
 
 /** The line on a drug picked from the search, before its strength: the strength is the provider's to pick (none is
- * chosen for them), and nothing written for the product before carries over. */
+ * chosen for them), and nothing written for the product before carries over: the directions, quantity, unit, days
+ * supply and route go (the strength picked next sets what its product implies). The refills, substitution and note
+ * to pharmacy aren't the product's and stay, unless still as a quick pick set them. */
 export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): PrescriptionLine =>
   withDirections(
     {
@@ -335,6 +340,10 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
       drug,
       medication: null,
       ...NO_DIRECTIONS,
+      route: '',
+      quantityValue: '',
+      quantityUnit: '',
+      daysSupply: '',
       patientInstructions: '',
       ...withoutQuickPick(line),
       doseNotes: undefined,
