@@ -382,7 +382,7 @@ describe('Suggestions from quick picks', () => {
     await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
     await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
     // 28.12 kg × 50 mg/kg/day ÷ 2 = 703 mg → 9 mL. The quick pick's saved 10-day supply becomes the duration
-    // (withQuickPickDaysAsDuration), so the quantity is worked out again for the new dose: 9 mL × 2
+    // (withQuickPickDaysAsDuration, not yet confirmed), so the quantity is worked out again for the new dose: 9 mL × 2
     // a day × 10 days, not the quick pick's 100 mL of another dose. The rest is the quick pick's.
     expect(latest).toMatchObject({
       medication: PRODUCT,

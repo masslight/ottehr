@@ -828,7 +828,7 @@ describe('maximumWarnings', () => {
   });
 });
 
-describe('withQuickPickDaysAsDuration', () => {
+describe('withQuickPickDaysAsDuration (not yet confirmed)', () => {
   it('takes the saved days supply as the duration only when there is none', () => {
     const line = { ...emptyPrescriptionLine(), daysSupply: '10' };
     expect(withQuickPickDaysAsDuration(line).durationDays).toBe('10');
