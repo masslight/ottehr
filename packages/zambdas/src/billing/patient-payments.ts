@@ -37,6 +37,7 @@ import {
   findBillingClaimForEncounter,
   recordBillingManualRefund,
 } from './payments';
+import { reconcilePaymentNoticesForClaim } from './shared';
 
 // Patient payments are owned by the billing app: new ones are billing-tagged PaymentNotices whose
 // request points at the encounter's claim. Notices the EHR wrote before the move are untagged,
@@ -298,6 +299,22 @@ const stripeChargeForLegacyPayment = async (
   return { chargeId, stripeAccount };
 };
 
+// A claim created while the copy was being written may have finished linking its notices before the
+// copy existed, and a retry that reuses a copy made then finds it unlinked too. Linking here, as the
+// other payment writers do after storing, repairs both; the copy is re-read since the link bumps
+// its version.
+const linkToLateClaim = async (
+  billingOystehr: Oystehr,
+  notice: PaymentNotice,
+  encounterId: string
+): Promise<PaymentNotice> => {
+  if (notice.request?.reference || !notice.id) return notice;
+  const lateClaim = await findBillingClaimForEncounter(billingOystehr, encounterId);
+  if (!lateClaim) return notice;
+  await reconcilePaymentNoticesForClaim(billingOystehr, lateClaim);
+  return billingOystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: notice.id });
+};
+
 // Copies a legacy EHR notice (refund and void stamps included) into billing, unless a billing
 // notice already records the same payment. A Stripe payment is keyed by its charge id, like the
 // webhook's notice, so a later charge or refund event merges into the copy instead of recording
@@ -334,7 +351,7 @@ const adoptLegacyPaymentNotice = async (params: {
   if (existing.length > 1) {
     throw new Error(`Found ${existing.length} billing PaymentNotices for PaymentNotice/${legacyNotice.id}`);
   }
-  if (existing[0]) return existing[0];
+  if (existing[0]) return linkToLateClaim(billingOystehr, existing[0], encounterId);
 
   const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
   const payeeRef: Reference = stripeCharge
@@ -344,7 +361,7 @@ const adoptLegacyPaymentNotice = async (params: {
   const dedupIdentifier: Identifier = chargeId
     ? { system: STRIPE_PAYMENT_ID_SYSTEM, value: chargeId }
     : { system: CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, value: legacyId };
-  return billingOystehr.fhir.create<PaymentNotice>(
+  const adopted = await billingOystehr.fhir.create<PaymentNotice>(
     {
       ...legacyFields,
       request: claimRequestFor(claim, encounterId),
@@ -362,6 +379,7 @@ const adoptLegacyPaymentNotice = async (params: {
       ],
     }
   );
+  return linkToLateClaim(billingOystehr, adopted, encounterId);
 };
 
 // the legacy EHR notice a billing notice was copied from, or that records the same Stripe payment

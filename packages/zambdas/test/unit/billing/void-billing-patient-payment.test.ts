@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PaymentNotice } from 'fhir/r4b';
+import { Claim, PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { buildPaymentRefundsExtension, buildPaymentVoidExtension } from 'utils/lib/fhir/paymentRefunds';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -22,6 +22,7 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createBillingClient: vi.fn(),
+  reconcilePaymentNoticesForClaim: vi.fn(),
 }));
 const paymentIntentsRetrieve = vi.fn();
 vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
@@ -38,8 +39,16 @@ vi.mock('../../../src/billing/payments', async (importOriginal) => ({
   findBillingClaimForEncounter: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, MANUAL_REFUND_ID_SYSTEM } from '../../../src/billing/payments';
-import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import {
+  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
+  findBillingClaimForEncounter,
+  MANUAL_REFUND_ID_SYSTEM,
+} from '../../../src/billing/payments';
+import {
+  createBillingClient,
+  reconcilePaymentNoticesForClaim,
+  STRIPE_ACCOUNT_IDENTIFIER_SYSTEM,
+} from '../../../src/billing/shared';
 import { index } from '../../../src/billing/void-billing-patient-payment';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM, voidPaymentNotice } from '../../../src/shared/stripeIntegration';
@@ -240,5 +249,56 @@ describe('void-billing-patient-payment', () => {
     await expect(invoke(LEGACY_NOTICE_ID)).rejects.toThrow();
 
     expect(refundOffsetCreates()).toHaveLength(0);
+  });
+
+  describe('a claim created while the payment is adopted', () => {
+    const lateClaim = { resourceType: 'Claim', id: 'claim-late' } as Claim;
+    const linkedCopy = {
+      ...bridgedCopy,
+      id: 'adopted-1',
+      request: { ...bridgedCopy.request, reference: 'Claim/claim-late' },
+    };
+
+    it('links the new copy to the claim', async () => {
+      vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(undefined).mockResolvedValueOnce(lateClaim);
+      billingGet.mockRejectedValueOnce({ code: 404 }).mockResolvedValueOnce(linkedCopy);
+      clinicalGet.mockResolvedValue(legacyNotice([]));
+
+      await invoke(LEGACY_NOTICE_ID);
+
+      expect(billingCreate.mock.calls[0][0].request.reference).toBeUndefined();
+      expect(reconcilePaymentNoticesForClaim).toHaveBeenCalledWith(expect.anything(), lateClaim);
+      // the copy is re-read after linking, so the void builds on its current version
+      expect(billingGet).toHaveBeenLastCalledWith({ resourceType: 'PaymentNotice', id: 'adopted-1' });
+      expect(vi.mocked(voidPaymentNotice).mock.calls[0][1].request?.reference).toBe('Claim/claim-late');
+    });
+
+    it('links a copy an earlier attempt left unlinked', async () => {
+      vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(lateClaim);
+      billingGet.mockRejectedValueOnce({ code: 404 }).mockResolvedValueOnce(linkedCopy);
+      billingSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+        unbundle: () => (resourceType === 'PaymentNotice' ? [{ ...bridgedCopy, id: 'adopted-1' }] : []),
+      }));
+      clinicalGet.mockResolvedValue(legacyNotice([]));
+
+      await invoke(LEGACY_NOTICE_ID);
+
+      expect(billingCreate).not.toHaveBeenCalled();
+      expect(reconcilePaymentNoticesForClaim).toHaveBeenCalledWith(expect.anything(), lateClaim);
+      expect(vi.mocked(voidPaymentNotice).mock.calls[0][1].request?.reference).toBe('Claim/claim-late');
+    });
+
+    it('skips the claim lookup for a copy that is already linked', async () => {
+      billingGet.mockRejectedValueOnce({ code: 404 });
+      billingSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+        unbundle: () => (resourceType === 'PaymentNotice' ? [linkedCopy] : []),
+      }));
+      clinicalGet.mockResolvedValue(legacyNotice([]));
+
+      await invoke(LEGACY_NOTICE_ID);
+
+      expect(findBillingClaimForEncounter).not.toHaveBeenCalled();
+      expect(reconcilePaymentNoticesForClaim).not.toHaveBeenCalled();
+    });
   });
 });
