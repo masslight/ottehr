@@ -26,7 +26,6 @@ import {
   PrescriptionStep,
   prescriptionVerb,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
-import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
 import { MedicationSearchDrug } from 'utils/lib/types/api/erx-search.types';
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
@@ -50,7 +49,6 @@ import {
   withDirections,
   withDrug,
   withProduct,
-  withSuggestion,
 } from './prescriptionLines';
 import {
   isEmptyPrescriptionLine,
@@ -189,15 +187,6 @@ const DoseEntry: FC<{ initial?: string; onPick: (dose: string) => void }> = ({ i
       </Button>
     </Box>
   );
-};
-
-type Diagnosis = { code: string; display: string };
-
-/** A diagnosis as a blank holds it, worded as the line's diagnosis blank reads: "Croup J05.0". */
-const diagnosisText = ({ code, display }: Diagnosis): string => `${display} ${code}`;
-const diagnosisOfText = (text: string): Diagnosis => {
-  const at = text.lastIndexOf(' ');
-  return { code: text.slice(at + 1), display: text.slice(0, at) };
 };
 
 interface DiagnosisOption {
@@ -386,9 +375,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const instructionsShown = instructionsOpen || line.instructions !== '';
   const setSteps = (steps: PrescriptionStep[]): void => onChange(withDirections(line, { steps }));
-  /** The line used in a row: as the row's own apply has it, else as its fields fill it. */
-  const withRow = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine =>
-    row.apply ? row.apply(line, picks) : withSuggestion(line, row.fill(picks));
   // A dose over the maximum the line carries: orange under the dose sentence, its blank outlined; never blocks.
   const warnings = maximumWarnings(line);
   const warns = (blank: 'dose' | 'frequency'): boolean => warnings.some((warning) => warning.blank === blank);
@@ -558,24 +544,21 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       {/* The suggestions sit above the line's first sentence once a medication with any is picked; "Other" is last. */}
       {!readOnly && line.medication && suggestions.length > 0 && (
         <ErxSuggestionsBox<PrescriptionSuggestionRow>
-          look="rows"
           rows={suggestions}
           weightNote={weightNote}
           isAdded={matches}
           renderPicker={(row, blank, pick) =>
-            // A row's dose blank is typed in; its diagnosis blank opens the line's pick-list.
+            // A row's dose blank is typed in.
             row.doseAt !== undefined && row.segments[row.doseAt] === blank ? (
               <DoseEntry initial={blank.initial} onPick={pick} />
-            ) : row.diagnosisAt === undefined || row.segments[row.diagnosisAt] !== blank ? undefined : (
-              <DiagnosisSearch visitDiagnoses={visitDiagnoses} onPick={(diagnosis) => pick(diagnosisText(diagnosis))} />
-            )
+            ) : undefined
           }
           // A quick pick with dosing opens the calculator with its settings; "Use this dose" uses the row with that
           // dose. A quick pick saved as written shows the icon disabled, its hover saying so, so the rows line up.
           renderDoseTool={(row, picks) =>
             row.calculator ? (
               <DoseCalculator
-                line={withRow(row, picks)}
+                line={row.apply(line, picks)}
                 initial={row.calculator}
                 label={`Dose calculator for ${row.quickPickName ?? 'this suggestion'}`}
                 weight={weight}
@@ -595,20 +578,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           }
           onPick={(suggestion, picks) => {
             reveal();
-            if (suggestion.apply) {
-              const used = suggestion.apply(line, picks);
-              if (suggestion.fromSet && onSet)
-                onSet(suggestion.fromSet.set, { line: used, memberId: suggestion.fromSet.memberId });
-              else onChange(used);
-              return;
-            }
-            // A row's diagnosis blank brings its value, if any; an empty one leaves the line's.
-            const at = suggestion.diagnosisAt;
-            const chosen =
-              at === undefined ? undefined : picks[at] ?? (suggestion.segments[at] as SentenceBlank).initial;
-            onChange(
-              withSuggestion(line, suggestion.fill(picks), chosen ? { diagnosis: diagnosisOfText(chosen) } : {})
-            );
+            const used = suggestion.apply(line, picks);
+            if (suggestion.fromSet && onSet)
+              onSet(suggestion.fromSet.set, { line: used, memberId: suggestion.fromSet.memberId });
+            else onChange(used);
           }}
           onOther={reveal}
         />
@@ -798,11 +771,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             )}
             {line.steps.length === 0 ? courseEnd : '.'}
           </Sentence>
-          {warnings.length > 0 && (
-            <DoseWarningBoxes
-              warnings={warnings.map((warning) => ({ severity: 'warning', lines: [warning.text], info: warningInfo }))}
-            />
-          )}
+          <DoseWarningBoxes warnings={warnings.map((warning) => warning.text)} info={warningInfo} />
           {line.steps.map((step, i) => (
             <Sentence
               key={i}

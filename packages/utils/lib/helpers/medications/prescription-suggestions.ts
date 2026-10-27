@@ -164,16 +164,11 @@ const TABLET_FRACTIONS: [number, string, string][] = [
 /** "½ tablet", "1½ tablets", "¼ tablet" for a part tablet ("1/2 tablet", "1 1/2 tablets" in `ascii`, for the text
  * sent); "2.5 mL", "2 tablets" otherwise. The dose itself stays a number; this is only how a sentence or the calculator
  * writes it. */
-export const doseAmountText = (
-  amount: number,
-  unit: string,
-  numberText: (value: number) => string = String,
-  ascii = false
-): string => {
+export const doseAmountText = (amount: number, unit: string, ascii = false): string => {
   const whole = Math.floor(amount + 1e-9);
   const fraction =
     unit === 'tablet' ? TABLET_FRACTIONS.find(([part]) => Math.abs(amount - whole - part) < 1e-9) : undefined;
-  if (!fraction) return `${numberText(amount)} ${doseUnitLabel(unit, amount)}`;
+  if (!fraction) return `${amount} ${doseUnitLabel(unit, amount)}`;
   const part = ascii ? `${whole ? `${whole} ` : ''}${fraction[2]}` : `${whole || ''}${fraction[1]}`;
   return `${part} ${amount < 1 ? unit : doseUnitLabel(unit, amount)}`;
 };
@@ -223,13 +218,6 @@ export const prescriptionFrequency = (key: string | undefined): PrescriptionFreq
     ? PRESCRIPTION_FREQUENCIES[key]
     : undefined;
 
-export const FREQUENCY_TITLE = 'Frequency';
-export const DURATION_TITLE = 'Duration';
-export const INSTRUCTIONS_TITLE = 'Instructions';
-
-/** The standard durations a Duration blank offers. */
-export const DURATIONS = ['3 days', '5 days', '7 days', '10 days', '14 days', '30 days'];
-
 /** One step of a course ("1 tablet once daily for 4 days"). Strings, as the form holds them. */
 export interface PrescriptionStep {
   dose: string;
@@ -258,7 +246,7 @@ export interface SuggestedPrescriptionFields extends PrescriptionDirections {
 }
 
 /** The number a dose or duration starts with ("7.5 mL" → 7.5), if any. */
-export const leadingNumber = (value: string | undefined): number | undefined => {
+const leadingNumber = (value: string | undefined): number | undefined => {
   const number = value === undefined ? NaN : parseFloat(value);
   return Number.isFinite(number) ? number : undefined;
 };
@@ -326,7 +314,7 @@ export const prescriptionDirectionsText = (
     const amount = leadingNumber(step.dose);
     const frequency = pickedFrequency(step);
     const days = leadingNumber(step.durationDays);
-    const dose = amount === undefined ? '' : unit ? doseAmountText(amount, unit, String, ascii) : String(amount);
+    const dose = amount === undefined ? '' : unit ? doseAmountText(amount, unit, ascii) : String(amount);
     const duration =
       days === undefined
         ? ''

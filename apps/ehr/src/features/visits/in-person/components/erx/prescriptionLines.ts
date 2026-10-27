@@ -311,7 +311,7 @@ export const numberOrUndefined = (value: string): number | undefined =>
   value.trim() === '' || !Number.isFinite(Number(value)) ? undefined : Number(value);
 
 /** The forms the calculator measures a dose in; anything else (an inhaler, a cream) it leaves alone. */
-export const MEASURE_OF: Partial<Record<PrescriptionDoseForm, DoseMeasure>> = {
+const MEASURE_OF: Partial<Record<PrescriptionDoseForm, DoseMeasure>> = {
   liquid: 'mL',
   tablet: 'tablet',
   capsule: 'capsule',
@@ -495,12 +495,8 @@ export const withProduct = (
 };
 
 /** A suggestion fills the line as the blanks would have, so changing a blank afterwards rewrites it: its steps
- * and instructions replace any there were. The diagnosis it brings replaces the line's; none leaves the line's. */
-export const withSuggestion = (
-  line: PrescriptionLine,
-  fields: SuggestedPrescriptionFields,
-  suggested: { diagnosis?: { code: string; display: string } } = {}
-): PrescriptionLine => ({
+ * and instructions replace any there were. The line keeps its diagnosis. */
+export const withSuggestion = (line: PrescriptionLine, fields: SuggestedPrescriptionFields): PrescriptionLine => ({
   ...line,
   ...NO_DIRECTIONS,
   ...fields,
@@ -510,7 +506,6 @@ export const withSuggestion = (
   quantityUnit: fields.quantityUnit || line.quantityUnit,
   // Refills are the provider's: a suggestion has none of its own.
   numberOfRefills: line.numberOfRefills,
-  diagnosis: suggested.diagnosis ?? line.diagnosis ?? null,
   generated: {
     patientInstructions: fields.patientInstructions,
     quantityValue: fields.quantityValue,
@@ -578,7 +573,7 @@ interface OrderContext {
 const ASCII_FRACTIONS: Record<string, string> = { '¼': '1/4', '½': '1/2', '¾': '3/4' };
 
 /** "Take 1½ tablets, then ½ tablet" → "Take 1 1/2 tablets, then 1/2 tablet", for the text sent. */
-export const asciiFractions = (text: string): string =>
+const asciiFractions = (text: string): string =>
   text.replace(
     /(\d?)([¼½¾])/g,
     (_, digit: string, fraction: string) => `${digit ? `${digit} ` : ''}${ASCII_FRACTIONS[fraction]}`

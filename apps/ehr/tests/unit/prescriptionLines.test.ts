@@ -595,11 +595,8 @@ describe('withSuggestion', () => {
     );
   });
 
-  it('sets the suggestion’s diagnosis on the line; one without leaves the line’s', () => {
-    const strep = { code: 'J02.0', display: 'Streptococcal pharyngitis' };
-    expect(withSuggestion(liquid, fields, { diagnosis: strep }).diagnosis).toEqual(strep);
+  it('leaves the line’s diagnosis', () => {
     const fever = { code: 'R50.9', display: 'Fever, unspecified' };
-    expect(withSuggestion({ ...liquid, diagnosis: fever }, fields, { diagnosis: strep }).diagnosis).toEqual(strep);
     expect(withSuggestion({ ...liquid, diagnosis: fever }, fields).diagnosis).toEqual(fever);
     expect(withSuggestion(liquid, fields).diagnosis).toBeNull();
   });

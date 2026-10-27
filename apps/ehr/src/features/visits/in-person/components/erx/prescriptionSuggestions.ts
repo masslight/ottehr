@@ -48,11 +48,8 @@ import {
 export interface PrescriptionSuggestionRow extends ErxSuggestionRow {
   /** The line's fields with the row's blanks as picked. */
   fill: (picks: SentencePicks) => SuggestedPrescriptionFields;
-  /** Where a blank that picks the diagnosis by search sits ("— for [acute otitis media]"). Its value, as
-   * "Display CODE", goes on the line with the row; an empty one leaves the line's. */
-  diagnosisAt?: number;
-  /** The line with the row used, in place of `withSuggestion` with its fields (a quick pick's row). */
-  apply?: (line: PrescriptionLine, picks: SentencePicks) => PrescriptionLine;
+  /** The line with the row used. */
+  apply: (line: PrescriptionLine, picks: SentencePicks) => PrescriptionLine;
   /** The calculator after the dose blank opens with these settings. */
   calculator?: CalculatorDosing;
   /** A set's row: the set, and its quick pick the row is for; "+" adds the set's other quick picks on new lines. */
@@ -125,7 +122,7 @@ const dosedRow = (
   id: string,
   medication: MedicationSearchResult,
   weightKg: number | undefined
-): PrescriptionSuggestionRow & Required<Pick<PrescriptionSuggestionRow, 'apply'>> => {
+): PrescriptionSuggestionRow => {
   const measure = measureOf(medication);
   // No route the product's dose form doesn't give: the provider fills it.
   const route = prescriptionRoute(medication);
@@ -236,7 +233,6 @@ const dosedRow = (
     quickPickName: quickPick.name,
     quickPickSource: quickPick.source,
     doseAt,
-    doseInfo: doseInfoFor([]),
     doseInfoFor,
     calculator,
     fill,

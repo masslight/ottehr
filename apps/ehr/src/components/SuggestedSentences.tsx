@@ -16,10 +16,6 @@ export interface SuggestedSentence {
   segments: SentenceSegment[];
   /** Why this sentence is offered, shown under it as "Because …". */
   reason?: string;
-  /** A caution in its source's words, shown under it in the warning color. */
-  caution?: string;
-  /** Another source's words that are not a caution (its dosing), shown under it as a note. */
-  note?: string;
   /** More lines under it in gray, as written. */
   details?: string[];
   /** This row's own name for its "+" (a row that is not a suggestion, as "Other"), in place of `addLabel`. */
@@ -45,8 +41,8 @@ interface SuggestedSentencesProps<T extends SuggestedSentence> {
   dataTestId?: string;
   /** Rendered between the title and the rows (a note about the patient, say). */
   children?: ReactNode;
-  /** The popover body for a blank picked by search rather than from its options (a prescription's diagnosis), given
-   * the pick to make; `undefined` keeps the options list. */
+  /** The popover body for a blank filled in some other way than from its options (a prescription's dose, typed),
+   * given the pick to make; `undefined` keeps the options list. */
   renderPicker?: (row: T, blank: SentenceBlank, pick: (value: string) => void) => ReactNode;
   /** Shown at the start of the row's sentence (a calculator icon before "Take"), given the row's picks. */
   renderLead?: (row: T, picks: SentencePicks) => ReactNode;
@@ -185,27 +181,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                   Because {suggestion.reason}
                 </Typography>
               )}
-              {suggestion.caution && (
-                <Typography
-                  component="span"
-                  variant="caption"
-                  sx={{ display: 'block', color: otherColors.warningText }}
-                  data-testid="suggestion-caution"
-                >
-                  Caution: {suggestion.caution}
-                </Typography>
-              )}
-              {suggestion.note && (
-                <Typography
-                  component="span"
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ display: 'block' }}
-                  data-testid="suggestion-note"
-                >
-                  Note: {suggestion.note}
-                </Typography>
-              )}
               {suggestion.details?.map((detail) => (
                 <Typography
                   key={detail}
@@ -279,7 +254,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
             );
           })}
       </Menu>
-      {/* A blank picked by search gets its picker in a popover instead. */}
+      {/* A blank with a picker of its own gets it in a popover instead. */}
       <Popover
         open={Boolean(picker)}
         anchorEl={active?.anchor}
@@ -287,7 +262,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{ paper: { sx: { p: 1 } } }}
-        // Into the search once the popover is placed, so its list opens under it rather than at the corner.
+        // Into the picker's input once the popover is placed (a list it opens then sits under it, not at the corner).
         TransitionProps={{ onEntered: (paper) => paper.querySelector('input')?.focus() }}
       >
         <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{activeBlank?.title}</Typography>

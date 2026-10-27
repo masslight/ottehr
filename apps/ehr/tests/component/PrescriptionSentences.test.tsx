@@ -7,6 +7,7 @@ import {
   PrescriptionLine,
   prescriptionLineErrors,
   withProduct,
+  withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
 import {
   ADD_QUICK_PICK_LABEL,
@@ -54,14 +55,12 @@ const Harness = ({
   initial,
   onRemove,
   onSaveQuickPick,
-  visitDiagnoses = [],
   weight,
   weightNote,
 }: {
   initial: PrescriptionLine;
   onRemove?: () => void;
   onSaveQuickPick?: () => void;
-  visitDiagnoses?: { code: string; display: string }[];
   weight?: VisitWeight;
   weightNote?: string;
 }): JSX.Element => {
@@ -75,7 +74,7 @@ const Harness = ({
       quickPicks={[]}
       onQuickPick={() => undefined}
       onSaveQuickPick={onSaveQuickPick}
-      visitDiagnoses={visitDiagnoses}
+      visitDiagnoses={[]}
       weight={weight}
       weightNote={weightNote}
       errors={[]}
@@ -96,8 +95,6 @@ const LIQUIDS = {
 const lineFor = (drug: typeof LIQUIDS): PrescriptionLine =>
   withProduct(emptyPrescriptionLine(), drug, drug.strengths[0]);
 
-const STREP = { code: 'J02.0', display: 'Streptococcal pharyngitis' };
-
 /** What the test rows write: a whole course, as a suggestion would. */
 const FIELDS = {
   dose: '5',
@@ -116,19 +113,8 @@ const DOSED_ROW: PrescriptionSuggestionRow = {
   id: 'dosed',
   segments: ['Take 5 mL by mouth twice daily for 10 days.'],
   reason: '18 kg × 45 mg/kg/day ÷ 2 = 405 mg → 5 mL = 400 mg',
-  caution: 'a caution in the source’s words',
-  note: 'another source’s dosing',
   fill: () => FIELDS,
-};
-const DIAGNOSIS_ROW: PrescriptionSuggestionRow = {
-  id: 'for-diagnosis',
-  segments: [
-    'Take 5 mL by mouth twice daily for 10 days — for ',
-    { title: 'Strep throat', options: [], initial: undefined, optional: true },
-    '.',
-  ],
-  diagnosisAt: 1,
-  fill: () => FIELDS,
+  apply: (line) => withSuggestion(line, FIELDS),
 };
 
 const pickDrug = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
@@ -413,13 +399,11 @@ describe('PrescriptionSentences: suggestions first', () => {
   );
 
   it(
-    'shows a row with its working, caution and note, "Other" last, and fills the line from it',
+    'shows a row with its working, "Other" last, and fills the line from it',
     withRows([DOSED_ROW], async () => {
       const user = userEvent.setup();
       render(<Harness initial={lineFor(LIQUIDS)} />);
       expect(screen.getByText(/^Because 18 kg × 45 mg\/kg\/day/)).toBeInTheDocument();
-      expect(screen.getByTestId('suggestion-caution')).toHaveTextContent('Caution: a caution in the source’s words');
-      expect(screen.getByTestId('suggestion-note')).toHaveTextContent('Note: another source’s dosing');
       const buttons = screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ });
       expect(buttons.at(-1)).toHaveAccessibleName('Write my own');
 
@@ -433,19 +417,6 @@ describe('PrescriptionSentences: suggestions first', () => {
       await user.clear(quantity);
       await user.type(quantity, '150');
       expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
-    })
-  );
-
-  it(
-    'picks a row’s diagnosis by search, which goes on the line with the row',
-    withRows([DIAGNOSIS_ROW], async () => {
-      const user = userEvent.setup();
-      render(<Harness initial={lineFor(LIQUIDS)} visitDiagnoses={[STREP]} />);
-      await user.click(screen.getByRole('button', { name: 'Strep throat: not picked' }));
-      await user.click(await screen.findByRole('option', { name: 'J02.0 - Streptococcal pharyngitis' }));
-      expect(screen.getByRole('button', { name: 'Strep throat: Streptococcal pharyngitis J02.0' })).toBeInTheDocument();
-      await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
-      expect(screen.getByRole('button', { name: 'diagnosis: Streptococcal pharyngitis J02.0' })).toBeInTheDocument();
     })
   );
 
