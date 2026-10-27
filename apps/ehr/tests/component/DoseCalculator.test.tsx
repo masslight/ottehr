@@ -259,6 +259,9 @@ describe('DoseCalculator (plain, inline)', () => {
     const user = userEvent.setup();
     render(<Harness initial={withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0])} weight={WEIGHT} />);
     const calculator = await openCalculator(user);
+    // A capsule's strength is per capsule.
+    expect(within(calculator).getByRole('spinbutton', { name: 'strength' })).toHaveValue(250);
+    expect(calculator).toHaveTextContent('mg per capsule');
     await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
     await user.click(screen.getByRole('option', { name: 'dose, not by weight' }));
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '200');

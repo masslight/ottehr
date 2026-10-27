@@ -56,12 +56,14 @@ const Harness = ({
   onSaveQuickPick,
   visitDiagnoses = [],
   weight,
+  weightNote,
 }: {
   initial: PrescriptionLine;
   onRemove?: () => void;
   onSaveQuickPick?: () => void;
   visitDiagnoses?: { code: string; display: string }[];
   weight?: VisitWeight;
+  weightNote?: string;
 }): JSX.Element => {
   const [line, setLine] = useState(initial);
   return (
@@ -75,6 +77,7 @@ const Harness = ({
       onSaveQuickPick={onSaveQuickPick}
       visitDiagnoses={visitDiagnoses}
       weight={weight}
+      weightNote={weightNote}
       errors={[]}
       readOnly={false}
     />
@@ -392,8 +395,10 @@ describe('PrescriptionSentences: suggestions first', () => {
     'with suggestions, hides the line until a row or "Other" is picked',
     withRows([DOSED_ROW], async () => {
       const user = userEvent.setup();
-      render(<Harness initial={lineFor(LIQUIDS)} />);
+      render(<Harness initial={lineFor(LIQUIDS)} weightNote="using weight 18 kg (previous visit, 10/8/2026)" />);
       expect(screen.getByText('Suggested prescriptions')).toBeInTheDocument();
+      // An earlier visit's weight is named under the box's title.
+      expect(screen.getByText('using weight 18 kg (previous visit, 10/8/2026)')).toBeInTheDocument();
       for (const name of ['dose', 'duration', 'quantity', 'days supply', 'refills']) {
         expect(screen.queryByRole('spinbutton', { name })).not.toBeInTheDocument();
       }
