@@ -321,20 +321,25 @@ describe('PrescriptionSentences', () => {
     expect(screen.getByRole('button', { name: '+ urgent (empty)' })).toBeInTheDocument();
   });
 
-  it('puts "Add Quick Pick" in the quick pick list for admins only', async () => {
+  it('ends the line with "+ Add Quick Pick" for admins only: its last sentence, the first until the rest shows', async () => {
     const user = userEvent.setup();
     const onSaveQuickPick = vi.fn();
     const { unmount } = render(<Harness initial={emptyPrescriptionLine()} onSaveQuickPick={onSaveQuickPick} />);
-    expect(screen.queryByRole('button', { name: /save as quick pick/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
-    await user.click(within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText('+ Add Quick Pick'));
+    const save = (): HTMLElement => screen.getByRole('button', { name: `${ADD_QUICK_PICK_LABEL} (empty)` });
+    const sentenceOf = (element: HTMLElement): Element | null => element.closest('.MuiTypography-root');
+    expect(sentenceOf(save())).toBe(sentenceOf(screen.getByText('Prescription 1:')));
+    await user.click(save());
     expect(onSaveQuickPick).toHaveBeenCalledTimes(1);
+
+    await pickAmoxicillin(user);
+    const sentences = screen.getAllByText(/./, { selector: '.MuiTypography-root' });
+    expect(sentenceOf(save())).toBe(sentences[sentences.length - 1]);
+    expect(sentenceOf(save())).toHaveTextContent(/^Substitution/);
+    expect(save().nextSibling).toBeNull();
     unmount();
 
     render(<Harness initial={emptyPrescriptionLine()} />);
-    await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
-    expect(screen.queryByText('+ Add Quick Pick')).not.toBeInTheDocument();
-    expect(screen.getByText('No quick picks yet')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: `${ADD_QUICK_PICK_LABEL} (empty)` })).not.toBeInTheDocument();
   });
 
   it('names the medication and diagnosis popups once: by their search fields, with no heading repeating them', async () => {
@@ -503,19 +508,15 @@ describe('PrescriptionSentences: suggestions first', () => {
       const onSaveQuickPick = vi.fn();
       const user = userEvent.setup();
       render(<Harness initial={lineFor(LIQUIDS)} onSaveQuickPick={onSaveQuickPick} />);
-      const saveOffered = async (): Promise<boolean> => {
-        await user.click(screen.getByRole('button', { name: /^\+ quick pick/ }));
-        const offered = within(screen.getByRole('listbox', { name: 'Quick pick' })).queryByText(ADD_QUICK_PICK_LABEL);
-        await user.keyboard('{Escape}');
-        return offered !== null;
-      };
+      const saveOffered = (): boolean =>
+        screen.queryByRole('button', { name: `${ADD_QUICK_PICK_LABEL} (empty)` }) !== null;
       await pickOther(user);
-      expect(await saveOffered()).toBe(true);
+      expect(saveOffered()).toBe(true);
       await user.click(screen.getByRole('button', { name: 'strength: 400 mg/5ml Susp' }));
       await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
-      expect(await saveOffered()).toBe(false);
+      expect(saveOffered()).toBe(false);
       await pickOther(user);
-      expect(await saveOffered()).toBe(true);
+      expect(saveOffered()).toBe(true);
       expect(onSaveQuickPick).not.toHaveBeenCalled();
     })
   );

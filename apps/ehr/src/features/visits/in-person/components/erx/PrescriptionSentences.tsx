@@ -74,11 +74,10 @@ const SUBSTITUTION_OPTIONS = [
   { value: 'not allowed', label: 'not allowed (dispense as written)' },
 ];
 
-/** The quick pick list's first entry for admins, worded as the Quick Picks menu on other pages. */
-const ADD_QUICK_PICK = '__add-quick-pick__';
+/** The line's last link for admins, worded as the Quick Picks menu on other pages. */
+export const ADD_QUICK_PICK_LABEL = '+ Add Quick Pick';
 /** A set's value in the quick pick list, apart from the quick picks' ids. */
 const SET_VALUE = 'set:';
-export const ADD_QUICK_PICK_LABEL = '+ Add Quick Pick';
 
 const SEARCH_UNAVAILABLE = 'Medication search is unavailable.';
 
@@ -381,6 +380,14 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   // The instructions blank is offered as a link, like "+ urgent", and stays once opened or written in.
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const instructionsShown = instructionsOpen || line.instructions !== '';
+  // Ends the line's last sentence; not while the line is hidden awaiting a pick: it would save directions no one has
+  // seen.
+  const saveLink = onSaveQuickPick && !readOnly && !(awaitingPick && !revealed) && (
+    <>
+      {' '}
+      <BlankButton label={ADD_QUICK_PICK_LABEL} ghost readOnly={readOnly} onClick={onSaveQuickPick} />
+    </>
+  );
   const setSteps = (steps: PrescriptionStep[]): void => onChange(withDirections(line, { steps }));
   // A dose over the maximum the line carries: orange under the dose sentence, its blank outlined; never blocks.
   const warnings = maximumWarnings(line);
@@ -596,10 +603,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               label="+ quick pick"
               title="Quick pick"
               options={[
-                // Not while the line is hidden awaiting a pick: it would save directions no one has seen.
-                ...(onSaveQuickPick && !(awaitingPick && !revealed)
-                  ? [{ value: ADD_QUICK_PICK, label: ADD_QUICK_PICK_LABEL }]
-                  : []),
                 // Sets under their own heading above the quick picks, each with its products.
                 ...activeSets.map((set) => ({
                   value: `${SET_VALUE}${set.id}`,
@@ -617,10 +620,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               ]}
               value={undefined}
               onChange={(value) => {
-                if (value === ADD_QUICK_PICK) {
-                  onSaveQuickPick?.();
-                  return;
-                }
                 const set = activeSets.find((item) => `${SET_VALUE}${item.id}` === value);
                 if (set) {
                   // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
@@ -715,6 +714,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             </>
           )
         )}
+        {!revealed && saveLink}
       </Sentence>
 
       {/* The blanks behind the directions: each change rewrites the Directions box unless the provider typed there.
@@ -854,7 +854,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               onChange={(value) => value && update({ substitutionAllowed: value === 'allowed' })}
               readOnly={readOnly}
             />
-            .
+            .{saveLink}
           </Sentence>
         </>
       )}
