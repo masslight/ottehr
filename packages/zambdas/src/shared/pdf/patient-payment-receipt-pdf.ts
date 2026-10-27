@@ -28,6 +28,7 @@ import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
 import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import {
+  createStripeAccountResolver,
   fetchEncounterPaymentNotices,
   paymentMethodForNotice,
   stripePaymentIntentIdForNotice,
@@ -215,12 +216,20 @@ async function getReceiptData(input: {
 
   // parse data
   if (customer.deleted) throw new Error('Customer is deleted');
+  // the receipt can list payments taken on other accounts than the schedule's, e.g. platform
+  // outreach invoices, so each payment's Stripe lookups use its own
+  const stripeAccountFor = createStripeAccountResolver({
+    billingOystehr,
+    clinicalOystehr: oystehr,
+    encounterId,
+    scheduleAccount: Promise.resolve(stripeAccountId),
+  });
   const payments = await parsePaymentsList(
     paymentNotices,
     paymentIntents.data,
     customer,
     stripeClient,
-    stripeAccountId,
+    stripeAccountFor,
     lastOperationPaymentIntent
   );
 
@@ -261,12 +270,12 @@ async function getReceiptData(input: {
   };
 }
 
-async function parsePaymentsList(
+export async function parsePaymentsList(
   paymentNotices: PaymentNotice[],
   paymentIntents: Stripe.PaymentIntent[],
   customer: Stripe.Customer,
   stripeClient: Stripe,
-  stripeAccountId: string | undefined,
+  stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
   lastOperationPaymentIntent?: Stripe.PaymentIntent
 ): Promise<PaymentData[]> {
   if (lastOperationPaymentIntent) paymentIntents.push(lastOperationPaymentIntent);
@@ -276,7 +285,11 @@ async function parsePaymentsList(
   const payments = await Promise.all(
     paymentNotices.map(async (paymentNotice): Promise<PaymentData> => {
       const pnStripeId = stripePaymentIntentIdForNotice(paymentNotice);
-      const stripeIntent = paymentIntents.find((pi) => pi.id === pnStripeId);
+      const stripeAccount = pnStripeId ? await stripeAccountFor(paymentNotice) : undefined;
+      // the encounter search covers the schedule account only
+      const stripeIntent =
+        paymentIntents.find((pi) => pi.id === pnStripeId) ??
+        (pnStripeId ? await retrievePaymentIntent(stripeClient, pnStripeId, stripeAccount) : undefined);
       const stripePaymentMethodId =
         typeof stripeIntent?.payment_method === 'string'
           ? stripeIntent.payment_method
@@ -285,11 +298,7 @@ async function parsePaymentsList(
       let stripeMethod: Stripe.PaymentMethod | undefined;
       if (stripePaymentMethodId) {
         try {
-          stripeMethod = await stripeClient.paymentMethods.retrieve(
-            stripePaymentMethodId,
-            {},
-            { stripeAccount: stripeAccountId }
-          );
+          stripeMethod = await stripeClient.paymentMethods.retrieve(stripePaymentMethodId, {}, { stripeAccount });
         } catch (error) {
           console.error(
             `Failed to retrieve Stripe payment method ${stripePaymentMethodId} for payment notice ${paymentNotice.id}`,
@@ -326,6 +335,19 @@ async function parsePaymentsList(
   );
   return payments;
 }
+
+const retrievePaymentIntent = async (
+  stripeClient: Stripe,
+  paymentIntentId: string,
+  stripeAccount: string | undefined
+): Promise<Stripe.PaymentIntent | undefined> => {
+  try {
+    return await stripeClient.paymentIntents.retrieve(paymentIntentId, undefined, { stripeAccount });
+  } catch (error) {
+    console.error(`Failed to retrieve Stripe payment intent ${paymentIntentId}`, error);
+    return undefined;
+  }
+};
 
 function getStripeCardDetails(paymentMethod?: Stripe.PaymentMethod): Pick<PaymentData, 'last4' | 'brand'> | undefined {
   if (!paymentMethod) return undefined;
