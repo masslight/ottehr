@@ -12,13 +12,21 @@ import { DoseInfoHover } from './DoseCalculatorCard';
 
 export const OTHER_ROW: SuggestedSentence = { id: 'other', segments: ['Other'], addLabel: 'Write my own' };
 
-/** A row whose dose is a blank: the dose tool (a calculator icon) starts its sentence, and an ⓘ with how the dose
- * was worked out sits by its "+". */
+/** A row from a quick pick, or whose dose is a blank: the dose tool (a calculator icon) starts its sentence. The ⓘ by
+ * its "+" holds the quick pick it came from, then how the dose was worked out. */
 export interface ErxSuggestionRow extends SuggestedSentence {
   doseAt?: number;
-  /** Behind the ⓘ by the "+": the working, a maximum reached, how far the measured dose is off. */
+  /** Behind the ⓘ by the "+", after the quick pick: the working, a maximum reached, how far the measured dose is off. */
   doseInfo?: string[];
+  /** The quick pick the row came from: the first line behind the ⓘ ("Quick pick: Amox strep"), never on the row. */
+  quickPickName?: string;
 }
+
+/** What the ⓘ by a row's "+" says: its quick pick, then its dose's working. */
+const rowInfo = (row: ErxSuggestionRow): string[] => [
+  ...(row.quickPickName ? [`Quick pick: ${row.quickPickName}`] : []),
+  ...(row.doseAt !== undefined ? row.doseInfo ?? [] : []),
+];
 
 export type ErxSuggestionsBoxProps<T extends ErxSuggestionRow> =
   | {
@@ -31,7 +39,7 @@ export type ErxSuggestionsBoxProps<T extends ErxSuggestionRow> =
       onOther: () => void;
       /** The popover body for a blank picked by search (a diagnosis); `undefined` keeps its options list. */
       renderPicker?: (row: T, blank: SentenceBlank, pick: (value: string) => void) => ReactNode;
-      /** At the start of a row with a dose blank, before "Take": the calculator icon. */
+      /** At the start of a quick pick's row or one with a dose blank, before "Take": the calculator icon. */
       renderDoseTool?: (row: T, picks: SentencePicks) => ReactNode;
     }
   /** The drug has no suggestions: no box, the line opens straight away. */
@@ -57,13 +65,28 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>(
       isAdded={(row, picks) => isRow(row) && (isAdded?.(row, picks) ?? false)}
       onAdd={(row, picks) => (isRow(row) ? onPick(row, picks) : onOther())}
       renderPicker={renderPicker && ((row, blank, pick) => (isRow(row) ? renderPicker(row, blank, pick) : undefined))}
-      // A row with a dose blank: its calculator icon starts the sentence, and the ⓘ sits by its "+".
-      renderLead={(row, picks) => (isRow(row) && row.doseAt !== undefined ? renderDoseTool?.(row, picks) : null)}
-      renderBesideAdd={(row) =>
-        isRow(row) && row.doseAt !== undefined && row.doseInfo?.length ? (
-          <DoseInfoHover label="How this dose was worked out" lines={row.doseInfo} testId="suggestion-dose-working" />
-        ) : null
+      // A quick pick's row, or one with a dose blank: its calculator icon starts the sentence. The ⓘ by its "+" has its
+      // quick pick and working.
+      renderLead={(row, picks) =>
+        isRow(row) && (row.doseAt !== undefined || row.quickPickName !== undefined)
+          ? renderDoseTool?.(row, picks)
+          : null
       }
+      renderBesideAdd={(row) => {
+        const lines = isRow(row) ? rowInfo(row) : [];
+        return lines.length ? (
+          <DoseInfoHover
+            label={
+              isRow(row) && row.doseAt !== undefined && row.doseInfo?.length
+                ? 'How this dose was worked out'
+                : 'About this suggestion'
+            }
+            lines={lines}
+            testId="suggestion-info"
+            asButton
+          />
+        ) : null;
+      }}
       addLabel="Use this prescription"
       addedLabel="In use"
     />

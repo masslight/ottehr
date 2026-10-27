@@ -22,8 +22,6 @@ export interface SuggestedSentence {
   note?: string;
   /** This row's own name for its "+" (a row that is not a suggestion, as "Other"), in place of `addLabel`. */
   addLabel?: string;
-  /** A small grey line under it, as the name of the quick pick it came from. */
-  subtitle?: string;
 }
 
 /** The current value of each segment: a pick for a blank, `undefined` for text and for a blank left on its default. */
@@ -176,11 +174,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                   </React.Fragment>
                 );
               })}
-              {suggestion.subtitle && (
-                <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  {suggestion.subtitle}
-                </Typography>
-              )}
               {suggestion.reason && (
                 <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                   Because {suggestion.reason}
@@ -208,27 +201,30 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                 </Typography>
               )}
             </Typography>
-            {renderBesideAdd?.(suggestion, picks)}
-            {added ? (
-              <CheckCircle sx={{ fontSize: 16, color: 'success.main', m: '2px' }} titleAccess={addedLabel} />
-            ) : (
-              <Tooltip
-                title={mustPick ? `Pick the ${mustPick.title.toLowerCase()} first` : suggestion.addLabel ?? addLabel}
-              >
-                <span>
-                  <IconButton
-                    size="small"
-                    aria-label={suggestion.addLabel ?? addLabel}
-                    disabled={Boolean(mustPick)}
-                    onClick={() => onAdd(suggestion, picks)}
-                    sx={{ padding: '2px' }}
-                    color="primary"
-                  >
-                    <AddCircleOutline sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            )}
+            {/* The ⓘ and the "+" share one box size, centred on the sentence's first line (body2 at 1.8 is 25.2px). */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: '2.6px', flex: 'none' }}>
+              {renderBesideAdd?.(suggestion, picks)}
+              {added ? (
+                <CheckCircle sx={{ fontSize: 16, color: 'success.main', m: '2px' }} titleAccess={addedLabel} />
+              ) : (
+                <Tooltip
+                  title={mustPick ? `Pick the ${mustPick.title.toLowerCase()} first` : suggestion.addLabel ?? addLabel}
+                >
+                  <span>
+                    <IconButton
+                      size="small"
+                      aria-label={suggestion.addLabel ?? addLabel}
+                      disabled={Boolean(mustPick)}
+                      onClick={() => onAdd(suggestion, picks)}
+                      sx={{ padding: '2px' }}
+                      color="primary"
+                    >
+                      <AddCircleOutline sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              )}
+            </Box>
           </Box>
         );
       })}

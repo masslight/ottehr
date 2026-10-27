@@ -29,18 +29,39 @@ describe('eRx suggestion looks', () => {
   });
 
   it.each([
-    ['Quick pick saved by weight', 'Take 9 mL by mouth twice daily for 10 days.'],
-    ['Quick pick at its maximum', 'Take 6 mL by mouth twice daily for 10 days.'],
-    ['Quick pick by weight, no weight', 'Take (enter weight) mL by mouth twice daily for 10 days.'],
-    ['Quick pick without dosing', 'Take 5 mL by mouth twice daily for 10 days.'],
-  ])('%s', (title, text) => {
+    [
+      'Quick pick saved by weight',
+      'Take 9 mL by mouth twice daily for 10 days.',
+      'How this dose was worked out',
+      'Sample by weight',
+    ],
+    [
+      'Quick pick at its maximum',
+      'Take 6 mL by mouth twice daily for 10 days.',
+      'How this dose was worked out',
+      'Sample with a maximum',
+    ],
+    [
+      'Quick pick by weight, no weight',
+      'Take (enter weight) mL by mouth twice daily for 10 days.',
+      'About this suggestion',
+      'Sample by weight',
+    ],
+    [
+      'Quick pick without dosing',
+      'Take 5 mL by mouth twice daily for 10 days.',
+      'About this suggestion',
+      'Sample saved sentence',
+    ],
+  ])('%s', async (title, text, info, name) => {
     render(<ErxSuggestionsBox {...suggestionLook(title)} />);
-    expect(screen.getAllByText(/^Sample /)).toHaveLength(1);
     expect(
-      screen.getByText(
-        (_content, element) => element?.tagName === 'P' && element.textContent?.startsWith(text) === true
-      )
+      screen.getByText((_content, element) => element?.tagName === 'P' && element.textContent === text)
     ).toBeInTheDocument();
+    // The quick pick's name is only behind the ⓘ, as its first line.
+    expect(screen.queryByText(/Sample /)).not.toBeInTheDocument();
+    await userEvent.setup().hover(screen.getByRole('img', { name: info }));
+    expect((await screen.findByTestId('suggestion-info')).firstElementChild).toHaveTextContent(`Quick pick: ${name}`);
   });
 
   it('shows a diagnosis blank empty or filled', () => {

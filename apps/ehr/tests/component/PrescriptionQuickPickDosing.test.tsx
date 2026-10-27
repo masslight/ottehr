@@ -110,12 +110,20 @@ const Harness = ({
 
 const liquidLine = (): PrescriptionLine => withProduct(emptyPrescriptionLine(), LIQUIDS, LIQUIDS.strengths[0]);
 
-/** The row of the suggestions box that reads the quick pick's name. */
-const rowNamed = (name: string): HTMLElement => screen.getByText(name).closest('.MuiBox-root') as HTMLElement;
+/** The suggestions box's rows by position, "Other" last; the quick pick's name is only behind each row's ⓘ. */
+const suggestionRow = (index: number): HTMLElement =>
+  // The "+" sits in a box with the ⓘ; the row is the box around that.
+  screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })[index].closest('.MuiBox-root')!
+    .parentElement!;
 
-const hoverWorking = async (user: ReturnType<typeof userEvent.setup>, row: HTMLElement): Promise<HTMLElement> => {
-  await user.hover(within(row).getByRole('img', { name: 'How this dose was worked out' }));
-  return screen.findByTestId('suggestion-dose-working');
+/** What the row's ⓘ by its "+" says. */
+const hoverInfo = async (
+  user: ReturnType<typeof userEvent.setup>,
+  row: HTMLElement,
+  name = 'How this dose was worked out'
+): Promise<HTMLElement> => {
+  await user.hover(within(row).getByRole('img', { name }));
+  return screen.findByTestId('suggestion-info');
 };
 
 describe('Save as quick pick: the calculator’s dosing', () => {
@@ -167,34 +175,48 @@ describe('Save as quick pick: the calculator’s dosing', () => {
 });
 
 describe('Suggestions from quick picks', () => {
-  it('shows the quick picks for exactly this product, the name under each, then "Other"', () => {
+  it('shows the quick picks for exactly this product, each name behind its ⓘ only, then "Other"', async () => {
+    const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[BY_WEIGHT, OTHER_PRODUCT, SAVED_TEXT]} weight={WEIGHT} />);
-    expect(screen.getByText('Amox strep')).toBeInTheDocument();
-    expect(screen.getByText('Amox as written')).toBeInTheDocument();
-    expect(screen.queryByText('Amox 250')).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })).toHaveLength(3);
-    // Without dosing: the saved sentence as written.
-    expect(within(rowNamed('Amox as written')).getByText('Take 5 mL by mouth twice daily for 10 days.')).toBeVisible();
+    // No name on the rows themselves.
+    expect(screen.queryByText(/Amox (strep|as written)/)).not.toBeInTheDocument();
+    expect(suggestionRow(0)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
+    // Without dosing: the saved sentence as written, and an ⓘ by its "+" with just the name.
+    const asWritten = suggestionRow(1);
+    expect(within(asWritten).getByText('Take 5 mL by mouth twice daily for 10 days.')).toBeVisible();
+    const info = within(asWritten).getByRole('img', { name: 'About this suggestion' });
+    expect(info.nextElementSibling).toContainElement(
+      within(asWritten).getByRole('button', { name: 'Use this prescription' })
+    );
+    expect(await hoverInfo(user, asWritten, 'About this suggestion')).toHaveTextContent(
+      /^Quick pick: Amox as written$/
+    );
+    await user.unhover(info);
+    // "Other" has none.
+    expect(within(suggestionRow(2)).queryByRole('img')).not.toBeInTheDocument();
   });
 
   it('re-doses a quick pick saved by weight for each weight, with the working behind the ⓘ', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<Harness initial={liquidLine()} quickPicks={[BY_WEIGHT]} weight={WEIGHT} />);
-    let row = rowNamed('Amox strep');
+    let row = suggestionRow(0);
     expect(row).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
     expect(within(row).getByRole('button', { name: 'Dose: 9' })).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: 'Frequency: twice daily' })).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: 'Duration: 10' })).toBeInTheDocument();
-    let working = await hoverWorking(user, row);
+    let working = await hoverInfo(user, row);
+    // The quick pick's name first, then the working.
+    expect(working.firstElementChild).toHaveTextContent(/^Quick pick: Amox strep$/);
     expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → 9 mL = 720 mg');
     expect(working).toHaveTextContent('9 mL = 720 mg, 17 mg (2%) over 703 mg');
     unmount();
 
     render(<Harness initial={liquidLine()} quickPicks={[BY_WEIGHT]} weight={{ ...WEIGHT, kg: 12.4 }} />);
-    row = rowNamed('Amox strep');
+    row = suggestionRow(0);
     // 12.4 kg × 25 = 310 mg = 3.875 mL: the nearest half mL is 4 mL.
     expect(within(row).getByRole('button', { name: 'Dose: 4' })).toBeInTheDocument();
-    working = await hoverWorking(user, row);
+    working = await hoverInfo(user, row);
     expect(working).toHaveTextContent('12.4 kg × 25 mg/kg/dose = 310 mg → 4 mL = 320 mg');
 
     // Picking the row fills the line as the quick pick would, with this patient's dose and its settings.
@@ -221,10 +243,10 @@ describe('Suggestions from quick picks', () => {
   it('caps at the quick pick’s maximum, measuring down, and says so behind the ⓘ', async () => {
     const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[CAPPED]} weight={WEIGHT} />);
-    const row = rowNamed('Amox capped');
+    const row = suggestionRow(0);
     // 703 mg is over 500 mg; 500 mg is 6.25 mL, and 6.5 mL would be over it.
     expect(within(row).getByRole('button', { name: 'Dose: 6' })).toBeInTheDocument();
-    const working = await hoverWorking(user, row);
+    const working = await hoverInfo(user, row);
     expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose → 6 mL = 480 mg');
     expect(working).toHaveTextContent(
       '6 mL = 480 mg, 20 mg (4%) under 500 mg (rounded down to stay at or under the max 500 mg per dose)'
@@ -233,19 +255,21 @@ describe('Suggestions from quick picks', () => {
 
   it('asks for a weight when there is none: no dose, and the row can’t be used until one is given', () => {
     render(<Harness initial={liquidLine()} quickPicks={[BY_WEIGHT, SAVED_TEXT]} />);
-    const row = rowNamed('Amox strep');
+    const row = suggestionRow(0);
     const dose = within(row).getByRole('button', { name: 'Dose: not picked' });
     expect(dose).toHaveTextContent('(enter weight)');
+    // No working yet: the ⓘ has just the quick pick.
     expect(within(row).queryByRole('img', { name: 'How this dose was worked out' })).not.toBeInTheDocument();
+    expect(within(row).getByRole('img', { name: 'About this suggestion' })).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: 'Use this prescription' })).toBeDisabled();
     // A quick pick without dosing needs no weight.
-    expect(within(rowNamed('Amox as written')).getByRole('button', { name: 'Use this prescription' })).toBeEnabled();
+    expect(within(suggestionRow(1)).getByRole('button', { name: 'Use this prescription' })).toBeEnabled();
   });
 
   it('opens the row’s calculator with the quick pick’s settings; "Use this dose" uses the row with the new dose', async () => {
     const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[CAPPED]} weight={WEIGHT} />);
-    const row = rowNamed('Amox capped');
+    const row = suggestionRow(0);
     // The calculator starts the sentence, before "Take"; the ⓘ sits right before the row's "+".
     const icon = within(row).getByRole('button', { name: 'Dose calculator for Amox capped' });
     expect(icon.parentElement?.firstElementChild).toBe(icon);
@@ -293,7 +317,7 @@ describe('Suggestions from quick picks', () => {
   it('uses a quick pick without dosing as the quick pick list does: its directions as written', async () => {
     const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[SAVED_TEXT]} weight={WEIGHT} />);
-    await user.click(within(rowNamed('Amox as written')).getByRole('button', { name: 'Use this prescription' }));
+    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));
     expect(latest).toMatchObject({
       medication: PRODUCT,
       dose: '',
@@ -304,15 +328,43 @@ describe('Suggestions from quick picks', () => {
     expect(latest?.dosing).toBeUndefined();
   });
 
+  it('opens an empty calculator ("Enter my own") from a quick pick without dosing; "Use this dose" uses the row with it', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={liquidLine()} quickPicks={[SAVED_TEXT]} weight={WEIGHT} />);
+    const row = suggestionRow(0);
+    // The calculator starts the sentence here too.
+    const icon = within(row).getByRole('button', { name: 'Dose calculator for Amox as written' });
+    expect(icon.parentElement?.firstElementChild).toBe(icon);
+    await user.click(icon);
+    const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    expect(within(calculator).getByRole('spinbutton', { name: 'weight' })).toHaveValue(28.12);
+    expect(within(calculator).getByRole('spinbutton', { name: 'concentration' })).toHaveValue(80);
+    expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(null);
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '50');
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
+    await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
+    // 28.12 kg × 50 mg/kg/day ÷ 2 = 703 mg → 9 mL.
+    expect(latest).toMatchObject({
+      medication: PRODUCT,
+      dose: '9',
+      frequency: 'twice daily',
+      quantityValue: '100',
+      daysSupply: '10',
+      dosing: { rate: 50, basis: 'mg/kg/day', dosesPerDay: 2 },
+    });
+    // The saved directions follow the new dose.
+    expect(latest?.patientInstructions).toBe('Take 9 mL by mouth twice daily.');
+  });
+
   it('takes a dose typed into the row as the provider’s own: the line keeps no settings', async () => {
     const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[BY_WEIGHT]} weight={WEIGHT} />);
-    const row = rowNamed('Amox strep');
+    const row = suggestionRow(0);
     await user.click(within(row).getByRole('button', { name: 'Dose: 9' }));
     const entry = screen.getByRole('spinbutton', { name: 'Dose' });
     await user.clear(entry);
     await user.type(entry, '8{Enter}');
-    await user.click(within(rowNamed('Amox strep')).getByRole('button', { name: 'Use this prescription' }));
+    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));
     expect(latest).toMatchObject({ dose: '8', patientInstructions: 'Take 8 mL by mouth twice daily for 10 days.' });
     expect(latest?.dosing).toBeUndefined();
   });

@@ -361,6 +361,14 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   /** The line used in a row: as the row's own apply has it, else as its fields fill it. */
   const withRow = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine =>
     row.apply ? row.apply(line, picks) : withSuggestion(line, row.fill(picks));
+  /** The line a row's calculator works on. For a quick pick without dosing its saved directions follow the calculator's
+   * dose, as a dosing row's do, rather than keep saying another one. */
+  const calculatorLine = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine => {
+    const used = withRow(row, picks);
+    return row.calculator
+      ? used
+      : { ...used, generated: { ...used.generated, patientInstructions: used.patientInstructions } };
+  };
 
   /** Shown while the step's dose is as a strength change re-measured it: an ⓘ with how. */
   const doseInfo = (step: PrescriptionStep, at: string, doseNote: DoseNote | undefined): ReactNode =>
@@ -493,13 +501,14 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               <DiagnosisSearch visitDiagnoses={visitDiagnoses} onPick={(diagnosis) => pick(diagnosisText(diagnosis))} />
             )
           }
-          // A quick pick's row opens the calculator with its settings; "Use this dose" uses the row with that dose.
+          // A quick pick's row opens the calculator with its settings, or empty ones ("Enter my own") for a quick pick
+          // without dosing; "Use this dose" uses the row with that dose.
           renderDoseTool={(row, picks) =>
-            row.calculator && (
+            (row.calculator || row.quickPickName !== undefined) && (
               <DoseCalculator
-                line={withRow(row, picks)}
+                line={calculatorLine(row, picks)}
                 initial={row.calculator}
-                label={`Dose calculator for ${row.subtitle ?? 'this suggestion'}`}
+                label={`Dose calculator for ${row.quickPickName ?? 'this suggestion'}`}
                 weight={weight}
                 weightText={weightText}
                 onWeightText={onWeightText}

@@ -74,7 +74,7 @@ const withQuickPick = (line: PrescriptionLine, quickPick: PrescriptionQuickPickD
 const savedRow = (quickPick: PrescriptionQuickPickData, id: string): PrescriptionSuggestionRow => ({
   id,
   segments: [quickPick.patientInstructions || 'No directions saved.'],
-  subtitle: quickPick.name,
+  quickPickName: quickPick.name,
   fill: () => ({
     route: '',
     dose: '',
@@ -176,7 +176,7 @@ const dosedRow = (
   return {
     id,
     segments,
-    subtitle: quickPick.name,
+    quickPickName: quickPick.name,
     doseAt,
     doseInfo: dose ? [dose.working, ...(dose.roundingNote ? [dose.roundingNote] : [])] : undefined,
     calculator,

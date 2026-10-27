@@ -167,7 +167,13 @@ const Fields: FC<{
 );
 
 /** An ⓘ that shows its lines on hover or focus: the working behind a dose, or how far a re-measured dose is off. */
-export const DoseInfoHover: FC<{ label: string; lines: string[]; testId?: string }> = ({ label, lines, testId }) => (
+export const DoseInfoHover: FC<{
+  label: string;
+  lines: string[];
+  testId?: string;
+  /** Sized as a small icon button (16px icon, 2px padding), to sit beside one rather than in a sentence. */
+  asButton?: boolean;
+}> = ({ label, lines, testId, asButton }) => (
   <Tooltip
     title={
       <Box data-testid={testId} sx={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -182,9 +188,14 @@ export const DoseInfoHover: FC<{ label: string; lines: string[]; testId?: string
       role="img"
       tabIndex={0}
       aria-label={label}
-      sx={{ display: 'inline-flex', verticalAlign: '-3px', color: 'text.secondary', flex: 'none', mx: '2px' }}
+      sx={{
+        display: 'inline-flex',
+        color: 'text.secondary',
+        flex: 'none',
+        ...(asButton ? { p: '2px' } : { verticalAlign: '-3px', mx: '2px' }),
+      }}
     >
-      <InfoOutlined sx={{ fontSize: 18 }} />
+      <InfoOutlined sx={{ fontSize: asButton ? 16 : 18 }} />
     </Box>
   </Tooltip>
 );
