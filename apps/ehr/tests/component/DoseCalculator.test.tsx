@@ -53,7 +53,7 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(within(calculator).getByRole('spinbutton', { name: 'weight' })).toHaveValue(28.12);
     expect(within(calculator).getByText(/^previous visit, /)).toBeInTheDocument();
     expect(within(calculator).getByRole('spinbutton', { name: 'strength' })).toHaveValue(250);
-    expect(within(calculator).getByText('from the product')).toBeInTheDocument();
+    expect(within(calculator).queryByText('from the product')).not.toBeInTheDocument();
     expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(2);
     expect(within(calculator).getByText('from twice daily')).toBeInTheDocument();
     expect(within(calculator).getByText('Enter a rate to work out the dose')).toBeInTheDocument();

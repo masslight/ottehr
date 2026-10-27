@@ -221,7 +221,6 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       label: measure === 'mL' ? 'Concentration' : 'Strength',
       value: concentrationText,
       unit: `mg per ${measure}`,
-      from: own.concentration === undefined && derivedConcentration !== undefined ? 'from the product' : undefined,
     },
     {
       id: 'rate',

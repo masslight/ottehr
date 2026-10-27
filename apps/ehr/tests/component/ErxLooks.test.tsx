@@ -106,7 +106,7 @@ describe('dose calculator looks', () => {
     ['Calc 5', 'Day 6: 1 tablet', 'Take as directed on the pack for 6 days.', true],
     ['Calc 6', 'Enter a rate (range 0.14–2 mg/kg/day) to work out the dose', undefined, false],
     ['Calc 7', "No dose: the label's minimum", undefined, false],
-    ['Calc 8', 'from the product', 'Take 3 capsules by mouth twice daily.', true],
+    ['Calc 8', 'mg per capsule', 'Take 3 capsules by mouth twice daily.', true],
   ])('%s', (tag, text, sentence, usable) => {
     render(<DoseCalculatorCard {...calculatorLook(tag)} />);
     expect(screen.getByTestId('dose-calculator')).toHaveTextContent(text);

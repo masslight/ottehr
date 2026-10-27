@@ -307,7 +307,7 @@ export const CALCULATOR_LOOKS: SampleLook<DoseCalculatorCardProps>[] = [
         look: 'own',
         fields: [
           WEIGHT,
-          field('concentration', 'Strength', '250', 'mg per capsule', 'from the product'),
+          field('concentration', 'Strength', '250', 'mg per capsule'),
           field('rate', 'Rate', '25', 'mg/kg per dose'),
           field('dosesPerDay', 'Doses a day', '2', undefined, 'from twice daily'),
         ],
