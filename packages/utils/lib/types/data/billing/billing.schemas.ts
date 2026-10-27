@@ -902,6 +902,19 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
+export const CreateBillingInvoiceInputSchema = z.object({
+  claimId: nonEmptyString.uuid(),
+  amountCents: z.number().int().positive(),
+  dueDate: z.string().date(),
+  smsMessage: nonEmptyString,
+  memo: nonEmptyString,
+  // Same key on a retry resumes the invoice that request started.
+  idempotencyKey: z
+    .string()
+    .max(128)
+    .regex(/^[A-Za-z0-9._-]+$/),
+});
+
 // Billing-side companions to the EHR patient-payments refund/void zambdas. Input is only the
 // clinical notice id: the zambdas derive all billing writes from the authoritative clinical
 // PaymentNotice, so an unauthorized caller can only trigger an idempotent re-sync.
@@ -1187,6 +1200,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type CreateBillingInvoiceInput = z.output<typeof CreateBillingInvoiceInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
 export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
 export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;

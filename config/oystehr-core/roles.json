@@ -303,6 +303,7 @@
             "Zambda:Function:run-billing-rules-engine",
             "Zambda:Function:get-billing-invoice-config",
             "Zambda:Function:save-billing-invoice-config",
+            "Zambda:Function:create-billing-invoice",
             "Zambda:Function:get-billing-work-queues",
             "Zambda:Function:get-billing-work-queue",
             "Zambda:Function:save-billing-work-queue",

@@ -1146,6 +1146,13 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
+export interface CreateBillingInvoiceResponse {
+  invoiceId: string;
+  stripeInvoiceId: string;
+  // True when at least one SMS request was accepted. This does not confirm delivery.
+  smsSent: boolean;
+}
+
 export interface RecordBillingRefundResponse {
   billingNoticesStamped: number;
   candidRefundsRecorded: number;

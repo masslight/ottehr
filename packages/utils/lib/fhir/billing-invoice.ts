@@ -4,6 +4,7 @@ import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT } from './constants';
 export const INVOICE_CLAIM_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-claim';
 export const INVOICE_CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-claim-id';
 export const INVOICE_DUE_DATE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-due-date';
+export const INVOICE_SMS_ACCEPTED_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-sms-accepted';
 export const STRIPE_INVOICE_ID_SYSTEM = 'https://api.stripe.com/v1/invoices';
 
 export interface BillingInvoiceClaim {
@@ -76,6 +77,9 @@ export function getBillingInvoiceClaims(invoice: Invoice): BillingInvoiceClaim[]
 
 export const getBillingInvoiceDueDate = (invoice: Invoice): string | undefined =>
   invoice.extension?.find((ext) => ext.url === INVOICE_DUE_DATE_EXTENSION_URL)?.valueDate;
+
+export const getBillingInvoiceSmsAccepted = (invoice: Invoice): boolean =>
+  invoice.extension?.find((ext) => ext.url === INVOICE_SMS_ACCEPTED_EXTENSION_URL)?.valueBoolean === true;
 
 // Same shape as the Stripe customer IDs on Account. Projects without connected accounts have no account extension.
 export function withStripeInvoiceLink(invoice: Invoice, link: StripeInvoiceLink): Invoice {

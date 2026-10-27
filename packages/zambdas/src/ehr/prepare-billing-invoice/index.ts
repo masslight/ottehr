@@ -23,8 +23,8 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = PREPARE_BILLING_INVOICE_ZAMBDA_KEY;
 
-// The billing app calls this before it invoices a visit. Billing code can't write clinical resources,
-// so the Stripe customer is found or created here, on the patient's clinical Account.
+// Reuse the Stripe customer used by the EHR and patient portal.
+// Create missing customers here so their IDs stay on the clinical Account.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const { encounterId, secrets } = validateWithSchema(PrepareBillingInvoiceInputSchema, input);

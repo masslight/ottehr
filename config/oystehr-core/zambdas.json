@@ -1928,6 +1928,13 @@
       "src": "src/ehr/prepare-billing-invoice/index",
       "zip": ".dist/zips/prepare-billing-invoice.zip"
     },
+    "SEND-BILLING-INVOICE-SMS": {
+      "name": "send-billing-invoice-sms",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-billing-invoice-sms/index",
+      "zip": ".dist/zips/send-billing-invoice-sms.zip"
+    },
     "EXPORT-INVOICES": {
       "name": "export-invoices",
       "type": "http_auth",
