@@ -2,7 +2,12 @@ import { ServiceRequest } from 'fhir/r4b';
 import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
-import { ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  VitalFieldNames,
+  VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { ProcedureDTO, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/save-chart-data/validateRequestParameters';
@@ -206,5 +211,66 @@ describe('save-chart-data - procedure extension round trip', () => {
     expect(extensions[FHIR_EXTENSION.ServiceRequest.repairDepth.url]).toBe('subcutaneous-layered');
     expect(extensions[FHIR_EXTENSION.ServiceRequest.infusionStartTime.url]).toBe('10:15');
     expect(extensions[FHIR_EXTENSION.ServiceRequest.infusionStopTime.url]).toBe('11:00');
+  });
+});
+
+describe('save-chart-data - SpO2 supplemental O2 details', () => {
+  const validateVital = (vital: Record<string, unknown>): VitalsObservationDTO => {
+    const result = validateRequestParameters(
+      createMockZambdaInput({ encounterId: ENCOUNTER_ID, vitalsObservations: [vital] })
+    );
+    const validated = result.vitalsObservations?.[0];
+    if (validated === undefined) throw new Error('expected a validated vital');
+    return validated;
+  };
+
+  const oxygenSat = (supplementalO2?: Record<string, unknown>): Record<string, unknown> => ({
+    field: VitalFieldNames.VitalOxygenSaturation,
+    value: 92,
+    observationMethod: VitalsOxygenSatObservationMethod.OnSupplementalO2,
+    ...(supplementalO2 && { supplementalO2 }),
+  });
+
+  const expectVitalRejected = (vital: Record<string, unknown>): void => {
+    try {
+      validateVital(vital);
+      expect.fail('expected the request to be rejected');
+    } catch (error: any) {
+      expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+    }
+  };
+
+  test('should pass vitals without details through untouched', () => {
+    const weight = { field: VitalFieldNames.VitalWeight, value: 70, extraWeightOptions: [] };
+    expect(validateVital(weight)).toEqual(weight);
+    expect(validateVital(oxygenSat())).toEqual(oxygenSat());
+  });
+
+  test.each<[string, Record<string, unknown>]>([
+    ['a decimal flow rate', { flowRate: 4.5 }],
+    ['a zero flow rate', { flowRate: 0 }],
+    ['every detail', { flowRate: 2, deliveryType: 'Other', deliveryTypeOther: 'Face tent' }],
+    ...Object.values(VitalsSupplementalO2DeliveryType).map((deliveryType): [string, Record<string, unknown>] => [
+      `the ${deliveryType} type`,
+      { deliveryType },
+    ]),
+  ])('should accept %s', (_label, supplementalO2) => {
+    expect(validateVital(oxygenSat(supplementalO2))).toEqual(oxygenSat(supplementalO2));
+  });
+
+  test.each([
+    ['a negative flow rate', { flowRate: -1 }],
+    ['a flow rate sent as text', { flowRate: '4.5' }],
+    ['a null flow rate', { flowRate: null }],
+    ['an unknown delivery type', { deliveryType: 'Hyperbaric chamber' }],
+    ['a delivery type sent by key', { deliveryType: 'NasalCannula' }],
+    ['non-text Other details', { deliveryType: 'Other', deliveryTypeOther: 42 }],
+  ])('should throw for %s', (_label, supplementalO2) => {
+    expectVitalRejected(oxygenSat(supplementalO2));
+  });
+
+  test('should throw when vitalsObservations is not an array', () => {
+    const input = createMockZambdaInput({ encounterId: ENCOUNTER_ID, vitalsObservations: oxygenSat() });
+    expect(() => validateRequestParameters(input)).toThrow('vitalsObservations');
   });
 });

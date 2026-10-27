@@ -108,7 +108,7 @@ export const createVitalsSectionForDischargeSummary = <
           },
           {
             leftBound: leftX + label1Width,
-            rightBound: leftX + label1Width + colWidth,
+            rightBound: leftX + colWidth,
           }
         );
 
@@ -144,7 +144,7 @@ export const createVitalsSectionForDischargeSummary = <
           },
           {
             leftBound: rightX + label2Width,
-            rightBound: rightX + label2Width + colWidth,
+            rightBound: rightX + colWidth,
           }
         );
 

@@ -52,6 +52,7 @@ import {
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
   VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
   VitalTemperatureObservationMethod,
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
@@ -618,6 +619,20 @@ const vitals: Observation[] = [
     { field: VitalFieldNames.VitalWeight, extraWeightOptions: ['patient_refused'] },
     '2026-07-01T13:01:00.000Z'
   ),
+  vital(
+    'enc-2',
+    {
+      field: VitalFieldNames.VitalOxygenSaturation,
+      value: 93,
+      observationMethod: VitalsOxygenSatObservationMethod.OnSupplementalO2,
+      supplementalO2: {
+        flowRate: 2.5,
+        deliveryType: VitalsSupplementalO2DeliveryType.Other,
+        deliveryTypeOther: 'Face tent',
+      },
+    },
+    '2026-07-01T13:02:00.000Z'
+  ),
 ];
 
 // A booked follow-up visit (convert-visit-to-follow-up): its own Appointment, status history and lock. It was
@@ -1085,6 +1100,9 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       heartRateMethod: 'Sitting',
       bloodPressureMethod: 'Standing',
       oxygenSaturationMethod: 'On room air',
+      oxygenSaturationFlowRate: null,
+      oxygenSaturationDeliveryType: null,
+      oxygenSaturationDeliveryTypeOther: '',
       weightRefused: false,
       visionLeftEye: '20/20',
       visionRightEye: '20/40',
@@ -1110,6 +1128,10 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       weightKg: null,
       weightLbs: null,
       weightRefused: true,
+      oxygenSaturationMethod: 'On supplemental O2',
+      oxygenSaturationFlowRate: 2.5,
+      oxygenSaturationDeliveryType: 'Other',
+      oxygenSaturationDeliveryTypeOther: 'Face tent',
       temperatureC: null,
       temperatureMethod: null,
       heightFeetInches: '',

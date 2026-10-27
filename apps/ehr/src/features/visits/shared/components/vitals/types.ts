@@ -102,12 +102,20 @@ export interface RespirationRateLocalState {
 export interface OxygenSatLocalState {
   value: string;
   observationQualifier: string;
+  flowRate: string;
+  deliveryType: string;
+  deliveryTypeOther: string;
   validationError: boolean;
+  isValueInvalid: boolean;
+  isFlowRateInvalid: boolean;
   isDisabled: boolean;
   hasData: boolean;
   isValid: boolean;
   handleValueChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleQualifierChange: (qualifier: string) => void;
+  handleFlowRateChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  handleDeliveryTypeChange: (deliveryType: string) => void;
+  handleDeliveryTypeOtherChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   setValidationError: (error: boolean) => void;
   clearForm: () => void;
   getDTO: () => VitalsOxygenSatObservationDTO | null;

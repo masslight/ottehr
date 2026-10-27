@@ -2,10 +2,15 @@ import { CodeableConcept, Observation, ObservationComponent, Practitioner, Refer
 import { VitalsSchema } from '../helpers/vitals/config-schema';
 import { getVitalObservationFhirComponentInterpretations } from '../helpers/vitals/utils';
 import {
+  getActiveSupplementalO2Details,
+  SUPPLEMENTAL_O2_FLOW_RATE_UNIT,
+} from '../helpers/vitals/vitals-oxygen-saturation.helper';
+import {
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
   VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
   VitalTemperatureObservationMethod,
 } from '../types/api/chart-data/chart-data.constants';
 import {
@@ -19,6 +24,7 @@ import {
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
   VitalsRespirationRateObservationDTO,
+  VitalsSupplementalO2Details,
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
   VitalsVisionOption,
@@ -53,6 +59,14 @@ export const VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE = '8462-4';
 
 export const VITAL_OXY_SATURATION_OBS_METHOD_CODE_ROOM_AIR = '250590007';
 export const VITAL_OXY_SATURATION_OBS_METHOD_CODE_SUPPLEMENTAL_O2 = '250591006';
+
+// The inhaled O2 flow rate component of the US Core Pulse Oximetry profile.
+export const VITAL_OXY_SATURATION_FLOW_RATE_LOINC_CODE = '3151-8';
+// Not every delivery type offered has a verified standard code, so the type and its Other text use a local
+// system, as the DOT vision screening does for its non-standard item.
+export const VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/supplemental-o2`;
+export const VITAL_OXY_SATURATION_DELIVERY_TYPE_CODE = 'delivery-type';
+export const VITAL_OXY_SATURATION_DELIVERY_TYPE_OTHER_CODE = 'delivery-type-other';
 
 export const VITAL_LEFT_EYE_SNOMED_CODE = '8976008';
 export const VITAL_RIGHT_EYE_SNOMED_CODE = '8977004';
@@ -454,6 +468,83 @@ export const extractOxySaturationObservationMethod = (
   }
 
   return undefined;
+};
+
+export const getSupplementalO2ObservationComponents = (
+  oxySatDTO: VitalsOxygenSatObservationDTO
+): ObservationComponent[] => {
+  const details = getActiveSupplementalO2Details(oxySatDTO.observationMethod, oxySatDTO.supplementalO2);
+  if (!details) return [];
+  const components: ObservationComponent[] = [];
+
+  if (details.flowRate !== undefined) {
+    components.push({
+      code: {
+        coding: [
+          {
+            system: LOINC_SYSTEM,
+            code: VITAL_OXY_SATURATION_FLOW_RATE_LOINC_CODE,
+            display: 'Inhaled oxygen flow rate',
+          },
+        ],
+      },
+      valueQuantity: {
+        value: details.flowRate,
+        unit: SUPPLEMENTAL_O2_FLOW_RATE_UNIT,
+        system: 'http://unitsofmeasure.org',
+        code: SUPPLEMENTAL_O2_FLOW_RATE_UNIT,
+      },
+    });
+  }
+  if (details.deliveryType) {
+    components.push({
+      code: {
+        coding: [
+          {
+            system: VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM,
+            code: VITAL_OXY_SATURATION_DELIVERY_TYPE_CODE,
+            display: 'Oxygen delivery type',
+          },
+        ],
+      },
+      valueString: details.deliveryType,
+    });
+  }
+  if (details.deliveryTypeOther) {
+    components.push({
+      code: {
+        coding: [
+          {
+            system: VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM,
+            code: VITAL_OXY_SATURATION_DELIVERY_TYPE_OTHER_CODE,
+            display: 'Other oxygen delivery type',
+          },
+        ],
+      },
+      valueString: details.deliveryTypeOther,
+    });
+  }
+
+  return components;
+};
+
+export const extractSupplementalO2Details = (observation: Observation): VitalsSupplementalO2Details | undefined => {
+  const findComponent = (system: string, code: string): ObservationComponent | undefined =>
+    observation.component?.find(
+      (cmp) => cmp.code?.coding?.some((coding) => coding.system === system && coding.code === code)
+    );
+
+  return getActiveSupplementalO2Details(extractOxySaturationObservationMethod(observation), {
+    flowRate: findComponent(LOINC_SYSTEM, VITAL_OXY_SATURATION_FLOW_RATE_LOINC_CODE)?.valueQuantity?.value,
+    deliveryType: toVitalsSupplementalO2DeliveryType(
+      findComponent(VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM, VITAL_OXY_SATURATION_DELIVERY_TYPE_CODE)
+        ?.valueString
+    ),
+    deliveryTypeOther: findComponent(
+      VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM,
+      VITAL_OXY_SATURATION_DELIVERY_TYPE_OTHER_CODE
+    )?.valueString,
+  });
 };
 
 export const getWeightObservationComponents = (weightDTO: VitalsWeightObservationDTO): ObservationComponent[] => {
@@ -941,6 +1032,12 @@ export function toVitalOxygenSatObservationMethod(
   return undefined;
 }
 
+export function toVitalsSupplementalO2DeliveryType(
+  value: string | undefined
+): VitalsSupplementalO2DeliveryType | undefined {
+  return Object.values(VitalsSupplementalO2DeliveryType).find((deliveryType) => deliveryType === value);
+}
+
 export function fillVitalObservationAttributes(
   baseResource: Observation,
   vitalDTO: VitalsObservationDTO,
@@ -976,10 +1073,12 @@ export function fillVitalObservationAttributes(
 
   if (isOxygenSaturationVitalObservation(vitalDTO)) {
     const oxySatDTO = vitalDTO as VitalsOxygenSatObservationDTO;
+    const component = getSupplementalO2ObservationComponents(oxySatDTO);
     return {
       ...baseResource,
       valueQuantity: { value: oxySatDTO.value, system: 'http://unitsofmeasure.org', unit: 'beats/min' },
       method: getOxygenSaturationObservationMethodCodable(oxySatDTO),
+      ...(component.length > 0 ? { component } : {}),
     };
   }
 
@@ -1130,6 +1229,7 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
       field: VitalFieldNames.VitalOxygenSaturation,
       value: obsNumericalValue,
       observationMethod: extractOxySaturationObservationMethod(observation),
+      supplementalO2: extractSupplementalO2Details(observation),
     };
     return result;
   }

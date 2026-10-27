@@ -5,12 +5,16 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VitalsOxygenSatObservationMethod } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { SUPPLEMENTAL_O2_FLOW_RATE_UNIT } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
+import {
+  VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsOxygenSatObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
-import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VitalsTextFreeInputField, VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
 import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
@@ -33,32 +37,42 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({ field }): JSX
     onSave: field.save,
   });
 
-  const renderQualifierDropdown = (): JSX.Element => {
+  const isSupplementalO2 = localState.observationQualifier === VitalsOxygenSatObservationMethod.OnSupplementalO2;
+
+  const renderDropdown = ({
+    label,
+    labelId,
+    value,
+    options,
+    onChange,
+  }: {
+    label: string;
+    labelId: string;
+    value: string;
+    options: string[];
+    onChange: (value: string) => void;
+  }): JSX.Element => {
     return (
       <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }} disabled={field.isSaving}>
-        <InputLabel id="qualifier-label">Qualifier</InputLabel>
+        <InputLabel id={labelId}>{label}</InputLabel>
         <Select
-          value={localState.observationQualifier}
-          label="Qualifier"
-          labelId="qualifier-label"
+          value={value}
+          label={label}
+          labelId={labelId}
           variant="outlined"
           error={false}
           defaultValue=""
-          onChange={(event) => {
-            const eventValue = event.target.value;
-            const selectedQualifier = eventValue && eventValue.length > 0 ? eventValue : '';
-            localState.handleQualifierChange(selectedQualifier);
-          }}
+          onChange={(event) => onChange(event.target.value)}
         >
           <MenuItem key="default_obs_method" value={''}>
             <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
               &nbsp;
             </Typography>
           </MenuItem>
-          {Object.values(VitalsOxygenSatObservationMethod).map((obsMethod) => (
-            <MenuItem key={obsMethod} value={obsMethod}>
+          {options.map((option) => (
+            <MenuItem key={option} value={option}>
               <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-                {obsMethod}
+                {option}
               </Typography>
             </MenuItem>
           ))}
@@ -137,7 +151,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({ field }): JSX
                     label="Sat (%)"
                     value={localState.value}
                     disabled={field.isSaving}
-                    isInputError={localState.validationError}
+                    isInputError={localState.isValueInvalid && localState.validationError}
                     onChange={localState.handleValueChange}
                     onKeyDown={handleKeyDown}
                     data-testid={dataTestIds.vitalsPage.oxygenSaturationInput}
@@ -161,7 +175,13 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({ field }): JSX
                       ml: 1,
                     }}
                   >
-                    {renderQualifierDropdown()}
+                    {renderDropdown({
+                      label: 'Qualifier',
+                      labelId: 'qualifier-label',
+                      value: localState.observationQualifier,
+                      options: Object.values(VitalsOxygenSatObservationMethod),
+                      onChange: localState.handleQualifierChange,
+                    })}
                   </Box>
                 </Grid>
 
@@ -182,6 +202,46 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({ field }): JSX
                     Add
                   </RoundedButton>
                 </Grid>
+
+                {isSupplementalO2 && (
+                  <>
+                    <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 4 }} sx={{ mt: 2 }}>
+                      <VitalsTextInputFiled
+                        label={`Flow rate (${SUPPLEMENTAL_O2_FLOW_RATE_UNIT})`}
+                        value={localState.flowRate}
+                        disabled={field.isSaving}
+                        isInputError={localState.isFlowRateInvalid && localState.validationError}
+                        onChange={localState.handleFlowRateChange}
+                        onKeyDown={handleKeyDown}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 5 }} sx={{ mt: 2 }}>
+                      <Box sx={{ ml: 1 }}>
+                        {renderDropdown({
+                          label: 'Type',
+                          labelId: 'supplemental-o2-delivery-type-label',
+                          value: localState.deliveryType,
+                          options: Object.values(VitalsSupplementalO2DeliveryType),
+                          onChange: localState.handleDeliveryTypeChange,
+                        })}
+                      </Box>
+                    </Grid>
+
+                    {localState.deliveryType === VitalsSupplementalO2DeliveryType.Other && (
+                      <Grid item xs={12} sm={8} md={8} lg={8} order={{ xs: 6 }} sx={{ mt: 2 }}>
+                        <VitalsTextFreeInputField
+                          placeholder="Please specify"
+                          inputProps={{ 'aria-label': 'Please specify other type' }}
+                          value={localState.deliveryTypeOther}
+                          disabled={field.isSaving}
+                          onChange={localState.handleDeliveryTypeOtherChange}
+                          onKeyDown={handleKeyDown}
+                        />
+                      </Grid>
+                    )}
+                  </>
+                )}
               </Grid>
             }
             rightColumn={renderRightColumn()}

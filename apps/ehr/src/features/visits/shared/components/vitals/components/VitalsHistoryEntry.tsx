@@ -7,6 +7,7 @@ import React, { JSX, useState } from 'react';
 import { vitalsConfig } from 'utils/lib/helpers/vitals/config-schema';
 import { formatBMIWithUnit } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { formatHeightObservationValue } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { formatOxygenSatObservationMethod } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import {
   getDotVisionScreeningLines,
@@ -104,9 +105,11 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({
 };
 
 const getObservationMethod = (historyEntry: VitalsObservationDTO): string | undefined => {
+  if (historyEntry.field === 'vital-oxygen-sat') {
+    return formatOxygenSatObservationMethod(historyEntry);
+  }
   if (
     historyEntry.field === 'vital-temperature' ||
-    historyEntry.field === 'vital-oxygen-sat' ||
     historyEntry.field === 'vital-heartbeat' ||
     historyEntry.field === 'vital-blood-pressure'
   ) {
