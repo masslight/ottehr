@@ -89,9 +89,11 @@ export interface CashPaymentDTO {
 
 export type PatientPaymentDTO = CardPaymentDTO | CashPaymentDTO;
 
+// Payments are listed per encounter: billing notices are keyed by encounter and so is the Stripe
+// account they were taken on.
 export interface ListPatientPaymentInput {
   patientId: string;
-  encounterId?: string;
+  encounterId: string;
 }
 
 export interface ListPatientPaymentResponse {
