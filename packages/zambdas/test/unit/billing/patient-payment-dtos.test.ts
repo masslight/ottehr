@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/billing/patient-payments', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -44,8 +44,16 @@ const otherNotice = (
     extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'other' }],
   }) as PaymentNotice;
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  // also drops a one-off rejection a test left unused because the lookup was skipped
+  vi.mocked(getStripeAccountForAppointmentOrEncounter).mockReset().mockResolvedValue(undefined);
+});
+
 describe('getPaymentsForEncounter', () => {
-  it("lists billing payments whose method is 'other'", async () => {
+  it("lists billing payments whose method is 'other', without a schedule to look up", async () => {
+    // a manual billing payment's encounter may have no appointment, so no schedule owner
+    vi.mocked(getStripeAccountForAppointmentOrEncounter).mockRejectedValueOnce(new Error('Appointment not found'));
     vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
       new Map([
         [
@@ -72,6 +80,7 @@ describe('getPaymentsForEncounter', () => {
       encounterId: ENCOUNTER_ID,
     });
 
+    expect(getStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
     expect(payments).toEqual([
       expect.objectContaining({ paymentMethod: 'other', fhirPaymentNotificationId: 'invoice-1', amountInCents: 4000 }),
       expect.objectContaining({ paymentMethod: 'other', fhirPaymentNotificationId: 'manual-1', amountInCents: 2500 }),
@@ -130,5 +139,40 @@ describe('getPaymentsForEncounter', () => {
     expect(retrieve).toHaveBeenCalledWith('pi_platform', expect.anything(), { stripeAccount: undefined });
     expect(retrieve).toHaveBeenCalledWith('pi_clinic', expect.anything(), { stripeAccount: 'acct_clinic' });
     expect(retrieve).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), { stripeAccount: 'acct_schedule' });
+  });
+
+  it('does not look up the schedule when every card payment is stamped with its account', async () => {
+    vi.mocked(getStripeAccountForAppointmentOrEncounter).mockRejectedValueOnce(new Error('Appointment not found'));
+    vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
+      new Map([
+        [
+          ENCOUNTER_ID,
+          [
+            {
+              ...otherNotice('card-1', '2026-10-21T15:00:00.000Z', 40, [
+                { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+              ]),
+              extension: [
+                { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' },
+                stripeAccountExtension('acct_clinic'),
+              ],
+            },
+          ],
+        ],
+      ])
+    );
+    const retrieve = vi.fn(async (id: string) => ({ id }));
+
+    const payments = await getPaymentsForEncounter({
+      clinicalOystehr: {} as Oystehr,
+      billingOystehr: {} as Oystehr,
+      stripeClient: { paymentIntents: { retrieve } } as unknown as Stripe,
+      account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
+      encounterId: ENCOUNTER_ID,
+    });
+
+    expect(getStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+    expect(retrieve).toHaveBeenCalledWith('pi_1', expect.anything(), { stripeAccount: 'acct_clinic' });
+    expect(payments).toEqual([expect.objectContaining({ paymentMethod: 'card', fhirPaymentNotificationId: 'card-1' })]);
   });
 });

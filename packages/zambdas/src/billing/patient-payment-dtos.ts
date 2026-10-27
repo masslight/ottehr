@@ -28,6 +28,7 @@ import {
   paymentMethodForNotice,
   stripePaymentIntentIdForNotice,
 } from './patient-payments';
+import { stampedStripeAccount } from './payments';
 
 interface GetPaymentsForEncounterInput {
   // reads Account, Encounter, Practitioner and legacy EHR PaymentNotices
@@ -50,11 +51,18 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
   const stripePayments: Stripe.PaymentIntent[] = [];
   const paymentMethods: Stripe.PaymentMethod[] = [];
 
-  // the encounter's payments are prefetched from the schedule owner's account, where the EHR takes
-  // them; each payment's own Stripe lookups use the account it was taken on
-  const scheduleAccount = getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
+  // Each payment's Stripe lookups use the account it was taken on. Only a Stripe payment without an
+  // account stamp falls back to the schedule owner's, where the EHR takes payments, so only then is
+  // the schedule looked up and the encounter's payments prefetched from it: an encounter with no
+  // appointment has no schedule, and its manual or stamped payments need none.
+  const needsSchedule = fhirPaymentNotices.some(
+    (notice) => stripePaymentIntentIdForNotice(notice) && !stampedStripeAccount(notice)
+  );
+  const scheduleAccount = needsSchedule
+    ? getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr)
+    : undefined;
   const stripeAccount = await scheduleAccount;
-  console.log('found a stripe account from the schedule owner, ', stripeAccount);
+  if (needsSchedule) console.log('found a stripe account from the schedule owner, ', stripeAccount);
   const stripeAccountFor = createStripeAccountResolver({
     billingOystehr,
     clinicalOystehr,
@@ -62,7 +70,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     scheduleAccount,
   });
 
-  const customerId = getStripeCustomerIdFromAccount(account, stripeAccount);
+  const customerId = needsSchedule ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
 
   if (customerId) {
     try {
