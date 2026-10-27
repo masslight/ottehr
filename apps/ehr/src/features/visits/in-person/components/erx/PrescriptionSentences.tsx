@@ -82,6 +82,13 @@ export const ADD_QUICK_PICK_LABEL = '+ Add Quick Pick';
 
 const SEARCH_UNAVAILABLE = 'Medication search is unavailable.';
 
+/** The small "×" after a part of the sentence that takes it away. */
+const RemoveButton: FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
+  <IconButton size="small" aria-label={label} onClick={onClick} sx={{ p: '2px', ml: '2px' }}>
+    <Close sx={{ fontSize: 16 }} />
+  </IconButton>
+);
+
 /** A failed search's way to tell the development team: the visit's own Report Issue dialog. */
 const ReportSearchIssue: FC = () => {
   const { oystehr } = useApiClients();
@@ -479,17 +486,13 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           />
           .
           {!readOnly && (
-            <IconButton
-              size="small"
-              aria-label="Remove instructions"
+            <RemoveButton
+              label="Remove instructions"
               onClick={() => {
                 setInstructionsOpen(false);
                 onChange(withDirections(line, { instructions: '' }));
               }}
-              sx={{ p: '2px', ml: '2px' }}
-            >
-              <Close sx={{ fontSize: 16 }} />
-            </IconButton>
+            />
           )}
         </>
       ) : (
@@ -508,14 +511,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             readOnly={readOnly}
           />
           {!readOnly && (
-            <IconButton
-              size="small"
-              aria-label="Remove additional instructions"
+            <RemoveButton
+              label="Remove additional instructions"
               onClick={() => onChange(withDirections(line, { additionalInstructions: undefined }))}
-              sx={{ p: '2px', ml: '2px' }}
-            >
-              <Close sx={{ fontSize: 16 }} />
-            </IconButton>
+            />
           )}
         </>
       )}
@@ -692,14 +691,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           )}
         </PopoverBlank>
         {line.diagnosis && !readOnly && (
-          <IconButton
-            size="small"
-            aria-label={`Remove ${line.diagnosis.code}`}
-            onClick={() => update({ diagnosis: null })}
-            sx={{ p: '2px', ml: '2px' }}
-          >
-            <Close sx={{ fontSize: 16 }} />
-          </IconButton>
+          <RemoveButton label={`Remove ${line.diagnosis.code}`} onClick={() => update({ diagnosis: null })} />
         )}
         .{/* Urgent is offered only when wanted, like "+ details": a grey link until clicked. */}
         {line.urgent ? (
@@ -709,16 +701,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             <Box component="span" sx={{ fontWeight: 700 }}>
               yes
             </Box>
-            {!readOnly && (
-              <IconButton
-                size="small"
-                aria-label="Remove urgent"
-                onClick={() => update({ urgent: false })}
-                sx={{ p: '2px', ml: '2px' }}
-              >
-                <Close sx={{ fontSize: 16 }} />
-              </IconButton>
-            )}
+            {!readOnly && <RemoveButton label="Remove urgent" onClick={() => update({ urgent: false })} />}
           </>
         ) : (
           !readOnly && (

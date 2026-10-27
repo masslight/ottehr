@@ -193,6 +193,13 @@ const NOTHING_GENERATED: GeneratedFields = { patientInstructions: '', quantityVa
 /** The blanks of a "then" step before anything is picked. */
 export const emptyPrescriptionStep = (): PrescriptionStep => ({ dose: '', frequency: '', durationDays: '' });
 
+/** What the calculator or a quick pick's dosing left on the line, cleared together. */
+const NO_DOSING: Pick<PrescriptionLine, 'dosing' | 'maximum' | 'doseBy'> = {
+  dosing: undefined,
+  maximum: undefined,
+  doseBy: undefined,
+};
+
 /** The directions blanks as they start, and as they go back to when the drug changes. */
 const NO_DIRECTIONS: Pick<PrescriptionLine, keyof PrescriptionStep | 'steps' | 'instructions'> = {
   ...emptyPrescriptionStep(),
@@ -223,20 +230,13 @@ export const emptyPrescriptionLine = (): PrescriptionLine => ({
   quickPicked: null,
 });
 
-const wholeAgeAt = (
-  birthDate: string | undefined,
-  visitDate: string | undefined,
-  unit: 'years' | 'months'
-): number | undefined => {
+/** Whole months old at the visit. */
+export const ageMonthsAtVisit = (birthDate: string | undefined, visitDate: string | undefined): number | undefined => {
   const birth = birthDate ? DateTime.fromISO(birthDate) : undefined;
   if (!birth?.isValid) return undefined;
   const visit = visitDate ? DateTime.fromISO(visitDate) : DateTime.now();
-  return Math.floor(visit.diff(birth, unit).get(unit));
+  return Math.floor(visit.diff(birth, 'months').get('months'));
 };
-
-/** Whole months old at the visit. */
-export const ageMonthsAtVisit = (birthDate: string | undefined, visitDate: string | undefined): number | undefined =>
-  wholeAgeAt(birthDate, visitDate, 'months');
 
 /** The strength the line's medication is, among its drug's. */
 export const pickedStrength = (line: Pick<PrescriptionLine, 'drug' | 'medication'>): MedicationStrength | undefined =>
@@ -284,18 +284,8 @@ export const withCalculatorDosing = (
   const kept: PrescriptionLine = { ...line, dosing: { ...dosing, dosesPerDay } };
   if (dosing.basis !== 'mg/kg/day') return kept;
   const measure = measureOf(line.medication);
-  const dose =
-    measure &&
-    plainDose({
-      weightKg,
-      mgPerMeasure: mgPerMeasure(line.medication, doseByIngredient(line.medication, line.doseBy)),
-      measure,
-      basis: dosing.basis,
-      rate: dosing.rate,
-      dosesPerDay,
-      maxPerDoseMg: dosing.maxPerDoseMg,
-      maxPerDayMg: dosing.maxPerDayMg,
-    });
+  const mg = mgPerMeasure(line.medication, doseByIngredient(line.medication, line.doseBy));
+  const dose = measure && plainDose({ ...dosing, weightKg, mgPerMeasure: mg, measure, dosesPerDay });
   if (!dose) return { ...kept, dose: '' };
   const amount = String(dose.amount);
   return {
@@ -422,10 +412,8 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
       daysSupply: '',
       patientInstructions: '',
       ...withoutQuickPick(line),
+      ...NO_DOSING,
       doseNotes: undefined,
-      dosing: undefined,
-      maximum: undefined,
-      doseBy: undefined,
       additionalInstructions: undefined,
     },
     {}
@@ -474,9 +462,7 @@ export const withProduct = (
       ? {
           patientInstructions: '',
           ...withoutQuickPick(line),
-          dosing: undefined,
-          maximum: undefined,
-          doseBy: undefined,
+          ...NO_DOSING,
         }
       : {}),
   };
@@ -500,9 +486,7 @@ export const withSuggestion = (line: PrescriptionLine, fields: SuggestedPrescrip
   ...line,
   ...NO_DIRECTIONS,
   ...fields,
-  dosing: undefined,
-  maximum: undefined,
-  doseBy: undefined,
+  ...NO_DOSING,
   quantityUnit: fields.quantityUnit || line.quantityUnit,
   // Refills are the provider's: a suggestion has none of its own.
   numberOfRefills: line.numberOfRefills,
@@ -647,10 +631,8 @@ export const applyPrescriptionQuickPick = (
     noteToPharmacy: quickPick.noteToPharmacy ?? '',
     generated: NOTHING_GENERATED,
     // Its directions are text written for whoever it was saved from: not the calculator's for this patient.
-    dosing: undefined,
+    ...NO_DOSING,
     doseNotes: undefined,
-    maximum: undefined,
-    doseBy: undefined,
     // Written after the sentence its dosing re-doses; one as written has it all in its directions.
     additionalInstructions: quickPick.dosing ? quickPick.additionalInstructions : undefined,
   };

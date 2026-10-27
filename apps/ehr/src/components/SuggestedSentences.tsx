@@ -134,46 +134,45 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                 const blankValue = valueOf(ref, segment);
                 const unpicked = blankValue === undefined;
                 return (
-                  <React.Fragment key={i}>
-                    <Box
-                      component="button"
-                      type="button"
-                      aria-label={`${segment.title}: ${unpicked ? 'not picked' : blankValue || NONE_OPTION_LABEL}`}
-                      aria-haspopup="listbox"
-                      onClick={(e: React.MouseEvent<HTMLElement>) => setActive({ blank: ref, anchor: e.currentTarget })}
-                      sx={(theme) => {
-                        const tint = picked ? theme.palette.success.main : theme.palette.primary.main;
-                        return {
-                          // A button, but laid out as a run of text so a long value wraps within the sentence.
-                          display: 'inline',
-                          textAlign: 'left',
-                          font: 'inherit',
-                          color: 'inherit',
-                          border: 'none',
-                          margin: 0,
-                          boxDecorationBreak: 'clone',
-                          cursor: 'pointer',
-                          backgroundColor: alpha(tint, 0.15),
-                          borderRadius: '3px',
-                          padding: '1px 2px',
-                          '&:hover': { backgroundColor: alpha(tint, 0.3) },
-                          // Still to be picked: an outlined placeholder rather than a value that could pass for one.
-                          ...(unpicked && {
-                            border: '1px dashed',
-                            borderColor: theme.palette.warning.dark,
-                            color: otherColors.warningText,
-                            backgroundColor: 'transparent',
-                            '&:hover': { backgroundColor: alpha(theme.palette.warning.main, 0.1) },
-                          }),
-                        };
-                      }}
-                    >
-                      {unpicked ? segment.placeholder ?? segment.title.toLowerCase() : blankValue || NONE_OPTION_LABEL}
-                      {picked && (
-                        <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />
-                      )}
-                    </Box>
-                  </React.Fragment>
+                  <Box
+                    component="button"
+                    type="button"
+                    key={i}
+                    aria-label={`${segment.title}: ${unpicked ? 'not picked' : blankValue || NONE_OPTION_LABEL}`}
+                    aria-haspopup="listbox"
+                    onClick={(e: React.MouseEvent<HTMLElement>) => setActive({ blank: ref, anchor: e.currentTarget })}
+                    sx={(theme) => {
+                      const tint = picked ? theme.palette.success.main : theme.palette.primary.main;
+                      return {
+                        // A button, but laid out as a run of text so a long value wraps within the sentence.
+                        display: 'inline',
+                        textAlign: 'left',
+                        font: 'inherit',
+                        color: 'inherit',
+                        border: 'none',
+                        margin: 0,
+                        boxDecorationBreak: 'clone',
+                        cursor: 'pointer',
+                        backgroundColor: alpha(tint, 0.15),
+                        borderRadius: '3px',
+                        padding: '1px 2px',
+                        '&:hover': { backgroundColor: alpha(tint, 0.3) },
+                        // Still to be picked: an outlined placeholder rather than a value that could pass for one.
+                        ...(unpicked && {
+                          border: '1px dashed',
+                          borderColor: theme.palette.warning.dark,
+                          color: otherColors.warningText,
+                          backgroundColor: 'transparent',
+                          '&:hover': { backgroundColor: alpha(theme.palette.warning.main, 0.1) },
+                        }),
+                      };
+                    }}
+                  >
+                    {unpicked ? segment.placeholder ?? segment.title.toLowerCase() : blankValue || NONE_OPTION_LABEL}
+                    {picked && (
+                      <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />
+                    )}
+                  </Box>
                 );
               })}
               {suggestion.reason && (

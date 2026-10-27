@@ -139,17 +139,7 @@ const dosedRow = (
   const { frequency: _frequency, durationDays, ...calculator } = dosing;
   const savedDosesPerDay = dosing.dosesPerDay ?? prescriptionFrequency(frequency)?.dosesPerDay;
   const doseOf = (settings: CalculatorDosing, dosesPerDay: number | undefined): ReturnType<typeof plainDose> =>
-    measure &&
-    plainDose({
-      weightKg,
-      mgPerMeasure: mgPerMeasure(medication),
-      measure,
-      basis: settings.basis,
-      rate: settings.rate,
-      dosesPerDay,
-      maxPerDoseMg: settings.maxPerDoseMg,
-      maxPerDayMg: settings.maxPerDayMg,
-    });
+    measure && plainDose({ ...settings, weightKg, mgPerMeasure: mgPerMeasure(medication), measure, dosesPerDay });
   const savedDose = doseOf(calculator, savedDosesPerDay);
   /** The settings and the dose for the frequency picked on the row, as `withCalculatorDosing` has them on the line. */
   const dosingFor = (
