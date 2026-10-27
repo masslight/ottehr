@@ -1,16 +1,24 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration, Organization, Practitioner } from 'fhir/r4b';
-import { getCoding } from 'utils/lib/fhir/helpers';
+import { codeableConcept, getCoding } from 'utils/lib/fhir/helpers';
 import { searchMedicationLocation, searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
+  CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
-import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
+import {
+  InputImmunizationOrderAdministrationDetails,
+  InputImmunizationOrderDetails,
+} from 'utils/lib/types/data/immunization/types';
 import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
 export const CONTAINED_MEDICATION_ID = 'medication';
@@ -20,6 +28,11 @@ export const IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL = ottehrExtension
   'immunization-order-created-date-time'
 );
 export const IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL = ottehrExtensionUrl('immunization-order-medication-id');
+// Administered date/time and VIS flag entered at order time; effectiveDateTime holds the creation time until administration
+export const IMMUNIZATION_ORDER_ADMINISTERED_DATETIME_EXTENSION_URL = ottehrExtensionUrl(
+  'immunization-order-administered-date-time'
+);
+export const IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL = ottehrExtensionUrl('immunization-order-vis-given');
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,
@@ -143,6 +156,65 @@ export async function updateOrderDetails(
         ],
       },
     },
+  ];
+}
+
+export function updateVaccineMedicationDetails(
+  medication: Medication,
+  administrationDetails: InputImmunizationOrderAdministrationDetails
+): void {
+  const { lot, expDate, mvx, cvx, ndc, cptCodes, visGivenDate } = administrationDetails;
+  medication.batch = lot || expDate ? { lotNumber: lot, expirationDate: expDate } : undefined;
+  medication.extension = (medication.extension ?? []).filter(
+    (ext) =>
+      ext.url !== VACCINE_ADMINISTRATION_CODES_EXTENSION_URL &&
+      ext.url !== VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
+  );
+  for (const [code, system] of [
+    [mvx, MVX_CODE_SYSTEM_URL],
+    [cvx, CVX_CODE_SYSTEM_URL],
+    [ndc, CODE_SYSTEM_NDC],
+  ] as const) {
+    if (code) {
+      medication.extension.push({
+        url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+        valueCodeableConcept: codeableConcept(code, system),
+      });
+    }
+  }
+  for (const cptCode of cptCodes ?? []) {
+    medication.extension.push({
+      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+      valueCodeableConcept: {
+        coding: [{ code: cptCode.code, system: CODE_SYSTEM_CPT, display: cptCode.display }],
+      },
+    });
+  }
+  if (visGivenDate) {
+    medication.extension.push({ url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL, valueDate: visGivenDate });
+  }
+}
+
+export function applyOrderAdministrationDetails(
+  medicationAdministration: MedicationAdministration,
+  administrationDetails: InputImmunizationOrderAdministrationDetails | undefined
+): void {
+  if (!administrationDetails) return;
+  const medication = getContainedMedication(medicationAdministration);
+  if (!medication) throw new Error('Contained Medication is missing');
+  updateVaccineMedicationDetails(medication, administrationDetails);
+
+  const { administeredDateTime, visGiven } = administrationDetails;
+  medicationAdministration.extension = [
+    ...(medicationAdministration.extension ?? []).filter(
+      (ext) =>
+        ext.url !== IMMUNIZATION_ORDER_ADMINISTERED_DATETIME_EXTENSION_URL &&
+        ext.url !== IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL
+    ),
+    ...(administeredDateTime
+      ? [{ url: IMMUNIZATION_ORDER_ADMINISTERED_DATETIME_EXTENSION_URL, valueDateTime: administeredDateTime }]
+      : []),
+    ...(visGiven ? [{ url: IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL, valueBoolean: true }] : []),
   ];
 }
 

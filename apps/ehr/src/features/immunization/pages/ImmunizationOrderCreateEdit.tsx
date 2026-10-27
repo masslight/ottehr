@@ -14,6 +14,7 @@ import {
   Stack,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -46,6 +47,7 @@ import {
   useCreateUpdateImmunizationOrder,
   useGetImmunizationOrders,
 } from '../../visits/in-person/hooks/useImmunization';
+import { AdministeringImmunizationFields } from '../components/AdministeringImmunizationFields';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
@@ -60,6 +62,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   onFinished,
 }) => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const isInlineFlow = useIsInlineFlow();
   const { id: appointmentId, orderId: orderIdFromUrl } = useParams();
   const orderId = orderIdProp ?? orderIdFromUrl;
@@ -72,6 +75,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   const { setDraft, clearDraft, hasDraft, getDraft } = useImmunizationOrderStore();
   const draft = getDraft(encounterId);
+  const { administrationDetails: draftAdministrationDetails, ...draftDetails } = draft ?? {};
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
@@ -91,10 +95,13 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const finish = onFinished ?? ((): void => navigate(getImmunizationMARUrl(appointmentId!)));
 
   const onSubmit = async (data: any): Promise<void> => {
+    const { details, administrationDetails } = (await cleanupProperties(data)) ?? {};
     await createUpdateOrder({
       encounterId: encounter?.id ?? '',
       orderId: orderId,
-      ...(await cleanupProperties(data)),
+      details,
+      // always sent so that clearing every field on edit clears them on the order too
+      administrationDetails: administrationDetails ?? {},
     });
     setIsOrderSaved(true);
     if (isCreating && encounterId) clearDraft(encounterId);
@@ -128,8 +135,9 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     defaultValues: {
       details: {
         orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : undefined,
-        ...(draft ? draft : undefined),
+        ...draftDetails,
       },
+      administrationDetails: draftAdministrationDetails,
     },
   });
 
@@ -149,6 +157,17 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
         location: null,
         instructions: '',
         orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : null,
+      },
+      administrationDetails: {
+        lot: '',
+        ndc: '',
+        expDate: '',
+        mvx: '',
+        cvx: '',
+        cptCodes: [],
+        administeredDateTime: null,
+        visGiven: false,
+        visGivenDate: null,
       },
     });
   };
@@ -195,7 +214,10 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
       formState: { values: true, isDirty: true },
       callback: ({ values, isDirty }) => {
         if (!isDirty) return;
-        setDraft(encounterId, { ...(values.details as InputImmunizationOrderDetails) });
+        setDraft(encounterId, {
+          ...(values.details as InputImmunizationOrderDetails),
+          administrationDetails: values.administrationDetails,
+        });
       },
     });
     return unsubscribe;
@@ -205,8 +227,8 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     (quickPick: ImmunizationQuickPickData): void => {
       onQuickPickSelect(quickPick);
       if (isCreating && encounterId) {
-        const { details } = methods.getValues();
-        setDraft(encounterId, { ...(details as InputImmunizationOrderDetails) });
+        const { details, administrationDetails } = methods.getValues();
+        setDraft(encounterId, { ...(details as InputImmunizationOrderDetails), administrationDetails });
       }
     },
     [onQuickPickSelect, isCreating, encounterId, methods, setDraft]
@@ -289,6 +311,12 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
               <Grid xs={12} item>
                 <OrderDetailsSection />
               </Grid>
+              <Grid xs={12} item>
+                <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+                  Administering immunization
+                </Typography>
+              </Grid>
+              <AdministeringImmunizationFields isReadOnly={isReadOnly} />
               <Grid xs={12} item>
                 <WarningBlock
                   title="Safety Alert"
