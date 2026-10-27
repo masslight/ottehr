@@ -70,6 +70,13 @@ type VirtualAppointmentHistoryRow = BaseAppointmentHistoryRow & {
 
 export type AppointmentHistoryRow = InPersonAppointmentHistoryRow | VirtualAppointmentHistoryRow;
 
+export interface FreeFormEncounterHistoryRow {
+  encounterId: string;
+  dateTime: string | undefined;
+  note: string;
+  lastUpdated: string | undefined;
+}
+
 export interface PatientVisitListResponse {
   visits: AppointmentHistoryRow[];
   metadata: {

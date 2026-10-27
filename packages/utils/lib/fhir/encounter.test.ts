@@ -14,6 +14,7 @@ import {
   isAnnotationFollowupEncounter,
   isEncounterErxSynced,
   isFollowupEncounter,
+  isFreeFormEncounter,
   isScheduledFollowupEncounter,
   tagEncounterAsErxSynced,
 } from './encounter';
@@ -117,6 +118,36 @@ describe('Encounter follow-up helpers', () => {
 
     it('returns true for a follow-up without subtype coding (defaults to annotation)', () => {
       expect(isAnnotationFollowupEncounter(makeEncounter({ type: makeFollowupType() }))).toBe(true);
+    });
+  });
+
+  describe('isFreeFormEncounter', () => {
+    it('returns true for a parentless annotation follow-up', () => {
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType('annotation') }))).toBe(true);
+    });
+
+    it('returns true for a legacy parentless follow-up without subtype coding', () => {
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType() }))).toBe(true);
+    });
+
+    it('returns false for an annotation follow-up attached to a visit', () => {
+      expect(
+        isFreeFormEncounter(
+          makeEncounter({ type: makeFollowupType('annotation'), partOf: { reference: 'Encounter/parent' } })
+        )
+      ).toBe(false);
+    });
+
+    it('returns false for a scheduled follow-up with its own appointment', () => {
+      expect(
+        isFreeFormEncounter(
+          makeEncounter({ type: makeFollowupType('scheduled'), appointment: [{ reference: 'Appointment/appt-1' }] })
+        )
+      ).toBe(false);
+    });
+
+    it('returns false for a regular visit encounter', () => {
+      expect(isFreeFormEncounter(makeEncounter({ appointment: [{ reference: 'Appointment/appt-1' }] }))).toBe(false);
     });
   });
 

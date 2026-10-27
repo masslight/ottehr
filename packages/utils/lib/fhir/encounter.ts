@@ -122,6 +122,9 @@ export const isAnnotationFollowupEncounter = (encounter: Encounter): boolean => 
   return isFollowupEncounter(encounter) && !isScheduledFollowupEncounter(encounter);
 };
 
+export const isFreeFormEncounter = (encounter: Encounter): boolean =>
+  isAnnotationFollowupEncounter(encounter) && !encounter.partOf && !encounter.appointment?.length;
+
 export type EncounterVisitType = 'main' | 'follow-up' | 'scheduled-follow-up';
 
 export const getEncounterVisitType = (encounter?: Encounter): EncounterVisitType => {
