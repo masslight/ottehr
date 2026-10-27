@@ -173,14 +173,17 @@ const searchPaymentNoticesByValues = async (
 ): Promise<PaymentNotice[]> =>
   (
     await Promise.all(
-      chunkThings([...new Set(values)], COUNTERPART_BATCH_SIZE).map(async (batch) =>
-        (
-          await oystehr.fhir.search<PaymentNotice>({
-            resourceType: 'PaymentNotice',
-            params: [{ name, value: batch.join(',') }],
-          })
-        ).unbundle()
-      )
+      chunkThings([...new Set(values)], COUNTERPART_BATCH_SIZE).map(async (batch) => {
+        const grouped = await fetchResourcesGrouped<PaymentNotice>({
+          oystehr,
+          resourceType: 'PaymentNotice',
+          ids: batch,
+          buildParam: (ids) => [{ name, value: ids.join(',') }],
+          groupKeyOf: (notice) => notice.id,
+          batchSize: COUNTERPART_BATCH_SIZE,
+        });
+        return [...grouped.values()].flat();
+      })
     )
   ).flat();
 
