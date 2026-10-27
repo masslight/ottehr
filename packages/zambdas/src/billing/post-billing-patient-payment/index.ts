@@ -228,10 +228,14 @@ const mergeIntoWebhookNotice = async (
   if (alreadyOurs || !storedNotice.id) return storedNotice;
 
   for (let attempt = 1; ; attempt++) {
+    // the webhook may have stored the charge before the claim existed; keep a claim link it has,
+    // else take ours, so the payment ends up linked either way
+    const reference = storedNotice.request?.reference ?? desiredNotice.request?.reference;
     try {
       return await billingOystehr.fhir.update<PaymentNotice>(
         {
           ...storedNotice,
+          request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
           identifier: unionIdentifiers(storedNotice.identifier, desiredNotice.identifier),
           payee: desiredNotice.payee,
           recipient: desiredNotice.recipient,

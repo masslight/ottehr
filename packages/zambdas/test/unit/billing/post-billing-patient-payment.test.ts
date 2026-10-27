@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PaymentNotice } from 'fhir/r4b';
+import { Claim, PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { buildPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
 import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
@@ -52,7 +52,11 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
 
 // ── Imports ────────────────────────────────────────────────────────────────────
 
-import { EHR_PATIENT_PAYMENT_ID_SYSTEM, stripeAccountExtension } from '../../../src/billing/payments';
+import {
+  EHR_PATIENT_PAYMENT_ID_SYSTEM,
+  findBillingClaimForEncounter,
+  stripeAccountExtension,
+} from '../../../src/billing/payments';
 import { index } from '../../../src/billing/post-billing-patient-payment';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
@@ -188,6 +192,43 @@ describe('post-billing-patient-payment', () => {
     expect(notice.recipient).toEqual({ reference: 'Organization/stripe-org' });
     // the notice is ours, so there is nothing to merge
     expect(billingUpdate).not.toHaveBeenCalled();
+  });
+
+  describe('claim link when merging into the notice the webhook wrote first', () => {
+    const claim = { resourceType: 'Claim', id: 'claim-1', provider: { reference: 'Organization/provider' } } as Claim;
+    const webhookNotice = (request: PaymentNotice['request']): PaymentNotice =>
+      ({
+        resourceType: 'PaymentNotice',
+        id: 'pn-webhook',
+        meta: { versionId: '4', tag: [BILLING_RESOURCE_TAG] },
+        status: 'active',
+        request,
+        identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+      }) as PaymentNotice;
+    const encounterRequest = {
+      type: 'Claim',
+      identifier: { system: ottehrIdentifierSystem('claim-encounter-id'), value: ENCOUNTER_ID },
+    };
+    const postCard = (): Promise<APIGatewayProxyResult> =>
+      invoke({ paymentMethod: 'card', amountInCents: 4000, paymentMethodId: 'pm_1', idempotencyKey: IDEMPOTENCY_KEY });
+
+    it('links a notice stored before the claim existed to the claim the post found', async () => {
+      vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(claim);
+      billingCreate.mockResolvedValue(webhookNotice(encounterRequest));
+
+      await postCard();
+
+      expect(billingUpdate.mock.calls[0][0].request).toEqual({ ...encounterRequest, reference: 'Claim/claim-1' });
+    });
+
+    it('keeps a claim link the notice already has', async () => {
+      vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(claim);
+      billingCreate.mockResolvedValue(webhookNotice({ ...encounterRequest, reference: 'Claim/claim-earlier' }));
+
+      await postCard();
+
+      expect(billingUpdate.mock.calls[0][0].request.reference).toBe('Claim/claim-earlier');
+    });
   });
 
   it('merges into the notice the webhook wrote first, keeping its refund stamps', async () => {
