@@ -79,6 +79,7 @@ export interface FreeFormEncounterHistoryRow {
 
 export interface PatientVisitListResponse {
   visits: AppointmentHistoryRow[];
+  freeFormEncounters: FreeFormEncounterHistoryRow[];
   metadata: {
     totalCount: number;
     sortDirection: 'asc' | 'desc';
