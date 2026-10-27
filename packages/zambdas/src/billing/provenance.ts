@@ -12,6 +12,7 @@ import {
   Location,
   Organization,
   Patient,
+  PaymentNotice,
   Practitioner,
   Provenance,
   ProvenanceAgent,
@@ -26,6 +27,11 @@ import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/l
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import {
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+  settledRefundTotalInCents,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -55,12 +61,13 @@ import {
   getClaimStatusValues,
 } from 'utils/lib/types/data/billing/claim-status';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
-import { formatCurrency } from 'utils/lib/utils/convert';
+import { formatCurrency, formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import {
   extractClaimResponseAmounts,
   extractLineAmounts,
   extractReportedCharge,
   matchedClaimId,
+  toClaimPatientPayment,
 } from './claim-amounts';
 import { transmitEventFromClaimResponse } from './claim-status-responses';
 import { eraContainedMemberId, keyedLineDate, resolveEraPayee } from './era-remits';
@@ -256,6 +263,54 @@ function projectRelatedPerson(r: RelatedPerson): FieldProjection[] {
   ];
 }
 
+function projectPaymentNotice(notice: PaymentNotice): FieldProjection[] {
+  const payment = toClaimPatientPayment(notice);
+  const refundedCents = settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice));
+  return [
+    {
+      field: 'amount',
+      label: 'Amount',
+      value: formatCurrency(payment.amount),
+    },
+    {
+      field: 'method',
+      label: 'Payment Method',
+      value: payment.method,
+    },
+    {
+      field: 'paymentDate',
+      label: 'Payment Date',
+      value: payment.paymentDate,
+    },
+    {
+      field: 'checkNumber',
+      label: 'Check Number',
+      value: payment.checkNumber ?? '',
+    },
+    {
+      field: 'description',
+      label: 'Description',
+      value: payment.description,
+    },
+    {
+      field: 'status',
+      label: 'Status',
+      value: payment.status,
+    },
+    {
+      // filters out refund reservations
+      field: 'refunded',
+      label: 'Refunded',
+      value: refundedCents > 0 ? formatCurrencyFromCents(refundedCents) : '',
+    },
+    {
+      field: 'voidReason',
+      label: 'Void Reason',
+      value: parsePaymentVoidFromNotice(notice)?.reason ?? '',
+    },
+  ];
+}
+
 function projectDocumentReference(documentReference: DocumentReference): FieldProjection[] {
   return [
     {
@@ -406,6 +461,8 @@ function projectResource(resource: Resource): FieldProjection[] {
       return projectLocation(resource as Location);
     case 'RelatedPerson':
       return projectRelatedPerson(resource as RelatedPerson);
+    case 'PaymentNotice':
+      return projectPaymentNotice(resource as PaymentNotice);
     case 'DocumentReference':
       return projectDocumentReference(resource as DocumentReference);
     case 'ClaimResponse':
@@ -593,7 +650,8 @@ export interface ClaimProvenanceArgs {
   // Reference to the changed resource. During a creating transaction this may be a urn:uuid fullUrl,
   // which the server resolves to a literal reference.
   targetReference: string;
-  // Reference to the claim this change belongs to (may equal targetReference).
+  // Reference to the claim this change belongs to (may equal targetReference). Absent for a payment
+  // taken before its claim exists; claimHistoryLinkRequests adds it once the claim does.
   claimReference?: string;
   before?: Resource;
   after?: Resource;
@@ -840,6 +898,61 @@ export function claimEventProvenanceRequest({
     recorded: recordedNow(),
     priorVersionReference: versionedReference(args.before),
   });
+}
+
+// Adds the claim to history entries written before it existed, keyed by the target they record. A
+// target without any entry, like a payment recorded before claim history did, has no key.
+export async function claimHistoryLinkRequests({
+  oystehr,
+  claimId,
+  targetReferences,
+}: {
+  oystehr: Oystehr;
+  claimId: string;
+  targetReferences: string[];
+}): Promise<Map<string, BatchInputPatchRequest<Provenance>[]>> {
+  const linkRequests = new Map<string, BatchInputPatchRequest<Provenance>[]>();
+  if (targetReferences.length === 0) return linkRequests;
+  const claimReference = `Claim/${claimId}`;
+  const entries = (
+    await getAllFhirSearchPages<Provenance>(
+      {
+        resourceType: 'Provenance',
+        params: [
+          {
+            name: 'target',
+            value: targetReferences.join(','),
+          },
+        ],
+      },
+      oystehr
+    )
+  ).filter(
+    (provenance) => provenance.extension?.some((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)
+  );
+  for (const targetReference of targetReferences) {
+    const recorded = entries.filter((entry) => entry.target?.some((target) => target.reference === targetReference));
+    if (recorded.length === 0) continue;
+    linkRequests.set(
+      targetReference,
+      recorded
+        .filter((entry) => entry.id && !entry.target?.some((target) => target.reference === claimReference))
+        .map((entry) => ({
+          method: 'PATCH',
+          url: `/Provenance/${entry.id}`,
+          operations: [
+            {
+              op: 'add',
+              path: '/target/-',
+              value: {
+                reference: claimReference,
+              },
+            },
+          ],
+        }))
+    );
+  }
+  return linkRequests;
 }
 
 export async function claimHistoryHasEntryFor({
