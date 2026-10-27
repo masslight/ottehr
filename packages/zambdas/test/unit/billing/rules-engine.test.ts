@@ -459,27 +459,8 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'type')).toBe('institutional');
     expect(writeField(m, 'type', 'dental')).toBe(false);
 
-    // A rule names the service by its code or its displayed name; the claim's tag stores the code of
-    // the listed service it names, so anything else fails (here nothing is listed yet).
-    expect(writeField(m, 'service', 'Workers Comp')).toBe(false);
-    m.billingServiceCodes = ['urgent-care', 'workers-comp', 'workers--comp'];
-    const serviceCodes = (): (string | undefined)[] =>
-      (m.claim.meta?.tag ?? []).filter((t) => t.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM).map((t) => t.code);
-    expect(writeField(m, 'service', 'Workers Comp')).toBe(true);
-    expect(serviceCodes()).toEqual(['workers-comp']);
     expect(writeField(m, 'service', 'urgent-care')).toBe(true);
-    expect(serviceCodes()).toEqual(['urgent-care']);
-    // Codes are stored exactly as listed, even ones whose name doesn't read back as the code.
-    expect(writeField(m, 'service', 'workers--comp')).toBe(true);
-    expect(serviceCodes()).toEqual(['workers--comp']);
-    expect(writeField(m, 'service', 'Workers  Comp')).toBe(true);
-    expect(serviceCodes()).toEqual(['workers--comp']);
-    expect(writeField(m, 'service', 'Sports Physicals')).toBe(false);
-    expect(writeField(m, 'service', '-')).toBe(false);
-    expect(serviceCodes()).toEqual(['workers--comp']);
-    expect(writeField(m, 'service', null)).toBe(true);
-    expect(serviceCodes()).toEqual([]);
-    expect(readField(m, 'service')).toBeUndefined();
+    expect(readField(m, 'service')).toBe('urgent-care');
 
     expect(writeField(m, 'serviceDate', '2026-02-02')).toBe(true);
     expect(readField(m, 'serviceDate')).toBe('2026-02-02');

@@ -12,7 +12,6 @@ import {
   collectSetServiceValues,
   getRuleFieldDef,
   NON_INSURANCE_PAYER_FIELD_ID,
-  serviceCodeFor,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule, BillingRulesResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
@@ -204,9 +203,9 @@ async function validatePayerReferencesExist(oystehr: Oystehr, rules: SaveBilling
   if (problems.length > 0) throw INVALID_INPUT_ERROR(problems.join('; '));
 }
 
-// Every service a rule sets must be one of the services on claims created from visits, named by its
-// code or its displayed name: the claim stores that service's code, which is only known for those.
-// Runs one search, and none when no rule sets a service. The engine re-checks at apply time.
+// Every service a rule sets must be the code of one of the services on claims created from visits —
+// the engine writes the value as the claim's service code. Runs one search, and none when no rule sets
+// a service.
 async function validateSetServicesExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
   const perRule = rules
     .map((rule) => ({ name: rule.name, services: collectSetServiceValues(rule) }))
@@ -216,9 +215,10 @@ async function validateSetServicesExist(oystehr: Oystehr, rules: SaveBillingRule
   const codes = await searchBillingServiceCodes(oystehr);
   const problems = perRule.flatMap((entry) =>
     entry.services
-      .filter((service) => !serviceCodeFor(codes, service))
+      .filter((service) => !codes.includes(service))
       .map(
-        (service) => `rule "${entry.name}" sets the service to "${service}", which no claim created from a visit has`
+        (service) =>
+          `rule "${entry.name}" sets the service to "${service}", which is not the code of a service on claims created from visits`
       )
   );
   if (problems.length > 0) throw INVALID_INPUT_ERROR(problems.join('; '));

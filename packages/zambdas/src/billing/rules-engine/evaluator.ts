@@ -3,7 +3,8 @@ import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants
 import {
   getRuleFieldDef,
   getServiceLinePropertyDef,
-  RULE_VALUE_FORMATS,
+  SERVICE_FIELD_ID,
+  serviceSpellings,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
@@ -179,13 +180,12 @@ export function evaluateCondition(condition: RuleCondition, model: RulesEngineCl
       const results = condition.conditions.map((c) => evaluateCondition(c, model));
       return condition.logic === 'and' ? results.every(Boolean) : results.some(Boolean);
     }
-    case RULE_CONDITION_TYPE.field: {
-      const def = getRuleFieldDef(condition.field);
+    case RULE_CONDITION_TYPE.field:
       return evaluateOperator(condition.operator, readField(model, condition.field), condition.value, {
-        numeric: def?.valueType === 'number',
-        spellings: def?.format ? RULE_VALUE_FORMATS[def.format].spellings : undefined,
+        numeric: getRuleFieldDef(condition.field)?.valueType === 'number',
+        // A service condition matches the claim's service code or its displayed name.
+        spellings: condition.field === SERVICE_FIELD_ID ? serviceSpellings : undefined,
       });
-    }
     default:
       return false;
   }

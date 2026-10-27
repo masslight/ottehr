@@ -252,9 +252,7 @@ export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
 });
 
-export const SearchBillingServicesInputSchema = z.object({
-  name: nonEmptyString.optional(),
-});
+export const SearchBillingServicesInputSchema = z.object({});
 
 export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),

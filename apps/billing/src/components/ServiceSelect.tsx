@@ -1,12 +1,13 @@
 import { Autocomplete, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { HTMLAttributes, ReactElement, ReactNode, Ref, useMemo } from 'react';
-import { serviceCodeFor } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
-import { BillingServiceOption, useBillingServices } from '../hooks/useBillingServices';
+import { ReactElement, ReactNode, Ref, useMemo } from 'react';
+import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
+import { serviceSpellings } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { useBillingServices } from '../hooks/useBillingServices';
 
 // Service picker for the rules builder: only the services on claims created from visits so far (the
-// same list and names as the claims list's Service filter), offered by name. It stores the picked
-// service's name. A value saved as a code shows as its service, and a saved value naming no listed
-// service stays visible so the rule renders as saved (saving rejects it on a set action).
+// same list as the claims list's Service filter), shown by the name the claim screens use and stored as
+// the service's code, like the payer and provider pickers. A value an older rule saved as the name
+// shows as that service, and a saved value no listed service has stays visible as saved.
 
 interface ServiceSelectProps {
   multiple: boolean;
@@ -31,33 +32,22 @@ export function ServiceSelect({
   inputRef,
 }: ServiceSelectProps): ReactElement {
   const { services, load } = useBillingServices();
+  const codes = useMemo(() => services.map((service) => service.name), [services]);
 
-  // The listed service each saved value names, else a stand-in showing the value as saved. Memoized so
-  // a re-render while typing doesn't reset the picker's input.
+  // The listed code each saved value names, else the value as saved. Memoized so a re-render while
+  // typing doesn't reset the picker's input.
   const selected = useMemo(() => {
     const saved = Array.isArray(value) ? value : value ? [value] : [];
-    const codes = services.map((service) => service.code);
-    return saved.map((v) => {
-      const code = serviceCodeFor(codes, v);
-      return services.find((service) => service.code === code) ?? { code: v, name: v };
-    });
-  }, [value, services]);
-  const options = useMemo(
-    () => [...services, ...selected.filter((service) => !services.includes(service))],
-    [services, selected]
-  );
+    return saved.map((v) => codes.find((code) => serviceSpellings(code).includes(v)) ?? v);
+  }, [value, codes]);
+  const options = useMemo(() => [...codes, ...selected.filter((v) => !codes.includes(v))], [codes, selected]);
 
   // Props shared by the single- and multi-select variants (the NioSelect precedent).
   const shared = {
     size: 'small' as const,
     options,
-    getOptionLabel: (o: BillingServiceOption): string => o.name,
-    isOptionEqualToValue: (o: BillingServiceOption, v: BillingServiceOption): boolean => o.code === v.code,
-    renderOption: (props: HTMLAttributes<HTMLLIElement>, o: BillingServiceOption): ReactElement => (
-      <li {...props} key={o.code}>
-        {o.name}
-      </li>
-    ),
+    getOptionLabel: (code: string): string => formatAntCaseString(code),
+    getOptionKey: (code: string): string => code,
     onOpen: load,
     renderInput: (params: AutocompleteRenderInputParams): ReactElement => (
       <TextField
@@ -74,23 +64,23 @@ export function ServiceSelect({
 
   if (multiple) {
     return (
-      <Autocomplete<BillingServiceOption, true, false, false>
+      <Autocomplete<string, true, false, false>
         {...shared}
         multiple
         // Picked services leave the list, so Enter can't pick one again (which would remove it).
         filterSelectedOptions
         value={selected}
-        onChange={(_, next) => onChange(next.map((service) => service.name))}
+        onChange={(_, next) => onChange(next)}
         sx={{ minWidth: 260 }}
       />
     );
   }
 
   return (
-    <Autocomplete<BillingServiceOption, false, false, false>
+    <Autocomplete<string, false, false, false>
       {...shared}
       value={selected[0] ?? null}
-      onChange={(_, next) => onChange(next?.name ?? '')}
+      onChange={(_, next) => onChange(next ?? '')}
       sx={{ minWidth: 240 }}
     />
   );

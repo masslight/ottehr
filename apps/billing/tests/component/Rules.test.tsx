@@ -227,7 +227,7 @@ describe('ConditionalEditor', () => {
       searchBillingServicesMock.mockResolvedValue({ services: [{ name: 'urgent-care' }, { name: 'workers-comp' }] });
     });
 
-    it('offers the services on claims by the name the claims list shows, and stores that name', async () => {
+    it('offers the services on claims by the name the claims list shows, and stores the code', async () => {
       const conditional: RuleConditional = {
         branches: [
           { condition: { type: 'field', field: 'service', operator: 'eq', value: '' }, outcome: { type: 'noop' } },
@@ -247,7 +247,7 @@ describe('ConditionalEditor', () => {
         type: 'field',
         field: 'service',
         operator: 'eq',
-        value: 'Workers Comp',
+        value: 'workers-comp',
       });
     });
 
@@ -276,16 +276,16 @@ describe('ConditionalEditor', () => {
       expect(onValid.mock.calls[0][0].conditional.branches[0].outcome.actions[0]).toEqual({
         type: 'setField',
         field: 'service',
-        value: 'Workers Comp',
+        value: 'workers-comp',
       });
     });
 
-    it('shows a value saved as a code as its service, and keeps one no listed service has as saved', async () => {
+    it('shows a name an older rule saved as its service, and a value no listed service has as saved', async () => {
       const conditional: RuleConditional = {
         branches: [
           {
-            condition: { type: 'field', field: 'service', operator: 'eq', value: 'workers-comp' },
-            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value: 'Sports Physicals' }] },
+            condition: { type: 'field', field: 'service', operator: 'eq', value: 'Workers Comp' },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value: 'sports-physicals' }] },
           },
         ],
       };
@@ -294,12 +294,19 @@ describe('ConditionalEditor', () => {
 
       await waitFor(() => expect(conditionInput).toHaveValue('Workers Comp'));
       expect(actionInput).toHaveValue('Sports Physicals');
+      // The saved name is that listed service, not a second "Workers Comp" in the list.
+      fireEvent.mouseDown(conditionInput);
+      expect(await screen.findAllByRole('option', { name: 'Workers Comp' })).toHaveLength(1);
     });
 
     it('collects listed services for "is one of", and Enter never removes one already picked', async () => {
       const conditional: RuleConditional = {
         branches: [
-          { condition: { type: 'field', field: 'service', operator: 'in', value: [] }, outcome: { type: 'noop' } },
+          {
+            // A name an older rule saved: picking another service stores both as codes.
+            condition: { type: 'field', field: 'service', operator: 'in', value: ['Urgent Care'] },
+            outcome: { type: 'noop' },
+          },
         ],
       };
       const onValid = vi.fn();
@@ -308,15 +315,13 @@ describe('ConditionalEditor', () => {
       const input = screen.getByPlaceholderText('Pick services…');
 
       await user.click(input);
-      await user.click(await screen.findByRole('option', { name: 'Urgent Care' }));
-      await user.click(input); // the list closes after each pick
       await user.click(await screen.findByRole('option', { name: 'Workers Comp' }));
       // MUI highlights the first picked service when the text matches it; Enter must not un-pick it.
       await user.type(input, 'Urgent{Enter}');
 
       fireEvent.click(screen.getByText('Save'));
       await waitFor(() => expect(onValid).toHaveBeenCalled());
-      expect(onValid.mock.calls[0][0].conditional.branches[0].condition.value).toEqual(['Urgent Care', 'Workers Comp']);
+      expect(onValid.mock.calls[0][0].conditional.branches[0].condition.value).toEqual(['urgent-care', 'workers-comp']);
     });
 
     it('offers only whole-value operators: no contains, starts with or patterns', async () => {

@@ -59,7 +59,7 @@ import {
   isValidClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { getServiceLinePropertyDef, serviceCodeFor } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { removeExtension, updateExtension } from '../../shared/helpers';
@@ -134,10 +134,6 @@ export interface RulesEngineClaimModel {
   // Inactive (soft-deleted) organizations are kept, so the writer can fail the action instead of
   // mistaking the id for an RCM payer.
   customInsuranceOrganizations?: Map<string, Organization>;
-  // The codes of the services on claims created from visits (search-billing-services' list),
-  // prefetched by the engine when the rule set sets the service, so the synchronous writer can look up
-  // the code of the service a rule names.
-  billingServiceCodes?: string[];
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
@@ -800,16 +796,10 @@ const setClaimType = (claim: Claim, value: string | null): boolean => {
   return true;
 };
 
-// A rule names the service by its code or its displayed name; the claim's tag carries the code of the
-// listed service it names. A value naming none of them fails, rather than inventing a code.
-const setClaimService = (model: RulesEngineClaimModel, value: string | null): boolean => {
-  const wanted = value?.trim();
-  const code = wanted ? serviceCodeFor(model.billingServiceCodes ?? [], wanted) : undefined;
-  if (wanted && !code) return false;
-  const { claim } = model;
+const setClaimService = (claim: Claim, value: string | null): boolean => {
   claim.meta = claim.meta ?? {};
   const rest = (claim.meta.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM);
-  claim.meta.tag = code ? [...rest, { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code }] : rest;
+  claim.meta.tag = value ? [...rest, { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: value }] : rest;
   return true;
 };
 
@@ -1079,7 +1069,7 @@ const WRITERS: Record<string, FieldWriter> = {
   payerId: (m, v) => setPayerId(m, v),
   nonInsurancePayerId: (m, v) => setNonInsurancePayer(m, v),
   type: (m, v) => setClaimType(m.claim, v),
-  service: (m, v) => setClaimService(m, v),
+  service: (m, v) => setClaimService(m.claim, v),
   serviceDate: (m, v) => setServiceDate(m.claim, v),
   billType: (m, v) => setBillType(m.claim, v),
   patientDischargeStatusCode: (m, v) => setPatientDischargeStatusCode(m.claim, v),

@@ -1507,13 +1507,12 @@ export function getClaimService(claim: Claim): string | undefined {
 
 // The codes of the services on claims created from visits: one Basic per service, created with the
 // first such claim (create-billing-claim-from-encounter). Read by the services list
-// (search-billing-services), and by rule saving and the rules engine to find the code of the service
-// a rule sets. `code` narrows the search to that one code.
-export async function searchBillingServiceCodes(oystehr: Oystehr, code?: string): Promise<string[]> {
+// (search-billing-services) and by rule saving, which checks the service a rule sets is one of them.
+export async function searchBillingServiceCodes(oystehr: Oystehr): Promise<string[]> {
   const bundle = await oystehr.fhir.search<Basic>({
     resourceType: 'Basic',
     params: [
-      { name: 'code', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${code ?? ''}` },
+      { name: 'code', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|` },
       { name: '_count', value: '200' },
     ],
   });

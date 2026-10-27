@@ -5,10 +5,8 @@ import { SearchBillingServicesResponse } from 'utils/lib/types/data/billing/bill
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { validateWithSchema } from '../../shared/validation';
 import { createBillingClient, searchBillingServiceCodes } from '../shared';
-
-type SearchBillingServicesParams = ValidatedZambdaInput<typeof SearchBillingServicesInputSchema>;
 
 let m2mToken: string;
 
@@ -19,15 +17,12 @@ export const index = wrapHandler(
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const response = await performEffect(oystehr, params);
+    const response = await performEffect(oystehr);
     return { statusCode: 200, body: JSON.stringify(response) };
   }
 );
 
-async function performEffect(
-  oystehr: Oystehr,
-  params: SearchBillingServicesParams
-): Promise<SearchBillingServicesResponse> {
-  const codes = await searchBillingServiceCodes(oystehr, params.name);
+async function performEffect(oystehr: Oystehr): Promise<SearchBillingServicesResponse> {
+  const codes = await searchBillingServiceCodes(oystehr);
   return { services: codes.map((name) => ({ name })).sort((a, b) => a.name.localeCompare(b.name)) };
 }

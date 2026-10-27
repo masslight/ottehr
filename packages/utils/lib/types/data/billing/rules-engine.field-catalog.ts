@@ -135,8 +135,7 @@ export interface RuleFieldOption {
 // exact-match condition values and written values (fragment operators like contains/startsWith
 // legitimately take partial values and skip them); `tag`, `cpt` and `service` carry no sync
 // validator — they pick the rule builder's input component (tag dropdown / CPT terminology
-// autocomplete / service picker), and tag existence is checked server-side at save time. `service`
-// also gives the engine a stored service's other spelling (see `spellings`).
+// autocomplete / service picker), and tag existence is checked server-side at save time.
 export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt' | 'service';
 
 export interface RuleValueFormatDef {
@@ -144,22 +143,6 @@ export interface RuleValueFormatDef {
   validate?: (value: string) => string | undefined;
   // One-line format hint for the generated docs and UI helper text.
   hint: string;
-  // Every spelling a stored value is known by, for formats with more than one. An equality or
-  // membership condition holds when it holds for any of them, each compared exactly.
-  spellings?: (value: string) => string[];
-}
-
-// A service is known by its code (workers-comp) and by the name the claim screens show for it
-// (formatAntCaseString: "Workers Comp").
-export function serviceSpellings(code: string): string[] {
-  return [code, formatAntCaseString(code)];
-}
-
-// The code among `codes` that `value` names as a service — by its code, else by its displayed name —
-// or undefined when it names none of them. Shared by the rule builder's service picker, save-time
-// validation and the engine's writer, so they agree with the spellings conditions match.
-export function serviceCodeFor(codes: string[], value: string): string | undefined {
-  return codes.find((code) => code === value) ?? codes.find((code) => serviceSpellings(code).includes(value));
 }
 
 // Messages mirror the billing app's form validation (billing.schemas.ts / the provider and
@@ -188,7 +171,7 @@ export const RULE_VALUE_FORMATS: Record<RuleValueFormat, RuleValueFormatDef> = {
   },
   tag: { hint: 'a tag defined on the Tags page' },
   cpt: { hint: 'a CPT/HCPCS code' },
-  service: { hint: 'a service on claims created from visits, by name or code', spellings: serviceSpellings },
+  service: { hint: 'a service on claims created from visits' },
 };
 
 export interface RuleFieldDef {
@@ -599,8 +582,8 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: REF_OPS,
     settable: true,
     description:
-      'The service category: one of the services on claims created from visits so far, named as the claims list shows it (e.g. Workers Comp) or by its code (workers-comp). ' +
-      "Conditions match either spelling exactly; setting it stores the chosen service's code.",
+      'The service category, picked from the services on claims created from visits so far by the name the claims list shows (e.g. Workers Comp) and stored as its code (workers-comp). ' +
+      'Conditions also match a value written as that name; setting it requires the code of a listed service.',
     format: 'service',
   },
   {
@@ -1452,9 +1435,15 @@ export interface SetResourceRef {
 
 export const SERVICE_FIELD_ID = 'service';
 
+// A service's spellings: its code (workers-comp), which rules store, and the name the claim screens
+// show for it (formatAntCaseString: "Workers Comp"), which a condition saved before the service picker
+// may hold. A service condition matches either, each exactly.
+export function serviceSpellings(code: string): string[] {
+  return [code, formatAntCaseString(code)];
+}
+
 // The service values a rule's setField actions assign (deduped, in tree order) — save-billing-rules
-// checks each names a service on claims created from visits, and the engine prefetches those services
-// so the synchronous writer can look up the code to store.
+// checks each is the code of a service on claims created from visits.
 export function collectSetServiceValues(rule: { conditional: RuleConditional }): string[] {
   const values: string[] = [];
   forEachRuleAction(rule, (action) => {

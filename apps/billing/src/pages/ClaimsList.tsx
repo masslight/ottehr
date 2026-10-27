@@ -89,7 +89,7 @@ import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { billingServiceOption, useBillingServices } from '../hooks/useBillingServices';
+import { useBillingServices } from '../hooks/useBillingServices';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatFacilityAddress, valueToText } from '../utils/format';
@@ -483,7 +483,7 @@ export function ClaimsListView({
   const [bulkSetSFModalOpen, setBulkSetSFModalOpen] = useState(false);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
-  const { services, load: loadServices } = useBillingServices();
+  const { services: serviceOptions, load: loadServices } = useBillingServices();
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -508,12 +508,6 @@ export function ClaimsListView({
   const [typeFilter, setTypeFilter] = useState<ClaimTypeCode[]>(initialFilters?.type ?? []);
   const [selectedServices, setSelectedServices] = useState<BillingService[]>(
     (initialFilters?.service ?? []).map((name) => ({ name }))
-  );
-  // The filter keeps (and saves) service codes; its picker works with the code and name options the
-  // service list offers. Memoized so a re-render mid-typing doesn't reset the picker's input.
-  const selectedServiceOptions = useMemo(
-    () => selectedServices.map((sv) => billingServiceOption(sv.name)),
-    [selectedServices]
   );
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -981,16 +975,16 @@ export function ClaimsListView({
           disableCloseOnSelect
           limitTags={1}
           size="small"
-          options={services}
+          options={serviceOptions}
+          getOptionLabel={(o) => `${formatAntCaseString(o.name)}`}
           onOpen={loadServices}
-          getOptionLabel={(o) => o.name}
-          value={selectedServiceOptions}
+          value={selectedServices}
           onChange={(_, v) => {
-            setSelectedServices(v.map((o) => ({ name: o.code })));
-            applyFilters({ service: v.map((o) => o.code) });
+            setSelectedServices(v);
+            applyFilters({ service: v.map((sv) => sv.name) });
           }}
           renderInput={(params) => <TextField {...params} label="Service" />}
-          isOptionEqualToValue={(o, v) => o.code === v.code}
+          isOptionEqualToValue={(o, v) => o.name === v.name}
           sx={{ minWidth: 180, maxWidth: 300 }}
         />
 

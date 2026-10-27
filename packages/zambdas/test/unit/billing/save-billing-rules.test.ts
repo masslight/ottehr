@@ -450,21 +450,21 @@ describe('save-billing-rules complexValidation (set services must be services on
     }));
   });
 
-  it('passes when each set service is a listed one, by displayed name or code', async () => {
+  it('passes when each set service is the code of a listed one', async () => {
     await expect(
-      complexValidation(
-        oystehr,
-        params([serviceRule('By name', 'Workers Comp'), serviceRule('By code', 'urgent-care')])
-      )
+      complexValidation(oystehr, params([serviceRule('WC', 'workers-comp'), serviceRule('UC', 'urgent-care')]))
     ).resolves.toBeUndefined();
     expect(basicSearches()).toHaveLength(1);
   });
 
-  it('rejects a service no claim has, naming the rule and the value', async () => {
+  it('rejects anything else, including a listed service written as its name', async () => {
     await expect(
-      complexValidation(oystehr, params([serviceRule('New', 'Sports Physicals'), serviceRule('Typo', 'workers comp')]))
+      complexValidation(
+        oystehr,
+        params([serviceRule('New', 'sports-physicals'), serviceRule('By name', 'Workers Comp')])
+      )
     ).rejects.toThrow(
-      /rule "New" sets the service to "Sports Physicals".*rule "Typo" sets the service to "workers comp"/
+      /rule "New" sets the service to "sports-physicals".*rule "By name" sets the service to "Workers Comp"/
     );
   });
 
