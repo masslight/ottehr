@@ -694,6 +694,18 @@ export const quickPickDosingSummary = (dosing: PrescriptionQuickPickDosing): str
     .join(', ');
 };
 
+/** Why the order form's "Save as Quick Pick", which only adds, can't save this name: a quick pick already has it
+ * (trimmed, in any case). */
+export const quickPickNameInUse = (
+  name: string,
+  quickPicks: Pick<PrescriptionQuickPickData, 'name'>[]
+): string | undefined => {
+  const trimmed = name.trim();
+  return quickPicks.some((quickPick) => quickPick.name.trim().toLowerCase() === trimmed.toLowerCase())
+    ? `A quick pick named '${trimmed}' already exists. Edit it in Admin → Quick Picks, or choose another name.`
+    : undefined;
+};
+
 /** "Amoxicillin 500 MG Oral Capsule, 20 Capsule": the quick pick's name with what it dispenses, as the list reads. */
 export const prescriptionQuickPickLabel = (quickPick: PrescriptionQuickPickData): string =>
   quickPick.quantityValue !== undefined && quickPick.quantityUnit

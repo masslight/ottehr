@@ -9,6 +9,7 @@ import {
   prescriptionLineErrors,
   prescriptionLineToQuickPick,
   quickPickDosingText,
+  quickPickNameInUse,
   withDirections,
   withProduct,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -176,6 +177,30 @@ describe('Save as quick pick: the calculator’s dosing', () => {
       'Saved by weight: 25 mg/kg per dose, twice daily, 10 days, max 500 mg per dose (from the calculator)'
     );
     unmount();
+
+    // It only adds: a name already in use (trimmed, any case) isn't saved, and the name field says why.
+    const nameError = quickPickNameInUse('  amox STREP ', [BY_WEIGHT]);
+    expect(nameError).toBe(
+      "A quick pick named 'amox STREP' already exists. Edit it in Admin → Quick Picks, or choose another name."
+    );
+    expect(quickPickNameInUse('Amox strep 2', [BY_WEIGHT])).toBeUndefined();
+    const named = render(
+      <ProcedureQuickPickDialogs
+        open
+        name="amox STREP"
+        onNameChange={() => undefined}
+        existingQuickPicks={[]}
+        saving={false}
+        onClose={() => undefined}
+        onSave={() => undefined}
+        subject="prescription"
+        placeholder="Quick pick name"
+        nameError={nameError}
+      />
+    );
+    expect(screen.getByRole('combobox', { name: 'Quick Pick Name' })).toHaveAttribute('placeholder', 'Quick pick name');
+    expect(screen.getByText(nameError!)).toBeInTheDocument();
+    named.unmount();
 
     // A dose typed over the calculator's is saved as written.
     await user.clear(screen.getByRole('spinbutton', { name: 'dose' }));

@@ -42,6 +42,7 @@ import {
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   quickPickDosingText,
+  quickPickNameInUse,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
@@ -124,6 +125,7 @@ export const OrderPrescriptionForm: FC = () => {
   const [quickPickLineKey, setQuickPickLineKey] = useState<number | null>(null);
   const [quickPickName, setQuickPickName] = useState('');
   const [quickPickSaving, setQuickPickSaving] = useState(false);
+  const [quickPickNameError, setQuickPickNameError] = useState<string>();
 
   const updateLine = (key: number, next: PrescriptionLine): void =>
     setLines((current) => current.map((line) => (line.key === key ? next : line)));
@@ -219,6 +221,7 @@ export const OrderPrescriptionForm: FC = () => {
   // Only adds: existing quick picks are edited in Admin → Quick Picks.
   const openQuickPickDialog = (line: PrescriptionLine): void => {
     setQuickPickName(line.medication?.description ?? '');
+    setQuickPickNameError(undefined);
     setQuickPickLineKey(line.key);
   };
 
@@ -228,6 +231,12 @@ export const OrderPrescriptionForm: FC = () => {
     if (!oystehrZambda || !line || line.awaitingPick) return;
     if (!quickPickName.trim()) {
       enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+      return;
+    }
+    // Only adds: a name already in use is edited in Admin, never saved over.
+    const nameInUse = quickPickNameInUse(quickPickName, quickPicks);
+    if (nameInUse) {
+      setQuickPickNameError(nameInUse);
       return;
     }
     setQuickPickSaving(true);
@@ -390,13 +399,18 @@ export const OrderPrescriptionForm: FC = () => {
       <ProcedureQuickPickDialogs
         open={quickPickLineKey != null}
         name={quickPickName}
-        onNameChange={setQuickPickName}
+        onNameChange={(name) => {
+          setQuickPickName(name);
+          setQuickPickNameError(undefined);
+        }}
         existingQuickPicks={[]}
         saving={quickPickSaving}
         onClose={() => setQuickPickLineKey(null)}
         onSave={() => void onSaveAsQuickPick()}
         subject="prescription"
         details={savedDosing && quickPickDosingText(savedDosing)}
+        placeholder="Quick pick name"
+        nameError={quickPickNameError}
       />
     </>
   );

@@ -80,7 +80,7 @@ const SUBSTITUTION_OPTIONS = [
 const ADD_QUICK_PICK = '__add-quick-pick__';
 /** A set's value in the quick pick list, apart from the quick picks' ids. */
 const SET_VALUE = 'set:';
-export const ADD_QUICK_PICK_LABEL = '+ Add or Update Quick Pick';
+export const ADD_QUICK_PICK_LABEL = '+ Add Quick Pick';
 
 const SEARCH_UNAVAILABLE = 'Medication search is unavailable.';
 

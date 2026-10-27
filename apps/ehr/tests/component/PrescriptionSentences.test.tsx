@@ -332,21 +332,19 @@ describe('PrescriptionSentences', () => {
     expect(screen.getByRole('button', { name: '+ urgent (empty)' })).toBeInTheDocument();
   });
 
-  it('puts "Add or Update Quick Pick" in the quick pick list for admins only', async () => {
+  it('puts "Add Quick Pick" in the quick pick list for admins only', async () => {
     const user = userEvent.setup();
     const onSaveQuickPick = vi.fn();
     const { unmount } = render(<Harness initial={emptyPrescriptionLine()} onSaveQuickPick={onSaveQuickPick} />);
     expect(screen.queryByRole('button', { name: /save as quick pick/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
-    await user.click(
-      within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText('+ Add or Update Quick Pick')
-    );
+    await user.click(within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText('+ Add Quick Pick'));
     expect(onSaveQuickPick).toHaveBeenCalledTimes(1);
     unmount();
 
     render(<Harness initial={emptyPrescriptionLine()} />);
     await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
-    expect(screen.queryByText('+ Add or Update Quick Pick')).not.toBeInTheDocument();
+    expect(screen.queryByText('+ Add Quick Pick')).not.toBeInTheDocument();
     expect(screen.getByText('No quick picks yet')).toBeInTheDocument();
   });
 

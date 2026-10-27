@@ -27,6 +27,10 @@ interface ProcedureQuickPickDialogsProps {
   subject?: string;
   /** A read-only line under the name on what else is saved ("Saved by weight: …"). */
   details?: string;
+  /** The name field's hint. */
+  placeholder?: string;
+  /** Why the name can't be saved, under the name field. */
+  nameError?: string;
 }
 
 export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
@@ -39,6 +43,8 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
   onSave,
   subject = 'procedure',
   details,
+  placeholder = 'Enter a name or select an existing quick pick',
+  nameError,
 }) => {
   const [overwriteTarget, setOverwriteTarget] = useState<NamedQuickPick | null>(null);
 
@@ -60,7 +66,9 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
                 fullWidth
                 sx={{ mt: 1 }}
                 autoFocus
-                placeholder="Enter a name or select an existing quick pick"
+                placeholder={placeholder}
+                error={!!nameError}
+                helperText={nameError}
               />
             )}
           />
