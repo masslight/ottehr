@@ -304,13 +304,20 @@ describe('PrescriptionSentences', () => {
     expect(directions).toHaveValue('Take 1 capsule by mouth.');
   });
 
-  it('offers urgent as a link until it is wanted, then shows it with a way back', async () => {
+  it('offers urgent as a link ending the Substitution sentence until it is wanted, then shows it with a way back', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} />);
+    // Only once the line's details show.
+    expect(screen.queryByRole('button', { name: '+ urgent (empty)' })).not.toBeInTheDocument();
+    await pickAmoxicillin(user);
     expect(screen.queryByText('yes')).not.toBeInTheDocument();
+    const substitution = (): Element | null =>
+      screen.getByRole('button', { name: /^substitution/ }).closest('.MuiTypography-root');
+    expect(substitution()).toHaveTextContent(/^Substitution allowed\u2060?\. \+ urgent$/);
 
     await user.click(screen.getByRole('button', { name: '+ urgent (empty)' }));
-    expect(screen.getByText('yes')).toBeInTheDocument();
+    expect(substitution()).toHaveTextContent(/^Substitution allowed\u2060?\. Urgent: yes$/);
+    expect(substitution()).toContainElement(screen.getByRole('button', { name: 'Remove urgent' }));
     expect(screen.queryByRole('button', { name: '+ urgent (empty)' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Remove urgent' }));
@@ -515,6 +522,44 @@ describe('PrescriptionSentences: suggestions first', () => {
       await pickOther(user);
       expect(saveOffered()).toBe(true);
       expect(onSaveQuickPick).not.toHaveBeenCalled();
+    })
+  );
+
+  it(
+    'offers urgent whenever the line could be sent: hidden only before a pick, while the send is blocked',
+    withRows([DOSED_ROW], async () => {
+      const user = userEvent.setup();
+      let current: PrescriptionLine = emptyPrescriptionLine();
+      const Sending = (): JSX.Element => {
+        const [line, setLine] = useState(lineFor(LIQUIDS));
+        current = line;
+        return (
+          <PrescriptionSentences
+            line={line}
+            index={0}
+            onChange={setLine}
+            quickPicks={[]}
+            onQuickPick={() => undefined}
+            visitDiagnoses={[]}
+            errors={[]}
+            readOnly={false}
+          />
+        );
+      };
+      render(<Sending />);
+      const urgentOffered = (): boolean => screen.queryByRole('button', { name: '+ urgent (empty)' }) !== null;
+      // A hidden line has no directions yet, or is marked as waiting for a pick (a new strength).
+      expect(urgentOffered()).toBe(false);
+      expect(prescriptionLineErrors(current)).toContain('Enter the directions');
+      await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
+      expect(urgentOffered()).toBe(true);
+      await user.click(screen.getByRole('button', { name: 'strength: 400 mg/5ml Susp' }));
+      await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
+      expect(urgentOffered()).toBe(false);
+      expect(prescriptionLineErrors(current)).toContain('Pick a suggestion or Write my own');
+      await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
+      expect(prescriptionLineErrors(current)).toEqual([]);
+      expect(urgentOffered()).toBe(true);
     })
   );
 

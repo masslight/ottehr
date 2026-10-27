@@ -846,25 +846,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         {line.diagnosis && !readOnly && (
           <RemoveButton label={`Remove ${line.diagnosis.code}`} onClick={() => update({ diagnosis: null })} />
         )}
-        .{/* Urgent is offered only when wanted, like "+ details": a grey link until clicked. */}
-        {line.urgent ? (
-          <>
-            {' '}
-            Urgent:{' '}
-            <Box component="span" sx={{ fontWeight: 700 }}>
-              yes
-            </Box>
-            {!readOnly && <RemoveButton label="Remove urgent" onClick={() => update({ urgent: false })} />}
-          </>
-        ) : (
-          !readOnly && (
-            <>
-              {' '}
-              <BlankButton label="+ urgent" ghost readOnly={readOnly} onClick={() => update({ urgent: true })} />
-            </>
-          )
-        )}
-        {!revealed && saveLink}
+        .{!revealed && saveLink}
       </Sentence>
 
       {/* The blanks behind the directions: each change rewrites the Directions box unless the provider typed there.
@@ -1004,7 +986,25 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               onChange={(value) => value && update({ substitutionAllowed: value === 'allowed' })}
               readOnly={readOnly}
             />
-            .{saveLink}
+            .{/* Urgent is offered only when wanted: a grey link until clicked. */}
+            {line.urgent ? (
+              <>
+                {' '}
+                Urgent:{' '}
+                <Box component="span" sx={{ fontWeight: 700 }}>
+                  yes
+                </Box>
+                {!readOnly && <RemoveButton label="Remove urgent" onClick={() => update({ urgent: false })} />}
+              </>
+            ) : (
+              !readOnly && (
+                <>
+                  {' '}
+                  <BlankButton label="+ urgent" ghost readOnly={readOnly} onClick={() => update({ urgent: true })} />
+                </>
+              )
+            )}
+            {saveLink}
           </Sentence>
         </>
       )}
