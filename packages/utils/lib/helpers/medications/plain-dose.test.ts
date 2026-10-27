@@ -43,4 +43,60 @@ describe('plainDose', () => {
     expect(plainDose({ weightKg: 20, measure: 'mL', basis: 'mg/kg/dose', rate: 25 })).toBeUndefined();
     expect(plainDose({ weightKg: 20, mgPerMeasure: 80, measure: 'mL', basis: 'mg/kg/day', rate: 25 })).toBeUndefined();
   });
+
+  it('caps a dose at its per-dose maximum and measures it down to stay at or under it', () => {
+    const dose = plainDose({
+      weightKg: 28.12,
+      mgPerMeasure: 80,
+      measure: 'mL',
+      basis: 'mg/kg/dose',
+      rate: 25,
+      dosesPerDay: 2,
+      maxPerDoseMg: 500,
+    });
+    // 500 mg is 6.25 mL: the nearest half mL, 6.5 mL = 520 mg, would be over, so 6 mL.
+    expect(dose).toEqual({
+      amount: 6,
+      amountText: '6 mL',
+      working: '28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose → 6 mL = 480 mg',
+      roundingNote: '6 mL = 480 mg, 20 mg (4%) under 500 mg (rounded down to stay at or under the max 500 mg per dose)',
+    });
+  });
+
+  it('caps at a per-day maximum over the doses a day, the lower of the two maxima applying', () => {
+    const dose = plainDose({
+      weightKg: 28.12,
+      mgPerMeasure: 250,
+      measure: 'capsule',
+      basis: 'mg/kg/day',
+      rate: 90,
+      dosesPerDay: 2,
+      maxPerDoseMg: 2000,
+      maxPerDayMg: 1000,
+    });
+    expect(dose?.amountText).toBe('2 capsules');
+    expect(dose?.working).toBe(
+      '28.12 kg × 90 mg/kg/day ÷ 2 = 1265.4 mg → capped at 1000 mg per day (500 mg per dose at 2 a day) → 2 capsules = 500 mg'
+    );
+    expect(dose?.roundingNote).toBeUndefined();
+  });
+
+  it('measures down when the nearest amount would go over a maximum the worked-out dose is under', () => {
+    // 470 mg is 1.57 tablets: the nearest, 2 tablets = 600 mg, would be over 500 mg.
+    const dose = plainDose({ mgPerMeasure: 300, measure: 'tablet', basis: 'fixed', rate: 470, maxPerDoseMg: 500 });
+    expect(dose?.amountText).toBe('1 tablet');
+    expect(dose?.working).toBe('470 mg → 1 tablet = 300 mg');
+    expect(dose?.roundingNote).toBe(
+      '1 tablet = 300 mg, 170 mg (36%) under 470 mg (rounded down to stay at or under the max 500 mg per dose)'
+    );
+  });
+
+  it('leaves a dose under its maximum as it is, and waits for the doses a day a per-day maximum needs', () => {
+    expect(
+      plainDose({ weightKg: 10, mgPerMeasure: 80, measure: 'mL', basis: 'mg/kg/dose', rate: 25, maxPerDoseMg: 500 })
+    ).toMatchObject({ amountText: '3 mL', working: '10 kg × 25 mg/kg/dose = 250 mg → 3 mL = 240 mg' });
+    expect(
+      plainDose({ weightKg: 10, mgPerMeasure: 80, measure: 'mL', basis: 'mg/kg/dose', rate: 25, maxPerDayMg: 1000 })
+    ).toBeUndefined();
+  });
 });

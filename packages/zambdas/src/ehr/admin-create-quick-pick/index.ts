@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
+import { DOSE_BASES } from 'utils/lib/helpers/medications/plain-dose';
+import { PRESCRIPTION_FREQUENCIES } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
@@ -74,6 +76,25 @@ const procedureQuickPickSchema = z
   })
   .passthrough();
 
+// The calculator's settings, so the pick can be re-dosed by weight; a per-day rate needs its doses a day.
+const prescriptionDosingSchema = z
+  .object({
+    rate: z.number().positive(),
+    basis: z.enum(DOSE_BASES),
+    dosesPerDay: z.number().positive().optional(),
+    frequency: z
+      .string()
+      .refine((frequency) => frequency in PRESCRIPTION_FREQUENCIES, 'must be one of the order form frequencies')
+      .optional(),
+    durationDays: z.number().int().min(1).max(999).optional(),
+    maxPerDoseMg: z.number().positive().optional(),
+    maxPerDayMg: z.number().positive().optional(),
+  })
+  .refine((dosing) => dosing.basis !== 'mg/kg/day' || dosing.dosesPerDay !== undefined, {
+    message: 'dosesPerDay is required for a mg/kg/day rate',
+    path: ['dosesPerDay'],
+  });
+
 // Same limits as the eRx order form, so a saved pick always fits the order endpoint.
 const prescriptionQuickPickSchema = z
   .object({
@@ -89,6 +110,7 @@ const prescriptionQuickPickSchema = z
     substitutionAllowed: z.boolean().optional(),
     patientInstructions: z.string().max(1000).optional(),
     noteToPharmacy: z.string().max(210).optional(),
+    dosing: prescriptionDosingSchema.optional(),
   })
   .passthrough();
 

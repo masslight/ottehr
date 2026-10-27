@@ -11,7 +11,8 @@ import { doseAmountText } from './prescription-suggestions';
 export type DoseMeasure = 'mL' | 'tablet' | 'capsule';
 
 /** How the rate is given: per kg per day, per kg per dose, or a dose in mg not by weight. */
-export type DoseBasis = 'mg/kg/day' | 'mg/kg/dose' | 'fixed';
+export const DOSE_BASES = ['mg/kg/day', 'mg/kg/dose', 'fixed'] as const;
+export type DoseBasis = (typeof DOSE_BASES)[number];
 
 /** The amount a dose is measured to: half a mL, a whole tablet, a whole capsule. */
 export const DOSE_STEP: Record<DoseMeasure, number> = { mL: 0.5, tablet: 1, capsule: 1 };
@@ -24,6 +25,10 @@ export interface PlainDoseInput {
   basis: DoseBasis;
   rate?: number;
   dosesPerDay?: number;
+  /** Optional maxima: a dose over one is capped, and measured down so it stays at or under it. A per-day maximum
+   * needs the doses a day. */
+  maxPerDoseMg?: number;
+  maxPerDayMg?: number;
 }
 
 export interface PlainDose {
@@ -57,6 +62,25 @@ export const doseRoundingNote = (amountText: string, deliveredMg: number, aimedM
   } ${num(aimedMg)} mg`;
 };
 
+/** The mg a dose may not go over, and how the hover says so: the lower of the per-dose maximum and the per-day
+ * maximum over the doses a day. */
+const doseCap = (
+  maxPerDoseMg: number | undefined,
+  maxPerDayMg: number | undefined,
+  dosesPerDay: number | undefined
+): { mg: number; text: string } | undefined => {
+  const perDay = maxPerDayMg && dosesPerDay ? roundNumberToDecimalPlaces(maxPerDayMg / dosesPerDay, 2) : undefined;
+  if (maxPerDoseMg && (perDay === undefined || maxPerDoseMg <= perDay)) {
+    return { mg: maxPerDoseMg, text: `${num(maxPerDoseMg)} mg per dose` };
+  }
+  return perDay === undefined || !maxPerDayMg
+    ? undefined
+    : {
+        mg: perDay,
+        text: `${num(maxPerDayMg)} mg per day (${num(perDay)} mg per dose at ${num(dosesPerDay ?? 1)} a day)`,
+      };
+};
+
 /** The dose for the inputs, or nothing until every input it needs is there. */
 export const plainDose = ({
   weightKg,
@@ -65,28 +89,45 @@ export const plainDose = ({
   basis,
   rate,
   dosesPerDay,
+  maxPerDoseMg,
+  maxPerDayMg,
 }: PlainDoseInput): PlainDose | undefined => {
   if (!mgPerMeasure || !rate) return undefined;
   if (basis !== 'fixed' && !weightKg) return undefined;
-  if (basis === 'mg/kg/day' && !dosesPerDay) return undefined;
+  if ((basis === 'mg/kg/day' || maxPerDayMg) && !dosesPerDay) return undefined;
   const kg = weightKg ?? 0;
-  const aimed = roundNumberToDecimalPlaces(
+  const worked = roundNumberToDecimalPlaces(
     basis === 'fixed' ? rate : basis === 'mg/kg/dose' ? kg * rate : (kg * rate) / (dosesPerDay ?? 1),
     2
   );
-  const amount = nearestMeasurable(aimed, mgPerMeasure, measure);
+  const cap = doseCap(maxPerDoseMg, maxPerDayMg, dosesPerDay);
+  const capMg = cap?.mg ?? Infinity;
+  const capped = worked > capMg;
+  const aimed = capped ? capMg : worked;
+  const nearest = nearestMeasurable(aimed, mgPerMeasure, measure);
+  // Under a maximum the dose is measured down, never up past it (still at least one step).
+  const step = DOSE_STEP[measure];
+  const roundedDown = nearest * mgPerMeasure > capMg + 1e-9;
+  const amount = roundedDown
+    ? Math.max(step, roundNumberToDecimalPlaces(Math.floor(capMg / mgPerMeasure / step + 1e-9) * step, 3))
+    : nearest;
   const amountText = doseAmountText(amount, measure);
   const delivered = roundNumberToDecimalPlaces(amount * mgPerMeasure, 2);
   const formula =
     basis === 'fixed'
-      ? `${num(aimed)} mg`
+      ? `${num(worked)} mg`
       : basis === 'mg/kg/dose'
-      ? `${num(kg)} kg × ${num(rate)} mg/kg/dose = ${num(aimed)} mg`
-      : `${num(kg)} kg × ${num(rate)} mg/kg/day ÷ ${num(dosesPerDay ?? 1)} = ${num(aimed)} mg`;
+      ? `${num(kg)} kg × ${num(rate)} mg/kg/dose = ${num(worked)} mg`
+      : `${num(kg)} kg × ${num(rate)} mg/kg/day ÷ ${num(dosesPerDay ?? 1)} = ${num(worked)} mg`;
+  const note = doseRoundingNote(amountText, delivered, aimed);
+  const capText = cap?.text ?? '';
   return {
     amount,
     amountText,
-    working: `${formula} → ${amountText} = ${num(delivered)} mg`,
-    roundingNote: doseRoundingNote(amountText, delivered, aimed),
+    working: `${formula}${capped ? ` → capped at ${capText}` : ''} → ${amountText} = ${num(delivered)} mg`,
+    roundingNote:
+      note && roundedDown && delivered <= capMg
+        ? `${note} (rounded down to stay at or under the max ${capText})`
+        : note,
   };
 };

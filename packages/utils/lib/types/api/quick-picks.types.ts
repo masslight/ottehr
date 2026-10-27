@@ -1,3 +1,4 @@
+import type { DoseBasis } from '../../helpers/medications/plain-dose';
 import type { StructuredFacts } from '../../procedure-coding/structured-fields';
 import type { QuantityUnit } from './order-prescription.types';
 // ── Generic CRUD types for all quick pick categories ──
@@ -149,6 +150,19 @@ export type GetRadiologyQuickPicksResponse = QuickPickListResponse<RadiologyQuic
 
 // ── Prescription (eRx) Quick Picks ──
 
+/** The dose calculator's settings a quick pick keeps when its dose came from the calculator, so it can be re-dosed
+ * for another patient's weight. Field names as the calculator's. */
+export interface PrescriptionQuickPickDosing {
+  rate: number;
+  basis: DoseBasis;
+  dosesPerDay?: number;
+  /** A key of `PRESCRIPTION_FREQUENCIES`. */
+  frequency?: string;
+  durationDays?: number;
+  maxPerDoseMg?: number;
+  maxPerDayMg?: number;
+}
+
 /** A whole prescription: the medication with its dispense details and directions. The diagnosis and pharmacy
  * are encounter-specific and never saved. */
 export interface PrescriptionQuickPickData {
@@ -163,6 +177,8 @@ export interface PrescriptionQuickPickData {
   substitutionAllowed?: boolean;
   patientInstructions?: string;
   noteToPharmacy?: string;
+  /** Only when the dose came from the calculator's "Use this dose". */
+  dosing?: PrescriptionQuickPickDosing;
 }
 
 export type CreatePrescriptionQuickPickInput = QuickPickCreateInput<PrescriptionQuickPickData>;
