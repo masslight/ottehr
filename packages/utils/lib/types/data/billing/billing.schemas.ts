@@ -902,6 +902,10 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
+export const GetBillingInvoiceRecipientInputSchema = z.object({
+  claimId: z.string().uuid(),
+});
+
 export const CreateBillingInvoiceInputSchema = z.object({
   claimId: nonEmptyString.uuid(),
   amountCents: z.number().int().positive(),

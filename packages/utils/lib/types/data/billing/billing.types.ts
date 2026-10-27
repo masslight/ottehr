@@ -1146,6 +1146,13 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
+export interface GetBillingInvoiceRecipientResponse {
+  patient: { fullName: string; dob?: string; gender?: string; phoneNumber?: string };
+  responsibleParty: { fullName?: string; email?: string; phoneNumber?: string };
+  location?: string;
+  visitDate?: string;
+}
+
 export interface CreateBillingInvoiceResponse {
   invoiceId: string;
   stripeInvoiceId: string;

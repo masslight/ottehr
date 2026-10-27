@@ -24,10 +24,9 @@ import {
 } from 'utils/lib/types/api/invoicing.types';
 import { CreateBillingInvoiceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { CreateBillingInvoiceResponse } from 'utils/lib/types/data/billing/billing.types';
-import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import {
   BILLING_INVOICE_CONFLICT_ERROR,
-  INVALID_INPUT_ERROR,
   MISCONFIGURED_ENVIRONMENT_ERROR,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
@@ -37,6 +36,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { getInvoiceableEncounterId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 
@@ -45,7 +45,6 @@ type CreateBillingInvoiceParams = ValidatedZambdaInput<typeof CreateBillingInvoi
 const ZAMBDA_NAME = 'create-billing-invoice';
 
 const IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('billing-invoice-idempotency-key');
-const INVOICEABLE_PATIENT_AR_STATUSES = ['ready-to-invoice', 'invoiced', 'finalized'];
 const CLAIM_ALREADY_INVOICED = 'This claim already has an invoice.';
 
 let m2mToken: string;
@@ -92,20 +91,6 @@ export async function performEffect(
     stripeInvoiceId: getStripeInvoiceLink(invoice)!.stripeInvoiceId,
     smsSent: getBillingInvoiceSmsAccepted(invoice),
   };
-}
-
-function getInvoiceableEncounterId(claim: Claim): string {
-  const { arStage, patientArStatus } = getClaimStatusValues(claim);
-  if (arStage !== AR_STAGE.patient || !INVOICEABLE_PATIENT_AR_STATUSES.includes(patientArStatus)) {
-    throw INVALID_INPUT_ERROR(
-      'Only Patient AR claims that are ready to invoice, invoiced or finalized can be invoiced'
-    );
-  }
-  const encounterId = claim.identifier?.find(
-    (identifier) => identifier.system === ottehrIdentifierSystem('claim-encounter-id')
-  )?.value;
-  if (!encounterId) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR('Claim is not linked to a visit');
-  return encounterId;
 }
 
 const idempotencyKeyOf = (invoice: Invoice): string | undefined =>
