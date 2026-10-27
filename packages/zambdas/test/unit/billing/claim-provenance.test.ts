@@ -16,6 +16,7 @@ import {
   buildPaymentVoidExtension,
   PENDING_RESERVATION_PREFIX,
 } from 'utils/lib/fhir/paymentRefunds';
+import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
@@ -105,6 +106,62 @@ describe('diffResources', () => {
         newValue: 'Zenith (2)',
         previousRef: 'https://rcm.example/payer/1',
         newRef: 'https://rcm.example/payer/2',
+      },
+    ]);
+  });
+});
+
+const claimWith = (overrides: Partial<Claim> = {}): Claim =>
+  ({
+    resourceType: 'Claim',
+    id: 'c1',
+    type: {
+      coding: [],
+    },
+    ...overrides,
+  }) as Claim;
+
+const withService = (service: string): Claim =>
+  claimWith({
+    meta: {
+      tag: [
+        {
+          system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+          code: service,
+        },
+      ],
+    },
+  });
+
+describe('diffResources claims', () => {
+  it('records a service change by its displayed name', () => {
+    expect(diffResources(withService('urgent-care'), withService('occupational-medicine'))).toEqual([
+      {
+        field: 'service',
+        label: 'Service',
+        previousValue: 'Urgent Care',
+        newValue: 'Occupational Medicine',
+      },
+    ]);
+  });
+
+  it('writes a history entry for a service-only change', () => {
+    const request = claimProvenanceRequest({
+      targetReference: CLAIM_REF,
+      claimReference: CLAIM_REF,
+      before: withService('urgent-care'),
+      after: withService('workers-comp'),
+      agent,
+      activity: 'update',
+      recorded: 't',
+    });
+
+    expect(parseChanges(request!.resource)).toEqual([
+      {
+        field: 'service',
+        label: 'Service',
+        previousValue: 'Urgent Care',
+        newValue: 'Workers Comp',
       },
     ]);
   });

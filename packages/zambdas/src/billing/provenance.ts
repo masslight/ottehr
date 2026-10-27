@@ -57,6 +57,7 @@ import {
   buildClaimStatusDateExtensions,
   CLAIM_STATUS_FIELDS,
   ClaimStatusFieldKey,
+  formatAntCaseString,
   formatClaimStatusValue,
   getClaimStatusValues,
 } from 'utils/lib/types/data/billing/claim-status';
@@ -83,6 +84,7 @@ import {
   ERA_STATUS_CODE_EXTENSION,
   fhirName,
   formatAddress,
+  getClaimService,
   getClaimType,
   getEraExtensionString,
   getProviderLicense,
@@ -193,6 +195,11 @@ function projectClaim(claim: Claim): FieldProjection[] {
       value:
         claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
           ?.value ?? '',
+    },
+    {
+      field: 'service',
+      label: 'Service',
+      value: formatAntCaseString(getClaimService(claim)),
     }
   );
   return out;
