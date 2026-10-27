@@ -358,6 +358,7 @@ describe('create-billing-invoice', () => {
 
     await expect(performEffect(oystehr, makeStripe().stripe, params(), agent)).rejects.toMatchObject({
       statusCode: 409,
+      message: 'This claim already has an invoice for $40.00 due 12/31/2099. Retry with that amount and due date.',
     });
   });
 
@@ -408,5 +409,21 @@ describe('create-billing-invoice', () => {
     expect(smsCalls(execute)).toHaveLength(1);
     expect(invoices).toHaveLength(1);
     expect(invoices[0].status).toBe('issued');
+  });
+
+  it('does not finish a finalized invoice from another request with a different amount', async () => {
+    const { oystehr, invoices, execute } = makeOystehr(makeClaim(), [
+      existingInvoice('draft', 'key-other', { stripeInvoiceId: 'in_old', amountCents: 10000 }),
+    ]);
+    const { stripe, invoices: stripeInvoices } = makeStripe([{ id: 'in_old', status: 'open', lines: { data: [{}] } }]);
+
+    await expect(performEffect(oystehr, stripe, params({ amountCents: 20000 }), agent)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'This claim already has an invoice for $100.00 due 12/31/2099. Retry with that amount and due date.',
+    });
+    expect(stripeInvoices.sendInvoice).not.toHaveBeenCalled();
+    expect(smsCalls(execute)).toHaveLength(0);
+    expect(invoices[0].status).toBe('draft');
+    expect(mockApplyClaimStatusField).not.toHaveBeenCalled();
   });
 });

@@ -30,6 +30,8 @@ import {
   MISCONFIGURED_ENVIRONMENT_ERROR,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
+import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
+import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
@@ -103,28 +105,29 @@ async function findOrCreateDraft(
   params: CreateBillingInvoiceParams
 ): Promise<Invoice> {
   const invoice = await createDraftUnlessClaimHasInvoice(oystehr, claim, params);
-  if (idempotencyKeyOf(invoice) === params.idempotencyKey) {
-    if (
-      getBillingInvoiceClaims(invoice)[0]?.amountCents !== params.amountCents ||
-      getBillingInvoiceDueDate(invoice) !== params.dueDate
-    ) {
-      throw BILLING_INVOICE_CONFLICT_ERROR(
-        'This request already started an invoice with a different amount or due date.'
-      );
+  if (idempotencyKeyOf(invoice) !== params.idempotencyKey) {
+    // The invoice was started by another request.
+    if (invoice.status !== 'draft') throw BILLING_INVOICE_CONFLICT_ERROR(CLAIM_ALREADY_INVOICED);
+    if (await discardUnsentDraft(oystehr, stripe, invoice)) {
+      const replacement = await createDraftUnlessClaimHasInvoice(oystehr, claim, params);
+      if (idempotencyKeyOf(replacement) !== params.idempotencyKey) {
+        throw BILLING_INVOICE_CONFLICT_ERROR(CLAIM_ALREADY_INVOICED);
+      }
+      return replacement;
     }
-    return invoice;
+    // Stripe already finalized it, so it can only be finished as it is.
   }
 
-  // The invoice was started by another request.
-  if (invoice.status !== 'draft') throw BILLING_INVOICE_CONFLICT_ERROR(CLAIM_ALREADY_INVOICED);
-  // Stripe already finalized it, so finish sending it as it is.
-  if (!(await discardUnsentDraft(oystehr, stripe, invoice))) return invoice;
-
-  const replacement = await createDraftUnlessClaimHasInvoice(oystehr, claim, params);
-  if (idempotencyKeyOf(replacement) !== params.idempotencyKey) {
-    throw BILLING_INVOICE_CONFLICT_ERROR(CLAIM_ALREADY_INVOICED);
+  // A resumed invoice keeps its own values, so they must match what this request asked for.
+  const amountCents = getBillingInvoiceClaims(invoice)[0]?.amountCents;
+  const dueDate = getBillingInvoiceDueDate(invoice);
+  if (amountCents !== params.amountCents || dueDate !== params.dueDate) {
+    throw BILLING_INVOICE_CONFLICT_ERROR(
+      `This claim already has an invoice for ${formatCurrencyFromCents(amountCents)} due ` +
+        `${formatDateConfigurable({ isoDate: dueDate })}. Retry with that amount and due date.`
+    );
   }
-  return replacement;
+  return invoice;
 }
 
 // Returns the claim's invoice when it has one that isn't cancelled or entered in error.
