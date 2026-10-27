@@ -216,4 +216,38 @@ describe('save-free-form-encounter integration', () => {
     expect(ids).not.toContain(enteredInError.id);
     expect(ids).not.toContain(scheduledWithoutParent.id);
   });
+
+  it('keeps notes out of the initial-visit picker search', async () => {
+    const encounterIds = async (params: { name: string; value: string }[]): Promise<(string | undefined)[]> =>
+      (
+        await oystehrAdmin.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [{ name: 'patient', value: base.patient.id! }, ...params],
+        })
+      )
+        .unbundle()
+        .filter((resource) => resource.resourceType === 'Encounter')
+        .map((encounter) => encounter.id);
+    const note = await save({ patientId: base.patient.id, note: 'Checked against the initial-visit picker' });
+    const noteIds = [note.encounterId, legacyFollowup.id];
+    await vi.waitFor(
+      async () => {
+        expect(await encounterIds([])).toEqual(expect.arrayContaining(noteIds));
+      },
+      { timeout: 60_000, interval: 3_000 }
+    );
+
+    const ids = await encounterIds([
+      { name: 'type:not', value: `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}` },
+      { name: '_include', value: 'Encounter:appointment' },
+      { name: '_include', value: 'Encounter:location' },
+      { name: '_revinclude:iterate', value: 'Schedule:actor:Location' },
+      { name: '_sort', value: '-date' },
+    ]);
+
+    expect(ids).toContain(base.encounter.id);
+    for (const noteId of noteIds) {
+      expect(ids).not.toContain(noteId);
+    }
+  });
 });
