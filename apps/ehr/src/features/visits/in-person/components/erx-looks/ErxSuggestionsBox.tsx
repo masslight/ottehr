@@ -12,11 +12,11 @@ import { DoseInfoHover } from './DoseCalculatorCard';
 
 export const OTHER_ROW: SuggestedSentence = { id: 'other', segments: ['Other'], addLabel: 'Write my own' };
 
-/** A row whose dose is a blank: the dose tool (a calculator icon) and an ⓘ with how the dose was worked out follow
- * it. */
+/** A row whose dose is a blank: the dose tool (a calculator icon) starts its sentence, and an ⓘ with how the dose
+ * was worked out sits by its "+". */
 export interface ErxSuggestionRow extends SuggestedSentence {
   doseAt?: number;
-  /** Behind the ⓘ after the dose: the working, a maximum reached, how far the measured dose is off. */
+  /** Behind the ⓘ by the "+": the working, a maximum reached, how far the measured dose is off. */
   doseInfo?: string[];
 }
 
@@ -31,7 +31,7 @@ export type ErxSuggestionsBoxProps<T extends ErxSuggestionRow> =
       onOther: () => void;
       /** The popover body for a blank picked by search (a diagnosis); `undefined` keeps its options list. */
       renderPicker?: (row: T, blank: SentenceBlank, pick: (value: string) => void) => ReactNode;
-      /** After a row's dose blank, before its ⓘ: the calculator icon. */
+      /** At the start of a row with a dose blank, before "Take": the calculator icon. */
       renderDoseTool?: (row: T, picks: SentencePicks) => ReactNode;
     }
   /** The drug has no suggestions: no box, the line opens straight away. */
@@ -57,18 +57,11 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>(
       isAdded={(row, picks) => isRow(row) && (isAdded?.(row, picks) ?? false)}
       onAdd={(row, picks) => (isRow(row) ? onPick(row, picks) : onOther())}
       renderPicker={renderPicker && ((row, blank, pick) => (isRow(row) ? renderPicker(row, blank, pick) : undefined))}
-      renderAfterBlank={(row, segment, picks) =>
-        isRow(row) && segment === row.doseAt ? (
-          <>
-            {renderDoseTool?.(row, picks)}
-            {row.doseInfo?.length ? (
-              <DoseInfoHover
-                label="How this dose was worked out"
-                lines={row.doseInfo}
-                testId="suggestion-dose-working"
-              />
-            ) : null}
-          </>
+      // A row with a dose blank: its calculator icon starts the sentence, and the ⓘ sits by its "+".
+      renderLead={(row, picks) => (isRow(row) && row.doseAt !== undefined ? renderDoseTool?.(row, picks) : null)}
+      renderBesideAdd={(row) =>
+        isRow(row) && row.doseAt !== undefined && row.doseInfo?.length ? (
+          <DoseInfoHover label="How this dose was worked out" lines={row.doseInfo} testId="suggestion-dose-working" />
         ) : null
       }
       addLabel="Use this prescription"

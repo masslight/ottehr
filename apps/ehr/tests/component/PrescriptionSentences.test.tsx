@@ -543,14 +543,16 @@ describe('PrescriptionSentences: suggestions first', () => {
 });
 
 describe('PrescriptionSentences: the dose', () => {
-  it('is a normal blank with a calculator icon after it, which opens the calculator under the line only when clicked', async () => {
+  it('is a normal blank with a calculator icon starting its sentence, which opens the calculator under the line only when clicked', async () => {
     const user = userEvent.setup();
     const weight: VisitWeight = { kg: 28.12, takenAt: '2026-10-08T14:00:00Z', thisVisit: true };
     render(<Harness initial={emptyPrescriptionLine()} weight={weight} />);
     await pickAmoxicillin(user);
     const dose = screen.getByRole('spinbutton', { name: 'dose' });
     const icon = screen.getByRole('button', { name: 'Dose calculator' });
-    expect(dose.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Before "Take", the sentence's first thing.
+    expect(dose.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(icon.parentElement?.firstElementChild).toBe(icon);
     await user.type(dose, '1');
     expect(screen.queryByRole('dialog', { name: 'Dose calculator' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));

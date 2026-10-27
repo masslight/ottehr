@@ -45,8 +45,10 @@ interface SuggestedSentencesProps<T extends SuggestedSentence> {
   /** The popover body for a blank picked by search rather than from its options (a prescription's diagnosis), given
    * the pick to make; `undefined` keeps the options list. */
   renderPicker?: (row: T, blank: SentenceBlank, pick: (value: string) => void) => ReactNode;
-  /** Shown right after the blank at `segment` (a calculator icon after a dose), given the row's picks. */
-  renderAfterBlank?: (row: T, segment: number, picks: SentencePicks) => ReactNode;
+  /** Shown at the start of the row's sentence (a calculator icon before "Take"), given the row's picks. */
+  renderLead?: (row: T, picks: SentencePicks) => ReactNode;
+  /** Shown just before the row's "+" (an ⓘ with how its dose was worked out), given the row's picks. */
+  renderBesideAdd?: (row: T, picks: SentencePicks) => ReactNode;
 }
 
 /** Position of a blank: template row and segment index within it */
@@ -72,7 +74,8 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   dataTestId,
   children,
   renderPicker,
-  renderAfterBlank,
+  renderLead,
+  renderBesideAdd,
 }: SuggestedSentencesProps<T>): ReactElement => {
   // Picks are kept apart from the templates so a value the provider chose survives re-renders but not a
   // change of the rows themselves (another study, other numbers), which rebuilds the templates.
@@ -117,6 +120,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
         return (
           <Box key={suggestion.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, py: 0.5 }}>
             <Typography variant="body2" sx={{ flex: 1, lineHeight: 1.8 }}>
+              {renderLead?.(suggestion, picks)}
               {suggestion.segments.map((segment, i) => {
                 if (typeof segment === 'string') return segment;
                 if (!isSentenceBlank(segment))
@@ -169,7 +173,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                         <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />
                       )}
                     </Box>
-                    {renderAfterBlank?.(suggestion, i, picks)}
                   </React.Fragment>
                 );
               })}
@@ -205,6 +208,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                 </Typography>
               )}
             </Typography>
+            {renderBesideAdd?.(suggestion, picks)}
             {added ? (
               <CheckCircle sx={{ fontSize: 16, color: 'success.main', m: '2px' }} titleAccess={addedLabel} />
             ) : (

@@ -60,9 +60,9 @@ const Section: FC<{ title: string; children: ReactNode }> = ({ title, children }
 
 type LineSample = NonNullable<SampleLook<unknown>['line']>;
 
-/** The prescription line the calculator opens under, as the order form writes it; `dose` is the dose blank and its
- * calculator icon. */
-const PrescriptionLineSample: FC<{ line: LineSample; dose: ReactNode }> = ({ line, dose }) => (
+/** The prescription line the calculator opens under, as the order form writes it; `icon` is the calculator icon that
+ * starts its sentence and `dose` the dose blank. */
+const PrescriptionLineSample: FC<{ line: LineSample; icon: ReactNode; dose: ReactNode }> = ({ line, icon, dose }) => (
   <Box sx={{ backgroundColor: 'common.white', border: '1px solid #DFE5E9', borderRadius: '8px', p: 1.75 }}>
     <Sentence>
       <b>Prescription 1:</b>{' '}
@@ -76,7 +76,7 @@ const PrescriptionLineSample: FC<{ line: LineSample; dose: ReactNode }> = ({ lin
       .
     </Sentence>
     <Sentence>
-      Take {dose} {line.unit} {line.rest}
+      {icon}Take {dose} {line.unit} {line.rest}
     </Sentence>
   </Box>
 );
@@ -88,27 +88,27 @@ const LiveLine: FC = () => {
   return (
     <PrescriptionLineSample
       line={own.line ?? { medication: '', unit: '', rest: '' }}
+      icon={
+        <DoseCalculatorPopup>
+          {(close) => (
+            <DoseCalculatorCard
+              {...own.props}
+              onUse={() => {
+                setDose('3');
+                close();
+              }}
+            />
+          )}
+        </DoseCalculatorPopup>
+      }
       dose={
-        <>
-          <TextBlank label="dose" kind="number" value={dose} onChange={setDose} readOnly={false} min={0} step={0.5} />
-          <DoseCalculatorPopup>
-            {(close) => (
-              <DoseCalculatorCard
-                {...own.props}
-                onUse={() => {
-                  setDose('3');
-                  close();
-                }}
-              />
-            )}
-          </DoseCalculatorPopup>
-        </>
+        <TextBlank label="dose" kind="number" value={dose} onChange={setDose} readOnly={false} min={0} step={0.5} />
       }
     />
   );
 };
 
-/** The icon after a suggestion row's dose, as a look. */
+/** The icon that starts a suggestion row's sentence, as a look. */
 const CalculatorIcon: FC = () => (
   <Box
     component="span"
@@ -157,7 +157,7 @@ export const ErxLooksPreview: FC = () => (
                 (Nothing renders: the line opens straight away.)
               </Typography>
             ) : props.look === 'rows' ? (
-              // The calculator icon after a quick pick row's dose, here only for its look.
+              // The calculator icon that starts a quick pick row's sentence, here only for its look.
               <ErxSuggestionsBox {...props} renderDoseTool={() => <CalculatorIcon />} />
             ) : (
               <ErxSuggestionsBox {...props} />
@@ -179,13 +179,11 @@ export const ErxLooksPreview: FC = () => (
             {line && (
               <PrescriptionLineSample
                 line={line}
+                icon={<OpenIcon />}
                 dose={
-                  <>
-                    <Box component="span" sx={{ border: '1px dashed', borderColor: 'text.secondary', px: '6px' }}>
-                      #
-                    </Box>
-                    <OpenIcon />
-                  </>
+                  <Box component="span" sx={{ border: '1px dashed', borderColor: 'text.secondary', px: '6px' }}>
+                    #
+                  </Box>
                 }
               />
             )}

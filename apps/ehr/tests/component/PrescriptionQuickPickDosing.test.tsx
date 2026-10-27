@@ -246,7 +246,18 @@ describe('Suggestions from quick picks', () => {
     const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[CAPPED]} weight={WEIGHT} />);
     const row = rowNamed('Amox capped');
-    await user.click(within(row).getByRole('button', { name: 'Dose calculator for Amox capped' }));
+    // The calculator starts the sentence, before "Take"; the ⓘ sits right before the row's "+".
+    const icon = within(row).getByRole('button', { name: 'Dose calculator for Amox capped' });
+    expect(icon.parentElement?.firstElementChild).toBe(icon);
+    expect(
+      icon.compareDocumentPosition(within(row).getByRole('button', { name: /^Dose: / })) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    const info = within(row).getByRole('img', { name: 'How this dose was worked out' });
+    expect(info.nextElementSibling).toContainElement(
+      within(row).getByRole('button', { name: 'Use this prescription' })
+    );
+    await user.click(icon);
     const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
     expect(within(calculator).getByRole('spinbutton', { name: 'weight' })).toHaveValue(28.12);
     expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(25);

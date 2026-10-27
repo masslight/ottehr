@@ -362,6 +362,20 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   const withRow = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine =>
     row.apply ? row.apply(line, picks) : withSuggestion(line, row.fill(picks));
 
+  /** Shown while the step's dose is as a strength change re-measured it: an ⓘ with how. */
+  const doseInfo = (step: PrescriptionStep, at: string, doseNote: DoseNote | undefined): ReactNode =>
+    doseNote &&
+    doseNote.dose === step.dose &&
+    (doseNote.working ? (
+      <DoseInfoHover
+        label={`How the ${at}dose was worked out`}
+        lines={[doseNote.working, ...(doseNote.text ? [doseNote.text] : [])]}
+        testId={`${at}dose-working-note`}
+      />
+    ) : (
+      <DoseInfoHover label={`${at}dose re-measured`} lines={[doseNote.text]} testId={`${at}dose-note`} />
+    ));
+
   /** The dose, frequency and duration blanks of one step; `at` names the step in later steps' labels, and the
    * route blank sits between the first step's dose and frequency. */
   const stepBlanks = (
@@ -387,30 +401,9 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         min={0}
         step={0.5}
       />
-      {/* The calculator works out the first step's dose; a course's steps come from its look once there is data. */}
-      {!readOnly && at === '' && (
-        <DoseCalculator
-          line={line}
-          weight={weight}
-          weightText={weightText}
-          onWeightText={onWeightText}
-          onChange={onChange}
-        />
-      )}
       {doseUnit && ` ${doseUnitLabel(doseUnit, Number(step.dose) || undefined)}`}
-      {/* Shown while the dose is as a strength change re-measured it. */}
-      {doseNote &&
-        doseNote.dose === step.dose &&
-        (doseNote.working ? (
-          <DoseInfoHover
-            label={`How the ${at}dose was worked out`}
-            lines={[doseNote.working, ...(doseNote.text ? [doseNote.text] : [])]}
-            testId={`${at}dose-working-note`}
-          />
-        ) : (
-          <DoseInfoHover label={`${at}dose re-measured`} lines={[doseNote.text]} testId={`${at}dose-note`} />
-        ))}{' '}
-      {route}
+      {/* A later step's ⓘ follows its dose; the first step's leads its sentence, by the calculator. */}
+      {at !== '' && doseInfo(step, at, doseNote)} {route}
       <SelectBlank
         label={`${at}frequency`}
         title="Frequency"
@@ -666,6 +659,18 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       {revealed && (
         <>
           <Sentence>
+            {/* The calculator works out the first step's dose, so it and the dose's ⓘ start the sentence; a course's
+                steps come from its look once there is data. */}
+            {!readOnly && (
+              <DoseCalculator
+                line={line}
+                weight={weight}
+                weightText={weightText}
+                onWeightText={onWeightText}
+                onChange={onChange}
+              />
+            )}
+            {doseInfo(line, '', line.doseNotes?.[0])}
             {prescriptionVerb(line.route)}{' '}
             {stepBlanks(
               line,
