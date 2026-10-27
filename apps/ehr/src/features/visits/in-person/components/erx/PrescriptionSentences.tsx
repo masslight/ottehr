@@ -50,6 +50,7 @@ import {
   withDirections,
   withDrug,
   withProduct,
+  withQuickPickDaysAsDuration,
   withSuggestion,
 } from './prescriptionLines';
 import { PrescriptionSuggestionRow, prescriptionSuggestionsFor } from './prescriptionSuggestions';
@@ -369,7 +370,9 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   const calculatorLine = (row: PrescriptionSuggestionRow, picks: SentencePicks): PrescriptionLine => {
     const used = withRow(row, picks);
     const { patientInstructions, quantityValue, daysSupply } = used;
-    return row.calculator ? used : { ...used, generated: { patientInstructions, quantityValue, daysSupply } };
+    return row.calculator
+      ? used
+      : withQuickPickDaysAsDuration({ ...used, generated: { patientInstructions, quantityValue, daysSupply } });
   };
   // A dose over the maximum the line carries: orange under the dose sentence, its blank outlined; never blocks.
   const warnings = maximumWarnings(line);
