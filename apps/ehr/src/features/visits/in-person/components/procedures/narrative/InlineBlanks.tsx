@@ -325,6 +325,8 @@ interface SelectBlankProps {
   emptyText?: string;
   dataTestId?: string;
   helperText?: string;
+  /** Shows the picked option as the list does, not lower-cased for running prose (a field of its own, not a sentence). */
+  verbatim?: boolean;
 }
 
 export const SelectBlank: FC<SelectBlankProps> = ({
@@ -341,6 +343,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   helperText,
   otherValue,
   onOtherChange,
+  verbatim,
 }) => {
   const [filter, setFilter] = useState('');
   const all = withSavedValues(options, value === undefined ? [] : [value]);
@@ -354,8 +357,8 @@ export const SelectBlank: FC<SelectBlankProps> = ({
       value={
         value === OTHER && onOtherChange
           ? otherValue?.trim() || display
-          : display === undefined
-          ? undefined
+          : display === undefined || verbatim
+          ? display
           : sentenceValue(display)
       }
       need={need}
@@ -552,6 +555,8 @@ interface TextBlankProps {
   min?: number;
   step?: number;
   width?: string;
+  /** Free text that wraps onto more lines and grows as it's typed, like the HPI box (text only). */
+  multiline?: boolean;
   dataTestId?: string;
 }
 
@@ -567,14 +572,17 @@ export const TextBlank: FC<TextBlankProps> = ({
   min,
   step,
   width,
+  multiline,
   dataTestId,
 }) => {
   const text = value === undefined ? '' : String(value);
+  const grows = multiline && kind === 'text';
   if (readOnly) return <ReadOnlyBlank label={label} value={text} />;
   const placeholder = placeholderProp ?? label;
   return (
     <InputBase
-      type={kind}
+      type={grows ? undefined : kind}
+      multiline={grows}
       value={text}
       placeholder={placeholder}
       onChange={(event) => onChange(event.target.value)}
@@ -597,6 +605,16 @@ export const TextBlank: FC<TextBlankProps> = ({
             ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
             ...(kind === 'number' ? numberInputSx : {}),
           },
+          // A growing blank renders a textarea; it takes the same look and starts level with the sentence.
+          ...(grows
+            ? {
+                '& textarea': {
+                  ...(inline['& input'] as Record<string, unknown>),
+                  ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
+                },
+                verticalAlign: 'top',
+              }
+            : {}),
           maxWidth: '100%',
           // The box hugs its content: the placeholder at first, then whatever is typed.
           width: kind === 'time' ? 'auto' : width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,

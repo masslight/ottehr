@@ -9,6 +9,8 @@ export interface SentenceBlank {
   options: string[];
   /** The value the blank starts on; `undefined` means it must be picked before the sentence can be added */
   initial: string | undefined;
+  /** May stay unpicked: shown as still to pick, but the sentence can be added without it. */
+  optional?: boolean;
 }
 
 /** A number the provider entered, shown in the sentence as it was typed. */
@@ -31,7 +33,7 @@ export const findUnpickedBlank = (
 ): SentenceBlank | undefined =>
   segments.find(
     (segment, i): segment is SentenceBlank =>
-      isSentenceBlank(segment) && segment.initial === undefined && values[i] === undefined
+      isSentenceBlank(segment) && !segment.optional && segment.initial === undefined && values[i] === undefined
   );
 
 /** The finished sentence; `values[i]` overrides the blank at segment `i`, and '' (none) contributes nothing. */
