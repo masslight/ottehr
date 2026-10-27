@@ -16,14 +16,24 @@ import {
   ROUTES_IN_VERB,
   SuggestedPrescriptionFields,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
-import { SentenceBlank, SentenceSegment } from 'utils/lib/helpers/suggested-sentences';
+import {
+  assembleSentence,
+  isSentenceBlank,
+  SentenceBlank,
+  SentenceSegment,
+} from 'utils/lib/helpers/suggested-sentences';
 import { MedicationSearchDrug, MedicationSearchResult } from 'utils/lib/types/api/erx-search.types';
-import { PrescriptionQuickPickData, PrescriptionQuickPickDosing } from 'utils/lib/types/api/quick-picks.types';
+import {
+  PrescriptionQuickPickData,
+  PrescriptionQuickPickDosing,
+  PrescriptionSetQuickPickData,
+} from 'utils/lib/types/api/quick-picks.types';
 import { ErxSuggestionRow } from '../erx-looks/ErxSuggestionsBox';
 import {
   applyPrescriptionQuickPick,
   CalculatorDosing,
   COMBINATION_MESSAGE,
+  emptyPrescriptionLine,
   lineMaximumOf,
   MEASURE_OF,
   mgPerMeasure,
@@ -42,6 +52,8 @@ export interface PrescriptionSuggestionRow extends ErxSuggestionRow {
   apply?: (line: PrescriptionLine, picks: SentencePicks) => PrescriptionLine;
   /** The calculator after the dose blank opens with these settings. */
   calculator?: CalculatorDosing;
+  /** A set's row: the set, and its quick pick the row is for; "+" adds the set's other quick picks on new lines. */
+  fromSet?: { set: PrescriptionSetQuickPickData; memberId: string };
 }
 
 /** What the suggestions are chosen by. */
@@ -54,6 +66,8 @@ export interface PrescriptionSuggestionQuery {
   diagnosisCodes: string[];
   /** The practice's prescription quick picks, as the list has them. */
   quickPicks?: PrescriptionQuickPickData[];
+  /** The practice's Active prescription sets. */
+  sets?: PrescriptionSetQuickPickData[];
 }
 
 /** How many of the product's quick picks the box shows, before "Other". */
@@ -228,23 +242,114 @@ const dosedRow = (
   };
 };
 
-/** The suggestions for a product: the practice's quick picks for exactly this product, up to
- * `QUICK_PICK_SUGGESTIONS` in the list's order; the box adds "Other" (Write my own). Where more suggestion data
+/** The set's quick picks that still exist, in its order, and how many of its ids no longer do. */
+export const prescriptionSetMembers = (
+  set: PrescriptionSetQuickPickData,
+  quickPicks: PrescriptionQuickPickData[]
+): { members: PrescriptionQuickPickData[]; missing: number } => {
+  const members = set.memberIds.flatMap((memberId) => quickPicks.find((quickPick) => quickPick.id === memberId) ?? []);
+  return { members, missing: set.memberIds.length - members.length };
+};
+
+/** "1 prescription in this set no longer exists." */
+export const missingSetMembersText = (missing: number): string =>
+  missing === 1
+    ? '1 prescription in this set no longer exists.'
+    : `${missing} prescriptions in this set no longer exist.`;
+
+const rowFor = (
+  quickPick: PrescriptionQuickPickData,
+  id: string,
+  medication: MedicationSearchResult,
+  weightKg: number | undefined
+): PrescriptionSuggestionRow =>
+  quickPick.dosing ? dosedRow(quickPick, quickPick.dosing, id, medication, weightKg) : savedRow(quickPick, id);
+
+/** Another quick pick of a set as its row would read for its own product: "Ibuprofen 100 mg/5ml Susp. Take 5 mL by
+ * mouth every 6 hours as needed for 5 days." */
+const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | undefined): string => {
+  const { ndc, medicationDescription } = quickPick;
+  const segments = medicationDescription
+    ? rowFor(quickPick, '', { ndc: ndc ?? '', description: medicationDescription }, weightKg).segments
+    : [quickPick.patientInstructions || 'No directions saved.'];
+  const sentence = assembleSentence(
+    segments.map((segment) =>
+      isSentenceBlank(segment) && segment.initial === undefined ? { ...segment, initial: segment.placeholder } : segment
+    ),
+    []
+  );
+  return `Also adds: ${medicationDescription ?? quickPick.name}. ${
+    /[.!?]$/.test(sentence) ? sentence : `${sentence}.`
+  }`;
+};
+
+/** The suggestions for a product: the practice's quick picks for exactly this product and its Active sets with one,
+ * up to `QUICK_PICK_SUGGESTIONS` together in the list's order (by name); the box adds "Other" (Write my own). A
+ * set's row is its quick pick for the product, named for the set, with what else it adds. Where more suggestion data
  * plugs in. */
 export const prescriptionSuggestionsFor = ({
   medication,
   weightKg,
   quickPicks = [],
-}: PrescriptionSuggestionQuery): PrescriptionSuggestionRow[] =>
-  quickPicks
+  sets = [],
+}: PrescriptionSuggestionQuery): PrescriptionSuggestionRow[] => {
+  const single = quickPicks
     .filter((quickPick) => isQuickPickFor(quickPick, medication))
+    .map((quickPick, i) => ({
+      name: quickPick.name,
+      row: rowFor(quickPick, `quick-pick-${quickPick.id ?? i}`, medication, weightKg),
+    }));
+  const fromSets = sets.flatMap((set) => {
+    const { members } = prescriptionSetMembers(set, quickPicks);
+    const at = members.findIndex((quickPick) => isQuickPickFor(quickPick, medication));
+    const member = members[at];
+    if (!member?.id) return [];
+    const row: PrescriptionSuggestionRow = {
+      ...rowFor(member, `set-${set.id}`, medication, weightKg),
+      setName: set.name,
+      setSize: members.length,
+      details: members.filter((_, i) => i !== at).map((other) => alsoAddsText(other, weightKg)),
+      fromSet: { set, memberId: member.id },
+    };
+    return [{ name: set.name, row }];
+  });
+  // Each set goes in by name among the quick picks, which keep the list's order.
+  return fromSets
+    .reduce((rows, entry) => {
+      const at = rows.findIndex((other) => other.name.localeCompare(entry.name) > 0);
+      return at < 0 ? [...rows, entry] : [...rows.slice(0, at), entry, ...rows.slice(at)];
+    }, single)
     .slice(0, QUICK_PICK_SUGGESTIONS)
-    .map((quickPick, i) => {
-      const id = `quick-pick-${quickPick.id ?? i}`;
-      return quickPick.dosing
-        ? dosedRow(quickPick, quickPick.dosing, id, medication, weightKg)
-        : savedRow(quickPick, id);
-    });
+    .map(({ row }) => row);
+};
+
+/** The lines a set puts where `line` is. Picked from the "+ quick pick" list, an empty line takes its first quick pick
+ * and the rest follow on new lines; a line that holds something stays as it is, all of them following it. Used from
+ * a suggestion row, the line is as the row made it and the set's other quick picks follow. Each is as if picked from
+ * the list itself; a quick pick that no longer exists is left out and counted. */
+export const withPrescriptionSet = (
+  line: PrescriptionLine,
+  set: PrescriptionSetQuickPickData,
+  quickPicks: PrescriptionQuickPickData[],
+  weightKg: number | undefined,
+  used?: { line: PrescriptionLine; memberId: string }
+): { lines: PrescriptionLine[]; missing: number } => {
+  const { members, missing } = prescriptionSetMembers(set, quickPicks);
+  const added = (quickPick: PrescriptionQuickPickData): PrescriptionLine =>
+    withListedQuickPick(emptyPrescriptionLine(), quickPick, weightKg);
+  if (used) {
+    const at = members.findIndex((quickPick) => quickPick.id === used.memberId);
+    return { lines: [used.line, ...members.filter((_, i) => i !== at).map(added)], missing };
+  }
+  if (isEmptyPrescriptionLine(line) && members.length) {
+    const [first, ...rest] = members;
+    return { lines: [withListedQuickPick(line, first, weightKg), ...rest.map(added)], missing };
+  }
+  return { lines: [line, ...members.map(added)], missing };
+};
+
+/** No medication picked yet. */
+export const isEmptyPrescriptionLine = (line: PrescriptionLine): boolean => !line.drug && !line.medication;
 
 /** A quick pick chosen from the "+ quick pick" list: one saved from the calculator is re-dosed for this patient's
  * weight exactly as its suggestion row is (no weight: the dose waits, the settings stay); one without, as saved. */

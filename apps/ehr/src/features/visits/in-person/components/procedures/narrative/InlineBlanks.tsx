@@ -11,6 +11,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  ListSubheader,
   Paper,
   Popper,
   SxProps,
@@ -46,6 +47,10 @@ import { sentenceValue } from './sentenceValue';
 export interface BlankOption {
   value: string;
   label: string;
+  /** A second line under the label. */
+  secondary?: string;
+  /** Options with a group are listed under its heading, as the Autocomplete's groupBy does. */
+  group?: string;
 }
 
 const SEARCH_THRESHOLD = 8;
@@ -437,19 +442,25 @@ export const SelectBlank: FC<SelectBlankProps> = ({
                 {emptyText}
               </Typography>
             )}
-            {shown.map((option) => (
-              <ListItemButton
-                key={option.value}
-                role="option"
-                selected={option.value === value}
-                aria-selected={option.value === value}
-                onClick={() => {
-                  if (option.value !== value) onChange(option.value);
-                  if (option.value !== OTHER || !onOtherChange) close();
-                }}
-              >
-                <ListItemText primary={option.label} />
-              </ListItemButton>
+            {shown.map((option, i) => (
+              <Fragment key={option.value}>
+                {option.group && option.group !== shown[i - 1]?.group && (
+                  <ListSubheader disableSticky sx={{ lineHeight: '32px', fontWeight: 700, color: 'text.primary' }}>
+                    {option.group}
+                  </ListSubheader>
+                )}
+                <ListItemButton
+                  role="option"
+                  selected={option.value === value}
+                  aria-selected={option.value === value}
+                  onClick={() => {
+                    if (option.value !== value) onChange(option.value);
+                    if (option.value !== OTHER || !onOtherChange) close();
+                  }}
+                >
+                  <ListItemText primary={option.label} secondary={option.secondary} />
+                </ListItemButton>
+              </Fragment>
             ))}
             {clearable && value !== undefined && (
               <ListItemButton

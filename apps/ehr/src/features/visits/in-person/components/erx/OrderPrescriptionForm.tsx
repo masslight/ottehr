@@ -18,9 +18,10 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useMergedPrescriptionQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { useMergedPrescriptionQuickPicks, useMergedPrescriptionSetQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
+import { PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { AllergiesContainer } from '../../../shared/components/review-tab/components/AllergiesContainer';
 import { MedicationsContainer } from '../../../shared/components/review-tab/components/MedicationsContainer';
@@ -43,7 +44,7 @@ import {
   quickPickDosingText,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
-import { withListedQuickPick } from './prescriptionSuggestions';
+import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
 import { useVisitWeight } from './useVisitWeight';
 
 // Layout from the procedure page: the side column sits beside the form once the page is wide enough.
@@ -109,6 +110,7 @@ export const OrderPrescriptionForm: FC = () => {
   const { mutateAsync: saveChartData } = useSaveChartData();
   const visitDiagnoses = chartData?.diagnosis ?? [];
   const { quickPicks, refetch: refetchQuickPicks } = useMergedPrescriptionQuickPicks();
+  const { quickPicks: sets } = useMergedPrescriptionSetQuickPicks();
 
   const [lines, setLines] = useState<PrescriptionLine[]>(() => [emptyPrescriptionLine()]);
   const [sendAttempted, setSendAttempted] = useState(false);
@@ -125,6 +127,17 @@ export const OrderPrescriptionForm: FC = () => {
 
   const updateLine = (key: number, next: PrescriptionLine): void =>
     setLines((current) => current.map((line) => (line.key === key ? next : line)));
+
+  /** A set's quick picks in place of the line and after it; a quick pick deleted since is left out, with a notice. */
+  const applySet = (
+    line: PrescriptionLine,
+    set: PrescriptionSetQuickPickData,
+    used?: { line: PrescriptionLine; memberId: string }
+  ): void => {
+    const { lines: next, missing } = withPrescriptionSet(line, set, quickPicks, weightKg, used);
+    setLines((current) => current.flatMap((item) => (item.key === line.key ? next : [item])));
+    if (missing) enqueueSnackbar(missingSetMembersText(missing), { variant: 'warning' });
+  };
 
   const clearForm = (): void => {
     setLines([emptyPrescriptionLine()]);
@@ -317,6 +330,8 @@ export const OrderPrescriptionForm: FC = () => {
                       }
                       quickPicks={quickPicks}
                       onQuickPick={(quickPick) => updateLine(line.key, withListedQuickPick(line, quickPick, weightKg))}
+                      sets={sets}
+                      onSet={(set, used) => applySet(line, set, used)}
                       onSaveQuickPick={isAdmin ? () => openQuickPickDialog(line) : undefined}
                       visitDiagnoses={visitDiagnoses}
                       patientAgeMonths={patientAgeMonths}

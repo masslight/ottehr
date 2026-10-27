@@ -31,7 +31,7 @@ import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
 import { MedicationSearchDrug } from 'utils/lib/types/api/erx-search.types';
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
-import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { PrescriptionQuickPickData, PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useSearchMedications } from '../../../shared/hooks/useErxSearch';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { DoseInfoHover, DoseWarningBoxes, SourceText } from '../erx-looks/DoseCalculatorCard';
@@ -53,7 +53,12 @@ import {
   withQuickPickDaysAsDuration,
   withSuggestion,
 } from './prescriptionLines';
-import { PrescriptionSuggestionRow, prescriptionSuggestionsFor } from './prescriptionSuggestions';
+import {
+  isEmptyPrescriptionLine,
+  prescriptionSetMembers,
+  PrescriptionSuggestionRow,
+  prescriptionSuggestionsFor,
+} from './prescriptionSuggestions';
 import { VisitWeight } from './useVisitWeight';
 
 /** Units that read the same for any amount ("20 each", not "20 eachs"). */
@@ -74,6 +79,8 @@ const SUBSTITUTION_OPTIONS = [
 
 /** The quick pick list's first entry for admins, worded as the Quick Picks menu on other pages. */
 const ADD_QUICK_PICK = '__add-quick-pick__';
+/** A set's value in the quick pick list, apart from the quick picks' ids. */
+const SET_VALUE = 'set:';
 export const ADD_QUICK_PICK_LABEL = '+ Add or Update Quick Pick';
 
 const SEARCH_UNAVAILABLE = 'Medication search is unavailable.';
@@ -258,6 +265,12 @@ interface PrescriptionSentencesProps {
   onRemove?: () => void;
   quickPicks: PrescriptionQuickPickData[];
   onQuickPick: (quickPick: PrescriptionQuickPickData) => void;
+  /** The practice's prescription sets: the Active ones are listed above the quick picks and suggested with them.
+   * Inactive ones wait for review in Admin. */
+  sets?: PrescriptionSetQuickPickData[];
+  /** A set picked from the list, or `used` from its suggestion row (the line as the row made it, and its quick pick
+   * the row was for). */
+  onSet?: (set: PrescriptionSetQuickPickData, used?: { line: PrescriptionLine; memberId: string }) => void;
   /** Admins save the line as a quick pick; absent for everyone else. */
   onSaveQuickPick?: () => void;
   /** The chart's diagnoses; the primary one leads the suggestions when the line has no diagnosis of its own. */
@@ -284,6 +297,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   onRemove,
   quickPicks,
   onQuickPick,
+  sets,
+  onSet,
   onSaveQuickPick,
   visitDiagnoses,
   patientAgeMonths,
@@ -306,6 +321,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       .sort((a, b) => Number(b.isPrimary ?? false) - Number(a.isPrimary ?? false))
       .map((diagnosis) => diagnosis.code),
   ].join(' ');
+  const activeSets = useMemo(() => sets?.filter((set) => set.status === 'Active') ?? [], [sets]);
   // A new rows array resets the picks inside the suggestions box, so it changes only with the product, patient or
   // diagnoses.
   const suggestions = useMemo(
@@ -318,9 +334,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             weightKg,
             diagnosisCodes: diagnosisCodesKey.split(' ').filter(Boolean),
             quickPicks,
+            sets: activeSets,
           })
         : [],
-    [drug, medication, patientAgeMonths, weightKg, diagnosisCodesKey, quickPicks]
+    [drug, medication, patientAgeMonths, weightKg, diagnosisCodesKey, quickPicks, activeSets]
   );
   // The directions and dispense blanks wait for a pick among the suggestions (or "Other"), unless the line opens
   // with directions (a quick pick, an edited line). A new medication or strength hides them again until a pick,
@@ -550,7 +567,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           onPick={(suggestion, picks) => {
             reveal();
             if (suggestion.apply) {
-              onChange(suggestion.apply(line, picks));
+              const used = suggestion.apply(line, picks);
+              if (suggestion.fromSet && onSet)
+                onSet(suggestion.fromSet.set, { line: used, memberId: suggestion.fromSet.memberId });
+              else onChange(used);
               return;
             }
             // A row's diagnosis blank brings its value, if any; an empty one leaves the line's.
@@ -579,15 +599,32 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 ...(onSaveQuickPick && !(awaitingPick && !revealed)
                   ? [{ value: ADD_QUICK_PICK, label: ADD_QUICK_PICK_LABEL }]
                   : []),
+                // Sets under their own heading above the quick picks, each with its products.
+                ...activeSets.map((set) => ({
+                  value: `${SET_VALUE}${set.id}`,
+                  label: set.name,
+                  secondary: prescriptionSetMembers(set, quickPicks)
+                    .members.map((member) => member.medicationDescription ?? member.name)
+                    .join(', '),
+                  group: 'Sets',
+                })),
                 ...quickPicks.map((quickPick, i) => ({
                   value: quickPick.id ?? String(i),
                   label: prescriptionQuickPickLabel(quickPick),
+                  ...(activeSets.length ? { group: 'Prescriptions' } : {}),
                 })),
               ]}
               value={undefined}
               onChange={(value) => {
                 if (value === ADD_QUICK_PICK) {
                   onSaveQuickPick?.();
+                  return;
+                }
+                const set = activeSets.find((item) => `${SET_VALUE}${item.id}` === value);
+                if (set) {
+                  // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
+                  if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
+                  onSet?.(set);
                   return;
                 }
                 const quickPick = quickPicks.find((item, i) => (item.id ?? String(i)) === value);

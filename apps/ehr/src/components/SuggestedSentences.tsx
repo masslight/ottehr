@@ -20,6 +20,8 @@ export interface SuggestedSentence {
   caution?: string;
   /** Another source's words that are not a caution (its dosing), shown under it as a note. */
   note?: string;
+  /** More lines under it in gray, as written. */
+  details?: string[];
   /** This row's own name for its "+" (a row that is not a suggestion, as "Other"), in place of `addLabel`. */
   addLabel?: string;
   /** The segments as the row's picks so far make them (a dose worked out again for the frequency picked), with the
@@ -204,6 +206,17 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                   Note: {suggestion.note}
                 </Typography>
               )}
+              {suggestion.details?.map((detail) => (
+                <Typography
+                  key={detail}
+                  component="span"
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block' }}
+                >
+                  {detail}
+                </Typography>
+              ))}
             </Typography>
             {/* The ⓘ and the "+" share one box size, centred on the sentence's first line (body2 at 1.8 is 25.2px). */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: '2.6px', flex: 'none' }}>

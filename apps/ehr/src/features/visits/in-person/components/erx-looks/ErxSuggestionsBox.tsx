@@ -1,4 +1,4 @@
-import { Alert } from '@mui/material';
+import { Alert, Box, Chip } from '@mui/material';
 import { ReactElement, ReactNode, useMemo } from 'react';
 import { SentencePicks, SuggestedSentence, SuggestedSentences } from 'src/components/SuggestedSentences';
 import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
@@ -24,6 +24,9 @@ export interface ErxSuggestionRow extends SuggestedSentence {
   quickPickName?: string;
   /** The quick pick's source, after its name: "Source: AAP Red Book", a link with a URL. */
   quickPickSource?: { label: string; url?: string };
+  /** A set's row: its name and a "Set · N" chip lead the sentence, after the dose tool. */
+  setName?: string;
+  setSize?: number;
 }
 
 /** What the ⓘ by a row's "+" says: its quick pick and source, then its dose's working. */
@@ -76,9 +79,19 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>(
       // A quick pick's row, or one with a dose blank: its calculator icon starts the sentence. The ⓘ by its "+" has its
       // quick pick and working.
       renderLead={(row, picks) =>
-        isRow(row) && (row.doseAt !== undefined || row.quickPickName !== undefined)
-          ? renderDoseTool?.(row, picks)
-          : null
+        isRow(row) && (row.doseAt !== undefined || row.quickPickName !== undefined) ? (
+          <>
+            {renderDoseTool?.(row, picks)}
+            {row.setName && (
+              <>
+                <Box component="span" sx={{ fontWeight: 600 }}>
+                  {row.setName}
+                </Box>
+                <Chip size="small" label={`Set · ${row.setSize}`} sx={{ height: 20, mx: 0.5 }} />
+              </>
+            )}
+          </>
+        ) : null
       }
       renderBesideAdd={(row, picks) => {
         const lines = isRow(row) ? rowInfo(row, picks) : [];
