@@ -26,7 +26,7 @@ describe('plainDose', () => {
     expect(dose?.roundingNote).toBe('4.5 mL = 360 mg, 8.5 mg (2%) over 351.5 mg');
   });
 
-  it('says the measured amount once: in the rounding note when there is one, and a difference under 1% as such', () => {
+  it('says the measured amount once: in the rounding note when there is one, and a difference under 1% as less than 1%', () => {
     // Amoxicillin 80 mg/mL: 28.12 kg × 80 mg/kg/day ÷ 2 = 1124.8 mg = 14.06 mL, measured to 14 mL.
     const dose = plainDose({
       weightKg: 28.12,
@@ -37,7 +37,7 @@ describe('plainDose', () => {
       dosesPerDay: 2,
     });
     expect(dose?.working).toBe('28.12 kg × 80 mg/kg/day ÷ 2 = 1124.8 mg');
-    expect(dose?.roundingNote).toBe('14 mL = 1120 mg, 4.8 mg (under 1%) under 1124.8 mg');
+    expect(dose?.roundingNote).toBe('14 mL = 1120 mg, 4.8 mg (less than 1%) under 1124.8 mg');
   });
 
   it('measures a liquid to the step given: a tenth or a whole mL, with the rounding note at that step', () => {
@@ -52,7 +52,7 @@ describe('plainDose', () => {
     expect(plainDose({ ...input, step: 0.1 })).toMatchObject({
       amount: 4.4,
       working: '28.12 kg × 25 mg/kg/day ÷ 2 = 351.5 mg',
-      roundingNote: '4.4 mL = 352 mg, 0.5 mg (under 1%) over 351.5 mg',
+      roundingNote: '4.4 mL = 352 mg, 0.5 mg (less than 1%) over 351.5 mg',
     });
     expect(plainDose({ ...input, step: 1 })).toMatchObject({
       amount: 4,

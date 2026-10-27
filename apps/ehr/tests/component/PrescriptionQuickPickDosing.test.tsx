@@ -989,7 +989,7 @@ describe('The dose’s ⓘ on the line', () => {
     // 28.12 kg × 80 mg/kg/day ÷ 2 = 1124.8 mg, measured to 14 mL = 1120 mg.
     expect(note.textContent?.split('14 mL = 1120 mg')).toHaveLength(2);
     expect(note.children[0]).toHaveTextContent(/^28\.12 kg × 80 mg\/kg\/day ÷ 2 = 1124\.8 mg$/);
-    expect(note.children[1]).toHaveTextContent(/^14 mL = 1120 mg, 4\.8 mg \(under 1%\) under 1124\.8 mg$/);
+    expect(note.children[1]).toHaveTextContent(/^14 mL = 1120 mg, 4\.8 mg \(less than 1%\) under 1124\.8 mg$/);
   });
 
   it('shows after "Use this dose", without a quick pick; typing over the dose removes it', async () => {

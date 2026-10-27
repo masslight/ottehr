@@ -98,8 +98,9 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(screen.queryByText('28.12 kg × 25 mg/kg/dose = 703 mg')).not.toBeInTheDocument();
     await user.hover(screen.getByRole('img', { name: 'How this dose was worked out' }));
     const working = await screen.findByTestId('dose-working');
-    expect(working).toHaveTextContent('3 capsules = 750 mg, 47 mg (7%) over 703 mg');
-    expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg');
+    // The working first, then the rounding note, as the line's ⓘ reads.
+    expect(working.children[0]).toHaveTextContent(/^28\.12 kg × 25 mg\/kg\/dose = 703 mg$/);
+    expect(working.children[1]).toHaveTextContent(/^3 capsules = 750 mg, 47 mg \(7%\) over 703 mg$/);
 
     await user.click(screen.getByRole('button', { name: 'Use this dose' }));
     expect(latest).toMatchObject({ dose: '3', frequency: 'twice daily', quantityUnit: 'Capsule' });

@@ -68,14 +68,14 @@ export const nearestMeasurable = (
   return Math.max(step, roundNumberToDecimalPlaces(Math.round(mg / mgPerMeasure / step) * step, 3));
 };
 
-/** How far a measured dose lands from the mg aimed at: "3 capsules = 750 mg, 47 mg (7%) over 703 mg", "(under 1%)"
+/** How far a measured dose lands from the mg aimed at: "3 capsules = 750 mg, 47 mg (7%) over 703 mg", "(less than 1%)"
  * where the percent rounds to 0; none when it is the same to 0.1 mg. */
 export const doseRoundingNote = (amountText: string, deliveredMg: number, aimedMg: number): string | undefined => {
   const difference = roundNumberToDecimalPlaces(deliveredMg - aimedMg, 1);
   if (difference === 0) return undefined;
   const percent = Math.round((Math.abs(difference) / aimedMg) * 100);
   return `${amountText} = ${num(deliveredMg)} mg, ${num(Math.abs(difference))} mg (${
-    percent === 0 ? 'under 1' : percent
+    percent === 0 ? 'less than 1' : percent
   }%) ${difference > 0 ? 'over' : 'under'} ${num(aimedMg)} mg`;
 };
 

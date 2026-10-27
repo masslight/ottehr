@@ -237,7 +237,8 @@ export const DoseInfoHover: FC<{
 );
 
 const ResultDisplay: FC<{ result: DoseResult }> = ({ result }) => {
-  const notes = [result.roundingNote, result.working, result.detail].filter((note): note is string => !!note);
+  // As the line's and the suggestion rows' ⓘ read: the working, then the rounding note.
+  const notes = [result.working, result.roundingNote, result.detail].filter((note): note is string => !!note);
   return (
     <Box
       data-testid="dose-result"
