@@ -32,14 +32,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { event, stripeAccount } = params;
   console.log('Verified Stripe event:', event.id, event.type, 'connected account:', stripeAccount ?? 'none');
 
-  if (!shouldUseOttehrBilling(params.secrets)) {
-    console.log('BILLING_INTEGRATION does not include ottehr; acknowledging event without processing');
-    return {
-      statusCode: 200,
-      body: JSON.stringify({}),
-    };
-  }
-
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -51,14 +43,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
+// Patient payments live in billing whatever BILLING_INTEGRATION says, so their Stripe-owned state
+// and refund stamps are always kept current. Only Ottehr billing records Stripe activity the EHR did
+// not: a charge with no notice yet, the negative AR offset of a refund, an invoice paid out of band.
 export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParams): Promise<void> => {
   const { event, secrets, stripeAccount = event.account } = params;
+  const recordsAr = shouldUseOttehrBilling(secrets);
   switch (event.type) {
     case 'charge.succeeded':
     case 'charge.updated': {
       const charge = event.data.object as Stripe.Charge;
       console.log(`Charge event for ${charge.id}, invoice: ${chargeInvoiceId(charge) ?? 'none'}`);
-      await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets);
+      await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets, recordsAr);
       break;
     }
     case 'charge.refunded': {
@@ -72,12 +68,16 @@ export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParam
     case 'refund.failed': {
       const refund = event.data.object as Stripe.Refund;
       console.log(`Refund event for ${refund.id}, charge: ${refund.charge}, status: ${refund.status}`);
-      await upsertPaymentNoticeForRefund(oystehr, refund, stripeAccount, secrets);
+      await upsertPaymentNoticeForRefund(oystehr, refund, stripeAccount, secrets, recordsAr);
       break;
     }
     case 'invoice.paid': {
       const invoice = event.data.object as Stripe.Invoice;
       console.log(`Invoice paid event for ${invoice.id}, charge: ${invoice.charge ?? 'none'}`);
+      if (!recordsAr) {
+        console.log(`BILLING_INTEGRATION does not include ottehr; not recording invoice ${invoice.id}`);
+        break;
+      }
       await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, stripeAccount, secrets);
       break;
     }
@@ -174,7 +174,8 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   oystehr: Oystehr,
   charge: Stripe.Charge,
   stripeAccount: string | undefined,
-  secrets: ZambdaInput['secrets']
+  secrets: ZambdaInput['secrets'],
+  createIfMissing: boolean
 ): Promise<void> => {
   const encounterId = await resolveEncounterIdForCharge(charge, stripeAccount, secrets);
   const invoiceId = chargeInvoiceId(charge);
@@ -222,7 +223,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     outcome: charge.paid ? 'complete' : 'partial',
   });
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId);
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, createIfMissing);
 };
 
 const UPSERT_ATTEMPTS = 3;
@@ -267,15 +268,22 @@ const persistPaymentNoticeUpsert = async (
   desiredNotice: PaymentNotice,
   dedupStripeId: string,
   claim: Claim | undefined,
-  encounterId: string
+  encounterId: string,
+  // false refreshes a notice that already exists and writes nothing otherwise
+  createIfMissing: boolean
 ): Promise<void> => {
   // tag scoped because clinical PaymentNotices use the same identifier system
-  const returned = await oystehr.fhir.create<PaymentNotice>(desiredNotice, {
-    ifNoneExist: [
-      { name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|${dedupStripeId}` },
-      { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
-    ],
-  });
+  const dedupParams = [
+    { name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|${dedupStripeId}` },
+    { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
+  ];
+  const returned = createIfMissing
+    ? await oystehr.fhir.create<PaymentNotice>(desiredNotice, { ifNoneExist: dedupParams })
+    : (await oystehr.fhir.search<PaymentNotice>({ resourceType: 'PaymentNotice', params: dedupParams })).unbundle()[0];
+  if (!returned) {
+    console.log(`No billing PaymentNotice records ${dedupStripeId}; nothing to refresh`);
+    return;
+  }
 
   // Refresh what Stripe owns but keep the rest: the notice may have been written by
   // post-billing-patient-payment (submitter, EHR identifier) and carry refund stamps. The update is
@@ -308,7 +316,8 @@ const upsertPaymentNoticeForRefund = async (
   oystehr: Oystehr,
   refund: Stripe.Refund,
   stripeAccount: string | undefined,
-  secrets: ZambdaInput['secrets']
+  secrets: ZambdaInput['secrets'],
+  recordsAr: boolean
 ): Promise<void> => {
   const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
   if (!chargeId) {
@@ -325,7 +334,13 @@ const upsertPaymentNoticeForRefund = async (
   }
 
   // covers refunds whose charge event was never delivered
-  await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets);
+  await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets, recordsAr);
+
+  if (!recordsAr) {
+    // the payment's refund history is billing's either way; the AR offset is Ottehr billing's alone
+    await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
+    return;
+  }
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
   const billingProviderRef = await billingProviderRefForStripeAccount(oystehr, stripeAccount, secrets);
@@ -356,7 +371,7 @@ const upsertPaymentNoticeForRefund = async (
     cancelled: failed,
   });
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId, true);
 
   await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };
@@ -464,5 +479,5 @@ const upsertPaymentNoticeForChargelessInvoice = async (
     outcome: 'complete',
   });
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, invoice.id, claim, encounterId);
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, invoice.id, claim, encounterId, true);
 };

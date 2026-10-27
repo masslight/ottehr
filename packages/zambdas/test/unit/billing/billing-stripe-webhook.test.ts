@@ -36,7 +36,6 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
-import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 import { validateStripeWebhook } from '../../../src/shared/stripeWebhook';
@@ -285,7 +284,7 @@ describe('billing-stripe-webhook', () => {
     );
   });
 
-  it('acks without processing when BILLING_INTEGRATION does not include ottehr', async () => {
+  it('does not record an invoice paid out of band when BILLING_INTEGRATION does not include ottehr', async () => {
     (getStripeClient as Mock).mockReturnValue(stripe);
     const { oystehr, create } = makeOystehr([]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
@@ -297,9 +296,65 @@ describe('billing-stripe-webhook', () => {
     const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(input);
 
     expect(result.statusCode).toBe(200);
-    expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
     expect(createClinicalOystehrClient).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
+  });
+
+  describe('when BILLING_INTEGRATION does not include ottehr', () => {
+    const candidSecrets: Secrets = { ...secrets, BILLING_INTEGRATION: 'candid' };
+    const ehrCardNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-ehr',
+      meta: { versionId: '2' },
+      status: 'active',
+      amount: { value: 10, currency: 'USD' },
+      identifier: [
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      ],
+    } as PaymentNotice;
+    const succeededRefund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    it('refreshes the notice the EHR posted for a charge', async () => {
+      const { oystehr, create, update } = makeOystehr([[claim]], [], [[ehrCardNotice]]);
+
+      await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets: candidSecrets });
+
+      expect(create).not.toHaveBeenCalled();
+      expect(update.mock.calls[0][0].id).toBe('pn-ehr');
+      expect(update.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '2' });
+    });
+
+    it('does not record a charge no billing notice records', async () => {
+      const { oystehr, create, update } = makeOystehr([[claim]]);
+
+      await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets: candidSecrets });
+
+      expect(create).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('stamps a refund on the payment without writing its AR offset', async () => {
+      const refundsList = vi.fn().mockResolvedValue({ data: [succeededRefund] });
+      (getStripeClient as Mock).mockReturnValue({
+        charges: { retrieve: vi.fn().mockResolvedValue(makeCharge()) },
+        refunds: { list: refundsList },
+      } as unknown as Stripe);
+      const { oystehr, create, patch } = makeOystehr([[claim]], [], [[ehrCardNotice], [ehrCardNotice]]);
+
+      await performEffect(oystehr, { event: makeEvent('refund.created', succeededRefund), secrets: candidSecrets });
+
+      expect(create).not.toHaveBeenCalled();
+      expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
+      expect(patch.mock.calls[0][0].id).toBe('pn-ehr');
+    });
   });
 
   it('conditionally creates a linked notice for a charge when the claim exists', async () => {
