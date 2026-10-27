@@ -19,7 +19,14 @@ import {
 import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
 import { unionIdentifiers } from '../patient-payments';
-import { billingProviderRefForStripeAccount, claimRequestFor, findBillingClaimForEncounter } from '../payments';
+import {
+  billingProviderRefForStripeAccount,
+  claimRequestFor,
+  findBillingClaimForEncounter,
+  stampedStripeAccount,
+  stripeAccountExtension,
+  withStripeAccountExtension,
+} from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -90,6 +97,7 @@ const buildBillingPaymentNotice = (params: {
   claim: Claim | undefined;
   encounterId: string;
   billingProviderRef: Reference;
+  stripeAccount: string | undefined;
   createdISO: string;
   amount: Money;
   identifiers: Identifier[];
@@ -102,6 +110,7 @@ const buildBillingPaymentNotice = (params: {
     claim,
     encounterId,
     billingProviderRef,
+    stripeAccount,
     createdISO,
     amount,
     identifiers,
@@ -135,6 +144,7 @@ const buildBillingPaymentNotice = (params: {
         url: PAYMENT_METHOD_EXTENSION_URL,
         valueString: paymentMethod,
       },
+      stripeAccountExtension(stripeAccount),
     ],
     contained: [reconciliation],
     payment: { reference: `#${reconciliation.id}` },
@@ -200,6 +210,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     claim,
     encounterId,
     billingProviderRef,
+    stripeAccount,
     createdISO: created,
     amount: paymentAmount,
     identifiers: [
@@ -245,6 +256,8 @@ const mergeStripeOwnedFields = (
     // the organization behind the Stripe account the money landed in, whichever writer stored first
     payee: desiredNotice.payee,
     recipient: desiredNotice.recipient,
+    // and the account itself, which notices stored before it was stamped gain here
+    extension: withStripeAccountExtension(stored.extension, stampedStripeAccount(desiredNotice)?.stripeAccount),
     identifier: unionIdentifiers(stored.identifier, desiredNotice.identifier),
     contained:
       storedReconciliation && desiredReconciliation
@@ -357,6 +370,7 @@ const upsertPaymentNoticeForRefund = async (
     claim,
     encounterId,
     billingProviderRef,
+    stripeAccount,
     createdISO: created,
     amount: refundAmount,
     identifiers: [
@@ -463,6 +477,7 @@ const upsertPaymentNoticeForChargelessInvoice = async (
     claim,
     encounterId,
     billingProviderRef,
+    stripeAccount,
     createdISO: created,
     amount: paymentAmount,
     identifiers: [

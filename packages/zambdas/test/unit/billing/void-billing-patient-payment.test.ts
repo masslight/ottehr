@@ -43,6 +43,7 @@ import {
   CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
   findBillingClaimForEncounter,
   MANUAL_REFUND_ID_SYSTEM,
+  stripeAccountExtension,
 } from '../../../src/billing/payments';
 import {
   createBillingClient,
@@ -198,6 +199,7 @@ describe('void-billing-patient-payment', () => {
       params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_1` }],
     });
     expect(copy.payee).toEqual({ reference: 'Organization/stripe-org' });
+    expect(copy.extension).toContainEqual(stripeAccountExtension('acct_1'));
   });
 
   it('does not touch Stripe when copying a cash payment', async () => {
@@ -207,6 +209,10 @@ describe('void-billing-patient-payment', () => {
     await invoke(LEGACY_NOTICE_ID);
 
     expect(paymentIntentsRetrieve).not.toHaveBeenCalled();
+    // a payment outside Stripe names no account
+    expect(billingCreate.mock.calls[0][0].extension).not.toContainEqual(
+      expect.objectContaining({ url: stripeAccountExtension(undefined).url })
+    );
     expect(billingCreate.mock.calls[0][1].ifNoneExist[0]).toEqual({
       name: 'identifier',
       value: `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${LEGACY_NOTICE_ID}`,

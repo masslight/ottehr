@@ -48,7 +48,11 @@ vi.mock('../../../src/shared/chart-data', () => ({ chartDataResourceHasMetaTagBy
 
 // ── Imports ────────────────────────────────────────────────────────────────────
 
-import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingManualRefund } from '../../../src/billing/payments';
+import {
+  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
+  recordBillingManualRefund,
+  stripeAccountExtension,
+} from '../../../src/billing/payments';
 import { index } from '../../../src/billing/refund-billing-patient-payment';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM } from '../../../src/shared/candid';
@@ -322,12 +326,15 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
   describe('Stripe account', () => {
     const refundsList = vi.fn();
     const paymentIntentsRetrieve = vi.fn();
-    const cardNotice = (payee: string): PaymentNotice =>
+    const cardNotice = (payee: string, stamp?: { stripeAccount: string | undefined }): PaymentNotice =>
       ({
         ...makeBillingNotice([]),
         payee: { reference: payee },
         identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
-        extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
+        extension: [
+          { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' },
+          ...(stamp ? [stripeAccountExtension(stamp.stripeAccount)] : []),
+        ],
       }) as PaymentNotice;
     const organizations: Record<string, object> = {
       'clinic-org': {
@@ -337,9 +344,9 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
       },
       'platform-org': { resourceType: 'Organization', id: 'platform-org' },
     };
-    const withPayee = (payee: string): void => {
+    const withPayee = (payee: string, stamp?: { stripeAccount: string | undefined }): void => {
       billingGet.mockImplementation(async ({ resourceType, id }: { resourceType: string; id: string }) =>
-        resourceType === 'Organization' ? organizations[id] : cardNotice(payee)
+        resourceType === 'Organization' ? organizations[id] : cardNotice(payee, stamp)
       );
     };
     const invokeExternal = (): Promise<APIGatewayProxyResult> =>
@@ -354,8 +361,8 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
       } as unknown as ReturnType<typeof getStripeClient>);
     });
 
-    it('uses the platform account for a payment whose payee has none, as outreach invoices do', async () => {
-      withPayee('Organization/platform-org');
+    it('uses the platform account for a payment stamped with it, as outreach invoices are', async () => {
+      withPayee('Organization/platform-org', { stripeAccount: undefined });
 
       await invokeExternal();
 
@@ -363,7 +370,18 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
       expect(paymentIntentsRetrieve).toHaveBeenCalledWith('pi_1', { stripeAccount: undefined });
     });
 
-    it("uses the payee's connected account instead of the schedule's", async () => {
+    it('uses the stamped connected account when no billing provider carries it', async () => {
+      withPayee('Organization/platform-org', { stripeAccount: 'acct_unmapped' });
+
+      await invokeExternal();
+
+      expect(refundsList).toHaveBeenCalledWith(
+        { payment_intent: 'pi_1', limit: 100 },
+        { stripeAccount: 'acct_unmapped' }
+      );
+    });
+
+    it("uses an unstamped payment's payee account instead of the schedule's", async () => {
       withPayee('Organization/clinic-org');
 
       await invokeExternal();

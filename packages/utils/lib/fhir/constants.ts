@@ -1222,6 +1222,9 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PAYMENT_REFUNDS_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-refunds';
 // stamped on a PaymentNotice when a non-processor payment (cash/check/external reader) is voided
 export const PAYMENT_VOID_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-void';
+// stamped on a billing PaymentNotice for a Stripe payment: the account the money was taken on, so
+// refunds and lookups go to that account rather than one derived from the payee or schedule
+export const PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-stripe-account';
 
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields

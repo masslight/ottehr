@@ -52,7 +52,7 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
 
 // ── Imports ────────────────────────────────────────────────────────────────────
 
-import { EHR_PATIENT_PAYMENT_ID_SYSTEM } from '../../../src/billing/payments';
+import { EHR_PATIENT_PAYMENT_ID_SYSTEM, stripeAccountExtension } from '../../../src/billing/payments';
 import { index } from '../../../src/billing/post-billing-patient-payment';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
@@ -184,6 +184,7 @@ describe('post-billing-patient-payment', () => {
       params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_1` }],
     });
     expect(notice.payee).toEqual({ reference: 'Organization/stripe-org' });
+    expect(notice.extension).toContainEqual(stripeAccountExtension('acct_1'));
     expect(notice.recipient).toEqual({ reference: 'Organization/stripe-org' });
     // the notice is ours, so there is nothing to merge
     expect(billingUpdate).not.toHaveBeenCalled();
@@ -224,6 +225,9 @@ describe('post-billing-patient-payment', () => {
     ]);
     expect(merged.extension).toContainEqual(refunds);
     expect(merged.payee).toEqual({ reference: 'Organization/stripe-org' });
+    expect(
+      merged.extension.filter((ext: { url: string }) => ext.url === stripeAccountExtension(undefined).url)
+    ).toEqual([stripeAccountExtension('acct_1')]);
     expect(getPaymentNoticeSubmitterRef(merged)).toEqual({ reference: 'Practitioner/pr-1', display: 'Front Desk' });
     expect(clinicalCreate.mock.calls[0][0].focus.reference).toBe('PaymentNotice/pn-webhook');
   });

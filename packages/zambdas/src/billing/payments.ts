@@ -1,6 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
-import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { Claim, Extension, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import {
+  BILLING_RESOURCE_TAG,
+  PAYMENT_METHOD_EXTENSION_URL,
+  PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -31,6 +35,32 @@ const RecordablePaymentSchema = z.object({
 
 // dedup identifier for manual (non-processor) refunds recorded from the EHR
 export const MANUAL_REFUND_ID_SYSTEM = ottehrIdentifierSystem('manual-refund-id');
+
+// Stripe calls on the platform account take no account id, so the stamp names it explicitly: a
+// notice without the stamp predates it, which is not the same as a platform-account payment.
+const PLATFORM_STRIPE_ACCOUNT = 'platform';
+
+export const stripeAccountExtension = (stripeAccount: string | undefined): Extension => ({
+  url: PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL,
+  valueString: stripeAccount ?? PLATFORM_STRIPE_ACCOUNT,
+});
+
+// The Stripe account stamped on the notice: `{ stripeAccount: undefined }` for the platform
+// account, undefined when the notice carries no stamp.
+export const stampedStripeAccount = (notice: PaymentNotice): { stripeAccount: string | undefined } | undefined => {
+  const value = notice.extension?.find((ext) => ext.url === PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL)?.valueString;
+  if (!value) return undefined;
+  return { stripeAccount: value === PLATFORM_STRIPE_ACCOUNT ? undefined : value };
+};
+
+// replaces the notice's stamp, if any, with the given one
+export const withStripeAccountExtension = (
+  extension: Extension[] | undefined,
+  stripeAccount: string | undefined
+): Extension[] => [
+  ...(extension ?? []).filter((ext) => ext.url !== PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL),
+  stripeAccountExtension(stripeAccount),
+];
 
 // identifier filter (`system|` matches any value) selecting patient payment and refund notices,
 // which keeps write-offs and other billing PaymentNotices out

@@ -4,7 +4,11 @@ import { randomUUID } from 'crypto';
 import { Claim, Encounter, Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  BILLING_RESOURCE_TAG,
+  PAYMENT_METHOD_EXTENSION_URL,
+  PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -32,6 +36,7 @@ import {
   claimRequestFor,
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
+  stripeAccountExtension,
 } from '../payments';
 import { createBillingClient, fetchById, reconcilePaymentNoticesForClaim } from '../shared';
 
@@ -119,6 +124,7 @@ const performEffect = async (
     ...input,
     claim,
     payeeRef,
+    stripeAccount: stripePayment && { stripeAccount: stripePayment.stripeAccount },
     identifiers: [
       dedupIdentifier,
       ...[paymentIntent?.id, chargeId]
@@ -231,7 +237,9 @@ const mergeIntoWebhookNotice = async (
           recipient: desiredNotice.recipient,
           contained: desiredNotice.contained,
           extension: [
-            ...(storedNotice.extension ?? []).filter((ext) => ext.url !== PAYMENT_METHOD_EXTENSION_URL),
+            ...(storedNotice.extension ?? []).filter(
+              (ext) => ext.url !== PAYMENT_METHOD_EXTENSION_URL && ext.url !== PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL
+            ),
             ...(desiredNotice.extension ?? []),
           ],
         },
@@ -254,9 +262,11 @@ const makePaymentNotice = (input: {
   submitterRef: Reference;
   claim: Claim | undefined;
   payeeRef: Reference;
+  // the account a card payment was taken on; absent for payments outside Stripe
+  stripeAccount: { stripeAccount: string | undefined } | undefined;
   identifiers: Identifier[];
 }): PaymentNotice => {
-  const { encounterId, paymentDetails, submitterRef, claim, payeeRef, identifiers } = input;
+  const { encounterId, paymentDetails, submitterRef, claim, payeeRef, stripeAccount, identifiers } = input;
   const { paymentMethod, amountInCents } = paymentDetails;
 
   // the created timestamp is in UTC and the exact date in any timezone can always be derived from there
@@ -301,7 +311,10 @@ const makePaymentNotice = (input: {
     paymentDate,
     amount: paymentAmount,
     identifier: identifiers,
-    extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: paymentMethod }],
+    extension: [
+      { url: PAYMENT_METHOD_EXTENSION_URL, valueString: paymentMethod },
+      ...(stripeAccount ? [stripeAccountExtension(stripeAccount.stripeAccount)] : []),
+    ],
     contained: [reconciliation],
     payment: { reference: `#${reconciliation.id}` },
     payee: payeeRef,

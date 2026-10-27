@@ -35,6 +35,7 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
 
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
+import { stripeAccountExtension } from '../../../src/billing/payments';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
@@ -445,6 +446,8 @@ describe('billing-stripe-webhook', () => {
     // no identifier is duplicated or lost
     expect(merged.identifier).toHaveLength(3);
     expect(merged.extension).toContainEqual(refundsExtension);
+    // an event on the platform account stamps it explicitly, which a notice without a stamp gains
+    expect(merged.extension).toContainEqual(stripeAccountExtension(undefined));
     expect(merged.contained[0].detail).toEqual([submitterDetail]);
     expect(merged.contained[0].disposition).toBe('Stripe charge ch_1 succeeded');
   });
@@ -559,7 +562,10 @@ describe('billing-stripe-webhook', () => {
 
     expect(retrieve).toHaveBeenCalledWith('ch_1', { expand: ['invoice'] }, { stripeAccount: 'acct_1' });
     expect(create.mock.calls[0][0].identifier).toContainEqual({ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' });
+    // both notices name the account the money moved on
+    expect(create.mock.calls[0][0].extension).toContainEqual(stripeAccountExtension('acct_1'));
     const notice = create.mock.calls[1][0];
+    expect(notice.extension).toContainEqual(stripeAccountExtension('acct_1'));
     expect(notice.identifier).toEqual([{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 're_1' }]);
     expect(notice.amount).toEqual({ value: -4, currency: 'USD' });
     expect(notice.status).toBe('active');

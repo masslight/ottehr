@@ -10,6 +10,7 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
 }));
 
 import { createStripeAccountResolver } from '../../../src/billing/patient-payments';
+import { stripeAccountExtension } from '../../../src/billing/payments';
 import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
 const organizations: Record<string, object> = {
@@ -18,18 +19,19 @@ const organizations: Record<string, object> = {
     id: 'clinic-org',
     identifier: [{ system: STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, value: 'acct_clinic' }],
   },
-  'platform-org': { resourceType: 'Organization', id: 'platform-org' },
+  'default-org': { resourceType: 'Organization', id: 'default-org' },
 };
 const billingGet = vi.fn(async ({ id }: { id: string }) => {
   if (!organizations[id]) throw { code: 404 };
   return organizations[id];
 });
 
-const billingNotice = (payee: string): PaymentNotice =>
+const billingNotice = (payee: string, stamp?: { stripeAccount: string | undefined }): PaymentNotice =>
   ({
     resourceType: 'PaymentNotice',
     meta: { tag: [BILLING_RESOURCE_TAG] },
     payee: { reference: payee },
+    ...(stamp ? { extension: [stripeAccountExtension(stamp.stripeAccount)] } : {}),
   }) as PaymentNotice;
 const legacyNotice = { resourceType: 'PaymentNotice', request: { reference: 'Encounter/enc-1' } } as PaymentNotice;
 
@@ -46,15 +48,30 @@ beforeEach(() => {
 });
 
 describe('createStripeAccountResolver', () => {
-  it("resolves a billing payment to its payee's connected account", async () => {
+  it('resolves a payment to the account stamped on it, even when no billing provider carries it', async () => {
+    await expect(
+      resolver()(billingNotice('Organization/default-org', { stripeAccount: 'acct_unmapped' }))
+    ).resolves.toBe('acct_unmapped');
+    expect(billingGet).not.toHaveBeenCalled();
+    expect(getStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+  });
+
+  it('keeps a payment stamped with the platform account, as an outreach invoice is, on the platform account', async () => {
+    await expect(
+      resolver()(billingNotice('Organization/default-org', { stripeAccount: undefined }))
+    ).resolves.toBeUndefined();
+    expect(getStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+  });
+
+  it("resolves an unstamped billing payment to its payee's connected account", async () => {
     await expect(resolver()(billingNotice('Organization/clinic-org'))).resolves.toBe('acct_clinic');
     expect(getStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
   });
 
-  it('resolves a payee without an account, as an outreach invoice has, to the platform account', async () => {
-    await expect(resolver()(billingNotice('Organization/platform-org'))).resolves.toBeUndefined();
-    await expect(resolver()(billingNotice('Organization/clinical-org'))).resolves.toBeUndefined();
-    expect(getStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+  it("falls back to the schedule owner's account when an unstamped payee carries none", async () => {
+    // a connected account with no billing provider leaves the default org as payee
+    await expect(resolver()(billingNotice('Organization/default-org'))).resolves.toBe('acct_schedule');
+    await expect(resolver()(billingNotice('Organization/clinical-org'))).resolves.toBe('acct_schedule');
   });
 
   it("resolves a legacy EHR payment to the schedule owner's account, looked up once", async () => {

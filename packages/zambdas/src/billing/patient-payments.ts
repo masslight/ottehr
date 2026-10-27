@@ -36,6 +36,8 @@ import {
   CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
   findBillingClaimForEncounter,
   recordBillingManualRefund,
+  stampedStripeAccount,
+  withStripeAccountExtension,
 } from './payments';
 import { reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
 
@@ -264,11 +266,12 @@ export const fetchEncounterPaymentNotices = async (params: {
 };
 
 /**
- * The Stripe account each payment was taken on. A billing notice names it through its payee: every
- * writer of a Stripe payment's notice sets the payee to the billing provider carrying the account
- * (billingProviderRefForStripeAccount), so a payee carrying none means the platform account, which
- * outreach invoices are paid on. Legacy EHR notices predate that, so theirs is the account of the
- * encounter's schedule owner, as the EHR used when taking them.
+ * The Stripe account each payment was taken on. Billing writers stamp it on the notice; notices
+ * stored before the stamp fall back to their payee's account (every Stripe-payment writer sets the
+ * payee to the billing provider carrying it), then to the encounter schedule owner's, where the EHR
+ * takes payments and which legacy EHR notices always use. A payee carrying no account is not
+ * evidence of the platform account: a connected account need not have a billing provider. Only the
+ * stamp tells platform-account payments, such as outreach invoices, apart.
  */
 export const createStripeAccountResolver = (params: {
   billingOystehr: Oystehr;
@@ -293,15 +296,20 @@ export const createStripeAccountResolver = (params: {
     return org.identifier?.find((identifier) => identifier.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value;
   };
 
-  return async (notice) => {
-    if (!isBillingPaymentNotice(notice)) {
-      scheduleAccount ??= getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
-      return scheduleAccount;
-    }
+  const payeeAccount = async (notice: PaymentNotice): Promise<string | undefined> => {
     const [resourceType, orgId] = notice.payee?.reference?.split('/') ?? [];
     if (resourceType !== 'Organization' || !orgId) return undefined;
     if (!accountByOrgId.has(orgId)) accountByOrgId.set(orgId, accountForOrg(orgId));
     return accountByOrgId.get(orgId);
+  };
+
+  return async (notice) => {
+    const stamped = stampedStripeAccount(notice);
+    if (stamped) return stamped.stripeAccount;
+    const fromPayee = isBillingPaymentNotice(notice) ? await payeeAccount(notice) : undefined;
+    if (fromPayee) return fromPayee;
+    scheduleAccount ??= getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
+    return scheduleAccount;
   };
 };
 
@@ -409,6 +417,9 @@ const adoptLegacyPaymentNotice = async (params: {
       request: claimRequestFor(claim, encounterId),
       payee: payeeRef,
       recipient: payeeRef,
+      ...(stripeCharge
+        ? { extension: withStripeAccountExtension(legacyFields.extension, stripeCharge.stripeAccount) }
+        : {}),
       identifier: unionIdentifiers(legacyNotice.identifier, [
         { system: CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, value: legacyId },
         ...(chargeId ? [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: chargeId }] : []),

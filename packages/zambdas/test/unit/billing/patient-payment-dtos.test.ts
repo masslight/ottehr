@@ -17,7 +17,7 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
 
 import { getPaymentsForEncounter } from '../../../src/billing/patient-payment-dtos';
 import { fetchEncounterPaymentNotices } from '../../../src/billing/patient-payments';
-import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM } from '../../../src/billing/payments';
+import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, stripeAccountExtension } from '../../../src/billing/payments';
 import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 
@@ -80,12 +80,20 @@ describe('getPaymentsForEncounter', () => {
 
   it("looks a card payment up on the Stripe account it was taken on, not the schedule owner's", async () => {
     vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue('acct_schedule');
-    const cardNotice = (id: string, payee: string, paymentIntentId: string): PaymentNotice => ({
+    const cardNotice = (
+      id: string,
+      payee: string,
+      paymentIntentId: string,
+      stamp?: { stripeAccount: string | undefined }
+    ): PaymentNotice => ({
       ...otherNotice(id, '2026-10-21T15:00:00.000Z', 40, [
         { system: STRIPE_PAYMENT_ID_SYSTEM, value: paymentIntentId },
       ]),
       payee: { reference: payee },
-      extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
+      extension: [
+        { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' },
+        ...(stamp ? [stripeAccountExtension(stamp.stripeAccount)] : []),
+      ],
     });
     vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
       new Map([
@@ -93,7 +101,7 @@ describe('getPaymentsForEncounter', () => {
           ENCOUNTER_ID,
           [
             // an outreach invoice, paid on the platform account
-            cardNotice('outreach-1', 'Organization/platform-org', 'pi_platform'),
+            cardNotice('outreach-1', 'Organization/platform-org', 'pi_platform', { stripeAccount: undefined }),
             cardNotice('clinic-1', 'Organization/clinic-org', 'pi_clinic'),
           ],
         ],
