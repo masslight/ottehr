@@ -80,6 +80,18 @@ const isOlderThan = (candidate: string | undefined, reference: string | undefine
   return candidateMillis === undefined || candidateMillis < referenceMillis;
 };
 
+export const freeFormRowsStartingFrom = (
+  rows: FreeFormEncounterHistoryRow[],
+  from: DateTime | undefined
+): FreeFormEncounterHistoryRow[] => {
+  if (!from) return rows;
+  const fromMillis = from.toMillis();
+  return rows.filter((row) => {
+    const startMillis = toMillis(row.dateTime);
+    return startMillis !== undefined && startMillis >= fromMillis;
+  });
+};
+
 export const applyLocalFreeFormSaves = (
   serverRows: FreeFormEncounterHistoryRow[],
   localRows: FreeFormEncounterHistoryRow[]

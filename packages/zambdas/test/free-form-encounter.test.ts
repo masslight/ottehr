@@ -1,10 +1,12 @@
+import Oystehr from '@oystehr/sdk';
 import { applyPatch, deepClone, Operation } from 'fast-json-patch';
 import { Encounter } from 'fhir/r4b';
 import { buildFollowupEncounterType, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   assertFreeFormEncounterOfPatient,
   buildFreeFormNotePatchOperations,
+  updateFreeFormEncounterNote,
 } from '../src/ehr/save-free-form-encounter/helpers';
 import {
   freeFormEncounterHistoryRowFromEncounter,
@@ -238,5 +240,49 @@ describe('assertFreeFormEncounterOfPatient', () => {
   it('rejects a follow-up attached to a visit', () => {
     const parented = freeFormEncounter({ partOf: { reference: 'Encounter/parent' } });
     expect(() => assertFreeFormEncounterOfPatient(parented, PATIENT_ID)).toThrow();
+  });
+});
+
+describe('updateFreeFormEncounterNote', () => {
+  it('re-reads and replaces when a concurrent save added the message first, instead of appending a second one', async () => {
+    const legacyWithoutMessage = freeFormEncounter({
+      type: legacyFollowupType,
+      meta: { versionId: 'v1' },
+      extension: [OTHER_EXTENSION],
+    });
+    const afterConcurrentSave = freeFormEncounter({
+      type: legacyFollowupType,
+      meta: { versionId: 'v2' },
+      extension: [OTHER_EXTENSION, { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'Concurrent text' }],
+    });
+    const get = vi.fn().mockResolvedValueOnce(legacyWithoutMessage).mockResolvedValueOnce(afterConcurrentSave);
+    const patch = vi
+      .fn()
+      .mockRejectedValueOnce({ code: 412, message: 'Precondition Failed' })
+      .mockImplementationOnce(
+        async ({ operations }: { operations: Operation[] }) =>
+          applyPatch(deepClone(afterConcurrentSave), operations).newDocument
+      );
+    const oystehr = { fhir: { get, patch } } as unknown as Oystehr;
+
+    const saved = await updateFreeFormEncounterNote(oystehr, 'free-form-1', PATIENT_ID, 'My text');
+
+    expect(patch.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: 'v1' });
+    expect(patch.mock.calls[0][0].operations).toEqual([
+      { op: 'add', path: '/extension/-', value: { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'My text' } },
+    ]);
+    expect(patch.mock.calls[1][1]).toEqual({ optimisticLockingVersionId: 'v2' });
+    expect(saved.extension).toEqual([OTHER_EXTENSION, { url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'My text' }]);
+  });
+
+  it('rethrows errors other than a version conflict without retrying', async () => {
+    const get = vi.fn().mockResolvedValue(freeFormEncounter({ meta: { versionId: 'v1' } }));
+    const patch = vi.fn().mockRejectedValue(new Error('FHIR is down'));
+    const oystehr = { fhir: { get, patch } } as unknown as Oystehr;
+
+    await expect(updateFreeFormEncounterNote(oystehr, 'free-form-1', PATIENT_ID, 'My text')).rejects.toThrow(
+      'FHIR is down'
+    );
+    expect(patch).toHaveBeenCalledTimes(1);
   });
 });

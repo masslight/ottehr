@@ -187,6 +187,36 @@ describe('save-free-form-encounter integration', () => {
     ]);
   });
 
+  it('keeps exactly one message when two saves race on a legacy follow-up without one', async () => {
+    const racing = await seedEncounter({
+      resourceType: 'Encounter',
+      status: 'in-progress',
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
+      type: [
+        {
+          coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }],
+          text: 'Follow-up Encounter',
+        },
+      ],
+      subject: { reference: `Patient/${base.patient.id}` },
+      period: { start: DateTime.now().toUTC().toISO() },
+      extension: [OTHER_EXTENSION],
+    });
+    createdEncounterIds.push(racing.id!);
+
+    const results = await Promise.all([
+      save({ patientId: base.patient.id, encounterId: racing.id, note: 'First writer' }),
+      save({ patientId: base.patient.id, encounterId: racing.id, note: 'Second writer' }),
+    ]);
+
+    const stored = await oystehrAdmin.fhir.get<Encounter>({ resourceType: 'Encounter', id: racing.id! });
+    const messages = stored.extension?.filter((extension) => extension.url === FOLLOWUP_SYSTEMS.messageUrl) ?? [];
+    expect(messages).toHaveLength(1);
+    expect(['First writer', 'Second writer']).toContain(messages[0].valueString);
+    expect(stored.extension).toContainEqual(OTHER_EXTENSION);
+    expect(results.map((result) => result.note).sort()).toEqual(['First writer', 'Second writer']);
+  });
+
   it("rejects saving a note on another patient's chart, on a visit encounter, or with a blank note", async () => {
     const created = await save({ patientId: base.patient.id, note: 'Belongs to the base patient' });
 

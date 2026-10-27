@@ -46,6 +46,7 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
   const latestNoteRef = useRef(note);
   const [value, setValue] = useState(note);
   const [savedNote, setSavedNote] = useState(note);
+  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
     latestNoteRef.current = note;
@@ -66,35 +67,31 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
     },
   });
 
+  const hasUnsavedChanges = value.trim() !== savedNote.trim();
+  const editing = focused || saveMutation.isPending || hasUnsavedChanges;
+
+  useEffect(() => {
+    onEditingChange?.(editing);
+  }, [editing, onEditingChange]);
+
   const discardUnsavedDraft = (): boolean => {
     if (!isDraft || encounterId) return false;
     onDiscardDraft?.();
     return true;
   };
 
-  const reportEditing = (): void => {
-    onEditingChange?.(focusedRef.current || savingRef.current);
-  };
-
   const handleFocus = (): void => {
     focusedRef.current = true;
-    reportEditing();
+    setFocused(true);
   };
 
   const handleBlur = async (): Promise<void> => {
     focusedRef.current = false;
+    setFocused(false);
     const cancelled = cancelBlurSaveRef.current;
     cancelBlurSaveRef.current = false;
-    if (savingRef.current) {
-      reportEditing();
-      return;
-    }
-    try {
-      await saveOnBlur(cancelled);
-    } finally {
-      savingRef.current = false;
-      reportEditing();
-    }
+    if (savingRef.current) return;
+    await saveOnBlur(cancelled);
   };
 
   const saveOnBlur = async (cancelled: boolean): Promise<void> => {
@@ -121,6 +118,8 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
         { variant: 'error' }
       );
       return;
+    } finally {
+      savingRef.current = false;
     }
     if (!session.isCurrent()) return;
 

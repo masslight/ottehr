@@ -1,7 +1,9 @@
+import { DateTime } from 'luxon';
 import { AppointmentHistoryRow, FreeFormEncounterHistoryRow } from 'utils/lib/types/api/patient-visit-history.types';
 import { describe, expect, it } from 'vitest';
 import {
   applyLocalFreeFormSaves,
+  freeFormRowsStartingFrom,
   mergeEncounterGridRows,
   pruneCaughtUpLocalSaves,
 } from '../../src/components/patientEncountersFilters';
@@ -84,6 +86,24 @@ describe('mergeEncounterGridRows', () => {
       'visit-sep-20',
       'visit-sep-10',
     ]);
+  });
+});
+
+describe('freeFormRowsStartingFrom', () => {
+  const rows = [
+    note('recent', '2026-10-20T12:00:00.000Z'),
+    note('old', '2025-01-15T12:00:00.000Z'),
+    note('missing', undefined),
+    note('invalid', 'not-a-date'),
+  ];
+
+  it('keeps every row when there is no period', () => {
+    expect(freeFormRowsStartingFrom(rows, undefined)).toBe(rows);
+  });
+
+  it('keeps only rows that start within the period, dropping ones without a valid start', () => {
+    const from = DateTime.fromISO('2026-09-26T00:00:00.000Z');
+    expect(freeFormRowsStartingFrom(rows, from).map((row) => row.encounterId)).toEqual(['recent']);
   });
 });
 

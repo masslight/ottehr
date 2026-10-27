@@ -151,6 +151,11 @@ const chooseType = async (user: ReturnType<typeof userEvent.setup>, label: strin
   await user.click(await screen.findByRole('option', { name: label }));
 };
 
+const chooseVisitPeriod = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
+  await user.click(screen.getByRole('combobox', { name: /^Visit Period/ }));
+  await user.click(await screen.findByRole('option', { name: label }));
+};
+
 const sortAscending = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   const header = screen.getByText('Date & Time').closest('th') as HTMLElement;
   await user.click(within(header).getByRole('button'));
@@ -339,6 +344,47 @@ describe('PatientEncountersGrid free-form encounters', () => {
       await waitFor(() => expect(addButton()).toBeEnabled());
       expect(countOf('Stale search note')).toBe(1);
       expect(saveMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a saved draft and its unsaved text when saving more text fails', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const saved = freeForm('note-1', 'First words');
+      const updated = freeForm('note-1', 'First words and more', { lastUpdated: '2026-10-26T12:00:05.000Z' });
+      const before = historyOf(olderVisits(1));
+      setHistory(PATIENT_A, before, before, historyOf(olderVisits(1), [saved]));
+      saveMock.mockResolvedValueOnce(saved).mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(updated);
+      renderGrid();
+      await waitForVisits();
+
+      await user.click(addButton());
+      await user.type(draftInput(), 'First words');
+      await user.click(document.body);
+      await waitFor(() => expect(historyCalls).toHaveLength(2));
+      await user.click(draftInput());
+      await user.type(draftInput(), ' and more');
+      await advance(1000);
+      await waitFor(() => expect(historyCalls).toHaveLength(3));
+      await user.click(document.body);
+
+      await waitFor(() =>
+        expect(enqueueSnackbarMock).toHaveBeenCalledWith("Couldn't save the note. Please try again.", {
+          variant: 'error',
+        })
+      );
+      expect(addButton()).toBeDisabled();
+      expect(countOf('First words and more')).toBe(1);
+
+      await user.click(draftInput());
+      await user.click(document.body);
+
+      await waitFor(() => expect(addButton()).toBeEnabled());
+      expect(saveMock).toHaveBeenCalledTimes(3);
+      expect(saveMock.mock.calls[2][1]).toEqual({
+        patientId: PATIENT_A,
+        encounterId: 'note-1',
+        note: 'First words and more',
+      });
+      expect(countOf('First words and more')).toBe(1);
     });
 
     it('waits for the user to stop typing in the draft before releasing it', async () => {
@@ -616,6 +662,71 @@ describe('PatientEncountersGrid free-form encounters', () => {
   });
 
   describe('editing an existing note', () => {
+    it('saves a second edit made while the refresh after the first save is still loading', async () => {
+      const user = userEvent.setup();
+      const original = freeForm('note-1', 'First', { lastUpdated: '2026-10-26T12:00:01.000Z' });
+      const firstSave = { ...original, note: 'First edit', lastUpdated: '2026-10-26T12:05:00.000Z' };
+      const secondSave = { ...original, note: 'First edit, second edit', lastUpdated: '2026-10-26T12:06:00.000Z' };
+      const slowRefresh = deferred<PatientVisitListResponse>();
+      setHistory(
+        PATIENT_A,
+        historyOf(olderVisits(1), [original]),
+        slowRefresh.promise,
+        historyOf(olderVisits(1), [secondSave])
+      );
+      saveMock.mockResolvedValueOnce(firstSave).mockResolvedValueOnce(secondSave);
+      renderGrid();
+      await waitForVisits();
+      const input = noteInputs().find((element) => element.value === 'First')!;
+
+      await user.clear(input);
+      await user.type(input, 'First edit');
+      await user.click(document.body);
+      await waitFor(() => expect(historyCalls).toHaveLength(2));
+      await user.click(input);
+      await user.type(input, ', second edit');
+      await user.click(document.body);
+
+      await waitFor(() => expect(saveMock).toHaveBeenCalledTimes(2));
+      expect(saveMock.mock.calls[1][1]).toEqual({
+        patientId: PATIENT_A,
+        encounterId: 'note-1',
+        note: 'First edit, second edit',
+      });
+      slowRefresh.resolve(historyOf(olderVisits(1), [firstSave]));
+      await waitFor(() => expect(input.value).toBe('First edit, second edit'));
+    });
+
+    it("hides an edited note from before the Visit Period while the search hasn't caught up", async () => {
+      const user = userEvent.setup();
+      const oldNote = freeForm('old-note', 'Old note', {
+        dateTime: '2025-01-15T12:00:00.000Z',
+        lastUpdated: '2025-01-15T12:00:01.000Z',
+      });
+      const edited = { ...oldNote, note: 'Old note, edited', lastUpdated: '2026-10-26T12:05:00.000Z' };
+      setHistory(
+        PATIENT_A,
+        historyOf(olderVisits(1), [oldNote]),
+        historyOf(olderVisits(1), [oldNote]),
+        historyOf(olderVisits(1))
+      );
+      saveMock.mockResolvedValue(edited);
+      renderGrid();
+      await waitForVisits();
+      const input = noteInputs().find((element) => element.value === 'Old note')!;
+
+      await user.click(input);
+      await user.type(input, ', edited');
+      await user.click(document.body);
+      await waitFor(() => expect(historyCalls).toHaveLength(2));
+      expect(countOf('Old note, edited')).toBe(1);
+
+      await chooseVisitPeriod(user, 'Last month');
+
+      await waitFor(() => expect(historyCalls).toHaveLength(3));
+      expect(countOf('Old note, edited')).toBe(0);
+    });
+
     it('reverts on Escape without saving', async () => {
       const user = userEvent.setup();
       setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Original text')]));

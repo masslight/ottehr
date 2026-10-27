@@ -56,6 +56,7 @@ import { FreeFormEncounterRow, FreeFormSaveSession } from './FreeFormEncounterRo
 import {
   applyLocalFreeFormSaves,
   filterVisitsByServiceCategory,
+  freeFormRowsStartingFrom,
   mergeEncounterGridRows,
   pruneCaughtUpLocalSaves,
 } from './patientEncountersFilters';
@@ -262,13 +263,16 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   }, [visitHistory, hideCancelled, hideNoShow, serviceCategory]);
 
   const serverFreeFormEncounters = visitHistory?.freeFormEncounters;
+  const periodStart = useMemo(() => (period > 0 ? DateTime.now().minus({ months: period }) : undefined), [period]);
   const freeFormEncounters = useMemo(
     () =>
       applyLocalFreeFormSaves(
         serverFreeFormEncounters ?? [],
-        localSaves.patientId === currentPatientId ? Object.values(localSaves.rows) : []
+        localSaves.patientId === currentPatientId
+          ? freeFormRowsStartingFrom(Object.values(localSaves.rows), periodStart)
+          : []
       ),
-    [serverFreeFormEncounters, localSaves, currentPatientId]
+    [serverFreeFormEncounters, localSaves, currentPatientId, periodStart]
   );
 
   const includeFreeForm = type === 'all' && status === 'all' && serviceCategory === 'all';

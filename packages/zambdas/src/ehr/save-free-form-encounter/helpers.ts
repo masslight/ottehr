@@ -3,6 +3,7 @@ import { Operation } from 'fast-json-patch';
 import { Encounter, Extension } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FOLLOWUP_SYSTEMS, FOLLOWUP_TYPES, isFreeFormEncounter } from 'utils/lib/fhir/encounter';
+import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { addOrReplaceOperation } from 'utils/lib/helpers/operations';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isFhirNotFoundError } from '../../shared/errors';
@@ -57,17 +58,22 @@ export const updateFreeFormEncounterNote = async (
   encounterId: string,
   patientId: string,
   note: string
-): Promise<Encounter> => {
-  let encounter: Encounter;
-  try {
-    encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
-  } catch (error) {
-    if (isFhirNotFoundError(error)) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
-    throw error;
-  }
-  assertFreeFormEncounterOfPatient(encounter, patientId);
+): Promise<Encounter> =>
+  withVersionConflictRetries(async () => {
+    let encounter: Encounter;
+    try {
+      encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+    } catch (error) {
+      if (isFhirNotFoundError(error)) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
+      throw error;
+    }
+    assertFreeFormEncounterOfPatient(encounter, patientId);
 
-  const operations = buildFreeFormNotePatchOperations(encounter, note);
-  if (!operations.length) return encounter;
-  return oystehr.fhir.patch<Encounter>({ resourceType: 'Encounter', id: encounterId, operations });
-};
+    const operations = buildFreeFormNotePatchOperations(encounter, note);
+    if (!operations.length) return encounter;
+    const versionId = encounter.meta?.versionId;
+    return oystehr.fhir.patch<Encounter>(
+      { resourceType: 'Encounter', id: encounterId, operations },
+      versionId ? { optimisticLockingVersionId: versionId } : undefined
+    );
+  });
