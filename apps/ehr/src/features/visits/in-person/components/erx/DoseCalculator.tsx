@@ -92,12 +92,11 @@ export const calculatorWeightKg = (
   weight: VisitWeight | undefined
 ): number | undefined => numberOrUndefined(calculatorWeightText(weightText, weight));
 
-/** What "Use this dose" writes into the line: the dose; a frequency, into an empty one only unless the doses a day
- * were typed in the calculator; and for a course its "then" steps. */
+/** What "Use this dose" writes into the line: the dose; a frequency, into an empty one only; and for a course its
+ * "then" steps. */
 export interface DoseFill {
   dose: string;
   frequency?: string;
-  replaceFrequency?: boolean;
   durationDays?: string;
   steps?: PrescriptionStep[];
   /** What the dose was worked out from, which the line keeps while its dose stays the one used. */
@@ -114,8 +113,7 @@ export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLi
     { ...line, quantityUnit },
     {
       dose: fill.dose,
-      frequency:
-        fill.frequency !== undefined && (fill.replaceFrequency || !line.frequency) ? fill.frequency : line.frequency,
+      frequency: fill.frequency !== undefined && !line.frequency ? fill.frequency : line.frequency,
       steps: fill.steps ?? [],
       ...(fill.durationDays !== undefined
         ? { durationDays: fill.durationDays }
@@ -143,7 +141,8 @@ interface DoseCalculatorProps {
 }
 
 /** The calculator icon after the line's dose blank and the plain dose calculator it opens: weight from the vitals,
- * strength from the product, the rate typed and the doses a day from the line's frequency, all editable. Its result
+ * strength from the product and the rate typed, all editable, and the doses a day from the line's frequency, fixed
+ * while the frequency gives a count and typed while it gives none. Its result
  * reads as the line's sentence, with the working behind the ⓘ. Nothing on the line changes until "Use this dose". */
 export const DoseCalculator: FC<DoseCalculatorProps> = ({
   line,
@@ -182,7 +181,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const concentrationText = own.concentration ?? text(derivedConcentration);
   const basis = own.basis ?? 'mg/kg/day';
   const lineDosesPerDay = prescriptionFrequency(line.frequency)?.dosesPerDay;
-  const dosesPerDayText = own.dosesPerDay ?? text(lineDosesPerDay);
+  // A frequency with a count is the doses a day, over anything typed or a quick pick's.
+  const dosesPerDayText = lineDosesPerDay !== undefined ? text(lineDosesPerDay) : own.dosesPerDay ?? '';
   const dosesPerDay = numberOrUndefined(dosesPerDayText);
   const rateText = own.rate ?? '';
   const maxPerDoseMg = numberOrUndefined(own.maxPerDose ?? '');
@@ -198,7 +198,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     maxPerDoseMg,
     maxPerDayMg,
   });
-  // Doses a day that match no frequency leave the line's as it is.
+  // Only for a line with no frequency yet; doses a day that match none leave it empty.
   const frequencyOfDoses = (dosesPerDay && frequencyForDosesPerDay(dosesPerDay)) || undefined;
 
   const fields: DoseField[] = [
@@ -248,7 +248,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       id: 'dosesPerDay',
       label: 'Doses a day',
       value: dosesPerDayText,
-      from: own.dosesPerDay === undefined && lineDosesPerDay !== undefined ? `from ${line.frequency}` : undefined,
+      from: lineDosesPerDay !== undefined ? `from ${line.frequency}; change the frequency on the line` : undefined,
+      disabled: lineDosesPerDay !== undefined,
     },
     { id: 'maxPerDose', label: 'Maximum per dose', value: own.maxPerDose ?? '', unit: 'mg per dose', optional: true },
     { id: 'maxPerDay', label: 'Maximum per day', value: own.maxPerDay ?? '', unit: 'mg per day', optional: true },
@@ -265,7 +266,6 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     ingredient && {
       dose: String(dose.amount),
       frequency: frequencyOfDoses,
-      replaceFrequency: own.dosesPerDay !== undefined,
       dosing: {
         rate: numberOrUndefined(rateText) ?? 0,
         basis,

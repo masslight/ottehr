@@ -559,7 +559,7 @@ describe('PrescriptionSentences: the dose', () => {
 
     await user.click(icon);
     const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
-    expect(within(calculator).getByText('from twice daily')).toBeInTheDocument();
+    expect(within(calculator).getByText('from twice daily; change the frequency on the line')).toBeInTheDocument();
     await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
     await user.click(screen.getByRole('option', { name: 'dose' }));
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '25');

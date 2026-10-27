@@ -1,6 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { InfoOutlined } from '@mui/icons-material';
-import { Box, Button, Link, SxProps, Theme, Tooltip } from '@mui/material';
+import { Box, Button, InputBase, Link, SxProps, Theme, Tooltip } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { BlankOption, SelectBlank, TextBlank } from '../procedures/narrative/InlineBlanks';
 
@@ -24,6 +24,8 @@ export interface DoseField {
   action?: { label: string; onClick: () => void };
   /** May stay empty without looking like it's needed (a maximum). */
   optional?: boolean;
+  /** Shown greyed out and can't be typed over: the value comes from elsewhere, which `from` names. */
+  disabled?: boolean;
 }
 
 /** The result: the sentence the line will read once the dose is used, and, behind the ⓘ, how it was worked out. */
@@ -127,18 +129,32 @@ const Fields: FC<{
         <Box component="span" sx={{ color: 'text.secondary' }}>
           {field.label}
         </Box>
-        <FieldBox>
-          <TextBlank
-            label={field.label.toLowerCase()}
-            placeholder={field.optional ? 'optional' : '—'}
-            kind="number"
-            value={field.value}
-            onChange={(value) => onFieldChange?.(field.id, value)}
-            readOnly={readOnly}
-            need={!field.value && !field.optional}
-            min={0}
-            step={0.1}
-          />
+        <FieldBox sx={field.disabled ? { backgroundColor: 'action.disabledBackground' } : undefined}>
+          {field.disabled && !readOnly ? (
+            <InputBase
+              type="number"
+              value={field.value}
+              disabled
+              inputProps={{ 'aria-label': field.label.toLowerCase() }}
+              sx={{
+                fontSize: 'inherit',
+                width: `calc(${field.value.length + 1}ch + 8px)`,
+                '& input': { p: '1px 2px' },
+              }}
+            />
+          ) : (
+            <TextBlank
+              label={field.label.toLowerCase()}
+              placeholder={field.optional ? 'optional' : '—'}
+              kind="number"
+              value={field.value}
+              onChange={(value) => onFieldChange?.(field.id, value)}
+              readOnly={readOnly}
+              need={!field.value && !field.optional}
+              min={0}
+              step={0.1}
+            />
+          )}
           {field.unit && (
             <Box component="span" sx={NOTE_SX}>
               {field.unit}
