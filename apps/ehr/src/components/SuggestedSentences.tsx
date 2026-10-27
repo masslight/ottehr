@@ -260,11 +260,11 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
         onClose={() => setActive(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { p: 1 } } }}
+        // Named by the blank's title; the picker's own labelled field shows it, so no heading repeats it.
+        slotProps={{ paper: { sx: { p: 1 }, role: 'dialog', 'aria-label': activeBlank?.title } }}
         // Into the picker's input once the popover is placed (a list it opens then sits under it, not at the corner).
         TransitionProps={{ onEntered: (paper) => paper.querySelector('input')?.focus() }}
       >
-        <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{activeBlank?.title}</Typography>
         {picker}
       </Popover>
     </Box>

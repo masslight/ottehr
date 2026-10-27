@@ -294,7 +294,15 @@ export const OrderPrescriptionForm: FC = () => {
               </Typography>
               <Sentence>
                 Send to{' '}
-                <PopoverBlank label="pharmacy" title="Pharmacy" value={pharmacy?.name} need readOnly={readOnly}>
+                <PopoverBlank
+                  label="pharmacy"
+                  title="Pharmacy"
+                  // The search's own field says "Pharmacy".
+                  hideTitle
+                  value={pharmacy?.name}
+                  need
+                  readOnly={readOnly}
+                >
                   {(close) => (
                     <PharmacySearch
                       onPick={(next) => {

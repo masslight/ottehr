@@ -403,6 +403,13 @@ describe('Suggestions from quick picks', () => {
     const row = suggestionRow(0);
     await user.click(within(row).getByRole('button', { name: 'Dose: 9' }));
     const entry = screen.getByRole('spinbutton', { name: 'Dose' });
+    // The popup is named "Dose" by its field alone, with no heading repeating it.
+    const popup = screen.getByRole('dialog', { name: 'Dose' });
+    expect(
+      within(popup)
+        .getAllByText('Dose')
+        .filter((element) => !element.closest('legend'))
+    ).toHaveLength(1);
     await user.clear(entry);
     await user.type(entry, '8{Enter}');
     await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));

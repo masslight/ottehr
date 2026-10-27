@@ -337,6 +337,21 @@ describe('PrescriptionSentences', () => {
     expect(screen.getByText('No quick picks yet')).toBeInTheDocument();
   });
 
+  it('names the medication and diagnosis popups once: by their search fields, with no heading repeating them', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} />);
+    // MUI repeats a field's label in its outline's hidden legend; that one isn't seen.
+    const shown = (dialog: HTMLElement, text: string): HTMLElement[] =>
+      within(dialog)
+        .getAllByText(text)
+        .filter((element) => !element.closest('legend'));
+    await user.click(screen.getByRole('button', { name: 'medication (empty)' }));
+    expect(shown(screen.getByRole('dialog', { name: 'Medication' }), 'Medication')).toHaveLength(1);
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'add diagnosis (empty)' }));
+    expect(shown(screen.getByRole('dialog', { name: 'Diagnosis' }), 'Diagnosis')).toHaveLength(1);
+  });
+
   it('offers removal only when the page passes a remove handler', () => {
     const { unmount } = render(<Harness initial={emptyPrescriptionLine()} />);
     expect(screen.queryByRole('button', { name: 'Remove prescription 1' })).not.toBeInTheDocument();

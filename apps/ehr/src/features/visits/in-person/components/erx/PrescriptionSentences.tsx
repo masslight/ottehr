@@ -642,6 +642,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         <PopoverBlank
           label="medication"
           title="Medication"
+          // The search's own field says "Medication".
+          hideTitle
           value={line.drug?.name ?? description}
           need
           readOnly={readOnly}
@@ -677,6 +679,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         <PopoverBlank
           label={line.diagnosis ? 'diagnosis' : 'add diagnosis'}
           title="Diagnosis"
+          // The search's own field says "Diagnosis".
+          hideTitle
           value={line.diagnosis ? `${line.diagnosis.display} ${line.diagnosis.code}` : undefined}
           readOnly={readOnly}
         >
