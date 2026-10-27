@@ -10,7 +10,7 @@ import {
   PrescriptionQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
 import { z } from 'zod';
-import { productDetailsOf } from '../../../in-person/components/erx/prescriptionLines';
+import { numberOrUndefined, productDetailsOf } from '../../../in-person/components/erx/prescriptionLines';
 
 /** How the quick pick doses: its directions as written, or the dose calculator's settings, re-dosed per patient. */
 export type PrescriptionDoseMode = 'as-written' | 'dosing';
@@ -192,8 +192,6 @@ const FormSchema = z
     }
   });
 
-const numberOrUndefined = (value: string): number | undefined => (blank(value) ? undefined : Number(value));
-
 /** The quick pick the dialog saves, or the problems with each field. A pick dosed by weight keeps no written
  * directions, quantity or days supply: the order form works those out from the dose for each patient. */
 export const prescriptionQuickPickFromForm = (
@@ -234,9 +232,9 @@ export const prescriptionQuickPickFromForm = (
   return {
     quickPick: {
       name: v.name.trim(),
-      ...(v.ndc
-        ? { ndc: v.ndc, medicationDescription: v.medicationDescription.trim(), ...productDetailsOf(v.productDetails) }
-        : {}),
+      ndc: v.ndc,
+      medicationDescription: v.medicationDescription.trim(),
+      ...productDetailsOf(v.productDetails),
       ...(v.doseMode === 'dosing'
         ? {
             dosing: {

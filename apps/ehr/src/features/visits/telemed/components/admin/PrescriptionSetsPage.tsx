@@ -36,6 +36,7 @@ import { ReactElement, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { prescriptionSetMembers } from 'src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   PRESCRIPTION_SET_STATUSES,
@@ -55,13 +56,6 @@ import { prescriptionQuickPickDoseText } from './PrescriptionQuickPicksPage';
 /** "Amox otitis was removed (10/27/2026)", the date in the browser's time zone. */
 export const removedMemberText = ({ name, removedAt }: PrescriptionSetRemovedMember): string =>
   `${name} was removed (${DateTime.fromISO(removedAt).toLocaleString(DateTime.DATE_SHORT)})`;
-
-/** The set's quick picks that still exist, in its order. */
-export const membersOf = (
-  set: Pick<PrescriptionSetQuickPickData, 'memberIds'>,
-  quickPicks: PrescriptionQuickPickData[]
-): PrescriptionQuickPickData[] =>
-  set.memberIds.flatMap((memberId) => quickPicks.find((quickPick) => quickPick.id === memberId) ?? []);
 
 interface SetFormErrors {
   name?: string;
@@ -87,7 +81,7 @@ export default function PrescriptionSetsPage(): ReactElement {
     setEditingItem(item);
     setName(item?.name ?? '');
     setStatus(item?.status ?? 'Active');
-    setMembers(item ? membersOf(item, quickPicks) : []);
+    setMembers(item ? prescriptionSetMembers(item, quickPicks).members : []);
     setSearch('');
     setErrors({});
     setDialogOpen(true);
@@ -190,7 +184,7 @@ export default function PrescriptionSetsPage(): ReactElement {
                 <TableRow key={item.id ?? `item-${index}`} hover>
                   <TableCell>{item.name}</TableCell>
                   <TableCell>
-                    {membersOf(item, quickPicks).map((member) => (
+                    {prescriptionSetMembers(item, quickPicks).members.map((member) => (
                       <Box key={member.id}>{member.name}</Box>
                     ))}
                   </TableCell>

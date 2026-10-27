@@ -255,6 +255,26 @@ function makeRenameQuickPickMutation<T extends { id?: string; name: string }>(
   };
 }
 
+/** Adds a quick pick, or replaces the one with the id. */
+function makeSaveQuickPickMutation<T>(
+  queryKey: string,
+  createFn: (oystehrZambda: Oystehr, input: { quickPick: Omit<T, 'id'> }) => Promise<unknown>,
+  updateFn: (oystehrZambda: Oystehr, id: string, quickPick: Omit<T, 'id'>) => Promise<unknown>
+): () => UseMutationResult<void, Error, { id?: string; quickPick: Omit<T, 'id'> }> {
+  return () => {
+    const { oystehrZambda } = useApiClients();
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: async ({ id, quickPick }) => {
+        if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
+        if (id) await updateFn(oystehrZambda, id, quickPick);
+        else await createFn(oystehrZambda, { quickPick });
+      },
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryKey] }),
+    });
+  };
+}
+
 /** Other lists the removal changes (a prescription quick pick's sets) are fetched again too. */
 function makeRemoveQuickPickMutation(...queryKeys: string[]): () => UseMutationResult<void, Error, string> {
   return () => {
@@ -303,46 +323,22 @@ export const useRemovePrescriptionQuickPickMutation = makeRemoveQuickPickMutatio
   'prescription-quick-picks',
   'prescription-set-quick-picks'
 );
-/** Adds a prescription quick pick, or replaces the one with the id. */
-export const useSavePrescriptionQuickPickMutation = (): UseMutationResult<
-  void,
-  Error,
-  { id?: string; quickPick: Omit<PrescriptionQuickPickData, 'id'> }
-> => {
-  const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, quickPick }) => {
-      if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
-      if (id) await updatePrescriptionQuickPick(oystehrZambda, id, quickPick);
-      else await createPrescriptionQuickPick(oystehrZambda, { quickPick });
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['prescription-quick-picks'] }),
-  });
-};
+export const useSavePrescriptionQuickPickMutation = makeSaveQuickPickMutation<PrescriptionQuickPickData>(
+  'prescription-quick-picks',
+  createPrescriptionQuickPick,
+  updatePrescriptionQuickPick
+);
 
 export const usePrescriptionSetQuickPicksQuery = makeQuickPicksQuery(
   'prescription-set-quick-picks',
   getPrescriptionSetQuickPicks
 );
 export const useRemovePrescriptionSetQuickPickMutation = makeRemoveQuickPickMutation('prescription-set-quick-picks');
-/** Adds a prescription set, or replaces the one with the id. */
-export const useSavePrescriptionSetQuickPickMutation = (): UseMutationResult<
-  void,
-  Error,
-  { id?: string; quickPick: Omit<PrescriptionSetQuickPickData, 'id'> }
-> => {
-  const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, quickPick }) => {
-      if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
-      if (id) await updatePrescriptionSetQuickPick(oystehrZambda, id, quickPick);
-      else await createPrescriptionSetQuickPick(oystehrZambda, { quickPick });
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['prescription-set-quick-picks'] }),
-  });
-};
+export const useSavePrescriptionSetQuickPickMutation = makeSaveQuickPickMutation<PrescriptionSetQuickPickData>(
+  'prescription-set-quick-picks',
+  createPrescriptionSetQuickPick,
+  updatePrescriptionSetQuickPick
+);
 
 export const useProcedureQuickPicksQuery = makeQuickPicksQuery('procedure-quick-picks', getProcedureQuickPicks);
 export const useRenameProcedureQuickPickMutation = makeRenameQuickPickMutation<ProcedureQuickPickData>(
