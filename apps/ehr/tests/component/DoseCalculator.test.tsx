@@ -66,9 +66,9 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(within(calculator).getByText(/^previous visit, /)).toBeInTheDocument();
     expect(within(calculator).getByRole('spinbutton', { name: 'strength' })).toHaveValue(250);
     expect(within(calculator).queryByText('from the product')).not.toBeInTheDocument();
-    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(2);
-    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toBeDisabled();
-    expect(within(calculator).getByText('from twice daily; change the frequency on the line')).toBeInTheDocument();
+    expect(within(calculator).getByRole('button', { name: 'frequency: twice daily' })).toBeInTheDocument();
+    // A frequency with a count is the doses a day: nothing to type.
+    expect(within(calculator).queryByRole('spinbutton', { name: 'doses a day' })).not.toBeInTheDocument();
     expect(within(calculator).getByText('Enter a rate to work out the dose')).toBeInTheDocument();
     expect(within(calculator).queryByRole('button', { name: 'Use this dose' })).not.toBeInTheDocument();
 
@@ -132,7 +132,7 @@ describe('DoseCalculator (plain, inline)', () => {
     );
   });
 
-  it('keeps a frequency the line has and fills only an empty one', () => {
+  it('writes the frequency it is given over the line’s, and keeps the line’s without one', () => {
     const line = withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
       frequency: 'every 8 hours as needed',
       steps: [{ dose: '1', frequency: 'once daily', durationDays: '2' }],
@@ -140,11 +140,11 @@ describe('DoseCalculator (plain, inline)', () => {
     });
     expect(withDose(line, { dose: '2', frequency: 'three times daily' })).toMatchObject({
       dose: '2',
-      frequency: 'every 8 hours as needed',
+      frequency: 'three times daily',
       steps: [],
       durationDays: '',
     });
-    expect(withDose({ ...line, frequency: '' }, { dose: '2', frequency: 'twice daily' }).frequency).toBe('twice daily');
+    expect(withDose(line, { dose: '2' }).frequency).toBe('every 8 hours as needed');
     const course = withDose(line, {
       dose: '7',
       frequency: 'once daily',
@@ -154,23 +154,35 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(course).toMatchObject({ dose: '7', durationDays: '1', steps: [{ dose: '3.5', durationDays: '4' }] });
   });
 
-  it('takes the doses a day from a frequency that gives a count, over typing and a quick pick', async () => {
+  it('takes the doses a day from the frequency picked, over a quick pick’s, and writes it only with the dose', async () => {
     const user = userEvent.setup();
     const initial = withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
       frequency: 'three times daily',
     });
     render(<Harness initial={initial} weight={WEIGHT} dosing={{ rate: 75, basis: 'mg/kg/day', dosesPerDay: 2 }} />);
-    const calculator = await openCalculator(user);
-    const dosesPerDay = within(calculator).getByRole('spinbutton', { name: 'doses a day' });
-    expect(dosesPerDay).toHaveValue(3);
-    expect(dosesPerDay).toBeDisabled();
-    expect(
-      within(calculator).getByText('from three times daily; change the frequency on the line')
-    ).toBeInTheDocument();
-    await user.type(dosesPerDay, '5');
-    expect(dosesPerDay).toHaveValue(3);
+    let calculator = await openCalculator(user);
     // 28.12 kg × 75 mg/kg/day ÷ 3 = 703 mg → 3 capsules.
     expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 3 capsules by mouth three times daily.');
+
+    // A new frequency works the dose out again at once; the line keeps its own until "Use this dose".
+    await user.click(within(calculator).getByRole('button', { name: 'frequency: three times daily' }));
+    await user.click(screen.getByRole('option', { name: 'twice daily' }));
+    // 28.12 kg × 75 mg/kg/day ÷ 2 = 1,054.5 mg → 4 capsules.
+    expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 4 capsules by mouth twice daily.');
+    expect(latest?.frequency).toBe('three times daily');
+
+    // Closed without using it: the line is as it was, and the calculator opens on the line's frequency again.
+    await user.keyboard('{Escape}');
+    expect(latest).toMatchObject({ dose: '', frequency: 'three times daily' });
+    calculator = await openCalculator(user);
+    expect(within(calculator).getByRole('button', { name: 'frequency: three times daily' })).toBeInTheDocument();
+    expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 3 capsules by mouth three times daily.');
+
+    await user.click(within(calculator).getByRole('button', { name: 'frequency: three times daily' }));
+    await user.click(screen.getByRole('option', { name: 'twice daily' }));
+    await user.click(screen.getByRole('button', { name: 'Use this dose' }));
+    expect(latest).toMatchObject({ dose: '4', frequency: 'twice daily' });
+    expect(latest?.patientInstructions).toBe('Take 4 capsules by mouth twice daily.');
   });
 
   it('keeps "every 6 hours as needed" when its dose is used', async () => {
@@ -180,8 +192,7 @@ describe('DoseCalculator (plain, inline)', () => {
     });
     render(<Harness initial={initial} weight={WEIGHT} />);
     const calculator = await openCalculator(user);
-    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(4);
-    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toBeDisabled();
+    expect(within(calculator).queryByRole('spinbutton', { name: 'doses a day' })).not.toBeInTheDocument();
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '100');
     await user.click(screen.getByRole('button', { name: 'Use this dose' }));
     expect(latest).toMatchObject({ dose: '3', frequency: 'every 6 hours as needed' });
@@ -194,11 +205,12 @@ describe('DoseCalculator (plain, inline)', () => {
     });
     render(<Harness initial={initial} weight={WEIGHT} />);
     const calculator = await openCalculator(user);
+    expect(within(calculator).getByRole('button', { name: 'frequency: as directed' })).toBeInTheDocument();
     const dosesPerDay = within(calculator).getByRole('spinbutton', { name: 'doses a day' });
-    expect(dosesPerDay).toBeEnabled();
     expect(dosesPerDay).toHaveValue(null);
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '75');
     await user.type(dosesPerDay, '3');
+    expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 3 capsules by mouth as directed.');
     await user.click(screen.getByRole('button', { name: 'Use this dose' }));
     expect(latest).toMatchObject({ dose: '3', frequency: 'as directed' });
   });

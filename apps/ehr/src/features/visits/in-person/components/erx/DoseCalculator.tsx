@@ -3,6 +3,7 @@ import { DOSE_STEP, DoseBasis, ML_MEASURE_STEPS, plainDose } from 'utils/lib/hel
 import {
   frequencyForDosesPerDay,
   isCombinationProduct,
+  PRESCRIPTION_FREQUENCIES,
   prescriptionDirectionsText,
   prescriptionFrequency,
   prescriptionQuantityUnit,
@@ -44,6 +45,8 @@ interface Picks {
   concentration?: string;
   rate?: string;
   basis?: DoseBasis;
+  /** The frequency picked here, over the line's. */
+  frequency?: string;
   dosesPerDay?: string;
   maxPerDose?: string;
   maxPerDay?: string;
@@ -98,7 +101,7 @@ export const calculatorWeightKg = (
   weight: VisitWeight | undefined
 ): number | undefined => numberOrUndefined(calculatorWeightText(weightText, weight));
 
-/** What "Use this dose" writes into the line: the dose; a frequency, into an empty one only; and for a course its
+/** What "Use this dose" writes into the line: the dose; a frequency, in place of the line's; and for a course its
  * "then" steps. */
 export interface DoseFill {
   dose: string;
@@ -121,7 +124,7 @@ export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLi
     { ...line, quantityUnit },
     {
       dose: fill.dose,
-      frequency: fill.frequency !== undefined && !line.frequency ? fill.frequency : line.frequency,
+      frequency: fill.frequency ?? line.frequency,
       steps: fill.steps ?? [],
       ...(fill.durationDays !== undefined
         ? { durationDays: fill.durationDays }
@@ -155,10 +158,10 @@ interface DoseCalculatorProps {
 }
 
 /** The calculator icon after the line's dose blank and the plain dose calculator it opens: weight from the vitals,
- * strength from the product and the rate typed, all editable, and the doses a day from the line's frequency, fixed
- * while the frequency gives a count and typed while it gives none. Its result
- * reads as the line's sentence, with the working behind the ⓘ. Nothing on the line changes until "Use this dose", and
- * closing without it drops what was typed (a typed weight, the page's, stays). */
+ * strength from the product, the rate typed and a frequency starting at the line's, all editable, and the doses a day
+ * from that frequency, typed only while it gives none. Its result reads as the line's sentence, with the working
+ * behind the ⓘ. Nothing on the line changes until "Use this dose", and closing without it drops what was typed and
+ * picked (a typed weight, the page's, stays). */
 export const DoseCalculator: FC<DoseCalculatorProps> = ({
   line,
   weight,
@@ -199,9 +202,10 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const derivedConcentration = ingredient && mgPerMeasure(product, ingredient);
   const concentrationText = own.concentration ?? text(derivedConcentration);
   const basis = own.basis ?? 'mg/kg/day';
-  const lineDosesPerDay = prescriptionFrequency(line.frequency)?.dosesPerDay;
+  const frequency = own.frequency ?? line.frequency;
+  const frequencyDosesPerDay = prescriptionFrequency(frequency)?.dosesPerDay;
   // A frequency with a count is the doses a day, over anything typed or a quick pick's.
-  const dosesPerDayText = lineDosesPerDay !== undefined ? text(lineDosesPerDay) : own.dosesPerDay ?? '';
+  const dosesPerDayText = frequencyDosesPerDay !== undefined ? text(frequencyDosesPerDay) : own.dosesPerDay ?? '';
   const dosesPerDay = numberOrUndefined(dosesPerDayText);
   const rateText = own.rate ?? '';
   const maxPerDoseMg = numberOrUndefined(own.maxPerDose ?? '');
@@ -218,8 +222,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     maxPerDoseMg,
     maxPerDayMg,
   });
-  // Only for a line with no frequency yet; doses a day that match none leave it empty.
-  const frequencyOfDoses = (dosesPerDay && frequencyForDosesPerDay(dosesPerDay)) || undefined;
+  // The frequency picked, else, with none, the one the doses a day typed match; matching none leaves it empty.
+  const fillFrequency = frequency || (dosesPerDay && frequencyForDosesPerDay(dosesPerDay)) || undefined;
 
   const fields: DoseField[] = [
     ...(basis === 'fixed'
@@ -265,12 +269,14 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       choice: { title: 'Per day or per dose', options: BASIS_OPTIONS, value: basis },
     },
     {
-      id: 'dosesPerDay',
-      label: 'Doses a day',
-      value: dosesPerDayText,
-      from: lineDosesPerDay !== undefined ? `from ${line.frequency}; change the frequency on the line` : undefined,
-      disabled: lineDosesPerDay !== undefined,
+      id: 'frequency',
+      label: 'Frequency',
+      choice: { title: 'Frequency', options: Object.keys(PRESCRIPTION_FREQUENCIES), value: frequency || undefined },
     },
+    // Typed only for a frequency without a count ("as needed", "as directed") or none, for the maths alone.
+    ...(frequencyDosesPerDay === undefined
+      ? [{ id: 'dosesPerDay', label: 'Doses a day', value: dosesPerDayText }]
+      : []),
     // Tablets and capsules stay whole: only a liquid has a choice.
     ...(measure === 'mL'
       ? [
@@ -295,7 +301,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const fill: DoseFill | undefined = dose &&
     ingredient && {
       dose: String(dose.amount),
-      frequency: frequencyOfDoses,
+      frequency: fillFrequency,
       dosing: {
         rate: numberOrUndefined(rateText) ?? 0,
         basis,
@@ -352,7 +358,11 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
           display={display}
           onFieldChange={(id, value) => (id === 'weight' ? onWeightText(value) : pick({ [id]: value }))}
           onChoiceChange={(id, value) =>
-            id === 'measureTo' ? setMeasureTo(Number(value)) : pick({ basis: value as DoseBasis })
+            id === 'measureTo'
+              ? setMeasureTo(Number(value))
+              : id === 'frequency'
+              ? pick({ frequency: value })
+              : pick({ basis: value as DoseBasis })
           }
           onUse={
             fill &&

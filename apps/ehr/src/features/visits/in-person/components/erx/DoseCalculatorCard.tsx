@@ -1,6 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { InfoOutlined } from '@mui/icons-material';
-import { Box, Button, InputBase, Link, SxProps, Theme, Tooltip } from '@mui/material';
+import { Box, Button, Link, SxProps, Theme, Tooltip } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { BlankOption, SelectBlank, TextBlank } from '../procedures/narrative/InlineBlanks';
 
@@ -17,16 +17,14 @@ export interface DoseField {
   /** None for a field that is only its choice ("Measure to [0.5 mL]"). */
   value?: string;
   unit?: string;
-  /** A small pick after the unit, as "mg/kg per [day]". */
-  choice?: { title: string; options: BlankOption[]; value: string };
-  /** Where the value is from: "previous visit, 10/8/2026", "from twice daily; change the frequency on the line". */
+  /** A small pick after the unit, as "mg/kg per [day]"; empty until picked where it has no value. */
+  choice?: { title: string; options: readonly string[] | readonly BlankOption[]; value: string | undefined };
+  /** Where the value is from: "previous visit, 10/8/2026". */
   from?: string;
   /** A link after the note, as "use the vitals weight". */
   action?: { label: string; onClick: () => void };
   /** May stay empty without looking like it's needed (a maximum). */
   optional?: boolean;
-  /** Shown greyed out and can't be typed over: the value comes from elsewhere, which `from` names. */
-  disabled?: boolean;
 }
 
 /** The result: the sentence the line will read once the dose is used, and, behind the ⓘ, how it was worked out. */
@@ -95,20 +93,8 @@ const Fields: FC<{
         <Box component="span" sx={{ color: 'text.secondary' }}>
           {field.label}
         </Box>
-        <FieldBox sx={field.disabled ? { backgroundColor: 'action.disabledBackground' } : undefined}>
-          {field.value === undefined ? null : field.disabled ? (
-            <InputBase
-              type="number"
-              value={field.value}
-              disabled
-              inputProps={{ 'aria-label': field.label.toLowerCase() }}
-              sx={{
-                fontSize: 'inherit',
-                width: `calc(${field.value.length + 1}ch + 8px)`,
-                '& input': { p: '1px 2px' },
-              }}
-            />
-          ) : (
+        <FieldBox>
+          {field.value === undefined ? null : (
             <TextBlank
               label={field.label.toLowerCase()}
               placeholder={field.optional ? 'optional' : '—'}

@@ -338,8 +338,7 @@ describe('Suggestions from quick picks', () => {
     expect(within(calculator).getByRole('spinbutton', { name: 'weight' })).toHaveValue(28.12);
     expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(25);
     expect(within(calculator).getByRole('button', { name: 'per day or per dose: dose' })).toBeInTheDocument();
-    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(2);
-    expect(within(calculator).getByText('from twice daily; change the frequency on the line')).toBeInTheDocument();
+    expect(within(calculator).getByRole('button', { name: 'frequency: twice daily' })).toBeInTheDocument();
     expect(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' })).toHaveValue(500);
     expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent(
       'Take 6 mL by mouth twice daily for 10 days.'
@@ -437,19 +436,36 @@ describe('Suggestion rows: review fixes', () => {
     const row = suggestionRow(0);
     expect(within(row).getByRole('button', { name: 'Dose: 9.5' })).toBeInTheDocument();
     expect(await hoverInfo(user, row)).toHaveTextContent('28.12 kg × 80 mg/kg/day ÷ 3 = 749.87 mg');
-    // The row's calculator opens on the new doses a day too.
+    // The row's calculator opens on the new frequency too.
     await user.click(within(row).getByRole('button', { name: 'Dose calculator for Amox per day' }));
     const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
-    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(3);
-    expect(
-      within(calculator).getByText('from three times daily; change the frequency on the line')
-    ).toBeInTheDocument();
+    expect(within(calculator).getByRole('button', { name: 'frequency: three times daily' })).toBeInTheDocument();
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 9.5 mL by mouth three times daily');
     await user.keyboard('{Escape}');
     await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));
     expect(latest).toMatchObject({
       dose: '9.5',
       frequency: 'three times daily',
       patientInstructions: 'Take 9.5 mL by mouth three times daily for 10 days.',
+      dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 },
+    });
+  });
+
+  it('a frequency picked in a row’s calculator works the dose out again and "Use this dose" writes it', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={liquidLine()} quickPicks={[PER_DAY_ROW]} weight={WEIGHT} />);
+    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Dose calculator for Amox per day' }));
+    const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 14 mL by mouth twice daily');
+    await user.click(within(calculator).getByRole('button', { name: 'frequency: twice daily' }));
+    await user.click(screen.getByRole('option', { name: 'three times daily' }));
+    // ÷ 3 = 749.87 mg = 9.5 mL; the row is as it was until the dose is used.
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 9.5 mL by mouth three times daily');
+    expect(within(suggestionRow(0)).getByRole('button', { name: 'Frequency: twice daily' })).toBeInTheDocument();
+    await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
+    expect(latest).toMatchObject({
+      dose: '9.5',
+      frequency: 'three times daily',
       dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 },
     });
   });
@@ -864,16 +880,16 @@ describe('The line’s own calculator', () => {
     expect(within(calculator).getByRole('button', { name: 'per day or per dose: dose' })).toBeInTheDocument();
     expect(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' })).toHaveValue(500);
     expect(within(calculator).getByRole('spinbutton', { name: 'maximum per day' })).toHaveValue(1500);
-    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(2);
+    expect(within(calculator).getByRole('button', { name: 'frequency: twice daily' })).toBeInTheDocument();
     expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 6 mL by mouth twice daily');
     await user.keyboard('{Escape}');
 
-    // A new frequency: the doses a day are its own, the rest of the rule stays.
+    // A new frequency on the line: the calculator opens on it, the rest of the rule stays.
     await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
     await user.click(screen.getByRole('option', { name: 'three times daily' }));
     await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
     calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
-    expect(within(calculator).getByRole('spinbutton', { name: 'doses a day' })).toHaveValue(3);
+    expect(within(calculator).getByRole('button', { name: 'frequency: three times daily' })).toBeInTheDocument();
     expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(25);
     expect(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' })).toHaveValue(500);
   });
