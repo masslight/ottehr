@@ -438,6 +438,7 @@ describe('save-billing-rules complexValidation (set services must be services on
 
   const serviceBasic = (code: string): Basic => ({
     resourceType: 'Basic',
+    id: `service-${code}`,
     code: { text: code, coding: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code }] },
   });
 
@@ -457,14 +458,19 @@ describe('save-billing-rules complexValidation (set services must be services on
     expect(basicSearches()).toHaveLength(1);
   });
 
-  it('rejects anything else, including a listed service written as its name', async () => {
+  it('rejects anything else, including a listed service written as its name or padded', async () => {
     await expect(
       complexValidation(
         oystehr,
-        params([serviceRule('New', 'sports-physicals'), serviceRule('By name', 'Workers Comp')])
+        params([
+          serviceRule('New', 'sports-physicals'),
+          serviceRule('By name', 'Workers Comp'),
+          // The engine writes the value as saved, so a padded code would stamp claims with an unlisted one.
+          serviceRule('Padded', ' workers-comp '),
+        ])
       )
     ).rejects.toThrow(
-      /rule "New" sets the service to "sports-physicals".*rule "By name" sets the service to "Workers Comp"/
+      /rule "New" sets the service to "sports-physicals".*rule "By name" sets the service to "Workers Comp".*rule "Padded" sets the service to " workers-comp "/
     );
   });
 

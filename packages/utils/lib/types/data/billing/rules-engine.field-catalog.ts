@@ -1436,13 +1436,13 @@ export interface SetResourceRef {
 export const SERVICE_FIELD_ID = 'service';
 
 // The service values a rule's setField actions assign (deduped, in tree order) — save-billing-rules
-// checks each is the code of a service on claims created from visits.
+// checks each is the code of a service on claims created from visits. Untrimmed: the engine writes the
+// value exactly as saved, so a padded code must not pass as the listed one.
 export function collectSetServiceValues(rule: { conditional: RuleConditional }): string[] {
   const values: string[] = [];
   forEachRuleAction(rule, (action) => {
     if (action.type !== 'setField' || action.field !== SERVICE_FIELD_ID) return;
-    const value = action.value?.trim();
-    if (value && !values.includes(value)) values.push(value);
+    if (action.value && !values.includes(action.value)) values.push(action.value);
   });
   return values;
 }
