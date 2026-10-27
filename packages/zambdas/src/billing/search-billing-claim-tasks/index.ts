@@ -13,6 +13,7 @@ import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
+// eslint-disable-next-line no-restricted-imports -- task rows show the clinical encounter, appointment and patient
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';

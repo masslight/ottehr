@@ -1,9 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
 import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
+  AddClaimWriteOffInputSchema,
   AddEraAttachmentInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
@@ -66,6 +68,8 @@ import {
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
+  VoidClaimWriteOffInputSchema,
+  VoidEraInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   AddClaimAttachmentResponse,
@@ -141,6 +145,13 @@ import {
   RunBillingRulesEngineResponse,
   SaveBillingRulesInputSchema,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  BillingWorkQueueResponse,
+  GetBillingWorkQueueInputSchema,
+  GetBillingWorkQueuesResponse,
+  SaveBillingWorkQueueInputSchema,
+  SearchBillingWorkQueueOwnersResponse,
+} from 'utils/lib/types/data/billing/work-queue.schemas';
 import z from 'zod';
 
 async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?: Record<string, unknown>): Promise<T> {
@@ -154,6 +165,16 @@ async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?
     throw apiErrorToThrow(error);
   }
 }
+
+// --- Invoice configuration ---
+
+export const getInvoiceConfig = (oystehr: Oystehr): Promise<InvoiceConfigResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-invoice-config', {});
+
+export const saveInvoiceConfig = (
+  oystehr: Oystehr,
+  parameters: SaveInvoiceConfigInput
+): Promise<InvoiceConfigResponse> => executeBillingZambda(oystehr, 'save-billing-invoice-config', parameters);
 
 // --- Rules engines ---
 
@@ -483,6 +504,24 @@ export const lookupProcedureDescriptions = async (
 export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-tags');
 
+// --- Work queues ---
+
+export const getBillingWorkQueues = (oystehr: Oystehr): Promise<GetBillingWorkQueuesResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-work-queues');
+
+export const getBillingWorkQueue = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingWorkQueueInputSchema>
+): Promise<BillingWorkQueueResponse> => executeBillingZambda(oystehr, 'get-billing-work-queue', parameters);
+
+export const saveBillingWorkQueue = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveBillingWorkQueueInputSchema>
+): Promise<BillingWorkQueueResponse> => executeBillingZambda(oystehr, 'save-billing-work-queue', parameters);
+
+export const searchBillingWorkQueueOwners = (oystehr: Oystehr): Promise<SearchBillingWorkQueueOwnersResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-work-queue-owners');
+
 // --- Reports ---
 
 // Unified cached-report endpoint; typed per-kind wrappers below.
@@ -611,6 +650,9 @@ export const getBillingEraDetail = (
   parameters: z.input<typeof GetEraDetailInputSchema>
 ): Promise<EraDetailResponse> => executeBillingZambda(oystehr, 'get-billing-era-detail', parameters);
 
+export const voidBillingEra = (oystehr: Oystehr, parameters: z.input<typeof VoidEraInputSchema>): Promise<OkResponse> =>
+  executeBillingZambda(oystehr, 'void-billing-era', parameters);
+
 export const importEra = (oystehr: Oystehr, parameters: z.input<typeof ImportEraInputSchema>): Promise<any> =>
   executeBillingZambda(oystehr, 'import-era', parameters);
 
@@ -670,6 +712,18 @@ export const recordBillingManualPayment = (
   parameters: z.input<typeof RecordBillingManualPaymentInputSchema>
 ): Promise<RecordBillingManualPaymentResponse> =>
   executeBillingZambda(oystehr, 'record-billing-manual-payment', parameters);
+
+// --- Claim Write-offs ---
+
+export const addClaimWriteOff = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddClaimWriteOffInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'add-claim-write-off', parameters);
+
+export const voidClaimWriteOff = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof VoidClaimWriteOffInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'void-claim-write-off', parameters);
 
 // --- Claim Attachments ---
 

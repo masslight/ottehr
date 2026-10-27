@@ -44,11 +44,13 @@ const validateStripeEnvironment = (secrets: Secrets | null): StripeEnvironment =
   };
 };
 
-export function getStripeClient(secrets: Secrets | null): Stripe {
+export function getStripeClient(secrets: Secrets | null, options?: { timeoutMs?: number }): Stripe {
   const env = validateStripeEnvironment(secrets);
   return new Stripe(env.secretKey, {
     // @ts-expect-error default api version older than sdk
     apiVersion: env.apiVersion,
+    // SDK default is 80s per request
+    ...(options?.timeoutMs !== undefined && { timeout: options.timeoutMs }),
   });
 }
 
@@ -88,6 +90,7 @@ export const STRIPE_METADATA_KEYS = {
   patientId: 'oystehr_patient_id',
   encounterId: 'oystehr_encounter_id',
   legacyEncounterId: 'encounterId',
+  invoiceId: 'oystehr_invoice_id',
 } as const;
 
 export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>

@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Claim, Organization, Patient, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -20,9 +20,11 @@ import { performEffect } from '../../../src/billing/get-billing-claim-detail';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_CHECK_SYSTEM,
+  ERA_ICN_EXTENSION,
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
+import { WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -128,12 +130,17 @@ const paymentNotice = (opts: {
 };
 
 const makeBillingClient = (notices: PaymentNotice[]): Oystehr => {
-  const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
-    Promise.resolve({
-      unbundle: () => (resourceType === 'PaymentNotice' ? notices : []),
-      link: [],
-    })
-  );
+  const search = vi
+    .fn()
+    .mockImplementation(({ resourceType, params }: { resourceType: string; params: SearchParam[] }) => {
+      const isPatientPaymentNoticeSearch =
+        resourceType === 'PaymentNotice' &&
+        !params.some((p) => p.name === 'identifier' && String(p.value).startsWith(WRITE_OFF_SYSTEM));
+      return Promise.resolve({
+        unbundle: () => (isPatientPaymentNoticeSearch ? notices : []),
+        link: [],
+      });
+    });
   const batch = vi.fn().mockResolvedValue({
     resourceType: 'Bundle',
     entry: [],
@@ -325,6 +332,12 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
         adjudication: [casAdjustment('OA', 5, '23')],
       },
     ],
+    extension: [
+      {
+        url: ERA_ICN_EXTENSION,
+        valueString: 'PCCN-12345',
+      },
+    ],
   });
 
   const unlinkedRemit = claimResponse({
@@ -450,6 +463,26 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
     expect(response.insurancePayments[0].payerName).toBe('Acme Health');
   });
 
+  it("names a remit's payer from its ERA's paymentIssuer over the ClaimResponse insurer a match stamped", async () => {
+    const CIGNA_REF = 'https://rcm-api.zapehr.com/v1/payer/cigna';
+    (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(
+      new Map([
+        [PAYER_REF, { resourceType: 'Organization', id: 'org-acme', name: 'Acme Health' } as Organization],
+        [CIGNA_REF, { resourceType: 'Organization', id: 'org-cigna', name: 'Cigna' } as Organization],
+      ])
+    );
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
+      paymentReconciliations: [{ ...era, paymentIssuer: { reference: CIGNA_REF } }],
+      paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+    });
+
+    const response = await run();
+
+    // cr-linked still carries the primary payer stamped by match-claim-response
+    expect(response.remits[1].payerName).toBe('Cigna');
+    expect(response.insurancePayments[0].payerName).toBe('Cigna');
+  });
+
   it("prefers the linked remit's insurer display over the EDI sender's when neither payer resolves", async () => {
     (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(new Map());
     (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
@@ -474,6 +507,17 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
 
     expect(response.firstSubmittedDate).toBe('2026-07-02T12:00:00Z');
     expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(expect.anything(), 'claim-1');
+  });
+
+  it('reads the ERA remits through the billing client and only the untagged submissions without it', async () => {
+    const billingClient = makeBillingClient([]);
+    const untaggedClient = {} as unknown as Oystehr;
+
+    await performEffect(billingClient, untaggedClient, { claimId: 'claim-1', secrets: {} } as never);
+
+    expect(fetchClaimResponsesByClaimIds).toHaveBeenCalledWith(billingClient, ['claim-1']);
+    expect(fetchClaimEraLinks).toHaveBeenCalledWith(billingClient, expect.anything());
+    expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(untaggedClient, 'claim-1');
   });
 
   it('has a payer claim control number', async () => {

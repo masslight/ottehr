@@ -30,11 +30,17 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
 const transaction = vi.fn();
 const get = vi.fn();
 const history = vi.fn();
+const search = vi.fn().mockImplementation(({ _resourceType }) => {
+  return {
+    unbundle: () => [],
+  };
+});
 const oystehr = {
   fhir: {
     transaction,
     get,
     history,
+    search,
   },
 } as unknown as Oystehr;
 
@@ -228,6 +234,12 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
 
   it('leaves the claim alone when the response was edited rather than newly matched', async () => {
     await performEffect(oystehr, { ...validated(claimWith([]), forwardedResponse), newlyMatched: false });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('leaves the claim alone when the response belongs to a voided ERA', async () => {
+    await performEffect(oystehr, validated(claimWith([]), { ...forwardedResponse, status: 'cancelled' }));
 
     expect(transaction).not.toHaveBeenCalled();
   });

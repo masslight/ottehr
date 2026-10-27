@@ -54,8 +54,8 @@ export interface PerformMergeInput {
  * Every chart resource of an encounter that a merge has to re-point at the surviving patient: the
  * patient-level history (conditions, allergies, procedures, medication statements, hospitalizations, birth
  * history, provider notes) and everything documented on the visit (observations, communications, documents,
- * service requests, prescriptions, the medical decision). The Encounter itself is not in this list: the
- * merge re-points it in its own request, and a FHIR transaction refuses two updates of one resource.
+ * service requests, DME orders, prescriptions, the medical decision). The Encounter itself is not in this list:
+ * the merge re-points it in its own request, and a FHIR transaction refuses two updates of one resource.
  */
 const chartResourceSearches = (encounterId: string): BatchInputGetRequest[] => [
   patientScopedSearch('AllergyIntolerance', encounterId),
@@ -71,6 +71,7 @@ const chartResourceSearches = (encounterId: string): BatchInputGetRequest[] => [
   encounterScopedSearch('Communication', encounterId),
   encounterScopedSearch('DocumentReference', encounterId),
   encounterScopedSearch('ServiceRequest', encounterId),
+  { method: 'GET', url: `/DeviceRequest?encounter=Encounter/${encounterId}` },
   encounterScopedSearch('MedicationRequest', encounterId),
   encounterScopedSearch('ClinicalImpression', encounterId),
 ];
@@ -536,6 +537,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     { resourceType: 'Observation' as const, searchParam: 'subject' },
     { resourceType: 'Communication' as const, searchParam: 'subject' },
     { resourceType: 'ServiceRequest' as const, searchParam: 'subject' },
+    { resourceType: 'DeviceRequest' as const, searchParam: 'subject' },
     { resourceType: 'MedicationRequest' as const, searchParam: 'subject' },
     { resourceType: 'ClinicalImpression' as const, searchParam: 'subject' },
     { resourceType: 'EpisodeOfCare' as const, searchParam: 'patient' },

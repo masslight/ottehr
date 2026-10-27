@@ -7,6 +7,7 @@ import {
   fetchClaimResponsesFromEraProvenances,
   fetchEraProcessingProvenances,
 } from '../../../billing/claim-amounts';
+// eslint-disable-next-line no-restricted-imports -- finds untagged ERA resources and tags them
 import { createEraReadClient, fetchById, tagEraResources } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { truncateForLog } from '../../../shared/logging';

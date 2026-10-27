@@ -13,6 +13,7 @@ import { RecordBillingRefundInputSchema } from 'utils/lib/types/data/billing/bil
 import { RecordBillingRefundResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseCandid, shouldUseOttehrBilling, syncCandidPatientRefunds } from '../../shared/candid';
+// eslint-disable-next-line no-restricted-imports -- reads the clinical payment notice and syncs its refunds to Candid
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { applyRefundsToPaymentNotice, STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';

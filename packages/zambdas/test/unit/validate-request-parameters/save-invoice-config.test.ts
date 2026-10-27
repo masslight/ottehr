@@ -1,5 +1,5 @@
+import { SaveInvoiceConfigBodySchema } from 'utils/lib/types/api/invoice-config.types';
 import { describe, expect, test } from 'vitest';
-import { SaveInvoiceConfigBodySchema } from '../../../src/rcm/invoice-config/save-invoice-config/index';
 import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 

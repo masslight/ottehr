@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { GridPaginationModel } from '@mui/x-data-grid-pro';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EraListItem } from 'utils/lib/types/data/billing/billing.types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ERAList from '../../src/pages/ERAList';
 
 const { searchBillingErasMock } = vi.hoisted(() => ({ searchBillingErasMock: vi.fn() }));
@@ -20,7 +21,11 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => ({
   DataGridPro: ({
     rows = [],
     columns = [],
+    paginationModel,
+    onPaginationModelChange,
   }: {
+    paginationModel: GridPaginationModel;
+    onPaginationModelChange: (model: GridPaginationModel) => void;
     rows: Record<string, unknown>[];
     columns: {
       field: string;
@@ -31,6 +36,9 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => ({
   }) => (
     <div>
       <div data-testid="grid-headers">{columns.map((column) => column.headerName).join('|')}</div>
+      <button onClick={() => onPaginationModelChange({ ...paginationModel, page: paginationModel.page + 1 })}>
+        Next page
+      </button>
       {rows.map((row) => (
         <div key={String(row.id)} data-testid={`row-${row.id}`}>
           {columns.map((column) => (
@@ -73,9 +81,16 @@ function renderList(): void {
   );
 }
 
+const selectStatus = (status: 'Active' | 'Voided'): void => {
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'ERA Status' }));
+  fireEvent.click(screen.getByRole('option', { name: status }));
+};
+
 describe('ERAList', () => {
+  afterEach(() => vi.useRealTimers());
+
   beforeEach(() => {
-    searchBillingErasMock.mockResolvedValue({
+    searchBillingErasMock.mockReset().mockResolvedValue({
       eras: [
         era({
           id: 'm',
@@ -124,8 +139,120 @@ describe('ERAList', () => {
     expect(imported.getByText('-')).toBeInTheDocument();
 
     expect(within(screen.getByTestId('row-c')).getByText('Clearing House')).toBeInTheDocument();
-    // every ERA has the same FHIR outcome, so there is nothing to filter by
-    expect(screen.queryByLabelText('ERA Status')).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'ERA Status' })).toHaveTextContent('Active');
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(expect.anything(), {
+      status: 'active',
+      pageSize: 25,
+      offset: 0,
+    });
+  });
+
+  it('resets pagination on status changes and keeps the status on later pages', async () => {
+    renderList();
+    await screen.findByTestId('row-m');
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'active', offset: 25 })
+    );
+    searchBillingErasMock.mockResolvedValue({ eras: [era({ id: 'voided' })], total: 30 });
+    selectStatus('Voided');
+    expect(await screen.findByTestId('row-voided')).toBeInTheDocument();
+    expect(screen.queryByTestId('row-m')).not.toBeInTheDocument();
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'voided', offset: 0 })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'voided', offset: 25 })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.getByRole('combobox', { name: 'ERA Status' })).toHaveTextContent('Active');
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(expect.anything(), {
+      status: 'active',
+      pageSize: 25,
+      offset: 0,
+    });
+  });
+
+  it('keeps the selected status when closing the import dialog', async () => {
+    renderList();
+    await screen.findByTestId('row-m');
+    selectStatus('Voided');
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(await screen.findByText('Import 835'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'voided' })
+    );
+  });
+
+  it('does not let an older active search replace the voided results', async () => {
+    let resolveActive!: (result: { eras: EraListItem[]; total: number }) => void;
+    searchBillingErasMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveActive = resolve;
+      })
+    );
+    searchBillingErasMock.mockResolvedValue({ eras: [era({ id: 'voided' })], total: 1 });
+    renderList();
+    selectStatus('Voided');
+    await screen.findByTestId('row-voided');
+    await act(async () => resolveActive({ eras: [era({ id: 'active' })], total: 1 }));
+    expect(screen.getByTestId('row-voided')).toBeInTheDocument();
+    expect(screen.queryByTestId('row-active')).not.toBeInTheDocument();
+  });
+
+  it('cancels a pending text search when changing status or clearing filters', async () => {
+    renderList();
+    await screen.findByTestId('row-m');
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Check Number' }), { target: { value: 'CHK-1' } });
+    selectStatus('Voided');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(searchBillingErasMock).toHaveBeenCalledTimes(2);
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'voided', checkNumber: 'CHK-1' })
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Check Number' }), { target: { value: 'CHK-2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(searchBillingErasMock).toHaveBeenCalledTimes(3);
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(expect.anything(), {
+      status: 'active',
+      pageSize: 25,
+      offset: 0,
+    });
+  });
+
+  it('applies both text filters when they are edited within the debounce window', async () => {
+    renderList();
+    await screen.findByTestId('row-m');
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Check Number' }), { target: { value: 'CHK-1' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    fireEvent.change(screen.getByPlaceholderText('Search by patient name or PCN...'), { target: { value: 'Lee' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(searchBillingErasMock).toHaveBeenCalledTimes(2);
+    expect(searchBillingErasMock).toHaveBeenLastCalledWith(expect.anything(), {
+      status: 'active',
+      pageSize: 25,
+      offset: 0,
+      checkNumber: 'CHK-1',
+      searchText: 'Lee',
+    });
   });
 
   it('adds an ERA by importing an 835 or keying one in', async () => {

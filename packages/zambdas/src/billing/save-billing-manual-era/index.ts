@@ -17,8 +17,8 @@ import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { ERA_SOURCE, MANUAL_ERA_LIMITS } from 'utils/lib/types/data/billing/billing.constants';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
 import { SaveManualEraResponse } from 'utils/lib/types/data/billing/billing.types';
-import { INVALID_INPUT_ERROR, MANUAL_ERA_VERSION_CONFLICT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { INVALID_INPUT_ERROR, MANUAL_ERA_VERSION_CONFLICT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
@@ -27,6 +27,7 @@ import {
   isMatchedToClaim,
 } from '../claim-amounts';
 import { isCustomInsuranceOrganization, resolvePayerOrganization } from '../custom-insurance-org.helpers';
+import { assertEraNotVoided, getEraActor } from '../era-write';
 import {
   buildManualClaimResponse,
   buildManualEraProvenance,
@@ -58,9 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const user = await getUser(params.userToken, params.secrets);
-  if (!user.profile?.startsWith('Practitioner/')) throw NOT_AUTHORIZED;
-  const actor: Reference = { reference: user.profile, display: user.email || user.name };
+  const actor = await getEraActor(params.userToken, params.secrets);
 
   const validated = await complexValidation(oystehr, params);
   const response = await performEffect(oystehr, params, validated, actor, DateTime.now().toISO());
@@ -250,6 +249,7 @@ export async function performEffect(
 
 async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?: string): Promise<StoredManualEra> {
   const pr = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', eraId);
+  assertEraNotVoided(pr);
   if (getEraSource(pr) !== ERA_SOURCE.manual) {
     throw INVALID_INPUT_ERROR('Only manually entered remits can be edited');
   }

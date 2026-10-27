@@ -1,18 +1,24 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EraClaimRemit, EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ERADetail from '../../src/pages/ERADetail';
 
-const { getBillingEraDetailMock, oystehrZambdaStub } = vi.hoisted(() => ({
-  getBillingEraDetailMock: vi.fn(),
-  oystehrZambdaStub: {},
-}));
+const { getBillingEraDetailMock, voidBillingEraMock, downloadEraAttachmentMock, oystehrZambdaStub } = vi.hoisted(
+  () => ({
+    getBillingEraDetailMock: vi.fn(),
+    voidBillingEraMock: vi.fn(),
+    downloadEraAttachmentMock: vi.fn(),
+    oystehrZambdaStub: {},
+  })
+);
 
 vi.mock('../../src/api/api', () => ({
   getBillingEraDetail: getBillingEraDetailMock,
+  voidBillingEra: voidBillingEraMock,
+  downloadEraAttachment: downloadEraAttachmentMock,
   unmatchClaimResponse: vi.fn(),
   matchClaimResponseToClaim: vi.fn(),
   getBillingClaimDetail: vi.fn(),
@@ -111,6 +117,7 @@ const unmatchedRemit: EraClaimRemit = {
 
 const makeEra = (): EraDetailResponse => ({
   id: 'era-1',
+  status: 'active',
   source: 'clearing-house',
   versionId: '1',
   attachments: [],
@@ -175,10 +182,114 @@ function renderDetail(): void {
   );
 }
 
+async function openVoidDialog(): Promise<HTMLElement> {
+  fireEvent.click(await screen.findByRole('button', { name: 'Void ERA' }));
+  return screen.findByRole('dialog');
+}
+
 describe('ERADetail', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(() => {
+    voidBillingEraMock.mockReset().mockResolvedValue({ ok: true });
+    downloadEraAttachmentMock.mockReset().mockResolvedValue({ downloadUrl: 'https://download.example/remit.pdf' });
     getBillingEraDetailMock.mockReset();
     getBillingEraDetailMock.mockResolvedValue(makeEra());
+  });
+
+  it('requires confirmation and leaves the ERA alone when cancelled', async () => {
+    renderDetail();
+    const dialog = await openVoidDialog();
+    expect(dialog).toHaveTextContent('Void ERA CHK-100?');
+    expect(dialog).toHaveTextContent('This cannot be undone');
+    expect(dialog).toHaveTextContent('after refresh');
+    expect(dialog).toHaveTextContent('Existing invoices, patient payments, and claim statuses will not change');
+    expect(voidBillingEraMock).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(voidBillingEraMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Match' })).toBeInTheDocument();
+  });
+
+  it.each(['manual', 'x12-import', 'clearing-house'] as const)(
+    'voids a %s ERA and keeps its details',
+    async (source) => {
+      getBillingEraDetailMock.mockResolvedValue({ ...makeEra(), source });
+      renderDetail();
+      const dialog = await openVoidDialog();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Void ERA' }));
+      expect(await screen.findByText('Voided')).toBeInTheDocument();
+      expect(voidBillingEraMock).toHaveBeenCalledExactlyOnceWith(oystehrZambdaStub, { eraId: 'era-1' });
+      expect(screen.getByText('CHK-100')).toBeInTheDocument();
+      expect(screen.getByText('Doe, Jane')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Match' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Claim actions' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Void ERA' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Export X12' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'open-unmatched-cr-2' }));
+      expect(await screen.findByText('Reimbursement page')).toBeInTheDocument();
+    }
+  );
+
+  it('blocks duplicate confirmation while the void request is pending', async () => {
+    let finish!: (result: { ok: true }) => void;
+    voidBillingEraMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    renderDetail();
+    const dialog = await openVoidDialog();
+    const confirm = within(dialog).getByRole('button', { name: 'Void ERA' });
+    fireEvent.click(confirm);
+    expect(confirm).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    fireEvent.click(confirm);
+    expect(voidBillingEraMock).toHaveBeenCalledTimes(1);
+    await act(async () => finish({ ok: true }));
+    expect(await screen.findByText('Voided')).toBeInTheDocument();
+  });
+
+  it('shows a failed void without changing status and lets the biller reload before retrying', async () => {
+    const message = 'This ERA has changed. Reload the page before voiding it.';
+    voidBillingEraMock.mockRejectedValueOnce(new Error(message));
+    renderDetail();
+    fireEvent.click(within(await openVoidDialog()).getByRole('button', { name: 'Void ERA' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.queryByText('Voided')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Match' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reload ERA' }));
+    fireEvent.click(within(await openVoidDialog()).getByRole('button', { name: 'Void ERA' }));
+    expect(await screen.findByText('Voided')).toBeInTheDocument();
+    expect(voidBillingEraMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens an already voided ERA read-only and still downloads its attachments', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    getBillingEraDetailMock.mockResolvedValue({
+      ...makeEra(),
+      source: 'manual',
+      status: 'voided',
+      attachments: [
+        { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-13T16:00:00Z' },
+      ],
+    });
+    renderDetail();
+    expect(await screen.findByText('Voided')).toBeInTheDocument();
+    for (const name of ['Edit', 'Match', 'Claim actions', 'Void ERA', 'Add', 'More actions']) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+    expect(screen.getByText('Remit.pdf')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+    await waitFor(() =>
+      expect(downloadEraAttachmentMock).toHaveBeenCalledWith(oystehrZambdaStub, {
+        eraId: 'era-1',
+        documentReferenceId: 'doc-1',
+      })
+    );
+    await waitFor(() => expect(open).toHaveBeenLastCalledWith('https://download.example/remit.pdf', '_blank'));
+    expect(voidBillingEraMock).not.toHaveBeenCalled();
   });
 
   it('renders check info, created date, and the payee section', async () => {

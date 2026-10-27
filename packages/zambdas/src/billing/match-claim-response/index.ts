@@ -1,18 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse } from 'fhir/r4b';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
   MatchClaimResponseToClaimInput,
   MatchClaimResponseToClaimInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
+import { assertClaimResponseEraNotVoided } from '../era-write';
 import { createBillingClient } from '../shared';
 
 let m2mToken: string;
@@ -31,23 +32,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimResponse> {
+export async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimResponse> {
   const claim = await oystehr.fhir.get<Claim>({
     resourceType: 'Claim',
     id: params.claimId,
   });
-  if (!claim.insurer) {
-    throw INVALID_INPUT_ERROR('Claim has no insurer');
-  }
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
+  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
   const bundle = await oystehr.fhir.transaction({
     requests: [
       getPatchBinary({
         resourceType: 'ClaimResponse',
         resourceId: claimResponse.id!,
+        // Fails if a void cancelled the response after the check above.
+        ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
         patchOperations: [
           {
             op: 'replace',
@@ -56,15 +57,7 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
               reference: 'Claim/' + claim.id,
             },
           },
-          ...(!claimResponse.insurer?.reference
-            ? [
-                {
-                  op: 'replace',
-                  path: '/insurer',
-                  value: claim.insurer,
-                } as Operation,
-              ]
-            : []),
+          // insurer stays as the ERA reported it — the claim's payer may differ
           {
             op: 'replace',
             path: '/patient',
