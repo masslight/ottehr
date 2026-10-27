@@ -14,7 +14,6 @@ import {
   withDirections,
   withDrug,
   withProduct,
-  withQuickPickDaysAsDuration,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
 import { detailed, ERX_PRODUCT_DETAILS } from '../component/helpers/erxProducts';
@@ -825,14 +824,5 @@ describe('maximumWarnings', () => {
     const typed = withCalculatorDosing(line, { dose: '10' }, 28.12);
     expect(typed.dosing).toBeUndefined();
     expect(typed.maximum).toEqual(line.maximum);
-  });
-});
-
-describe('withQuickPickDaysAsDuration (not yet confirmed)', () => {
-  it('takes the saved days supply as the duration only when there is none', () => {
-    const line = { ...emptyPrescriptionLine(), daysSupply: '10' };
-    expect(withQuickPickDaysAsDuration(line).durationDays).toBe('10');
-    expect(withQuickPickDaysAsDuration({ ...line, durationDays: '5' }).durationDays).toBe('5');
-    expect(withQuickPickDaysAsDuration({ ...line, daysSupply: '' }).durationDays).toBe('');
   });
 });

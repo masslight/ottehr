@@ -381,44 +381,30 @@ describe('Suggestions from quick picks', () => {
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '50');
     await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
     await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
-    // 28.12 kg × 50 mg/kg/day ÷ 2 = 703 mg → 9 mL. The quick pick's saved 10-day supply becomes the duration
-    // (withQuickPickDaysAsDuration, not yet confirmed), so the quantity is worked out again for the new dose: 9 mL × 2
-    // a day × 10 days, not the quick pick's 100 mL of another dose. The rest is the quick pick's.
+    // 28.12 kg × 50 mg/kg/day ÷ 2 = 703 mg → 9 mL. With no duration the quantity and days supply can't be worked out:
+    // empty for the provider, not the quick pick's 100 mL for 10 days of another dose. The rest is the quick pick's.
     expect(latest).toMatchObject({
       medication: PRODUCT,
       dose: '9',
       frequency: 'twice daily',
-      durationDays: '10',
-      quantityValue: '180',
-      daysSupply: '10',
+      durationDays: '',
+      quantityValue: '',
+      daysSupply: '',
       numberOfRefills: '2',
       substitutionAllowed: false,
       noteToPharmacy: 'Shake well',
       dosing: { rate: 50, basis: 'mg/kg/day', dosesPerDay: 2 },
     });
     // The saved directions follow the new dose.
-    expect(latest?.patientInstructions).toBe('Take 9 mL by mouth twice daily for 10 days.');
+    expect(latest?.patientInstructions).toBe('Take 9 mL by mouth twice daily.');
 
-    // A new duration works them out again: 9 mL × 2 a day × 5 days.
-    await user.clear(screen.getByRole('spinbutton', { name: 'duration' }));
-    await user.type(screen.getByRole('spinbutton', { name: 'duration' }), '5');
-    expect(latest).toMatchObject({ durationDays: '5', quantityValue: '90', daysSupply: '5' });
+    // A duration works them out, as on a fresh line: 9 mL × 2 a day × 10 days.
+    await user.type(screen.getByRole('spinbutton', { name: 'duration' }), '10');
+    expect(latest).toMatchObject({ durationDays: '10', quantityValue: '180', daysSupply: '10' });
     // As needed, the quantity can't be worked out again.
     await user.click(screen.getByRole('button', { name: /^frequency: / }));
     await user.click(screen.getByRole('option', { name: 'as needed' }));
     expect(latest).toMatchObject({ frequency: 'as needed', quantityValue: '' });
-  });
-
-  it('leaves the duration, quantity and days supply empty after "Use this dose" when the quick pick saved no days supply', async () => {
-    const user = userEvent.setup();
-    const { daysSupply: _days, ...noDays } = SAVED_TEXT;
-    render(<Harness initial={liquidLine()} quickPicks={[noDays]} weight={WEIGHT} />);
-    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Dose calculator for Amox as written' }));
-    const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
-    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '50');
-    await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
-    await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
-    expect(latest).toMatchObject({ dose: '9', durationDays: '', quantityValue: '', daysSupply: '' });
   });
 
   it('takes a dose typed into the row as the provider’s own: the line keeps no settings', async () => {
