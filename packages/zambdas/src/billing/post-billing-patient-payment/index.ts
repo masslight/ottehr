@@ -209,18 +209,29 @@ const mergeIntoWebhookNotice = async (
   );
   if (alreadyOurs || !storedNotice.id) return storedNotice;
 
-  return billingOystehr.fhir.update<PaymentNotice>(
-    {
-      ...storedNotice,
-      identifier: unionIdentifiers(storedNotice.identifier, desiredNotice.identifier),
-      contained: desiredNotice.contained,
-      extension: [
-        ...(storedNotice.extension ?? []).filter((ext) => ext.url !== PAYMENT_METHOD_EXTENSION_URL),
-        ...(desiredNotice.extension ?? []),
-      ],
-    },
-    { optimisticLockingVersionId: storedNotice.meta?.versionId }
-  );
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await billingOystehr.fhir.update<PaymentNotice>(
+        {
+          ...storedNotice,
+          identifier: unionIdentifiers(storedNotice.identifier, desiredNotice.identifier),
+          contained: desiredNotice.contained,
+          extension: [
+            ...(storedNotice.extension ?? []).filter((ext) => ext.url !== PAYMENT_METHOD_EXTENSION_URL),
+            ...(desiredNotice.extension ?? []),
+          ],
+        },
+        { optimisticLockingVersionId: storedNotice.meta?.versionId }
+      );
+    } catch (error) {
+      const versionConflict = error instanceof Oystehr.OystehrFHIRError && error.code === 412;
+      if (!versionConflict || attempt >= 3 || !storedNotice.id) throw error;
+      storedNotice = await billingOystehr.fhir.get<PaymentNotice>({
+        resourceType: 'PaymentNotice',
+        id: storedNotice.id,
+      });
+    }
+  }
 };
 
 const makePaymentNotice = (input: {
