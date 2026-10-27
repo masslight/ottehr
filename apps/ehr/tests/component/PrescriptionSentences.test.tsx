@@ -170,14 +170,11 @@ describe('PrescriptionSentences', () => {
     })
   );
 
-  it('puts "+ quick pick" in the first sentence, after "Prescription 1:" and before the medication blank', () => {
+  it('opens the line with its medication blank, right after "Prescription 1:", and no separate quick pick list', () => {
     render(<Harness initial={emptyPrescriptionLine()} />);
     const sentence = screen.getByText('Prescription 1:').closest('.MuiTypography-root') as HTMLElement;
-    const quickPick = screen.getByRole('button', { name: '+ quick pick (empty)' });
-    const medication = screen.getByRole('button', { name: 'medication (empty)' });
-    expect(sentence).toContainElement(quickPick);
-    expect(sentence).toContainElement(medication);
-    expect(quickPick.compareDocumentPosition(medication) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(sentence).getAllByRole('button')[0]).toHaveAccessibleName('medication (empty)');
+    expect(screen.queryByRole('button', { name: /quick pick/ })).not.toBeInTheDocument();
   });
 
   it(

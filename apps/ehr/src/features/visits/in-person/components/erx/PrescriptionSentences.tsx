@@ -10,6 +10,7 @@ import {
   Link,
   Snackbar,
   TextField,
+  Typography,
 } from '@mui/material';
 import { FC, ReactNode, useEffect, useMemo, useState } from 'react';
 import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
@@ -44,7 +45,6 @@ import {
   maximumWarnings,
   pickedStrength,
   PrescriptionLine,
-  prescriptionQuickPickLabel,
   withCalculatorDosing,
   withDirections,
   withDrug,
@@ -76,8 +76,6 @@ const SUBSTITUTION_OPTIONS = [
 
 /** The line's last link for admins, worded as the Quick Picks menu on other pages. */
 export const ADD_QUICK_PICK_LABEL = '+ Add Quick Pick';
-/** A set's value in the quick pick list, apart from the quick picks' ids. */
-const SET_VALUE = 'set:';
 
 const SEARCH_UNAVAILABLE = 'Medication search is unavailable.';
 
@@ -251,6 +249,185 @@ const DiagnosisSearch: FC<{
   );
 };
 
+/** A row of the line's medication menu. */
+type MedicationMenuOption =
+  | { kind: 'set'; set: PrescriptionSetQuickPickData; members: PrescriptionQuickPickData[] }
+  // Nested: under the medication whose strength it orders.
+  | { kind: 'quickPick'; quickPick: PrescriptionQuickPickData; nested?: boolean }
+  | { kind: 'drug'; drug: MedicationSearchDrug }
+  | { kind: 'searching' }
+  | { kind: 'more' };
+
+/** How many sets and how many quick picks the medication menu lists before anything is typed. */
+const MEDICATION_MENU_LIMIT = 10;
+const MORE_TEXT = 'Type to search more quick picks and medications';
+const SEARCHING_TEXT = 'Searching medications…';
+
+const medicationMenuLabel = (option: MedicationMenuOption): string =>
+  option.kind === 'set'
+    ? option.set.name
+    : option.kind === 'quickPick'
+    ? option.quickPick.name
+    : option.kind === 'drug'
+    ? option.drug.name
+    : option.kind === 'searching'
+    ? SEARCHING_TEXT
+    : MORE_TEXT;
+
+const medicationMenuKey = (option: MedicationMenuOption): string =>
+  option.kind === 'set'
+    ? `set-${option.set.id}`
+    : option.kind === 'quickPick'
+    ? `quick-pick-${option.quickPick.id ?? option.quickPick.name}`
+    : option.kind === 'drug'
+    ? `drug-${option.drug.name}`
+    : option.kind;
+
+/** The menu's rows. Before anything is typed: the first sets, then the first quick picks, and a row saying to type
+ * for more. Typed: the sets matching by name or by a quick pick's name or product; then each medication the search
+ * found, with the quick picks ordering one of its strengths (by NDC) under it; then the quick picks matching by name
+ * or product that are under none. While the search runs, a row holds the medications' place. */
+const medicationMenuOptions = ({
+  typed,
+  sets,
+  quickPicks,
+  drugs,
+  searching,
+}: {
+  typed: string;
+  sets: PrescriptionSetQuickPickData[];
+  quickPicks: PrescriptionQuickPickData[];
+  /** Absent until there is a search's answer to show. */
+  drugs?: MedicationSearchDrug[];
+  searching: boolean;
+}): MedicationMenuOption[] => {
+  const setOptions = sets.map((set) => ({
+    kind: 'set' as const,
+    set,
+    members: prescriptionSetMembers(set, quickPicks).members,
+  }));
+  const query = typed.trim().toLowerCase();
+  if (!query) {
+    const more = sets.length > MEDICATION_MENU_LIMIT || quickPicks.length > MEDICATION_MENU_LIMIT;
+    return [
+      ...setOptions.slice(0, MEDICATION_MENU_LIMIT),
+      ...quickPicks.slice(0, MEDICATION_MENU_LIMIT).map((quickPick) => ({ kind: 'quickPick' as const, quickPick })),
+      ...(more ? [{ kind: 'more' as const }] : []),
+    ];
+  }
+  const matches = (quickPick: PrescriptionQuickPickData): boolean =>
+    [quickPick.name, quickPick.medicationDescription].some((text) => text?.toLowerCase().includes(query));
+  const underDrugs = new Set<PrescriptionQuickPickData>();
+  const drugRows = searching
+    ? []
+    : (drugs ?? []).flatMap((drug) => {
+        const ndcs = new Set(drug.strengths.flatMap((strength) => strength.ndcs));
+        const nested = quickPicks.filter(
+          (quickPick) => !underDrugs.has(quickPick) && quickPick.ndc !== undefined && ndcs.has(quickPick.ndc)
+        );
+        nested.forEach((quickPick) => underDrugs.add(quickPick));
+        return [
+          { kind: 'drug' as const, drug },
+          ...nested.map((quickPick) => ({ kind: 'quickPick' as const, quickPick, nested: true })),
+        ];
+      });
+  return [
+    ...setOptions.filter(
+      ({ set, members }) => set.name.toLowerCase().includes(query) || members.some((member) => matches(member))
+    ),
+    ...(searching ? [{ kind: 'searching' as const }] : drugRows),
+    ...quickPicks
+      .filter((quickPick) => !underDrugs.has(quickPick) && matches(quickPick))
+      .map((quickPick) => ({ kind: 'quickPick' as const, quickPick })),
+  ];
+};
+
+/** The line's one medication menu: the practice's sets and quick picks with the medication search's results. */
+const MedicationMenu: FC<{
+  quickPicks: PrescriptionQuickPickData[];
+  sets: PrescriptionSetQuickPickData[];
+  onDrug: (drug: MedicationSearchDrug) => void;
+  onQuickPick: (quickPick: PrescriptionQuickPickData) => void;
+  onSet: (set: PrescriptionSetQuickPickData) => void;
+}> = ({ quickPicks, sets, onDrug, onQuickPick, onSet }) => {
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const { debounce } = useDebounce(300);
+  const { data: drugs, isFetching, isError } = useSearchMedications(debouncedQuery);
+  // The search needs two characters.
+  const searched = query.trim().length >= 2;
+  const options = medicationMenuOptions({
+    typed: query,
+    sets,
+    quickPicks,
+    drugs: searched ? drugs : undefined,
+    searching: searched && isFetching,
+  });
+  return (
+    <Box sx={{ width: 360, pt: 0.5 }}>
+      <Autocomplete<MedicationMenuOption>
+        options={options}
+        filterOptions={(items) => items}
+        getOptionLabel={medicationMenuLabel}
+        getOptionKey={medicationMenuKey}
+        getOptionDisabled={(option) => option.kind === 'more' || option.kind === 'searching'}
+        renderOption={(props, option) => (
+          <li {...props}>
+            {option.kind === 'more' || option.kind === 'searching' ? (
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                {medicationMenuLabel(option)}
+              </Typography>
+            ) : option.kind === 'drug' ? (
+              option.drug.name
+            ) : (
+              <Box sx={option.kind === 'quickPick' && option.nested ? { pl: 2 } : undefined}>
+                {option.kind === 'set' && (
+                  <Box component="span" sx={{ color: 'text.secondary' }}>
+                    Set:{' '}
+                  </Box>
+                )}
+                <Box component="span" sx={{ fontWeight: 700 }}>
+                  {medicationMenuLabel(option)}
+                </Box>
+                <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  {option.kind === 'set'
+                    ? `${option.members.length} ${option.members.length === 1 ? 'prescription' : 'prescriptions'}`
+                    : option.quickPick.medicationDescription}
+                </Typography>
+              </Box>
+            )}
+          </li>
+        )}
+        inputValue={query}
+        onInputChange={(_event, value, reason) => {
+          if (reason !== 'input' && reason !== 'clear') return;
+          const next = reason === 'input' ? value : '';
+          setQuery(next);
+          debounce(() => setDebouncedQuery(next));
+        }}
+        value={null}
+        onChange={(_event, option) => {
+          if (option?.kind === 'set') onSet(option.set);
+          else if (option?.kind === 'quickPick') onQuickPick(option.quickPick);
+          else if (option?.kind === 'drug') onDrug(option.drug);
+        }}
+        openOnFocus
+        noOptionsText={
+          query.trim().length < 2
+            ? 'Type to search medications'
+            : isError
+            ? SEARCH_UNAVAILABLE
+            : 'Nothing found for this search criteria'
+        }
+        renderInput={(params) => (
+          <TextField {...params} size="small" label="Medication" placeholder="Select a quick pick or type to search" />
+        )}
+      />
+      {isError && <ReportSearchIssue />}
+    </Box>
+  );
+};
+
 interface PrescriptionSentencesProps {
   line: PrescriptionLine;
   index: number;
@@ -259,10 +436,10 @@ interface PrescriptionSentencesProps {
   onRemove?: () => void;
   quickPicks: PrescriptionQuickPickData[];
   onQuickPick: (quickPick: PrescriptionQuickPickData) => void;
-  /** The practice's prescription sets: the Active ones are listed above the quick picks and suggested with them.
+  /** The practice's prescription sets: the Active ones are listed above the quick picks in the medication menu and suggested with them.
    * Inactive ones wait for review in Admin. */
   sets?: PrescriptionSetQuickPickData[];
-  /** A set picked from the list, or `used` from its suggestion row (the line as the row made it, and its quick pick
+  /** A set picked from the medication menu, or `used` from its suggestion row (the line as the row made it, and its quick pick
    * the row was for). */
   onSet?: (set: PrescriptionSetQuickPickData, used?: { line: PrescriptionLine; memberId: string }) => void;
   /** Admins save the line as a quick pick; absent for everyone else. */
@@ -597,60 +774,33 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         <Box component="span" sx={{ fontWeight: 700 }}>
           Prescription {index + 1}:
         </Box>{' '}
-        {!readOnly && (
-          <>
-            <SelectBlank
-              label="+ quick pick"
-              title="Quick pick"
-              options={[
-                // Sets under their own heading above the quick picks, each with its products.
-                ...activeSets.map((set) => ({
-                  value: `${SET_VALUE}${set.id}`,
-                  label: set.name,
-                  secondary: prescriptionSetMembers(set, quickPicks)
-                    .members.map((member) => member.medicationDescription ?? member.name)
-                    .join(', '),
-                  group: 'Sets',
-                })),
-                ...quickPicks.map((quickPick, i) => ({
-                  value: quickPick.id ?? String(i),
-                  label: prescriptionQuickPickLabel(quickPick),
-                  ...(activeSets.length ? { group: 'Prescriptions' } : {}),
-                })),
-              ]}
-              value={undefined}
-              onChange={(value) => {
-                const set = activeSets.find((item) => `${SET_VALUE}${item.id}` === value);
-                if (set) {
-                  // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
-                  if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
-                  onSet?.(set);
-                  return;
-                }
-                const quickPick = quickPicks.find((item, i) => (item.id ?? String(i)) === value);
-                if (!quickPick) return;
-                // A quick pick's directions are picked ones: they show.
-                setAwaitingPick(false);
-                onQuickPick(quickPick);
-              }}
-              readOnly={readOnly}
-              emptyText={quickPicks.length ? 'No matches' : 'No quick picks yet'}
-            />{' '}
-          </>
-        )}
         <PopoverBlank
           label="medication"
           title="Medication"
-          // The search's own field says "Medication".
+          // The menu's own field says "Medication".
           hideTitle
           value={line.drug?.name ?? description}
           need
           readOnly={readOnly}
         >
           {(close) => (
-            <MedicationSearch
-              onPick={(drug) => {
+            <MedicationMenu
+              quickPicks={quickPicks}
+              sets={activeSets}
+              onDrug={(drug) => {
                 changeProduct(withDrug(line, drug));
+                close();
+              }}
+              onQuickPick={(quickPick) => {
+                // A quick pick's directions are picked ones: they show.
+                setAwaitingPick(false);
+                onQuickPick(quickPick);
+                close();
+              }}
+              onSet={(set) => {
+                // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
+                if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
+                onSet?.(set);
                 close();
               }}
             />

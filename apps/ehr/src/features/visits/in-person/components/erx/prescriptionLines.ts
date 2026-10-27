@@ -718,9 +718,3 @@ export const quickPickNameInUse = (
 /** Why the order form's "Save as Quick Pick" can't save the line: every quick pick orders a product. */
 export const quickPickProductMissing = (line: Pick<PrescriptionLine, 'medication'>): string | undefined =>
   line.medication ? undefined : 'Pick a medication and strength before saving a quick pick';
-
-/** "Amoxicillin 500 MG Oral Capsule, 20 Capsule": the quick pick's name with what it dispenses, as the list reads. */
-export const prescriptionQuickPickLabel = (quickPick: PrescriptionQuickPickData): string =>
-  quickPick.quantityValue !== undefined && quickPick.quantityUnit
-    ? `${quickPick.name}, ${quickPick.quantityValue} ${quickPick.quantityUnit.toLowerCase()}`
-    : quickPick.name;

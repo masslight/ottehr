@@ -541,7 +541,7 @@ describe('A quick pick saved before products had details', () => {
   });
 });
 
-describe('The "+ quick pick" list', () => {
+describe('A quick pick from the medication menu', () => {
   // The list sets the product from the quick pick's NDC and description.
   const LISTED = { ...BY_WEIGHT, medicationDescription: PRODUCT.description };
   const LISTED_TEXT = { ...SAVED_TEXT, medicationDescription: PRODUCT.description };
@@ -554,14 +554,14 @@ describe('The "+ quick pick" list', () => {
   };
 
   const choose = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
-    await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
-    await user.click(within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText(label));
+    await user.click(screen.getByRole('button', { name: /^medication/ }));
+    await user.click(within(screen.getByRole('listbox', { name: 'Medication' })).getByText(label));
   };
 
   it('re-doses a quick pick saved by weight for this patient, as its suggestion row does', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED]} weight={{ ...WEIGHT, kg: 12.4 }} />);
-    await choose(user, 'Amox strep, 120 milliliter');
+    await choose(user, 'Amox strep');
     // 12.4 kg × 25 = 310 mg = 3.875 mL: the nearest half mL is 4 mL.
     expect(latest).toMatchObject({
       medication: PRODUCT,
@@ -585,7 +585,7 @@ describe('The "+ quick pick" list', () => {
   it('without a weight leaves the dose to enter and keeps the settings on the line', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED]} />);
-    await choose(user, 'Amox strep, 120 milliliter');
+    await choose(user, 'Amox strep');
     expect(latest).toMatchObject({ medication: PRODUCT, dose: '', frequency: 'twice daily', durationDays: '10' });
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveAttribute('placeholder', '(enter weight)');
     expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual(BY_WEIGHT.dosing);
@@ -594,7 +594,7 @@ describe('The "+ quick pick" list', () => {
   it('uses a quick pick without dosing as saved', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED_TEXT]} weight={WEIGHT} />);
-    await choose(user, 'Amox as written, 100 milliliter');
+    await choose(user, 'Amox as written');
     expect(latest).toMatchObject({
       medication: PRODUCT,
       dose: '',
@@ -607,7 +607,7 @@ describe('The "+ quick pick" list', () => {
   it('a new frequency keeps the settings: by mg/kg/day the dose is worked out again, with the working behind the ⓘ', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} quickPicks={[PER_DAY]} weight={{ ...WEIGHT, kg: 20 }} />);
-    await choose(user, 'Amox per day, 120 milliliter');
+    await choose(user, 'Amox per day');
     // 20 kg × 80 mg/kg/day ÷ 2 = 800 mg = 10 mL.
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(10);
     await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
@@ -632,7 +632,7 @@ describe('The "+ quick pick" list', () => {
   it('a new frequency keeps the settings: by mg/kg/dose the dose stays', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED]} weight={WEIGHT} />);
-    await choose(user, 'Amox strep, 120 milliliter');
+    await choose(user, 'Amox strep');
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(9);
     await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
     await user.click(screen.getByRole('option', { name: 'three times daily' }));
@@ -663,8 +663,8 @@ describe('Maximum warnings on the line', () => {
   const LISTED_MAXED = { ...MAXED, medicationDescription: PRODUCT.description };
 
   const choose = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
-    await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
-    await user.click(within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText(label));
+    await user.click(screen.getByRole('button', { name: /^medication/ }));
+    await user.click(within(screen.getByRole('listbox', { name: 'Medication' })).getByText(label));
   };
   const typeDose = async (user: ReturnType<typeof userEvent.setup>, dose: string): Promise<void> => {
     await user.clear(screen.getByRole('spinbutton', { name: 'dose' }));
@@ -687,7 +687,7 @@ describe('Maximum warnings on the line', () => {
   it('no warning while the capped dose is under the maximum; a typed dose over it warns, with where the maximum is from', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED_MAXED]} weight={WEIGHT} />);
-    await choose(user, 'Amox strep, twice daily, 120 milliliter');
+    await choose(user, 'Amox strep, twice daily');
     // Capped at 500 mg: 6 mL = 480 mg.
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(6);
     expect(screen.queryByTestId('dose-warnings-warning')).not.toBeInTheDocument();
@@ -722,7 +722,7 @@ describe('Maximum warnings on the line', () => {
   it('a frequency that takes the day over its maximum warns per day and outlines the frequency', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED_MAXED]} weight={WEIGHT} />);
-    await choose(user, 'Amox strep, twice daily, 120 milliliter');
+    await choose(user, 'Amox strep, twice daily');
     await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
     await user.click(screen.getByRole('option', { name: 'four times daily' }));
     // 6 mL = 480 mg a dose, × 4 = 1,920 mg a day.
@@ -769,7 +769,7 @@ describe('Maximum warnings on the line', () => {
   it('no maximum on the line: no warning, whatever the dose', async () => {
     const user = userEvent.setup();
     render(<Harness initial={emptyPrescriptionLine()} quickPicks={[{ ...LISTED_MAXED, dosing: undefined }]} />);
-    await choose(user, 'Amox strep, twice daily, 120 milliliter');
+    await choose(user, 'Amox strep, twice daily');
     await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
     await user.click(screen.getByRole('option', { name: 'four times daily' }));
     await typeDose(user, '20');

@@ -82,7 +82,7 @@ export const isQuickPickFor = (quickPick: PrescriptionQuickPickData, medication:
     ? quickPick.ndc === medication.ndc
     : quickPick.medicationDescription !== undefined && quickPick.medicationDescription === medication.description;
 
-/** The quick pick on the line as it would be from the quick pick list, keeping the line's product (and so its drug
+/** The quick pick on the line as it would be from the medication menu, keeping the line's product (and so its drug
  * and strength blanks). */
 const withQuickPick = (line: PrescriptionLine, quickPick: PrescriptionQuickPickData): PrescriptionLine =>
   applyPrescriptionQuickPick(line, { ...quickPick, ndc: undefined, medicationDescription: undefined });
@@ -324,10 +324,10 @@ export const prescriptionSuggestionsFor = ({
     .map(({ row }) => row);
 };
 
-/** The lines a set puts where `line` is. Picked from the "+ quick pick" list, an empty line takes its first quick pick
+/** The lines a set puts where `line` is. Picked from the medication menu, an empty line takes its first quick pick
  * and the rest follow on new lines; a line that holds something stays as it is, all of them following it. Used from
  * a suggestion row, the line is as the row made it and the set's other quick picks follow. Each is as if picked from
- * the list itself; a quick pick that no longer exists is left out and counted. */
+ * the menu itself; a quick pick that no longer exists is left out and counted. */
 export const withPrescriptionSet = (
   line: PrescriptionLine,
   set: PrescriptionSetQuickPickData,
@@ -352,7 +352,7 @@ export const withPrescriptionSet = (
 /** No medication picked yet. */
 export const isEmptyPrescriptionLine = (line: PrescriptionLine): boolean => !line.drug && !line.medication;
 
-/** A quick pick chosen from the "+ quick pick" list: one saved from the calculator is re-dosed for this patient's
+/** A quick pick chosen from the medication menu: one saved from the calculator is re-dosed for this patient's
  * weight exactly as its suggestion row is (no weight: the dose waits, the settings stay); one without, as saved. */
 export const withListedQuickPick = (
   line: PrescriptionLine,

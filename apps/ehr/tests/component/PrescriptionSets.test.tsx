@@ -17,9 +17,14 @@ import {
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
 import { detailed, ERX_PRODUCT_DETAILS } from './helpers/erxProducts';
 
-// The real suggestions seam: the rows here come from the quick picks and sets given.
+// The real suggestions seam: the rows here come from the quick picks and sets given. The medication search answers
+// with the liquids below whatever is typed; a test sets `fetching` to see it still searching.
+const medicationSearch = vi.hoisted(() => ({ fetching: false }));
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
-  useSearchMedications: () => ({ data: [], isFetching: false, isError: false }),
+  useSearchMedications: () =>
+    medicationSearch.fetching
+      ? { data: undefined, isFetching: true, isError: false }
+      : { data: [LIQUIDS], isFetching: false, isError: false },
 }));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { resourceType: 'Encounter', id: 'encounter-1', status: 'in-progress' } }),
@@ -95,10 +100,12 @@ let latest: PrescriptionLine[] = [];
 /** The order form's lines, with its handling of quick picks and sets. */
 const Form = ({
   initial,
+  quickPicks = QUICK_PICKS,
   sets = SETS,
   weight = WEIGHT,
 }: {
   initial: PrescriptionLine[];
+  quickPicks?: PrescriptionQuickPickData[];
   sets?: PrescriptionSetQuickPickData[];
   weight?: VisitWeight;
 }): JSX.Element => {
@@ -113,7 +120,7 @@ const Form = ({
           line={line}
           index={index}
           onChange={(next) => setLines((current) => current.map((item) => (item.key === line.key ? next : item)))}
-          quickPicks={QUICK_PICKS}
+          quickPicks={quickPicks}
           onQuickPick={(quickPick) =>
             setLines((current) =>
               current.map((item) => (item.key === line.key ? withListedQuickPick(line, quickPick, weightKg) : item))
@@ -121,7 +128,7 @@ const Form = ({
           }
           sets={sets}
           onSet={(picked, used) => {
-            const { lines: next, missing } = withPrescriptionSet(line, picked, QUICK_PICKS, weightKg, used);
+            const { lines: next, missing } = withPrescriptionSet(line, picked, quickPicks, weightKg, used);
             setLines((current) => current.flatMap((item) => (item.key === line.key ? next : [item])));
             if (missing) notices.push(missingSetMembersText(missing));
           }}
@@ -149,53 +156,135 @@ const suggestionRow = (index: number): HTMLElement =>
   screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })[index].closest('.MuiBox-root')!
     .parentElement!;
 
-const openQuickPicks = async (user: ReturnType<typeof userEvent.setup>, index = 0): Promise<HTMLElement> => {
-  await user.click(screen.getAllByRole('button', { name: '+ quick pick (empty)' })[index]);
-  return screen.getByRole('listbox', { name: 'Quick pick' });
+const openMenu = async (user: ReturnType<typeof userEvent.setup>, index = 0): Promise<HTMLElement> => {
+  await user.click(screen.getAllByRole('button', { name: /^medication/ })[index]);
+  return screen.getByRole('listbox', { name: 'Medication' });
 };
+
+/** The menu's rows as read: a set's "Set: name" and count, a quick pick's name and product, a medication's name. */
+const menuItems = (list: HTMLElement): string[] =>
+  Array.from(list.querySelectorAll('[role="option"]')).map((item) => item.textContent ?? '');
+
+/** Whether the row is set in under the medication above it. */
+const nested = (name: string): boolean => {
+  const padding = getComputedStyle(screen.getByText(name).parentElement as HTMLElement).paddingLeft;
+  return padding !== '' && padding !== '0px';
+};
+
+const SETS_ROWS = ['Set: Acute otitis2 prescriptions', 'Set: Ear infection2 prescriptions'];
+const AMOX_ROWS = ['Amox as writtenAmoxicillin 400 mg/5ml Susp', 'Amox strepAmoxicillin 400 mg/5ml Susp'];
+const IBUPROFEN_ROW = 'Ibuprofen painIbuprofen 100 mg/5ml Susp';
 
 describe('Prescription sets on the order form', () => {
   beforeEach(() => {
     notices.length = 0;
   });
 
-  describe('the "+ quick pick" list', () => {
-    it('lists the Active sets under "Sets", with their products, above the quick picks under "Prescriptions"', async () => {
+  describe('the medication menu', () => {
+    it('lists the Active sets, then the quick picks, in one list without headings', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
-      const list = await openQuickPicks(user);
-      expect(
-        Array.from(list.children).map(
-          (item) => item.querySelector('.MuiListItemText-primary')?.textContent ?? item.textContent
-        )
-      ).toEqual([
-        'Sets',
-        'Acute otitis',
-        'Ear infection',
-        'Prescriptions',
-        'Amox as written, 100 milliliter',
-        'Amox strep, 120 milliliter',
-        'Ibuprofen pain, 120 milliliter',
-      ]);
-      expect(within(list).getByText('Ibuprofen 100 mg/5ml Susp, Amoxicillin 400 mg/5ml Susp')).toBeInTheDocument();
-      expect(within(list).getByText('Amoxicillin 400 mg/5ml Susp, Ibuprofen 100 mg/5ml Susp')).toBeInTheDocument();
+      const list = await openMenu(user);
+      expect(menuItems(list)).toEqual([...SETS_ROWS, ...AMOX_ROWS, IBUPROFEN_ROW]);
+      expect(list.querySelector('.MuiAutocomplete-groupLabel')).toBeNull();
+      // Quick picks' and sets' names bold; "Set:" muted, not bold.
+      expect(screen.getByText('Amox strep')).toHaveStyle({ fontWeight: 700 });
+      expect(screen.getByText('Acute otitis')).toHaveStyle({ fontWeight: 700 });
+      expect(screen.getAllByText('Set:')[0]).not.toHaveStyle({ fontWeight: 700 });
       // Inactive: waiting for review in Admin.
-      expect(within(list).queryByText('Bronchitis')).not.toBeInTheDocument();
+      expect(screen.queryByText('Bronchitis')).not.toBeInTheDocument();
+      expect(screen.queryByText('Type to search more quick picks and medications')).not.toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Select a quick pick or type to search')).toBeInTheDocument();
     });
 
-    it('has no headings without an Active set', async () => {
+    it('lists up to 10 sets and 10 quick picks before anything is typed, then says to type for more', async () => {
       const user = userEvent.setup();
-      render(<Form initial={[emptyPrescriptionLine()]} sets={[RETIRED]} />);
-      const list = await openQuickPicks(user);
-      expect(within(list).queryByText('Sets')).not.toBeInTheDocument();
-      expect(within(list).queryByText('Prescriptions')).not.toBeInTheDocument();
+      const many = Array.from({ length: 12 }, (_, i) => ({ ...IBUPROFEN, id: `qp-${i}`, name: `Pick ${10 + i}` }));
+      const sets = Array.from({ length: 11 }, (_, i) => set(`set-${i}`, `Set ${10 + i}`, ['qp-0']));
+      render(<Form initial={[emptyPrescriptionLine()]} quickPicks={many} sets={sets} />);
+      const items = menuItems(await openMenu(user));
+      expect(items).toHaveLength(10 + 10 + 1);
+      expect(items[9]).toBe('Set: Set 191 prescription');
+      expect(items[10]).toBe('Pick 10Ibuprofen 100 mg/5ml Susp');
+      expect(items[20]).toBe('Type to search more quick picks and medications');
+      expect(screen.getByRole('option', { name: 'Type to search more quick picks and medications' })).toHaveAttribute(
+        'aria-disabled',
+        'true'
+      );
+      expect(screen.queryByText('Set 20')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pick 20')).not.toBeInTheDocument();
+      // Typed, every match shows: past the first 10.
+      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'pick 2');
+      expect(screen.getByText('Pick 20')).toBeInTheDocument();
+      expect(screen.getByText('Pick 21')).toBeInTheDocument();
+    });
+
+    it('typed: the matching sets, then each medication with its quick picks by NDC under it, then other matching quick picks', async () => {
+      const user = userEvent.setup();
+      render(<Form initial={[emptyPrescriptionLine()]} />);
+      await openMenu(user);
+      const list = (): HTMLElement => screen.getByRole('listbox', { name: 'Medication' });
+      // Both sets hold the ibuprofen (matched by product, in any case). The amoxicillin quick picks don't match the
+      // text but order the search's medication, so they sit under it; the ibuprofen one matches and orders none.
+      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'IBU');
+      expect(menuItems(list())).toEqual([...SETS_ROWS, 'Amoxicillin', ...AMOX_ROWS, IBUPROFEN_ROW]);
+      expect(nested('Amox strep')).toBe(true);
+      expect(nested('Ibuprofen pain')).toBe(false);
+      expect(screen.getByText('Amoxicillin')).not.toHaveStyle({ fontWeight: 700 });
+      // A quick pick matching the text and under a medication is listed once, there.
+      await user.clear(screen.getByRole('combobox', { name: 'Medication' }));
+      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'strep');
+      expect(menuItems(list())).toEqual([...SETS_ROWS, 'Amoxicillin', ...AMOX_ROWS]);
+      // One letter is too few for the medication search.
+      await user.clear(screen.getByRole('combobox', { name: 'Medication' }));
+      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'w');
+      expect(menuItems(list())).toEqual(['Amox as writtenAmoxicillin 400 mg/5ml Susp']);
+    });
+
+    it('holds the medications’ place with "Searching medications…" while the search runs', async () => {
+      medicationSearch.fetching = true;
+      try {
+        const user = userEvent.setup();
+        render(<Form initial={[emptyPrescriptionLine()]} />);
+        await openMenu(user);
+        await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'ibu');
+        expect(menuItems(screen.getByRole('listbox', { name: 'Medication' }))).toEqual([
+          ...SETS_ROWS,
+          'Searching medications…',
+          IBUPROFEN_ROW,
+        ]);
+        expect(screen.getByRole('option', { name: 'Searching medications…' })).toHaveAttribute('aria-disabled', 'true');
+      } finally {
+        medicationSearch.fetching = false;
+      }
+    });
+
+    it('picks a medication from the search as before: its strength next', async () => {
+      const user = userEvent.setup();
+      render(<Form initial={[emptyPrescriptionLine()]} />);
+      await openMenu(user);
+      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
+      await user.click(screen.getByRole('option', { name: 'Amoxicillin' }));
+      expect(latest[0]).toMatchObject({ drug: LIQUIDS, medication: null });
+      expect(screen.getByRole('button', { name: 'strength (empty)' })).toBeInTheDocument();
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
+    it('picks a quick pick as before: the line as the quick pick fills it', async () => {
+      const user = userEvent.setup();
+      render(<Form initial={[emptyPrescriptionLine()]} />);
+      await user.click(within(await openMenu(user)).getByText('Amox as written'));
+      expect(withoutKey(latest[0])).toEqual(listed(SAVED_TEXT));
+      expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
+        'Take 5 mL by mouth twice daily for 10 days.'
+      );
     });
 
     it('fills an empty line with the first quick pick and adds the rest after it, each as if picked itself', async () => {
       const user = userEvent.setup();
       const after = withListedQuickPick(emptyPrescriptionLine(), SAVED_TEXT, WEIGHT.kg);
       render(<Form initial={[emptyPrescriptionLine(), after]} />);
-      await user.click(within(await openQuickPicks(user)).getByText('Ear infection'));
+      await user.click(within(await openMenu(user)).getByText('Ear infection'));
       expect(latest.map(withoutKey)).toEqual([listed(BY_WEIGHT), listed(IBUPROFEN), withoutKey(after)]);
       // Re-dosed for the weight, with its maximum and settings, as the quick pick itself is.
       expect(latest[0]).toMatchObject({ dose: '9', dosing: { rate: 25, basis: 'mg/kg/dose' } });
@@ -207,15 +296,14 @@ describe('Prescription sets on the order form', () => {
       const user = userEvent.setup();
       const held = withListedQuickPick(emptyPrescriptionLine(), SAVED_TEXT, WEIGHT.kg);
       render(<Form initial={[held]} />);
-      await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
-      await user.click(within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText('Ear infection'));
+      await user.click(within(await openMenu(user)).getByText('Ear infection'));
       expect(latest.map(withoutKey)).toEqual([withoutKey(held), listed(BY_WEIGHT), listed(IBUPROFEN)]);
     });
 
     it('skips a quick pick that no longer exists and says so', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
-      await user.click(within(await openQuickPicks(user)).getByText('Acute otitis'));
+      await user.click(within(await openMenu(user)).getByText('Acute otitis'));
       expect(latest.map(withoutKey)).toEqual([listed(IBUPROFEN), listed(BY_WEIGHT)]);
       expect(notices).toEqual(['1 prescription in this set no longer exists.']);
     });
