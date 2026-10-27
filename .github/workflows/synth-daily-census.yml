@@ -4,11 +4,8 @@ name: Synthetic Daily Census
 # each run signs off the prior day's open synthetic visits and creates a fresh
 # batch dated today (see scripts/synthetic-patient-data/DAILY-CENSUS.md).
 #
-# Manual-only for now (run it from the Actions tab against any branch that has
-# the synth harness). To run it automatically once this lands on the default
-# branch, uncomment the `schedule:` block below — GitHub cron is UTC with no DST,
-# so 12:15 UTC ≈ 07:15–08:15 America/New_York depending on the season, which is
-# fine for a "each morning" census.
+# Runs automatically every day at ~05:00 America/New_York against demo (with the
+# default inputs below), and manually from the Actions tab against any env.
 
 on:
   workflow_dispatch:
@@ -30,26 +27,36 @@ on:
         description: "Dry-run (validate + log, no writes)"
         type: boolean
         default: false
-  # schedule:
-  #   - cron: "15 12 * * *" # daily ~07:15 ET; only fires from the default branch
+  schedule:
+    # GitHub cron is UTC with no DST: 10:00 UTC = 05:00 EST / 06:00 EDT. Not 09:00 —
+    # in winter that's 04:00 ET, and the oldest visits (~5h back) would fall on
+    # yesterday. Only fires from the default branch.
+    - cron: "0 10 * * *"
 
 env:
   NODE_VERSION: 22
+  # Scheduled runs carry no inputs — fall back to the daily demo defaults.
+  CENSUS_ENV: ${{ inputs.environment || 'demo' }}
+  CENSUS_COUNT: ${{ inputs.count || '40' }}
+  CENSUS_PHASE: ${{ inputs.phase || 'both' }}
+  CENSUS_DRY: ${{ inputs.dry && 'true' || 'false' }}
 
 concurrency:
   # Never let two census runs hit the same env at once (they'd both try to fill
   # today's quota). Different envs run independently.
-  group: synth-census-${{ inputs.environment }}
+  group: synth-census-${{ inputs.environment || 'demo' }}
   cancel-in-progress: false
 
 jobs:
   census:
+    # Forks/downstream copies of this workflow must not census demo on a timer.
+    if: github.event_name != 'schedule' || github.repository == 'masslight/ottehr'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Refuse production
         run: |
-          case "${{ inputs.environment }}" in
+          case "${{ env.CENSUS_ENV }}" in
             production|prod) echo "::error::the census must never run against production"; exit 1 ;;
           esac
 
@@ -86,7 +93,7 @@ jobs:
       - name: Populate secrets
         uses: ./.github/actions/populate-secrets
         with:
-          environment: ${{ inputs.environment }}
+          environment: ${{ env.CENSUS_ENV }}
 
       - name: Materialize zambda env files
         # config/.env has the M2M creds + third-party keys, but NOT terraform-
@@ -95,15 +102,15 @@ jobs:
         # server file with the FULL project secret set.
         run: |
           set -euo pipefail
-          SRC="config/.env/${{ inputs.environment }}.json"
+          SRC="config/.env/${{ env.CENSUS_ENV }}.json"
           [ -f "$SRC" ] || { echo "::error::$SRC missing after populate-secrets"; exit 1; }
           mkdir -p packages/zambdas/.env
-          cp "$SRC" "packages/zambdas/.env/${{ inputs.environment }}.json"
-          cp "$SRC" "packages/zambdas/.env/zambda-secrets-${{ inputs.environment }}.json"
+          cp "$SRC" "packages/zambdas/.env/${{ env.CENSUS_ENV }}.json"
+          cp "$SRC" "packages/zambdas/.env/zambda-secrets-${{ env.CENSUS_ENV }}.json"
           chmod 600 packages/zambdas/.env/*.json
 
       - name: Sync project secrets for the local server
-        if: ${{ inputs.dry != 'true' }}
+        if: ${{ env.CENSUS_DRY != 'true' }}
         # The census wrapper boots a local server that runs the visit harness; that
         # server needs the exact secret set the deployed zambdas use, incl.
         # terraform-generated ORGANIZATION_ID (else change-in-person-visit-status
@@ -111,15 +118,15 @@ jobs:
         # terraform admin pair and overwrite the server-secrets file. Skipped on --dry.
         run: |
           set -euo pipefail
-          CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
-          TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+          CREDS="packages/zambdas/.env/${{ env.CENSUS_ENV }}.json"
+          TF="secrets/ottehr/terraform/${{ env.CENSUS_ENV }}.tfvars"
           [ -f "$TF" ] || { echo "::error::$TF not found — needed to read project secrets"; exit 1; }
           OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
           OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
           [ -n "$OYSTEHR_ADMIN_CLIENT_ID" ] && [ -n "$OYSTEHR_ADMIN_CLIENT_SECRET" ] || { echo "::error::no client pair in $TF"; exit 1; }
           echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"; echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
           export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
-          npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/sync-project-secrets.ts --env "${{ inputs.environment }}"
+          npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/sync-project-secrets.ts --env "${{ env.CENSUS_ENV }}"
 
       - name: Run daily census
         # The wrapper boots its own ephemeral local zambda server (redacted log,
@@ -130,15 +137,13 @@ jobs:
         # terraform provider pair as OYSTEHR_ADMIN_*, which the wrapper's env-cmd
         # passes through to the census. Nothing is written to disk or the secrets
         # repo; the existing project M2M is untouched. Skipped on --dry.
-        env:
-          # Route the one free-form input through env (not textual ${{ }} in the
-          # script) so a dispatched value can't inject shell — a choice input can't,
-          # but `count` is a free string. environment/phase/dry are choice/boolean.
-          COUNT: ${{ inputs.count }}
+        # `count` is a free-form input, so it's read from env ($CENSUS_COUNT) rather
+        # than interpolated as ${{ }} text — a dispatched value can't inject shell.
+        # environment/phase/dry are choice/boolean.
         run: |
           set -uo pipefail
-          if [ "${{ inputs.dry }}" != "true" ]; then
-            TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+          if [ "${{ env.CENSUS_DRY }}" != "true" ]; then
+            TF="secrets/ottehr/terraform/${{ env.CENSUS_ENV }}.tfvars"
             [ -f "$TF" ] || { echo "::error::$TF not found — needed to provision the Practitioner-profile M2M"; exit 1; }
             OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
             OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
@@ -147,18 +152,18 @@ jobs:
             export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
           fi
           DRY=""
-          [ "${{ inputs.dry }}" = "true" ] && DRY="--dry"
+          [ "${{ env.CENSUS_DRY }}" = "true" ] && DRY="--dry"
           bash scripts/synthetic-patient-data/run-daily-census.sh \
-            --env "${{ inputs.environment }}" \
-            --count "$COUNT" \
-            --phase "${{ inputs.phase }}" \
+            --env "${{ env.CENSUS_ENV }}" \
+            --count "$CENSUS_COUNT" \
+            --phase "${{ env.CENSUS_PHASE }}" \
             $DRY
 
       - name: Upload census logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: census-logs-${{ inputs.environment }}
+          name: census-logs-${{ env.CENSUS_ENV }}
           path: scripts/synthetic-patient-data/.census-logs/
           retention-days: 7
           if-no-files-found: ignore
