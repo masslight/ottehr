@@ -195,6 +195,35 @@ export type UpdatePrescriptionQuickPickInput = QuickPickUpdateInput<Prescription
 export type UpdatePrescriptionQuickPickResponse = QuickPickUpdateResponse<PrescriptionQuickPickData>;
 export type GetPrescriptionQuickPicksResponse = QuickPickListResponse<PrescriptionQuickPickData>;
 
+// ── Prescription Sets ──
+
+export const PRESCRIPTION_SET_STATUSES = ['Active', 'Inactive'] as const;
+export type PrescriptionSetStatus = (typeof PRESCRIPTION_SET_STATUSES)[number];
+
+/** A member quick pick taken out of the set when it was removed, for the admin to review. */
+export interface PrescriptionSetRemovedMember {
+  name: string;
+  /** ISO date-time of the removal. */
+  removedAt: string;
+}
+
+/** Prescription quick picks ordered together. Each member's dosing stays on its quick pick. */
+export interface PrescriptionSetQuickPickData {
+  id?: string;
+  name: string;
+  status: PrescriptionSetStatus;
+  /** Prescription quick pick ids, in order. */
+  memberIds: string[];
+  /** Members removed since the set was last saved; cleared by saving it again. */
+  removedMembers?: PrescriptionSetRemovedMember[];
+}
+
+export type CreatePrescriptionSetQuickPickInput = QuickPickCreateInput<PrescriptionSetQuickPickData>;
+export type CreatePrescriptionSetQuickPickResponse = QuickPickCreateResponse<PrescriptionSetQuickPickData>;
+export type UpdatePrescriptionSetQuickPickInput = QuickPickUpdateInput<PrescriptionSetQuickPickData>;
+export type UpdatePrescriptionSetQuickPickResponse = QuickPickUpdateResponse<PrescriptionSetQuickPickData>;
+export type GetPrescriptionSetQuickPicksResponse = QuickPickListResponse<PrescriptionSetQuickPickData>;
+
 // ── Immunization Quick Picks ──
 
 export interface ImmunizationQuickPickData {

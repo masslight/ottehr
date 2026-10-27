@@ -8,6 +8,7 @@ import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/s
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import { Secrets } from 'utils/lib/secrets';
 import { QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
+import { PRESCRIPTION_SET_STATUSES } from 'utils/lib/types/api/quick-picks.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -24,6 +25,7 @@ import {
   MEDICATION_HISTORY_QUICK_PICK_CATEGORY,
   PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY,
   PRESCRIPTION_QUICK_PICK_CATEGORY,
+  PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
   PROCEDURE_QUICK_PICK_CATEGORY,
   QUICK_TEXT_QUICK_PICK_CATEGORY,
   RADIOLOGY_QUICK_PICK_CATEGORY,
@@ -143,6 +145,15 @@ const prescriptionQuickPickSchema = z
   })
   .passthrough();
 
+// A set is its prescription quick picks in order; their dosing stays on them.
+export const prescriptionSetQuickPickSchema = z
+  .object({
+    status: z.enum(PRESCRIPTION_SET_STATUSES),
+    memberIds: z.array(z.string().trim().min(1)).min(1, 'must have at least one prescription quick pick'),
+    removedMembers: z.array(z.object({ name: z.string(), removedAt: z.string().datetime() })).optional(),
+  })
+  .passthrough();
+
 const CATEGORIES: CategoryConfig[] = [
   { category: ALLERGY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
   { category: IMMUNIZATION_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
@@ -185,6 +196,13 @@ const CATEGORIES: CategoryConfig[] = [
     requiredStringFields: ['name'],
     validator: async (_oystehr, quickPick) => {
       safeValidate(prescriptionQuickPickSchema, quickPick);
+    },
+  },
+  {
+    category: PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
+    requiredStringFields: ['name'],
+    validator: async (_oystehr, quickPick) => {
+      safeValidate(prescriptionSetQuickPickSchema, quickPick);
     },
   },
   {
