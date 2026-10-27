@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, PaymentNotice } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import {
   DailyPaymentsReportZambdaOutput,
@@ -8,6 +9,7 @@ import {
 } from 'utils/lib/types/api/daily-payments-report.types';
 import {
   encounterIdForPaymentNotice,
+  fetchPaymentNoticeCounterparts,
   mergeBillingAndLegacyPaymentNotices,
   paymentMethodForNotice,
 } from '../../billing/patient-payments';
@@ -24,6 +26,10 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'daily-payments-report';
 // keeps the _id list of the location lookup within URL limits
 const ENCOUNTER_BATCH_SIZE = 100;
+
+const uniqueById = (notices: PaymentNotice[]): PaymentNotice[] => [
+  ...new Map(notices.map((notice) => [notice.id, notice])).values(),
+];
 
 // Helper function to parse string as number, defaulting to 0
 function parseAsNumber(value: any): number {
@@ -97,7 +103,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       .search<PaymentNotice>({ resourceType: 'PaymentNotice', params: createdParams })
       .then((bundle) => bundle.unbundle()),
   ]);
-  let paymentNotices = mergeBillingAndLegacyPaymentNotices(billingNotices, legacyNotices);
+  // The two halves of a payment recorded in both workspaces can carry created times on either side
+  // of a range boundary, so the window is applied to the merged payment, not to each half: otherwise
+  // the same payment would count on two adjacent reports.
+  const counterparts = await fetchPaymentNoticeCounterparts({
+    clinicalOystehr: oystehr,
+    billingOystehr,
+    billingNotices,
+    legacyNotices,
+  });
+  const rangeStart = DateTime.fromISO(dateRange.start).toMillis();
+  const rangeEnd = DateTime.fromISO(dateRange.end).toMillis();
+  let paymentNotices = mergeBillingAndLegacyPaymentNotices(
+    uniqueById([...billingNotices, ...counterparts.billing]),
+    uniqueById([...legacyNotices, ...counterparts.legacy])
+  ).filter((notice) => {
+    const created = DateTime.fromISO(notice.created ?? '').toMillis();
+    return created >= rangeStart && created <= rangeEnd;
+  });
   console.log(`Found ${paymentNotices.length} payment notices`);
 
   // If locationId filter is provided, filter payment notices by location

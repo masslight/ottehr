@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Identifier, PaymentNotice, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import {
   BILLING_RESOURCE_TAG,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -160,6 +161,65 @@ export const mergeBillingAndLegacyPaymentNotices = (
     (legacyNotice) => !billing.some((billingNotice) => shadowsLegacyNotice(billingNotice, legacyNotice))
   );
   return [...billing, ...unshadowedLegacy];
+};
+
+// keeps each counterpart OR list within URL limits
+const COUNTERPART_BATCH_SIZE = 100;
+
+const searchPaymentNoticesByValues = async (
+  oystehr: Oystehr,
+  name: string,
+  values: string[]
+): Promise<PaymentNotice[]> =>
+  (
+    await Promise.all(
+      chunkThings([...new Set(values)], COUNTERPART_BATCH_SIZE).map(async (batch) =>
+        (
+          await oystehr.fhir.search<PaymentNotice>({
+            resourceType: 'PaymentNotice',
+            params: [{ name, value: batch.join(',') }],
+          })
+        ).unbundle()
+      )
+    )
+  ).flat();
+
+/**
+ * The other half of each payment recorded in both workspaces. The billing copy is timestamped by
+ * the bridge or the webhook (Stripe's charge time), not when the EHR notice was written, so a
+ * search filtered by created date can return one half without the other. Readers scoped to a date
+ * window fetch the counterparts unfiltered, merge, then apply the window to the merged payment.
+ */
+export const fetchPaymentNoticeCounterparts = async (params: {
+  clinicalOystehr: Oystehr;
+  billingOystehr: Oystehr;
+  billingNotices: PaymentNotice[];
+  legacyNotices: PaymentNotice[];
+}): Promise<{ billing: PaymentNotice[]; legacy: PaymentNotice[] }> => {
+  const { clinicalOystehr, billingOystehr, billingNotices, legacyNotices } = params;
+  const bridgedLegacyIds = billingNotices
+    .flatMap((notice) => notice.identifier ?? [])
+    .filter((identifier) => identifier.system === CLINICAL_PAYMENT_NOTICE_ID_SYSTEM)
+    .map((identifier) => identifier.value ?? '')
+    .filter(Boolean);
+  const stripeToken = (id: string): string => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`;
+
+  const [legacyById, legacyByStripeId, billing] = await Promise.all([
+    searchPaymentNoticesByValues(clinicalOystehr, '_id', bridgedLegacyIds),
+    searchPaymentNoticesByValues(
+      clinicalOystehr,
+      'identifier',
+      billingNotices.flatMap(stripeIdsForPaymentNotice).map(stripeToken)
+    ),
+    searchPaymentNoticesByValues(billingOystehr, 'identifier', [
+      ...legacyNotices
+        .map((notice) => notice.id)
+        .filter((id): id is string => Boolean(id))
+        .map((id) => `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${id}`),
+      ...legacyNotices.flatMap(stripeIdsForPaymentNotice).map(stripeToken),
+    ]),
+  ]);
+  return { billing, legacy: [...legacyById, ...legacyByStripeId] };
 };
 
 // Patient payments for each encounter, keyed by encounter id.
