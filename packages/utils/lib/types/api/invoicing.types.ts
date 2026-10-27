@@ -1,12 +1,14 @@
 import { CodeableConcept, Coding, Task } from 'fhir/r4b';
 import z from 'zod';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from '../../fhir/systemUrls';
+import { InvoicePlaceholderInput } from '../../helpers/rcm/invoice-config';
 import { Secrets } from '../../secrets';
 
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
 export const EXPORT_INVOICES_ZAMBDA_KEY = 'export-invoices';
 export const CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY = 'create-invoice-tasks-for-billing-claims';
+export const PREPARE_BILLING_INVOICE_ZAMBDA_KEY = 'prepare-billing-invoice';
 export const EXPORT_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
 export const EXPORT_INVOICES_CSV_TASK_CODE = 'export-invoices-csv';
 export const EXPORT_INVOICES_CSV_TASK_SYSTEM = EXPORT_TASK_SYSTEM;
@@ -199,6 +201,21 @@ export type CreateInvoiceTasksForBillingClaimsValidatedInput = z.infer<
 export type CreateInvoiceTasksForBillingClaimsResponse = {
   created: number;
   skipped: number;
+};
+
+export const PrepareBillingInvoiceInputSchema = z.object({
+  encounterId: z.string().uuid(),
+});
+export type PrepareBillingInvoiceInput = z.infer<typeof PrepareBillingInvoiceInputSchema>;
+export type PrepareBillingInvoiceResponse = {
+  // The clinical patient, for the Stripe invoice metadata.
+  patientId: string;
+  stripeCustomerId: string;
+  stripeAccount?: string;
+  // Due dates are converted to Stripe timestamps in this zone.
+  timezone: string;
+  // Visit details for the templates. Amount, due date and invoice link are filled in by the caller.
+  placeholders: InvoicePlaceholderInput;
 };
 
 export type ExportInvoicesCsvKickOffResponse = { taskId: string };
