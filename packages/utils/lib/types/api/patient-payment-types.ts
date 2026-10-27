@@ -187,8 +187,8 @@ interface CardPayment {
 
 interface CashPayment {
   // terminal fallback external card reader payments are treated like cash/check because we have no direct processor link in this flow;
-  // 'other' is collected somewhere the billing app cannot name (a manual billing payment, a Stripe invoice paid out of band)
-  paymentMethod: 'cash' | 'check' | 'card-reader' | 'external-card-reader' | 'other';
+  // 'other' payments are read-only here (see CashPaymentDTO): the EHR cannot record one
+  paymentMethod: 'cash' | 'check' | 'card-reader' | 'external-card-reader';
   amountInCents: number;
   description?: string;
   // See CardPayment.idempotencyKey.

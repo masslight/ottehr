@@ -24,7 +24,7 @@ import { getFullName, getPatientAddress, getPhoneNumberForIndividual } from 'uti
 import { formatZipcodeForDisplay, removePrefix } from 'utils/lib/helpers/helpers';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
+import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
 import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import {
@@ -43,7 +43,8 @@ import { ImageStyle, PdfClientStyles, TextStyle } from './types';
 
 interface PaymentData {
   amount: number;
-  method: CashOrCardPayment['paymentMethod'];
+  // any recorded payment, including 'other' ones the EHR cannot submit
+  method: PatientPaymentDTO['paymentMethod'];
   paymentDate?: string;
   last4?: string;
   brand?: string;
@@ -310,7 +311,7 @@ export async function parsePaymentsList(
       const stripeCardDetails = getStripeCardDetails(stripeMethod);
 
       const amount = paymentNotice.amount.value;
-      const method = paymentMethodForNotice(paymentNotice) as CashOrCardPayment['paymentMethod'];
+      const method = paymentMethodForNotice(paymentNotice) as PatientPaymentDTO['paymentMethod'];
 
       if (!amount) throw new Error('No amount found');
       return {
