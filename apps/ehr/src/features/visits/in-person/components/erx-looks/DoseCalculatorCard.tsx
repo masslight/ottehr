@@ -36,6 +36,8 @@ export interface DoseResult {
   roundingNote?: string;
   /** "= 750 mg • 1500 mg/day". */
   detail?: string;
+  /** Under the sentence, in orange text: "Capped at the 500 mg maximum (703 mg by weight)". */
+  capNote?: string;
 }
 
 /** One line of a band, course or pack: "Day 1: **7 mL** once daily (10 mg/kg)". */
@@ -59,6 +61,8 @@ export interface DoseWarningBox {
   /** Red (contraindicated) or orange (a caution, in the source's words). */
   severity: 'error' | 'warning';
   lines: string[];
+  /** Behind an ⓘ after the lines: where the warning's limit is from. */
+  info?: ReactNode[];
 }
 
 export interface DoseSourceLine {
@@ -166,10 +170,25 @@ const Fields: FC<{
   </Box>
 );
 
-/** An ⓘ that shows its lines on hover or focus: the working behind a dose, or how far a re-measured dose is off. */
+/** "Source: AAP Red Book", the label a link when there is a URL; for a line behind an ⓘ. */
+export const SourceText: FC<{ source: { label: string; url?: string } }> = ({ source }) => (
+  <>
+    Source:{' '}
+    {source.url ? (
+      <Link href={source.url} target="_blank" rel="noopener noreferrer" sx={{ color: 'inherit' }}>
+        {source.label}
+      </Link>
+    ) : (
+      source.label
+    )}
+  </>
+);
+
+/** An ⓘ that shows its lines on hover or focus: the working behind a dose, or how far a re-measured dose is off. A
+ * line may hold a link (a source), which the hover stays open to click. */
 export const DoseInfoHover: FC<{
   label: string;
-  lines: string[];
+  lines: ReactNode[];
   testId?: string;
   /** Sized as a small icon button (16px icon, 2px padding), to sit beside one rather than in a sentence. */
   asButton?: boolean;
@@ -177,8 +196,8 @@ export const DoseInfoHover: FC<{
   <Tooltip
     title={
       <Box data-testid={testId} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-        {lines.map((line) => (
-          <div key={line}>{line}</div>
+        {lines.map((line, i) => (
+          <div key={i}>{line}</div>
         ))}
       </Box>
     }
@@ -219,8 +238,19 @@ const ResultDisplay: FC<{ result: DoseResult }> = ({ result }) => {
         fontVariantNumeric: 'tabular-nums',
       }}
     >
-      <Box component="span" data-testid="dose-sentence" sx={{ flex: 1, minWidth: 0 }}>
-        {result.sentence}
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        <Box component="span" data-testid="dose-sentence">
+          {result.sentence}
+        </Box>
+        {result.capNote && (
+          <Box
+            component="span"
+            data-testid="dose-cap"
+            sx={{ fontSize: 12.5, fontWeight: 400, color: otherColors.warningText }}
+          >
+            {result.capNote}
+          </Box>
+        )}
       </Box>
       {notes.length > 0 && <DoseInfoHover label="How this dose was worked out" lines={notes} testId="dose-working" />}
     </Box>
@@ -241,13 +271,14 @@ const StepLines: FC<{ steps: DoseStepLine[] }> = ({ steps }) => (
   </Box>
 );
 
-const WarningBoxes: FC<{ warnings: DoseWarningBox[] }> = ({ warnings }) => (
+/** The red and orange boxes: the calculator's, and the line's maximum warnings under its dose sentence. */
+export const DoseWarningBoxes: FC<{ warnings: DoseWarningBox[] }> = ({ warnings }) => (
   <>
-    {warnings.map(({ severity, lines }) => {
+    {warnings.map(({ severity, lines, info }, i) => {
       const red = severity === 'error';
       return (
         <Box
-          key={severity}
+          key={i}
           data-testid={`dose-warnings-${severity}`}
           sx={{
             borderLeft: 4,
@@ -269,6 +300,9 @@ const WarningBoxes: FC<{ warnings: DoseWarningBox[] }> = ({ warnings }) => (
               ))}
             </Box>
           )}
+          {info?.length ? (
+            <DoseInfoHover label="Where this maximum is from" lines={info} testId="warning-info" />
+          ) : null}
         </Box>
       );
     })}
@@ -357,7 +391,7 @@ const LookBody: FC<{
         </>
       );
     case 'noDose':
-      return <WarningBoxes warnings={[{ severity: 'warning', lines: [display.reason] }]} />;
+      return <DoseWarningBoxes warnings={[{ severity: 'warning', lines: [display.reason] }]} />;
   }
 };
 
@@ -410,7 +444,7 @@ export const DoseCalculatorCard: FC<DoseCalculatorCardProps> = ({
         </Box>
       )}
       <LookBody display={display} readOnly={readOnly} onFieldChange={onFieldChange} onChoiceChange={onChoiceChange} />
-      <WarningBoxes warnings={warnings} />
+      <DoseWarningBoxes warnings={warnings} />
       {source && (
         <Box sx={SMALL_SX} data-testid="dose-sources">
           Source:{' '}

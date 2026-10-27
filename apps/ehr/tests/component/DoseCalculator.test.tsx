@@ -94,6 +94,30 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('says under the result when a maximum caps the dose, per dose or per day, and keeps the working behind the ⓘ', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0])} weight={WEIGHT} />);
+    const calculator = await openCalculator(user);
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '90');
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
+    expect(within(calculator).queryByTestId('dose-cap')).not.toBeInTheDocument();
+    // 28.12 kg × 90 mg/kg/day = 2,530.8 mg a day: over 1,000 mg a day, so 500 mg a dose = 2 capsules.
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'maximum per day' }), '1000');
+    expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 2 capsules by mouth twice daily.');
+    expect(within(calculator).getByTestId('dose-cap')).toHaveTextContent(
+      'Capped at the 1,000 mg a day maximum (2,530.8 mg a day by weight)'
+    );
+    // The per-dose maximum is the lower one now.
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' }), '250');
+    expect(within(calculator).getByTestId('dose-cap')).toHaveTextContent(
+      'Capped at the 250 mg maximum (1,265.4 mg by weight)'
+    );
+    await user.hover(screen.getByRole('img', { name: 'How this dose was worked out' }));
+    expect(await screen.findByTestId('dose-working')).toHaveTextContent(
+      '28.12 kg × 90 mg/kg/day ÷ 2 = 1265.4 mg → capped at 250 mg per dose → 1 capsule = 250 mg'
+    );
+  });
+
   it('keeps the line’s frequency unless the doses a day were typed', () => {
     const line = withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
       frequency: 'every 8 hours as needed',

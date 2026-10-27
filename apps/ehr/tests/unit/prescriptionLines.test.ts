@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyPrescriptionQuickPick,
   emptyPrescriptionLine,
+  maximumWarnings,
   pickedStrength,
   PrescriptionLine,
   prescriptionLineErrors,
@@ -592,5 +593,59 @@ describe('withCalculatorDosing', () => {
     const course = { ...dosed, steps: [{ dose: '1', frequency: 'once daily', durationDays: '2' }] };
     expect(prescriptionLineToQuickPick(course, 'Course')).not.toHaveProperty('dosing');
     expect(prescriptionLineToQuickPick(dosed, 'Dosed').dosing).toEqual({ ...dosed.dosing, frequency: 'twice daily' });
+  });
+});
+
+describe('maximumWarnings', () => {
+  const liquid = (patch: Partial<PrescriptionLine>): PrescriptionLine => ({
+    ...emptyPrescriptionLine(),
+    medication: { ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' },
+    maximum: { maxPerDoseMg: 500, maxPerDayMg: 1000, from: 'calculator' },
+    ...patch,
+  });
+
+  it('warns per dose and per day from the dose in mg and the frequency’s doses a day', () => {
+    expect(maximumWarnings(liquid({ dose: '10', frequency: 'twice daily' }))).toEqual([
+      { blank: 'dose', text: '800 mg per dose is above the 500 mg maximum.' },
+      { blank: 'frequency', text: '1,600 mg a day is above the 1,000 mg a day maximum.' },
+    ]);
+    // At the maximum is not above it.
+    expect(maximumWarnings(liquid({ dose: '6.25', frequency: 'twice daily' }))).toEqual([]);
+    // An as-needed frequency with a count still counts its doses.
+    expect(maximumWarnings(liquid({ dose: '6', frequency: 'every 6 hours as needed' }))).toEqual([
+      { blank: 'frequency', text: '1,920 mg a day is above the 1,000 mg a day maximum.' },
+    ]);
+  });
+
+  it('has nothing to say without a maximum, a dose, a count of doses, or a form measured in mg', () => {
+    expect(maximumWarnings(liquid({ dose: '10', maximum: undefined }))).toEqual([]);
+    expect(maximumWarnings(liquid({ dose: '' }))).toEqual([]);
+    expect(maximumWarnings(liquid({ dose: '6', frequency: 'as needed' }))).toEqual([]);
+    expect(
+      maximumWarnings(
+        liquid({ dose: '20', medication: { ndc: '00054074287', description: 'Albuterol 90 mcg/puff MDI' } })
+      )
+    ).toEqual([]);
+  });
+
+  it('goes with a new drug or strength', () => {
+    const line = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[0]);
+    const maxed = { ...line, maximum: { maxPerDoseMg: 500, from: 'calculator' as const } };
+    expect(withProduct(maxed, AMOXICILLIN, AMOXICILLIN.strengths[1]).maximum).toBeUndefined();
+    expect(withDrug(maxed, AMOXICILLIN).maximum).toBeUndefined();
+    // The same strength again keeps it.
+    expect(withProduct(maxed, AMOXICILLIN, AMOXICILLIN.strengths[0]).maximum).toEqual(maxed.maximum);
+  });
+
+  it('outlives a dose typed over the calculator’s, which drops the settings', () => {
+    const line = {
+      ...emptyPrescriptionLine(),
+      dose: '6',
+      dosing: { rate: 25, basis: 'mg/kg/dose' as const, maxPerDoseMg: 500 },
+      maximum: { maxPerDoseMg: 500, from: 'calculator' as const },
+    };
+    const typed = withCalculatorDosing(line, { dose: '10' }, 28.12);
+    expect(typed.dosing).toBeUndefined();
+    expect(typed.maximum).toEqual(line.maximum);
   });
 });

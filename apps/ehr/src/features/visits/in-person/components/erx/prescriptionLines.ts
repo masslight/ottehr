@@ -1,5 +1,11 @@
 import { DateTime } from 'luxon';
-import { DoseMeasure, doseRoundingNote, nearestMeasurable, plainDose } from 'utils/lib/helpers/medications/plain-dose';
+import {
+  DoseMeasure,
+  doseRoundingNote,
+  mgText as warningMg,
+  nearestMeasurable,
+  plainDose,
+} from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseAmountText,
   parseStrengthConcentration,
@@ -21,7 +27,11 @@ import {
   PharmacySearchResult,
 } from 'utils/lib/types/api/erx-search.types';
 import { OrderPrescriptionInput, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
-import { PrescriptionQuickPickData, PrescriptionQuickPickDosing } from 'utils/lib/types/api/quick-picks.types';
+import {
+  PrescriptionQuickPickData,
+  PrescriptionQuickPickDosing,
+  PrescriptionQuickPickSource,
+} from 'utils/lib/types/api/quick-picks.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { z } from 'zod';
 
@@ -62,7 +72,76 @@ export interface PrescriptionLine extends PrescriptionDirections {
   /** The calculator's settings while the dose is the one its "Use this dose" wrote; a quick pick saved from the line
    * keeps them. Gone once the dose is typed by hand or the product changes. */
   dosing?: CalculatorDosing;
+  /** The maximum the calculator or a quick pick brought, for the warnings only. It outlives a dose typed by hand (the
+   * dosing doesn't), is never saved with a quick pick, and goes with the drug or strength. */
+  maximum?: LineMaximum;
 }
+
+/** Where a line's maximum came from: the dose calculator, or a quick pick by name (with its source, if it has one). */
+export type MaximumOrigin = 'calculator' | { quickPick: string; source?: PrescriptionQuickPickSource };
+
+export interface LineMaximum {
+  maxPerDoseMg?: number;
+  maxPerDayMg?: number;
+  from: MaximumOrigin;
+}
+
+/** The maxima of the calculator's settings, if it has any, as the line keeps them. */
+export const lineMaximumOf = (
+  dosing: Pick<PrescriptionQuickPickDosing, 'maxPerDoseMg' | 'maxPerDayMg'> | undefined,
+  from: MaximumOrigin
+): LineMaximum | undefined =>
+  dosing?.maxPerDoseMg === undefined && dosing?.maxPerDayMg === undefined
+    ? undefined
+    : {
+        ...(dosing.maxPerDoseMg !== undefined ? { maxPerDoseMg: dosing.maxPerDoseMg } : {}),
+        ...(dosing.maxPerDayMg !== undefined ? { maxPerDayMg: dosing.maxPerDayMg } : {}),
+        from,
+      };
+
+/** A line's dose over its maximum: orange, never blocking. `blank` is the one to outline. */
+export interface MaximumWarning {
+  blank: 'dose' | 'frequency';
+  text: string;
+}
+
+/** "800 mg per dose is above the 500 mg maximum." / "1,920 mg a day is above the 1,000 mg a day maximum.", for the
+ * first step's dose in mg (a measured form only) and, where the frequency gives a count, its doses a day. */
+export const maximumWarnings = (line: PrescriptionLine): MaximumWarning[] => {
+  const { maximum } = line;
+  const description = line.medication?.description ?? '';
+  const form = prescriptionDoseForm(description);
+  const mg = form && MEASURE_OF[form] ? mgPerMeasure(description) : undefined;
+  const dose = numberOrUndefined(line.dose);
+  if (!maximum || !mg || !dose || dose <= 0) return [];
+  const perDose = roundNumberToDecimalPlaces(dose * mg, 2);
+  const dosesPerDay = PRESCRIPTION_FREQUENCIES[line.frequency]?.dosesPerDay;
+  const perDay = dosesPerDay === undefined ? undefined : roundNumberToDecimalPlaces(perDose * dosesPerDay, 2);
+  const over = (amount: number | undefined, max: number | undefined): max is number =>
+    amount !== undefined && max !== undefined && amount > max + 1e-9;
+  return [
+    ...(over(perDose, maximum.maxPerDoseMg)
+      ? [
+          {
+            blank: 'dose' as const,
+            text: `${warningMg(perDose)} per dose is above the ${warningMg(maximum.maxPerDoseMg)} maximum.`,
+          },
+        ]
+      : []),
+    ...(perDay !== undefined && over(perDay, maximum.maxPerDayMg)
+      ? [
+          {
+            blank: 'frequency' as const,
+            text: `${warningMg(perDay)} a day is above the ${warningMg(maximum.maxPerDayMg)} a day maximum.`,
+          },
+        ]
+      : []),
+  ];
+};
+
+/** What the warning's ⓘ says the maximum is from. */
+export const maximumOriginText = (from: MaximumOrigin): string =>
+  from === 'calculator' ? 'From the dose calculator' : `From the quick pick: ${from.quickPick}`;
 
 /** What the calculator worked the dose out from; the frequency and duration are the line's own. */
 export type CalculatorDosing = Omit<PrescriptionQuickPickDosing, 'frequency' | 'durationDays'>;
@@ -260,6 +339,7 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
       ...withoutQuickPick(line),
       doseNotes: undefined,
       dosing: undefined,
+      maximum: undefined,
     },
     {}
   );
@@ -284,7 +364,7 @@ export const withProduct = (
     quantityUnit: prescriptionQuantityUnit(medication.description) ?? line.quantityUnit,
     route: prescriptionRoute(medication.description) ?? line.route,
     ...(otherDrug ? NO_DIRECTIONS : {}),
-    ...(changed ? { patientInstructions: '', ...withoutQuickPick(line), dosing: undefined } : {}),
+    ...(changed ? { patientInstructions: '', ...withoutQuickPick(line), dosing: undefined, maximum: undefined } : {}),
   };
   if (!changed || otherDrug || from === undefined) return withDirections({ ...next, doseNotes: undefined }, {});
   const first = remeasured(line.dose, from, next);
@@ -311,6 +391,7 @@ export const withSuggestion = (
   ...NO_DIRECTIONS,
   ...fields,
   dosing: undefined,
+  maximum: undefined,
   quantityUnit: fields.quantityUnit || line.quantityUnit,
   // Refills are the provider's: a suggestion has none of its own.
   numberOfRefills: line.numberOfRefills,
@@ -449,6 +530,7 @@ export const applyPrescriptionQuickPick = (
     generated: NOTHING_GENERATED,
     // Its directions are text written for whoever it was saved from: not the calculator's for this patient.
     dosing: undefined,
+    maximum: undefined,
   };
   return {
     ...applied,

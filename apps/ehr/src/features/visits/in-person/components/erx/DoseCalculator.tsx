@@ -16,6 +16,7 @@ import { DoseCalculatorCard, DoseCalculatorDisplay, DoseField } from '../erx-loo
 import { DoseCalculatorPopup } from '../erx-looks/DoseCalculatorPopup';
 import {
   CalculatorDosing,
+  lineMaximumOf,
   MEASURE_OF,
   mgPerMeasure,
   numberOrUndefined,
@@ -116,7 +117,7 @@ export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLi
         : {}),
     }
   );
-  return { ...next, dosing: fill.dosing };
+  return { ...next, dosing: fill.dosing, maximum: lineMaximumOf(fill.dosing, 'calculator') };
 };
 
 interface DoseCalculatorProps {
@@ -265,6 +266,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
           sentence: prescriptionDirectionsText(description, withDose(line, fill)),
           working: dose?.working,
           roundingNote: dose?.roundingNote,
+          capNote: dose?.capNote,
         },
       }
     : {

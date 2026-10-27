@@ -34,13 +34,15 @@ import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescrip
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useSearchMedications } from '../../../shared/hooks/useErxSearch';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
-import { DoseInfoHover } from '../erx-looks/DoseCalculatorCard';
+import { DoseInfoHover, DoseWarningBoxes, SourceText } from '../erx-looks/DoseCalculatorCard';
 import { ErxSuggestionsBox } from '../erx-looks/ErxSuggestionsBox';
 import { BlankButton, PopoverBlank, SelectBlank, Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
 import { DoseCalculator } from './DoseCalculator';
 import {
   DoseNote,
   emptyPrescriptionStep,
+  maximumOriginText,
+  maximumWarnings,
   pickedStrength,
   PrescriptionLine,
   prescriptionQuickPickLabel,
@@ -369,6 +371,18 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     const { patientInstructions, quantityValue, daysSupply } = used;
     return row.calculator ? used : { ...used, generated: { patientInstructions, quantityValue, daysSupply } };
   };
+  // A dose over the maximum the line carries: orange under the dose sentence, its blank outlined; never blocks.
+  const warnings = maximumWarnings(line);
+  const warns = (blank: 'dose' | 'frequency'): boolean => warnings.some((warning) => warning.blank === blank);
+  const maximumFrom = line.maximum?.from;
+  const warningInfo: ReactNode[] = maximumFrom
+    ? [
+        maximumOriginText(maximumFrom),
+        ...(maximumFrom !== 'calculator' && maximumFrom.source
+          ? [<SourceText key="source" source={maximumFrom.source} />]
+          : []),
+      ]
+    : [];
 
   /** Shown while the step's dose is as a strength change re-measured it: an ⓘ with how. */
   const doseInfo = (step: PrescriptionStep, at: string, doseNote: DoseNote | undefined): ReactNode =>
@@ -408,6 +422,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         readOnly={readOnly}
         min={0}
         step={0.5}
+        warn={at === '' && warns('dose')}
       />
       {doseUnit && ` ${doseUnitLabel(doseUnit, Number(step.dose) || undefined)}`}
       {/* A later step's ⓘ follows its dose; the first step's leads its sentence, by the calculator. */}
@@ -419,6 +434,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         value={step.frequency || undefined}
         onChange={(value) => onStep({ frequency: value ?? '' })}
         readOnly={readOnly}
+        warn={at === '' && warns('frequency')}
       />{' '}
       for{' '}
       <TextBlank
@@ -702,6 +718,11 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
             )}
             {line.steps.length === 0 ? courseEnd : '.'}
           </Sentence>
+          {warnings.length > 0 && (
+            <DoseWarningBoxes
+              warnings={warnings.map((warning) => ({ severity: 'warning', lines: [warning.text], info: warningInfo }))}
+            />
+          )}
           {line.steps.map((step, i) => (
             <Sentence
               key={i}

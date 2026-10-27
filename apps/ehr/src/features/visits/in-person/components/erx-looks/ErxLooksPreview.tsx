@@ -1,11 +1,17 @@
 import { Calculate } from '@mui/icons-material';
 import { Box, Typography } from '@mui/material';
 import { FC, ReactNode, useState } from 'react';
-import { Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
-import { DoseCalculatorCard } from './DoseCalculatorCard';
+import { SelectBlank, Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
+import { DoseCalculatorCard, DoseWarningBoxes, SourceText } from './DoseCalculatorCard';
 import { DoseCalculatorPopup } from './DoseCalculatorPopup';
 import { ErxSuggestionsBox } from './ErxSuggestionsBox';
-import { CALCULATOR_LOOKS, SampleLook, SUGGESTION_LOOKS } from './sampleLooks';
+import {
+  CALCULATOR_LOOKS,
+  MAXIMUM_WARNING_LOOKS,
+  MaximumWarningLook,
+  SampleLook,
+  SUGGESTION_LOOKS,
+} from './sampleLooks';
 
 /** Local-only page (/erx-looks) showing every suggestions-box and dose-calculator look with sample props, including
  * the looks the order form can't reach without dosing data. */
@@ -108,6 +114,57 @@ const LiveLine: FC = () => {
   );
 };
 
+const noop = (): void => undefined;
+const AMOXICILLIN_LIQUID_NAME = 'Amoxicillin 400 mg/5 mL';
+
+/** A line over its maximum, as the order form shows it: the blank outlined, the warning under the sentence. */
+const MaximumWarningSample: FC<{ look: MaximumWarningLook }> = ({ look }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Box sx={{ backgroundColor: 'common.white', border: '1px solid #DFE5E9', borderRadius: '8px', p: 1.75 }}>
+      <Sentence>
+        <b>Prescription 1:</b>{' '}
+        <Box component="span" sx={{ color: 'primary.dark', fontWeight: 500 }}>
+          {AMOXICILLIN_LIQUID_NAME}
+        </Box>
+        .
+      </Sentence>
+      <Sentence>
+        <CalculatorIcon />
+        Take{' '}
+        <TextBlank
+          label="dose"
+          kind="number"
+          value={look.dose}
+          onChange={noop}
+          readOnly={false}
+          warn={look.warn === 'dose'}
+        />{' '}
+        mL by mouth{' '}
+        <SelectBlank
+          label="frequency"
+          options={[look.frequency]}
+          value={look.frequency}
+          onChange={noop}
+          readOnly={false}
+          warn={look.warn === 'frequency'}
+        />{' '}
+        for 10 days.
+      </Sentence>
+    </Box>
+    <DoseWarningBoxes
+      warnings={[
+        {
+          ...look.warning,
+          info: [
+            ...(look.warning.info ?? []),
+            ...(look.source ? [<SourceText key="source" source={look.source} />] : []),
+          ],
+        },
+      ]}
+    />
+  </Box>
+);
+
 /** The icon that starts a suggestion row's sentence, as a look. */
 const CalculatorIcon: FC = () => (
   <Box
@@ -162,6 +219,13 @@ export const ErxLooksPreview: FC = () => (
             ) : (
               <ErxSuggestionsBox {...props} />
             )}
+          </Look>
+        ))}
+      </Section>
+      <Section title="Maximum warnings on the line (orange, never block sending)">
+        {MAXIMUM_WARNING_LOOKS.map((look) => (
+          <Look key={look.title} tag={look.tag} title={look.title} wide>
+            <MaximumWarningSample look={look} />
           </Look>
         ))}
       </Section>

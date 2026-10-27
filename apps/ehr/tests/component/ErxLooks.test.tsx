@@ -1,10 +1,12 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { DoseCalculatorCard } from '../../src/features/visits/in-person/components/erx-looks/DoseCalculatorCard';
+import { ErxLooksPreview } from '../../src/features/visits/in-person/components/erx-looks/ErxLooksPreview';
 import { ErxSuggestionsBox } from '../../src/features/visits/in-person/components/erx-looks/ErxSuggestionsBox';
 import {
   CALCULATOR_LOOKS,
+  MAXIMUM_WARNING_LOOKS,
   SUGGESTION_LOOKS,
 } from '../../src/features/visits/in-person/components/erx-looks/sampleLooks';
 
@@ -143,4 +145,40 @@ describe('dose calculator looks', () => {
     expect(screen.getByTestId('dose-warnings-warning')).toHaveTextContent('Picked by hand for a patient outside it.');
     expect(screen.getByTestId('dose-sources')).toHaveTextContent('Source: AAP EQIPP dosage table · max 2 g/dose');
   });
+});
+
+describe('maximum looks', () => {
+  it('a quick pick row with a source: the source after its name behind the ⓘ, as a link', async () => {
+    render(<ErxSuggestionsBox {...suggestionLook('Quick pick with a source')} />);
+    await userEvent.setup().hover(screen.getByRole('img', { name: 'How this dose was worked out' }));
+    const info = await screen.findByTestId('suggestion-info');
+    expect(info.children[0]).toHaveTextContent('Quick pick: Amox strep, twice daily');
+    expect(info.children[1]).toHaveTextContent('Source: Sample guideline');
+    expect(within(info).getByRole('link', { name: 'Sample guideline' })).toHaveAttribute(
+      'href',
+      'https://example.org/guideline'
+    );
+  });
+
+  it('the calculator says under the result when a maximum caps it', () => {
+    render(<DoseCalculatorCard {...calculatorLook('Calc 9')} />);
+    expect(screen.getByTestId('dose-result')).toHaveTextContent('Take 6 mL by mouth twice daily for 10 days.');
+    expect(screen.getByTestId('dose-cap')).toHaveTextContent('Capped at the 500 mg maximum (703 mg by weight)');
+  });
+
+  it.each(MAXIMUM_WARNING_LOOKS.map((look) => [look.title, look] as const))(
+    'line warning: %s, its blank outlined, where the maximum is from behind the ⓘ',
+    async (_title, look) => {
+      render(<ErxLooksPreview />);
+      const warning = screen.getByText(look.warning.lines[0]);
+      const sample = warning.closest('[data-testid="dose-warnings-warning"]')!.parentElement!;
+      const outlined = sample.querySelectorAll('[data-warn="true"]');
+      expect(outlined).toHaveLength(1);
+      expect(outlined[0]).toHaveAccessibleName(look.warn === 'dose' ? 'dose' : `frequency: ${look.frequency}`);
+      await userEvent.setup().hover(within(sample).getByRole('img', { name: 'Where this maximum is from' }));
+      const info = await screen.findByTestId('warning-info');
+      expect(info.children[0]).toHaveTextContent(look.warning.info?.[0] as string);
+      if (look.source) expect(within(info).getByRole('link', { name: look.source.label })).toBeInTheDocument();
+    }
+  );
 });

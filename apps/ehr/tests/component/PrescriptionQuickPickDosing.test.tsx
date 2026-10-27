@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   emptyPrescriptionLine,
   PrescriptionLine,
+  prescriptionLineErrors,
   prescriptionLineToQuickPick,
   quickPickDosingText,
   withDirections,
@@ -497,5 +498,132 @@ describe('The "+ quick pick" list', () => {
       frequency: 'three times daily',
       durationDays: 10,
     });
+  });
+});
+
+describe('Maximum warnings on the line', () => {
+  const SOURCE = { label: 'AAP Red Book', url: 'https://publications.aap.org/redbook' };
+  // 25 mg/kg per dose twice daily, max 500 mg a dose and 1,000 mg a day, with a source.
+  const MAXED: PrescriptionQuickPickData = {
+    ...BY_WEIGHT,
+    id: 'qp-maxed',
+    name: 'Amox strep, twice daily',
+    dosing: { ...BY_WEIGHT.dosing!, maxPerDoseMg: 500, maxPerDayMg: 1000 },
+    source: SOURCE,
+  };
+  const LISTED_MAXED = { ...MAXED, medicationDescription: PRODUCT.description };
+
+  const choose = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
+    await user.click(screen.getByRole('button', { name: '+ quick pick (empty)' }));
+    await user.click(within(screen.getByRole('listbox', { name: 'Quick pick' })).getByText(label));
+  };
+  const typeDose = async (user: ReturnType<typeof userEvent.setup>, dose: string): Promise<void> => {
+    await user.clear(screen.getByRole('spinbutton', { name: 'dose' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), dose);
+  };
+  const warningInfo = async (user: ReturnType<typeof userEvent.setup>, index = 0): Promise<HTMLElement> => {
+    await user.hover(screen.getAllByRole('img', { name: 'Where this maximum is from' })[index]);
+    return screen.findByTestId('warning-info');
+  };
+
+  it('shows the quick pick’s source after its name behind the row’s ⓘ, as a link', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={liquidLine()} quickPicks={[MAXED]} weight={WEIGHT} />);
+    const info = await hoverInfo(user, suggestionRow(0));
+    expect(info.children[0]).toHaveTextContent(/^Quick pick: Amox strep, twice daily$/);
+    expect(info.children[1]).toHaveTextContent(/^Source: AAP Red Book$/);
+    expect(within(info).getByRole('link', { name: 'AAP Red Book' })).toHaveAttribute('href', SOURCE.url);
+  });
+
+  it('no warning while the capped dose is under the maximum; a typed dose over it warns, with where the maximum is from', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED_MAXED]} weight={WEIGHT} />);
+    await choose(user, 'Amox strep, twice daily, 120 milliliter');
+    // Capped at 500 mg: 6 mL = 480 mg.
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(6);
+    expect(screen.queryByTestId('dose-warnings-warning')).not.toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).not.toHaveAttribute('data-warn');
+
+    await typeDose(user, '10');
+    // 10 mL = 800 mg a dose; 1,600 mg a day is over its maximum too. Each warning outlines its blank.
+    const warnings = screen.getAllByTestId('dose-warnings-warning');
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toHaveTextContent('800 mg per dose is above the 500 mg maximum.');
+    expect(warnings[1]).toHaveTextContent('1,600 mg a day is above the 1,000 mg a day maximum.');
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveAttribute('data-warn', 'true');
+    expect(screen.getByRole('button', { name: 'frequency: twice daily' })).toHaveAttribute('data-warn', 'true');
+    // The typed dose drops the settings but keeps the maximum, for the warnings only.
+    expect(latest?.dosing).toBeUndefined();
+    expect(latest?.maximum).toEqual({
+      maxPerDoseMg: 500,
+      maxPerDayMg: 1000,
+      from: { quickPick: 'Amox strep, twice daily', source: SOURCE },
+    });
+    const info = await warningInfo(user);
+    expect(info.children[0]).toHaveTextContent(/^From the quick pick: Amox strep, twice daily$/);
+    expect(within(info).getByRole('link', { name: 'AAP Red Book' })).toHaveAttribute('href', SOURCE.url);
+    // Never blocks sending.
+    expect(prescriptionLineErrors(latest!)).toEqual([]);
+    // A quick pick saved from the line keeps no dosing or maximum: the dose is the provider's own.
+    const saved = prescriptionLineToQuickPick(latest!, 'Mine');
+    expect(saved).not.toHaveProperty('dosing');
+    expect(JSON.stringify(saved)).not.toMatch(/max/);
+  });
+
+  it('a frequency that takes the day over its maximum warns per day and outlines the frequency', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} quickPicks={[LISTED_MAXED]} weight={WEIGHT} />);
+    await choose(user, 'Amox strep, twice daily, 120 milliliter');
+    await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
+    await user.click(screen.getByRole('option', { name: 'four times daily' }));
+    // 6 mL = 480 mg a dose, × 4 = 1,920 mg a day.
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(6);
+    const warnings = screen.getAllByTestId('dose-warnings-warning');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toHaveTextContent('1,920 mg a day is above the 1,000 mg a day maximum.');
+    expect(screen.getByRole('button', { name: 'frequency: four times daily' })).toHaveAttribute('data-warn', 'true');
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).not.toHaveAttribute('data-warn');
+    // As needed without a count of doses: no per-day warning.
+    await user.click(screen.getByRole('button', { name: 'frequency: four times daily' }));
+    await user.click(screen.getByRole('option', { name: 'as needed' }));
+    expect(screen.queryByTestId('dose-warnings-warning')).not.toBeInTheDocument();
+  });
+
+  it('a maximum from the dose calculator says so; a new strength or drug clears it', async () => {
+    const user = userEvent.setup();
+    const initial = withDirections(liquidLine(), { frequency: 'twice daily', durationDays: '10' });
+    render(<Harness initial={initial} weight={WEIGHT} />);
+    await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
+    const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
+    await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
+    await user.click(screen.getByRole('option', { name: 'dose' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '25');
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' }), '500');
+    // The cap is said under the result, not only in the hover.
+    expect(within(calculator).getByTestId('dose-cap')).toHaveTextContent(
+      'Capped at the 500 mg maximum (703 mg by weight)'
+    );
+    await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
+    expect(screen.queryByTestId('dose-warnings-warning')).not.toBeInTheDocument();
+    await typeDose(user, '7');
+    expect(screen.getByTestId('dose-warnings-warning')).toHaveTextContent(
+      '560 mg per dose is above the 500 mg maximum.'
+    );
+    expect(await warningInfo(user)).toHaveTextContent(/^From the dose calculator$/);
+
+    // A new strength: the line waits for a pick, and the maximum is gone.
+    await user.click(screen.getByRole('button', { name: /^strength: / }));
+    await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
+    expect(latest?.maximum).toBeUndefined();
+  });
+
+  it('no maximum on the line: no warning, whatever the dose', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={emptyPrescriptionLine()} quickPicks={[{ ...LISTED_MAXED, dosing: undefined }]} />);
+    await choose(user, 'Amox strep, twice daily, 120 milliliter');
+    await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'four times daily' }));
+    await typeDose(user, '20');
+    expect(screen.queryByTestId('dose-warnings-warning')).not.toBeInTheDocument();
   });
 });

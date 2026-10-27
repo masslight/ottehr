@@ -21,6 +21,7 @@ import { ErxSuggestionRow } from '../erx-looks/ErxSuggestionsBox';
 import {
   applyPrescriptionQuickPick,
   CalculatorDosing,
+  lineMaximumOf,
   MEASURE_OF,
   mgPerMeasure,
   PrescriptionLine,
@@ -75,6 +76,7 @@ const savedRow = (quickPick: PrescriptionQuickPickData, id: string): Prescriptio
   id,
   segments: [quickPick.patientInstructions || 'No directions saved.'],
   quickPickName: quickPick.name,
+  quickPickSource: quickPick.source,
   fill: () => ({
     route: '',
     dose: '',
@@ -177,6 +179,7 @@ const dosedRow = (
     id,
     segments,
     quickPickName: quickPick.name,
+    quickPickSource: quickPick.source,
     doseAt,
     doseInfo: dose ? [dose.working, ...(dose.roundingNote ? [dose.roundingNote] : [])] : undefined,
     calculator,
@@ -186,7 +189,9 @@ const dosedRow = (
       // The calculator's dose keeps its settings on the line, as does its blank waiting for a weight; a dose typed into
       // the row is the provider's own.
       const typed = picks[doseAt] !== undefined && picks[doseAt] !== doseText;
-      return typed ? filled : { ...filled, dosing: calculator };
+      // Its maximum stays either way, for the warnings.
+      const maximum = lineMaximumOf(calculator, { quickPick: quickPick.name, source: quickPick.source });
+      return typed ? { ...filled, maximum } : { ...filled, dosing: calculator, maximum };
     },
   };
 };

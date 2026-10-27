@@ -72,6 +72,9 @@ const emptySx = (theme: Theme, need: boolean): Record<string, unknown> => ({
   backgroundColor: 'transparent',
 });
 
+/** The orange outline of a blank a warning points at (an eRx dose over its maximum). */
+const warnSx = (theme: Theme): Record<string, unknown> => ({ outline: `2px solid ${theme.palette.warning.main}` });
+
 const ghostSx = (theme: Theme): Record<string, unknown> => ({
   color: theme.palette.text.secondary,
   // "+ details" and friends never break between the "+" and the word.
@@ -97,6 +100,8 @@ interface BlankButtonProps {
   hint?: string;
   expanded?: boolean;
   popupId?: string;
+  /** Outlined in orange while a warning points at it. */
+  warn?: boolean;
 }
 
 /** The clickable value inside a sentence. Read-only surfaces get the same words as plain text. */
@@ -111,6 +116,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
   hint,
   expanded,
   popupId,
+  warn,
 }) => {
   if (readOnly) return <ReadOnlyBlank label={label} value={value} />;
   // An inline span rather than <button>: a long value then wraps across lines like the surrounding text.
@@ -126,6 +132,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
       aria-label={`${label}${value ? `: ${value}` : ' (empty)'}`}
       data-testid={dataTestId}
       data-needed={!value && need ? true : undefined}
+      data-warn={warn || undefined}
       onClick={(event: MouseEvent<HTMLElement>) => onClick(event.currentTarget)}
       onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -143,6 +150,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
         boxDecorationBreak: 'clone',
         WebkitBoxDecorationBreak: 'clone',
         ...(value ? filledSx(theme) : ghost ? ghostSx(theme) : emptySx(theme, need ?? false)),
+        ...(warn ? warnSx(theme) : {}),
         '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
       })}
     >
@@ -361,6 +369,7 @@ interface SelectBlankProps {
   helperText?: string;
   /** Shows the picked option as the list does, not lower-cased for running prose (a field of its own, not a sentence). */
   verbatim?: boolean;
+  warn?: boolean;
 }
 
 export const SelectBlank: FC<SelectBlankProps> = ({
@@ -378,6 +387,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   otherValue,
   onOtherChange,
   verbatim,
+  warn,
 }) => {
   const [filter, setFilter] = useState('');
   const all = withSavedValues(options, value === undefined ? [] : [value]);
@@ -400,6 +410,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
       dataTestId={dataTestId}
       onClose={() => setFilter('')}
       hint={helperText}
+      warn={warn}
     >
       {(close) => (
         <>
@@ -592,6 +603,8 @@ interface TextBlankProps {
   /** Free text that wraps onto more lines and grows as it's typed, like the HPI box (text only). */
   multiline?: boolean;
   dataTestId?: string;
+  /** Outlined in orange while a warning points at it. */
+  warn?: boolean;
 }
 
 /** Borderless input that sits in the sentence: numbers, clock times and short free text. */
@@ -608,6 +621,7 @@ export const TextBlank: FC<TextBlankProps> = ({
   width,
   multiline,
   dataTestId,
+  warn,
 }) => {
   const text = value === undefined ? '' : String(value);
   const grows = multiline && kind === 'text';
@@ -624,6 +638,7 @@ export const TextBlank: FC<TextBlankProps> = ({
         'aria-label': label,
         'data-testid': dataTestId,
         'data-needed': !text && need ? true : undefined,
+        'data-warn': warn || undefined,
         title: placeholder === label ? undefined : label,
         // Chrome's form-history dropdown would look like an app popover inside a sentence.
         autoComplete: 'off',
@@ -638,6 +653,7 @@ export const TextBlank: FC<TextBlankProps> = ({
             ...(inline['& input'] as Record<string, unknown>),
             ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
             ...(kind === 'number' ? numberInputSx : {}),
+            ...(warn ? warnSx(theme) : {}),
           },
           // A growing blank renders a textarea; it takes the same look and starts level with the sentence.
           ...(grows

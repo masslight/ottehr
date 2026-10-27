@@ -2,7 +2,7 @@ import { Alert } from '@mui/material';
 import { ReactElement, ReactNode, useMemo } from 'react';
 import { SentencePicks, SuggestedSentence, SuggestedSentences } from 'src/components/SuggestedSentences';
 import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
-import { DoseInfoHover } from './DoseCalculatorCard';
+import { DoseInfoHover, SourceText } from './DoseCalculatorCard';
 
 /**
  * The suggestions box above a prescription line, as looks only. A row is the shared `SuggestedSentence`: its
@@ -20,11 +20,14 @@ export interface ErxSuggestionRow extends SuggestedSentence {
   doseInfo?: string[];
   /** The quick pick the row came from: the first line behind the ⓘ ("Quick pick: Amox strep"), never on the row. */
   quickPickName?: string;
+  /** The quick pick's source, after its name: "Source: AAP Red Book", a link with a URL. */
+  quickPickSource?: { label: string; url?: string };
 }
 
-/** What the ⓘ by a row's "+" says: its quick pick, then its dose's working. */
-const rowInfo = (row: ErxSuggestionRow): string[] => [
+/** What the ⓘ by a row's "+" says: its quick pick and source, then its dose's working. */
+const rowInfo = (row: ErxSuggestionRow): ReactNode[] => [
   ...(row.quickPickName ? [`Quick pick: ${row.quickPickName}`] : []),
+  ...(row.quickPickSource ? [<SourceText key="source" source={row.quickPickSource} />] : []),
   ...(row.doseAt !== undefined ? row.doseInfo ?? [] : []),
 ];
 

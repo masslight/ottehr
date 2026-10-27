@@ -1,7 +1,7 @@
 import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { prescriptionSuggestionsFor } from '../erx/prescriptionSuggestions';
-import { DoseCalculatorCardProps, DoseField } from './DoseCalculatorCard';
+import { DoseCalculatorCardProps, DoseField, DoseWarningBox } from './DoseCalculatorCard';
 import { ErxSuggestionRow, ErxSuggestionsBoxProps } from './ErxSuggestionsBox';
 
 /** Every look with the catalogue's sample props (a 10-year-old, 28.12 kg, unless a look says otherwise), for the
@@ -117,6 +117,16 @@ export const SUGGESTION_LOOKS: SampleLook<ErxSuggestionsBoxProps<ErxSuggestionRo
       id: 'b',
       name: 'Sample with a maximum',
       dosing: { ...SAMPLE_BY_WEIGHT, maxPerDoseMg: 500 },
+    }),
+  },
+  {
+    tag: 'Quick pick',
+    title: 'Quick pick with a source',
+    props: quickPickRows(28.12, {
+      id: 'e',
+      name: 'Amox strep, twice daily',
+      dosing: { ...SAMPLE_BY_WEIGHT, maxPerDoseMg: 500, maxPerDayMg: 1000 },
+      source: { label: 'Sample guideline', url: 'https://example.org/guideline' },
     }),
   },
   {
@@ -321,6 +331,31 @@ export const CALCULATOR_LOOKS: SampleLook<DoseCalculatorCardProps>[] = [
     },
   },
   {
+    tag: 'Calc 9',
+    title: 'Capped at a maximum',
+    line: AMOXICILLIN_LIQUID,
+    props: {
+      display: {
+        look: 'own',
+        fields: [
+          WEIGHT,
+          field('concentration', 'Concentration', '80', 'mg per mL'),
+          field('rate', 'Rate', '25', 'mg/kg per dose'),
+          field('dosesPerDay', 'Doses a day', '2', undefined, 'from twice daily'),
+          field('maxPerDose', 'Maximum per dose', '500', 'mg per dose'),
+        ],
+        result: {
+          sentence: 'Take 6 mL by mouth twice daily for 10 days.',
+          capNote: 'Capped at the 500 mg maximum (703 mg by weight)',
+          working: '28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose → 6 mL = 480 mg',
+          roundingNote:
+            '6 mL = 480 mg, 20 mg (4%) under 500 mg (rounded down to stay at or under the max 500 mg per dose)',
+        },
+      },
+      onUse: noop,
+    },
+  },
+  {
     tag: 'Overlay',
     title: 'Picker, warning boxes and source',
     line: AMOXICILLIN_LIQUID,
@@ -333,6 +368,49 @@ export const CALCULATOR_LOOKS: SampleLook<DoseCalculatorCardProps>[] = [
       ],
       source: { label: 'AAP EQIPP dosage table', href: 'https://eqipp.aap.org/', extra: 'max 2 g/dose' },
       onUse: noop,
+    },
+  },
+];
+
+/** A prescription line over its maximum: the blank the warning points at is outlined, the warning under the sentence
+ * has where the maximum came from behind its ⓘ. */
+export interface MaximumWarningLook {
+  tag: string;
+  title: string;
+  dose: string;
+  frequency: string;
+  warn: 'dose' | 'frequency';
+  warning: DoseWarningBox;
+  /** The quick pick's source, after the origin behind the ⓘ. */
+  source?: { label: string; url?: string };
+}
+
+const FROM_QUICK_PICK = ['From the quick pick: Amox strep, twice daily'];
+
+export const MAXIMUM_WARNING_LOOKS: MaximumWarningLook[] = [
+  {
+    tag: 'Warning 1',
+    title: 'A typed dose above the per-dose maximum',
+    dose: '10',
+    frequency: 'twice daily',
+    warn: 'dose',
+    warning: {
+      severity: 'warning',
+      lines: ['800 mg per dose is above the 500 mg maximum.'],
+      info: FROM_QUICK_PICK,
+    },
+    source: { label: 'Sample guideline', url: 'https://example.org/guideline' },
+  },
+  {
+    tag: 'Warning 2',
+    title: 'A new frequency takes the day over its maximum',
+    dose: '6',
+    frequency: 'four times daily',
+    warn: 'frequency',
+    warning: {
+      severity: 'warning',
+      lines: ['1,920 mg a day is above the 1,000 mg a day maximum.'],
+      info: ['From the dose calculator'],
     },
   },
 ];
