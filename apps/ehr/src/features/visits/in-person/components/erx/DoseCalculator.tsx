@@ -157,7 +157,8 @@ interface DoseCalculatorProps {
 /** The calculator icon after the line's dose blank and the plain dose calculator it opens: weight from the vitals,
  * strength from the product and the rate typed, all editable, and the doses a day from the line's frequency, fixed
  * while the frequency gives a count and typed while it gives none. Its result
- * reads as the line's sentence, with the working behind the ⓘ. Nothing on the line changes until "Use this dose". */
+ * reads as the line's sentence, with the working behind the ⓘ. Nothing on the line changes until "Use this dose", and
+ * closing without it drops what was typed (a typed weight, the page's, stays). */
 export const DoseCalculator: FC<DoseCalculatorProps> = ({
   line,
   weight,
@@ -167,14 +168,9 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   initial,
   label,
 }) => {
-  const [picks, setPicks] = useState<Picks>(() => picksOf(initial, line));
-  // New settings from outside (the line's, once a suggestion or "Use this dose" sets them) seed it again; none (a dose
-  // typed by hand) leave what was typed here.
-  const [seed, setSeed] = useState(initial);
-  if (initial !== seed) {
-    setSeed(initial);
-    if (initial) setPicks(picksOf(initial, line));
-  }
+  // What was typed here is dropped on closing without "Use this dose": each opening starts from the settings it is
+  // given (the line's rule or the quick pick's), or empty without any.
+  const [picks, setPicks] = useState<Picks>({});
   // What a liquid's dose is measured to: never saved, and each opening starts at half a mL.
   const [measureTo, setMeasureTo] = useState(DOSE_STEP.mL);
   const ndc = line.medication?.ndc;
@@ -330,7 +326,13 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       };
 
   return (
-    <DoseCalculatorPopup label={label} onOpen={() => setMeasureTo(DOSE_STEP.mL)}>
+    <DoseCalculatorPopup
+      label={label}
+      onOpen={() => {
+        setPicks(picksOf(initial, line));
+        setMeasureTo(DOSE_STEP.mL);
+      }}
+    >
       {(close) => (
         <DoseCalculatorCard
           picker={
