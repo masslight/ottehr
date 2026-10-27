@@ -74,9 +74,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const effectInput = await complexValidation(validatedParameters, oystehrClient, stripeClient);
 
-  const refundedBy = (await practitionerRefForUser(user, oystehrClient)).display;
+  const refundedBy = await practitionerRefForUser(user, oystehrClient);
 
-  const response = await performEffect({ ...effectInput, refundedBy }, oystehrClient, stripeClient);
+  const response = await performEffect(
+    {
+      ...effectInput,
+      refundedBy: refundedBy.display,
+      refundedByReference: refundedBy.reference,
+    },
+    oystehrClient,
+    stripeClient
+  );
   return lambdaResponse(200, response);
 });
 
@@ -92,6 +100,7 @@ interface RefundEffectInput {
   reason: RefundPatientPaymentInput['reason'];
   notes?: string;
   refundedBy?: string;
+  refundedByReference?: string;
   // record-only refund issued outside Stripe for a Stripe-linked payment
   external?: boolean;
   medium?: RefundPatientPaymentInput['medium'];
@@ -312,6 +321,7 @@ const performManualRefund = async (
     reason,
     notes,
     refundedBy,
+    refundedByReference,
     manualRefundId: refundId,
     resumeRefund,
   } = input;
@@ -324,6 +334,7 @@ const performManualRefund = async (
     reason,
     notes,
     refundedBy,
+    refundedByReference,
   };
   const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
 
@@ -351,6 +362,7 @@ const performExternalRefund = async (
     reason,
     notes,
     refundedBy,
+    refundedByReference,
     medium,
     manualRefundId: refundId,
     resumeRefund,
@@ -364,6 +376,7 @@ const performExternalRefund = async (
     reason,
     notes,
     refundedBy,
+    refundedByReference,
     medium,
   };
   const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
@@ -406,8 +419,17 @@ const performEffect = async (
   oystehrClient: Oystehr,
   stripeClient: Stripe
 ): Promise<RefundPatientPaymentResponse> => {
-  const { notice, stripePaymentId, stripeAccount, existingRefunds, refundAmountInCents, reason, notes, refundedBy } =
-    input;
+  const {
+    notice,
+    stripePaymentId,
+    stripeAccount,
+    existingRefunds,
+    refundAmountInCents,
+    reason,
+    notes,
+    refundedBy,
+    refundedByReference,
+  } = input;
 
   if (!stripePaymentId) {
     return performManualRefund(input, oystehrClient);
@@ -439,6 +461,7 @@ const performEffect = async (
       reason,
       notes,
       refundedBy,
+      refundedByReference,
     };
     await applyRefundsToPaymentNotice(
       oystehrClient,
@@ -455,11 +478,12 @@ const performEffect = async (
         payment_intent: stripePaymentId,
         amount: refundAmountInCents,
         reason: reason === 'Duplicate charge' ? 'duplicate' : 'requested_by_customer',
-        // reason/notes/refundedBy survive webhook re-stamps; operationKey lets retries find this refund
+        // reason/notes/refunder survive webhook re-stamps; operationKey lets retries find this refund
         metadata: {
           reason,
           ...(notes ? { notes } : {}),
           ...(refundedBy ? { refundedBy } : {}),
+          ...(refundedByReference ? { refundedByReference } : {}),
           ...(input.operationKey ? { operationKey: input.operationKey } : {}),
         },
       },

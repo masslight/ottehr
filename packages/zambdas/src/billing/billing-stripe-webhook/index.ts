@@ -33,8 +33,10 @@ import {
   createPaymentNotice,
   findBillingClaimForEncounter,
   findPaymentNotice,
+  paymentActor,
   paymentNoticeHistoryRequest,
   reconcilePaymentNoticesForClaim,
+  recordPaymentNoticeChange,
 } from '../payments';
 import { resolveClaimActor } from '../provenance';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
@@ -267,13 +269,22 @@ const persistPaymentNoticeUpsert = async (
   desiredNotice: PaymentNotice,
   dedupStripeId: string,
   claim: Claim | undefined,
-  encounterId: string
+  encounterId: string,
+  refundedByReference?: string
 ): Promise<void> => {
   const dedupIdentifier = {
     system: STRIPE_PAYMENT_ID_SYSTEM,
     value: dedupStripeId,
   };
-  const agent = await resolveClaimActor('system', oystehr, undefined, null);
+  const agent = await paymentActor(
+    oystehr,
+    refundedByReference
+      ? {
+          reference: refundedByReference,
+        }
+      : undefined,
+    null
+  );
   const found = await findPaymentNotice(oystehr, dedupIdentifier);
   const stored = found
     ? {
@@ -394,7 +405,14 @@ const upsertPaymentNoticeForRefund = async (
     cancelled: failed,
   });
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
+  await persistPaymentNoticeUpsert(
+    oystehr,
+    desiredNotice,
+    refund.id,
+    claim,
+    encounterId,
+    refund.metadata?.refundedByReference
+  );
 
   await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };
@@ -437,12 +455,13 @@ const markBillingNoticesForRefundedCharge = async (
     return;
   }
 
+  const agent = await resolveClaimActor('system', oystehr, undefined, null);
   for (const notice of notices) {
     try {
       // retry variant: a version conflict from an unrelated concurrent update must not
       // discard the webhook's only stamping attempt; stale reservations are cleaned here too
       const staleIds = staleReservationIds([...(parsePaymentRefundsFromNotice(notice) ?? []), ...refunds]);
-      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds);
+      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds, recordPaymentNoticeChange(agent));
     } catch (error) {
       console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
     }
