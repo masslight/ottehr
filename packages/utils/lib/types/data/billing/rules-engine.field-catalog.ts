@@ -12,7 +12,7 @@ import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
 import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
-import { CLAIM_STATUS_FIELDS, formatAntCaseString } from './claim-status';
+import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
   DATE_SOURCE_KIND,
@@ -582,8 +582,8 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: REF_OPS,
     settable: true,
     description:
-      'The service category, picked from the services on claims created from visits so far by the name the claims list shows (e.g. Workers Comp) and stored as its code (workers-comp). ' +
-      'Conditions also match a value written as that name; setting it requires the code of a listed service.',
+      'The service category: one of the services on claims created from visits so far, picked by the name the claims list shows (e.g. Workers Comp) and stored and compared as its code (workers-comp). ' +
+      'Setting it requires the code of a listed service.',
     format: 'service',
   },
   {
@@ -1434,13 +1434,6 @@ export interface SetResourceRef {
 }
 
 export const SERVICE_FIELD_ID = 'service';
-
-// A service's spellings: its code (workers-comp), which rules store, and the name the claim screens
-// show for it (formatAntCaseString: "Workers Comp"), which a condition saved before the service picker
-// may hold. A service condition matches either, each exactly.
-export function serviceSpellings(code: string): string[] {
-  return [code, formatAntCaseString(code)];
-}
 
 // The service values a rule's setField actions assign (deduped, in tree order) — save-billing-rules
 // checks each is the code of a service on claims created from visits.

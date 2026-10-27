@@ -1,11 +1,6 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import {
-  getRuleFieldDef,
-  getServiceLinePropertyDef,
-  SERVICE_FIELD_ID,
-  serviceSpellings,
-} from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
   DiagnosisPointerMode,
@@ -68,12 +63,9 @@ export const evaluateOperator = (
   // numeric: eq/neq/in/notIn compare numerically when both sides parse ('100' matches '100.00' —
   // readers normalize amounts but rule values keep the author's formatting). Only number-typed
   // properties opt in: ids like member IDs must stay distinct strings ('00123' ≠ '123').
-  // spellings: every spelling a value read off the claim is known by (a service: its code and its
-  // displayed name); eq/neq/in/notIn hold when they hold for any of them.
-  opts?: { numeric?: boolean; spellings?: (value: string) => string[] }
+  opts?: { numeric?: boolean }
 ): boolean => {
   const expectedScalar = Array.isArray(expected) ? expected[0] : expected;
-  const spellings = (value: string): string[] => opts?.spellings?.(value) ?? [value];
 
   const scalarsEqual = (a: string, e: string): boolean => {
     if (a === e) return true;
@@ -84,11 +76,11 @@ export const evaluateOperator = (
   };
   const equals = (): boolean => {
     const a = asScalar(actual);
-    return a != null && expectedScalar != null && spellings(a).some((s) => scalarsEqual(s, expectedScalar));
+    return a != null && expectedScalar != null && scalarsEqual(a, expectedScalar);
   };
   const includedIn = (): boolean => {
     const a = asScalar(actual);
-    return a != null && asArray(expected).some((e) => spellings(a).some((s) => scalarsEqual(s, e)));
+    return a != null && asArray(expected).some((e) => scalarsEqual(a, e));
   };
   const contains = (): boolean => {
     if (expectedScalar == null) return false;
@@ -183,8 +175,6 @@ export function evaluateCondition(condition: RuleCondition, model: RulesEngineCl
     case RULE_CONDITION_TYPE.field:
       return evaluateOperator(condition.operator, readField(model, condition.field), condition.value, {
         numeric: getRuleFieldDef(condition.field)?.valueType === 'number',
-        // A service condition matches the claim's service code or its displayed name.
-        spellings: condition.field === SERVICE_FIELD_ID ? serviceSpellings : undefined,
       });
     default:
       return false;

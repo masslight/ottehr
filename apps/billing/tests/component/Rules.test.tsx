@@ -280,11 +280,11 @@ describe('ConditionalEditor', () => {
       });
     });
 
-    it('shows a name an older rule saved as its service, and a value no listed service has as saved', async () => {
+    it('shows a saved code as its service, and a value no listed service has as saved', async () => {
       const conditional: RuleConditional = {
         branches: [
           {
-            condition: { type: 'field', field: 'service', operator: 'eq', value: 'Workers Comp' },
+            condition: { type: 'field', field: 'service', operator: 'eq', value: 'workers-comp' },
             outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value: 'sports-physicals' }] },
           },
         ],
@@ -294,7 +294,7 @@ describe('ConditionalEditor', () => {
 
       await waitFor(() => expect(conditionInput).toHaveValue('Workers Comp'));
       expect(actionInput).toHaveValue('Sports Physicals');
-      // The saved name is that listed service, not a second "Workers Comp" in the list.
+      // The saved code is that listed service, not a second "Workers Comp" in the list.
       fireEvent.mouseDown(conditionInput);
       expect(await screen.findAllByRole('option', { name: 'Workers Comp' })).toHaveLength(1);
     });
@@ -303,8 +303,7 @@ describe('ConditionalEditor', () => {
       const conditional: RuleConditional = {
         branches: [
           {
-            // A name an older rule saved: picking another service stores both as codes.
-            condition: { type: 'field', field: 'service', operator: 'in', value: ['Urgent Care'] },
+            condition: { type: 'field', field: 'service', operator: 'in', value: ['urgent-care'] },
             outcome: { type: 'noop' },
           },
         ],

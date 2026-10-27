@@ -15,7 +15,6 @@ import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
   CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
-  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -33,7 +32,7 @@ import {
   RULE_FIELD_CATALOG,
   SERVICE_LINE_PROPERTY_CATALOG,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
-import { BillingRule, RuleConditionValue, RuleOperator } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { describe, expect, it } from 'vitest';
 import {
@@ -371,33 +370,6 @@ describe('rules-engine evaluator', () => {
     expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'MEM-123' }, m)).toBe(
       true
     );
-  });
-
-  it('compares the service by its code or the name the claims list shows, each exactly', () => {
-    const m = makeModel();
-    m.claim.meta = { tag: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'workers-comp' }] };
-    const service = (operator: RuleOperator, value?: RuleConditionValue): boolean =>
-      evaluateCondition({ type: 'field', field: 'service', operator, value }, m);
-
-    expect(readField(m, 'service')).toBe('workers-comp');
-    // Either spelling names the service; other spellings of the name don't.
-    expect(service('eq', 'Workers Comp')).toBe(true);
-    expect(service('eq', 'workers-comp')).toBe(true);
-    expect(service('eq', 'workers comp')).toBe(false);
-    expect(service('neq', 'Workers Comp')).toBe(false);
-    expect(service('in', ['Urgent Care', 'Workers Comp'])).toBe(true);
-    expect(service('notIn', ['urgent-care', 'Occupational Medicine'])).toBe(true);
-
-    // Other text fields still compare their one value.
-    expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'mem-123' }, m)).toBe(
-      false
-    );
-
-    // A claim without a service matches nothing but the negations.
-    m.claim.meta = { tag: [] };
-    expect(service('eq', 'Workers Comp')).toBe(false);
-    expect(service('neq', 'Workers Comp')).toBe(true);
-    expect(service('notExists')).toBe(true);
   });
 
   it('reads logical fields that span resources', () => {

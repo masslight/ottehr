@@ -1,13 +1,12 @@
 import { Autocomplete, AutocompleteRenderInputParams, TextField } from '@mui/material';
 import { ReactElement, ReactNode, Ref, useMemo } from 'react';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
-import { serviceSpellings } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { useBillingServices } from '../hooks/useBillingServices';
 
 // Service picker for the rules builder: only the services on claims created from visits so far (the
 // same list as the claims list's Service filter), shown by the name the claim screens use and stored as
-// the service's code, like the payer and provider pickers. A value an older rule saved as the name
-// shows as that service, and a saved value no listed service has stays visible as saved.
+// the service's code, like the payer and provider pickers. A saved value no listed service has stays
+// visible as saved.
 
 interface ServiceSelectProps {
   multiple: boolean;
@@ -34,12 +33,8 @@ export function ServiceSelect({
   const { services, load } = useBillingServices();
   const codes = useMemo(() => services.map((service) => service.name), [services]);
 
-  // The listed code each saved value names, else the value as saved. Memoized so a re-render while
-  // typing doesn't reset the picker's input.
-  const selected = useMemo(() => {
-    const saved = Array.isArray(value) ? value : value ? [value] : [];
-    return saved.map((v) => codes.find((code) => serviceSpellings(code).includes(v)) ?? v);
-  }, [value, codes]);
+  // Memoized so a re-render while typing doesn't reset the picker's input.
+  const selected = useMemo(() => (Array.isArray(value) ? value : value ? [value] : []), [value]);
   const options = useMemo(() => [...codes, ...selected.filter((v) => !codes.includes(v))], [codes, selected]);
 
   // Props shared by the single- and multi-select variants (the NioSelect precedent).
