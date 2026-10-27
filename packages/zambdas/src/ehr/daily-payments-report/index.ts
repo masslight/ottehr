@@ -92,16 +92,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     { name: 'created', value: `le${dateRange.end}` },
     { name: '_count', value: '1000' },
   ];
-  const [billingNotices, legacyNotices] = await Promise.all([
-    billingOystehr.fhir
-      .search<PaymentNotice>({
+  const fetchWindowNotices = async (
+    client: typeof oystehr,
+    extraParams: { name: string; value: string }[] = []
+  ): Promise<PaymentNotice[]> => {
+    const notices: PaymentNotice[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const bundle = await client.fhir.search<PaymentNotice>({
         resourceType: 'PaymentNotice',
-        params: [...createdParams, { name: 'identifier', value: PATIENT_PAYMENT_IDENTIFIER_FILTER }],
-      })
-      .then((bundle) => bundle.unbundle()),
-    oystehr.fhir
-      .search<PaymentNotice>({ resourceType: 'PaymentNotice', params: createdParams })
-      .then((bundle) => bundle.unbundle()),
+        params: [...createdParams, ...extraParams, { name: '_offset', value: String(offset) }],
+      });
+      notices.push(...bundle.unbundle());
+      if (!bundle.link?.some((link) => link.relation === 'next')) return notices;
+    }
+  };
+  const [billingNotices, legacyNotices] = await Promise.all([
+    fetchWindowNotices(billingOystehr, [{ name: 'identifier', value: PATIENT_PAYMENT_IDENTIFIER_FILTER }]),
+    fetchWindowNotices(oystehr),
   ]);
   // The two halves of a payment recorded in both workspaces can carry created times on either side
   // of a range boundary, so the window is applied to the merged payment, not to each half: otherwise
