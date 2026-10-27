@@ -109,4 +109,27 @@ describe('plainDose', () => {
       plainDose({ weightKg: 10, mgPerMeasure: 80, measure: 'mL', basis: 'mg/kg/dose', rate: 25, maxPerDayMg: 1000 })
     ).toBeUndefined();
   });
+
+  it('never blocks a maximum under one measurable amount: one unit, said to be above the maximum', () => {
+    // Capped at 250 mg, but the smallest amount of a 500 mg tablet is the whole tablet.
+    const capped = plainDose({ mgPerMeasure: 500, measure: 'tablet', basis: 'fixed', rate: 400, maxPerDoseMg: 250 });
+    expect(capped?.amountText).toBe('1 tablet');
+    expect(capped?.capNote).toBe('1 tablet = 500 mg, above the 250 mg maximum; the smallest measurable amount');
+    // Under the maximum as worked out, but still one unit above it.
+    const under = plainDose({ mgPerMeasure: 500, measure: 'tablet', basis: 'fixed', rate: 200, maxPerDoseMg: 250 });
+    expect(under?.amountText).toBe('1 tablet');
+    expect(under?.capNote).toBe('1 tablet = 500 mg, above the 250 mg maximum; the smallest measurable amount');
+    // A per-day maximum says so.
+    const perDay = plainDose({
+      mgPerMeasure: 500,
+      measure: 'tablet',
+      basis: 'fixed',
+      rate: 400,
+      dosesPerDay: 2,
+      maxPerDayMg: 500,
+    });
+    expect(perDay?.capNote).toBe(
+      '1 tablet = 500 mg, above the 500 mg a day maximum (250 mg per dose); the smallest measurable amount'
+    );
+  });
 });

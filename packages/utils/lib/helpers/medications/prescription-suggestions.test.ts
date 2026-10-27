@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   frequencyForDosesPerDay,
+  isCombinationStrength,
   parseStrengthConcentration,
   PRESCRIPTION_FREQUENCIES,
   prescriptionDirectionsText,
   prescriptionDispense,
   prescriptionDoseForm,
   prescriptionDoseUnit,
+  prescriptionFrequency,
   prescriptionQuantityUnit,
   prescriptionRoute,
 } from './prescription-suggestions';
@@ -28,6 +30,9 @@ describe('prescriptionDoseForm', () => {
     ['Albuterol 90 mcg/puff MDI', 'inhaler'],
     ['Ofloxacin (Otic) 0.3% Sol', 'liquid'],
     ['Lidocaine 5 % Topical Spray', undefined],
+    // A nasal spray is a spray, not an inhaler, though RxNorm calls it "Metered Dose".
+    ['Fluticasone Propionate 0.05 MG/ACTUAT Metered Dose Nasal Spray', undefined],
+    ['Fluticasone Propionate (Nasal) 50 MCG/ACTUAT Spray', undefined],
   ])('%s → %s', (description, form) => {
     expect(prescriptionDoseForm(description)).toBe(form);
   });
@@ -44,6 +49,7 @@ describe('prescriptionQuantityUnit', () => {
     ['Nicotine 21 MG/24HR Transdermal Patch', 'Patch'],
     ['Promethazine 25 MG Rectal Suppository', 'Suppository'],
     ['Lidocaine 5 % Topical Spray', undefined],
+    ['Fluticasone Propionate 0.05 MG/ACTUAT Metered Dose Nasal Spray', undefined],
   ])('%s → %s', (description, unit) => {
     expect(prescriptionQuantityUnit(description)).toBe(unit);
   });
@@ -59,6 +65,7 @@ describe('prescriptionRoute', () => {
     ['Prednisolone 1 % Ophthalmic Suspension', 'in the eye'],
     ['Prednisolone/Sulfacetamide (Ophthalmic) 0.2-10% Ointment', 'in the eye'],
     ['Fluticasone 50 MCG/ACTUAT Nasal Spray', 'in the nose'],
+    ['Fluticasone Propionate 0.05 MG/ACTUAT Metered Dose Nasal Spray', 'in the nose'],
     ['Mupirocin 2 % Topical Ointment', 'on the skin'],
     ['Nicotine 21 MG/24HR Transdermal Patch', 'on the skin'],
     ['Promethazine 25 MG Rectal Suppository', 'rectally'],
@@ -140,6 +147,19 @@ const PREDNISONE = {
   steps: ['3', '2', '1'].map((dose) => ({ dose, frequency: 'once daily', durationDays: '2' })),
 };
 
+describe('prescriptionFrequency', () => {
+  it('looks a frequency up by its own key only, never one every object has', () => {
+    expect(prescriptionFrequency('twice daily')).toEqual({ dosesPerDay: 2, asNeeded: false });
+    expect(prescriptionFrequency('constructor')).toBeUndefined();
+    expect(prescriptionFrequency('toString')).toBeUndefined();
+    expect(prescriptionFrequency('__proto__')).toBeUndefined();
+    const directions = { dose: '5', route: 'by mouth' as const, frequency: 'constructor', durationDays: '10' };
+    expect(prescriptionDirectionsText('Amoxicillin 400 mg/5ml Susp', directions)).toBe(
+      'Take 5 mL by mouth for 10 days.'
+    );
+  });
+});
+
 describe('multi-step directions', () => {
   it('reads each later step as "then", with the route, and adds up the quantity and days', () => {
     expect(prescriptionDirectionsText('Azithromycin 250 mg Tab', AZITHROMYCIN)).toBe(
@@ -193,6 +213,26 @@ describe('multi-step directions', () => {
       'Take 2 tablets by mouth once daily for 1 day, then 1 tablet by mouth.'
     );
     expect(prescriptionDispense('Azithromycin 250 mg Tab', partial)).toEqual({ quantityValue: '', daysSupply: '' });
+  });
+
+  it('reads the later steps when the first is empty, so a taper is not lost', () => {
+    const laterOnly = {
+      dose: '',
+      route: 'by mouth' as const,
+      frequency: '',
+      durationDays: '',
+      steps: [
+        { dose: '2', frequency: 'once daily', durationDays: '2' },
+        { dose: '', frequency: '', durationDays: '' },
+        { dose: '1', frequency: 'once daily', durationDays: '2' },
+      ],
+    };
+    expect(prescriptionDirectionsText('Prednisone 10 mg Tab', laterOnly)).toBe(
+      'Take 2 tablets by mouth once daily for 2 days, then 1 tablet by mouth once daily for 2 days.'
+    );
+    expect(prescriptionDirectionsText('Prednisone 10 mg Tab', { ...laterOnly, instructions: 'with food' })).toBe(
+      'Take 2 tablets by mouth once daily for 2 days, then 1 tablet by mouth once daily for 2 days, with food.'
+    );
   });
 
   it('dispenses one inhaler for the whole course', () => {
@@ -400,9 +440,6 @@ describe('parseStrengthConcentration', () => {
     ['400 mg/5ml Susp', { mgPerMl: 80 }],
     ['15 mg/5ml Sol', { mgPerMl: 3 }],
     ['100 mg/5ml Susp', { mgPerMl: 20 }],
-    // A combination's first ingredient.
-    ['400-57 mg/5ml Susp', { mgPerMl: 80 }],
-    ['amoxicillin 80 MG/ML / clavulanate 11.4 MG/ML Oral Suspension', { mgPerMl: 80 }],
     ['250 mg Cap', { mgPerUnit: 250 }],
     ['1 GM Tab', { mgPerUnit: 1000 }],
     ['4 mg ODT Tab', { mgPerUnit: 4 }],
@@ -418,6 +455,28 @@ describe('parseStrengthConcentration', () => {
 
   it.each(['2% Ointment', '0.3% Sol', 'Insulin 100 UNT/ML', 'Albuterol'])('%s → nothing', (text) => {
     expect(parseStrengthConcentration(text)).toBeUndefined();
+  });
+
+  // A combination has more than one ingredient amount: no single mg to dose by (pending dabrams).
+  it.each([
+    '400-57 mg/5ml Susp',
+    'Amoxicillin-Clavulanate 200-28.5 mg/5ml Susp',
+    'Sulfamethoxazole-Trimethoprim 200-40 mg/5mL Susp',
+    'Acetaminophen-Codeine 300-30 mg Tab',
+    'amoxicillin 80 MG/ML / clavulanate 11.4 MG/ML Oral Suspension',
+    'Amoxicillin 875 MG / Clavulanate 125 MG Oral Tablet',
+  ])('%s → a combination, nothing', (text) => {
+    expect(isCombinationStrength(text)).toBe(true);
+    expect(parseStrengthConcentration(text)).toBeUndefined();
+  });
+
+  it.each([
+    'Amoxicillin 400 MG/5ML Oral Suspension',
+    'Pinworm Medicine Oral Suspension 144 (50 Base) MG/ML',
+    'Nicotine 21 MG/24HR Transdermal Patch',
+    '250 mg Cap',
+  ])('%s → one ingredient', (text) => {
+    expect(isCombinationStrength(text)).toBe(false);
   });
 });
 

@@ -40,7 +40,8 @@ export interface PlainDose {
   working: string;
   /** "3 capsules = 750 mg, 47 mg (7%) over 703 mg"; none when the measured dose is the one worked out. */
   roundingNote?: string;
-  /** Shown under the result when a maximum stopped the dose: "Capped at the 500 mg maximum (703 mg by weight)". */
+  /** Shown under the result when a maximum stopped the dose: "Capped at the 500 mg maximum (703 mg by weight)"; or,
+   * when even the smallest measurable amount is over it, that it is above the maximum. */
   capNote?: string;
 }
 
@@ -129,7 +130,15 @@ export const plainDose = ({
   const note = doseRoundingNote(amountText, delivered, aimed);
   const capText = cap?.text ?? '';
   const how = basis === 'fixed' ? 'as entered' : 'by weight';
-  const capNote = !capped
+  // Never blocks: below one measurable amount the dose is that amount, said to be above the maximum.
+  const aboveMax = delivered > capMg + 1e-9;
+  const capNote = aboveMax
+    ? `${amountText} = ${mgText(delivered)}, above the ${
+        cap?.perDay
+          ? `${mgText(maxPerDayMg ?? 0)} a day maximum (${mgText(capMg)} per dose)`
+          : `${mgText(capMg)} maximum`
+      }; the smallest measurable amount`
+    : !capped
     ? undefined
     : cap?.perDay
     ? `Capped at the ${mgText(maxPerDayMg ?? 0)} a day maximum (${mgText(worked * (dosesPerDay ?? 1))} a day ${how})`

@@ -23,9 +23,15 @@ const DOSE_FORM_PATTERNS: [PrescriptionDoseForm, RegExp][] = [
   ['topical', /\b(cream|ointment|oint|gel)\b/i],
 ];
 
-/** The dose form named in a medication description ("Amoxicillin 500 MG Oral Capsule" → capsule), if one is known. */
+/** A nasal spray: RxNorm names one "Metered Dose Nasal Spray", which isn't an inhaler. */
+const NASAL_SPRAY_FORM = /\bnasal\b[^]*\bspray\b|\bspray\b[^]*\bnasal\b/i;
+
+/** The dose form named in a medication description ("Amoxicillin 500 MG Oral Capsule" → capsule), if one is known.
+ * A spray has none: the quantity unit stays the provider's. */
 export const prescriptionDoseForm = (description: string): PrescriptionDoseForm | undefined =>
-  DOSE_FORM_PATTERNS.find(([, pattern]) => pattern.test(description))?.[0];
+  NASAL_SPRAY_FORM.test(description)
+    ? undefined
+    : DOSE_FORM_PATTERNS.find(([, pattern]) => pattern.test(description))?.[0];
 
 const QUANTITY_UNIT: Record<PrescriptionDoseForm, QuantityUnit> = {
   tablet: 'Tablet',
@@ -135,14 +141,27 @@ export interface StrengthConcentration {
 
 const MG_PER_UNIT: Record<string, number> = { mg: 1, mcg: 0.001, g: 1000, gm: 1000 };
 
-// "400 MG/5ML", "80 MG/ML", "250 mg Cap", "1 GM Tab", "4 mg ODT Tab", "90 mcg/puff"; a combo's first ingredient ("400-57 mg/5ml");
+// "400 MG/5ML", "80 MG/ML", "250 mg Cap", "1 GM Tab", "4 mg ODT Tab", "90 mcg/puff";
 // a salt with its base, dosed on the base ("144 (50 Base) MG/ML" is 50 mg/mL).
 const STRENGTH_PATTERN =
-  /(\d+(?:\.\d+)?)(?:\s*-\s*\d+(?:\.\d+)?)*\s*(?:\(\s*(\d+(?:\.\d+)?)\s*base\s*\)\s*)?(mg|mcg|gm|g)\b\s*(?:\/\s*(\d+(?:\.\d+)?)?\s*(ml)\b)?/i;
+  /(\d+(?:\.\d+)?)\s*(?:\(\s*(\d+(?:\.\d+)?)\s*base\s*\)\s*)?(mg|mcg|gm|g)\b\s*(?:\/\s*(\d+(?:\.\d+)?)?\s*(ml)\b)?/i;
+
+// More than one ingredient amount: "200-40 mg/5mL", "300-30 mg", or "875 MG / Clavulanate 125 MG".
+const COMBINATION_PATTERNS = [
+  /\d\s*-\s*\d+(?:\.\d+)?\s*(?:mg|mcg|gm|g)\b/i,
+  /(?:mg|mcg|gm|g)\b[^]*\d\s*(?:mg|mcg|gm|g)\b/i,
+];
+
+/** PENDING dabrams (Claude's call, to keep mg/kg maths off the wrong ingredient): a strength with more than one
+ * ingredient amount is a combination, with no one mg the calculator, a strength change or a maximum can go by. */
+export const isCombinationStrength = (text: string): boolean =>
+  COMBINATION_PATTERNS.some((pattern) => pattern.test(text));
 
 /** The concentration a strength or description states, in mg: per mL when it names a volume ("400 MG/5ML" →
- * 80 mg/mL), else per unit ("250 mg Cap" → 250); of the base when it names one ("144 (50 Base) MG/ML" → 50 mg/mL). Nothing for a percentage or units the mg don't follow from. */
+ * 80 mg/mL), else per unit ("250 mg Cap" → 250); of the base when it names one ("144 (50 Base) MG/ML" → 50 mg/mL).
+ * Nothing for a percentage, units the mg don't follow from, or a combination (`isCombinationStrength`). */
 export const parseStrengthConcentration = (text: string): StrengthConcentration | undefined => {
+  if (isCombinationStrength(text)) return undefined;
   const match = STRENGTH_PATTERN.exec(text);
   if (!match) return undefined;
   const mg = parseFloat(match[2] ?? match[1]) * MG_PER_UNIT[match[3].toLowerCase()];
@@ -192,7 +211,8 @@ export interface PrescriptionFrequency {
 /** A dose pack is taken by its own leaflet and dispensed as one package. */
 export const PER_PACKAGE_FREQUENCY = 'per package instructions';
 
-/** Every frequency the form offers, scheduled ones first, keyed by how the directions read it. */
+/** Every frequency the form offers, scheduled ones first, keyed by how the directions read it. Look one up with
+ * `prescriptionFrequency`, never by indexing: "constructor" is a key of every object. */
 export const PRESCRIPTION_FREQUENCIES: Record<string, PrescriptionFrequency> = {
   'once daily': { dosesPerDay: 1, asNeeded: false },
   'twice daily': { dosesPerDay: 2, asNeeded: false },
@@ -216,6 +236,13 @@ export const PRESCRIPTION_FREQUENCIES: Record<string, PrescriptionFrequency> = {
   'as directed': { asNeeded: false, directed: true },
   [PER_PACKAGE_FREQUENCY]: { asNeeded: false, directed: true },
 };
+
+/** The frequency a key names, if it is one of the form's own ("toString" isn't). Object.hasOwn, as utils' lib
+ * setting (no es2022) spells it. */
+export const prescriptionFrequency = (key: string | undefined): PrescriptionFrequency | undefined =>
+  key !== undefined && Object.prototype.hasOwnProperty.call(PRESCRIPTION_FREQUENCIES, key)
+    ? PRESCRIPTION_FREQUENCIES[key]
+    : undefined;
 
 export const FREQUENCY_TITLE = 'Frequency';
 export const DURATION_TITLE = 'Duration';
@@ -258,7 +285,7 @@ export const leadingNumber = (value: string | undefined): number | undefined => 
 };
 
 const pickedFrequency = (step: PrescriptionStep): string | undefined =>
-  PRESCRIPTION_FREQUENCIES[step.frequency] ? step.frequency : undefined;
+  prescriptionFrequency(step.frequency) ? step.frequency : undefined;
 
 /** The first step and every later one with something picked: a "then" just added says and counts for nothing. */
 const courseSteps = (directions: PrescriptionDirections): PrescriptionStep[] => [
@@ -298,7 +325,7 @@ export const prescriptionDispense = (
   const doses = total(
     steps.map((step, i) => {
       const amount = leadingNumber(step.dose);
-      const perDay = PRESCRIPTION_FREQUENCIES[step.frequency]?.dosesPerDay;
+      const perDay = prescriptionFrequency(step.frequency)?.dosesPerDay;
       const days = stepDays[i];
       return amount !== undefined && perDay !== undefined && days !== undefined ? amount * perDay * days : undefined;
     })
@@ -327,17 +354,18 @@ export const prescriptionDirectionsText = (
     const duration =
       days === undefined
         ? ''
-        : `for ${PRESCRIPTION_FREQUENCIES[frequency ?? '']?.asNeeded ? 'up to ' : ''}${days} ${
-            days === 1 ? 'day' : 'days'
-          }`;
+        : `for ${prescriptionFrequency(frequency)?.asNeeded ? 'up to ' : ''}${days} ${days === 1 ? 'day' : 'days'}`;
     const where = route && !ROUTES_IN_VERB.includes(route) ? route : '';
     return assembleSentence([opening, ' ', dose, ' ', where, ' ', frequency ?? '', ' ', duration], []);
   };
   const [first, ...rest] = courseSteps(directions);
   const bare = leadingNumber(first.dose) === undefined && !pickedFrequency(first);
   const instructions = (directions.instructions ?? '').trim().replace(/\.$/, '');
-  if (bare && !instructions) return '';
-  const course = [phrase(first, prescriptionVerb(route)), ...rest.map((step) => phrase(step, 'then'))].join(', ');
+  if (bare && rest.length === 0 && !instructions) return '';
+  // An empty first step before filled "then" steps says nothing: the first filled one opens the sentence.
+  const empty = bare && leadingNumber(first.durationDays) === undefined;
+  const said = empty && rest.length ? rest : [first, ...rest];
+  const course = said.map((step, i) => phrase(step, i === 0 ? prescriptionVerb(route) : 'then')).join(', ');
   // "Inhale with spacer", not "Inhale, with spacer": a comma only once a step says something to follow.
   const tail = instructions ? `${bare && rest.length === 0 ? ' ' : ', '}${instructions}` : '';
   return `${course}${tail}.`;
