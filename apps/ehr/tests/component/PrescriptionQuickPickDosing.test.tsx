@@ -260,7 +260,7 @@ describe('Suggestions from quick picks', () => {
     let working = await hoverInfo(user, row);
     // The quick pick's name first, then the working.
     expect(working.firstElementChild).toHaveTextContent(/^Quick pick: Amox strep$/);
-    expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → 9 mL = 720 mg');
+    expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg');
     expect(working).toHaveTextContent('9 mL = 720 mg, 17 mg (2%) over 703 mg');
     unmount();
 
@@ -269,7 +269,7 @@ describe('Suggestions from quick picks', () => {
     // 12.4 kg × 25 = 310 mg = 3.875 mL: the nearest half mL is 4 mL.
     expect(within(row).getByRole('button', { name: 'Dose: 4' })).toBeInTheDocument();
     working = await hoverInfo(user, row);
-    expect(working).toHaveTextContent('12.4 kg × 25 mg/kg/dose = 310 mg → 4 mL = 320 mg');
+    expect(working).toHaveTextContent('12.4 kg × 25 mg/kg/dose = 310 mg');
 
     // Picking the row fills the line as the quick pick would, with this patient's dose and its settings.
     await user.click(within(row).getByRole('button', { name: 'Use this prescription' }));
@@ -299,7 +299,7 @@ describe('Suggestions from quick picks', () => {
     // 703 mg is over 500 mg; 500 mg is 6.25 mL, and 6.5 mL would be over it.
     expect(within(row).getByRole('button', { name: 'Dose: 6' })).toBeInTheDocument();
     const working = await hoverInfo(user, row);
-    expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose → 6 mL = 480 mg');
+    expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose');
     expect(working).toHaveTextContent(
       '6 mL = 480 mg, 20 mg (4%) under 500 mg (rounded down to stay at or under the max 500 mg per dose)'
     );
@@ -429,7 +429,7 @@ describe('Suggestion rows: review fixes', () => {
     // ÷ 3 = 749.87 mg = 9.5 mL: still 80 mg/kg/day, not 120.
     const row = suggestionRow(0);
     expect(within(row).getByRole('button', { name: 'Dose: 9.5' })).toBeInTheDocument();
-    expect(await hoverInfo(user, row)).toHaveTextContent('28.12 kg × 80 mg/kg/day ÷ 3 = 749.87 mg → 9.5 mL = 760 mg');
+    expect(await hoverInfo(user, row)).toHaveTextContent('28.12 kg × 80 mg/kg/day ÷ 3 = 749.87 mg');
     // The row's calculator opens on the new doses a day too.
     await user.click(within(row).getByRole('button', { name: 'Dose calculator for Amox per day' }));
     const calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
@@ -595,7 +595,7 @@ describe('The "+ quick pick" list', () => {
     );
     await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
     const working = await screen.findByTestId('dose-working-note');
-    expect(working).toHaveTextContent('20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → 6.5 mL = 520 mg');
+    expect(working).toHaveTextContent('20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg');
     expect(working).toHaveTextContent('6.5 mL = 520 mg, 13.3 mg (2%) under 533.33 mg');
     expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual({
       rate: 80,
@@ -616,9 +616,7 @@ describe('The "+ quick pick" list', () => {
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(9);
     // Still the quick pick's dose: its working stays behind the ⓘ.
     await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
-    expect(await screen.findByTestId('dose-working-note')).toHaveTextContent(
-      '28.12 kg × 25 mg/kg/dose = 703 mg → 9 mL = 720 mg'
-    );
+    expect(await screen.findByTestId('dose-working-note')).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg');
     expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual({
       rate: 25,
       basis: 'mg/kg/dose',
@@ -904,7 +902,7 @@ describe('The dose’s ⓘ on the line', () => {
     render(<Harness initial={lineOf(SOURCED)} weight={WEIGHT} />);
     await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
     const note = await screen.findByTestId('dose-working-note');
-    expect(note).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose → 6 mL = 480 mg');
+    expect(note).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose');
     expect(note).toHaveTextContent('6 mL = 480 mg, 20 mg (4%) under 500 mg');
     expect(note).toHaveTextContent('Capped at the 500 mg maximum (703 mg by weight)');
     expect(note).toHaveTextContent('From the quick pick: Amox capped');
@@ -912,6 +910,21 @@ describe('The dose’s ⓘ on the line', () => {
       'href',
       'https://example.org/redbook'
     );
+  });
+
+  it('says the measured dose once, the working then the rounding note', async () => {
+    const user = userEvent.setup();
+    const PER_DAY_LINE: PrescriptionQuickPickData = {
+      ...BY_WEIGHT,
+      dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+    };
+    render(<Harness initial={lineOf(PER_DAY_LINE)} weight={WEIGHT} />);
+    await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
+    const note = await screen.findByTestId('dose-working-note');
+    // 28.12 kg × 80 mg/kg/day ÷ 2 = 1124.8 mg, measured to 14 mL = 1120 mg.
+    expect(note.textContent?.split('14 mL = 1120 mg')).toHaveLength(2);
+    expect(note.children[0]).toHaveTextContent(/^28\.12 kg × 80 mg\/kg\/day ÷ 2 = 1124\.8 mg$/);
+    expect(note.children[1]).toHaveTextContent(/^14 mL = 1120 mg, 4\.8 mg \(under 1%\) under 1124\.8 mg$/);
   });
 
   it('shows after "Use this dose", without a quick pick; typing over the dose removes it', async () => {
@@ -926,7 +939,7 @@ describe('The dose’s ⓘ on the line', () => {
     await user.click(within(calculator).getByRole('button', { name: 'Use this dose' }));
     await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));
     const note = await screen.findByTestId('dose-working-note');
-    expect(note).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → 9 mL = 720 mg');
+    expect(note).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg');
     expect(note).not.toHaveTextContent('From the quick pick');
 
     await user.clear(screen.getByRole('spinbutton', { name: 'dose' }));

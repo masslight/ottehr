@@ -735,7 +735,7 @@ describe('withCalculatorDosing', () => {
     expect(next.doseNotes).toEqual([
       {
         dose: '6.5',
-        working: '20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → 6.5 mL = 520 mg',
+        working: '20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg',
         text: '6.5 mL = 520 mg, 13.3 mg (2%) under 533.33 mg',
       },
     ]);
@@ -757,9 +757,7 @@ describe('withCalculatorDosing', () => {
     const capped = { ...perDay, dosing: { ...perDay.dosing!, maxPerDoseMg: 500 } };
     const next = changed(capped, { frequency: 'three times daily' }, 20);
     expect(next.dose).toBe('6');
-    expect(next.doseNotes?.[0]?.working).toBe(
-      '20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → capped at 500 mg per dose → 6 mL = 480 mg'
-    );
+    expect(next.doseNotes?.[0]?.working).toBe('20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → capped at 500 mg per dose');
     expect(next.dosing).toEqual({ rate: 80, basis: 'mg/kg/day', dosesPerDay: 3, maxPerDoseMg: 500 });
     const noWeight = changed(perDay, { frequency: 'three times daily' });
     expect(noWeight).toMatchObject({ dose: '', dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 } });

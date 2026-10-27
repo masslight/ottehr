@@ -95,11 +95,11 @@ describe('DoseCalculator (plain, inline)', () => {
     await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
     expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 3 capsules by mouth twice daily.');
     // The working and the rounding note aren't on show until the ⓘ is hovered.
-    expect(screen.queryByText('28.12 kg × 25 mg/kg/dose = 703 mg → 3 capsules = 750 mg')).not.toBeInTheDocument();
+    expect(screen.queryByText('28.12 kg × 25 mg/kg/dose = 703 mg')).not.toBeInTheDocument();
     await user.hover(screen.getByRole('img', { name: 'How this dose was worked out' }));
     const working = await screen.findByTestId('dose-working');
     expect(working).toHaveTextContent('3 capsules = 750 mg, 47 mg (7%) over 703 mg');
-    expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg → 3 capsules = 750 mg');
+    expect(working).toHaveTextContent('28.12 kg × 25 mg/kg/dose = 703 mg');
 
     await user.click(screen.getByRole('button', { name: 'Use this dose' }));
     expect(latest).toMatchObject({ dose: '3', frequency: 'twice daily', quantityUnit: 'Capsule' });

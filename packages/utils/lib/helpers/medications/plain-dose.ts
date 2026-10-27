@@ -41,7 +41,8 @@ export interface PlainDose {
   amount: number;
   /** "3 capsules", "4.5 mL". */
   amountText: string;
-  /** "28.12 kg × 25 mg/kg/dose = 703 mg → 3 capsules = 750 mg". */
+  /** "28.12 kg × 25 mg/kg/dose = 703 mg", and "→ 2 capsules = 500 mg" after it only when there is no rounding note:
+   * the note then says what it is measured to. */
   working: string;
   /** "3 capsules = 750 mg, 47 mg (7%) over 703 mg"; none when the measured dose is the one worked out. */
   roundingNote?: string;
@@ -67,15 +68,15 @@ export const nearestMeasurable = (
   return Math.max(step, roundNumberToDecimalPlaces(Math.round(mg / mgPerMeasure / step) * step, 3));
 };
 
-/** How far a measured dose lands from the mg aimed at: "3 capsules = 750 mg, 47 mg (7%) over 703 mg"; none when it
- * is the same to 0.1 mg. */
+/** How far a measured dose lands from the mg aimed at: "3 capsules = 750 mg, 47 mg (7%) over 703 mg", "(under 1%)"
+ * where the percent rounds to 0; none when it is the same to 0.1 mg. */
 export const doseRoundingNote = (amountText: string, deliveredMg: number, aimedMg: number): string | undefined => {
   const difference = roundNumberToDecimalPlaces(deliveredMg - aimedMg, 1);
   if (difference === 0) return undefined;
   const percent = Math.round((Math.abs(difference) / aimedMg) * 100);
-  return `${amountText} = ${num(deliveredMg)} mg, ${num(Math.abs(difference))} mg (${percent}%) ${
-    difference > 0 ? 'over' : 'under'
-  } ${num(aimedMg)} mg`;
+  return `${amountText} = ${num(deliveredMg)} mg, ${num(Math.abs(difference))} mg (${
+    percent === 0 ? 'under 1' : percent
+  }%) ${difference > 0 ? 'over' : 'under'} ${num(aimedMg)} mg`;
 };
 
 /** The mg a dose may not go over, and how the hover says so: the lower of the per-dose maximum and the per-day
@@ -155,7 +156,9 @@ export const plainDose = ({
   return {
     amount,
     amountText,
-    working: `${formula}${capped ? ` → capped at ${capText}` : ''} → ${amountText} = ${num(delivered)} mg`,
+    working: `${formula}${capped ? ` → capped at ${capText}` : ''}${
+      note ? '' : ` → ${amountText} = ${num(delivered)} mg`
+    }`,
     roundingNote:
       note && roundedDown && delivered <= capMg
         ? `${note} (rounded down to stay at or under the max ${capText})`
