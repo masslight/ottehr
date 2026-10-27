@@ -15,7 +15,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { assertClaimResponseEraNotVoided } from '../era-write';
-import { createBillingClient, createEraReadClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {
   display: 'Unknown',
@@ -29,8 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, params);
 
   return {
     statusCode: 200,
@@ -38,12 +37,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: Params): Promise<ClaimResponse> {
+export async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimResponse> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
-  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
+  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
   const containedClaim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
   const containedPatient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
 

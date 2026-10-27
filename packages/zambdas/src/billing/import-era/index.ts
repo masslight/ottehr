@@ -9,6 +9,7 @@ import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
+// eslint-disable-next-line no-restricted-imports -- marks the ERA Oystehr just wrote, before sub-tag-era-resources tags it
 import { createBillingClient, createEraReadClient, ERA_SOURCE_EXTENSION } from '../shared';
 
 let m2mToken: string;

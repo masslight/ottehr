@@ -30,11 +30,17 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
 const transaction = vi.fn();
 const get = vi.fn();
 const history = vi.fn();
+const search = vi.fn().mockImplementation(({ _resourceType }) => {
+  return {
+    unbundle: () => [],
+  };
+});
 const oystehr = {
   fhir: {
     transaction,
     get,
     history,
+    search,
   },
 } as unknown as Oystehr;
 

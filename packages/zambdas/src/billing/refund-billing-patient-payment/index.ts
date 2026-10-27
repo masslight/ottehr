@@ -26,6 +26,7 @@ import { RefundBillingPatientPaymentInputSchema } from 'utils/lib/types/data/bil
 import { INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { shouldUseCandid, shouldUseOttehrBilling, syncCandidPatientRefunds } from '../../shared/candid';
+// eslint-disable-next-line no-restricted-imports -- reads legacy clinical payment notices, the Stripe account and Candid client, and syncs refunds to Candid
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';

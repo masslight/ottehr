@@ -90,6 +90,7 @@ export const STRIPE_METADATA_KEYS = {
   patientId: 'oystehr_patient_id',
   encounterId: 'oystehr_encounter_id',
   legacyEncounterId: 'encounterId',
+  invoiceId: 'oystehr_invoice_id',
 } as const;
 
 export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
