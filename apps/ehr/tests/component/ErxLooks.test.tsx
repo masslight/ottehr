@@ -63,16 +63,17 @@ describe('eRx suggestion looks', () => {
 });
 
 describe('dose calculator looks', () => {
-  it('by weight: the inputs grid, result, source and "Use this dose"', async () => {
-    const props = calculatorLook('Calc 1');
+  it('by weight: the inputs, the result as a sentence with the working behind the ⓘ, and "Use this dose"', async () => {
+    const user = userEvent.setup();
     const onUse = vi.fn();
-    render(<DoseCalculatorCard {...props} onUse={onUse} />);
-    expect(screen.getByRole('button', { name: 'regimen: AAP high-dose (acute otitis media)' })).toBeInTheDocument();
+    render(<DoseCalculatorCard {...calculatorLook('Calc 1')} onUse={onUse} />);
     expect(screen.getByRole('spinbutton', { name: 'weight' })).toHaveValue(28.12);
-    expect(screen.getByText('(low end of the range 80–90 mg/kg/day)')).toBeInTheDocument();
-    expect(screen.getByTestId('dose-result')).toHaveTextContent('14 mLtwice daily');
-    expect(screen.getByTestId('dose-sources')).toHaveTextContent('Source: AAP EQIPP dosage table · max 2 g/dose');
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Use this dose' }));
+    expect(screen.getByText('from twice daily')).toBeInTheDocument();
+    expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
+    expect(screen.queryByText('9 mL = 720 mg, 17 mg (2%) over 703 mg')).not.toBeInTheDocument();
+    await user.hover(screen.getByRole('img', { name: 'How this dose was worked out' }));
+    expect(await screen.findByTestId('dose-working')).toHaveTextContent('9 mL = 720 mg, 17 mg (2%) over 703 mg');
+    await user.click(screen.getByRole('button', { name: 'Use this dose' }));
     expect(onUse).toHaveBeenCalledTimes(1);
   });
 
@@ -84,22 +85,26 @@ describe('dose calculator looks', () => {
   });
 
   it.each([
-    ['Calc 2', '60–71 lb, 9–10 years: 12.5 mL every 6 to 8 hours as needed', true],
-    ['Calc 3', '500 mg → 2 tablets = 500 mg (250 mg/tablet)', true],
-    ['Calc 4', 'Days 2–5: 3.5 mL once daily (5 mg/kg)', true],
-    ['Calc 5', '… down to day 6: 1 tablet', false],
-    ['Calc 6', 'Enter a rate (range 0.14–2 mg/kg/day) to work out the dose', false],
-    ['Calc 7', "No dose: the label's minimum", false],
-    ['Calc 8', '3 capsules = 750 mg, 47 mg (7%) over 703 mg', true],
-  ])('%s', (tag, text, usable) => {
+    ['Calc 2', '15–30 kg: 4 mg', 'Take 1 tablet by mouth every 8 hours as needed.', true],
+    ['Calc 3', 'Doses a day', 'Take 1 tablet by mouth twice daily for 10 days.', true],
+    ['Calc 4', 'Days 2–5', 'Take 7 mL once on day 1, then 3.5 mL once daily for 4 days.', true],
+    ['Calc 5', 'Day 6: 1 tablet', 'Take as directed on the pack for 6 days.', true],
+    ['Calc 6', 'Enter a rate (range 0.14–2 mg/kg/day) to work out the dose', undefined, false],
+    ['Calc 7', "No dose: the label's minimum", undefined, false],
+    ['Calc 8', 'from the product', 'Take 3 capsules by mouth twice daily.', true],
+  ])('%s', (tag, text, sentence, usable) => {
     render(<DoseCalculatorCard {...calculatorLook(tag)} />);
     expect(screen.getByTestId('dose-calculator')).toHaveTextContent(text);
+    if (sentence) expect(screen.getByTestId('dose-sentence')).toHaveTextContent(sentence);
+    else expect(screen.queryByTestId('dose-sentence')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Use this dose' }) !== null).toBe(usable);
   });
 
-  it('shows red and orange warning boxes', () => {
+  it('shows the picker, red and orange warning boxes and the source', () => {
     render(<DoseCalculatorCard {...calculatorLook('Overlay')} />);
+    expect(screen.getByRole('button', { name: 'regimen: AAP high-dose (acute otitis media)' })).toBeInTheDocument();
     expect(screen.getByTestId('dose-warnings-error')).toHaveTextContent('Contraindicated: in the label’s words.');
     expect(screen.getByTestId('dose-warnings-warning')).toHaveTextContent('Picked by hand for a patient outside it.');
+    expect(screen.getByTestId('dose-sources')).toHaveTextContent('Source: AAP EQIPP dosage table · max 2 g/dose');
   });
 });

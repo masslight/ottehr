@@ -33,7 +33,7 @@ import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription
 import { useAppointmentData, useSaveChartData } from '../../../shared/stores/appointment/appointment.store';
 import { PopoverBlank, Sentence } from '../procedures/narrative/InlineBlanks';
 import { ProcedureQuickPickDialogs } from '../procedures/ProcedureQuickPickDialogs';
-import { calculatorWeightKg, DoseCalculator, previousVisitWeightNote } from './DoseCalculator';
+import { calculatorWeightKg, previousVisitWeightNote } from './DoseCalculator';
 import {
   ageAtVisit,
   ageMonthsAtVisit,
@@ -98,7 +98,7 @@ export const OrderPrescriptionForm: FC = () => {
   const patientAgeYears = ageAtVisit(patient?.birthDate, appointment?.start);
   const patientAgeMonths = ageMonthsAtVisit(patient?.birthDate, appointment?.start);
   const weight = useVisitWeight();
-  // A weight typed in the dose calculator stands in for the vitals' everywhere on the page.
+  // A weight typed in any line's dose calculator stands in for the vitals' everywhere on the page.
   const [weightText, setWeightText] = useState<string>();
   const weightKg = calculatorWeightKg(weightText, weight);
   const user = useEvolveUser();
@@ -113,9 +113,6 @@ export const OrderPrescriptionForm: FC = () => {
   const { quickPicks, refetch: refetchQuickPicks } = useMergedPrescriptionQuickPicks();
 
   const [lines, setLines] = useState<PrescriptionLine[]>(() => [emptyPrescriptionLine()]);
-  // The dose calculator works on the prescription last clicked or typed in; the first until then or once it goes.
-  const [activeLineKey, setActiveLineKey] = useState<number | null>(null);
-  const activeLine = lines.find((line) => line.key === activeLineKey) ?? lines[0];
   const [sendAttempted, setSendAttempted] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -320,11 +317,7 @@ export const OrderPrescriptionForm: FC = () => {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {lines.map((line, index) => (
-                  <Box
-                    key={line.key}
-                    onFocus={() => setActiveLineKey(line.key)}
-                    onClick={() => setActiveLineKey(line.key)}
-                  >
+                  <Box key={line.key}>
                     <PrescriptionSentences
                       line={line}
                       index={index}
@@ -342,6 +335,9 @@ export const OrderPrescriptionForm: FC = () => {
                       patientAgeMonths={patientAgeMonths}
                       weightKg={weightKg}
                       weightNote={previousVisitWeightNote(weightText, weight)}
+                      weight={weight}
+                      weightText={weightText}
+                      onWeightText={setWeightText}
                       errors={sendAttempted ? prescriptionLineErrors(line) : []}
                       readOnly={readOnly}
                     />
@@ -383,15 +379,6 @@ export const OrderPrescriptionForm: FC = () => {
               <Stack spacing={1.5} style={{ padding: '24px' }}>
                 <AllergiesContainer />
                 <MedicationsContainer />
-                <DoseCalculator
-                  line={activeLine}
-                  label={lines.length > 1 ? `Prescription ${lines.indexOf(activeLine) + 1}` : undefined}
-                  weight={weight}
-                  weightText={weightText}
-                  onWeightText={setWeightText}
-                  onChange={(next) => updateLine(activeLine.key, next)}
-                  readOnly={readOnly}
-                />
               </Stack>
             </AccordionCard>
           </Box>

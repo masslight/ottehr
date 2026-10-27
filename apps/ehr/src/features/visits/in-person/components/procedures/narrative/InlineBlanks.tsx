@@ -194,11 +194,25 @@ const navigateChoices = (event: KeyboardEvent<HTMLElement>): void => {
 
 const POPOVER_MODIFIERS = [{ name: 'preventOverflow', options: { padding: 8 } }];
 
-/** Non-modal on purpose: a modal popover's backdrop swallowed the first click on Save / Clear Form /
- * another blank. Here the click away closes the popover and still reaches its target. */
-export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
-  const popupId = useId();
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+/** The open popovers, innermost last: Escape closes only the innermost. */
+const openPoppers: object[] = [];
+
+interface BlankPopperProps {
+  anchor: HTMLElement;
+  id: string;
+  title: string;
+  /** Escape (focus back on the anchor) or a click away (focus stays where it went). */
+  onClose: (restoreFocus?: boolean) => void;
+  /** Hides the small heading; the title still names the dialog. */
+  hideTitle?: boolean;
+  paperSx?: SxProps<Theme>;
+  children: ReactNode;
+}
+
+/** The popover under a blank (or any anchor in a sentence). Non-modal on purpose: a modal popover's backdrop
+ * swallowed the first click on Save / Clear Form / another blank. Here the click away closes the popover and still
+ * reaches its target. */
+export const BlankPopper: FC<BlankPopperProps> = ({ anchor, id, title, onClose, hideTitle, paperSx, children }) => {
   // Focus moves into the paper only after Popper has placed it: focusing earlier opens an autocomplete
   // list (openOnFocus) while the paper still sits at the top-left corner, and that list stays there.
   const paperEl = useRef<HTMLDivElement | null>(null);
@@ -210,6 +224,73 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
   const popperOptions = useMemo(() => ({ onFirstUpdate: onPlaced }), [onPlaced]);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  useEffect(() => {
+    // Document-level, capture phase (as MUI's modal did): one Escape closes the popover wherever focus
+    // is, even when an autocomplete list inside it is open; only the innermost one when they nest (a pick-list
+    // inside the dose calculator).
+    const token = {};
+    openPoppers.push(token);
+    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape' && openPoppers[openPoppers.length - 1] === token) {
+        event.stopPropagation();
+        onCloseRef.current();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      openPoppers.splice(openPoppers.indexOf(token), 1);
+    };
+  }, []);
+  return (
+    <Popper
+      open
+      anchorEl={anchor}
+      placement="bottom-start"
+      sx={{ zIndex: (theme) => theme.zIndex.modal }}
+      modifiers={POPOVER_MODIFIERS}
+      popperOptions={popperOptions}
+    >
+      <ClickAwayListener
+        mouseEvent="onMouseDown"
+        touchEvent="onTouchStart"
+        onClickAway={(event) => {
+          if (!anchor.contains(event.target as Node)) onClose(false);
+        }}
+      >
+        <Paper
+          ref={paperEl}
+          id={id}
+          role="dialog"
+          aria-label={title}
+          onKeyDown={navigateChoices}
+          elevation={8}
+          data-testid={dataTestIds.documentProcedurePage.blankPopover}
+          sx={[
+            {
+              width: 'max-content',
+              minWidth: 'min(280px, calc(100vw - 32px))',
+              maxWidth: 'min(400px, calc(100vw - 32px))',
+              maxHeight: 'min(360px, calc(100dvh - 32px))',
+              overflow: 'auto',
+              p: 1,
+            },
+            ...(Array.isArray(paperSx) ? paperSx : [paperSx]),
+          ]}
+        >
+          {!hideTitle && <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{title}</Typography>}
+          {children}
+        </Paper>
+      </ClickAwayListener>
+    </Popper>
+  );
+};
+
+export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
+  const popupId = useId();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const close = useCallback(
     (restoreFocus = true): void => {
       if (restoreFocus) anchor?.focus();
@@ -218,19 +299,6 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
     },
     [anchor]
   );
-  useEffect(() => {
-    if (!anchor) return;
-    // Document-level, capture phase (as MUI's modal did): one Escape closes the popover wherever focus
-    // is, even when an autocomplete list inside it is open.
-    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        close();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [anchor, close]);
   return (
     <>
       <BlankButton
@@ -240,43 +308,9 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
         popupId={popupId}
       />
       {anchor && (
-        <Popper
-          open
-          anchorEl={anchor}
-          placement="bottom-start"
-          sx={{ zIndex: (theme) => theme.zIndex.modal }}
-          modifiers={POPOVER_MODIFIERS}
-          popperOptions={popperOptions}
-        >
-          <ClickAwayListener
-            mouseEvent="onMouseDown"
-            touchEvent="onTouchStart"
-            onClickAway={(event) => {
-              if (!anchor.contains(event.target as Node)) close(false);
-            }}
-          >
-            <Paper
-              ref={paperEl}
-              id={popupId}
-              role="dialog"
-              aria-label={title ?? blank.label}
-              onKeyDown={navigateChoices}
-              elevation={8}
-              data-testid={dataTestIds.documentProcedurePage.blankPopover}
-              sx={{
-                width: 'max-content',
-                minWidth: 'min(280px, calc(100vw - 32px))',
-                maxWidth: 'min(400px, calc(100vw - 32px))',
-                maxHeight: 'min(360px, calc(100dvh - 32px))',
-                overflow: 'auto',
-                p: 1,
-              }}
-            >
-              <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{title ?? blank.label}</Typography>
-              {children(close)}
-            </Paper>
-          </ClickAwayListener>
-        </Popper>
+        <BlankPopper anchor={anchor} id={popupId} title={title ?? blank.label} onClose={close}>
+          {children(close)}
+        </BlankPopper>
       )}
     </>
   );

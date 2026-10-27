@@ -10,6 +10,8 @@ export interface SampleLook<P> {
   tag: string;
   title: string;
   props: P;
+  /** The prescription line the calculator opens under: its product, the dose unit and what follows. */
+  line?: { medication: string; unit: string; rest: string };
 }
 
 const noop = (): void => undefined;
@@ -101,24 +103,11 @@ export const SUGGESTION_LOOKS: SampleLook<ErxSuggestionsBoxProps<SuggestedSenten
 ];
 
 const WEIGHT: DoseField = { id: 'weight', label: 'Weight', value: '28.12', unit: 'kg', from: 'this visit' };
-const concentration = (value: string): DoseField => ({
-  id: 'concentration',
-  label: 'Concentration',
-  value,
-  unit: 'mg/mL',
-  from: 'from the product',
-});
-const rate = (value: string, unit: string, from?: string): DoseField => ({
-  id: 'rate',
-  label: 'Rate',
+const field = (id: string, label: string, value: string, unit?: string, from?: string): DoseField => ({
+  id,
+  label,
   value,
   unit,
-  from,
-});
-const dosesPerDay = (value: string, from?: string): DoseField => ({
-  id: 'dosesPerDay',
-  label: 'Doses a day',
-  value,
   from,
 });
 const regimen = (value: string, title = 'Regimen'): DoseCalculatorCardProps['picker'] => ({
@@ -128,102 +117,116 @@ const regimen = (value: string, title = 'Regimen'): DoseCalculatorCardProps['pic
   onChange: noop,
 });
 
+const AMOXICILLIN_LIQUID = {
+  medication: 'Amoxicillin 400 mg/5 mL',
+  unit: 'mL',
+  rest: 'by mouth twice daily for 10 days.',
+};
+
 export const CALCULATOR_LOOKS: SampleLook<DoseCalculatorCardProps>[] = [
   {
     tag: 'Calc 1',
     title: 'By weight (most common)',
+    line: AMOXICILLIN_LIQUID,
     props: {
-      picker: regimen('AAP high-dose (acute otitis media)'),
       display: {
         look: 'byWeight',
         fields: [
           WEIGHT,
-          concentration('80'),
-          rate('80', 'mg/kg per day', '(low end of the range 80–90 mg/kg/day)'),
-          dosesPerDay('2', 'from the regimen'),
+          field('rate', 'Rate', '25', 'mg/kg per dose'),
+          field('dosesPerDay', 'Doses a day', '2', undefined, 'from twice daily'),
         ],
         result: {
-          amount: '14 mL',
-          frequency: 'twice daily',
-          working: '28.12 kg × 80 mg/kg/day ÷ 2 = 1124.8 mg → 14 mL = 1120 mg',
-          roundingNote: '14 mL = 1120 mg, 4.8 mg (0%) under 1124.8 mg',
+          sentence: 'Take 9 mL by mouth twice daily for 10 days.',
+          roundingNote: '9 mL = 720 mg, 17 mg (2%) over 703 mg',
+          working: '28.12 kg × 25 mg/kg/dose = 703 mg → 9 mL = 720 mg (80 mg/mL)',
         },
       },
-      source: { label: 'AAP EQIPP dosage table', href: 'https://eqipp.aap.org/', extra: 'max 2 g/dose' },
       onUse: noop,
     },
   },
   {
     tag: 'Calc 2',
     title: 'Chart or band',
+    line: { medication: 'Ondansetron 4 mg ODT', unit: 'tablet', rest: 'by mouth every 8 hours as needed.' },
     props: {
-      picker: regimen("OTC Drug Facts weight/age chart (Children's Motrin)"),
       display: {
         look: 'band',
-        band: { label: '60–71 lb, 9–10 years', amount: '12.5 mL', rest: 'every 6 to 8 hours as needed' },
-        result: { amount: '12.5 mL', frequency: 'every 6 to 8 hours' },
+        weight: 'Weight 28.12 kg',
+        bands: [
+          { label: '8–15 kg', amount: '2 mg' },
+          { label: '15–30 kg', amount: '4 mg' },
+          { label: 'over 30 kg', amount: '8 mg' },
+        ],
+        current: 1,
+        result: { sentence: 'Take 1 tablet by mouth every 8 hours as needed.' },
       },
-      source: { label: "Children's Motrin Drug Facts" },
       onUse: noop,
     },
   },
   {
     tag: 'Calc 3',
     title: 'Fixed dose',
+    line: { medication: 'Amoxicillin 875 mg Tab', unit: 'tablet', rest: 'by mouth twice daily for 10 days.' },
     props: {
-      picker: regimen('Adults and adolescents (13 years and older), early Lyme disease'),
       display: {
         look: 'fixed',
+        fields: [
+          field('dose', 'Dose', '875', 'mg per dose'),
+          field('dosesPerDay', 'Doses a day', '2', undefined, 'from twice daily'),
+        ],
         result: {
-          amount: '2 tablets',
-          frequency: 'twice daily for 20 days',
-          working: '500 mg → 2 tablets = 500 mg (250 mg/tablet)',
+          sentence: 'Take 1 tablet by mouth twice daily for 10 days.',
+          working: '875 mg → 1 tablet = 875 mg (875 mg/tablet)',
         },
       },
-      source: { label: 'cefuroxime axetil tablets label' },
       onUse: noop,
     },
   },
   {
     tag: 'Calc 4',
     title: 'Course',
+    line: { medication: 'Azithromycin 200 mg/5 mL', unit: 'mL', rest: 'by mouth once daily for 1 day, then …' },
     props: {
-      picker: regimen('AOM / CAP 5-day (10 then 5)'),
       display: {
         look: 'course',
-        steps: [
-          { label: 'Day 1', amount: '7 mL', rest: 'once daily (10 mg/kg)' },
-          { label: 'Days 2–5', amount: '3.5 mL', rest: 'once daily (5 mg/kg)' },
+        fields: [
+          WEIGHT,
+          field('day1', 'Day 1', '10', 'mg/kg once'),
+          field('days2to5', 'Days 2–5', '5', 'mg/kg once daily'),
         ],
+        result: {
+          sentence: 'Take 7 mL once on day 1, then 3.5 mL once daily for 4 days.',
+          working: '28.12 kg × 10 mg/kg = 281.2 mg → 7 mL = 280 mg; 28.12 kg × 5 mg/kg = 140.6 mg → 3.5 mL = 140 mg',
+        },
       },
-      source: { label: 'Zithromax label' },
       onUse: noop,
     },
   },
   {
     tag: 'Calc 5',
     title: 'Pack',
+    line: { medication: 'methylPREDNISolone 4 mg Dosepak', unit: 'tablets', rest: 'by mouth …' },
     props: {
-      picker: regimen('Medrol 4 mg Dosepak', 'Product'),
       display: {
         look: 'pack',
-        steps: [
-          { label: 'Day 1', amount: '6 tablets' },
-          { label: 'Day 2', amount: '5 tablets' },
-          { label: '… down to day 6', amount: '1 tablet' },
-        ],
+        steps: [6, 5, 4, 3, 2, 1].map((count, i) => ({
+          label: `Day ${i + 1}`,
+          amount: `${count} ${count === 1 ? 'tablet' : 'tablets'}`,
+        })),
+        result: { sentence: 'Take as directed on the pack for 6 days.' },
       },
-      source: { label: 'Medrol Dosepak label' },
+      onUse: noop,
     },
   },
   {
     tag: 'Calc 6',
     title: 'Waiting for input',
+    line: AMOXICILLIN_LIQUID,
     props: {
-      picker: regimen('Label general pediatric range'),
       display: {
         look: 'waiting',
-        fields: [rate('', 'mg/kg per day', '(range 0.14–2 mg/kg/day)')],
+        fields: [WEIGHT, field('rate', 'Rate', '', 'mg/kg per day', '(range 0.14–2 mg/kg/day)')],
         message: 'Enter a rate (range 0.14–2 mg/kg/day) to work out the dose',
       },
     },
@@ -231,32 +234,30 @@ export const CALCULATOR_LOOKS: SampleLook<DoseCalculatorCardProps>[] = [
   {
     tag: 'Calc 7',
     title: 'No dose, with a reason',
+    line: { medication: 'Clindamycin 75 mg/5 mL', unit: 'mL', rest: 'by mouth every 4 hours.' },
     props: {
-      picker: regimen('IDSA MRSA skin/soft tissue (pediatric)'),
       display: {
         look: 'noDose',
         reason: "No dose: the label's minimum 112.5 mg/day (37.5 mg × 3) is above the max 40 mg/kg/day at 2.4 kg.",
       },
-      source: { label: 'clindamycin label; IDSA 2011' },
       onUse: noop,
     },
   },
   {
     tag: 'Calc 8',
-    title: 'Plain calculator',
+    title: 'Enter my own (the order form today)',
+    line: { medication: 'Amoxicillin 250 mg Cap', unit: 'capsules', rest: 'by mouth twice daily.' },
     props: {
-      picker: regimen('Enter my own'),
       display: {
         look: 'own',
         fields: [
           WEIGHT,
-          { ...concentration('250'), label: 'Strength', unit: 'mg per capsule' },
-          rate('25', 'mg/kg per dose'),
-          dosesPerDay('2'),
+          field('concentration', 'Strength', '250', 'mg per capsule', 'from the product'),
+          field('rate', 'Rate', '25', 'mg/kg per dose'),
+          field('dosesPerDay', 'Doses a day', '2', undefined, 'from twice daily'),
         ],
         result: {
-          amount: '3 capsules',
-          frequency: 'twice daily',
+          sentence: 'Take 3 capsules by mouth twice daily.',
           working: '28.12 kg × 25 mg/kg/dose = 703 mg → 3 capsules = 750 mg',
           roundingNote: '3 capsules = 750 mg, 47 mg (7%) over 703 mg',
         },
@@ -266,14 +267,17 @@ export const CALCULATOR_LOOKS: SampleLook<DoseCalculatorCardProps>[] = [
   },
   {
     tag: 'Overlay',
-    title: 'Red and orange warning boxes',
+    title: 'Picker, warning boxes and source',
+    line: AMOXICILLIN_LIQUID,
     props: {
       picker: regimen('AAP high-dose (acute otitis media)'),
-      display: { look: 'fixed', result: { amount: '14 mL', frequency: 'twice daily' } },
+      display: { look: 'fixed', result: { sentence: 'Take 14 mL by mouth twice daily for 10 days.' } },
       warnings: [
         { severity: 'error', lines: ['Contraindicated: in the label’s words.'] },
         { severity: 'warning', lines: ['Caution: in the source’s words.', 'Picked by hand for a patient outside it.'] },
       ],
+      source: { label: 'AAP EQIPP dosage table', href: 'https://eqipp.aap.org/', extra: 'max 2 g/dose' },
+      onUse: noop,
     },
   },
 ];

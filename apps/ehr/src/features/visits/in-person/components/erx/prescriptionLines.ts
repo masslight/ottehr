@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
-import { DOSE_STEP, DoseMeasure } from 'utils/lib/helpers/medications/plain-dose';
+import { DoseMeasure, doseRoundingNote, nearestMeasurable } from 'utils/lib/helpers/medications/plain-dose';
 import {
+  doseAmountText,
   parseStrengthConcentration,
   PrescriptionDirections,
   prescriptionDirectionsText,
@@ -55,6 +56,15 @@ export interface PrescriptionLine extends PrescriptionDirections {
   /** The line's details are hidden after a new medication or strength until a suggestion or "Write my own" is picked:
    * it can't be sent, since what it carries over isn't on screen. */
   awaitingPick?: boolean;
+  /** The notes on the doses the last strength change re-measured: the first step's, then each "then" step's. */
+  doseNotes?: (DoseNote | undefined)[];
+}
+
+/** How far a dose a strength change re-measured lands from the mg it was: shown beside the dose while it stays as
+ * re-measured. */
+export interface DoseNote {
+  dose: string;
+  text: string;
 }
 
 type QuickPickedFields = Pick<PrescriptionLine, 'quantityValue' | 'daysSupply' | 'numberOfRefills' | 'noteToPharmacy'>;
@@ -176,28 +186,24 @@ export const mgPerMeasure = (description: string): number | undefined => {
   return prescriptionDoseForm(description) === 'liquid' ? parsed?.mgPerMl : parsed?.mgPerUnit;
 };
 
-/** How far a dose carried over to another strength may land from the same mg: beyond it the dose is cleared. */
-const REMEASURE_TOLERANCE = 0.1;
-
-/** The dose as the same mg measured in another product, to the calculator's steps (half a mL, a whole tablet or
- * capsule). Blank when either strength can't be read, or when the new product can't measure the mg within 10%, so a
- * dose is never carried over in the wrong measure or quietly made a different dose. A form that isn't measured in mg
- * (puffs, drops, a cream) keeps its dose as it was. */
-const remeasured = (dose: string, from: string, to: PrescriptionLine): string => {
+/** The dose as the same mg measured in another product, to the nearest amount it can measure (half a mL, a whole
+ * tablet or capsule, at least one), with a note on how far that is from the mg: the provider decides whether it will
+ * do. Blank when either strength can't be read, so a dose is never carried over in the wrong measure. A form that
+ * isn't measured in mg (puffs, drops, a cream) keeps its dose as it was. */
+const remeasured = (dose: string, from: string, to: PrescriptionLine): { dose: string; note?: DoseNote } => {
   const amount = numberOrUndefined(dose);
-  if (amount === undefined) return dose;
+  if (amount === undefined || amount <= 0) return { dose };
   const toDescription = to.medication?.description ?? '';
   const form = prescriptionDoseForm(toDescription);
   const measure = form && MEASURE_OF[form];
-  if (measure === undefined) return dose;
+  if (measure === undefined) return { dose };
   const fromMg = mgPerMeasure(from);
   const toMg = mgPerMeasure(toDescription);
-  if (fromMg === undefined || toMg === undefined) return '';
-  const mg = amount * fromMg;
-  const step = DOSE_STEP[measure];
-  const measures = roundNumberToDecimalPlaces(Math.round(mg / toMg / step) * step, 3);
-  const offAim = Math.abs((measures * toMg) / mg - 1) > REMEASURE_TOLERANCE + 1e-9;
-  return measures > 0 && !offAim ? String(measures) : '';
+  if (fromMg === undefined || toMg === undefined) return { dose: '' };
+  const mg = roundNumberToDecimalPlaces(amount * fromMg, 2);
+  const measures = nearestMeasurable(mg, toMg, measure);
+  const text = doseRoundingNote(doseAmountText(measures, measure), roundNumberToDecimalPlaces(measures * toMg, 2), mg);
+  return { dose: String(measures), note: text ? { dose: String(measures), text } : undefined };
 };
 
 /** The quick pick's values a new product clears: those still as the quick pick set them. */
@@ -214,7 +220,8 @@ const withoutQuickPick = (line: PrescriptionLine): Partial<PrescriptionLine> => 
 
 /** The line on one strength of a drug: the unit and route follow the product when its name makes them obvious.
  * Directions written for another drug don't carry over; a strength change keeps the picks, with the doses
- * re-measured for the new strength, and rewrites the directions. */
+ * re-measured for the new strength (each with a note on how far it lands from the mg it was), and rewrites the
+ * directions. */
 export const withProduct = (
   line: PrescriptionLine,
   drug: MedicationSearchDrug,
@@ -233,15 +240,15 @@ export const withProduct = (
     ...(otherDrug ? NO_DIRECTIONS : {}),
     ...(changed ? { patientInstructions: '', ...withoutQuickPick(line) } : {}),
   };
+  if (!changed || otherDrug || from === undefined) return withDirections({ ...next, doseNotes: undefined }, {});
+  const first = remeasured(line.dose, from, next);
+  const steps = line.steps.map((step) => remeasured(step.dose, from, next));
   return withDirections(
     {
       ...next,
-      ...(changed && !otherDrug && from !== undefined
-        ? {
-            dose: remeasured(line.dose, from, next),
-            steps: line.steps.map((step) => ({ ...step, dose: remeasured(step.dose, from, next) })),
-          }
-        : {}),
+      dose: first.dose,
+      steps: line.steps.map((step, i) => ({ ...step, dose: steps[i].dose })),
+      doseNotes: [first, ...steps].map((result) => result.note),
     },
     {}
   );

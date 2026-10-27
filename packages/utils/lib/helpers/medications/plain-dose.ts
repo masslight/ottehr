@@ -39,6 +39,24 @@ export interface PlainDose {
 
 const num = (value: number): string => String(roundNumberToDecimalPlaces(value, 2));
 
+/** The nearest amount of the product that can be measured for the mg, at least one step: a dose is never rounded
+ * away to nothing. */
+export const nearestMeasurable = (mg: number, mgPerMeasure: number, measure: DoseMeasure): number => {
+  const step = DOSE_STEP[measure];
+  return Math.max(step, roundNumberToDecimalPlaces(Math.round(mg / mgPerMeasure / step) * step, 3));
+};
+
+/** How far a measured dose lands from the mg aimed at: "3 capsules = 750 mg, 47 mg (7%) over 703 mg"; none when it
+ * is the same to 0.1 mg. */
+export const doseRoundingNote = (amountText: string, deliveredMg: number, aimedMg: number): string | undefined => {
+  const difference = roundNumberToDecimalPlaces(deliveredMg - aimedMg, 1);
+  if (difference === 0) return undefined;
+  const percent = Math.round((Math.abs(difference) / aimedMg) * 100);
+  return `${amountText} = ${num(deliveredMg)} mg, ${num(Math.abs(difference))} mg (${percent}%) ${
+    difference > 0 ? 'over' : 'under'
+  } ${num(aimedMg)} mg`;
+};
+
 /** The dose for the inputs, or nothing until every input it needs is there. */
 export const plainDose = ({
   weightKg,
@@ -56,9 +74,7 @@ export const plainDose = ({
     basis === 'fixed' ? rate : basis === 'mg/kg/dose' ? kg * rate : (kg * rate) / (dosesPerDay ?? 1),
     2
   );
-  const step = DOSE_STEP[measure];
-  // The nearest measurable amount, at least one step: a dose is never rounded away to nothing.
-  const amount = Math.max(step, roundNumberToDecimalPlaces(Math.round(aimed / mgPerMeasure / step) * step, 3));
+  const amount = nearestMeasurable(aimed, mgPerMeasure, measure);
   const amountText = doseAmountText(amount, measure);
   const delivered = roundNumberToDecimalPlaces(amount * mgPerMeasure, 2);
   const formula =
@@ -67,16 +83,10 @@ export const plainDose = ({
       : basis === 'mg/kg/dose'
       ? `${num(kg)} kg × ${num(rate)} mg/kg/dose = ${num(aimed)} mg`
       : `${num(kg)} kg × ${num(rate)} mg/kg/day ÷ ${num(dosesPerDay ?? 1)} = ${num(aimed)} mg`;
-  const difference = roundNumberToDecimalPlaces(delivered - aimed, 1);
   return {
     amount,
     amountText,
     working: `${formula} → ${amountText} = ${num(delivered)} mg`,
-    roundingNote:
-      difference === 0
-        ? undefined
-        : `${amountText} = ${num(delivered)} mg, ${num(Math.abs(difference))} mg (${Math.round(
-            (Math.abs(difference) / aimed) * 100
-          )}%) ${difference > 0 ? 'over' : 'under'} ${num(aimed)} mg`,
+    roundingNote: doseRoundingNote(amountText, delivered, aimed),
   };
 };

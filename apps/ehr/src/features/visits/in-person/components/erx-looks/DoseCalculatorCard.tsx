@@ -1,12 +1,13 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Box, Button, Link, SxProps, Theme } from '@mui/material';
+import { InfoOutlined } from '@mui/icons-material';
+import { Box, Button, Link, SxProps, Theme, Tooltip } from '@mui/material';
 import { FC, ReactNode } from 'react';
-import { SectionHeading } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { BlankOption, SelectBlank, TextBlank } from '../procedures/narrative/InlineBlanks';
 
 /**
- * The dose calculator card in the eRx side column, as looks only: every string and number comes in ready to show,
- * and every change goes out through a callback. Which look shows is `display.look`.
+ * The dose calculator that opens under a prescription line from the icon beside its dose blank, as looks only: every
+ * string and number comes in ready to show, and every change goes out through a callback. Which look shows is
+ * `display.look`.
  */
 
 /** One input of the inputs grid: "Weight [28.12] kg this visit". */
@@ -23,18 +24,16 @@ export interface DoseField {
   action?: { label: string; onClick: () => void };
 }
 
-/** The result display: the big dose, what it comes to and how it was worked out. */
+/** The result: the sentence the line will read once the dose is used, and, behind the ⓘ, how it was worked out. */
 export interface DoseResult {
-  /** "14.5 mL", "3 capsules". */
-  amount: string;
-  /** "twice daily", "per dose". */
-  frequency?: string;
-  /** "= 750 mg • 1500 mg/day". */
-  detail?: string;
+  /** "Take 9 mL by mouth twice daily." */
+  sentence: string;
   /** "28.12 kg × 25 mg/kg/dose = 703 mg → 3 capsules = 750 mg". */
   working?: string;
   /** "3 capsules = 750 mg, 47 mg (7%) over 703 mg". */
   roundingNote?: string;
+  /** "= 750 mg • 1500 mg/day". */
+  detail?: string;
 }
 
 /** One line of a band, course or pack: "Day 1: **7 mL** once daily (10 mg/kg)". */
@@ -45,14 +44,14 @@ export interface DoseStepLine {
 }
 
 export type DoseCalculatorDisplay =
-  | { look: 'byWeight'; fields: DoseField[]; result: DoseResult }
-  | { look: 'band'; band: DoseStepLine; result: DoseResult }
-  | { look: 'fixed'; result: DoseResult }
-  | { look: 'course'; steps: DoseStepLine[] }
-  | { look: 'pack'; steps: DoseStepLine[] }
+  | { look: 'byWeight' | 'own'; fields: DoseField[]; result: DoseResult }
+  /** A chart: the patient's band in bold, the others dimmed. */
+  | { look: 'band'; weight?: string; bands: DoseStepLine[]; current?: number; result: DoseResult }
+  | { look: 'fixed'; fields?: DoseField[]; result: DoseResult }
+  | { look: 'course'; fields?: DoseField[]; steps?: DoseStepLine[]; result: DoseResult }
+  | { look: 'pack'; steps: DoseStepLine[]; result: DoseResult }
   | { look: 'waiting'; fields?: DoseField[]; message: string }
-  | { look: 'noDose'; reason: string }
-  | { look: 'own'; fields: DoseField[]; result: DoseResult };
+  | { look: 'noDose'; reason: string };
 
 export interface DoseWarningBox {
   /** Red (contraindicated) or orange (a caution, in the source's words). */
@@ -69,8 +68,6 @@ export interface DoseSourceLine {
 
 export interface DoseCalculatorCardProps {
   display: DoseCalculatorDisplay;
-  /** "Prescription 2" when the page has several. */
-  label?: string;
   /** The regimen (or product) picker on top; "Enter my own" is its last option. */
   picker?: { title: string; options: string[]; value?: string; onChange: (value: string | undefined) => void };
   warnings?: DoseWarningBox[];
@@ -86,17 +83,8 @@ export interface DoseCalculatorCardProps {
 const PANEL = { background: '#F3F6FA', edge: '#C9D6E6', display: '#E8F0FA', displayEdge: '#9DB8DA' };
 const MONO = "'Roboto Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 const NOTE_SX = { color: 'text.secondary', fontSize: 13 };
+const HEADING_SX = { fontSize: 12, textTransform: 'uppercase', letterSpacing: '.05em', color: 'text.secondary' };
 const SMALL_SX = { fontSize: 13, color: 'text.secondary', lineHeight: 1.5 };
-
-const CalculatorIcon: FC = () => (
-  <Box component="svg" viewBox="0 0 24 24" aria-hidden="true" sx={{ width: 20, height: 20, flex: 'none' }}>
-    <rect x="4" y="2" width="16" height="20" rx="2" fill="none" stroke="#0F347C" strokeWidth="1.6" />
-    <rect x="7" y="5" width="10" height="4" rx="1" fill="#0F347C" />
-    <g fill="#0F347C">
-      {[13, 17].flatMap((cy) => [8.5, 12, 15.5].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.1" />))}
-    </g>
-  </Box>
-);
 
 /** A white box around a blank and its unit and notes; numbers typed in it read in mono. */
 const FieldBox: FC<{ children: ReactNode; sx?: SxProps<Theme> }> = ({ children, sx }) => (
@@ -176,39 +164,55 @@ const Fields: FC<{
   </Box>
 );
 
-const ResultDisplay: FC<{ result: DoseResult }> = ({ result }) => (
-  <>
+/** An ⓘ that shows its lines on hover or focus: the working behind a dose, or how far a re-measured dose is off. */
+export const DoseInfoHover: FC<{ label: string; lines: string[]; testId?: string }> = ({ label, lines, testId }) => (
+  <Tooltip
+    title={
+      <Box data-testid={testId} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+        {lines.map((line) => (
+          <div key={line}>{line}</div>
+        ))}
+      </Box>
+    }
+  >
+    <Box
+      component="span"
+      role="img"
+      tabIndex={0}
+      aria-label={label}
+      sx={{ display: 'inline-flex', verticalAlign: '-3px', color: 'text.secondary', flex: 'none', mx: '2px' }}
+    >
+      <InfoOutlined sx={{ fontSize: 18 }} />
+    </Box>
+  </Tooltip>
+);
+
+const ResultDisplay: FC<{ result: DoseResult }> = ({ result }) => {
+  const notes = [result.roundingNote, result.working, result.detail].filter((note): note is string => !!note);
+  return (
     <Box
       data-testid="dose-result"
       sx={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: '2px',
-        p: '10px 12px',
+        alignItems: 'center',
+        gap: '8px',
+        p: '8px 10px',
         backgroundColor: PANEL.display,
         border: `1px solid ${PANEL.displayEdge}`,
         borderRadius: '6px',
+        fontSize: 15,
+        fontWeight: 500,
+        color: 'primary.dark',
         fontVariantNumeric: 'tabular-nums',
       }}
     >
-      <Box sx={{ fontSize: 30, fontWeight: 500, color: 'primary.dark', lineHeight: 1.15 }}>
-        {result.amount}
-        {result.frequency && (
-          <Box component="small" sx={{ fontSize: 16, fontWeight: 400, color: 'text.secondary', ml: '4px' }}>
-            {result.frequency}
-          </Box>
-        )}
+      <Box component="span" data-testid="dose-sentence" sx={{ flex: 1, minWidth: 0 }}>
+        {result.sentence}
       </Box>
-      {result.detail && <Box sx={{ fontSize: 13, color: 'text.secondary' }}>{result.detail}</Box>}
+      {notes.length > 0 && <DoseInfoHover label="How this dose was worked out" lines={notes} testId="dose-working" />}
     </Box>
-    {result.working && <Box sx={SMALL_SX}>{result.working}</Box>}
-    {result.roundingNote && (
-      <Box sx={SMALL_SX} data-testid="dose-rounding-note">
-        {result.roundingNote}
-      </Box>
-    )}
-  </>
-);
+  );
+};
 
 const StepLines: FC<{ steps: DoseStepLine[] }> = ({ steps }) => (
   <Box component="ul" sx={{ m: 0, pl: 2.25, lineHeight: 1.55 }}>
@@ -277,21 +281,51 @@ const LookBody: FC<{
     case 'band':
       return (
         <>
-          <FieldBox sx={{ display: 'block', p: '6px 8px', lineHeight: 1.45 }}>
-            {display.band.label}:{' '}
-            <Box component="b" sx={{ fontWeight: 500, color: 'primary.dark' }}>
-              {display.band.amount}
+          {display.weight && (
+            <Box component="span" sx={HEADING_SX}>
+              {display.weight}
             </Box>
-            {display.band.rest && ` ${display.band.rest}`}
-          </FieldBox>
+          )}
+          {display.bands.map((band, i) => (
+            <FieldBox
+              key={band.label}
+              sx={{
+                display: 'block',
+                p: '6px 8px',
+                lineHeight: 1.45,
+                color: i === display.current ? undefined : 'text.secondary',
+              }}
+            >
+              {band.label}:{' '}
+              {i === display.current ? (
+                <Box component="b" sx={{ fontWeight: 500, color: 'primary.dark' }}>
+                  {band.amount}
+                </Box>
+              ) : (
+                band.amount
+              )}
+              {band.rest && ` ${band.rest}`}
+            </FieldBox>
+          ))}
           <ResultDisplay result={display.result} />
         </>
       );
     case 'fixed':
-      return <ResultDisplay result={display.result} />;
     case 'course':
+      return (
+        <>
+          {display.fields && <Fields fields={display.fields} {...fieldProps} />}
+          {display.look === 'course' && display.steps && <StepLines steps={display.steps} />}
+          <ResultDisplay result={display.result} />
+        </>
+      );
     case 'pack':
-      return <StepLines steps={display.steps} />;
+      return (
+        <>
+          <StepLines steps={display.steps} />
+          <ResultDisplay result={display.result} />
+        </>
+      );
     case 'waiting':
       return (
         <>
@@ -316,7 +350,6 @@ const LookBody: FC<{
 
 export const DoseCalculatorCard: FC<DoseCalculatorCardProps> = ({
   display,
-  label,
   picker,
   warnings = [],
   source,
@@ -333,26 +366,20 @@ export const DoseCalculatorCard: FC<DoseCalculatorCardProps> = ({
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
-        width: '100%',
+        gap: '8px',
+        width: 340,
+        maxWidth: '100%',
         boxSizing: 'border-box',
-        p: '16px',
+        p: '12px',
         backgroundColor: PANEL.background,
         border: `1px solid ${PANEL.edge}`,
         borderRadius: '8px',
         fontSize: 14,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <CalculatorIcon />
-        <SectionHeading>Dose calculator{label ? ` · ${label}` : ''}</SectionHeading>
-      </Box>
       {picker && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <Box
-            component="span"
-            sx={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.05em', color: 'text.secondary' }}
-          >
+          <Box component="span" sx={HEADING_SX}>
             {picker.title}
           </Box>
           <FieldBox sx={{ fontSize: 15, p: '6px 10px' }}>

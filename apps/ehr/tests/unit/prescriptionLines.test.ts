@@ -136,21 +136,21 @@ describe('withProduct', () => {
       durationDays: '10',
     });
     expect(liquid.patientInstructions).toBe('Take 5 mL by mouth twice daily for 10 days.');
-    // 5 mL of 250/5 is 250 mg: 0.29 of an 875 mg tablet, which isn't split, so the dose is cleared rather than
-    // silently made half (or a whole) tablet.
+    // 5 mL of 250/5 is 250 mg: 0.29 of an 875 mg tablet, which isn't split, so at least one whole tablet, with a
+    // note on how far over it is: the provider decides, with no cut-off.
     const tablet = withProduct(liquid, AMOXICILLIN, AMOXICILLIN.strengths[1]);
     expect(tablet.quantityUnit).toBe('Tablet');
-    expect(tablet.dose).toBe('');
-    expect(tablet.patientInstructions).toBe('Take by mouth twice daily for 10 days.');
-    expect(tablet.quantityValue).toBe('');
-    // A tablet is given whole, as the calculator does: 250 mg is half a 500 mg tablet,
-    // which a whole one misses by 100%, so no dose.
+    expect(tablet.dose).toBe('1');
+    expect(tablet.doseNotes).toEqual([{ dose: '1', text: '1 tablet = 875 mg, 625 mg (250%) over 250 mg' }]);
+    expect(tablet.patientInstructions).toBe('Take 1 tablet by mouth twice daily for 10 days.');
+    expect(tablet.quantityValue).toBe('20');
+    // A tablet is given whole, as the calculator does: 250 mg is half a 500 mg tablet, rounded to one.
     const halves = withProduct(liquid, AMOXICILLIN, { strength: '500 mg Tab', ndcs: ['00093226301'] });
-    expect(halves.dose).toBe('');
-    expect(halves.patientInstructions).toBe('Take by mouth twice daily for 10 days.');
+    expect(halves.dose).toBe('1');
+    expect(halves.doseNotes?.[0]?.text).toBe('1 tablet = 500 mg, 250 mg (100%) over 250 mg');
   });
 
-  it('keeps the mg per dose across a strength change, measured in the new product, or clears a dose it cannot', () => {
+  it('keeps the mg per dose across a strength change, to the nearest amount the new product measures', () => {
     const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]), {
       dose: '9.5',
       frequency: 'twice daily',
@@ -158,15 +158,23 @@ describe('withProduct', () => {
       steps: [{ dose: '4.75', frequency: 'twice daily', durationDays: '2' }],
     });
     // 9.5 mL of 400/5 is 760 mg: 15.2 mL of 250/5, to the half mL as the calculator measures; the "then" step
-    // follows.
+    // follows, each with its note.
     const weaker = withProduct(liquid, AMOXICILLIN, AMOXICILLIN.strengths[2]);
     expect(weaker.dose).toBe('15');
     expect(weaker.steps[0].dose).toBe('7.5');
+    expect(weaker.doseNotes).toEqual([
+      { dose: '15', text: '15 mL = 750 mg, 10 mg (1%) under 760 mg' },
+      { dose: '7.5', text: '7.5 mL = 375 mg, 5 mg (1%) under 380 mg' },
+    ]);
     expect(weaker.patientInstructions).toBe(
       'Take 15 mL by mouth twice daily for 10 days, then 7.5 mL by mouth twice daily for 2 days.'
     );
-    // 760 mg in 875 mg tablets is 0.87: a whole one is 115%, more than 10% off, so no dose.
-    expect(withProduct(liquid, AMOXICILLIN, AMOXICILLIN.strengths[1]).dose).toBe('');
+    // 760 mg in 875 mg tablets is 0.87: one whole tablet, 15% over, kept with its note (no cut-off).
+    const tablets = withProduct(liquid, AMOXICILLIN, AMOXICILLIN.strengths[1]);
+    expect(tablets.dose).toBe('1');
+    expect(tablets.doseNotes?.[0]?.text).toBe('1 tablet = 875 mg, 115 mg (15%) over 760 mg');
+    // The same strength again, or another drug, leaves no notes.
+    expect(withProduct(tablets, AMOXICILLIN, AMOXICILLIN.strengths[1]).doseNotes).toBeUndefined();
 
     const albuterol = {
       name: 'Albuterol',
@@ -458,10 +466,13 @@ describe('product changes and suggestions', () => {
         dose,
         frequency: 'twice daily',
       });
-    // 8.75 mL of 250/5 is 437.5 mg: half an 875 mg tablet, which is given whole, 200% of it, so no dose.
-    expect(withProduct(liquid(2, '8.75'), AMOXICILLIN, AMOXICILLIN.strengths[1]).dose).toBe('');
-    // 5 mL of 250/5 is 250 mg: a 500 mg tablet is given whole, 200% of it, so no dose.
-    expect(withProduct(liquid(2, '5'), AMOXICILLIN, { strength: '500 mg Tab', ndcs: ['00093226301'] }).dose).toBe('');
+    // 8.75 mL of 250/5 is 437.5 mg: half an 875 mg tablet, which is given whole: one, 100% over, with its note.
+    expect(withProduct(liquid(2, '8.75'), AMOXICILLIN, AMOXICILLIN.strengths[1])).toMatchObject({
+      dose: '1',
+      doseNotes: [{ dose: '1', text: '1 tablet = 875 mg, 437.5 mg (100%) over 437.5 mg' }],
+    });
+    // 5 mL of 250/5 is 250 mg: a 500 mg tablet is given whole, one.
+    expect(withProduct(liquid(2, '5'), AMOXICILLIN, { strength: '500 mg Tab', ndcs: ['00093226301'] }).dose).toBe('1');
     // 9.5 mL of 400/5 is 760 mg: 15.2 mL of 250/5, measured to the half mL (98.7%).
     expect(withProduct(liquid(3, '9.5'), AMOXICILLIN, AMOXICILLIN.strengths[2]).dose).toBe('15');
   });

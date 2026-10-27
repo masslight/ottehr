@@ -33,10 +33,13 @@ import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescrip
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useSearchMedications } from '../../../shared/hooks/useErxSearch';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
+import { DoseInfoHover } from '../erx-looks/DoseCalculatorCard';
 import { ErxSuggestionsBox } from '../erx-looks/ErxSuggestionsBox';
 import { BlankButton, PopoverBlank, SelectBlank, Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
+import { DoseCalculator } from './DoseCalculator';
 import {
   defaultStrength,
+  DoseNote,
   emptyPrescriptionStep,
   pickedStrength,
   PrescriptionLine,
@@ -46,6 +49,7 @@ import {
   withSuggestion,
 } from './prescriptionLines';
 import { PrescriptionSuggestionRow, prescriptionSuggestionsFor } from './prescriptionSuggestions';
+import { VisitWeight } from './useVisitWeight';
 
 /** Units that read the same for any amount ("20 each", not "20 eachs"). */
 const UNCOUNTED_UNITS: readonly QuantityUnit[] = ['Each', 'Gum', 'Unspecified'];
@@ -227,6 +231,10 @@ interface PrescriptionSentencesProps {
   weightKg?: number;
   /** "using weight 18 kg (previous visit, …)" when the suggestions use an earlier visit's weight. */
   weightNote?: string;
+  /** The dose calculator's weight: the vitals', or one typed in any line's calculator, which the page keeps. */
+  weight?: VisitWeight;
+  weightText?: string;
+  onWeightText?: (value: string | undefined) => void;
   /** Shown once a send has been tried. */
   errors: string[];
   readOnly: boolean;
@@ -246,6 +254,9 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   patientAgeMonths,
   weightKg,
   weightNote,
+  weight,
+  weightText,
+  onWeightText = () => undefined,
   errors,
   readOnly,
 }) => {
@@ -277,17 +288,19 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   );
   // The directions and dispense blanks wait for a pick among the suggestions (or "Other"), unless the line opens
   // with directions (a quick pick, an edited line). A new medication or strength hides them again until a pick,
-  // whatever directions the line carries over.
-  const [revealed, setRevealed] = useState(false);
+  // whatever directions the line carries over. A product with no suggestions has nothing to pick: its line opens
+  // straight away.
+  const [picked, setPicked] = useState(false);
   const [awaitingPick, setAwaitingPick] = useState(false);
   const hasDirections =
     line.steps.length > 0 ||
     [line.dose, line.frequency, line.durationDays, line.patientInstructions].some((value) => value.trim() !== '');
-  if (!revealed && (readOnly || (hasDirections && !awaitingPick))) setRevealed(true);
+  if (!picked && (readOnly || (hasDirections && !awaitingPick))) setPicked(true);
+  const revealed = picked || (line.medication !== null && suggestions.length === 0);
   const changeProduct = (next: PrescriptionLine): void => {
     const changed = next.medication?.ndc !== line.medication?.ndc;
     if (changed) {
-      setRevealed(false);
+      setPicked(false);
       setAwaitingPick(true);
     }
     // The send check sees the hidden line as unfinished.
@@ -298,7 +311,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     if (revealed && line.awaitingPick) onChange({ ...line, awaitingPick: false });
   }, [revealed, line, onChange]);
   const reveal = (): void => {
-    setRevealed(true);
+    setPicked(true);
     setAwaitingPick(false);
   };
   const matches = (suggestion: PrescriptionSuggestionRow, picks: SentencePicks): boolean => {
@@ -323,6 +336,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     step: PrescriptionStep,
     at: string,
     onStep: (patch: Partial<PrescriptionStep>) => void,
+    doseNote: DoseNote | undefined,
     route?: ReactNode
   ): ReactNode => (
     <>
@@ -335,7 +349,22 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         min={0}
         step={0.5}
       />
-      {doseUnit && ` ${doseUnitLabel(doseUnit, Number(step.dose) || undefined)}`} {route}
+      {/* The calculator works out the first step's dose; a course's steps come from its look once there is data. */}
+      {!readOnly && at === '' && (
+        <DoseCalculator
+          line={line}
+          weight={weight}
+          weightText={weightText}
+          onWeightText={onWeightText}
+          onChange={onChange}
+        />
+      )}
+      {doseUnit && ` ${doseUnitLabel(doseUnit, Number(step.dose) || undefined)}`}
+      {/* Shown while the dose is as a strength change re-measured it. */}
+      {doseNote && doseNote.dose === step.dose && (
+        <DoseInfoHover label={`${at}dose re-measured`} lines={[doseNote.text]} testId={`${at}dose-note`} />
+      )}{' '}
+      {route}
       <SelectBlank
         label={`${at}frequency`}
         title="Frequency"
@@ -410,12 +439,12 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      {/* The suggestions sit above the line's first sentence once a medication is picked. */}
-      {!readOnly && line.medication && (
+      {/* The suggestions sit above the line's first sentence once a medication with any is picked; "Other" is last. */}
+      {!readOnly && line.medication && suggestions.length > 0 && (
         <ErxSuggestionsBox<PrescriptionSuggestionRow>
           look="rows"
           rows={suggestions}
-          weightNote={suggestions.length ? weightNote : undefined}
+          weightNote={weightNote}
           isAdded={matches}
           renderPicker={(row, blank, pick) =>
             // A row's diagnosis blank opens the line's pick-list.
@@ -573,6 +602,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               line,
               '',
               (patch) => onChange(withDirections(line, patch)),
+              line.doseNotes?.[0],
               <>
                 <SelectBlank
                   label="route"
@@ -596,8 +626,11 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               removeLabel={`Remove step ${i + 2}`}
             >
               then{' '}
-              {stepBlanks(step, `step ${i + 2} `, (patch) =>
-                setSteps(line.steps.map((other, j) => (j === i ? { ...other, ...patch } : other)))
+              {stepBlanks(
+                step,
+                `step ${i + 2} `,
+                (patch) => setSteps(line.steps.map((other, j) => (j === i ? { ...other, ...patch } : other))),
+                line.doseNotes?.[i + 1]
               )}
               {i === line.steps.length - 1 ? courseEnd : '.'}
             </Sentence>

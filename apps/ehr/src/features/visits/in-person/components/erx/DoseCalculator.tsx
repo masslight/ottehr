@@ -3,20 +3,19 @@ import { DoseBasis, plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
   frequencyForDosesPerDay,
   PRESCRIPTION_FREQUENCIES,
+  prescriptionDirectionsText,
   prescriptionDoseForm,
   prescriptionQuantityUnit,
+  PrescriptionStep,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { vitalsConfig } from 'utils/lib/helpers/vitals/config-schema';
 import { formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { formatDateTimeToLocalTimezone } from 'utils/lib/utils/date';
 import { DoseCalculatorCard, DoseCalculatorDisplay, DoseField } from '../erx-looks/DoseCalculatorCard';
+import { DoseCalculatorPopup } from '../erx-looks/DoseCalculatorPopup';
 import { MEASURE_OF, mgPerMeasure, numberOrUndefined, PrescriptionLine, withDirections } from './prescriptionLines';
 import { VisitWeight } from './useVisitWeight';
-
-/** The regimen picker's last option, the plain calculator. A product's regimens go before it once there is dosing
- * data to list them from; until then it is the only one. */
-const ENTER_MY_OWN = 'Enter my own';
 
 const BASIS_OPTIONS = [
   { value: 'mg/kg/day', label: 'day' },
@@ -61,31 +60,51 @@ export const calculatorWeightKg = (
   weight: VisitWeight | undefined
 ): number | undefined => numberOrUndefined(calculatorWeightText(weightText, weight));
 
+/** What "Use this dose" writes into the line: the dose; a frequency, into an empty one only unless the doses a day
+ * were typed in the calculator; and for a course its "then" steps. */
+export interface DoseFill {
+  dose: string;
+  frequency?: string;
+  replaceFrequency?: boolean;
+  durationDays?: string;
+  steps?: PrescriptionStep[];
+}
+
+/** The line with the calculator's dose used. Without steps of its own the dose is for the whole prescription: any
+ * "then" steps go, and with them the first step's duration. */
+export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLine => {
+  const quantityUnit = line.quantityUnit || prescriptionQuantityUnit(line.medication?.description ?? '') || '';
+  return withDirections(
+    { ...line, quantityUnit },
+    {
+      dose: fill.dose,
+      frequency:
+        fill.frequency !== undefined && (fill.replaceFrequency || !line.frequency) ? fill.frequency : line.frequency,
+      steps: fill.steps ?? [],
+      ...(fill.durationDays !== undefined
+        ? { durationDays: fill.durationDays }
+        : line.steps.length && !fill.steps
+        ? { durationDays: '' }
+        : {}),
+    }
+  );
+};
+
 interface DoseCalculatorProps {
   line: PrescriptionLine;
-  /** Which prescription the calculator is on, when there are several. */
-  label?: string;
   weight?: VisitWeight;
-  /** A weight typed here in place of the vitals', which the page keeps so the suggestions use it too; an emptied
-   * blank stays empty (''), and only "use the vitals weight" (undefined) goes back to the vitals'. */
+  /** A weight typed here in place of the vitals', which the page keeps so the suggestions and every line's
+   * calculator use it too; an emptied blank stays empty (''), and only "use the vitals weight" (undefined) goes back
+   * to the vitals'. */
   weightText?: string;
   onWeightText: (value: string | undefined) => void;
   onChange: (next: PrescriptionLine) => void;
-  readOnly: boolean;
 }
 
-/** The plain dose calculator for the prescription being written: weight from the vitals, strength from the product,
- * the rate and doses a day typed, all editable, with the working and the rounding shown. Nothing on the line changes
- * until "Use this dose" writes the dose (and a frequency, when the doses a day were typed) into its blanks. */
-export const DoseCalculator: FC<DoseCalculatorProps> = ({
-  line,
-  label,
-  weight,
-  weightText,
-  onWeightText,
-  onChange,
-  readOnly,
-}) => {
+/** The calculator icon after the line's dose blank and the plain dose calculator it opens: weight from the vitals,
+ * strength from the product, the rate typed and the doses a day from the line's frequency, all editable. Its result
+ * reads as the line's sentence, with the working behind the ⓘ. Nothing on the line changes until "Use this dose". */
+export const DoseCalculator: FC<DoseCalculatorProps> = ({ line, weight, weightText, onWeightText, onChange }) => {
   const [picks, setPicks] = useState<Picks>({});
   const ndc = line.medication?.ndc;
   const own = picks.ndc === ndc ? picks : {};
@@ -96,9 +115,10 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const measure = form && MEASURE_OF[form];
   if (!measure) {
     const message = description ? 'Not for this dose form: liquids, tablets and capsules only' : 'Pick a medication';
-    return <DoseCalculatorCard label={label} display={{ look: 'waiting', message }} readOnly={readOnly} />;
+    return (
+      <DoseCalculatorPopup>{() => <DoseCalculatorCard display={{ look: 'waiting', message }} />}</DoseCalculatorPopup>
+    );
   }
-
   const weightValue = calculatorWeightText(weightText, weight);
   const weightKg = numberOrUndefined(weightValue);
   const derivedConcentration = mgPerMeasure(description);
@@ -159,7 +179,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       id: 'dosesPerDay',
       label: 'Doses a day',
       value: dosesPerDayText,
-      from: own.dosesPerDay === undefined && lineDosesPerDay !== undefined ? '(from the frequency)' : undefined,
+      from: own.dosesPerDay === undefined && lineDosesPerDay !== undefined ? `from ${line.frequency}` : undefined,
     },
   ];
 
@@ -169,15 +189,19 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     !numberOrUndefined(rateText) && 'a rate',
     basis === 'mg/kg/day' && !dosesPerDay && 'the doses a day',
   ].filter((input): input is string => !!input);
-  const display: DoseCalculatorDisplay = dose
+  const fill: DoseFill | undefined = dose && {
+    dose: String(dose.amount),
+    frequency: frequencyOfDoses,
+    replaceFrequency: own.dosesPerDay !== undefined,
+  };
+  const display: DoseCalculatorDisplay = fill
     ? {
         look: 'own',
         fields,
         result: {
-          amount: dose.amountText,
-          frequency: frequencyOfDoses || 'per dose',
-          working: dose.working,
-          roundingNote: dose.roundingNote,
+          sentence: prescriptionDirectionsText(description, withDose(line, fill)),
+          working: dose?.working,
+          roundingNote: dose?.roundingNote,
         },
       }
     : {
@@ -188,33 +212,22 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
         } to work out the dose`,
       };
 
-  const useDose = (): void => {
-    if (!dose) return;
-    const quantityUnit = line.quantityUnit || prescriptionQuantityUnit(description) || '';
-    // One dose for the whole prescription: any "then" steps go, and with them the first step's duration. The line's
-    // frequency stands unless the doses a day were typed here, which then name their own (or none).
-    onChange(
-      withDirections(
-        { ...line, quantityUnit },
-        {
-          dose: String(dose.amount),
-          frequency: own.dosesPerDay !== undefined ? frequencyOfDoses : line.frequency,
-          steps: [],
-          ...(line.steps.length ? { durationDays: '' } : {}),
-        }
-      )
-    );
-  };
-
   return (
-    <DoseCalculatorCard
-      label={label}
-      display={display}
-      picker={{ title: 'Regimen', options: [ENTER_MY_OWN], value: ENTER_MY_OWN, onChange: () => undefined }}
-      onFieldChange={(id, value) => (id === 'weight' ? onWeightText(value) : pick({ [id]: value }))}
-      onChoiceChange={(_id, value) => pick({ basis: value as DoseBasis })}
-      onUse={useDose}
-      readOnly={readOnly}
-    />
+    <DoseCalculatorPopup>
+      {(close) => (
+        <DoseCalculatorCard
+          display={display}
+          onFieldChange={(id, value) => (id === 'weight' ? onWeightText(value) : pick({ [id]: value }))}
+          onChoiceChange={(_id, value) => pick({ basis: value as DoseBasis })}
+          onUse={
+            fill &&
+            ((): void => {
+              onChange(withDose(line, fill));
+              close();
+            })
+          }
+        />
+      )}
+    </DoseCalculatorPopup>
   );
 };
