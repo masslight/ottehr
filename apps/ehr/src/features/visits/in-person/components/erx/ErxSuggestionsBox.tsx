@@ -46,6 +46,9 @@ export interface ErxSuggestionsBoxProps<T extends ErxSuggestionRow> {
   renderPicker?: (row: T, blank: SentenceBlank, pick: (value: string) => void) => ReactNode;
   /** At the start of a quick pick's row or one with a dose blank, before "Take": the calculator icon. */
   renderDoseTool?: (row: T, picks: SentencePicks) => ReactNode;
+  /** Collapsed to its title line; the title's chevron toggles it. */
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
 }
 
 export const ErxSuggestionsBox = <T extends ErxSuggestionRow>({
@@ -56,6 +59,8 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>({
   onOther,
   renderPicker,
   renderDoseTool,
+  collapsed,
+  onCollapsedChange,
 }: ErxSuggestionsBoxProps<T>): ReactElement => {
   // A new rows array resets the picks inside SuggestedSentences, so it changes only with the rows given.
   const withOther = useMemo<SuggestedSentence[]>(() => [...rows, OTHER_ROW], [rows]);
@@ -64,6 +69,8 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>({
     <SuggestedSentences<SuggestedSentence>
       title="Suggested prescriptions"
       tinted
+      collapsed={collapsed}
+      onCollapsedChange={onCollapsedChange}
       caption={weightNote}
       rows={withOther}
       isAdded={(row, picks) => isRow(row) && (isAdded?.(row, picks) ?? false)}

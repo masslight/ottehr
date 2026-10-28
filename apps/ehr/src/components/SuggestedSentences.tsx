@@ -1,6 +1,17 @@
 import { otherColors } from '@ehrTheme/colors';
-import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
-import { alpha, Box, IconButton, ListSubheader, Menu, MenuItem, Popover, Tooltip, Typography } from '@mui/material';
+import { AddCircleOutline, CheckCircle, ExpandMore } from '@mui/icons-material';
+import {
+  alpha,
+  Box,
+  Collapse,
+  IconButton,
+  ListSubheader,
+  Menu,
+  MenuItem,
+  Popover,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import React, { ReactElement, ReactNode, useEffect, useState } from 'react';
 import {
   findUnpickedBlank,
@@ -50,6 +61,9 @@ interface SuggestedSentencesProps<T extends SuggestedSentence> {
   renderBesideAdd?: (row: T, picks: SentencePicks) => ReactNode;
   /** A light blue-gray background, so the box reads apart from the lines it suggests for. */
   tinted?: boolean;
+  /** With `onCollapsedChange`, the title line toggles the rows with a chevron; collapsed, only it shows. */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 /** Position of a blank: template row and segment index within it */
@@ -78,6 +92,8 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   renderLead,
   renderBesideAdd,
   tinted,
+  collapsed = false,
+  onCollapsedChange,
 }: SuggestedSentencesProps<T>): ReactElement => {
   // Picks are kept apart from the templates so a value the provider chose survives re-renders but not a
   // change of the rows themselves (another study, other numbers), which rebuilds the templates.
@@ -104,25 +120,18 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   };
   const picker = active && activeBlank && renderPicker?.(rows[active.blank.row], activeBlank, pick);
 
-  return (
-    <Box
-      sx={{
-        p: 1.5,
-        border: '1px solid',
-        borderColor: tinted ? '#d6e0ec' : '#e0e0e0',
-        borderRadius: 1,
-        ...(tinted && { bgcolor: '#f3f6fa' }),
-      }}
-      data-testid={dataTestId}
-    >
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-        {title}
-        {caption && (
-          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1.5, fontWeight: 400 }}>
-            {caption}
-          </Typography>
-        )}
-      </Typography>
+  const heading = (
+    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: collapsed ? 0 : 0.5 }}>
+      {title}
+      {caption && (
+        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1.5, fontWeight: 400 }}>
+          {caption}
+        </Typography>
+      )}
+    </Typography>
+  );
+  const body = (
+    <>
       {children}
       {rows.map((suggestion, row) => {
         const picks = rowPicks(row);
@@ -231,6 +240,51 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
           </Box>
         );
       })}
+    </>
+  );
+  return (
+    <Box
+      sx={{
+        p: 1.5,
+        border: '1px solid',
+        borderColor: tinted ? '#d6e0ec' : '#e0e0e0',
+        borderRadius: 1,
+        ...(tinted && { bgcolor: '#f3f6fa' }),
+      }}
+      data-testid={dataTestId}
+    >
+      {onCollapsedChange ? (
+        // The whole title line toggles; its chevron is the button.
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+          onClick={() => onCollapsedChange(!collapsed)}
+        >
+          {heading}
+          <IconButton
+            size="small"
+            aria-label={collapsed ? 'Show suggestions' : 'Hide suggestions'}
+            aria-expanded={!collapsed}
+            sx={{ padding: '2px' }}
+          >
+            <ExpandMore
+              sx={{
+                fontSize: '17px',
+                transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+                transition: 'transform 0.2s',
+              }}
+            />
+          </IconButton>
+        </Box>
+      ) : (
+        heading
+      )}
+      {onCollapsedChange ? (
+        <Collapse in={!collapsed} unmountOnExit>
+          {body}
+        </Collapse>
+      ) : (
+        body
+      )}
       {/* A Menu for the keyboard handling (arrows, Enter, Escape back to the blank); listbox roles because
           the items are the blank's possible values, one of which is current, rather than commands. */}
       <Menu

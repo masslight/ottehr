@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -33,13 +33,13 @@ vi.mock('../../src/features/visits/in-person/components/erx/prescriptionSuggesti
   prescriptionSuggestionsFor: () => suggestions.rows,
 }));
 // The searches behind the medication and diagnosis popovers are network calls; the medication one answers with the
-// drug above whatever is typed. A test sets `failed` to make the search request fail.
-const medicationSearch = vi.hoisted(() => ({ failed: false }));
+// drug above whatever is typed, and any `others` after it. A test sets `failed` to make the search request fail.
+const medicationSearch = vi.hoisted(() => ({ failed: false, others: [] as unknown[] }));
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
   useSearchMedications: () =>
     medicationSearch.failed
       ? { data: undefined, isFetching: false, isError: true }
-      : { data: [AMOXICILLIN_DRUG], isFetching: false, isError: false },
+      : { data: [AMOXICILLIN_DRUG, ...medicationSearch.others], isFetching: false, isError: false },
 }));
 // A failed search offers the visit's Report Issue dialog, which reads the visit and the API clients.
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
@@ -133,6 +133,11 @@ const pickAmoxicillin = async (user: ReturnType<typeof userEvent.setup>, strengt
 /** Picks the suggestions' last row, "Other", which shows the line's blanks empty. */
 const pickOther = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   await user.click(screen.getByRole('button', { name: 'Write my own' }));
+};
+
+/** Opens the suggestions box again: using a row or "Other" folds it to its title. */
+const showSuggestions = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+  await user.click(screen.getByRole('button', { name: 'Show suggestions' }));
 };
 
 /** Runs a test with these suggestion rows, then goes back to none. */
@@ -441,6 +446,7 @@ describe('PrescriptionSentences: suggestions first', () => {
       await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
       expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(5);
       expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(FIELDS.patientInstructions);
+      await showSuggestions(user);
       expect(screen.getByTitle('In use')).toBeInTheDocument();
 
       // Editing a filled field re-arms the row.
@@ -463,6 +469,7 @@ describe('PrescriptionSentences: suggestions first', () => {
       await user.click(screen.getByRole('button', { name: 'strength: 250 mg Cap' }));
       await user.click(screen.getByRole('option', { name: '875 mg Tab' }));
       expect(directionsShown()).toBe(false);
+      await showSuggestions(user);
       await pickOther(user);
       await user.click(screen.getByRole('button', { name: 'medication: Amoxicillin' }));
       await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
@@ -507,6 +514,7 @@ describe('PrescriptionSentences: suggestions first', () => {
       expect(directionsShown()).toBe(false);
       expect(prescriptionLineErrors(latest)).toContain('Pick a suggestion or Write my own');
       expect(screen.getByText(/Pick a suggestion or Write my own/)).toBeInTheDocument();
+      await showSuggestions(user);
       await pickOther(user);
       expect(directionsShown()).toBe(true);
       expect(prescriptionLineErrors(latest)).not.toContain('Pick a suggestion or Write my own');
@@ -525,6 +533,7 @@ describe('PrescriptionSentences: suggestions first', () => {
       await user.click(screen.getByRole('button', { name: 'strength: 400 mg/5ml Susp' }));
       await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
       expect(saveOffered()).toBe(false);
+      await showSuggestions(user);
       await pickOther(user);
       expect(saveOffered()).toBe(true);
       expect(onSaveQuickPick).not.toHaveBeenCalled();
@@ -563,9 +572,58 @@ describe('PrescriptionSentences: suggestions first', () => {
       await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
       expect(urgentOffered()).toBe(false);
       expect(prescriptionLineErrors(current)).toContain('Pick a suggestion or Write my own');
+      await showSuggestions(user);
       await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
       expect(prescriptionLineErrors(current)).toEqual([]);
       expect(urgentOffered()).toBe(true);
+    })
+  );
+
+  it(
+    'folds the suggestions to their title once a row is used, or "Other"; the title’s chevron toggles them',
+    withRows([DOSED_ROW], async () => {
+      const user = userEvent.setup();
+      const { unmount } = render(<Harness initial={lineFor(LIQUIDS)} />);
+      expect(screen.getByRole('button', { name: 'Hide suggestions' })).toHaveAttribute('aria-expanded', 'true');
+      await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
+      expect(screen.getByRole('button', { name: 'Show suggestions' })).toHaveAttribute('aria-expanded', 'false');
+      // Only the title line stays.
+      expect(screen.getByText('Suggested prescriptions')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Write my own' })).not.toBeInTheDocument());
+      await showSuggestions(user);
+      expect(screen.getByRole('button', { name: 'Write my own' })).toBeInTheDocument();
+      // The title itself toggles too.
+      await user.click(screen.getByText('Suggested prescriptions'));
+      expect(screen.getByRole('button', { name: 'Show suggestions' })).toBeInTheDocument();
+      unmount();
+
+      render(<Harness initial={lineFor(LIQUIDS)} />);
+      await pickOther(user);
+      expect(screen.getByRole('button', { name: 'Show suggestions' })).toHaveAttribute('aria-expanded', 'false');
+    })
+  );
+
+  it(
+    'opens the folded suggestions again for another medication, not for another strength of the same one',
+    withRows([DOSED_ROW], async () => {
+      medicationSearch.others = [
+        { name: 'Mupirocin (Topical)', strengths: [detailed({ strength: '2% Ointment', ndcs: ['00093101042'] })] },
+      ];
+      const user = userEvent.setup();
+      render(<Harness initial={lineFor(LIQUIDS)} />);
+      await pickOther(user);
+      await user.click(screen.getByRole('button', { name: 'strength: 400 mg/5ml Susp' }));
+      await user.click(screen.getByRole('option', { name: '250 mg/5ml Susp' }));
+      expect(screen.getByRole('button', { name: 'Show suggestions' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'medication: Amoxicillin' }));
+      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'mupi');
+      await user.click(await screen.findByRole('option', { name: 'Mupirocin (Topical)' }));
+      await user.click(screen.getByRole('button', { name: 'strength (empty)' }));
+      await user.click(screen.getByRole('option', { name: '2% Ointment' }));
+      expect(screen.getByRole('button', { name: 'Hide suggestions' })).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('button', { name: 'Write my own' })).toBeInTheDocument();
+      medicationSearch.others = [];
     })
   );
 

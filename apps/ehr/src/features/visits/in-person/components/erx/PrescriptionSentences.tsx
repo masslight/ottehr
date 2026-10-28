@@ -600,6 +600,15 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     setPicked(true);
     setAwaitingPick(false);
   };
+  // The suggestions fold to their title once one is used (or "Other"); another medication opens them again, a new
+  // strength of the same one leaves them as they were.
+  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(false);
+  const suggestionsFor = line.drug?.name ?? line.medication?.description;
+  const [collapsedFor, setCollapsedFor] = useState(suggestionsFor);
+  if (collapsedFor !== suggestionsFor) {
+    setCollapsedFor(suggestionsFor);
+    setSuggestionsCollapsed(false);
+  }
   /** A row is "In use" when using it would change none of the line's quantity, days supply and directions, and the
    * line has one of them: on an empty line a row that fills none (a quick pick saved without them) still shows its
    * "+", which then sets its refills, substitution and note. */
@@ -790,6 +799,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         <ErxSuggestionsBox<PrescriptionSuggestionRow>
           rows={suggestions}
           weightNote={weightNote}
+          collapsed={suggestionsCollapsed}
+          onCollapsedChange={setSuggestionsCollapsed}
           isAdded={matches}
           renderPicker={(row, blank, pick) =>
             // A row's dose blank is typed in.
@@ -822,12 +833,16 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           }
           onPick={(suggestion, picks) => {
             reveal();
+            setSuggestionsCollapsed(true);
             const used = suggestion.apply(line, picks);
             if (suggestion.fromSet && onSet)
               onSet(suggestion.fromSet.set, { line: used, memberId: suggestion.fromSet.memberId });
             else onChange(used);
           }}
-          onOther={reveal}
+          onOther={() => {
+            reveal();
+            setSuggestionsCollapsed(true);
+          }}
         />
       )}
 
