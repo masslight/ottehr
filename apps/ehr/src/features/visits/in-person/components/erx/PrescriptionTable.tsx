@@ -1,22 +1,18 @@
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Alert,
+  Box,
   Button,
-  Checkbox,
   CircularProgress,
   IconButton,
   Menu,
   MenuItem,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Stack } from '@mui/system';
+import { DataGridPro, GridColDef, GridRowSelectionModel } from '@mui/x-data-grid-pro';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
@@ -80,14 +76,80 @@ export const PrescriptionTable: FC = () => {
     () => formatDateToMDYWithTime(appointment?.start, userTimezone),
     [appointment?.start, userTimezone]
   );
-  const prescriptions = chartFields?.prescribedMedications;
-  const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  // Newest sent first
+  const prescriptions = useMemo(
+    () => [...(chartFields?.prescribedMedications ?? [])].sort((a, b) => (b.sent ?? '').localeCompare(a.sent ?? '')),
+    [chartFields?.prescribedMedications]
+  );
+  const [selectedIds, setSelectedIds] = useState<GridRowSelectionModel>([]);
   const [toCancel, setToCancel] = useState<PrescribedMedicationDTO[]>([]);
-  const cancellable = useMemo(() => prescriptions?.filter(isPrescriptionCancellable) ?? [], [prescriptions]);
   // A row that stops being cancellable on a refetch leaves the selection.
-  const checked = cancellable.filter((prescription) => checkedIds.includes(prescription.resourceId!));
-  const toggle = (id: string): void =>
-    setCheckedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  const selected = prescriptions.filter(
+    (prescription) => isPrescriptionCancellable(prescription) && selectedIds.includes(prescription.resourceId!)
+  );
+
+  const columns = useMemo(
+    (): GridColDef<PrescribedMedicationDTO>[] => [
+      { sortable: false, field: 'name', headerName: 'Medication', flex: 1, minWidth: 200 },
+      {
+        sortable: false,
+        field: 'visit',
+        headerName: 'Visit',
+        width: 120,
+        // The date only, in the browser's timezone
+        valueGetter: () => appointmentStart?.date,
+      },
+      {
+        sortable: false,
+        field: 'provider',
+        headerName: 'Provider',
+        width: 160,
+        valueGetter: ({ row }) =>
+          getPractitionerName(
+            chartFields?.prescribedMedicationsRequesterPractitioners?.find(
+              (practitioner) => practitioner.id === row.provider
+            )
+          ),
+      },
+      {
+        sortable: false,
+        field: 'status',
+        headerName: 'Status',
+        flex: 1,
+        minWidth: 200,
+        renderCell: ({ row }) => {
+          const { chip, detail } = prescriptionStatusView(row);
+          const statusChip = chip ? (
+            <MappedStatusChip status={chip} mapper={prescriptionChipMapper} />
+          ) : (
+            !!row.status && <MappedStatusChip status={row.status} mapper={medicationStatusMapper} />
+          );
+          // The latest event shows on hover; describeChild keeps the chip's text as its name and the event as its
+          // description.
+          return detail ? (
+            <Tooltip title={detail} describeChild>
+              <span>{statusChip}</span>
+            </Tooltip>
+          ) : (
+            statusChip
+          );
+        },
+      },
+      {
+        sortable: false,
+        field: 'actions',
+        headerName: '',
+        width: 60,
+        // The menu (portalled, but still a React child) doesn't change the selection.
+        renderCell: ({ row }) => (
+          <Box onClick={(event) => event.stopPropagation()}>
+            <PrescriptionActions prescription={row} onCancel={() => setToCancel([row])} />
+          </Box>
+        ),
+      },
+    ],
+    [appointmentStart, chartFields?.prescribedMedicationsRequesterPractitioners]
+  );
 
   return (
     <Stack spacing={1}>
@@ -98,120 +160,63 @@ export const PrescriptionTable: FC = () => {
         {(isLoading || isFetching) && <CircularProgress size={16} />}
       </Stack>
       {!!error && <Alert severity="error">Unable to load ordered prescriptions. Please try again later.</Alert>}
-      {prescriptions && prescriptions.length === 0 && (
+      {chartFields && prescriptions.length === 0 && (
         <Typography variant="body2">No prescriptions have been ordered.</Typography>
       )}
-      {prescriptions && prescriptions.length > 0 && (
-        // Always there, so the table doesn't move when rows are checked.
-        <Stack direction="row" gap={2} alignItems="center" sx={{ minHeight: 32 }}>
-          {checked.length > 0 && <Typography variant="body2">{checked.length} selected</Typography>}
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            disabled={checked.length === 0}
-            onClick={() => setToCancel(checked)}
-          >
-            Cancel prescriptions…
-          </Button>
-          {checked.length > 0 && (
-            <Button size="small" onClick={() => setCheckedIds([])}>
-              Clear
+      {prescriptions.length > 0 && (
+        <>
+          {/* Always there, so the table doesn't move when rows are selected. */}
+          <Stack direction="row" gap={2} alignItems="center" sx={{ minHeight: 32 }}>
+            {selected.length > 0 && <Typography variant="body2">{selected.length} selected</Typography>}
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              disabled={selected.length === 0}
+              onClick={() => setToCancel(selected)}
+            >
+              Cancel prescriptions…
             </Button>
-          )}
-        </Stack>
-      )}
-      {prescriptions && prescriptions.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead sx={{ '& .MuiTableCell-head': { fontWeight: 700 } }}>
-              <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    inputProps={{ 'aria-label': 'Select all cancellable prescriptions' }}
-                    disabled={cancellable.length === 0}
-                    checked={cancellable.length > 0 && checked.length === cancellable.length}
-                    indeterminate={checked.length > 0 && checked.length < cancellable.length}
-                    onChange={() =>
-                      setCheckedIds(
-                        checked.length === cancellable.length ? [] : cancellable.map((item) => item.resourceId!)
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>Medication</TableCell>
-                <TableCell>Visit</TableCell>
-                <TableCell>Provider</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {prescriptions.map((row) => {
-                const { chip, detail } = prescriptionStatusView(row);
-                const checkable = isPrescriptionCancellable(row);
-                return (
-                  // A checkable row toggles from a click anywhere on it.
-                  <TableRow
-                    key={row.resourceId}
-                    hover
-                    onClick={checkable ? () => toggle(row.resourceId!) : undefined}
-                    sx={{ cursor: checkable ? 'pointer' : undefined }}
-                  >
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        inputProps={{ 'aria-label': `Select ${row.name}` }}
-                        disabled={!checkable}
-                        checked={checked.includes(row)}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={() => toggle(row.resourceId!)}
-                      />
-                    </TableCell>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell>
-                      {appointmentStart && (
-                        <>
-                          <Typography variant="body2">{appointmentStart.date}</Typography>
-                          <Typography variant="body2">{appointmentStart.time}</Typography>
-                        </>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {getPractitionerName(
-                        chartFields?.prescribedMedicationsRequesterPractitioners?.find(
-                          (practitioner) => practitioner.id === row.provider
-                        )
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {chip ? (
-                        <MappedStatusChip status={chip} mapper={prescriptionChipMapper} />
-                      ) : (
-                        !!row.status && <MappedStatusChip status={row.status} mapper={medicationStatusMapper} />
-                      )}
-                      {detail && (
-                        <Typography variant="caption" display="block" color="text.secondary">
-                          {detail}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    {/* The menu (portalled, but still a React child) doesn't toggle the row. */}
-                    <TableCell onClick={(event) => event.stopPropagation()}>
-                      <PrescriptionActions prescription={row} onCancel={() => setToCancel([row])} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            {selected.length > 0 && (
+              <Button size="small" onClick={() => setSelectedIds([])}>
+                Clear
+              </Button>
+            )}
+          </Stack>
+          <Paper>
+            <DataGridPro
+              rows={prescriptions}
+              columns={columns}
+              getRowId={(row) => row.resourceId!}
+              initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+              autoHeight
+              pagination
+              hideFooter={prescriptions.length <= 10}
+              disableColumnMenu
+              pageSizeOptions={[10]}
+              checkboxSelection
+              isRowSelectable={({ row }) => isPrescriptionCancellable(row)}
+              // A click anywhere on a selectable row selects it.
+              getRowClassName={({ row }) => (isPrescriptionCancellable(row) ? 'selectable' : '')}
+              rowSelectionModel={selected.map((prescription) => prescription.resourceId!)}
+              onRowSelectionModelChange={setSelectedIds}
+              sx={{
+                border: 0,
+                '.selectable': { cursor: 'pointer' },
+                '.MuiDataGrid-columnHeaderTitle': {
+                  fontWeight: 500,
+                },
+              }}
+            />
+          </Paper>
+        </>
       )}
       {toCancel.length > 0 && (
         <CancelPrescriptionsDialog
           prescriptions={toCancel}
           onClose={() => setToCancel([])}
           onSent={async () => {
-            setCheckedIds([]);
+            setSelectedIds([]);
             await refetch();
           }}
         />
