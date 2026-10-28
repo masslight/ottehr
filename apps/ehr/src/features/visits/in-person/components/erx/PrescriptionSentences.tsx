@@ -831,252 +831,256 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         />
       )}
 
-      <Sentence onRemove={onRemove} removeLabel={`Remove prescription ${index + 1}`}>
-        <Box component="span" sx={{ fontWeight: 700 }}>
-          Prescription {index + 1}:
-        </Box>{' '}
-        <PopoverBlank
-          label="medication"
-          title="Medication"
-          // The menu's own field says "Medication".
-          hideTitle
-          paperSx={MEDICATION_MENU_PAPER_SX}
-          value={line.drug?.name ?? description}
-          need
-          readOnly={readOnly}
-        >
-          {(close) => (
-            <MedicationMenu
-              quickPicks={quickPicks}
-              sets={activeSets}
-              onDrug={(drug) => {
-                changeProduct(withDrug(line, drug));
-                close();
-              }}
-              onQuickPick={(quickPick) => {
-                // A quick pick's directions are picked ones: they show.
-                setAwaitingPick(false);
-                onQuickPick(quickPick);
-                close();
-              }}
-              onSet={(set) => {
-                // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
-                if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
-                onSet?.(set);
-                close();
-              }}
-            />
-          )}
-        </PopoverBlank>{' '}
-        {line.drug && (
-          <>
-            <SelectBlank
-              label="strength"
-              title="Strength"
-              // A product name ("250 mg/5ml Susp"), shown as the list spells it rather than lower-cased for prose.
-              verbatim
-              options={line.drug.strengths.map((option) => option.strength)}
-              value={strength?.strength}
-              onChange={(value) => {
-                const next = line.drug?.strengths.find((option) => option.strength === value);
-                if (line.drug && next) changeProduct(withProduct(line, line.drug, next));
-              }}
-              readOnly={readOnly}
-              need
-            />{' '}
-          </>
-        )}
-        for {/* A chosen diagnosis stays a blank: clicking it searches again to swap it. */}
-        <PopoverBlank
-          label={line.diagnosis ? 'diagnosis' : 'add diagnosis'}
-          title="Diagnosis"
-          // The search's own field says "Diagnosis".
-          hideTitle
-          value={line.diagnosis ? `${line.diagnosis.display} ${line.diagnosis.code}` : undefined}
-          readOnly={readOnly}
-        >
-          {(close) => (
-            <DiagnosisSearch
-              visitDiagnoses={visitDiagnoses}
-              onPick={(diagnosis) => {
-                update({ diagnosis });
-                close();
-              }}
-            />
-          )}
-        </PopoverBlank>
-        {line.diagnosis && !readOnly && (
-          <RemoveButton label={`Remove ${line.diagnosis.code}`} onClick={() => update({ diagnosis: null })} />
-        )}
-        .
-      </Sentence>
-
-      {/* The blanks behind the directions: each change rewrites the Directions box unless the provider typed there.
-          A taper adds "then" steps, each a sentence of its own; the route on the first applies to all. */}
-      {revealed && (
-        <>
-          <Sentence>
-            {/* The calculator works out the first step's dose, so it and the dose's ⓘ start the sentence; a course's
-                steps come from its look once there is data. */}
-            {!readOnly && (
-              <DoseCalculator
-                line={line}
-                // The rule the line holds (a suggestion's or "Use this dose"'s), as a suggestion row's is.
-                initial={line.dosing}
-                weight={weight}
-                weightText={weightText}
-                onWeightText={onWeightText}
-                onChange={onChange}
+      {/* A blue bar down the prescription's left edge sets it apart from the tinted suggestions above; its sentences
+          sit line under line, single spaced. */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', borderLeft: 3, borderColor: 'primary.main', pl: 1.5 }}>
+        <Sentence onRemove={onRemove} removeLabel={`Remove prescription ${index + 1}`}>
+          <Box component="span" sx={{ fontWeight: 700 }}>
+            Prescription {index + 1}:
+          </Box>{' '}
+          <PopoverBlank
+            label="medication"
+            title="Medication"
+            // The menu's own field says "Medication".
+            hideTitle
+            paperSx={MEDICATION_MENU_PAPER_SX}
+            value={line.drug?.name ?? description}
+            need
+            readOnly={readOnly}
+          >
+            {(close) => (
+              <MedicationMenu
+                quickPicks={quickPicks}
+                sets={activeSets}
+                onDrug={(drug) => {
+                  changeProduct(withDrug(line, drug));
+                  close();
+                }}
+                onQuickPick={(quickPick) => {
+                  // A quick pick's directions are picked ones: they show.
+                  setAwaitingPick(false);
+                  onQuickPick(quickPick);
+                  close();
+                }}
+                onSet={(set) => {
+                  // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
+                  if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
+                  onSet?.(set);
+                  close();
+                }}
               />
             )}
-            {doseInfo(line, '', line.doseNotes?.[0])}
-            {prescriptionVerb(line.route)}{' '}
-            {stepBlanks(
-              line,
-              '',
-              (patch) => onChange(withDirections(withCalculatorDosing(line, patch, weightKg), patch)),
-              line.doseNotes?.[0],
-              <>
-                <SelectBlank
-                  label="route"
-                  title="Route"
-                  options={PRESCRIPTION_ROUTES}
-                  value={line.route || undefined}
-                  onChange={(value) =>
-                    onChange(withDirections(line, { route: (value as PrescriptionRoute | undefined) ?? '' }))
-                  }
-                  readOnly={readOnly}
-                  need
-                />{' '}
-              </>
+          </PopoverBlank>{' '}
+          {line.drug && (
+            <>
+              <SelectBlank
+                label="strength"
+                title="Strength"
+                // A product name ("250 mg/5ml Susp"), shown as the list spells it rather than lower-cased for prose.
+                verbatim
+                options={line.drug.strengths.map((option) => option.strength)}
+                value={strength?.strength}
+                onChange={(value) => {
+                  const next = line.drug?.strengths.find((option) => option.strength === value);
+                  if (line.drug && next) changeProduct(withProduct(line, line.drug, next));
+                }}
+                readOnly={readOnly}
+                need
+              />{' '}
+            </>
+          )}
+          for {/* A chosen diagnosis stays a blank: clicking it searches again to swap it. */}
+          <PopoverBlank
+            label={line.diagnosis ? 'diagnosis' : 'add diagnosis'}
+            title="Diagnosis"
+            // The search's own field says "Diagnosis".
+            hideTitle
+            value={line.diagnosis ? `${line.diagnosis.display} ${line.diagnosis.code}` : undefined}
+            readOnly={readOnly}
+          >
+            {(close) => (
+              <DiagnosisSearch
+                visitDiagnoses={visitDiagnoses}
+                onPick={(diagnosis) => {
+                  update({ diagnosis });
+                  close();
+                }}
+              />
             )}
-            {line.steps.length === 0 ? courseEnd : '.'}
-          </Sentence>
-          <DoseWarningBoxes warnings={warnings.map((warning) => warning.text)} info={warningInfo} />
-          {line.steps.map((step, i) => (
-            <Sentence
-              key={i}
-              onRemove={readOnly ? undefined : () => setSteps(line.steps.filter((_, j) => j !== i))}
-              removeLabel={`Remove step ${i + 2}`}
-            >
-              then{' '}
-              {stepBlanks(
-                step,
-                `step ${i + 2} `,
-                (patch) => setSteps(line.steps.map((other, j) => (j === i ? { ...other, ...patch } : other))),
-                line.doseNotes?.[i + 1]
+          </PopoverBlank>
+          {line.diagnosis && !readOnly && (
+            <RemoveButton label={`Remove ${line.diagnosis.code}`} onClick={() => update({ diagnosis: null })} />
+          )}
+          .
+        </Sentence>
+
+        {/* The blanks behind the directions: each change rewrites the Directions box unless the provider typed there.
+          A taper adds "then" steps, each a sentence of its own; the route on the first applies to all. */}
+        {revealed && (
+          <>
+            <Sentence>
+              {/* The calculator works out the first step's dose, so it and the dose's ⓘ start the sentence; a course's
+                steps come from its look once there is data. */}
+              {!readOnly && (
+                <DoseCalculator
+                  line={line}
+                  // The rule the line holds (a suggestion's or "Use this dose"'s), as a suggestion row's is.
+                  initial={line.dosing}
+                  weight={weight}
+                  weightText={weightText}
+                  onWeightText={onWeightText}
+                  onChange={onChange}
+                />
               )}
-              {i === line.steps.length - 1 ? courseEnd : '.'}
+              {doseInfo(line, '', line.doseNotes?.[0])}
+              {prescriptionVerb(line.route)}{' '}
+              {stepBlanks(
+                line,
+                '',
+                (patch) => onChange(withDirections(withCalculatorDosing(line, patch, weightKg), patch)),
+                line.doseNotes?.[0],
+                <>
+                  <SelectBlank
+                    label="route"
+                    title="Route"
+                    options={PRESCRIPTION_ROUTES}
+                    value={line.route || undefined}
+                    onChange={(value) =>
+                      onChange(withDirections(line, { route: (value as PrescriptionRoute | undefined) ?? '' }))
+                    }
+                    readOnly={readOnly}
+                    need
+                  />{' '}
+                </>
+              )}
+              {line.steps.length === 0 ? courseEnd : '.'}
             </Sentence>
-          ))}
-          <Sentence muted>
-            Dispense{' '}
-            <TextBlank
-              label="quantity"
-              kind="number"
-              value={line.quantityValue}
-              onChange={(quantityValue) => update({ quantityValue })}
-              readOnly={readOnly}
-              need
-              min={0}
-              step={0.001}
-            />{' '}
-            <SelectBlank
-              label="unit"
-              title="Unit"
-              options={QUANTITY_UNITS.map((unit) => ({ value: unit, label: unitLabel(unit, line.quantityValue) }))}
-              value={line.quantityUnit || undefined}
-              onChange={(value) => update({ quantityUnit: (value as QuantityUnit | undefined) ?? '' })}
-              readOnly={readOnly}
-              need
-            />
-            ,{' '}
-            <TextBlank
-              label="days supply"
-              placeholder="days"
-              kind="number"
-              value={line.daysSupply}
-              onChange={(daysSupply) => update({ daysSupply })}
-              readOnly={readOnly}
-              min={1}
-            />
-            -day supply,{' '}
-            <TextBlank
-              label="refills"
-              kind="number"
-              value={line.numberOfRefills}
-              onChange={(numberOfRefills) => update({ numberOfRefills })}
-              readOnly={readOnly}
-              need
-              min={0}
-            />{' '}
-            refills.
-          </Sentence>
+            <DoseWarningBoxes warnings={warnings.map((warning) => warning.text)} info={warningInfo} />
+            {line.steps.map((step, i) => (
+              <Sentence
+                key={i}
+                onRemove={readOnly ? undefined : () => setSteps(line.steps.filter((_, j) => j !== i))}
+                removeLabel={`Remove step ${i + 2}`}
+              >
+                then{' '}
+                {stepBlanks(
+                  step,
+                  `step ${i + 2} `,
+                  (patch) => setSteps(line.steps.map((other, j) => (j === i ? { ...other, ...patch } : other))),
+                  line.doseNotes?.[i + 1]
+                )}
+                {i === line.steps.length - 1 ? courseEnd : '.'}
+              </Sentence>
+            ))}
+            <Sentence muted>
+              Dispense{' '}
+              <TextBlank
+                label="quantity"
+                kind="number"
+                value={line.quantityValue}
+                onChange={(quantityValue) => update({ quantityValue })}
+                readOnly={readOnly}
+                need
+                min={0}
+                step={0.001}
+              />{' '}
+              <SelectBlank
+                label="unit"
+                title="Unit"
+                options={QUANTITY_UNITS.map((unit) => ({ value: unit, label: unitLabel(unit, line.quantityValue) }))}
+                value={line.quantityUnit || undefined}
+                onChange={(value) => update({ quantityUnit: (value as QuantityUnit | undefined) ?? '' })}
+                readOnly={readOnly}
+                need
+              />
+              ,{' '}
+              <TextBlank
+                label="days supply"
+                placeholder="days"
+                kind="number"
+                value={line.daysSupply}
+                onChange={(daysSupply) => update({ daysSupply })}
+                readOnly={readOnly}
+                min={1}
+              />
+              -day supply,{' '}
+              <TextBlank
+                label="refills"
+                kind="number"
+                value={line.numberOfRefills}
+                onChange={(numberOfRefills) => update({ numberOfRefills })}
+                readOnly={readOnly}
+                need
+                min={0}
+              />{' '}
+              refills.
+            </Sentence>
 
-          <Sentence>
-            Directions:{' '}
-            <TextBlank
-              label="directions"
-              width="480px"
-              multiline
-              value={line.patientInstructions}
-              onChange={(patientInstructions) => update({ patientInstructions })}
-              readOnly={readOnly}
-              need
-            />
-          </Sentence>
+            <Sentence>
+              Directions:{' '}
+              <TextBlank
+                label="directions"
+                width="480px"
+                multiline
+                value={line.patientInstructions}
+                onChange={(patientInstructions) => update({ patientInstructions })}
+                readOnly={readOnly}
+                need
+              />
+            </Sentence>
 
-          <Sentence>
-            Note to pharmacy:{' '}
-            <TextBlank
-              label="note to pharmacy"
-              width="520px"
-              placeholder="optional"
-              value={line.noteToPharmacy}
-              onChange={(noteToPharmacy) => update({ noteToPharmacy })}
-              readOnly={readOnly}
-            />
-          </Sentence>
+            <Sentence>
+              Note to pharmacy:{' '}
+              <TextBlank
+                label="note to pharmacy"
+                width="520px"
+                placeholder="optional"
+                value={line.noteToPharmacy}
+                onChange={(noteToPharmacy) => update({ noteToPharmacy })}
+                readOnly={readOnly}
+              />
+            </Sentence>
 
-          <Sentence>
-            Substitution{' '}
-            <SelectBlank
-              label="substitution"
-              title="Substitution"
-              options={SUBSTITUTION_OPTIONS}
-              value={line.substitutionAllowed ? 'allowed' : 'not allowed'}
-              onChange={(value) => value && update({ substitutionAllowed: value === 'allowed' })}
-              readOnly={readOnly}
-            />
-            .{/* Urgent is offered only when wanted: a grey link until clicked. */}
-            {line.urgent ? (
-              <>
-                {' '}
-                Urgent:{' '}
-                <Box component="span" sx={{ fontWeight: 700 }}>
-                  yes
-                </Box>
-                {!readOnly && <RemoveButton label="Remove urgent" onClick={() => update({ urgent: false })} />}
-              </>
-            ) : (
-              !readOnly && (
+            <Sentence>
+              Substitution{' '}
+              <SelectBlank
+                label="substitution"
+                title="Substitution"
+                options={SUBSTITUTION_OPTIONS}
+                value={line.substitutionAllowed ? 'allowed' : 'not allowed'}
+                onChange={(value) => value && update({ substitutionAllowed: value === 'allowed' })}
+                readOnly={readOnly}
+              />
+              .{/* Urgent is offered only when wanted: a grey link until clicked. */}
+              {line.urgent ? (
                 <>
                   {' '}
-                  <BlankButton label="+ urgent" ghost readOnly={readOnly} onClick={() => update({ urgent: true })} />
+                  Urgent:{' '}
+                  <Box component="span" sx={{ fontWeight: 700 }}>
+                    yes
+                  </Box>
+                  {!readOnly && <RemoveButton label="Remove urgent" onClick={() => update({ urgent: false })} />}
                 </>
-              )
-            )}
-          </Sentence>
-        </>
-      )}
+              ) : (
+                !readOnly && (
+                  <>
+                    {' '}
+                    <BlankButton label="+ urgent" ghost readOnly={readOnly} onClick={() => update({ urgent: true })} />
+                  </>
+                )
+              )}
+            </Sentence>
+          </>
+        )}
 
-      {saveButton}
+        {saveButton}
 
-      {errors.length > 0 && (
-        <FormHelperText error sx={{ mt: '-8px' }}>
-          {errors.join('. ')}.
-        </FormHelperText>
-      )}
+        {errors.length > 0 && (
+          <FormHelperText error sx={{ mt: 0.5 }}>
+            {errors.join('. ')}.
+          </FormHelperText>
+        )}
+      </Box>
     </Box>
   );
 };

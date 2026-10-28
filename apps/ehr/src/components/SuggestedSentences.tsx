@@ -48,6 +48,8 @@ interface SuggestedSentencesProps<T extends SuggestedSentence> {
   renderLead?: (row: T, picks: SentencePicks) => ReactNode;
   /** Shown just before the row's "+" (an ⓘ with how its dose was worked out), given the row's picks. */
   renderBesideAdd?: (row: T, picks: SentencePicks) => ReactNode;
+  /** A light blue-gray background, so the box reads apart from the lines it suggests for. */
+  tinted?: boolean;
 }
 
 /** Position of a blank: template row and segment index within it */
@@ -75,6 +77,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   renderPicker,
   renderLead,
   renderBesideAdd,
+  tinted,
 }: SuggestedSentencesProps<T>): ReactElement => {
   // Picks are kept apart from the templates so a value the provider chose survives re-renders but not a
   // change of the rows themselves (another study, other numbers), which rebuilds the templates.
@@ -102,7 +105,16 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   const picker = active && activeBlank && renderPicker?.(rows[active.blank.row], activeBlank, pick);
 
   return (
-    <Box sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }} data-testid={dataTestId}>
+    <Box
+      sx={{
+        p: 1.5,
+        border: '1px solid',
+        borderColor: tinted ? '#d6e0ec' : '#e0e0e0',
+        borderRadius: 1,
+        ...(tinted && { bgcolor: '#f3f6fa' }),
+      }}
+      data-testid={dataTestId}
+    >
       <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
         {title}
         {caption && (

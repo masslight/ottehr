@@ -63,6 +63,7 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>({
   return (
     <SuggestedSentences<SuggestedSentence>
       title="Suggested prescriptions"
+      tinted
       caption={weightNote}
       rows={withOther}
       isAdded={(row, picks) => isRow(row) && (isAdded?.(row, picks) ?? false)}
