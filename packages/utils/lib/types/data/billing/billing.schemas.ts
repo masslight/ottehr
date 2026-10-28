@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BILLING_INVOICE_KINDS, BILLING_INVOICE_STATUSES } from '../../../fhir/billing-invoice';
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
@@ -12,6 +13,7 @@ import { PAYMENT_REFUND_MEDIUMS, PAYMENT_REFUND_VOID_REASONS } from '../../api/p
 import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
 import {
+  BILLING_INVOICE_LIMITS,
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
   DRUG_UNIT_CODE_VALUES,
@@ -984,6 +986,25 @@ export const VoidBillingPatientPaymentInputSchema = z.object({
   notes: blankableText,
 });
 
+export const SearchBillingInvoicesInputSchema = z.object({
+  kind: z.enum(BILLING_INVOICE_KINDS).optional(),
+  status: oneOrMany(z.enum(BILLING_INVOICE_STATUSES)).optional(),
+  recipientId: nonEmptyString.uuid().optional(),
+  issuedFrom: z.string().date().optional(),
+  issuedTo: z.string().date().optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
+export const GetBillingInvoiceInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+});
+
+export const VoidBillingInvoiceInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+  reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),
+});
+
 export const AddClaimWriteOffInputSchema = z
   .object({
     claimId: nonEmptyString,
@@ -1257,6 +1278,9 @@ export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseT
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type SearchBillingInvoicesInput = z.output<typeof SearchBillingInvoicesInputSchema>;
+export type GetBillingInvoiceInput = z.output<typeof GetBillingInvoiceInputSchema>;
+export type VoidBillingInvoiceInput = z.output<typeof VoidBillingInvoiceInputSchema>;
 export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
 export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;
 export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;

@@ -1,11 +1,13 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
-import { MANUAL_ERA_LIMITS, TAG_NAME_FORBIDDEN_CHARACTERS_ERROR } from './billing.constants';
+import { BILLING_INVOICE_LIMITS, MANUAL_ERA_LIMITS, TAG_NAME_FORBIDDEN_CHARACTERS_ERROR } from './billing.constants';
 import {
   AddEraAttachmentInputSchema,
   RecordBillingManualPaymentInputSchema,
   RenameEraAttachmentInputSchema,
   SaveBillingTagInputSchema,
+  SearchBillingInvoicesInputSchema,
+  VoidBillingInvoiceInputSchema,
 } from './billing.schemas';
 import { SYSTEM_MANAGED_TAGS } from './system-tags';
 
@@ -76,6 +78,56 @@ describe('RecordBillingManualPaymentInputSchema', () => {
     ['future', DateTime.now().plus({ days: 2 }).toISO() ?? ''],
   ])('accepts a %s payment date', (_label, paymentDateISO) => {
     expect(RecordBillingManualPaymentInputSchema.safeParse({ ...base, paymentDateISO }).success).toBe(true);
+  });
+});
+
+describe('SearchBillingInvoicesInputSchema', () => {
+  it('reads one status as a list', () => {
+    const result = SearchBillingInvoicesInputSchema.safeParse({
+      kind: 'nio',
+      status: 'issued',
+      issuedFrom: '2026-10-01',
+      issuedTo: '2026-10-31',
+    });
+    expect(result.data?.status).toEqual(['issued']);
+  });
+
+  it.each([
+    ['an unknown kind', { kind: 'employer' }],
+    ['entered-in-error', { status: 'entered-in-error' }],
+    ['a date time', { issuedFrom: '2026-10-01T00:00:00Z' }],
+    ['a recipient that is not an id', { recipientId: 'fedex' }],
+  ])('rejects %s', (_label, input) => {
+    expect(SearchBillingInvoicesInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('VoidBillingInvoiceInputSchema', () => {
+  const invoiceId = '4f4c1f5e-7f2f-4b7a-9a89-2f4f3a2f1b0c';
+  const longest = 'r'.repeat(BILLING_INVOICE_LIMITS.voidReasonLength);
+
+  it('takes a reason up to the limit, and no longer', () => {
+    expect(
+      VoidBillingInvoiceInputSchema.safeParse({
+        invoiceId,
+        reason: longest,
+      }).success
+    ).toBe(true);
+    expect(
+      VoidBillingInvoiceInputSchema.safeParse({
+        invoiceId,
+        reason: `${longest}r`,
+      }).success
+    ).toBe(false);
+  });
+
+  it.each([undefined, '', '   '])('requires a reason, rejecting %j', (reason) => {
+    expect(
+      VoidBillingInvoiceInputSchema.safeParse({
+        invoiceId,
+        reason,
+      }).success
+    ).toBe(false);
   });
 });
 

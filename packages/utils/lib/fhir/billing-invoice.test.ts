@@ -1,11 +1,20 @@
+import { PaymentNotice } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
   buildBillingInvoice,
   BuildBillingInvoiceInput,
+  formatInvoiceNumber,
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
+  getBillingInvoiceKind,
+  getInvoiceNumber,
+  getPaymentNoticeInvoiceId,
   getStripeInvoiceLink,
+  INVOICE_NUMBER_IDENTIFIER_SYSTEM,
   invoiceClaimTag,
+  invoicePaymentExtension,
+  invoiceStatusFromStripe,
+  isInvoicePastDue,
   withStripeInvoiceLink,
 } from './billing-invoice';
 
@@ -94,6 +103,180 @@ describe('getBillingInvoiceClaims', () => {
     ['no claim', { ...line, extension: undefined }],
   ])('rejects a line with %s', (_, badLine) => {
     expect(() => getBillingInvoiceClaims({ ...invoice, lineItem: [badLine] })).toThrow();
+  });
+});
+
+describe('invoiceStatusFromStripe', () => {
+  it.each([
+    ['draft', 'draft'],
+    ['open', 'issued'],
+    ['paid', 'balanced'],
+    ['void', 'cancelled'],
+  ] as const)('maps %s to %s', (stripeStatus, status) => {
+    expect(invoiceStatusFromStripe(stripeStatus)).toBe(status);
+  });
+
+  it('rejects uncollectible', () => {
+    expect(() => invoiceStatusFromStripe('uncollectible')).toThrow();
+  });
+});
+
+describe('isInvoicePastDue', () => {
+  const invoice = buildBillingInvoice({
+    ...base,
+    recipient: {
+      reference: 'Organization/fedex',
+    },
+    claims: [
+      {
+        claimId: 'claim-1',
+        amountCents: 5000,
+      },
+    ],
+  });
+
+  it('is past due only after the due date', () => {
+    expect(isInvoicePastDue(invoice, '2026-11-07')).toBe(false);
+    expect(isInvoicePastDue(invoice, '2026-11-08')).toBe(false);
+    expect(isInvoicePastDue(invoice, '2026-11-09')).toBe(true);
+  });
+
+  it.each(['draft', 'balanced', 'cancelled'] as const)('is never past due when %s', (status) => {
+    expect(
+      isInvoicePastDue(
+        {
+          ...invoice,
+          status,
+        },
+        '2027-01-01'
+      )
+    ).toBe(false);
+  });
+
+  it('is not past due without a due date', () => {
+    expect(
+      isInvoicePastDue(
+        {
+          ...invoice,
+          extension: undefined,
+        },
+        '2027-01-01'
+      )
+    ).toBe(false);
+  });
+});
+
+describe('getBillingInvoiceKind', () => {
+  const invoice = buildBillingInvoice({
+    ...base,
+    recipient: {
+      reference: 'Organization/fedex',
+    },
+    claims: [
+      {
+        claimId: 'claim-1',
+        amountCents: 5000,
+      },
+    ],
+  });
+
+  it.each([
+    ['Organization/fedex', 'nio'],
+    ['Patient/jane', 'patient'],
+    ['RelatedPerson/guarantor', 'patient'],
+  ] as const)('reads %s as %s', (reference, kind) => {
+    expect(
+      getBillingInvoiceKind({
+        ...invoice,
+        recipient: {
+          reference,
+        },
+      })
+    ).toBe(kind);
+  });
+
+  it.each([undefined, 'Practitioner/doc'])('rejects a %s recipient', (reference) => {
+    expect(() =>
+      getBillingInvoiceKind({
+        ...invoice,
+        recipient: {
+          reference,
+        },
+      })
+    ).toThrow();
+  });
+});
+
+describe('formatInvoiceNumber', () => {
+  it.each([
+    [1, 'INV-00001'],
+    [42, 'INV-00042'],
+    [123456, 'INV-123456'],
+  ])('formats %s as %s', (sequence, number) => {
+    expect(formatInvoiceNumber(sequence)).toBe(number);
+  });
+
+  it.each([0, -1, 1.5])('rejects %s', (sequence) => {
+    expect(() => formatInvoiceNumber(sequence)).toThrow();
+  });
+
+  it('is read back from the invoice identifier', () => {
+    const invoice = buildBillingInvoice({
+      ...base,
+      recipient: {
+        reference: 'Organization/fedex',
+      },
+      claims: [
+        {
+          claimId: 'claim-1',
+          amountCents: 5000,
+        },
+      ],
+    });
+
+    expect(getInvoiceNumber(invoice)).toBeUndefined();
+    expect(
+      getInvoiceNumber({
+        ...invoice,
+        identifier: [
+          {
+            system: INVOICE_NUMBER_IDENTIFIER_SYSTEM,
+            value: 'INV-00042',
+          },
+        ],
+      })
+    ).toBe('INV-00042');
+  });
+});
+
+describe('getPaymentNoticeInvoiceId', () => {
+  const notice: PaymentNotice = {
+    resourceType: 'PaymentNotice',
+    status: 'active',
+    created: '2026-10-25T12:00:00.000Z',
+    payment: {
+      reference: '#contained-reconciliation',
+    },
+    recipient: {
+      reference: 'Organization/practice',
+    },
+    amount: {
+      value: 50,
+      currency: 'USD',
+    },
+  };
+
+  it('reads the invoice id from the invoice payment extension', () => {
+    expect(
+      getPaymentNoticeInvoiceId({
+        ...notice,
+        extension: [invoicePaymentExtension('invoice-1')],
+      })
+    ).toBe('invoice-1');
+  });
+
+  it('is undefined for a notice without an invoice', () => {
+    expect(getPaymentNoticeInvoiceId(notice)).toBeUndefined();
   });
 });
 

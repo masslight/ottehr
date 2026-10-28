@@ -1,9 +1,16 @@
-import { Coding, Identifier, Invoice, Money, Reference } from 'fhir/r4b';
+import { Coding, Extension, Identifier, Invoice, Money, PaymentNotice, Reference } from 'fhir/r4b';
+import { Stripe } from 'stripe';
 import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT } from './constants';
+import { ottehrIdentifierSystem } from './systemUrls';
 
 export const INVOICE_CLAIM_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-claim';
 export const INVOICE_CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-claim-id';
 export const INVOICE_DUE_DATE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-due-date';
+export const INVOICE_NUMBER_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-number';
+export const INVOICE_PAYMENT_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-payment';
+export const INVOICE_PAYMENT_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-payment-id';
+// On the contained PaymentReconciliation of an invoice payment, for every payment method.
+export const PAYMENT_REFERENCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('payment-reference');
 export const STRIPE_INVOICE_ID_SYSTEM = 'https://api.stripe.com/v1/invoices';
 
 export interface BillingInvoiceClaim {
@@ -76,6 +83,69 @@ export function getBillingInvoiceClaims(invoice: Invoice): BillingInvoiceClaim[]
 
 export const getBillingInvoiceDueDate = (invoice: Invoice): string | undefined =>
   invoice.extension?.find((ext) => ext.url === INVOICE_DUE_DATE_EXTENSION_URL)?.valueDate;
+
+// The FHIR statuses billing invoices use; entered-in-error is never set.
+export const BILLING_INVOICE_STATUSES = ['draft', 'issued', 'balanced', 'cancelled'] as const;
+export type BillingInvoiceStatus = (typeof BILLING_INVOICE_STATUSES)[number];
+
+const INVOICE_STATUS_BY_STRIPE_STATUS: Partial<Record<Stripe.Invoice.Status, BillingInvoiceStatus>> = {
+  draft: 'draft',
+  open: 'issued',
+  paid: 'balanced',
+  void: 'cancelled',
+};
+
+export function invoiceStatusFromStripe(stripeStatus: Stripe.Invoice.Status): BillingInvoiceStatus {
+  const status = INVOICE_STATUS_BY_STRIPE_STATUS[stripeStatus];
+  if (!status) throw new Error(`Stripe invoice status ${stripeStatus} has no FHIR invoice status`);
+  return status;
+}
+
+// Past due is derived rather than stored because FHIR has no such status. today is YYYY-MM-DD.
+export function isInvoicePastDue(invoice: Invoice, today: string): boolean {
+  const dueDate = getBillingInvoiceDueDate(invoice);
+  return invoice.status === 'issued' && dueDate !== undefined && dueDate < today;
+}
+
+// Patient and NIO invoices share one number space.
+export function formatInvoiceNumber(sequence: number): string {
+  if (!Number.isInteger(sequence) || sequence <= 0) {
+    throw new Error(`Invoice number ${sequence} must be a positive whole number`);
+  }
+  return `INV-${String(sequence).padStart(5, '0')}`;
+}
+
+export const getInvoiceNumber = (invoice: Invoice): string | undefined =>
+  invoice.identifier?.find((ident) => ident.system === INVOICE_NUMBER_IDENTIFIER_SYSTEM)?.value;
+
+// Payments for an invoice are found by searching this tag.
+export const invoicePaymentTag = (invoiceId: string): Coding => ({
+  system: INVOICE_PAYMENT_TAG_SYSTEM,
+  code: invoiceId,
+});
+
+export const invoicePaymentExtension = (invoiceId: string): Extension => ({
+  url: INVOICE_PAYMENT_EXTENSION_URL,
+  valueReference: {
+    reference: `Invoice/${invoiceId}`,
+  },
+});
+
+export function getPaymentNoticeInvoiceId(notice: PaymentNotice): string | undefined {
+  const reference = notice.extension?.find((ext) => ext.url === INVOICE_PAYMENT_EXTENSION_URL)?.valueReference
+    ?.reference;
+  return reference?.startsWith('Invoice/') ? reference.slice('Invoice/'.length) : undefined;
+}
+
+export const BILLING_INVOICE_KINDS = ['patient', 'nio'] as const;
+export type BillingInvoiceKind = (typeof BILLING_INVOICE_KINDS)[number];
+
+export function getBillingInvoiceKind(invoice: Invoice): BillingInvoiceKind {
+  const recipientType = invoice.recipient?.reference?.split('/')[0];
+  if (recipientType === 'Organization') return 'nio';
+  if (recipientType === 'Patient' || recipientType === 'RelatedPerson') return 'patient';
+  throw new Error(`Invoice ${invoice.id} has no Organization, Patient or RelatedPerson recipient`);
+}
 
 // Same shape as the Stripe customer IDs on Account. Projects without connected accounts have no account extension.
 export function withStripeInvoiceLink(invoice: Invoice, link: StripeInvoiceLink): Invoice {
