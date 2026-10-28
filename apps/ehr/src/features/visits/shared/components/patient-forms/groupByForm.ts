@@ -5,12 +5,11 @@ const visitTime = (r: PatientFormResponse): number => (r.visitDate ? Date.parse(
 
 /** Groups responses by form; groups with the most recent response first, responses newest first. */
 export const groupByForm = (responses: PatientFormResponse[]): PatientFormResponse[][] => {
-  const groups = new Map<string, PatientFormResponse[]>();
-  [...responses]
+  const groups = [...responses]
     .sort((a, b) => visitTime(b) - visitTime(a))
-    .forEach((r) => {
+    .reduce((byForm, r) => {
       const key = r.questionnaireUrl ?? r.questionnaireTitle;
-      groups.set(key, [...(groups.get(key) ?? []), r]);
-    });
+      return byForm.set(key, [...(byForm.get(key) ?? []), r]);
+    }, new Map<string, PatientFormResponse[]>());
   return [...groups.values()];
 };
