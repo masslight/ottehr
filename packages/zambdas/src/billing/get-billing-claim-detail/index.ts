@@ -273,8 +273,8 @@ export async function performEffect(
   const status = getClaimStatus(claim);
   const dos =
     claim.billablePeriod?.start ??
-    claim.item?.[0].servicedPeriod?.start ??
-    claim.item?.[0].servicedDate ??
+    claim.item?.[0]?.servicedPeriod?.start ??
+    claim.item?.[0]?.servicedDate ??
     claim.created;
   const patientAddr = patient?.address?.[0];
   const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
