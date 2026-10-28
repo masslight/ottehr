@@ -23,7 +23,6 @@ const EMPTY_FORM: OxygenSatForm = {
   deliveryTypeOther: '',
 };
 
-// Fields hidden by a qualifier or type change are cleared rather than kept stale.
 const withChange = (form: OxygenSatForm, change: Partial<OxygenSatForm>): OxygenSatForm => {
   const next = { ...form, ...change };
   if (next.observationQualifier !== VitalsOxygenSatObservationMethod.OnSupplementalO2) {
@@ -33,7 +32,6 @@ const withChange = (form: OxygenSatForm, change: Partial<OxygenSatForm>): Oxygen
 };
 
 export function useOxygenSatLocalState(): OxygenSatLocalState {
-  // Updated synchronously, so changes made in the same batch build on each other.
   const latestForm = useRef(EMPTY_FORM);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isValidationError, setValidationError] = useState<boolean>(false);
@@ -74,7 +72,6 @@ export function useOxygenSatLocalState(): OxygenSatLocalState {
 
   const getForm = useCallback((): OxygenSatForm => latestForm.current, []);
 
-  // An empty flow rate is simply not recorded; anything else must be a non-negative number.
   const flowRate = textToNumericValue(form.flowRate);
   const isFlowRateInvalid =
     form.flowRate.trim() !== '' && (flowRate === undefined || !isValidSupplementalO2FlowRate(flowRate));

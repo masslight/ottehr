@@ -3,11 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { ChangeEvent, FC } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// ============================================================================
-// MOCKS (must precede component imports)
-// ============================================================================
-
-// Only the network-facing hooks are mocked; the card runs on the real useVitalsManagement, local state and draft store.
 const { saveVitals } = vi.hoisted(() => ({ saveVitals: vi.fn() }));
 
 vi.mock('react-router-dom', async () => {
@@ -44,14 +39,9 @@ vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () =>
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
 }));
 
-// The history column has its own coverage (VitalsHistoryEntry.test.tsx).
 vi.mock('src/features/visits/shared/components/vitals/components/VitalsHistoryContainer', () => ({
   default: () => <div />,
 }));
-
-// ============================================================================
-// IMPORTS (after mocks)
-// ============================================================================
 
 import {
   VitalFieldNames,
@@ -62,10 +52,6 @@ import { VitalsOxygenSatObservationDTO } from 'utils/lib/types/api/chart-data/ch
 import { useVitalsManagement } from '../../src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
 import VitalsOxygenSatCard from '../../src/features/visits/shared/components/vitals/oxygen-saturation/VitalsOxygenSatCard';
 import { useVitalsDraftStore } from '../../src/state/draft-data.store';
-
-// ============================================================================
-// HELPERS
-// ============================================================================
 
 const ENCOUNTER_ID = 'enc-oxygen-sat-test';
 const FLOW_RATE_LABEL = 'Flow rate (L/min)';
@@ -100,10 +86,6 @@ const otherTextInput = (): HTMLElement | null => screen.queryByRole('textbox', {
 const clickAdd = async (): Promise<void> => {
   await userEvent.click(screen.getByRole('button', { name: 'Add' }));
 };
-
-// ============================================================================
-// TESTS
-// ============================================================================
 
 describe('VitalsOxygenSatCard — supplemental O2 details', () => {
   beforeEach(() => {
@@ -410,7 +392,6 @@ describe('useVitalsManagement — SpO2 draft', () => {
 
   it('keeps every change made in the same batch', () => {
     const { result } = renderHook(() => useVitalsManagement({ encounterId: ENCOUNTER_ID }));
-    // Handlers from a single render, as an event handler calling several of them would hold.
     const { localState } = result.current.fields.oxygenSat;
 
     act(() => {
@@ -457,7 +438,6 @@ describe('useVitalsManagement — SpO2 draft', () => {
         field: VitalFieldNames.VitalOxygenSaturation,
         value: 92,
         observationMethod: OnSupplementalO2,
-        // A label saved by an earlier release.
         supplementalO2: { flowRate: 2, deliveryType: 'Non Rebreather' as unknown as VitalsSupplementalO2DeliveryType },
       },
     });

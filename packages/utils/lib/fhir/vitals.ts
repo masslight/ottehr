@@ -59,14 +59,10 @@ export const VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE = '8462-4';
 export const VITAL_OXY_SATURATION_OBS_METHOD_CODE_ROOM_AIR = '250590007';
 export const VITAL_OXY_SATURATION_OBS_METHOD_CODE_SUPPLEMENTAL_O2 = '250591006';
 
-// The inhaled O2 flow rate component of the US Core Pulse Oximetry profile.
 export const VITAL_OXY_SATURATION_FLOW_RATE_LOINC_CODE = '3151-8';
-// Not every delivery type offered has a verified standard code, so the type and its Other text use a local
-// system, as the DOT vision screening does for its non-standard item.
 export const VITAL_OXY_SATURATION_SUPPLEMENTAL_O2_LOCAL_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/supplemental-o2`;
 export const VITAL_OXY_SATURATION_DELIVERY_TYPE_CODE = 'delivery-type';
 export const VITAL_OXY_SATURATION_DELIVERY_TYPE_OTHER_CODE = 'delivery-type-other';
-// Each type is saved by a stable code rather than its label, so renaming a label never orphans saved readings.
 const SUPPLEMENTAL_O2_DELIVERY_TYPE_CODES: Record<VitalsSupplementalO2DeliveryType, string> = {
   [VitalsSupplementalO2DeliveryType.NasalCannula]: 'nasal-cannula',
   [VitalsSupplementalO2DeliveryType.NonRebreatherMask]: 'non-rebreather-mask',
@@ -544,7 +540,6 @@ export const getSupplementalO2ObservationComponents = (
   return components;
 };
 
-/** The qualifier and supplemental O2 details of an SpO2 observation, shared by every SpO2 reader. */
 export const extractOxygenSatObservationFields = (
   observation: Observation
 ): Pick<VitalsOxygenSatObservationDTO, 'observationMethod' | 'supplementalO2'> => {

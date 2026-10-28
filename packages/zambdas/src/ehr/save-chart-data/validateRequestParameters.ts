@@ -38,7 +38,6 @@ const supplementalO2Schema = z.object({
   deliveryTypeOther: z.string().max(SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH).optional(),
 });
 
-// Vitals arrive in vitalsObservations, but save-chart-data also saves a vital sent in observations.
 const observationSchema = z
   .object({
     supplementalO2: supplementalO2Schema.optional(),

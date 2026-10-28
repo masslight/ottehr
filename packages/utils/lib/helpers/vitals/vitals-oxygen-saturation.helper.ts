@@ -10,7 +10,6 @@ import {
 export const SUPPLEMENTAL_O2_FLOW_RATE_UNIT = 'L/min';
 export const SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH = 200;
 
-// Only values that cannot be a flow rate are rejected; there is no clinical upper limit.
 export const isValidSupplementalO2FlowRate = (flowRate: number): boolean => Number.isFinite(flowRate) && flowRate >= 0;
 
 export function toVitalsSupplementalO2DeliveryType(
@@ -19,11 +18,6 @@ export function toVitalsSupplementalO2DeliveryType(
   return Object.values(VitalsSupplementalO2DeliveryType).find((deliveryType) => deliveryType === value);
 }
 
-/**
- * The supplemental O2 details a saved reading carries: none unless the qualifier is supplemental O2, only a known type
- * and a valid flow rate, and the Other text (on one line) only while the type is Other. Applied wherever readings are
- * built, saved, read or shown, so stale or malformed values never surface.
- */
 export const getActiveSupplementalO2Details = (
   observationMethod: VitalsOxygenSatObservationMethod | undefined,
   details: VitalsSupplementalO2Details | undefined
@@ -43,7 +37,6 @@ export const getActiveSupplementalO2Details = (
   return Object.keys(active).length > 0 ? active : undefined;
 };
 
-/** The qualifier followed by whichever supplemental O2 details were recorded, e.g. "On supplemental O2 - 4.5 L/min". */
 export const formatOxygenSatObservationMethod = ({
   observationMethod,
   supplementalO2,

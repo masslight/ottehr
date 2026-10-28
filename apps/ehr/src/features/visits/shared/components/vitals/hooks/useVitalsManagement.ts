@@ -189,7 +189,6 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       const ov = d.oxygenSat.value;
       if (ov !== undefined && isFinite(ov)) oxygenSatState.handleValueChange(e(String(ov)));
       if (d.oxygenSat.observationMethod) oxygenSatState.handleQualifierChange(d.oxygenSat.observationMethod);
-      // The local state drops details the qualifier or type does not allow; a type no longer offered is not restored.
       const o2 = d.oxygenSat.supplementalO2;
       if (o2?.flowRate !== undefined && isFinite(o2.flowRate))
         oxygenSatState.handleFlowRateChange(e(String(o2.flowRate)));
@@ -405,7 +404,6 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     [bloodPressureState, encounterId, setDraft]
   );
 
-  // The draft keeps the form as typed, an invalid flow rate included, so the user can correct it after a reload.
   const writeOxygenSatDraft = useCallback(
     (form: OxygenSatForm): void => {
       const value = parseFloat(form.value);

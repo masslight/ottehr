@@ -19,7 +19,6 @@ import {
 
 const { OnRoomAir, OnSupplementalO2 } = VitalsOxygenSatObservationMethod;
 
-// The Observation skeleton the chart-data save path builds before fillVitalObservationAttributes() fills it in.
 const makeBaseObservation = (): Observation => ({
   resourceType: 'Observation',
   status: 'final',
@@ -41,7 +40,6 @@ const makeDTO = (
   supplementalO2,
 });
 
-// Runs a DTO through the real save (fillVitalObservationAttributes) and read (makeVitalsObservationDTO) paths.
 const roundTrip = (
   dto: VitalsOxygenSatObservationDTO
 ): { observation: Observation; parsed: VitalsOxygenSatObservationDTO } => {
@@ -147,7 +145,6 @@ describe('supplemental O2 details — stale and invalid values', () => {
   });
 
   it('does not persist a delivery type it does not recognize', () => {
-    // As an untyped request body could carry it.
     const unknownType = { deliveryType: 'Hyperbaric chamber' } as unknown as VitalsSupplementalO2Details;
     const { observation, parsed } = roundTrip(makeDTO(OnSupplementalO2, { ...unknownType, flowRate: 2 }));
     expect(observation.component).toHaveLength(1);
@@ -205,7 +202,6 @@ describe('supplemental O2 details — stale and invalid values', () => {
   });
 });
 
-// Rewrites the coded value of the stored delivery type component.
 const withDeliveryTypeCoding = (observation: Observation, rewrite: (coding: Coding) => Coding): Observation => ({
   ...observation,
   component: observation.component?.map((cmp) =>

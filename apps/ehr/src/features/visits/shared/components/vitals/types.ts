@@ -122,7 +122,6 @@ export interface OxygenSatLocalState extends OxygenSatForm {
   setValidationError: (error: boolean) => void;
   clearForm: () => void;
   getDTO: () => VitalsOxygenSatObservationDTO | null;
-  /** The form as of the latest change, including changes not yet rendered. */
   getForm: () => OxygenSatForm;
 }
 

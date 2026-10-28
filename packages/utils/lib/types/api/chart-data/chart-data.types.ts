@@ -319,12 +319,9 @@ export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   dotVisionScreening?: VitalsDotVisionScreening;
 }
 
-/** Optional details recorded only while the SpO2 qualifier is "On supplemental O2". */
 export interface VitalsSupplementalO2Details {
-  /** Liters per minute. */
   flowRate?: number;
   deliveryType?: VitalsSupplementalO2DeliveryType;
-  /** Free text, only kept when deliveryType is Other. */
   deliveryTypeOther?: string;
 }
 

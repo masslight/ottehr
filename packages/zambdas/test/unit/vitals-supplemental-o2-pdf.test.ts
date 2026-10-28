@@ -31,8 +31,6 @@ import { AllChartData } from '../../src/shared/pdf/visit-details-pdf/types';
 
 const { OnRoomAir, OnSupplementalO2 } = VitalsOxygenSatObservationMethod;
 
-// Each vital goes through the chart's real writer (save-chart-data → makeObservationResource) and reader,
-// so the PDFs are fed exactly what a saved and reloaded chart would hold.
 const savedAndReloaded = (dto: VitalsObservationDTO, at: string): VitalsObservationDTO => {
   const observation = {
     ...makeObservationResource(
@@ -74,7 +72,6 @@ const supplementalReading = (): VitalsObservationDTO =>
     '2024-04-28T17:18:00.000Z'
   );
 
-// Resolved from this file rather than the working directory, which the theme's './assets/…' paths depend on.
 const fromPackageRoot = (paths: Record<string, string> | undefined): Record<string, string> | undefined =>
   paths && Object.fromEntries(Object.entries(paths).map(([key, path]) => [key, join(__dirname, '..', '..', path)]));
 
@@ -91,7 +88,6 @@ afterEach(() => {
 });
 
 describe('discharge summary PDF — SpO2', () => {
-  // Renders the real section into a real PDF and returns its text, checking every line stays inside the page margin.
   const renderDischargeVitals = async (vitalsObservations: VitalsObservationDTO[]): Promise<string> => {
     const data: PdfData & { vitals: VitalsDataInDischargeSummary } = {
       vitals: composeVitalsForDischargeSummary({ allChartData: chartWith(vitalsObservations) }),
@@ -188,7 +184,6 @@ describe('visit note PDF — SpO2', () => {
       appointmentPackage: { timezone: 'America/New_York' },
     } as ProgressNoteVisitDataInput);
 
-  // The visit-note theme is private to the progress note PDF, so the section draws into a recording client.
   const renderNoteVitals = (vitalsObservations: VitalsObservationDTO[]): string[] => {
     const drawText = vi.fn();
     const client = {

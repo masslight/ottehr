@@ -21,7 +21,6 @@ const practitioner: Practitioner = {
   name: [{ given: ['Samanta'], family: 'Brooks' }],
 };
 
-// Saved through the chart's real writer, then read back by each SpO2 reader.
 const saved = (dto: VitalsOxygenSatObservationDTO): Observation => ({
   ...makeObservationResource(
     'encounter-1',
@@ -37,7 +36,6 @@ const saved = (dto: VitalsOxygenSatObservationDTO): Observation => ({
   id: 'observation-1',
 });
 
-// get-vitals (vitals screen, progress note) and the shared parser (tracking board, encounter lists).
 const readers: [string, (observations: Observation[]) => VitalsObservationDTO[]][] = [
   [
     'get-vitals',
