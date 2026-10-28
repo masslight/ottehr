@@ -911,6 +911,11 @@ export const ListBillingPatientPaymentsInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
 });
 
+// every payment on a billing patient's account, across their visits
+export const ListBillingPatientAccountPaymentsInputSchema = z.object({
+  patientId: nonEmptyString,
+});
+
 // client key, stable across retries of one logical payment; embedded in a FHIR token search
 // (`system|value`), so no `|` or whitespace
 const patientPaymentIdempotencyKey = z

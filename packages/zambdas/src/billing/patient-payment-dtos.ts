@@ -41,17 +41,22 @@ interface GetPaymentsForEncounterInput {
   // reads billing PaymentNotices and keeps their refund stamps current
   billingOystehr: Oystehr;
   stripeClient: Stripe;
-  account: Account;
+  // holds the patient's Stripe customer ids; without it card details come from each payment alone
+  account: Account | undefined;
   encounterId: string;
+  // the encounter's merged notices, when the caller already fetched them in bulk
+  fhirPaymentNotices?: PaymentNotice[];
 }
 
 export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInput): Promise<PatientPaymentDTO[]> => {
   const { clinicalOystehr, billingOystehr, stripeClient, account, encounterId } = input;
 
   const fhirPaymentNotices =
+    input.fhirPaymentNotices ??
     (await fetchEncounterPaymentNotices({ clinicalOystehr, billingOystehr, encounterIds: [encounterId] })).get(
       encounterId
-    ) ?? [];
+    ) ??
+    [];
 
   const stripePayments: Stripe.PaymentIntent[] = [];
   const paymentMethods: Stripe.PaymentMethod[] = [];
@@ -75,7 +80,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     scheduleAccount,
   });
 
-  const customerId = scheduleFound ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
+  const customerId = scheduleFound && account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
 
   if (customerId) {
     try {

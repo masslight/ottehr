@@ -1,6 +1,7 @@
 import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
+import type { PatientPaymentDTO } from '../../api/patient-payment-types';
 import type { EraClaimStatusCode, EraSource, EraStatus, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
@@ -392,6 +393,25 @@ export interface PatientDetailResponse {
     | 'writeOffsTotal'
     | 'claimBalance'
   >[];
+}
+
+// how a patient payment was made; 'invoice' is any payment against an emailed/portal Stripe invoice
+export type BillingPatientPaymentMethod = PatientPaymentDTO['paymentMethod'] | 'invoice';
+
+export type BillingPatientAccountPayment = PatientPaymentDTO & {
+  method: BillingPatientPaymentMethod;
+  encounterId: string;
+  // the visit's appointment, which the EHR visit page is keyed by
+  appointmentId?: string;
+  visitDateISO?: string;
+  // absent when the payment's visit has no claim
+  claimId?: string;
+  claimServiceDate?: string;
+};
+
+export interface ListBillingPatientAccountPaymentsResponse {
+  // newest first
+  payments: BillingPatientAccountPayment[];
 }
 
 // One X12 CAS adjustment carried on a remit: group code (X12_ADJUSTMENT_GROUP_CODE) + CARC reason
