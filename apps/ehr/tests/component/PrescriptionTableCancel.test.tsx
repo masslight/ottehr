@@ -137,6 +137,13 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     expect(within(dialog).getByRole('button', { name: 'Keep prescription' })).toBeInTheDocument();
   });
 
+  it('keeps the selection bar in place with nothing selected, its action disabled', () => {
+    renderTable();
+    expect(screen.getByRole('button', { name: 'Cancel prescriptions…' })).toBeDisabled();
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+  });
+
   it('checks only cancellable rows, and the header checks all of them', async () => {
     const user = renderTable();
     expect(within(row(PRED.name!)).getByRole('checkbox')).toBeDisabled();
@@ -146,8 +153,10 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Select all cancellable prescriptions' }));
     expect(screen.getByText('2 selected')).toBeInTheDocument();
     expect(within(row(IBU.name!)).getByRole('checkbox')).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Cancel prescriptions…' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel prescriptions…' })).toBeDisabled();
   });
 
   it('needs a reason before it sends a cancellation', async () => {

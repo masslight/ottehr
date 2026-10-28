@@ -101,15 +101,24 @@ export const PrescriptionTable: FC = () => {
       {prescriptions && prescriptions.length === 0 && (
         <Typography variant="body2">No prescriptions have been ordered.</Typography>
       )}
-      {checked.length > 0 && (
-        <Stack direction="row" gap={2} alignItems="center">
-          <Typography variant="body2">{checked.length} selected</Typography>
-          <Button size="small" variant="outlined" color="error" onClick={() => setToCancel(checked)}>
+      {prescriptions && prescriptions.length > 0 && (
+        // Always there, so the table doesn't move when rows are checked.
+        <Stack direction="row" gap={2} alignItems="center" sx={{ minHeight: 32 }}>
+          {checked.length > 0 && <Typography variant="body2">{checked.length} selected</Typography>}
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            disabled={checked.length === 0}
+            onClick={() => setToCancel(checked)}
+          >
             Cancel prescriptions…
           </Button>
-          <Button size="small" onClick={() => setCheckedIds([])}>
-            Clear
-          </Button>
+          {checked.length > 0 && (
+            <Button size="small" onClick={() => setCheckedIds([])}>
+              Clear
+            </Button>
+          )}
         </Stack>
       )}
       {prescriptions && prescriptions.length > 0 && (
