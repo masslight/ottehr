@@ -6,6 +6,8 @@ import {
   buildTaskInput,
   createOutreachTaskIdempotent,
   produceOutreachTasks,
+  reconcileDraftTasksWithConfig,
+  resolveOutreachTaskStripeAccount,
 } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
@@ -56,6 +58,16 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => {
       url: `/${resourceType}/${resourceId}`,
       resource: { resourceType: 'Binary', data: JSON.stringify(patchOperations) },
     })),
+  };
+});
+
+const mockGetStripeAccountForAppointmentOrEncounter = vi.fn();
+vi.mock('utils/lib/fhir/payments', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getStripeAccountForAppointmentOrEncounter: (...args: unknown[]) =>
+      mockGetStripeAccountForAppointmentOrEncounter(...args),
   };
 });
 
@@ -176,6 +188,15 @@ describe('produce-outreach-tasks', () => {
       );
     });
 
+    it('stamps the stripe-account input when provided and omits it otherwise', () => {
+      const action = makeAction();
+
+      expect(buildTaskInput(action, 'acct_123')).toEqual(
+        expect.arrayContaining([expect.objectContaining({ type: { text: 'stripe-account' }, valueString: 'acct_123' })])
+      );
+      expect(buildTaskInput(action)?.some((i) => i.type?.text === 'stripe-account')).toBe(false);
+    });
+
     it('includes mediums and sms-template for send-notification', () => {
       const action = makeAction();
       const inputs = buildTaskInput(action);
@@ -236,6 +257,99 @@ describe('produce-outreach-tasks', () => {
 
       expect(inputs).toEqual(
         expect.arrayContaining([expect.objectContaining({ type: { text: 'statement-type' }, valueString: 'past-due' })])
+      );
+    });
+  });
+
+  describe('resolveOutreachTaskStripeAccount', () => {
+    const baseTask = {
+      resourceType: 'Task',
+      id: 'task-1',
+      status: 'requested',
+      intent: 'order',
+      focus: { reference: 'Encounter/enc-1' },
+    };
+
+    it('prefers the stripe-account stamped on the task input', async () => {
+      const task = {
+        ...baseTask,
+        input: [{ type: { text: 'stripe-account' }, valueString: 'acct_stamped' }],
+      };
+
+      await expect(resolveOutreachTaskStripeAccount(task as any, mockOystehrClient as any)).resolves.toBe(
+        'acct_stamped'
+      );
+      expect(mockGetStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+    });
+
+    it('decodes the platform sentinel to undefined without falling back to the Location', async () => {
+      const task = {
+        ...baseTask,
+        input: [{ type: { text: 'stripe-account' }, valueString: 'platform' }],
+      };
+
+      await expect(resolveOutreachTaskStripeAccount(task as any, mockOystehrClient as any)).resolves.toBeUndefined();
+      expect(mockGetStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the encounter Location resolution for unstamped tasks', async () => {
+      mockGetStripeAccountForAppointmentOrEncounter.mockResolvedValue('acct_from_location');
+
+      await expect(resolveOutreachTaskStripeAccount(baseTask as any, mockOystehrClient as any)).resolves.toBe(
+        'acct_from_location'
+      );
+      expect(mockGetStripeAccountForAppointmentOrEncounter).toHaveBeenCalledWith(
+        { encounterId: 'enc-1' },
+        mockOystehrClient
+      );
+    });
+
+    it('returns undefined (platform account) when fallback resolution fails or focus is not an Encounter', async () => {
+      mockGetStripeAccountForAppointmentOrEncounter.mockRejectedValue(new Error('no schedule owner'));
+      await expect(
+        resolveOutreachTaskStripeAccount(baseTask as any, mockOystehrClient as any)
+      ).resolves.toBeUndefined();
+
+      const patientFocusTask = { ...baseTask, focus: { reference: 'Patient/pat-1' } };
+      await expect(
+        resolveOutreachTaskStripeAccount(patientFocusTask as any, mockOystehrClient as any)
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('reconcileDraftTasksWithConfig', () => {
+    it('preserves the stripe-account input when rebuilding task input for a changed action', async () => {
+      const oldAction = makeAction();
+      const newAction = makeAction({
+        sendNotificationConfig: { mediums: ['sms'], smsTemplate: 'Pay NOW!', emailTemplate: '' },
+      });
+      const draftTask = {
+        resourceType: 'Task',
+        id: 'task-1',
+        status: 'draft',
+        meta: {
+          tag: [
+            { system: 'https://fhir.zapehr.com/r4/StructureDefinitions/outreach-task/action-id', code: 'action-1' },
+          ],
+        },
+        input: [...buildTaskInput(oldAction, 'acct_stamped')!],
+      };
+      mockSearch.mockResolvedValueOnce(mockBundle([draftTask]));
+
+      const { requests, updated } = await reconcileDraftTasksWithConfig(
+        mockOystehrClient as any,
+        [oldAction],
+        [newAction]
+      );
+
+      expect(updated).toBe(1);
+      const patchOps = JSON.parse(((requests[0] as any).resource as any).data);
+      const inputOp = patchOps.find((op: any) => op.path === '/input');
+      expect(inputOp.value).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: { text: 'stripe-account' }, valueString: 'acct_stamped' }),
+          expect.objectContaining({ type: { text: 'sms-template' }, valueString: 'Pay NOW!' }),
+        ])
       );
     });
   });

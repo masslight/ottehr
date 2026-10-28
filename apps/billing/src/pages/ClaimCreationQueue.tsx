@@ -68,10 +68,10 @@ export function CancelTaskButton({ taskId, onCanceled }: { taskId: string; onCan
     setCanceling(true);
     try {
       await cancelBillingClaimTask(oystehrZambda, { taskId });
-      enqueueSnackbar('Claim creation queued', { variant: 'success' });
+      enqueueSnackbar('Claim creation canceled', { variant: 'success' });
       onCanceled();
     } catch (error) {
-      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to retry claim creation' }), { variant: 'error' });
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to cancel claim creation' }), { variant: 'error' });
     } finally {
       setCanceling(false);
     }
@@ -239,7 +239,9 @@ export default function ClaimCreationQueue(): ReactElement {
   return (
     <Stack spacing={3}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h4">Claim Creation Queue</Typography>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Claim Creation Queue
+        </Typography>
         <Button startIcon={<RefreshIcon />} disabled={!oystehrZambda || loading} onClick={refresh}>
           Refresh
         </Button>

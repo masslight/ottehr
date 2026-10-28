@@ -5,18 +5,22 @@ import { describe, expect, it, vi } from 'vitest';
 
 // The real grid virtualizes on measured width, which jsdom reports as zero; render the row cells
 // directly so the actions column is exercised.
+const mockDataGridProps = vi.fn();
 vi.mock('@mui/x-data-grid-pro', () => ({
-  DataGridPro: ({ rows, columns }: { rows: any[]; columns: any[] }) => (
-    <div>
-      {rows.map((row) => (
-        <div key={row.id}>
-          {columns.map((column) => (
-            <span key={column.field}>{column.renderCell?.({ row }) as ReactNode}</span>
-          ))}
-        </div>
-      ))}
-    </div>
-  ),
+  DataGridPro: (props: { rows: any[]; columns: any[] }) => {
+    mockDataGridProps(props);
+    return (
+      <div>
+        {props.rows.map((row) => (
+          <div key={row.id}>
+            {props.columns.map((column) => (
+              <span key={column.field}>{column.renderCell?.({ row }) as ReactNode}</span>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  },
 }));
 vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
   usePatientVisitOptions: () => ({ visitsByEncounterId: new Map() }),
@@ -57,11 +61,36 @@ const renderTable = (documents: PatientDocumentInfo[], actions: DocumentTableAct
       documents={documents}
       documentTableActions={actions}
       patientId="patient-1"
+      selectedDocumentIds={[]}
+      onSelectedDocumentIdsChange={vi.fn()}
     />
   );
 };
 
 describe('PatientDocumentsExplorerTable', () => {
+  it('lets the user tick documents and hands the selection back to the caller', () => {
+    const onSelectedDocumentIdsChange = vi.fn();
+    render(
+      <PatientDocumentsExplorerTable
+        isLoadingDocs={false}
+        documents={[makeDocument('doc-1', 'visit-note.pdf'), makeDocument('doc-2', 'lab-result.pdf')]}
+        documentTableActions={makeActions()}
+        patientId="patient-1"
+        selectedDocumentIds={['doc-2']}
+        onSelectedDocumentIdsChange={onSelectedDocumentIdsChange}
+      />
+    );
+
+    expect(mockDataGridProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        checkboxSelection: true,
+        rowSelectionModel: ['doc-2'],
+        onRowSelectionModelChange: onSelectedDocumentIdsChange,
+        disableRowSelectionOnClick: true,
+      })
+    );
+  });
+
   it('faxes the row the user picked', async () => {
     const onDocumentFax = vi.fn();
     const user = userEvent.setup();

@@ -1,8 +1,8 @@
-import { AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
+import { AnthropicInput, AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
@@ -21,6 +21,7 @@ import {
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { LlmEffort, LlmThinkingMode, VERTEX_AI_MODEL } from 'utils/lib/types/api/ai-models.constants';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -39,26 +40,6 @@ export const TRANSCRIPT_PROMPT =
   'Give a transcript of this file, include only the transcript without other input, include who the speaker is ' +
   'with labels for the provider and the patient. If the audio contains just silence or background noise, ' +
   `respond with "${NO_SPEECH_DETECTED}"`;
-
-export class ClaudeClient {
-  chatbot: ChatAnthropic;
-
-  constructor(anthropicApiKey: string, model: AnthropicMessagesModelId = 'claude-haiku-4-5-20251001') {
-    this.chatbot = new ChatAnthropic({
-      model,
-      anthropicApiKey,
-      temperature: 0,
-      clientOptions: {
-        timeout: 5000,
-        maxRetries: 5,
-      },
-    });
-  }
-
-  async invoke(input: BaseMessageLike[]): Promise<AIMessageChunk> {
-    return this.chatbot.invoke(input);
-  }
-}
 
 let chatbot: ChatAnthropic;
 
@@ -133,8 +114,6 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
-export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
-
 const TERMINAL_FINISH_REASONS = new Set(['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII']);
 
 interface VertexAIRequestOptions {
@@ -145,12 +124,15 @@ interface VertexAIRequestOptions {
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
+  feature: string,
   responseSchema?: object,
-  model: string = VERTEX_AI_MODEL,
+  model: string = VERTEX_AI_MODEL.id,
   options: VertexAIRequestOptions = {}
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
+  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const RETRY_COUNT = 3;
   const FIRST_DELAY_MS = 3000;
   const JITTER = 0.01;
@@ -191,6 +173,11 @@ export async function invokeChatbotVertexAI(
           },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
+            labels: {
+              ottehr_feature: feature,
+              ottehr_environment: ENVIRONMENT,
+              ottehr_project_id: PROJECT_ID,
+            },
             generationConfig: {
               temperature: 0,
               ...(responseSchema && {
@@ -324,7 +311,8 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
 
   const transcript = await invokeChatbotVertexAI(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
-    secrets
+    secrets,
+    'ambient-scribe-transcription'
   );
 
   // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
@@ -352,7 +340,8 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     mimeType,
     args.providerUserProfile,
     args.existingDocumentReference,
-    secrets
+    secrets,
+    'ambient-scribe-summary'
   );
 }
 
@@ -375,27 +364,85 @@ async function clearPendingRecordingMarker(
 
 const CHATBOT_TIMEOUT_MS = 10000;
 const CHATBOT_MAX_RETRIES = 1;
+const DEFAULT_CHATBOT_MODEL = 'claude-haiku-4-5-20251001';
 
-export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
+interface ChatbotClientSettings {
+  model: AnthropicMessagesModelId;
+  temperature?: number;
+  timeout?: number;
+  maxTokens?: number;
+  /** JSON schema the reply must follow (structured outputs). Sent as the API's output_config.format. */
+  responseSchema?: Record<string, unknown>;
+  /** How much the model works on the reply (low/medium/high). Sent as the API's output_config.effort; omitted = model default. */
+  effort?: LlmEffort;
+  /** Sent as the API's thinking.type; omitted = model default. Valid values differ per model (see Anthropic effort docs). */
+  thinking?: LlmThinkingMode;
+}
+
+/**
+ * No options: the shared cached client (Haiku, temperature 0).
+ * Custom settings require noCache: true, so they always get their own client and never leak into the shared one.
+ */
+export type InvokeChatbotOptions =
+  | {
+      noCache?: false;
+      model?: never;
+      temperature?: never;
+      timeout?: never;
+      maxTokens?: never;
+      responseSchema?: never;
+      effort?: never;
+      thinking?: never;
+    }
+  | ({ noCache: true } & ChatbotClientSettings);
+
+const createChatbot = ({
+  model,
+  temperature,
+  timeout = CHATBOT_TIMEOUT_MS,
+  maxTokens,
+  responseSchema,
+  effort,
+  thinking,
+}: ChatbotClientSettings): ChatAnthropic =>
+  new ChatAnthropic({
+    model,
+    temperature,
+    maxTokens,
+    outputConfig: {
+      ...(effort ? { effort } : {}),
+      ...(responseSchema ? { format: { type: 'json_schema', schema: responseSchema } } : {}),
+    },
+    // The SDK's ThinkingConfigParam doesn't list "between_tools" yet; the API accepts it (Sonnet 5.5).
+    ...(thinking ? { thinking: { type: thinking } as AnthropicInput['thinking'] } : {}),
+    maxRetries: CHATBOT_MAX_RETRIES,
+    clientOptions: { timeout },
+  });
+
+export async function invokeChatbot(
+  input: BaseMessageLike[],
+  secrets: Secrets | null,
+  options: InvokeChatbotOptions = {}
+): Promise<AIMessageChunk> {
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
-  if (chatbot == null) {
-    chatbot = new ChatAnthropic({
-      model: 'claude-haiku-4-5-20251001',
-      temperature: 0,
-      // Must stay top-level: LangChain forces the SDK client's maxRetries to 0, so clientOptions.maxRetries is ignored.
-      maxRetries: CHATBOT_MAX_RETRIES,
-      clientOptions: {
-        timeout: CHATBOT_TIMEOUT_MS,
-      },
-    });
+
+  let client: ChatAnthropic;
+
+  if (options.noCache) {
+    client = createChatbot(options);
+  } else {
+    chatbot ??= createChatbot({ model: DEFAULT_CHATBOT_MODEL, temperature: 0 });
+    client = chatbot;
   }
+
   const startedAt = Date.now();
+
   try {
-    const response = await chatbot.invoke(input);
-    console.log(`chatbot responded in ${Date.now() - startedAt}ms`);
+    const response = await client.invoke(input);
+    console.log(`chatbot ${client.model} responded in ${Date.now() - startedAt}ms`);
     return response;
   } catch (error) {
-    console.error(`chatbot call failed after ${Date.now() - startedAt}ms`, error);
+    console.error(`chatbot ${client.model} call failed after ${Date.now() - startedAt}ms`, error);
     throw error;
   }
 }
@@ -409,7 +456,8 @@ export async function createResourcesFromAiInterview(
   mimeType: string | null,
   providerUserProfile: string | null,
   existingDocumentReference: DocumentReference | undefined,
-  secrets: Secrets | null
+  secrets: Secrets | null,
+  feature: string
 ): Promise<string> {
   let fields =
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history';
@@ -479,7 +527,8 @@ export async function createResourcesFromAiInterview(
   try {
     aiResponseString = await invokeChatbotVertexAI(
       [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
-      secrets
+      secrets,
+      feature
     );
     narrativeLines = await settledWithin(narrative, NARRATIVE_GRACE_MS);
   } finally {

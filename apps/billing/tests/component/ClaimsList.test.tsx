@@ -76,6 +76,7 @@ vi.mock('../../src/utils/downloadFile', () => ({
 // stand-in that renders one checkbox per row honoring isRowSelectable — enough to exercise the page's
 // selection → submit wiring without depending on MUI's virtualization.
 vi.mock('@mui/x-data-grid-pro', () => ({
+  useGridApiRef: () => ({ current: null }),
   DataGridPro: ({
     rows,
     isRowSelectable,
@@ -83,6 +84,7 @@ vi.mock('@mui/x-data-grid-pro', () => ({
     onRowSelectionModelChange,
     paginationModel,
     onPaginationModelChange,
+    onSortModelChange,
     slots,
   }: {
     rows: BillingClaimItem[];
@@ -91,6 +93,7 @@ vi.mock('@mui/x-data-grid-pro', () => ({
     onRowSelectionModelChange?: (model: (string | number)[]) => void;
     paginationModel?: { page: number; pageSize: number };
     onPaginationModelChange?: (model: { page: number; pageSize: number }) => void;
+    onSortModelChange?: (model: { field: string; sort: 'asc' | 'desc' }[]) => void;
     slots?: { exportSlot?: { onExportCsv?: () => void; exporting?: boolean } };
   }) => (
     <div>
@@ -125,6 +128,9 @@ vi.mock('@mui/x-data-grid-pro', () => ({
       >
         next page
       </button>
+      <button type="button" onClick={() => onSortModelChange?.([{ field: 'billed', sort: 'desc' }])}>
+        sort by billed
+      </button>
     </div>
   ),
 }));
@@ -158,6 +164,7 @@ const makeRow = (
   insurancePaid: 0,
   patientResp: 0,
   patientPaid: 0,
+  writeOffsTotal: 0,
   claimBalance: 0,
   adjudicated: true,
   responsibleParty: '',
@@ -215,10 +222,15 @@ describe('ClaimsList — submit claims', () => {
     fireEvent.click(insurable);
     fireEvent.click(selfPay);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules (2)' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['c-ins', 'c-self'] }));
+    await waitFor(() =>
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+        {},
+        { claimIds: ['c-ins', 'c-self'], submissionType: 'new', submissionInsurance: 'primary' }
+      )
+    );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Rules started for 2 claim(s) — each claim will be submitted, made ready to invoice, or held shortly. ' +
         'Refresh to see the results.',
@@ -235,8 +247,8 @@ describe('ClaimsList — submit claims', () => {
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules (1)' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (1)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
     await waitFor(() =>
       expect(enqueueSnackbarMock).toHaveBeenCalledWith('kickoff failed', {
@@ -253,11 +265,11 @@ describe('ClaimsList — submit claims', () => {
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
-    expect(await screen.findByRole('button', { name: 'Run rules (1)' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Run Rules (1)' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
-    await waitFor(() => expect(screen.queryByRole('button', { name: /^Run rules \(/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Run Rules \(/ })).not.toBeInTheDocument());
   });
 });
 
@@ -676,5 +688,30 @@ describe('ClaimsList — non-insurance organization filter', () => {
         expect.objectContaining({ nonInsurancePayerId: [FEDEX_ID, UPS_ID] })
       )
     );
+  });
+});
+
+describe('ClaimsList — sorting', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+  });
+
+  it('searches in the chosen order from the first page, and remembers it for the next visit', async () => {
+    renderList();
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: 'sort by billed' }));
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenLastCalledWith(
+        {},
+        expect.objectContaining({ sort: { field: 'billed', direction: 'desc' }, offset: 0 })
+      )
+    );
+    await waitFor(() => {
+      const stored = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) ?? '{}');
+      expect(stored.layout).toEqual({ sort: { field: 'billed', direction: 'desc' } });
+    });
   });
 });

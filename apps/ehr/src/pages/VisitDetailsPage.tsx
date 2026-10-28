@@ -1643,15 +1643,10 @@ export default function VisitDetailsPage(): ReactElement {
           <Grid container direction="row">
             <Grid item xs={12} sx={{ marginLeft: { xs: 0, sm: 8 }, marginRight: { xs: 0, sm: 8 }, marginTop: 2 }}>
               <Typography variant="h3" color="primary.dark" marginBottom={2}>
-                Visit Documents
+                All Documents
               </Typography>
               <Paper sx={{ padding: 3 }}>
-                <PatientDocumentsExplorer
-                  patientId={patientId}
-                  // Both linkages: EHR uploads link by encounter, while consent forms, condition
-                  // photos and school/work notes from intake link by appointment.
-                  visit={{ encounterId: encounter.id, appointmentId: appointmentID }}
-                />
+                <PatientDocumentsExplorer patientId={patientId} patient={patient} uploadEncounterId={encounter.id} />
               </Paper>
             </Grid>
           </Grid>

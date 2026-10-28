@@ -32,9 +32,11 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
+import { fetchMedicalRecordFaxDocumentCount } from 'src/features/fax/api/faxApi';
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { FaxVisitOption } from 'src/features/fax/model/types';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
+import { MedicalRecordDateRangeDialog } from 'src/features/medical-record-export/components/MedicalRecordDateRangeDialog';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
@@ -43,16 +45,27 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { formatVisitDateTimeWithZone } from 'src/helpers/formatDateTime';
 import { getLegacyDataUrl } from 'src/helpers/legacyData';
 import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
+import { useMedicalRecordDateSpan } from 'src/hooks/useMedicalRecordDateSpan';
 import { formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
+import {
+  getFirstName,
+  getFullestAvailableName,
+  getLastName,
+  getMergedIntoPatientReference,
+} from 'utils/lib/fhir/patient';
 import { GetMergePatientsTaskResponse, MergePatientsResponse } from 'utils/lib/types/api/patient-account';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import {
+  MedicalRecordDateRange,
+  NO_MEDICAL_RECORDS_IN_RANGE_MESSAGE,
+} from 'utils/lib/types/data/get-patient-medical-record.types';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import GoToButton from '../components/GoToButton';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
@@ -80,6 +93,9 @@ export default function PatientPage(): JSX.Element {
   const [medicalRecordMenuAnchor, setMedicalRecordMenuAnchor] = useState<HTMLElement | null>(null);
   // Which of the patient-record fax entry points is open; the source it sends is derived from it.
   const [faxDialog, setFaxDialog] = useState<'patient-docs' | 'medical-record' | null>(null);
+  const [medicalRecordAction, setMedicalRecordAction] = useState<'download' | 'fax'>('download');
+  const [isMedicalRecordRangeOpen, setIsMedicalRecordRangeOpen] = useState(false);
+  const [medicalRecordDateRange, setMedicalRecordDateRange] = useState<MedicalRecordDateRange | null>(null);
 
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
@@ -87,13 +103,14 @@ export default function PatientPage(): JSX.Element {
   const { loading, patient, duplicatePatients } = useGetPatient(id);
 
   const { downloadMedicalRecord, isDownloading: isDownloadingMedicalRecord } = useDownloadMedicalRecord(id);
+  const faxApiClient = useOystehrAPIClient();
 
   const queryClient = useQueryClient();
   const { data: mergeTaskData, refetch: refetchMergeTask } = useGetActiveMergeTask(id);
   const activeMergeTask = mergeTaskData?.task ?? null;
   const mergeFailed = activeMergeTask?.status === 'failed';
   // This patient is a merged-away record (it was absorbed into another patient).
-  const isMergedPatient = patient?.active === false && patient?.link?.some((l) => l.type === 'replaced-by');
+  const isMergedPatient = !!patient && !!getMergedIntoPatientReference(patient);
   // Once this patient is a merged-away record the merge is done, so don't keep
   // showing the in-progress banner even if the task poll lags behind.
   const mergeInProgress = !!activeMergeTask && !mergeFailed && !isMergedPatient;
@@ -204,6 +221,7 @@ export default function PatientPage(): JSX.Element {
 
   const appointments = useMemo(() => visitHistory?.visits ?? [], [visitHistory?.visits]);
   const latestAppointment = appointments?.[0];
+  const recordDateSpan = useMedicalRecordDateSpan(id, isMedicalRecordRangeOpen);
 
   const faxableVisits: FaxVisitOption[] = useMemo(
     () =>
@@ -218,10 +236,13 @@ export default function PatientPage(): JSX.Element {
 
   const faxSource = useMemo(() => {
     if (!id || !faxDialog) return undefined;
-    return faxDialog === 'medical-record'
-      ? ({ type: 'medical-record', patientId: id } as const)
-      : ({ type: 'visits', patientId: id, appointmentIds: faxableVisits.map((v) => v.appointmentId) } as const);
-  }, [faxDialog, faxableVisits, id]);
+    if (faxDialog === 'medical-record') {
+      return medicalRecordDateRange
+        ? ({ type: 'medical-record', patientId: id, dateRange: medicalRecordDateRange } as const)
+        : undefined;
+    }
+    return { type: 'visits', patientId: id, appointmentIds: faxableVisits.map((v) => v.appointmentId) } as const;
+  }, [faxDialog, faxableVisits, id, medicalRecordDateRange]);
 
   const faxController = useSendFax(faxSource);
   const { open: openFaxDialog, isOpen: isFaxDialogOpen } = faxController;
@@ -239,6 +260,19 @@ export default function PatientPage(): JSX.Element {
     }
     setFaxDialog(target);
     openFaxDialog();
+  };
+
+  const confirmMedicalRecordRange = async (dateRange: MedicalRecordDateRange): Promise<void> => {
+    if (medicalRecordAction === 'download') {
+      await downloadMedicalRecord(dateRange);
+      return;
+    }
+    if (!id || !faxApiClient) throw new Error('Fax service is not ready yet. Please try again.');
+    if ((await fetchMedicalRecordFaxDocumentCount(faxApiClient, id, dateRange)) === 0) {
+      throw new Error(NO_MEDICAL_RECORDS_IN_RANGE_MESSAGE);
+    }
+    setMedicalRecordDateRange(dateRange);
+    openFaxFor('medical-record');
   };
 
   const tabTitle = (patient && formatPatientTabTitle(getFullestAvailableName(patient))) ?? 'Patient Profile';
@@ -387,7 +421,8 @@ export default function PatientPage(): JSX.Element {
               disabled={isDownloadingMedicalRecord}
               onClick={() => {
                 setMedicalRecordMenuAnchor(null);
-                void downloadMedicalRecord();
+                setMedicalRecordAction('download');
+                setIsMedicalRecordRangeOpen(true);
               }}
             >
               <ListItemIcon>
@@ -399,7 +434,8 @@ export default function PatientPage(): JSX.Element {
               data-testid={dataTestIds.patientRecordPage.faxMedicalRecordMenuItem}
               onClick={() => {
                 setMedicalRecordMenuAnchor(null);
-                openFaxFor('medical-record');
+                setMedicalRecordAction('fax');
+                setIsMedicalRecordRangeOpen(true);
               }}
             >
               <ListItemIcon>
@@ -408,6 +444,16 @@ export default function PatientPage(): JSX.Element {
               <ListItemText>Send as Fax</ListItemText>
             </MenuItem>
           </Menu>
+
+          <MedicalRecordDateRangeDialog
+            open={isMedicalRecordRangeOpen}
+            confirmText={medicalRecordAction === 'fax' ? 'Send as Fax' : 'Download Archive'}
+            recordDates={recordDateSpan.data}
+            loading={recordDateSpan.isFetching}
+            loadFailed={recordDateSpan.isError}
+            onClose={() => setIsMedicalRecordRangeOpen(false)}
+            onConfirm={confirmMedicalRecordRange}
+          />
 
           <SendFaxDialog
             controller={faxController}

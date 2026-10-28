@@ -37,6 +37,7 @@ import {
   GET_INVOICES_TASKS_ZAMBDA_KEY,
   GetInvoicesTasksInput,
   GetInvoicesTasksResponse,
+  GetInvoicesTasksZambdaInputSchema,
   INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
@@ -50,8 +51,8 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { accountMatchesType } from '../shared/harvest';
-import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = GET_INVOICES_TASKS_ZAMBDA_KEY;
@@ -70,7 +71,7 @@ interface TaskGroup {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParams = validateRequestParameters(input);
+  const validatedParams = validateWithSchema(GetInvoicesTasksZambdaInputSchema, input);
   const { secrets } = validatedParams;
   const start = performance.now();
 

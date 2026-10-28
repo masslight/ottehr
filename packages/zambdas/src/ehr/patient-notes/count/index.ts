@@ -2,11 +2,16 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { GetPatientNotesCountOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../shared/validation';
+
+export const GetPatientNotesCountSchema = z.object({
+  patientId: z.string().uuid(),
+});
 
 const ZAMBDA_NAME = 'get-patient-notes-count';
 let m2mToken: string;
@@ -14,7 +19,7 @@ let m2mToken: string;
 const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { patientId, secrets } = validateRequestParameters(input);
+  const { patientId, secrets } = validateWithSchema(GetPatientNotesCountSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 

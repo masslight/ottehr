@@ -1,10 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
+
+export const GetVisitNoteSchema = z.object({ encounterId: z.string().uuid() }).strict();
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -13,7 +16,7 @@ const ZAMBDA_NAME = 'get-visit-note';
 /** Everything the visit note (Review & Sign, follow-up note) shows, in one read. */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  const { secrets, encounterId } = validateRequestParameters(input);
+  const { secrets, encounterId } = validateWithSchema(GetVisitNoteSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 

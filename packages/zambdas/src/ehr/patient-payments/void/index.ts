@@ -55,9 +55,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const effectInput = await complexValidation(validatedParameters, oystehrClient);
 
-  const voidedBy = (await practitionerRefForUser(user, oystehrClient)).display;
+  const voidedBy = await practitionerRefForUser(user, oystehrClient);
 
-  const response = await performEffect({ ...effectInput, voidedBy }, oystehrClient);
+  const response = await performEffect(
+    {
+      ...effectInput,
+      voidedBy: voidedBy.display,
+      voidedByReference: voidedBy.reference,
+    },
+    oystehrClient
+  );
   return lambdaResponse(200, response);
 });
 
@@ -67,6 +74,7 @@ interface VoidEffectInput {
   reason: VoidPatientPaymentInput['reason'];
   notes?: string;
   voidedBy?: string;
+  voidedByReference?: string;
   // set when the clinical notice is already voided; effects re-run billing-side voiding idempotently
   resumeVoidInfo?: PaymentVoidInfo;
 }
@@ -102,7 +110,7 @@ const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient:
 };
 
 const performEffect = async (input: VoidEffectInput, oystehrClient: Oystehr): Promise<VoidPatientPaymentResponse> => {
-  const { notice, paymentNoticeId, reason, notes, voidedBy, resumeVoidInfo } = input;
+  const { notice, paymentNoticeId, reason, notes, voidedBy, voidedByReference, resumeVoidInfo } = input;
 
   // on resume, keep the originally recorded void info so clinical and billing audit records match
   const voidInfo: PaymentVoidInfo = resumeVoidInfo ?? {
@@ -110,6 +118,7 @@ const performEffect = async (input: VoidEffectInput, oystehrClient: Oystehr): Pr
     notes,
     voidedAtISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
     voidedBy,
+    voidedByReference,
   };
 
   // no-op when the notice is already cancelled (resume)

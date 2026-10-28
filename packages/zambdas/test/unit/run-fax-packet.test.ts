@@ -2,10 +2,12 @@ import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhi
 import { FAX_PACKET_MAX_PAGES } from 'utils/lib/types/api/fax.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockBuildAndUploadPacketForRecipient = vi.fn();
+const mockBuildPacketForRecipient = vi.fn();
+const mockUploadFaxPacket = vi.fn();
 vi.mock('../../src/shared/fax/build-fax-packet', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
-  buildAndUploadPacketForRecipient: (...args: unknown[]) => mockBuildAndUploadPacketForRecipient(...args),
+  buildPacketForRecipient: (...args: unknown[]) => mockBuildPacketForRecipient(...args),
+  uploadFaxPacket: (...args: unknown[]) => mockUploadFaxPacket(...args),
 }));
 
 const mockSendFaxAttempt = vi.fn();
@@ -13,6 +15,13 @@ vi.mock('../../src/shared/send-fax-attempt', () => ({
   sendFaxAttempt: (...args: unknown[]) => mockSendFaxAttempt(...args),
 }));
 
+const mockCaptureException = vi.fn();
+vi.mock('@sentry/node-core/light', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  captureException: (...args: unknown[]) => mockCaptureException(...args),
+}));
+
+import { FaxPacketTooLargeError } from '../../src/shared/fax/build-fax-packet';
 import {
   buildSharedCoverSheetFields,
   deliverFaxPacket,
@@ -128,7 +137,7 @@ describe('deliverFaxPacket', () => {
         deliverArgs([{ faxNumber: '+12125551111' }, { faxNumber: '+12125552222' }], { plan: oversizedPlan })
       )
     ).rejects.toThrow(`Fax packet is ${FAX_PACKET_MAX_PAGES + 2} pages`);
-    expect(mockBuildAndUploadPacketForRecipient).not.toHaveBeenCalled();
+    expect(mockBuildPacketForRecipient).not.toHaveBeenCalled();
   });
 
   it('sends a patient-level packet that names no visit', async () => {
@@ -143,11 +152,18 @@ describe('deliverFaxPacket', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockBuildAndUploadPacketForRecipient.mockImplementation(async ({ recipient }: any) => ({
-      pdfInfo: { title: 'packet.pdf', uploadURL: `https://z3/${recipient.faxNumber}.pdf` },
-      documentReference: { resourceType: 'DocumentReference', id: `docref-${recipient.faxNumber}` },
+    mockBuildPacketForRecipient.mockImplementation(async ({ recipient }: any) => ({
+      bytes: new TextEncoder().encode(recipient.faxNumber),
       pageCount: 5,
     }));
+    mockUploadFaxPacket.mockImplementation(async ({ packet }: any) => {
+      const faxNumber = new TextDecoder().decode(packet.bytes);
+      return {
+        pdfInfo: { title: 'packet.pdf', uploadURL: `https://z3/${faxNumber}.pdf` },
+        documentReference: { resourceType: 'DocumentReference', id: `docref-${faxNumber}` },
+        pageCount: packet.pageCount,
+      };
+    });
     mockSendFaxAttempt.mockImplementation(async (input: any) => ({
       resourceType: 'Task',
       id: `task-${input.faxNumber}`,
@@ -190,7 +206,10 @@ describe('deliverFaxPacket', () => {
       }),
       expect.anything()
     );
-    expect(mockBuildAndUploadPacketForRecipient).toHaveBeenCalledWith(expect.objectContaining({ sourceType: 'visit' }));
+    expect(mockBuildPacketForRecipient).toHaveBeenCalledWith(expect.objectContaining({ sourceType: 'visit' }));
+    expect(mockUploadFaxPacket).toHaveBeenCalledWith(
+      expect.objectContaining({ patientId: 'patient-1', appointmentId: 'appt-1', encounterId: 'enc-1' })
+    );
   });
 
   it('addresses a recipient with a credential as "Name, Credential"', async () => {
@@ -205,17 +224,18 @@ describe('deliverFaxPacket', () => {
       expect.anything()
     );
 
-    expect(mockBuildAndUploadPacketForRecipient).toHaveBeenCalledWith(
+    expect(mockBuildPacketForRecipient).toHaveBeenCalledWith(
       expect.objectContaining({ recipient: expect.objectContaining({ name: 'Jane Doe', credential: 'MD' }) })
     );
   });
 
   it('keeps sending when a middle recipient fails, and never leaks the raw error', async () => {
-    mockBuildAndUploadPacketForRecipient.mockImplementation(async ({ recipient }: any) => {
-      if (recipient.faxNumber === '+12125552222') throw new Error('Z3 upload exploded');
+    mockUploadFaxPacket.mockImplementation(async ({ packet }: any) => {
+      const faxNumber = new TextDecoder().decode(packet.bytes);
+      if (faxNumber === '+12125552222') throw new Error('Z3 upload exploded');
       return {
-        pdfInfo: { uploadURL: `https://z3/${recipient.faxNumber}.pdf` },
-        documentReference: { id: `docref-${recipient.faxNumber}` },
+        pdfInfo: { uploadURL: `https://z3/${faxNumber}.pdf` },
+        documentReference: { id: `docref-${faxNumber}` },
         pageCount: 5,
       };
     });
@@ -240,6 +260,46 @@ describe('deliverFaxPacket', () => {
     const results = await deliverFaxPacket(deliverArgs([{ faxNumber: '+12125551111' }, { faxNumber: '+12125552222' }]));
 
     expect(results.map((r) => r.status)).toEqual(['sent', 'failed']);
+  });
+
+  it('fails the whole send before uploading or faxing anyone when any final packet is too large', async () => {
+    const sizeError = new FaxPacketTooLargeError('Fax packet is 20.1 MB, which exceeds the 20 MB limit.');
+    mockBuildPacketForRecipient.mockImplementation(async ({ recipient }: any) => {
+      if (recipient.faxNumber === '+12125552222') throw sizeError;
+      return { bytes: new TextEncoder().encode(recipient.faxNumber), pageCount: 5 };
+    });
+
+    await expect(
+      deliverFaxPacket(
+        deliverArgs([{ faxNumber: '+12125551111' }, { faxNumber: '+12125552222' }, { faxNumber: '+12125553333' }])
+      )
+    ).rejects.toBe(sizeError);
+
+    expect(mockBuildPacketForRecipient).toHaveBeenCalledWith(
+      expect.objectContaining({ recipient: expect.objectContaining({ faxNumber: '+12125551111' }) })
+    );
+    expect(mockUploadFaxPacket).not.toHaveBeenCalled();
+    expect(mockSendFaxAttempt).not.toHaveBeenCalled();
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it('keeps sending to the others when one packet cannot be built for a reason other than size', async () => {
+    mockBuildPacketForRecipient.mockImplementation(async ({ recipient }: any) => {
+      if (recipient.faxNumber === '+12125552222') throw new Error('Cover sheet could not be rendered');
+      return { bytes: new TextEncoder().encode(recipient.faxNumber), pageCount: 5 };
+    });
+
+    const results = await deliverFaxPacket(
+      deliverArgs([{ faxNumber: '+12125551111' }, { faxNumber: '+12125552222' }, { faxNumber: '+12125553333' }])
+    );
+
+    expect(results.map((r) => r.status)).toEqual(['sent', 'failed', 'sent']);
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
+    expect(mockUploadFaxPacket).toHaveBeenCalledTimes(2);
+    expect(mockSendFaxAttempt.mock.calls.map(([input]) => [input.faxNumber, input.media])).toEqual([
+      ['+12125551111', 'https://z3/+12125551111.pdf'],
+      ['+12125553333', 'https://z3/+12125553333.pdf'],
+    ]);
   });
 });
 

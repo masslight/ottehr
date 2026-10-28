@@ -123,6 +123,7 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
         waitForNote: HistorySourceKeys.NotObtainedOther,
       },
       options: [
+        { value: 'patient_self', label: 'Patient self-reported', fhirValue: HistorySourceKeys.PatientSelf },
         { value: 'aunt', label: 'Aunt', fhirValue: HistorySourceKeys.Aunt },
         { value: 'babysitter', label: 'Babysitter', fhirValue: HistorySourceKeys.Babysitter },
         { value: 'brother', label: 'Brother', fhirValue: HistorySourceKeys.Brother },
@@ -144,7 +145,6 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
         { value: 'mother', label: 'Mother', fhirValue: HistorySourceKeys.Mother },
         { value: 'nanny', label: 'Nanny', fhirValue: HistorySourceKeys.Nanny },
         { value: 'neighbor', label: 'Neighbor', fhirValue: HistorySourceKeys.Neighbor },
-        { value: 'patient_self', label: 'Patient self-reported', fhirValue: HistorySourceKeys.PatientSelf },
         { value: 'police_officer', label: 'Police Officer', fhirValue: HistorySourceKeys.PoliceOfficer },
         { value: 'school_nurse', label: 'School Nurse', fhirValue: HistorySourceKeys.SchoolNurse },
         { value: 'significant_other', label: 'Significant Other', fhirValue: HistorySourceKeys.SignificantOther },

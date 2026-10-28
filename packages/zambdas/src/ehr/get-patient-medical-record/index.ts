@@ -1,9 +1,12 @@
-import { captureMessage } from '@sentry/aws-serverless';
+import { captureMessage } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { removePrefix } from 'utils/lib/helpers/helpers';
-import { GetPatientMedicalRecordOutput } from 'utils/lib/types/data/get-patient-medical-record.types';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import {
+  GetPatientMedicalRecordOutput,
+  NO_MEDICAL_RECORDS_IN_RANGE_MESSAGE,
+} from 'utils/lib/types/data/get-patient-medical-record.types';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
@@ -14,10 +17,16 @@ import {
   findActiveExportTask,
   isAbandonedExportTask,
   isMedicalRecordExportTask,
+  readExportDateRange,
   readExportDeadline,
   readUserFacingFailure,
   toExportStatus,
 } from '../../shared/medical-record-export/task';
+import {
+  collectPatientRecordAttachments,
+  getPatientRecordDateSpan,
+  getPatientRecordDocuments,
+} from '../../shared/patient-documents';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -70,8 +79,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return { statusCode: 200, body: JSON.stringify(response) };
   }
 
+  if ('dateSpan' in params) {
+    const span = await getPatientRecordDateSpan(oystehr, params.patientId);
+    return { statusCode: 200, body: JSON.stringify(span) };
+  }
+
   const { active, abandoned } = await findActiveExportTask(oystehr, params.patientId);
   if (active) {
+    const activeRange = readExportDateRange(active);
+    if (activeRange.from !== params.dateRange.from || activeRange.to !== params.dateRange.to) {
+      throw INVALID_INPUT_ERROR(
+        'A medical record export for this patient is already in progress. Please try again when it finishes.'
+      );
+    }
     console.log(`Re-attaching to in-flight export Task/${active.id} for Patient/${params.patientId}`);
     const response = await buildExportStatusResponse(active, presign);
     return { statusCode: 200, body: JSON.stringify(response) };
@@ -82,7 +102,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     await cancelAbandonedExportTask(oystehr, task);
   }
 
-  const task = await createExportTask(oystehr, params.patientId);
+  const documents = await getPatientRecordDocuments(oystehr, params.patientId, params.dateRange);
+  if (collectPatientRecordAttachments(documents).length === 0) {
+    throw INVALID_INPUT_ERROR(NO_MEDICAL_RECORDS_IN_RANGE_MESSAGE);
+  }
+
+  const task = await createExportTask(oystehr, params.patientId, params.dateRange);
   console.log(`Queued export Task/${task.id} for Patient/${params.patientId}`);
 
   const response: GetPatientMedicalRecordOutput = {

@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import {
   ActivityDefinition,
   Appointment,
+  DeviceRequest,
   DiagnosticReport,
   Encounter,
   FhirResource,
@@ -18,14 +20,16 @@ import {
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { ERX_MEDICATION_META_TAG_CODE, FHIR_EXTENSION, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getExtension } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
-import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
 import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
 import { emptyOrdersForTrackingBoardTable } from 'utils/lib/helpers/tracking-board';
 import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { convertVitalsListToMap, getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { GetVitalsForListOfEncountersResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { DmeOrderStatus } from 'utils/lib/types/api/dme.types';
 import { GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
@@ -36,6 +40,7 @@ import {
   makePrescribedMedicationDTO,
   makeProceduresDTOFromFhirResources,
 } from '../../shared/chart-data';
+import { DME_ORDER_SEARCH_TAG, getDmeOrderStatus, parseDmeOrder } from '../../shared/dme';
 import { sendErrors } from '../../shared/errors';
 import { SortedAppointmentQueues } from '../../shared/queueingUtils';
 import {
@@ -55,7 +60,7 @@ import {
 import { mapResourcesToInHouseOrderDTOs } from '../lab/in-house/get-in-house-orders/helpers';
 import { isTaskPST } from '../lab/shared/labs';
 import { parseResultsToOrder } from '../radiology/order-list';
-import { buildSearchUrl, executeBatchSearches, MAX_ENTRIES_PER_BATCH } from './batch-search';
+import { BatchSearch, buildSearchUrl, executeBatchSearches, settleByDeadline } from './batch-search';
 
 /**
  * Tracking board consolidation, Step B and Step C.
@@ -119,77 +124,94 @@ export const selectVitalsPatientsByEncounterId = ({
 };
 
 // Encounter references per batch entry. Oystehr's search URL limit is 10 KB and a batch entry's URL is inline, so
-// the comma list stays well under it; the aggregate response is what actually bounds these, and a size error
-// halves them (see fetchTrackingBoardResources).
+// the comma list stays well under it; the aggregate response is what actually bounds these, and an entry whose
+// response is too large splits its encounters in half (see encounterSearch).
 export const ORDER_ENCOUNTER_CHUNK_SIZE = 50;
 const ORDER_SEARCH_PAGE_SIZE = 500;
-const MIN_ENCOUNTER_CHUNK_SIZE = 5;
-const MAX_SIZE_RETRIES = 3;
+// The size cap is per batch response; parallel small batches keep the server's concurrency and shrink each response.
+export const TRACKING_BOARD_ENTRIES_PER_BATCH = 5;
 
 const IMMUNIZATION_TAG_CODE = 'immunization';
 const NURSING_ORDER_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag`;
 const NURSING_ORDER_TAG_CODE = 'nursing order';
 const RADIOLOGY_ORDER_TAG_CODE = 'radiology';
 
-export interface TrackingBoardChunkSizes {
-  orders: number;
-  vitals: number;
-}
+const DME_ORDERS_ON_BOARD = FEATURE_FLAGS_CONFIG.dmeOrdersEnabled;
+
+const encounterRefs = (encounterIds: string[]): string => encounterIds.map((id) => `Encounter/${id}`).join(',');
 
 /**
- * One GET search per encounter chunk per resource family. The ServiceRequest entry carries no context includes
- * (Encounter, Appointment, Slot, Schedule, Patient, Coverage, result Observations): appointment ids, timezones and
- * attending providers come from Step A. It includes what the status mappers read: Tasks and DiagnosticReports (and,
- * via `:iterate`, the review Tasks that hang off the reports), Provenances, in-house ActivityDefinitions and
- * requesting Practitioners.
+ * The ServiceRequest entry carries no context includes (Encounter, Appointment, Slot, Schedule, Patient, Coverage,
+ * result Observations): appointment ids, timezones and attending providers come from Step A. It includes what the
+ * status mappers read: Tasks and DiagnosticReports (and, via `:iterate`, the review Tasks that hang off the
+ * reports), Provenances, in-house ActivityDefinitions and requesting Practitioners.
  */
-export const buildTrackingBoardSearchUrls = (
+const serviceRequestSearchUrl = (encounterIds: string[]): string =>
+  buildSearchUrl('ServiceRequest', [
+    { name: 'encounter', value: encounterRefs(encounterIds) },
+    // "revoked" orders are soft-deleted across every order type.
+    { name: 'status:not', value: 'revoked' },
+    { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+    { name: '_revinclude', value: 'Task:based-on' },
+    { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+    { name: '_revinclude:iterate', value: 'Task:based-on' },
+    { name: '_revinclude', value: 'Provenance:target' },
+    { name: '_include', value: 'ServiceRequest:instantiates-canonical' },
+    { name: '_include', value: 'ServiceRequest:requester' },
+  ]);
+
+const medicationAdministrationSearchUrl = (encounterIds: string[]): string =>
+  buildSearchUrl('MedicationAdministration', [
+    { name: 'context', value: encounterRefs(encounterIds) },
+    { name: '_tag', value: `${MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE},${IMMUNIZATION_TAG_CODE}` },
+    { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+    // The in-house medication mapper requires the patient and the ordering practitioner to be present.
+    { name: '_include', value: 'MedicationAdministration:subject' },
+    { name: '_include', value: 'MedicationAdministration:performer' },
+  ]);
+
+const medicationRequestSearchUrl = (encounterIds: string[]): string =>
+  buildSearchUrl('MedicationRequest', [
+    { name: 'encounter', value: encounterRefs(encounterIds) },
+    { name: '_tag', value: ERX_MEDICATION_META_TAG_CODE },
+    { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+  ]);
+
+const deviceRequestSearchUrl = (encounterIds: string[]): string =>
+  buildSearchUrl('DeviceRequest', [
+    { name: 'encounter', value: encounterRefs(encounterIds) },
+    { name: '_tag', value: DME_ORDER_SEARCH_TAG },
+    // The board shows DME orders still waiting to be dispensed.
+    { name: 'status', value: 'active' },
+    { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+    { name: '_include', value: 'DeviceRequest:requester' },
+  ]);
+
+const vitalsSearchUrl = (encounterIds: string[]): string =>
+  buildSearchUrl('Observation', vitalsObservationSearchParams(encounterIds));
+
+const encounterSearch = (buildUrl: (encounterIds: string[]) => string, encounterIds: string[]): BatchSearch => ({
+  url: buildUrl(encounterIds),
+  split:
+    encounterIds.length > 1
+      ? () =>
+          chunkThings(encounterIds, Math.ceil(encounterIds.length / 2)).map((half) => encounterSearch(buildUrl, half))
+      : undefined,
+});
+
+/** One GET search per encounter chunk per resource family. */
+export const buildTrackingBoardSearches = (
   encounterIds: string[],
-  chunkSizes: TrackingBoardChunkSizes = { orders: ORDER_ENCOUNTER_CHUNK_SIZE, vitals: VITALS_ENCOUNTER_CHUNK_SIZE }
-): string[] => {
-  const urls: string[] = [];
-
-  chunkThings(encounterIds, chunkSizes.orders).forEach((chunk) => {
-    const encounterRefs = chunk.map((id) => `Encounter/${id}`).join(',');
-    urls.push(
-      buildSearchUrl('ServiceRequest', [
-        { name: 'encounter', value: encounterRefs },
-        // "revoked" orders are soft-deleted across every order type.
-        { name: 'status:not', value: 'revoked' },
-        { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
-        { name: '_revinclude', value: 'Task:based-on' },
-        { name: '_revinclude', value: 'DiagnosticReport:based-on' },
-        { name: '_revinclude:iterate', value: 'Task:based-on' },
-        { name: '_revinclude', value: 'Provenance:target' },
-        { name: '_include', value: 'ServiceRequest:instantiates-canonical' },
-        { name: '_include', value: 'ServiceRequest:requester' },
-      ])
-    );
-    urls.push(
-      buildSearchUrl('MedicationAdministration', [
-        { name: 'context', value: encounterRefs },
-        { name: '_tag', value: `${MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE},${IMMUNIZATION_TAG_CODE}` },
-        { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
-        // The in-house medication mapper requires the patient and the ordering practitioner to be present.
-        { name: '_include', value: 'MedicationAdministration:subject' },
-        { name: '_include', value: 'MedicationAdministration:performer' },
-      ])
-    );
-    urls.push(
-      buildSearchUrl('MedicationRequest', [
-        { name: 'encounter', value: encounterRefs },
-        { name: '_tag', value: ERX_MEDICATION_META_TAG_CODE },
-        { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
-      ])
-    );
-  });
-
-  chunkThings(encounterIds, chunkSizes.vitals).forEach((chunk) => {
-    urls.push(buildSearchUrl('Observation', vitalsObservationSearchParams(chunk)));
-  });
-
-  return urls;
-};
+  includeDmeOrders = DME_ORDERS_ON_BOARD
+): BatchSearch[] => [
+  ...chunkThings(encounterIds, ORDER_ENCOUNTER_CHUNK_SIZE).flatMap((chunk) => [
+    encounterSearch(serviceRequestSearchUrl, chunk),
+    encounterSearch(medicationAdministrationSearchUrl, chunk),
+    encounterSearch(medicationRequestSearchUrl, chunk),
+    ...(includeDmeOrders ? [encounterSearch(deviceRequestSearchUrl, chunk)] : []),
+  ]),
+  ...chunkThings(encounterIds, VITALS_ENCOUNTER_CHUNK_SIZE).map((chunk) => encounterSearch(vitalsSearchUrl, chunk)),
+];
 
 export interface TrackingBoardResources {
   resources: FhirResource[];
@@ -211,7 +233,8 @@ const referencesAny = (references: { reference?: string }[] | undefined, targets
  */
 const withLabResultTasks = async (
   oystehr: Oystehr,
-  fetched: TrackingBoardResources
+  fetched: TrackingBoardResources,
+  deadline: number | undefined
 ): Promise<TrackingBoardResources> => {
   const externalLabOrderRefs = new Set(
     fetched.resources
@@ -231,64 +254,50 @@ const withLabResultTasks = async (
   );
   if (hasReportTasks) return fetched;
 
+  const withoutTasks = {
+    ...fetched,
+    failedUrls: [...fetched.failedUrls, 'Task?based-on=<external lab DiagnosticReports>'],
+  };
+  if (deadline !== undefined && Date.now() >= deadline) return withoutTasks;
+
   console.log('no result-review Tasks came back with the external lab DiagnosticReports; fetching them directly');
-  const tasks = await fetchFinalAndPrelimAndCorrectedTasks(oystehr, externalLabReports);
+  const tasks = await settleByDeadline<Task[] | undefined>(
+    fetchFinalAndPrelimAndCorrectedTasks(oystehr, externalLabReports).catch((error) => {
+      console.error('fetching result-review Tasks for external lab reports failed', error);
+      captureException(error);
+      return undefined;
+    }),
+    deadline,
+    () => undefined
+  );
+  if (!tasks) return withoutTasks;
   return { ...fetched, resources: [...fetched.resources, ...tasks] };
 };
 
-/**
- * Runs Step B: the batch of searches for the given encounters. Retries with smaller encounter chunks and fewer
- * entries per bundle when a response exceeds Oystehr's size cap. Throws only when even the smallest split fails; the
- * caller then renders the board without icons rather than failing the page.
- */
+/** Runs Step B. Whatever is still outstanding at `deadline` comes back in `failedUrls`. */
 export const fetchTrackingBoardResources = async ({
   oystehr,
   encounterIds,
   fhirApiUrl,
+  deadline,
+  includeDmeOrders = DME_ORDERS_ON_BOARD,
 }: {
   oystehr: Oystehr;
   encounterIds: string[];
   fhirApiUrl?: string;
+  deadline?: number;
+  includeDmeOrders?: boolean;
 }): Promise<TrackingBoardResources> => {
   if (encounterIds.length === 0) {
     return { resources: [], failedUrls: [] };
   }
 
-  let chunkSizes: TrackingBoardChunkSizes = { orders: ORDER_ENCOUNTER_CHUNK_SIZE, vitals: VITALS_ENCOUNTER_CHUNK_SIZE };
-  let maxEntriesPerBatch = MAX_ENTRIES_PER_BATCH;
-  for (let attempt = 0; ; attempt++) {
-    const urls = buildTrackingBoardSearchUrls(encounterIds, chunkSizes);
-    const startedAt = Date.now();
-    try {
-      const fetched = await executeBatchSearches(oystehr, urls, { fhirApiUrl, maxEntriesPerBatch });
-      console.log(
-        `tracking board batch: ${urls.length} entries for ${encounterIds.length} encounters in ${
-          Date.now() - startedAt
-        } ms`
-      );
-      return await withLabResultTasks(oystehr, fetched);
-    } catch (error) {
-      const canShrink =
-        chunkSizes.orders > MIN_ENCOUNTER_CHUNK_SIZE ||
-        chunkSizes.vitals > MIN_ENCOUNTER_CHUNK_SIZE ||
-        maxEntriesPerBatch > 1;
-      if (!isResponseSizeExceededError(error) || !canShrink || attempt >= MAX_SIZE_RETRIES) {
-        throw error;
-      }
-      // The cap is on a whole batch response, so smaller encounter chunks alone only help once the extra entries
-      // spill into another bundle. Halve the entries per bundle too, so each retry roughly quarters the bytes any
-      // one response carries.
-      chunkSizes = {
-        orders: Math.max(MIN_ENCOUNTER_CHUNK_SIZE, Math.ceil(chunkSizes.orders / 2)),
-        vitals: Math.max(MIN_ENCOUNTER_CHUNK_SIZE, Math.ceil(chunkSizes.vitals / 2)),
-      };
-      maxEntriesPerBatch = Math.max(1, Math.ceil(maxEntriesPerBatch / 2));
-      console.warn('tracking board batch exceeded the response size cap; retrying with a smaller split', {
-        ...chunkSizes,
-        maxEntriesPerBatch,
-      });
-    }
-  }
+  const fetched = await executeBatchSearches(oystehr, buildTrackingBoardSearches(encounterIds, includeDmeOrders), {
+    fhirApiUrl,
+    maxEntriesPerBatch: TRACKING_BOARD_ENTRIES_PER_BATCH,
+    deadline,
+  });
+  return withLabResultTasks(oystehr, fetched, deadline);
 };
 
 export interface TrackingBoardResourcePools {
@@ -300,6 +309,7 @@ export interface TrackingBoardResourcePools {
   practitioners: Practitioner[];
   medicationAdministrations: MedicationAdministration[];
   medicationRequests: MedicationRequest[];
+  deviceRequests: DeviceRequest[];
   observations: Observation[];
   /** Every deduplicated resource, for mappers that look related resources up by id. */
   all: FhirResource[];
@@ -330,6 +340,7 @@ export const poolTrackingBoardResources = (resources: FhirResource[]): TrackingB
     practitioners: ofType<Practitioner>('Practitioner'),
     medicationAdministrations: ofType<MedicationAdministration>('MedicationAdministration'),
     medicationRequests: ofType<MedicationRequest>('MedicationRequest'),
+    deviceRequests: ofType<DeviceRequest>('DeviceRequest'),
     observations: ofType<Observation>('Observation'),
     all,
   };
@@ -555,6 +566,23 @@ export const buildOrdersForTrackingBoard = ({
     pools.medicationRequests.map(makePrescribedMedicationDTO),
     (order) => order.encounterId
   );
+
+  // External (print-only) DME orders are fulfilled by a third party, so only in-house ones awaiting dispense show.
+  const pendingDmeOrders = pools.deviceRequests.filter(
+    (deviceRequest) => deviceRequest.status === 'active' && getDmeOrderStatus(deviceRequest) === DmeOrderStatus.pending
+  );
+  if (pendingDmeOrders.length > 0) {
+    const practitionerNames = Object.fromEntries(
+      allPractitioners.map((practitioner) => [practitioner.id ?? '', getFullestAvailableName(practitioner) ?? ''])
+    );
+    const dmeOrders = pendingDmeOrders.sort(byLastUpdatedDesc).flatMap((deviceRequest) => {
+      const order = mapOrderSafely(`DME order ${deviceRequest.id}`, environment, () =>
+        parseDmeOrder(deviceRequest, practitionerNames)
+      );
+      return order ? [order] : [];
+    });
+    table.dmeOrdersByEncounterId = groupBy(dmeOrders, (order) => order.encounterId);
+  }
 
   return table;
 };

@@ -10,7 +10,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Observation } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
-import { SaveTranscriptResponse } from 'utils/lib/easy-chart/api';
+import { SaveTranscriptRequestSchema, SaveTranscriptResponse } from 'utils/lib/easy-chart/api';
 import { isTranscriptDocument } from 'utils/lib/easy-chart/narrative';
 import { PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -19,16 +19,16 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
 import { assertVisitIsEditable } from '../easy-chart-shared/visit-lock';
-import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-save-transcript';
 
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, transcript, encounterId, documentId } = validateRequestParameters(input);
+  const { secrets, transcript, encounterId, documentId } = validateWithSchema(SaveTranscriptRequestSchema, input);
 
   const { userToken, isServiceClient } = await authorizeEasyChartRequest(input, encounterId, secrets, ZAMBDA_NAME);
 
@@ -75,7 +75,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     null,
     providerUserProfile,
     existing,
-    secrets
+    secrets,
+    'easy-chart-save-transcript'
   );
 
   if (staleObservationIds.length > 0) {

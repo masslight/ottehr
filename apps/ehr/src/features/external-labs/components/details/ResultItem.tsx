@@ -1,4 +1,4 @@
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, Chip, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
 import { PSC_LOCALE } from 'utils/lib/types/data/labs/labs.constants';
 import {
@@ -23,6 +23,11 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
 
   const isUnsolicitedPage = 'isUnsolicited' in labOrder;
   const isDrCentricResult = 'drCentricResultType' in labOrder || isUnsolicitedPage;
+
+  const isFinal =
+    resultDetails.resultType === 'final' ||
+    resultDetails.resultType === 'cancelled' ||
+    resultDetails.resultType === 'corrected';
 
   let timezone: string | undefined;
   if (!isDrCentricResult) {
@@ -57,13 +62,12 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
               {PSC_LOCALE}
             </Typography>
           )}
+          {labOrder.isStat && !isFinal && <Chip size="small" color="error" variant="outlined" label="STAT" />}
           <LabsOrderStatusChip status={resultDetails.labStatus} />
         </Box>
       </Box>
 
-      {(resultDetails.resultType === 'final' ||
-        resultDetails.resultType === 'cancelled' ||
-        resultDetails.resultType === 'corrected') && (
+      {isFinal && (
         <FinalCardView
           isUnsolicited={isUnsolicitedPage}
           resultPdfUrl={resultDetails.resultPdfUrl}

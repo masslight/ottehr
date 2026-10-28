@@ -23,6 +23,7 @@ const fullInput: AddressBookContactInput = {
   firstName: 'Jane',
   lastName: 'Doe',
   credential: 'MD',
+  title: 'Medical Director',
   organizationName: 'Springfield Cardiology',
   address: { line1: '1 Main St', line2: 'Suite 2', city: 'Springfield', state: 'IL', zip: '62701' },
   phone: '(212) 555-1234',
@@ -38,6 +39,7 @@ describe('address-book helpers', () => {
     expect(org.name).toBe('Springfield Cardiology');
     expect(org.alias).toEqual(['Jane Doe, MD']);
     expect(org.contact?.[0]?.name).toEqual({ given: ['Jane'], family: 'Doe', suffix: ['MD'] });
+    expect(org.contact?.[0]?.purpose).toEqual({ text: 'Medical Director' });
     expect(org.address?.[0]?.line).toEqual(['1 Main St', 'Suite 2']);
     expect(org.telecom).toEqual([
       { system: 'phone', value: '+12125551234' },
@@ -79,6 +81,18 @@ describe('address-book helpers', () => {
     expect(contact.organizationName).toBeUndefined();
     expect(contact.firstName).toBe('John');
     expect(contact.lastName).toBe('Smith');
+  });
+
+  test('keeps a title given without a person', () => {
+    const org = buildAddressBookOrganization({ organizationName: 'Acme Corp', title: 'HR Department' });
+
+    expect(org.contact).toEqual([{ purpose: { text: 'HR Department' } }]);
+    expect(org.alias).toBeUndefined();
+
+    const contact = mapAddressBookContact({ ...org, id: 'org-4' });
+    expect(contact.title).toBe('HR Department');
+    expect(contact.organizationName).toBe('Acme Corp');
+    expect(contact.lastName).toBeUndefined();
   });
 
   test('keeps meta tags from other systems when rebuilding an existing contact', () => {

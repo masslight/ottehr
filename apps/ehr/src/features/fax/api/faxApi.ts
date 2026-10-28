@@ -6,6 +6,7 @@ import {
   SendFaxPacketInput,
   SendFaxPacketOutput,
 } from 'utils/lib/types/api/fax.types';
+import { MedicalRecordDateRange } from 'utils/lib/types/data/get-patient-medical-record.types';
 
 /** Only the methods the fax slice needs from the app's zambda API client, so the slice stays decoupled
  * from the client's (legacy, telemed-flavoured) concrete type. */
@@ -27,6 +28,13 @@ export const fetchFaxPacketPreview = async (
  */
 export const fetchFaxSenderFaxNumber = async (apiClient: FaxApiClient): Promise<string | null> =>
   (await apiClient.getFaxPacketPreview({})).senderFaxNumber ?? null;
+
+export const fetchMedicalRecordFaxDocumentCount = async (
+  apiClient: FaxApiClient,
+  patientId: string,
+  dateRange: MedicalRecordDateRange
+): Promise<number | undefined> =>
+  (await apiClient.getFaxPacketPreview({ medicalRecord: { patientId, dateRange } })).documentCount;
 
 export const sendFaxPacket = async (apiClient: FaxApiClient, input: SendFaxPacketInput): Promise<SendFaxPacketOutput> =>
   apiClient.sendFaxPacket(input);

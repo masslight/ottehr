@@ -1,0 +1,812 @@
+import { Close } from '@mui/icons-material';
+import {
+  alpha,
+  Box,
+  Button,
+  Checkbox,
+  ClickAwayListener,
+  IconButton,
+  InputBase,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Paper,
+  Popper,
+  SxProps,
+  TextField,
+  Theme,
+  Typography,
+} from '@mui/material';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
+import { DateTime } from 'luxon';
+import {
+  FC,
+  Fragment,
+  isValidElement,
+  KeyboardEvent,
+  MouseEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { formatList } from 'src/shared/utils/formatList';
+import { OTHER } from '../../../pages/procedureOtherFields';
+import { sentenceValue } from './sentenceValue';
+
+/** Sentence-style form pieces: a filled blank is blue medium-weight text, an empty blank
+ * is a dashed outline showing its label, and the whole sentence reads as note text at body size. */
+
+export interface BlankOption {
+  value: string;
+  label: string;
+}
+
+const SEARCH_THRESHOLD = 8;
+
+const SENTENCE_SX: SxProps<Theme> = {
+  fontSize: '16px',
+  lineHeight: 1.6,
+  color: 'text.primary',
+  // Prose line length, even when the column is wider.
+  maxWidth: '75ch',
+};
+
+const filledSx = (theme: Theme): Record<string, unknown> => ({
+  color: theme.palette.primary.dark,
+  fontWeight: 500,
+  backgroundColor: 'transparent',
+  '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.08) },
+});
+
+const emptySx = (theme: Theme, need: boolean): Record<string, unknown> => ({
+  color: need ? theme.palette.warning.dark : theme.palette.text.secondary,
+  border: `1px dashed ${need ? theme.palette.warning.dark : theme.palette.text.secondary}`,
+  padding: '0 4px',
+  backgroundColor: 'transparent',
+});
+
+const ghostSx = (theme: Theme): Record<string, unknown> => ({
+  color: theme.palette.text.secondary,
+  // "+ details" and friends never break between the "+" and the word.
+  whiteSpace: 'nowrap',
+  '&:hover': { backgroundColor: theme.palette.action.hover, color: theme.palette.text.primary },
+});
+
+const ReadOnlyBlank: FC<{ label: string; value?: string }> = ({ label, value }) => (
+  <Box component="span" sx={(theme) => (value ? { ...filledSx(theme), '&:hover': {} } : { color: 'text.secondary' })}>
+    {value || `[${label}]`}
+  </Box>
+);
+
+interface BlankButtonProps {
+  label: string;
+  value?: string;
+  need?: boolean;
+  ghost?: boolean;
+  readOnly: boolean;
+  onClick: (anchor: HTMLElement) => void;
+  dataTestId?: string;
+  /** Native tooltip, used for a coding field's helper text. */
+  hint?: string;
+  expanded?: boolean;
+  popupId?: string;
+}
+
+/** The clickable value inside a sentence. Read-only surfaces get the same words as plain text. */
+export const BlankButton: FC<BlankButtonProps> = ({
+  label,
+  value,
+  need,
+  ghost,
+  readOnly,
+  onClick,
+  dataTestId,
+  hint,
+  expanded,
+  popupId,
+}) => {
+  if (readOnly) return <ReadOnlyBlank label={label} value={value} />;
+  // An inline span rather than <button>: a long value then wraps across lines like the surrounding text.
+  return (
+    <Box
+      component="span"
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      aria-controls={expanded ? popupId : undefined}
+      aria-haspopup={popupId ? 'dialog' : undefined}
+      title={hint}
+      aria-label={`${label}${value ? `: ${value}` : ' (empty)'}`}
+      data-testid={dataTestId}
+      data-needed={!value && need ? true : undefined}
+      onClick={(event: MouseEvent<HTMLElement>) => onClick(event.currentTarget)}
+      onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick(event.currentTarget);
+        }
+      }}
+      sx={(theme) => ({
+        font: 'inherit',
+        lineHeight: 'inherit',
+        borderRadius: '3px',
+        padding: '1px 2px',
+        cursor: 'pointer',
+        backgroundColor: 'transparent',
+        boxDecorationBreak: 'clone',
+        WebkitBoxDecorationBreak: 'clone',
+        ...(value ? filledSx(theme) : ghost ? ghostSx(theme) : emptySx(theme, need ?? false)),
+        '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+      })}
+    >
+      {value ?? label}
+    </Box>
+  );
+};
+
+interface PopoverBlankProps extends Omit<BlankButtonProps, 'onClick'> {
+  /** Popover heading; defaults to the blank's label. */
+  title?: string;
+  children: (close: () => void) => ReactNode;
+  onClose?: () => void;
+}
+
+/** Start with the search input or selected option when the popover has been positioned. */
+const focusPopoverContent = (paper: HTMLElement): void => {
+  const target =
+    paper.querySelector<HTMLElement>('input:not([type="checkbox"])') ??
+    paper.querySelector<HTMLElement>('[role="option"][aria-selected="true"]') ??
+    paper.querySelector<HTMLElement>('[role="option"], input');
+  target?.focus();
+};
+
+/** Arrow/Home/End navigation for the blank's own choices. Autocomplete manages its own keys. */
+const navigateChoices = (event: KeyboardEvent<HTMLElement>): void => {
+  if ((event.target as HTMLElement).getAttribute('role') === 'combobox') return;
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+  const choices = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="option"], [data-blank-choice]'));
+  if (!choices.length) return;
+  const current = choices.indexOf(document.activeElement as HTMLElement);
+  let next: number;
+  switch (event.key) {
+    case 'Home':
+      next = 0;
+      break;
+    case 'End':
+      next = choices.length - 1;
+      break;
+    case 'ArrowDown':
+      next = (current + 1) % choices.length;
+      break;
+    default:
+      next = current <= 0 ? choices.length - 1 : current - 1;
+  }
+  event.preventDefault();
+  choices[next].focus();
+};
+
+const POPOVER_MODIFIERS = [{ name: 'preventOverflow', options: { padding: 8 } }];
+
+/** Non-modal on purpose: a modal popover's backdrop swallowed the first click on Save / Clear Form /
+ * another blank. Here the click away closes the popover and still reaches its target. */
+export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
+  const popupId = useId();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  // Focus moves into the paper only after Popper has placed it: focusing earlier opens an autocomplete
+  // list (openOnFocus) while the paper still sits at the top-left corner, and that list stays there.
+  const paperEl = useRef<HTMLDivElement | null>(null);
+  const onPlaced = useCallback(() => {
+    if (paperEl.current) focusPopoverContent(paperEl.current);
+  }, []);
+  // Stable props: MUI's Popper rebuilds itself (back at 0,0) whenever `modifiers` or `popperOptions`
+  // change identity, and an autocomplete list measured during that rebuild stays in the top-left corner.
+  const popperOptions = useMemo(() => ({ onFirstUpdate: onPlaced }), [onPlaced]);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const close = useCallback(
+    (restoreFocus = true): void => {
+      if (restoreFocus) anchor?.focus();
+      setAnchor(null);
+      onCloseRef.current?.();
+    },
+    [anchor]
+  );
+  useEffect(() => {
+    if (!anchor) return;
+    // Document-level, capture phase (as MUI's modal did): one Escape closes the popover wherever focus
+    // is, even when an autocomplete list inside it is open.
+    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        close();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [anchor, close]);
+  return (
+    <>
+      <BlankButton
+        {...blank}
+        onClick={anchor ? () => close() : setAnchor}
+        expanded={Boolean(anchor)}
+        popupId={popupId}
+      />
+      {anchor && (
+        <Popper
+          open
+          anchorEl={anchor}
+          placement="bottom-start"
+          sx={{ zIndex: (theme) => theme.zIndex.modal }}
+          modifiers={POPOVER_MODIFIERS}
+          popperOptions={popperOptions}
+        >
+          <ClickAwayListener
+            mouseEvent="onMouseDown"
+            touchEvent="onTouchStart"
+            onClickAway={(event) => {
+              if (!anchor.contains(event.target as Node)) close(false);
+            }}
+          >
+            <Paper
+              ref={paperEl}
+              id={popupId}
+              role="dialog"
+              aria-label={title ?? blank.label}
+              onKeyDown={navigateChoices}
+              elevation={8}
+              data-testid={dataTestIds.documentProcedurePage.blankPopover}
+              sx={{
+                width: 'max-content',
+                minWidth: 'min(280px, calc(100vw - 32px))',
+                maxWidth: 'min(400px, calc(100vw - 32px))',
+                maxHeight: 'min(360px, calc(100dvh - 32px))',
+                overflow: 'auto',
+                p: 1,
+              }}
+            >
+              <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{title ?? blank.label}</Typography>
+              {children(close)}
+            </Paper>
+          </ClickAwayListener>
+        </Popper>
+      )}
+    </>
+  );
+};
+
+const toOption = (value: string): BlankOption => ({ value, label: value });
+
+/** Saved values missing from today's list (older config, a quick pick) stay selectable. */
+const withSavedValues = (
+  options: readonly string[] | readonly BlankOption[] | undefined,
+  values: readonly string[]
+): BlankOption[] => {
+  const known = (options ?? []).map((option) => (typeof option === 'string' ? toOption(option) : option));
+  return [...values.filter((value) => !known.some((option) => option.value === value)).map(toOption), ...known];
+};
+
+const OtherAnswer: FC<{ label: string; value?: string; onChange: (value: string) => void }> = ({
+  label,
+  value,
+  onChange,
+}) => (
+  <TextField
+    label={`Other ${label.toLowerCase()}`}
+    size="small"
+    fullWidth
+    autoFocus
+    value={value ?? ''}
+    onChange={(event) => onChange(event.target.value)}
+    sx={{ mt: 1 }}
+  />
+);
+
+interface SelectBlankProps {
+  otherValue?: string;
+  onOtherChange?: (value: string) => void;
+  label: string;
+  title?: string;
+  options: readonly string[] | readonly BlankOption[] | undefined;
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+  readOnly: boolean;
+  need?: boolean;
+  /** Offers "Clear" at the end of the list, as the old dropdown's clear button did. */
+  clearable?: boolean;
+  dataTestId?: string;
+  helperText?: string;
+}
+
+export const SelectBlank: FC<SelectBlankProps> = ({
+  label,
+  title,
+  options,
+  value,
+  onChange,
+  readOnly,
+  need,
+  clearable,
+  dataTestId,
+  helperText,
+  otherValue,
+  onOtherChange,
+}) => {
+  const [filter, setFilter] = useState('');
+  const all = withSavedValues(options, value === undefined ? [] : [value]);
+  const searchable = all.length > SEARCH_THRESHOLD;
+  const shown = filter ? all.filter((option) => option.label.toLowerCase().includes(filter.toLowerCase())) : all;
+  const display = all.find((option) => option.value === value)?.label;
+  return (
+    <PopoverBlank
+      label={label}
+      title={title}
+      value={
+        value === OTHER && onOtherChange
+          ? otherValue?.trim() || display
+          : display === undefined
+          ? undefined
+          : sentenceValue(display)
+      }
+      need={need}
+      readOnly={readOnly}
+      dataTestId={dataTestId}
+      onClose={() => setFilter('')}
+      hint={helperText}
+    >
+      {(close) => (
+        <>
+          {searchable && (
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Type to filter…"
+              inputProps={{ 'aria-label': `Filter ${label}` }}
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && shown[0]) {
+                  if (shown[0].value !== value) onChange(shown[0].value);
+                  if (shown[0].value !== OTHER || !onOtherChange) close();
+                }
+              }}
+              sx={{ mb: 0.5 }}
+            />
+          )}
+          <List dense disablePadding role="listbox" aria-label={title ?? label}>
+            {shown.map((option) => (
+              <ListItemButton
+                key={option.value}
+                role="option"
+                selected={option.value === value}
+                aria-selected={option.value === value}
+                onClick={() => {
+                  if (option.value !== value) onChange(option.value);
+                  if (option.value !== OTHER || !onOtherChange) close();
+                }}
+              >
+                <ListItemText primary={option.label} />
+              </ListItemButton>
+            ))}
+            {clearable && value !== undefined && (
+              <ListItemButton
+                role="option"
+                aria-selected={false}
+                onClick={() => {
+                  onChange(undefined);
+                  close();
+                }}
+              >
+                <ListItemText primary="Clear" primaryTypographyProps={{ color: 'text.secondary' }} />
+              </ListItemButton>
+            )}
+          </List>
+          {value === OTHER && onOtherChange && (
+            <OtherAnswer label={title ?? label} value={otherValue} onChange={onOtherChange} />
+          )}
+        </>
+      )}
+    </PopoverBlank>
+  );
+};
+
+interface MultiBlankProps {
+  otherValue?: string;
+  onOtherChange?: (value: string) => void;
+  label: string;
+  title?: string;
+  options: readonly string[] | readonly BlankOption[] | undefined;
+  values: readonly string[] | undefined;
+  onChange: (values: string[]) => void;
+  readOnly: boolean;
+  dataTestId?: string;
+  ghost?: boolean;
+}
+
+/** Checkbox list with Done; the blank reads "a, b and c" or, when nothing is chosen, its label. */
+export const MultiBlank: FC<MultiBlankProps> = ({
+  label,
+  title,
+  options,
+  values = [],
+  onChange,
+  readOnly,
+  dataTestId,
+  otherValue,
+  onOtherChange,
+  ghost,
+}) => {
+  const all = withSavedValues(options, values);
+  const display = formatList(
+    values.map((v) =>
+      v === OTHER && onOtherChange
+        ? otherValue?.trim() || v
+        : sentenceValue(all.find((option) => option.value === v)?.label ?? v)
+    )
+  );
+  if (readOnly) return <ReadOnlyBlank label={label} value={display || undefined} />;
+  return (
+    <PopoverBlank
+      label={ghost ? `+ ${label}` : label}
+      title={title ?? label}
+      value={display || undefined}
+      ghost={ghost}
+      readOnly={readOnly}
+      dataTestId={dataTestId}
+    >
+      {(close) => (
+        <>
+          <List dense disablePadding>
+            {all.map((option) => {
+              const checked = values.includes(option.value);
+              return (
+                <ListItemButton
+                  key={option.value}
+                  data-blank-choice
+                  dense
+                  onClick={() =>
+                    onChange(checked ? values.filter((v) => v !== option.value) : [...values, option.value])
+                  }
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={checked}
+                      tabIndex={-1}
+                      disableRipple
+                      inputProps={{ 'aria-label': option.label }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText primary={option.label} />
+                </ListItemButton>
+              );
+            })}
+          </List>
+          {values.includes(OTHER) && onOtherChange && (
+            <OtherAnswer label={title ?? label} value={otherValue} onChange={onOtherChange} />
+          )}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 0.5 }}>
+            <Button size="small" onClick={close}>
+              Done
+            </Button>
+          </Box>
+        </>
+      )}
+    </PopoverBlank>
+  );
+};
+
+const inlineInputSx = (theme: Theme, empty: boolean, need: boolean): Record<string, unknown> => ({
+  font: 'inherit',
+  lineHeight: 'inherit',
+  borderRadius: '3px',
+  padding: 0,
+  '& input': {
+    padding: '1px 4px',
+    height: 'auto',
+    font: 'inherit',
+    color: theme.palette.primary.dark,
+    fontWeight: 500,
+    ...(empty ? emptySx(theme, need) : { backgroundColor: alpha(theme.palette.primary.main, 0.06) }),
+    '&::placeholder': {
+      color: need ? theme.palette.warning.dark : theme.palette.text.secondary,
+      opacity: 1,
+      fontWeight: 400,
+    },
+    '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+  },
+});
+
+/** Numbers sit centred with the browser's spin buttons removed, so "5" and "#" are as tight as text. */
+const numberInputSx: Record<string, unknown> = {
+  textAlign: 'center',
+  MozAppearance: 'textfield',
+  '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+};
+
+interface TextBlankProps {
+  label: string;
+  /** Shorter text shown in the empty box; the label stays the accessible name and tooltip. */
+  placeholder?: string;
+  kind?: 'text' | 'number';
+  value: string | number | undefined;
+  onChange: (raw: string) => void;
+  readOnly: boolean;
+  need?: boolean;
+  min?: number;
+  step?: number;
+  width?: string;
+  dataTestId?: string;
+}
+
+/** Borderless input that sits in the sentence: numbers and short free text. */
+export const TextBlank: FC<TextBlankProps> = ({
+  label,
+  placeholder: placeholderProp,
+  kind = 'text',
+  value,
+  onChange,
+  readOnly,
+  need,
+  min,
+  step,
+  width,
+  dataTestId,
+}) => {
+  const text = value === undefined ? '' : String(value);
+  if (readOnly) return <ReadOnlyBlank label={label} value={text} />;
+  const placeholder = placeholderProp ?? label;
+  return (
+    <InputBase
+      type={kind}
+      value={text}
+      placeholder={placeholder}
+      onChange={(event) => onChange(event.target.value)}
+      inputProps={{
+        'aria-label': label,
+        'data-testid': dataTestId,
+        'data-needed': !text && need ? true : undefined,
+        title: placeholder === label ? undefined : label,
+        // Chrome's form-history dropdown would look like an app popover inside a sentence.
+        autoComplete: 'off',
+        ...(kind === 'number' ? { min, step: step ?? 1, inputMode: 'decimal' } : {}),
+      }}
+      sx={(theme) => {
+        const inline = inlineInputSx(theme, text === '', need ?? false);
+        return {
+          ...inline,
+          // One input style for every kind; the number tweaks are merged in, not swapped in.
+          '& input': {
+            ...(inline['& input'] as Record<string, unknown>),
+            ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
+            ...(kind === 'number' ? numberInputSx : {}),
+          },
+          maxWidth: '100%',
+          // The box hugs its content: the placeholder at first, then whatever is typed.
+          width: width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,
+          '@supports (field-sizing: content)': { width: width ?? 'auto', '& input': { fieldSizing: 'content' } },
+        };
+      }}
+    />
+  );
+};
+
+interface DateTimeBlankProps {
+  kind: 'date' | 'time';
+  label: string;
+  value: DateTime | null | undefined;
+  onChange: (value: DateTime | null) => void;
+  readOnly: boolean;
+  need?: boolean;
+  dataTestId?: string;
+}
+
+/** The existing MUI pickers, restyled as inline blanks so date/time semantics stay exactly as before. */
+export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onChange, readOnly, need, dataTestId }) => {
+  const display = value?.isValid
+    ? kind === 'date'
+      ? value.toLocaleString(DateTime.DATE_MED)
+      : value.toLocaleString(DateTime.TIME_SIMPLE)
+    : undefined;
+  if (readOnly) return <ReadOnlyBlank label={label} value={display} />;
+  const Picker = kind === 'date' ? DatePicker : TimePicker;
+  return (
+    <LocalizationProvider dateAdapter={AdapterLuxon}>
+      <Picker
+        value={value ?? null}
+        onChange={(next: DateTime | null) => onChange(next)}
+        slotProps={{
+          textField: {
+            variant: 'standard',
+            InputProps: { disableUnderline: true },
+            inputProps: {
+              'aria-label': label,
+              'data-testid': dataTestId,
+              'data-needed': !display && need ? true : undefined,
+              placeholder: label,
+            },
+            sx: (theme) => {
+              const inline = inlineInputSx(theme, !display, need ?? false);
+              return {
+                // Input and icon share one shrink-wrapped inline box, so the icon never spills over the
+                // words after it; the margin is the visible gap before them.
+                display: 'inline-flex',
+                width: 'auto',
+                verticalAlign: 'baseline',
+                mr: '0.35em',
+                '& .MuiInputBase-root': { font: 'inherit', lineHeight: 'inherit', width: 'auto' },
+                ...inline,
+                '& input': {
+                  ...(inline['& input'] as Record<string, unknown>),
+                  flex: 'none',
+                  minWidth: 0,
+                  width: display ? (kind === 'date' ? '11ch' : '8ch') : `${label.length}ch`,
+                },
+                '& .MuiInputAdornment-root': { ml: 0, flex: 'none', height: 'auto' },
+                // MuiIconButton-edgeEnd sets margin-right: -12px, which pushed the icon over the next word.
+                '& .MuiInputAdornment-root button': { padding: '2px', mr: 0 },
+                '& .MuiInputAdornment-root svg': { fontSize: 18 },
+              };
+            },
+          },
+        }}
+      />
+    </LocalizationProvider>
+  );
+};
+
+const parseClockTime = (value: string | undefined): DateTime | null =>
+  value ? DateTime.fromFormat(value, 'H:mm') : null;
+
+const toClockTime = (value: DateTime | null): string | undefined =>
+  value?.isValid ? value.toFormat('HH:mm') : undefined;
+
+interface ClockTimeBlankProps {
+  label: string;
+  /** "HH:mm", the shape coding answers store clock times in. */
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+  readOnly: boolean;
+  need?: boolean;
+}
+
+export const ClockTimeBlank: FC<ClockTimeBlankProps> = ({ label, value, onChange, readOnly, need }) => {
+  const [draft, setDraft] = useState<DateTime | null>(() => parseClockTime(value));
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    // The stored answer changed elsewhere (a template, a removed row): show it instead of the draft.
+    if (value !== toClockTime(draft)) setDraft(parseClockTime(value));
+  }
+  return (
+    <DateTimeBlank
+      kind="time"
+      label={label}
+      value={draft}
+      onChange={(next) => {
+        setDraft(next);
+        onChange(toClockTime(next));
+      }}
+      readOnly={readOnly}
+      need={need}
+    />
+  );
+};
+
+interface SentenceProps {
+  children: ReactNode;
+  onRemove?: () => void;
+  removeLabel?: string;
+  dataTestId?: string;
+}
+
+/** U+2060 WORD JOINER: no line break on either side, and it takes no space. */
+const JOIN = '\u2060';
+
+/** Inputs and pickers are atomic inlines: browsers may still break right after them, joiner or not, so
+ * those blanks and their punctuation share a no-break wrapper. Text blanks keep wrapping internally. */
+const isAtomicBlank = (node: ReactNode): boolean =>
+  isValidElement(node) && (node.type === TextBlank || node.type === DateTimeBlank || node.type === ClockTimeBlank);
+
+/** Flattens fragments and keeps punctuation with its blank: a trailing ". " or ")" is joined to the
+ * blank before it and an opening "(" to the blank after it, so a line never starts with a full stop or
+ * ends with a stranded bracket. The values themselves still wrap like text. Every element gets the same
+ * wrapper and a key from its slot position (empty slots included), so a blank keeps its identity, and
+ * its open popover, when a neighbouring conditional text appears. */
+function attachPunctuation(children: ReactNode): ReactNode[] {
+  const slots: Array<string | { key: string; element: ReactNode; prefix: string; suffix: string }> = [];
+  const visit = (node: ReactNode, key: string): void => {
+    if (node == null || typeof node === 'boolean') return;
+    // Numbers ("Administration 1") are text as well.
+    if (typeof node === 'number') {
+      slots.push(String(node));
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach((child, index) => visit(child, `${key}.${index}`));
+      return;
+    }
+    if (isValidElement<{ children?: ReactNode }>(node) && node.type === Fragment) {
+      visit(node.props.children, `${key}.${node.key ?? 'f'}`);
+      return;
+    }
+    const previous = slots[slots.length - 1];
+    if (isValidElement(node)) {
+      const opening = typeof previous === 'string' ? /^([\s\S]*?)([([]+)$/.exec(previous) : null;
+      if (opening) {
+        if (opening[1]) slots[slots.length - 1] = opening[1];
+        else slots.pop();
+      }
+      slots.push({ key: String(node.key ?? key), element: node, prefix: opening?.[2] ?? '', suffix: '' });
+      return;
+    }
+    const closing = typeof node === 'string' ? /^([.,;:)\]]+)([\s\S]*)$/.exec(node) : null;
+    if (closing && previous !== undefined && typeof previous !== 'string') {
+      previous.suffix += closing[1];
+      if (closing[2]) slots.push(closing[2]);
+      return;
+    }
+    slots.push(node as string);
+  };
+  visit(children, 's');
+  return slots.map((slot) =>
+    typeof slot === 'string' ? (
+      slot
+    ) : (
+      <Box component="span" key={slot.key} sx={isAtomicBlank(slot.element) ? { whiteSpace: 'nowrap' } : undefined}>
+        {/* A hair of space so brackets don't touch an empty blank's dashed outline. */}
+        {slot.prefix && (
+          <Box component="span" sx={{ mr: '2px' }}>
+            {`${slot.prefix}${JOIN}`}
+          </Box>
+        )}
+        {slot.element}
+        {slot.suffix && (
+          <Box component="span" sx={/^[)\]]/.test(slot.suffix) ? { ml: '2px' } : undefined}>
+            {`${JOIN}${slot.suffix}`}
+          </Box>
+        )}
+      </Box>
+    )
+  );
+}
+
+export const Sentence: FC<SentenceProps> = ({ children, onRemove, removeLabel, dataTestId }) => (
+  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }} data-testid={dataTestId}>
+    <Typography component="div" sx={{ ...SENTENCE_SX, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+      {attachPunctuation(children)}
+    </Typography>
+    {onRemove && (
+      <IconButton size="small" aria-label={removeLabel ?? 'Remove this line'} onClick={onRemove} sx={{ mt: '2px' }}>
+        <Close fontSize="small" />
+      </IconButton>
+    )}
+  </Box>
+);
+
+export const SectionLabel: FC<{ children: ReactNode }> = ({ children }) => (
+  <Typography
+    component="h3"
+    sx={{
+      fontSize: '12px',
+      fontWeight: 500,
+      letterSpacing: '0.03em',
+      textTransform: 'uppercase',
+      color: 'primary.dark',
+      // The card stacks children 12px apart; padding adds 18px above a label (30px from the previous
+      // sentence) and the negative margin pulls its first sentence up to 6px.
+      pt: '18px',
+      mb: '-6px',
+    }}
+  >
+    {children}
+  </Typography>
+);

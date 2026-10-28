@@ -3,21 +3,24 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Organization } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { DeletedResponse } from 'utils/lib/types/data/billing/billing.types';
+import { DeleteCustomInsuranceOrgInputSchema } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { isCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
 import { createBillingClient, fetchById } from '../shared';
-import { DeleteInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
+
+type DeleteInsuranceOrgParams = ValidatedZambdaInput<typeof DeleteCustomInsuranceOrgInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'delete-billing-custom-insurance-org';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(DeleteCustomInsuranceOrgInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 

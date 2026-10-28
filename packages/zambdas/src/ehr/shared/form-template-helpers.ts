@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';

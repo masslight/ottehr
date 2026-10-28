@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Patient, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
 import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
@@ -8,6 +8,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { ADMIN_TIER_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
+import { createClinicalOystehrClient } from './helpers';
 import { ZambdaInput } from './types/common';
 
 /**
@@ -56,7 +57,7 @@ export async function getUser(token: string, secrets: Secrets | null): Promise<U
     console.log('error getting user from token', error?.message || error);
     // 401/403 from user.me() is a client auth problem (revoked session / policy deny),
     // not an internal error — surface as a handled APIError instead of a 500.
-    if (error instanceof Oystehr.OystehrSdkError && (error.code === 401 || error.code === 403)) {
+    if (error instanceof Oystehr.OystehrSdkError && isOystehrAuthErrorCode(error.code)) {
       throw NOT_AUTHORIZED;
     }
     throw error;
@@ -64,6 +65,55 @@ export async function getUser(token: string, secrets: Secrets | null): Promise<U
 
   return user;
 }
+
+export interface M2MCaller {
+  id: string;
+  isValid: () => Promise<boolean>;
+}
+
+export interface Caller {
+  user?: User;
+  m2m?: M2MCaller;
+}
+
+/**
+ * The M2M caller is read from the token without verifying it, which is only safe in http_auth zambdas,
+ * where Oystehr verifies the token before invoking the handler. In an http_open zambda, check
+ * `m2m.isValid()` before trusting it.
+ */
+export async function getCaller(token: string | undefined, secrets: Secrets | null): Promise<Caller> {
+  if (!token) {
+    return {};
+  }
+
+  const m2mClientId = isM2MClient(token) ? getM2MClientId(token) : undefined;
+
+  if (m2mClientId) {
+    return { m2m: { id: m2mClientId, isValid: () => isValidM2MToken(token, m2mClientId, secrets) } };
+  }
+
+  return { user: await getUser(token, secrets) };
+}
+
+async function isValidM2MToken(token: string, clientId: string, secrets: Secrets | null): Promise<boolean> {
+  const oystehr = createClinicalOystehrClient(token, secrets, {
+    projectId: getSecret(SecretsKeys.PROJECT_ID, secrets),
+  });
+
+  try {
+    const m2m = await oystehr.m2m.me();
+
+    return m2m.clientId === clientId;
+  } catch (error) {
+    if (error instanceof Oystehr.OystehrSdkError && isOystehrAuthErrorCode(error.code)) {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
+export const isOystehrAuthErrorCode = (code: unknown): boolean => /^40[13]\d?$/.test(String(code));
 
 export const requireUserWithRole = async (
   userToken: string,
@@ -173,7 +223,6 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
   }
   const expiryStatus = getTokenExpiryStatus(token);
   if (expiryStatus === 'fresh') {
-    console.log('already have token');
     return token;
   }
   if (expiryStatus === 'near-expiry') {

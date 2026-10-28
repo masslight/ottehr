@@ -32,8 +32,7 @@ const slot: Slot = {
 
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/shared/auth')>()),
-  isM2MClient: vi.fn(() => true),
-  getM2MClientId: vi.fn(() => 'm2m-1'),
+  getCaller: vi.fn(async () => ({ m2m: { id: 'm2m-1', isValid: async () => true } })),
 }));
 
 vi.mock('../../src/shared/getAuth0Token', () => ({ getAuth0Token: vi.fn(async () => 'token') }));
@@ -130,12 +129,12 @@ describe('create-appointment translates only pre-commit FHIR rejections', () => 
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
-  it('answers a rejection of the booking transaction with a 400, since nothing was committed', async () => {
+  it('answers a rejection of the booking transaction with a 422, since nothing was committed', async () => {
     transaction.mockRejectedValue(fhirRejection());
 
     const response = await invoke();
 
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(422);
     expect(JSON.parse(response.body).code).toBe(APIErrorCode.FHIR_RESOURCE_VALIDATION_ERROR);
   });
 

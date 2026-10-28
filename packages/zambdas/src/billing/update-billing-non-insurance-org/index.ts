@@ -4,11 +4,13 @@ import { randomUUID } from 'crypto';
 import { FhirResource, Organization } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { SavedResourceResponse } from 'utils/lib/types/data/billing/billing.types';
+import { UpdateNonInsuranceOrgInputSchema } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   buildCoverageOrganization,
   buildNioAffiliation,
@@ -21,14 +23,15 @@ import {
   resolveWcPayerReference,
 } from '../non-insurance-org.helpers';
 import { createBillingClient, fetchById } from '../shared';
-import { UpdateNonInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
+
+type UpdateNonInsuranceOrgParams = ValidatedZambdaInput<typeof UpdateNonInsuranceOrgInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'update-billing-non-insurance-org';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(UpdateNonInsuranceOrgInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 

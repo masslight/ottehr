@@ -1,9 +1,12 @@
+import {
+  CreateCustomInsuranceOrgInputSchema,
+  DeleteCustomInsuranceOrgInputSchema,
+  ListCustomInsuranceOrganizationsInputSchema,
+  SearchCustomInsuranceOrgsInputSchema,
+  UpdateCustomInsuranceOrgInputSchema,
+} from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters as validateCreate } from '../../../src/billing/create-billing-custom-insurance-org/validateRequestParameters';
-import { validateRequestParameters as validateDelete } from '../../../src/billing/delete-billing-custom-insurance-org/validateRequestParameters';
-import { validateRequestParameters as validateList } from '../../../src/billing/list-custom-insurance-organizations/validateRequestParameters';
-import { validateRequestParameters as validateSearch } from '../../../src/billing/search-billing-custom-insurance-orgs/validateRequestParameters';
-import { validateRequestParameters as validateUpdate } from '../../../src/billing/update-billing-custom-insurance-org/validateRequestParameters';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
@@ -24,7 +27,7 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
       },
       { secrets }
     );
-    expect(validateCreate(input)).toEqual({
+    expect(validateWithSchema(CreateCustomInsuranceOrgInputSchema, input)).toEqual({
       orgId: 'OTR-ACME',
       name: 'Acme Insurance',
       insuranceTypes: ['workers-comp', 'auto'],
@@ -47,12 +50,13 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
       },
       { secrets }
     );
-    expect(validateCreate(input)).toMatchObject({
+    expect(validateWithSchema(CreateCustomInsuranceOrgInputSchema, input)).toMatchObject({
       contacts: [{ name: 'Jane Smith', title: 'Claims Manager', phone: '555-123-4567', email: 'jane@acme.com' }],
     });
 
     expect(() =>
-      validateCreate(
+      validateWithSchema(
+        CreateCustomInsuranceOrgInputSchema,
         createMockZambdaInput(
           {
             orgId: 'OTR-ACME',
@@ -78,7 +82,7 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
       },
       { secrets }
     );
-    expect(() => validateCreate(input)).toThrow();
+    expect(() => validateWithSchema(CreateCustomInsuranceOrgInputSchema, input)).toThrow();
   });
 
   test('create defaults insuranceTypes to an empty array', () => {
@@ -86,13 +90,16 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
       { orgId: 'OTR-ACME', name: 'Acme Insurance', submissionMechanism: 'email', acceptedClaimForm: 'other' },
       { secrets }
     );
-    expect(validateCreate(input)).toMatchObject({ insuranceTypes: [] });
+    expect(validateWithSchema(CreateCustomInsuranceOrgInputSchema, input)).toMatchObject({ insuranceTypes: [] });
   });
 
   test('create rejects a missing body and missing secrets', () => {
-    expect(() => validateCreate(createMockZambdaInput(null, { secrets }))).toThrow();
     expect(() =>
-      validateCreate(
+      validateWithSchema(CreateCustomInsuranceOrgInputSchema, createMockZambdaInput(null, { secrets }))
+    ).toThrow();
+    expect(() =>
+      validateWithSchema(
+        CreateCustomInsuranceOrgInputSchema,
         createMockZambdaInput({
           orgId: 'OTR-ACME',
           name: 'Acme Insurance',
@@ -108,12 +115,13 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
       { orgId: 'ACME', name: 'Acme Insurance', submissionMechanism: 'email', acceptedClaimForm: 'other' },
       { secrets }
     );
-    expect(() => validateCreate(input)).toThrow();
+    expect(() => validateWithSchema(CreateCustomInsuranceOrgInputSchema, input)).toThrow();
   });
 
   test('create rejects an invalid submissionMechanism or acceptedClaimForm', () => {
     expect(() =>
-      validateCreate(
+      validateWithSchema(
+        CreateCustomInsuranceOrgInputSchema,
         createMockZambdaInput(
           {
             orgId: 'OTR-ACME',
@@ -126,7 +134,8 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
       )
     ).toThrow();
     expect(() =>
-      validateCreate(
+      validateWithSchema(
+        CreateCustomInsuranceOrgInputSchema,
         createMockZambdaInput(
           { orgId: 'OTR-ACME', name: 'Acme Insurance', submissionMechanism: 'email', acceptedClaimForm: 'cms-9999' },
           { secrets }
@@ -137,7 +146,8 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
 
   test('update requires insuranceOrgId', () => {
     expect(() =>
-      validateUpdate(
+      validateWithSchema(
+        UpdateCustomInsuranceOrgInputSchema,
         createMockZambdaInput(
           { orgId: 'OTR-ACME', name: 'Acme Insurance', submissionMechanism: 'email', acceptedClaimForm: 'other' },
           { secrets }
@@ -145,7 +155,8 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
       )
     ).toThrow();
     expect(
-      validateUpdate(
+      validateWithSchema(
+        UpdateCustomInsuranceOrgInputSchema,
         createMockZambdaInput(
           {
             insuranceOrgId: ORG_ID,
@@ -169,23 +180,39 @@ describe('insurance-org zambdas - validateRequestParameters', () => {
   });
 
   test('search accepts an empty object body', () => {
-    expect(validateSearch(createMockZambdaInput({}, { secrets }))).toEqual({ secrets });
+    expect(validateWithSchema(SearchCustomInsuranceOrgsInputSchema, createMockZambdaInput({}, { secrets }))).toEqual({
+      secrets,
+    });
   });
 
   test('delete requires insuranceOrgId', () => {
-    expect(() => validateDelete(createMockZambdaInput({}, { secrets }))).toThrow();
-    expect(validateDelete(createMockZambdaInput({ insuranceOrgId: ORG_ID }, { secrets }))).toEqual({
+    expect(() =>
+      validateWithSchema(DeleteCustomInsuranceOrgInputSchema, createMockZambdaInput({}, { secrets }))
+    ).toThrow();
+    expect(
+      validateWithSchema(
+        DeleteCustomInsuranceOrgInputSchema,
+        createMockZambdaInput({ insuranceOrgId: ORG_ID }, { secrets })
+      )
+    ).toEqual({
       insuranceOrgId: ORG_ID,
       secrets,
     });
   });
 
   test('list accepts an empty object body', () => {
-    expect(validateList(createMockZambdaInput({}, { secrets }))).toEqual({ secrets });
+    expect(
+      validateWithSchema(ListCustomInsuranceOrganizationsInputSchema, createMockZambdaInput({}, { secrets }))
+    ).toEqual({ secrets });
   });
 
   test('list accepts insuranceOrgId and search', () => {
-    expect(validateList(createMockZambdaInput({ insuranceOrgId: ORG_ID, search: 'Acme' }, { secrets }))).toEqual({
+    expect(
+      validateWithSchema(
+        ListCustomInsuranceOrganizationsInputSchema,
+        createMockZambdaInput({ insuranceOrgId: ORG_ID, search: 'Acme' }, { secrets })
+      )
+    ).toEqual({
       insuranceOrgId: ORG_ID,
       search: 'Acme',
       secrets,

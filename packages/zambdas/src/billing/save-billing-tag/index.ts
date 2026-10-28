@@ -1,27 +1,38 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Basic, Claim } from 'fhir/r4b';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { Basic, Claim, FhirResource, ProvenanceAgent } from 'fhir/r4b';
+import { versionLockedPatches } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { SaveBillingTagInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { collidingSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { claimMetaTagsWithProvenanceRequests, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById, isSystemTag, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
-import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
+
+export type SaveBillingTagParams = ValidatedZambdaInput<typeof SaveBillingTagInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'save-billing-tag';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(SaveBillingTagInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
   const existing = await complexValidation(oystehr, params);
-  const response = await performEffect(oystehr, params, existing);
+  const response = await performEffect(
+    oystehr,
+    {
+      ...params,
+      authorizationHeader: input.headers?.Authorization,
+    },
+    existing
+  );
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -41,13 +52,18 @@ export async function complexValidation(oystehr: Oystehr, params: SaveBillingTag
   return tag;
 }
 
-async function performEffect(
+export async function performEffect(
   oystehr: Oystehr,
-  params: SaveBillingTagParams,
+  params: SaveBillingTagParams & { authorizationHeader: string | undefined },
   existing: Basic | undefined
 ): Promise<{ id: string | undefined }> {
   if (existing) {
     const oldName = existing.code?.text ?? '';
+    // a rename goes in the history of every claim it retags; resolved before anything is written
+    const agent =
+      oldName && oldName !== params.name
+        ? await resolveClaimActor('caller', oystehr, params.authorizationHeader, params.secrets)
+        : undefined;
     const otherExts = (existing.extension ?? []).filter((e) => e.url !== TAG_DESCRIPTION_URL);
     const updatedExts = params.description
       ? [...otherExts, { url: TAG_DESCRIPTION_URL, valueString: params.description }]
@@ -63,8 +79,8 @@ async function performEffect(
     });
 
     // When the name changed, rewrite meta.tag on all claims that reference the old name
-    if (oldName && oldName !== params.name) {
-      const failedIds = await rewriteClaimTags(oystehr, oldName, params.name);
+    if (agent) {
+      const failedIds = await rewriteClaimTags(oystehr, oldName, params.name, agent);
       if (failedIds.length) {
         throw INVALID_INPUT_ERROR(
           `Tag renamed but ${failedIds.length} claim(s) failed to update: ${failedIds.slice(0, 10).join(', ')}`
@@ -84,29 +100,36 @@ async function performEffect(
   return { id: created.id };
 }
 
-// Fetch all claims with the old tag, then rewrite their meta.tag via FHIR Batch requests
-async function rewriteClaimTags(oystehr: Oystehr, oldName: string, newName: string): Promise<string[]> {
+// Fetch all claims with the old tag, then rewrite each one's meta.tag with its history entry. Each
+// claim commits on its own, so one that fails is reported without undoing the others.
+async function rewriteClaimTags(
+  oystehr: Oystehr,
+  oldName: string,
+  newName: string,
+  agent: ProvenanceAgent
+): Promise<string[]> {
   const allClaims = await fetchAllTaggedClaims(oystehr, oldName);
   const failedIds: string[] = [];
   const BATCH_SIZE = 25;
 
   for (let i = 0; i < allClaims.length; i += BATCH_SIZE) {
     const chunk = allClaims.slice(i, i + BATCH_SIZE);
-    const requests = chunk.map((claim) => {
-      const updatedTags = (claim.meta?.tag ?? []).map((t) =>
-        t.system === CLAIM_TAG_SYSTEM && t.code === oldName ? { ...t, code: newName } : t
-      );
-      return getPatchBinary({
-        resourceType: 'Claim',
-        resourceId: claim.id!,
-        patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
-        ifMatch: claim.meta?.versionId ? `W/"${claim.meta.versionId}"` : undefined,
-      });
-    });
-
-    const result = await oystehr.fhir.batch({ requests });
-    (result.entry ?? []).forEach((entry, j) => {
-      if (entry.response?.outcome?.id !== 'ok') failedIds.push(chunk[j].id ?? 'unknown');
+    const results = await Promise.allSettled(
+      chunk.map((claim) => {
+        const updatedTags = (claim.meta?.tag ?? []).map((t) =>
+          t.system === CLAIM_TAG_SYSTEM && t.code === oldName ? { ...t, code: newName } : t
+        );
+        // locked to the claim as fetched, so a status or tag change since then fails this claim
+        return oystehr.fhir.transaction<FhirResource>({
+          requests: versionLockedPatches({
+            requests: claimMetaTagsWithProvenanceRequests(claim, updatedTags, 'tagChange', agent),
+            resource: claim,
+          }),
+        });
+      })
+    );
+    results.forEach((result, j) => {
+      if (result.status === 'rejected') failedIds.push(chunk[j].id ?? 'unknown');
     });
   }
   return failedIds;

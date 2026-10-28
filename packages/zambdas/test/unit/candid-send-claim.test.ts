@@ -86,7 +86,7 @@ const { mockCaptureException, mockCaptureMessage } = vi.hoisted(() => ({
   mockCaptureMessage: vi.fn(),
 }));
 
-vi.mock('@sentry/aws-serverless', () => ({
+vi.mock('@sentry/node-core/light', () => ({
   captureException: mockCaptureException,
   captureMessage: mockCaptureMessage,
 }));

@@ -417,7 +417,13 @@ const processPaperwork = async (
     const birthDate = isoToDateObject(patientInfo.dateOfBirth || '') || undefined;
 
     const paperworkPatches = paperworkAnswers
-      ? await paperworkAnswers({ patientInfo, appointmentId: appointmentId!, authToken, zambdaUrl, projectId })
+      ? (
+          await paperworkAnswers({ patientInfo, appointmentId: appointmentId!, authToken, zambdaUrl, projectId })
+        ).filter((page) => {
+          const hasPage = questionnaireHasPage(serviceMode, page.linkId);
+          if (!hasPage) console.log(`Skipping paperwork page "${page.linkId}" — not in the questionnaire`);
+          return hasPage;
+        })
       : buildPaperworkPatches(patientInfo, birthDate, serviceMode);
 
     // Execute the paperwork patches

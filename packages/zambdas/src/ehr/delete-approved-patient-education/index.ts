@@ -10,13 +10,18 @@ import {
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { deleteZ3Object } from '../../shared/z3Utils';
-import { validateRequestParameters } from './validateRequestParameters';
+
+const deleteApprovedPatientEducationInputSchema: z.ZodType<DeleteApprovedPatientEducationInput> = z.object({
+  documentReferenceId: z.string().min(1, 'documentReferenceId is required'),
+});
 
 let m2mToken: string;
 
@@ -24,7 +29,7 @@ export const index = wrapHandler(
   'delete-approved-patient-education',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(deleteApprovedPatientEducationInputSchema, input);
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
       const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 

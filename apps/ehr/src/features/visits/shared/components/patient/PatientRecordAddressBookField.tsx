@@ -3,7 +3,7 @@ import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout/Row';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
 import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
-import { AddressBookContact } from 'utils/lib/types/data/address-book';
+import { AddressBookContact, AddressBookContactInput } from 'utils/lib/types/data/address-book';
 import PatientRecordFormField from './PatientRecordFormField';
 
 type PatientRecordAddressBookFieldProps = Pick<
@@ -13,10 +13,17 @@ type PatientRecordAddressBookFieldProps = Pick<
   tag: string;
   /** Fills the section's other fields from the picked contact. */
   onSelect: (contact: AddressBookContact) => void;
+  /** The section's current values as a contact, so "Add new contact" starts from them. */
+  toContact: () => Partial<AddressBookContactInput>;
 };
 
 /** A section's organization field backed by the directory; picking a contact fills the fields around it. */
-export const PatientRecordAddressBookField: FC<PatientRecordAddressBookFieldProps> = ({ tag, onSelect, ...props }) => {
+export const PatientRecordAddressBookField: FC<PatientRecordAddressBookFieldProps> = ({
+  tag,
+  onSelect,
+  toContact,
+  ...props
+}) => {
   const { watch } = useFormContext();
   const { item, isLoading, hiddenFormFields, requiredFormFields } = props;
   const triggeredEffects = item && evaluateFieldTriggers(item, watch(), item.enableBehavior);
@@ -33,7 +40,7 @@ export const PatientRecordAddressBookField: FC<PatientRecordAddressBookFieldProp
   const { key, label } = item;
   return (
     <Row label={label} inputId={key} required={requiredFormFields?.includes(key) || triggeredEffects?.required}>
-      <AddressBookPicker name={key} variant="standard" tag={tag} onSelect={onSelect} />
+      <AddressBookPicker name={key} variant="standard" tag={tag} onSelect={onSelect} toContact={toContact} />
     </Row>
   );
 };

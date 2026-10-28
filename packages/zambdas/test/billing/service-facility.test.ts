@@ -7,11 +7,11 @@ import {
   FHIR_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
-import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { SaveServiceFacilityInput, SaveServiceFacilityInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';
 import { applyServiceFacilityInput, mapServiceFacility } from '../../src/billing/service-facility.helpers';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { validateWithSchema } from '../../src/shared/validation';
 
 function makeInput(body: Record<string, unknown> | null): ZambdaInput {
   return {
@@ -68,12 +68,13 @@ const validPayload: SaveServiceFacilityInput = {
 
 describe('save-billing-service-facility validateRequestParameters', () => {
   it('returns validated params for a fully valid payload', () => {
-    const result = validateRequestParameters(makeInput({ ...validPayload }));
+    const result = validateWithSchema(SaveServiceFacilityInputSchema, makeInput({ ...validPayload }));
     expect(result).toMatchObject(validPayload);
   });
 
   it('accepts a minimal payload (required fields only)', () => {
-    const result = validateRequestParameters(
+    const result = validateWithSchema(
+      SaveServiceFacilityInputSchema,
       makeInput({
         name: 'X',
         addressLine1: '1 A St',
@@ -88,7 +89,8 @@ describe('save-billing-service-facility validateRequestParameters', () => {
 
   it('rejects an NPI with an invalid check digit', () => {
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        SaveServiceFacilityInputSchema,
         makeInput({
           ...validPayload,
           npi: '1234567890',
@@ -99,7 +101,8 @@ describe('save-billing-service-facility validateRequestParameters', () => {
 
   it('rejects a malformed CLIA number', () => {
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        SaveServiceFacilityInputSchema,
         makeInput({
           ...validPayload,
           clia: '05d1234567',
@@ -110,7 +113,8 @@ describe('save-billing-service-facility validateRequestParameters', () => {
 
   it('rejects an unknown place of service code', () => {
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        SaveServiceFacilityInputSchema,
         makeInput({
           ...validPayload,
           posCode: '00',
@@ -121,7 +125,8 @@ describe('save-billing-service-facility validateRequestParameters', () => {
 
   it('rejects a ZIP that is not exactly 9 digits', () => {
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        SaveServiceFacilityInputSchema,
         makeInput({
           ...validPayload,
           zip: '02118',
@@ -132,7 +137,8 @@ describe('save-billing-service-facility validateRequestParameters', () => {
 
   it('rejects an unknown state code', () => {
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        SaveServiceFacilityInputSchema,
         makeInput({
           ...validPayload,
           state: 'California',
@@ -143,12 +149,12 @@ describe('save-billing-service-facility validateRequestParameters', () => {
 
   it('rejects a missing name', () => {
     const { name: _name, ...rest } = validPayload;
-    expect(() => validateRequestParameters(makeInput(rest))).toThrow();
+    expect(() => validateWithSchema(SaveServiceFacilityInputSchema, makeInput(rest))).toThrow();
   });
 
   it('throws when secrets are missing', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(SaveServiceFacilityInputSchema, {
         headers: null,
         body: JSON.stringify(validPayload),
         secrets: null,
@@ -321,7 +327,8 @@ describe('applyServiceFacilityInput', () => {
   });
 
   it('accepts null for clearable fields through the schema', () => {
-    const result = validateRequestParameters(
+    const result = validateWithSchema(
+      SaveServiceFacilityInputSchema,
       makeInput({
         ...validPayload,
         npi: null,

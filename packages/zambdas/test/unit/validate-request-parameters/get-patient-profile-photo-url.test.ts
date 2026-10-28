@@ -1,5 +1,6 @@
+import { GetOrUploadPatientProfilePhotoInputSchema } from 'utils/lib/types/api/get-patient-profile-photo-url.types';
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/ehr/get-patient-profile-photo-url/validateRequestParameters';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('get-patient-profile-photo-url - validateRequestParameters', () => {
@@ -11,7 +12,7 @@ describe('get-patient-profile-photo-url - validateRequestParameters', () => {
         { action: 'upload', patientId: '550e8400-e29b-41d4-a716-446655440000' },
         { secrets }
       );
-      const result = validateRequestParameters(input);
+      const result = validateWithSchema(GetOrUploadPatientProfilePhotoInputSchema, input);
 
       expect(result).toEqual({
         action: 'upload',
@@ -27,7 +28,7 @@ describe('get-patient-profile-photo-url - validateRequestParameters', () => {
         { action: 'download', z3PhotoUrl: 'https://example.com/photo.jpg' },
         { secrets }
       );
-      const result = validateRequestParameters(input);
+      const result = validateWithSchema(GetOrUploadPatientProfilePhotoInputSchema, input);
 
       expect(result).toEqual({
         action: 'download',
@@ -40,12 +41,12 @@ describe('get-patient-profile-photo-url - validateRequestParameters', () => {
   describe('error cases', () => {
     test('should throw when body is missing', () => {
       const input = createMockZambdaInput(null, { secrets });
-      expect(() => validateRequestParameters(input)).toThrow();
+      expect(() => validateWithSchema(GetOrUploadPatientProfilePhotoInputSchema, input)).toThrow();
     });
 
     test('should throw when action is missing', () => {
       const input = createMockZambdaInput({ patientId: '550e8400-e29b-41d4-a716-446655440000' }, { secrets });
-      expect(() => validateRequestParameters(input)).toThrow();
+      expect(() => validateWithSchema(GetOrUploadPatientProfilePhotoInputSchema, input)).toThrow();
     });
 
     test('should throw when action is invalid', () => {
@@ -53,22 +54,22 @@ describe('get-patient-profile-photo-url - validateRequestParameters', () => {
         { action: 'invalid', patientId: '550e8400-e29b-41d4-a716-446655440000' },
         { secrets }
       );
-      expect(() => validateRequestParameters(input)).toThrow();
+      expect(() => validateWithSchema(GetOrUploadPatientProfilePhotoInputSchema, input)).toThrow();
     });
 
     test('should throw when upload is missing patientId', () => {
       const input = createMockZambdaInput({ action: 'upload' }, { secrets });
-      expect(() => validateRequestParameters(input)).toThrow();
+      expect(() => validateWithSchema(GetOrUploadPatientProfilePhotoInputSchema, input)).toThrow();
     });
 
     test('should throw when download is missing z3PhotoUrl', () => {
       const input = createMockZambdaInput({ action: 'download' }, { secrets });
-      expect(() => validateRequestParameters(input)).toThrow();
+      expect(() => validateWithSchema(GetOrUploadPatientProfilePhotoInputSchema, input)).toThrow();
     });
 
     test('should throw when patientId is not a valid UUID', () => {
       const input = createMockZambdaInput({ action: 'upload', patientId: 'patient-123' }, { secrets });
-      expect(() => validateRequestParameters(input)).toThrow();
+      expect(() => validateWithSchema(GetOrUploadPatientProfilePhotoInputSchema, input)).toThrow();
     });
   });
 });

@@ -55,6 +55,7 @@ import { MedicalRecordExportWatcher } from './features/medical-record-export/com
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
+import DmeQuickPickDetailPage from './features/visits/telemed/components/admin/DmeQuickPickDetailPage';
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
@@ -222,10 +223,12 @@ function App(): ReactElement {
                 <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                 <Route path="/reports/data-exports" element={<DataExports />} />
-                <Route
-                  path="/reports/invoiceable-patients"
-                  element={<InvoiceablePatientsReportPage source="candid" />}
-                />
+                {FEATURE_FLAGS.CANDID_INVOICING_ENABLED && (
+                  <Route
+                    path="/reports/invoiceable-patients"
+                    element={<InvoiceablePatientsReportPage source="candid" />}
+                  />
+                )}
                 {FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED && (
                   <Route
                     path="/reports/invoiceable-patients-billing"
@@ -244,6 +247,7 @@ function App(): ReactElement {
                 <Route path="/visit/:id" element={<VisitDetailsPage />} />
                 <Route path="/profile" element={<EmployeeProfilePage />} />
                 <Route path="/patients" element={<PatientsPage />} />
+                <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                 <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
@@ -264,6 +268,9 @@ function App(): ReactElement {
                   <Route path="/admin/form-templates/:templateId" element={<FormTemplateDetailPage />} />
                   <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                   <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
+                  {FEATURE_FLAGS.DME_ORDERS_ENABLED && (
+                    <Route path="/admin/quick-picks/dme/:quickPickId" element={<DmeQuickPickDetailPage />} />
+                  )}
                   <Route
                     path="/admin/quick-picks/immunization/:quickPickId"
                     element={<ImmunizationQuickPickDetailPage />}
@@ -321,6 +328,7 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/patients" element={<PatientsPage />} />
+                <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
 
                 {currentUser.hasRole(GLOBAL_ACTION_LOG_VIEWER_ROLES) && (
                   <Route element={<AdminLayout />}>

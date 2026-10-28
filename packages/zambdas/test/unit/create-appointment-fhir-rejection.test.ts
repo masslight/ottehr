@@ -7,8 +7,7 @@ import { ZambdaInput } from '../../src/shared/types/common';
 
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/shared/auth')>()),
-  isM2MClient: vi.fn(() => true),
-  getM2MClientId: vi.fn(() => 'm2m-client-1'),
+  getCaller: vi.fn(async () => ({ m2m: { id: 'm2m-1', isValid: async () => true } })),
 }));
 
 vi.mock('../../src/shared/getAuth0Token', () => ({
@@ -65,16 +64,18 @@ describe('create-appointment FHIR rejection handling', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
-  it('answers a FHIR 400 with a 400, not a 500', async () => {
+  // 422 rather than 400: the shared translator reports every FHIR validation failure as
+  // Unprocessable Entity. What matters to callers is the APIErrorCode they branch on, and that the
+  // response is no longer an opaque 500.
+  it('answers a FHIR rejection with a 422, not a 500', async () => {
     vi.mocked(createAppointmentComplexValidation).mockRejectedValue(invalidBirthDate);
 
     const response = await invoke();
 
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(422);
     expect(JSON.parse(response.body)).toEqual({
       code: APIErrorCode.FHIR_RESOURCE_VALIDATION_ERROR,
-      message:
-        'The request was rejected as invalid by the FHIR API: Invalid date format - POST /Patient (Patient.birthDate)',
+      message: 'FHIR validation failed: Invalid date format - POST /Patient (Patient.birthDate)',
     });
   });
 

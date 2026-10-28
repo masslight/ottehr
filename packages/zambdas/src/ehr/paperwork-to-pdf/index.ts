@@ -6,6 +6,7 @@ import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getPaperworkResources, PAPERWORK_PDF_ATTACHMENT_TITLE } from 'utils/lib/helpers/paperwork/paperwork';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { PaperworkToPDFInputValidated } from 'utils/lib/types/data/paperwork.types';
 import {
@@ -18,7 +19,7 @@ import { createClinicalOystehrClient, validateJsonBody, validateString } from '.
 import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { createPresignedUrl } from '../../shared/z3Utils';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
 

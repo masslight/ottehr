@@ -40,7 +40,7 @@ import {
 } from 'utils/lib/utils/scheduleUtils';
 import { REASON_MAXIMUM_CHAR_LIMIT } from 'utils/lib/validation/constants';
 import { z } from 'zod';
-import { checkIsEHRUser, isTestUser, userHasAccessToPatient } from '../../../shared/auth';
+import { Caller, checkIsEHRUser, isTestUser, M2MCaller, userHasAccessToPatient } from '../../../shared/auth';
 import { resolveBookingLocationId } from '../../../shared/resolveBookingLocationId';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
@@ -50,7 +50,7 @@ import { tryGroupMemberFallback } from './groupMemberFallback';
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   secrets: Secrets | null;
   user: User | undefined;
-  isM2M: boolean;
+  m2m: M2MCaller | undefined;
   isEHRUser: boolean | undefined;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
@@ -67,8 +67,7 @@ const CreateAppointmentBodySchema = z.object({
 
 export function validateCreateAppointmentParams(
   input: ZambdaInput,
-  user: User | undefined,
-  isM2M: boolean
+  { user, m2m }: Caller
 ): CreateAppointmentBasicInput {
   if (!input.body) {
     throw new Error('No request body provided');
@@ -99,7 +98,7 @@ export function validateCreateAppointmentParams(
   if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
-  if (!isM2M && !isEHRUser && !patient.email && !patient.noEmail) {
+  if (!m2m && !isEHRUser && !patient.email && !patient.noEmail) {
     missingRequiredPatientFields.push('email');
   }
   if (missingRequiredPatientFields.length > 0) {
@@ -164,7 +163,7 @@ export function validateCreateAppointmentParams(
   return {
     slotId,
     user,
-    isM2M,
+    m2m,
     isEHRUser,
     patient: patient as unknown as PatientInfo,
     secrets: input.secrets,
@@ -270,7 +269,7 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isM2M, isEHRUser, user, patient, appointmentMetadata } = input;
+  const { slotId, m2m, isEHRUser, user, patient, appointmentMetadata } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
@@ -279,7 +278,7 @@ export const createAppointmentComplexValidation = async (
   // patient input complex validation
   // M2Ms and EHR users can access any patient,
   // Patient users can access patients they have access to.
-  if (patient.id && !isM2M) {
+  if (patient.id && !m2m) {
     if (!user) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
     }

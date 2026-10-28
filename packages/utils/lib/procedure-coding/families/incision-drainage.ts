@@ -22,12 +22,28 @@ type IncisionDrainageCode = (typeof INCISION_DRAINAGE_CODES)[keyof typeof INCISI
 const fields: readonly CodingField[] = [
   {
     key: 'collection',
+    neededForCoding: true,
     label: 'Collection type',
     kind: 'select',
     options: ['abscess', 'hematoma/seroma', 'postoperative infection', 'bulla', 'pilonidal cyst'],
   },
-  { key: 'method', label: 'Drainage method', kind: 'select', options: ['incision', 'needle'], defaultValue: undefined },
-  { key: 'count', label: 'Distinct collections', kind: 'number', defaultValue: 1, min: 0, step: 1 },
+  {
+    key: 'method',
+    neededForCoding: true,
+    label: 'Drainage method',
+    kind: 'select',
+    options: ['incision', 'needle'],
+    defaultValue: undefined,
+  },
+  {
+    key: 'count',
+    neededForCoding: true,
+    label: 'Distinct collections',
+    kind: 'number',
+    defaultValue: 1,
+    min: 0,
+    step: 1,
+  },
   {
     key: 'sameSiteProcedure',
     label: 'Drainage included in another same-site procedure',

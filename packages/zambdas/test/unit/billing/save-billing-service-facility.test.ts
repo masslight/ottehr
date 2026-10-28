@@ -58,7 +58,7 @@ describe('save-billing-service-facility', () => {
 
     const result = await performEffect(
       oystehr,
-      { ...baseInput, claimId: CLAIM_ID, name: 'North Lab', clia: '05D1234567', secrets: null },
+      { ...baseInput, claimId: CLAIM_ID, name: 'North Lab', clia: '05D1234567', secrets: {} },
       structuredClone(facility),
       agent
     );
@@ -84,7 +84,7 @@ describe('save-billing-service-facility', () => {
 
     const result = await performEffect(
       oystehr,
-      { ...baseInput, name: 'North Lab', secrets: null },
+      { ...baseInput, name: 'North Lab', secrets: {} },
       structuredClone(facility)
     );
 
@@ -99,7 +99,7 @@ describe('save-billing-service-facility', () => {
 
     const result = await performEffect(
       oystehr,
-      { ...baseInput, facilityId: undefined, claimId: CLAIM_ID, secrets: null },
+      { ...baseInput, facilityId: undefined, claimId: CLAIM_ID, secrets: {} },
       undefined,
       agent
     );
@@ -119,7 +119,7 @@ describe('save-billing-service-facility', () => {
           ...baseInput,
           facilityId: undefined,
           npi: SHARED_NPI,
-          secrets: null,
+          secrets: {},
         },
         undefined
       );
@@ -139,7 +139,7 @@ describe('save-billing-service-facility', () => {
         {
           ...baseInput,
           npi: SHARED_NPI,
-          secrets: null,
+          secrets: {},
         },
         undefined
       );

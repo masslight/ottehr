@@ -19,6 +19,7 @@ import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { InputMask } from 'ui-components/lib/components/InputMask';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { AllStates } from 'utils/lib/types/common';
 import {
@@ -46,6 +47,7 @@ interface FormValues {
   firstName: string;
   lastName: string;
   credential: string;
+  title: string;
   organizationName: string;
   address: { line1: string; line2: string; city: string; state: string | null; zip: string };
   phone: string;
@@ -58,6 +60,7 @@ const toFormValues = (contact?: Partial<AddressBookContactInput>): FormValues =>
   firstName: contact?.firstName ?? '',
   lastName: contact?.lastName ?? '',
   credential: contact?.credential ?? '',
+  title: contact?.title ?? '',
   organizationName: contact?.organizationName ?? '',
   address: {
     line1: contact?.address?.line1 ?? '',
@@ -154,11 +157,17 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
               <TextInput name="firstName" label="First name" />
               <TextInput name="lastName" label="Last name" />
               <TextInput name="credential" label="Credential" />
+              <TextInput name="title" label="Title" />
               <TextInput name="address.line1" label="Address line 1" />
               <TextInput name="address.line2" label="Address line 2" />
               <TextInput name="address.city" label="City" />
               <SelectInput name="address.state" label="State" options={STATE_OPTIONS} />
-              <TextInput name="address.zip" label="ZIP" />
+              <TextInput
+                name="address.zip"
+                label="ZIP"
+                inputProps={{ mask: '00000-0000' }}
+                InputProps={{ inputComponent: InputMask as any }}
+              />
               <PhoneInput name="phone" label="Phone" />
               <PhoneInput name="fax" label="Fax" />
               <TextInput name="email" label="Email" />

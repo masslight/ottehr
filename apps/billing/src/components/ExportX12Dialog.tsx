@@ -1,6 +1,7 @@
 import {
   Close as CloseIcon,
   ContentCopy as ContentCopyIcon,
+  DynamicForm as DynamicFormIcon,
   FileDownloadOutlined as FileDownloadIcon,
 } from '@mui/icons-material';
 import {
@@ -15,35 +16,51 @@ import {
   IconButton,
   TextField,
 } from '@mui/material';
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { downloadTextFile } from '../utils/downloadFile';
+import { ClaimSubmissionFields, ClaimSubmissionForm, ClaimSubmissionFormDefaults } from './ClaimSubmissionFields';
 
 interface ExportX12DialogProps {
   open: boolean;
   onClose: () => void;
   fileName: string;
-  x12Provider: () => Promise<string>;
+  type: 'claim' | 'era';
+  x12Provider: (params: ClaimSubmissionForm) => Promise<string>;
+  claim?: ClaimDetailResponse;
 }
 
-export function ExportX12Dialog({ open, onClose, fileName, x12Provider }: ExportX12DialogProps): ReactElement {
+export function ExportX12Dialog({
+  open,
+  onClose,
+  fileName,
+  type,
+  claim,
+  x12Provider,
+}: ExportX12DialogProps): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [x12, setX12] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const claimMethods = useForm<ClaimSubmissionForm>({ defaultValues: ClaimSubmissionFormDefaults });
+  const [showClaimFields, setShowClaimFields] = useState(type === 'claim' && !!claim);
 
   useEffect(() => {
     if (!open) return undefined;
 
-    setLoading(true);
     setError(null);
     setX12(null);
     setCopied(false);
 
+    if (type === 'claim') return undefined;
+
+    setLoading(true);
     let cancelled = false;
     void (async () => {
       try {
-        const x12 = await x12Provider();
+        const x12 = await x12Provider(ClaimSubmissionFormDefaults);
         if (!cancelled) setX12(x12);
       } catch (err) {
         if (!cancelled) {
@@ -62,7 +79,35 @@ export function ExportX12Dialog({ open, onClose, fileName, x12Provider }: Export
     return () => {
       cancelled = true;
     };
-  }, [open, x12Provider]);
+  }, [open, type, x12Provider]);
+
+  useEffect(() => {
+    setShowClaimFields(type === 'claim' && !!claim);
+  }, [claim, type]);
+
+  useEffect(() => {
+    claimMethods.reset();
+  }, [claimMethods, open]);
+
+  const handleGenerate = useCallback(
+    async (values: ClaimSubmissionForm) => {
+      setLoading(true);
+      try {
+        const x12 = await x12Provider(values);
+        setX12(x12);
+      } catch (err) {
+        setError(
+          getApiError({
+            error: err,
+            defaultError: 'Failed to export X12',
+          })
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [x12Provider]
+  );
 
   const handleCopy = async (): Promise<void> => {
     if (!x12) return;
@@ -117,6 +162,13 @@ export function ExportX12Dialog({ open, onClose, fileName, x12Provider }: Export
           pb: 0,
         }}
       >
+        {showClaimFields && claim ? (
+          <FormProvider {...claimMethods}>
+            <ClaimSubmissionFields claim={claim} />
+          </FormProvider>
+        ) : (
+          <></>
+        )}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -166,9 +218,25 @@ export function ExportX12Dialog({ open, onClose, fileName, x12Provider }: Export
         <Button startIcon={<ContentCopyIcon />} onClick={() => void handleCopy()} disabled={x12 == null}>
           {copied ? 'Copied' : 'Copy'}
         </Button>
-        <Button variant="contained" startIcon={<FileDownloadIcon />} onClick={handleDownload} disabled={x12 == null}>
+        <Button
+          variant={!showClaimFields ? 'contained' : undefined}
+          startIcon={<FileDownloadIcon />}
+          onClick={handleDownload}
+          disabled={x12 == null}
+        >
           Download
         </Button>
+        {showClaimFields ? (
+          <Button
+            variant="contained"
+            startIcon={<DynamicFormIcon />}
+            onClick={claimMethods.handleSubmit(handleGenerate)}
+          >
+            Generate X12
+          </Button>
+        ) : (
+          <></>
+        )}
       </DialogActions>
     </Dialog>
   );

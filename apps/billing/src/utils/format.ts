@@ -50,3 +50,6 @@ export function buildAddressInput(
   };
   return Object.keys(address).length ? address : undefined;
 }
+
+export const valueToText = (value: string | string[] | null | undefined): string =>
+  Array.isArray(value) ? value.join(', ') : value ?? '';

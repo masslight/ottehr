@@ -1,4 +1,10 @@
-import Oystehr, { BatchInputPostRequest, SearchParam, TransactionBundle } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputJSONPatchRequest,
+  BatchInputPostRequest,
+  BatchInputRequest,
+  SearchParam,
+  TransactionBundle,
+} from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
@@ -91,7 +97,7 @@ import {
 } from './constants';
 import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
 import { PatientMasterRecordResourceType } from './patientMasterRecord';
-import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
+import { getPatchBinary, getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
 
 export function isFHIRError(error: any): boolean {
   return !(error instanceof Error) && typeof error === 'object' && error.resourceType === 'OperationOutcome';
@@ -1829,4 +1835,55 @@ export function sanitizeStringForFhirCode(input: string): Coding['code'] {
 
 export function transactionWasSuccessful(transactionResponse: Pick<TransactionBundle<FhirResource>, 'entry'>): boolean {
   return transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2') ?? false;
+}
+
+export function reducePatchOperations<T extends FhirResource>(
+  requests: BatchInputRequest<T>[]
+): BatchInputRequest<T>[] {
+  const newRequests: BatchInputRequest<T>[] = [];
+  for (const request of requests) {
+    // Ignore non-patch
+    if (request.method !== 'PATCH') {
+      newRequests.push(request);
+      continue;
+    }
+    // Ignore binary patch
+    if (!('operations' in request)) {
+      newRequests.push(request);
+      continue;
+    }
+    const existingPatch = newRequests.find(
+      (existingReq): existingReq is BatchInputJSONPatchRequest =>
+        existingReq.method === 'PATCH' && existingReq.url === request.url && 'operations' in existingReq
+    );
+    // Not seen yet, nothing to merge
+    if (!existingPatch) {
+      newRequests.push(request);
+      continue;
+    }
+    existingPatch.operations.push(...request.operations);
+  }
+  return newRequests;
+}
+
+// A transaction sends a JSON patch without its ifMatch, so the resource's patches go as binary ones
+// locked to its version instead.
+export function versionLockedPatches<T extends FhirResource>({
+  requests,
+  resource,
+}: {
+  requests: BatchInputRequest<T>[];
+  resource: FhirResource;
+}): BatchInputRequest<T>[] {
+  const url = `/${resource.resourceType}/${resource.id}`;
+  return requests.map((request) =>
+    request.method === 'PATCH' && 'operations' in request && request.url === url
+      ? (getPatchBinary({
+          resourceType: resource.resourceType,
+          resourceId: resource.id!,
+          ifMatch: makeOptimisticLockIfMatchHeader(resource),
+          patchOperations: request.operations,
+        }) as BatchInputRequest<T>)
+      : request
+  );
 }

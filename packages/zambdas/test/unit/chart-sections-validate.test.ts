@@ -6,9 +6,10 @@
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { CHART_SECTIONS, GetChartSectionRequest } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { describe, expect, it } from 'vitest';
-import { validateRequestParameters as validateGetChartSection } from '../../src/ehr/get-chart-section/validateRequestParameters';
-import { validateRequestParameters as validateGetVisitNote } from '../../src/ehr/get-visit-note/validateRequestParameters';
+import { GetChartSectionSchema } from '../../src/ehr/get-chart-section/index';
+import { GetVisitNoteSchema } from '../../src/ehr/get-visit-note/index';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { validateWithSchema } from '../../src/shared/validation';
 
 const encounterId = '11111111-1111-4111-8111-111111111111';
 
@@ -19,88 +20,122 @@ describe('get-chart-section request validation', () => {
   it('accepts every section by name', () => {
     CHART_SECTIONS.forEach((section) => {
       const params = section === 'notes' ? { types: [NOTE_TYPE.INTAKE] } : undefined;
-      const result = validateGetChartSection(input({ encounterId, section, params }));
+      const result = validateWithSchema(GetChartSectionSchema, input({ encounterId, section, params }));
       expect(result).toMatchObject({ encounterId, section, secrets: { key: 'val' } });
     });
   });
 
   it('accepts the enumerated options of the two sections that have them', () => {
     expect(
-      validateGetChartSection(
+      validateWithSchema(
+        GetChartSectionSchema,
         input({ encounterId, section: 'notes', params: { types: [NOTE_TYPE.VITALS, NOTE_TYPE.ADDENDUM] } })
       ).params
     ).toEqual({ types: ['vitals', 'addendum'] });
     expect(
-      validateGetChartSection(input({ encounterId, section: 'history', params: { medicationCount: 100 } })).params
+      validateWithSchema(
+        GetChartSectionSchema,
+        input({ encounterId, section: 'history', params: { medicationCount: 100 } })
+      ).params
     ).toEqual({ medicationCount: 100 });
     // The typed request agrees with the schema: history's option set may be left out.
     const historyWithoutParams: GetChartSectionRequest<'history'> = { encounterId, section: 'history' };
-    expect(validateGetChartSection(input(historyWithoutParams)).params).toBeUndefined();
+    expect(validateWithSchema(GetChartSectionSchema, input(historyWithoutParams)).params).toBeUndefined();
   });
 
   it('requires a body, a uuid encounter id and a known section', () => {
-    expect(() => validateGetChartSection(input(null))).toThrow('The request was missing a required request body');
-    expect(() => validateGetChartSection(input({ section: 'exam' }))).toThrow('encounterId');
-    expect(() => validateGetChartSection(input({ encounterId: 'not-a-uuid', section: 'exam' }))).toThrow('encounterId');
-    expect(() => validateGetChartSection(input({ encounterId, section: 'everything' }))).toThrow('section');
-    expect(() => validateGetChartSection(input({ encounterId }))).toThrow('section');
+    expect(() => validateWithSchema(GetChartSectionSchema, input(null))).toThrow(
+      'The request was missing a required request body'
+    );
+    expect(() => validateWithSchema(GetChartSectionSchema, input({ section: 'exam' }))).toThrow('encounterId');
+    expect(() =>
+      validateWithSchema(GetChartSectionSchema, input({ encounterId: 'not-a-uuid', section: 'exam' }))
+    ).toThrow('encounterId');
+    expect(() => validateWithSchema(GetChartSectionSchema, input({ encounterId, section: 'everything' }))).toThrow(
+      'section'
+    );
+    expect(() => validateWithSchema(GetChartSectionSchema, input({ encounterId }))).toThrow('section');
   });
 
   it('rejects search parameters and every other extra key', () => {
     expect(() =>
-      validateGetChartSection(input({ encounterId, section: 'history', requestedFields: { allergies: {} } }))
+      validateWithSchema(
+        GetChartSectionSchema,
+        input({ encounterId, section: 'history', requestedFields: { allergies: {} } })
+      )
     ).toThrow('requestedFields');
     expect(() =>
-      validateGetChartSection(input({ encounterId, section: 'history', params: { _tag: 'known-allergy' } }))
+      validateWithSchema(
+        GetChartSectionSchema,
+        input({ encounterId, section: 'history', params: { _tag: 'known-allergy' } })
+      )
     ).toThrow('_tag');
     expect(() =>
-      validateGetChartSection(
+      validateWithSchema(
+        GetChartSectionSchema,
         input({ encounterId, section: 'history', params: { _revinclude: 'Observation:patient' } })
       )
     ).toThrow('_revinclude');
     expect(() =>
-      validateGetChartSection(
+      validateWithSchema(
+        GetChartSectionSchema,
         input({ encounterId, section: 'notes', params: { types: [NOTE_TYPE.INTAKE], _search_by: 'patient' } })
       )
     ).toThrow('_search_by');
     expect(() =>
-      validateGetChartSection(input({ encounterId, section: 'plan', params: { encounterIds: ['another-encounter'] } }))
+      validateWithSchema(
+        GetChartSectionSchema,
+        input({ encounterId, section: 'plan', params: { encounterIds: ['another-encounter'] } })
+      )
     ).toThrow('params');
   });
 
   it('rejects options a section does not take', () => {
     expect(() =>
-      validateGetChartSection(input({ encounterId, section: 'exam', params: { medicationCount: 5 } }))
+      validateWithSchema(GetChartSectionSchema, input({ encounterId, section: 'exam', params: { medicationCount: 5 } }))
     ).toThrow('params');
     expect(() =>
-      validateGetChartSection(input({ encounterId, section: 'history', params: { medicationCount: 0 } }))
+      validateWithSchema(
+        GetChartSectionSchema,
+        input({ encounterId, section: 'history', params: { medicationCount: 0 } })
+      )
     ).toThrow('medicationCount');
     expect(() =>
-      validateGetChartSection(input({ encounterId, section: 'history', params: { medicationCount: 1001 } }))
+      validateWithSchema(
+        GetChartSectionSchema,
+        input({ encounterId, section: 'history', params: { medicationCount: 1001 } })
+      )
     ).toThrow('medicationCount');
   });
 
   it('requires the notes section to name at least one known note type', () => {
     // @ts-expect-error the typed request agrees with the schema: a notes request without its types matches no shape
     const notesWithoutTypes: GetChartSectionRequest = { encounterId, section: 'notes' };
-    expect(() => validateGetChartSection(input(notesWithoutTypes))).toThrow('params');
-    expect(() => validateGetChartSection(input({ encounterId, section: 'notes', params: { types: [] } }))).toThrow(
-      'types'
-    );
+    expect(() => validateWithSchema(GetChartSectionSchema, input(notesWithoutTypes))).toThrow('params');
     expect(() =>
-      validateGetChartSection(input({ encounterId, section: 'notes', params: { types: ['diary'] } }))
+      validateWithSchema(GetChartSectionSchema, input({ encounterId, section: 'notes', params: { types: [] } }))
+    ).toThrow('types');
+    expect(() =>
+      validateWithSchema(GetChartSectionSchema, input({ encounterId, section: 'notes', params: { types: ['diary'] } }))
     ).toThrow('types');
   });
 });
 
 describe('get-visit-note request validation', () => {
   it('accepts an encounter id and nothing else', () => {
-    expect(validateGetVisitNote(input({ encounterId }))).toEqual({ encounterId, secrets: { key: 'val' } });
-    expect(() => validateGetVisitNote(input(null))).toThrow('The request was missing a required request body');
-    expect(() => validateGetVisitNote(input({ encounterId: 'not-a-uuid' }))).toThrow('encounterId');
-    expect(() => validateGetVisitNote(input({ encounterId, requestedFields: { notes: {} } }))).toThrow(
-      'requestedFields'
+    expect(validateWithSchema(GetVisitNoteSchema, input({ encounterId }))).toEqual({
+      encounterId,
+      secrets: { key: 'val' },
+    });
+    expect(() => validateWithSchema(GetVisitNoteSchema, input(null))).toThrow(
+      'The request was missing a required request body'
     );
-    expect(() => validateGetVisitNote(input({ encounterId, noteTypes: [NOTE_TYPE.INTAKE] }))).toThrow('noteTypes');
+    expect(() => validateWithSchema(GetVisitNoteSchema, input({ encounterId: 'not-a-uuid' }))).toThrow('encounterId');
+    expect(() =>
+      validateWithSchema(GetVisitNoteSchema, input({ encounterId, requestedFields: { notes: {} } }))
+    ).toThrow('requestedFields');
+    expect(() => validateWithSchema(GetVisitNoteSchema, input({ encounterId, noteTypes: [NOTE_TYPE.INTAKE] }))).toThrow(
+      'noteTypes'
+    );
   });
 });

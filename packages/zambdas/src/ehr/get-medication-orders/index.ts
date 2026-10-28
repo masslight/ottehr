@@ -29,6 +29,7 @@ import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/typ
 import {
   ExtendedMedicationDataForResponse,
   GetMedicationOrdersInput,
+  GetMedicationOrdersInputSchema,
   GetMedicationOrdersResponse,
   OrderPackage,
 } from 'utils/lib/types/api/medication-administration.types';
@@ -36,13 +37,13 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-medication-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(GetMedicationOrdersInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);

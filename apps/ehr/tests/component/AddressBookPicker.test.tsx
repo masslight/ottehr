@@ -5,7 +5,7 @@ import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { searchAddressBook } from 'src/features/address-book/addressBook.api';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
-import { AddressBookContact } from 'utils/lib/types/data/address-book';
+import { AddressBookContact, AddressBookContactInput } from 'utils/lib/types/data/address-book';
 import { describe, expect, it, vi } from 'vitest';
 
 const contacts: AddressBookContact[] = vi.hoisted(() => [
@@ -41,11 +41,12 @@ const Harness: FC<{
   onSelect: (contact: AddressBookContact) => void;
   onParentSubmit?: () => void;
   tag?: string;
-}> = ({ onSelect, onParentSubmit, tag }) => {
+  toContact?: () => Partial<AddressBookContactInput>;
+}> = ({ onSelect, onParentSubmit, tag, toContact }) => {
   const methods = useForm({ defaultValues: { name: '' } });
   const picker = (
     <FormProvider {...methods}>
-      <AddressBookPicker name="name" label="Recipient's name" tag={tag} onSelect={onSelect} />
+      <AddressBookPicker name="name" label="Recipient's name" tag={tag} onSelect={onSelect} toContact={toContact} />
       <span data-testid="field-value">{methods.watch('name')}</span>
     </FormProvider>
   );
@@ -154,6 +155,33 @@ describe('AddressBookPicker', () => {
     await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
 
     expect(await screen.findByText('New contact')).toBeInTheDocument();
+    expect(screen.getByText('pcp')).toHaveClass('MuiChip-label');
+  });
+
+  it("starts a new contact from the screen's values, keeping the picker's tag", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        onSelect={vi.fn()}
+        tag="pcp"
+        toContact={() => ({
+          organizationName: 'Roe Clinic',
+          firstName: 'John',
+          lastName: 'Roe',
+          address: { line1: '5 Elm St' },
+          fax: '(212) 555-7777',
+        })}
+      />
+    );
+
+    await user.click(screen.getByLabelText("Recipient's name"));
+    await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
+
+    expect(await screen.findByLabelText('Organization')).toHaveValue('Roe Clinic');
+    expect(screen.getByLabelText('First name')).toHaveValue('John');
+    expect(screen.getByLabelText('Last name')).toHaveValue('Roe');
+    expect(screen.getByLabelText('Address line 1')).toHaveValue('5 Elm St');
+    expect(screen.getByLabelText('Fax')).toHaveValue('(212) 555-7777');
     expect(screen.getByText('pcp')).toHaveClass('MuiChip-label');
   });
 

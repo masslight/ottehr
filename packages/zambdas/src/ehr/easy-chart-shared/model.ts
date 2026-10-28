@@ -28,6 +28,7 @@ export interface ModelCallOptions<T> {
   /** Validates and types the parsed answer. A failure counts as a failed attempt and escalates. */
   responseSchema: z.ZodType<T, z.ZodTypeDef, unknown>;
   secrets: Secrets | null;
+  feature: string;
   logPrefix: string;
   /** Cancels the running request and starts no further attempt. */
   signal?: AbortSignal;
@@ -65,7 +66,12 @@ function record(acc: UsageAccumulator, usage: Omit<ModelUsage, 'calls'>): void {
  * Throws when every attempt failed; the error message carries attempt counts and reasons only.
  */
 export async function callModelForJson<T>(options: ModelCallOptions<T>): Promise<ModelCallResult<T>> {
-  const { prompt, wireSchema, responseSchema, secrets, logPrefix, signal } = options;
+  const { prompt, wireSchema, responseSchema, secrets, feature, logPrefix, signal } = options;
+  const labels = {
+    ottehr_feature: feature,
+    ottehr_environment: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+    ottehr_project_id: getSecret(SecretsKeys.PROJECT_ID, secrets),
+  };
   const acc: UsageAccumulator = new Map();
   const failures: ModelFailureReason[] = [];
   let attempts = 0;
@@ -91,7 +97,7 @@ export async function callModelForJson<T>(options: ModelCallOptions<T>): Promise
     }
   };
 
-  const primary = (): Promise<unknown> => callVertex(prompt, wireSchema, secrets, acc, logPrefix, signal);
+  const primary = (): Promise<unknown> => callVertex(prompt, wireSchema, labels, secrets, acc, logPrefix, signal);
 
   let parsed = await attempt(primary);
   if (parsed === undefined && !signal?.aborted) parsed = await attempt(primary);
@@ -167,6 +173,7 @@ interface VertexResponse {
 async function callVertex(
   prompt: string,
   wireSchema: object,
+  labels: Record<string, string>,
   secrets: Secrets | null,
   acc: UsageAccumulator,
   logPrefix: string,
@@ -189,6 +196,7 @@ async function callVertex(
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        labels,
         generationConfig: {
           temperature: 0,
           // Unset, this model does no reasoning at all, which measurably cost recall. Capped because an

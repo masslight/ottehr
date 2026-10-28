@@ -1345,6 +1345,14 @@
       "src": "src/subscriptions/sub-adhoc-report/index",
       "zip": ".dist/zips/sub-adhoc-report.zip"
     },
+    "SUB-GENERATE-ADHOC-REPORT": {
+      "name": "sub-generate-adhoc-report",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "timeout": "900",
+      "src": "src/subscriptions/sub-generate-adhoc-report/index",
+      "zip": ".dist/zips/sub-generate-adhoc-report.zip"
+    },
     "SAVE-ADHOC-REPORT": {
       "name": "save-adhoc-report",
       "type": "http_auth",
@@ -1550,6 +1558,41 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-nursing-order/index",
       "zip": ".dist/zips/update-nursing-order.zip"
+    },
+    "CREATE-DME-ORDER": {
+      "name": "create-dme-order",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/create-dme-order/index",
+      "zip": ".dist/zips/create-dme-order.zip"
+    },
+    "GET-DME-ORDERS": {
+      "name": "get-dme-orders",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/get-dme-orders/index",
+      "zip": ".dist/zips/get-dme-orders.zip"
+    },
+    "UPDATE-DME-ORDER": {
+      "name": "update-dme-order",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/update-dme-order/index",
+      "zip": ".dist/zips/update-dme-order.zip"
+    },
+    "GET-DME-ORDER-PDF": {
+      "name": "get-dme-order-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/get-dme-order-pdf/index",
+      "zip": ".dist/zips/get-dme-order-pdf.zip"
+    },
+    "SEND-DME-ORDER-FAX": {
+      "name": "send-dme-order-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/send-dme-order-fax/index",
+      "zip": ".dist/zips/send-dme-order-fax.zip"
     },
     "CLINICAL-STRIPE-WEBHOOK": {
       "name": "clinical-stripe-webhook",
@@ -2016,6 +2059,13 @@
       "src": "src/ehr/search-patients/index",
       "zip": ".dist/zips/search-patients.zip"
     },
+    "CREATE-PATIENT": {
+      "name": "create-patient",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-patient/index",
+      "zip": ".dist/zips/create-patient.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
@@ -2050,6 +2100,13 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/get-version-history/index",
       "zip": ".dist/zips/get-version-history.zip"
+    },
+    "GET-CHARGE-ITEM-DEFINITION-VERSION": {
+      "name": "get-charge-item-definition-version",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/get-charge-item-definition-version/index",
+      "zip": ".dist/zips/get-charge-item-definition-version.zip"
     },
     "ASSOCIATE-PAYER": {
       "name": "associate-payer",
@@ -2668,6 +2725,13 @@
       "src": "src/ehr/practice-managed-questionnaire/create/index",
       "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
     },
+    "MANAGED_QUESTIONNAIRE_IMPORT_JSON": {
+      "name": "practice-managed-questionnaire-import-json",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/import-json/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-import-json.zip"
+    },
     "PAPERWORK_FLOW_LIST": {
       "name": "paperwork-flow-list",
       "type": "http_auth",
@@ -3132,6 +3196,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ADHOC-REPORT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "GENERATE_ADHOC_REPORT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate ad-hoc report code asynchronously",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/adhoc-report-task|adhoc-generate&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-GENERATE-ADHOC-REPORT/id}"
         },
         "extension": [
           {

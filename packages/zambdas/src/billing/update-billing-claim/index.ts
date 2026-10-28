@@ -29,13 +29,18 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
 } from 'utils/lib/helpers/rcm/constants';
-import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
+  UpdateBillingResourceInputSchema,
+} from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import { isNonInsuranceOrganization } from '../non-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
@@ -72,13 +77,14 @@ import {
   setTaxonomy,
   updateClaimSupportingInfo,
 } from '../shared';
-import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
+
+type UpdateBillingClaimParams = ValidatedZambdaInput<typeof UpdateBillingResourceInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'update-billing-claim';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(UpdateBillingResourceInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
