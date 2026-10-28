@@ -1475,8 +1475,9 @@ export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   return outcomeEntry;
 };
 
+// Organizations that pay invoices store their Stripe customers the same way as an Account.
 export const getStripeCustomerIdFromAccount = (
-  account: Account,
+  account: Pick<Account, 'identifier'>,
   stripeAccount: string | undefined
 ): string | undefined => {
   if (!stripeAccount) {
