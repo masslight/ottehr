@@ -1503,7 +1503,7 @@ export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CO
 // The 4-digit bill type, rebuilt from the facility type and frequency extensions.
 export function getClaimBillType(claim: Claim): string {
   const facilityTypeCode = getExtensionValue(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE, 'valueString');
-  const frequencyCode = getExtensionValue(claim, EXTENSION_CLAIM_FREQUENCY_CODE, 'valueString') ?? '1';
+  const frequencyCode = getExtensionValue(claim, EXTENSION_CLAIM_FREQUENCY_CODE, 'valueString') || '1';
   return facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '';
 }
 

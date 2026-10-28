@@ -41,12 +41,11 @@ import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
-  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
-  EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fhirName,
   findRef,
+  getClaimBillType,
   getClaimPcn,
   getClaimSupportingInfo,
   getEraCheckNumber,
@@ -221,8 +220,6 @@ export function claimDetailsLayer(
   const facility = findRef<Location>(lookups.locations, claim.facility?.reference);
   const patient = findRef<Patient>(lookups.patients, claim.patient?.reference);
   const extensionString = (url: string): string => getExtension(claim, url)?.valueString ?? '';
-  const facilityTypeCode = extensionString(EXTENSION_CLAIM_FACILITY_TYPE_CODE);
-  const frequencyCode = extensionString(EXTENSION_CLAIM_FREQUENCY_CODE) || '1';
   const address = patient?.address?.[0];
   const institutional = isInstitutionalClaim(claim);
 
@@ -240,7 +237,7 @@ export function claimDetailsLayer(
     payerClaimControlNumber:
       claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
         ?.value ?? '',
-    billType: facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '',
+    billType: getClaimBillType(claim),
     // A professional claim's billablePeriod is the visit, not an admission.
     admissionDate: institutional ? claim.billablePeriod?.start || null : null,
     dischargeDate: institutional ? claim.billablePeriod?.end || null : null,
