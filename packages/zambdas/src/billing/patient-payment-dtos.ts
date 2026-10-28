@@ -388,8 +388,8 @@ const buildChargeOnlyPaymentDTOs = async (
     ...(takenBy ? { takenBy } : {}),
     ...(refunds?.length ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) } : {}),
   };
-  if (method === 'card-reader') return [{ paymentMethod: 'card-reader', ...common }];
   // no stripePaymentId: the refund endpoint needs a PaymentIntent, so the EHR offers no refund
+  if (method === 'card-reader') return [{ paymentMethod: 'card-reader', ...common }];
   return [{ paymentMethod: 'card', stripePaymentId: undefined, stripePaymentMethodId: undefined, ...common }];
 };
 
@@ -491,6 +491,7 @@ async function buildPaymentDTOs(
         return [
           {
             paymentMethod: 'card-reader',
+            stripePaymentId,
             amountInCents,
             description: paymentIntent?.description ?? undefined,
             fhirPaymentNotificationId: paymentNotice.id,

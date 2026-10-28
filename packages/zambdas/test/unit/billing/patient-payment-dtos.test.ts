@@ -247,6 +247,45 @@ describe('getPaymentsForEncounter', () => {
     });
   });
 
+  it('gives a terminal payment taken through a PaymentIntent its id, which refunds go through', async () => {
+    vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
+      new Map([
+        [
+          ENCOUNTER_ID,
+          [
+            {
+              ...otherNotice('reader-1', '2026-10-21T15:00:00.000Z', 40, [
+                { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_2' },
+                { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_2' },
+              ]),
+              extension: [
+                { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card_present' },
+                stripeAccountExtension('acct_clinic'),
+              ],
+            },
+          ],
+        ],
+      ])
+    );
+    const retrieve = vi.fn(async (id: string) => ({ id }));
+
+    const payments = await getPaymentsForEncounter({
+      clinicalOystehr: {} as Oystehr,
+      billingOystehr: {} as Oystehr,
+      stripeClient: { paymentIntents: { retrieve } } as unknown as Stripe,
+      account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
+      encounterId: ENCOUNTER_ID,
+    });
+
+    expect(payments).toEqual([
+      expect.objectContaining({
+        paymentMethod: 'card-reader',
+        fhirPaymentNotificationId: 'reader-1',
+        stripePaymentId: 'pi_2',
+      }),
+    ]);
+  });
+
   describe('a card payment Stripe recorded as a bare charge', () => {
     const chargeOnlyNotice = (method: string, extra: PaymentNotice['extension'] = []): PaymentNotice => ({
       ...otherNotice('charge-1', '2026-10-21T15:00:00.000Z', 40, [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }]),
@@ -312,6 +351,8 @@ describe('getPaymentsForEncounter', () => {
           cardLast4: '1111',
         }),
       ]);
+      // no PaymentIntent to refund through, so the EHR offers no refund
+      expect(payments[0]).not.toHaveProperty('stripePaymentId');
     });
 
     it('is still listed from FHIR when Stripe cannot return the charge', async () => {

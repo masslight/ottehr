@@ -75,6 +75,9 @@ export interface CashPaymentDTO {
   // terminal fallback external card reader payments are treated like cash/check because we have no direct processor link in this flow;
   // 'other' is collected somewhere the billing app cannot name (a manual billing payment, a Stripe invoice paid out of band)
   paymentMethod: 'cash' | 'check' | 'card-reader' | 'external-card-reader' | 'other';
+  // card-reader only: the Stripe PaymentIntent the payment was taken through, which refunds go through;
+  // absent for a terminal payment Stripe recorded as a bare charge, which cannot be refunded here
+  stripePaymentId?: string;
   amountInCents: number;
   dateISO: string;
   fhirPaymentNotificationId?: string;
