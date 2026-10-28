@@ -9,6 +9,7 @@ import {
   UNSCHEDULED_MESSAGE,
   withDose,
 } from '../../src/features/visits/in-person/components/erx/DoseCalculator';
+import { DoseWarningBoxes } from '../../src/features/visits/in-person/components/erx/DoseCalculatorCard';
 import {
   CalculatorDosing,
   emptyPrescriptionLine,
@@ -135,6 +136,11 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(within(calculator).getByTestId('dose-cap')).toHaveTextContent(
       'Capped at the 1,000 mg a day maximum (2,530.8 mg a day by weight)'
     );
+    // In an orange box under the result, styled as the line's maximum warnings are.
+    const cap = within(calculator).getByTestId('dose-cap');
+    expect(screen.getByTestId('dose-result')).not.toContainElement(cap);
+    const { getByTestId } = render(<DoseWarningBoxes warnings={['A warning']} info={[]} />);
+    expect(cap.className).toBe(getByTestId('dose-warnings-warning').className);
     // The per-dose maximum is the lower one now.
     await user.type(within(calculator).getByRole('spinbutton', { name: 'maximum per dose' }), '250');
     expect(within(calculator).getByTestId('dose-cap')).toHaveTextContent(

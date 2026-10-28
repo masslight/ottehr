@@ -35,7 +35,7 @@ export interface DoseResult {
   working?: string;
   /** "3 capsules = 750 mg, 47 mg (7%) over 703 mg". */
   roundingNote?: string;
-  /** Under the sentence, in orange text: "Capped at the 500 mg maximum (703 mg by weight)". */
+  /** Under the result, in an orange box as the line's maximum warnings: "Capped at the 500 mg maximum (703 mg by weight)". */
   capNote?: string;
 }
 
@@ -59,10 +59,10 @@ const MONO = "'Roboto Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 const NOTE_SX = { color: 'text.secondary', fontSize: 13 };
 const HEADING_SX = { fontSize: 12, textTransform: 'uppercase', letterSpacing: '.05em', color: 'text.secondary' };
 /** The calculator's height with its inputs, room for the most rows (a liquid's, the weight's note wrapping), a
- * two-line result with its cap note, and "Use this dose"; more with a combination's "Dose by". A height following
+ * two-line result with its two-line cap box, and "Use this dose"; more with a combination's "Dose by". A height following
  * the content grew and shrank as a value was typed (the waiting message or the result, the cap note, the button, the
  * weight row coming and going with the basis), and the popup, re-placed on each render, flipped and shifted with it. */
-const CARD_HEIGHT = 460;
+const CARD_HEIGHT = 500;
 const PICKER_HEIGHT = 70;
 
 /** A white box around a blank and its unit and notes; numbers typed in it read in mono. */
@@ -197,48 +197,44 @@ const ResultDisplay: FC<{ result: DoseResult }> = ({ result }) => {
   // As the line's and the suggestion rows' ⓘ read: the working, then the rounding note.
   const notes = [result.working, result.roundingNote].filter((note): note is string => !!note);
   return (
-    <Box
-      data-testid="dose-result"
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        p: '8px 10px',
-        backgroundColor: PANEL.display,
-        border: `1px solid ${PANEL.displayEdge}`,
-        borderRadius: '6px',
-        fontSize: 15,
-        fontWeight: 500,
-        color: 'primary.dark',
-        fontVariantNumeric: 'tabular-nums',
-      }}
-    >
-      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <Box component="span" data-testid="dose-sentence">
+    <>
+      <Box
+        data-testid="dose-result"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          p: '8px 10px',
+          backgroundColor: PANEL.display,
+          border: `1px solid ${PANEL.displayEdge}`,
+          borderRadius: '6px',
+          fontSize: 15,
+          fontWeight: 500,
+          color: 'primary.dark',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        <Box component="span" data-testid="dose-sentence" sx={{ flex: 1, minWidth: 0 }}>
           {result.sentence}
         </Box>
-        {result.capNote && (
-          <Box
-            component="span"
-            data-testid="dose-cap"
-            sx={{ fontSize: 12.5, fontWeight: 400, color: otherColors.warningText }}
-          >
-            {result.capNote}
-          </Box>
-        )}
+        {notes.length > 0 && <DoseInfoHover label="How this dose was worked out" lines={notes} testId="dose-working" />}
       </Box>
-      {notes.length > 0 && <DoseInfoHover label="How this dose was worked out" lines={notes} testId="dose-working" />}
-    </Box>
+      {result.capNote && <DoseWarningBoxes warnings={[result.capNote]} info={[]} testId="dose-cap" />}
+    </>
   );
 };
 
 /** The line's maximum warnings under its dose sentence, in orange, each with where its maximum is from behind an ⓘ. */
-export const DoseWarningBoxes: FC<{ warnings: string[]; info: ReactNode[] }> = ({ warnings, info }) => (
+export const DoseWarningBoxes: FC<{ warnings: string[]; info: ReactNode[]; testId?: string }> = ({
+  warnings,
+  info,
+  testId = 'dose-warnings-warning',
+}) => (
   <>
     {warnings.map((warning) => (
       <Box
         key={warning}
-        data-testid="dose-warnings-warning"
+        data-testid={testId}
         sx={{
           borderLeft: 4,
           borderColor: 'warning.main',
