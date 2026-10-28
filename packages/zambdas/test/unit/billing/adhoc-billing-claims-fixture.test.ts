@@ -462,7 +462,7 @@ function stubBillingClient({
   let scansStarted = 0;
   const search = vi.fn(async ({ resourceType, params }: { resourceType: string; params: Param[] }) => {
     const all = (name: string): string[] => params.filter((p) => p.name === name).map((p) => p.value);
-    const isScan = resourceType === 'Claim' && all('_elements')[0] === 'id,meta,created,item';
+    const isScan = resourceType === 'Claim' && all('_elements')[0] === 'id,meta,created,item,billablePeriod';
 
     if (isScan && Number(all('_offset')[0] ?? 0) === 0) {
       scansStarted += 1;
