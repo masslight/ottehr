@@ -261,7 +261,7 @@ const SlotPicker = ({
           maxDate={
             firstAvailableDay
               ? firstAvailableDay.plus({ months: prebookMonthsAhead })
-              : DateTime.now().minus({ days: 1 })
+              : DateTime.now().endOf('day')
           }
         />
       </LocalizationProvider>
