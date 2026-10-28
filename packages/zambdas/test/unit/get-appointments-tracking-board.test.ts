@@ -807,25 +807,27 @@ describe('fetchTrackingBoardResources', () => {
     );
   });
 
+  // An external lab order whose report came back without its result-review Tasks, so the direct Task search is due.
+  const externalLabResourcesWithoutTasks = (): FhirResource[] => [
+    serviceRequest('sr-ext', { code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '1' }] } }),
+    {
+      resourceType: 'DiagnosticReport',
+      id: 'dr-ext',
+      status: 'final',
+      code: {},
+      basedOn: [{ reference: 'ServiceRequest/sr-ext' }],
+    },
+  ];
+
   test('past the deadline the direct Task search is not started, and the result is marked incomplete', async () => {
     // The batch lands just as the deadline passes. settleByDeadline stops waiting but cancels nothing, so a search
     // started now would run unawaited through the window reserved for the response.
     vi.useFakeTimers();
     try {
       const deadline = Date.now() + 1_000;
-      const externalLabOrder = serviceRequest('sr-ext', {
-        code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '1' }] },
-      });
-      const report: DiagnosticReport = {
-        resourceType: 'DiagnosticReport',
-        id: 'dr-ext',
-        status: 'final',
-        code: {},
-        basedOn: [{ reference: 'ServiceRequest/sr-ext' }],
-      };
       const batch = vi.fn(async (): Promise<Bundle<FhirResource>> => {
         vi.setSystemTime(deadline);
-        return batchResponse([searchsetOf([externalLabOrder, report])]);
+        return batchResponse([searchsetOf(externalLabResourcesWithoutTasks())]);
       });
       const search = vi.fn(async () => ({ unbundle: () => [] }));
       const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
@@ -837,5 +839,25 @@ describe('fetchTrackingBoardResources', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  test('a failed direct Task search keeps what the batch fetched, marks the result incomplete and reports it', async () => {
+    // Letting the rejection reach index.ts's catch would swap every fetched order and vitals resource for an empty
+    // result, which is what the batch itself avoids by recording failures in failedUrls.
+    const failure = new Error('Task search failed');
+    const batch = vi.fn(
+      async (): Promise<Bundle<FhirResource>> => batchResponse([searchsetOf(externalLabResourcesWithoutTasks())])
+    );
+    const search = vi.fn(async () => {
+      throw failure;
+    });
+    const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
+
+    const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(1) });
+
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(result.resources.map((resource) => resource.id)).toEqual(['sr-ext', 'dr-ext']);
+    expect(result.failedUrls).toEqual(['Task?based-on=<external lab DiagnosticReports>']);
+    expect(captureException).toHaveBeenCalledWith(failure);
   });
 });

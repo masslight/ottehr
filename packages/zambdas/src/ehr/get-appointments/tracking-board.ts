@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import {
   ActivityDefinition,
   Appointment,
@@ -261,7 +262,11 @@ const withLabResultTasks = async (
 
   console.log('no result-review Tasks came back with the external lab DiagnosticReports; fetching them directly');
   const tasks = await settleByDeadline<Task[] | undefined>(
-    fetchFinalAndPrelimAndCorrectedTasks(oystehr, externalLabReports),
+    fetchFinalAndPrelimAndCorrectedTasks(oystehr, externalLabReports).catch((error) => {
+      console.error('fetching result-review Tasks for external lab reports failed', error);
+      captureException(error);
+      return undefined;
+    }),
     deadline,
     () => undefined
   );
