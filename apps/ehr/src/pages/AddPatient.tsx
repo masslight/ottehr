@@ -968,6 +968,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                             ? ScheduleType.provider
                             : ScheduleType.location
                         }
+                        atLocationSlug={selectedBookable?.atLocationSlug}
                         serviceCategoryCode={serviceCategory as any}
                         slotListKey={slotListKey}
                         showPastSlots={showPastSlots}

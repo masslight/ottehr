@@ -62,6 +62,7 @@ interface SlotPickerProps {
   /** The slug + schedule type of the bookable target (Location, Group, or PR-direct). */
   bookableSlug?: string;
   bookableScheduleType?: ScheduleType;
+  atLocationSlug?: string;
   /** Service category (required for group bookings; inferred or omitted otherwise). */
   serviceCategoryCode?: ServiceCategoryCode;
   slotListKey: 'available' | 'telemedAvailable';
@@ -76,6 +77,7 @@ const SlotPicker = ({
   slotsLoading,
   bookableSlug,
   bookableScheduleType = ScheduleType.location,
+  atLocationSlug,
   serviceCategoryCode,
   slotListKey,
   showPastSlots,
@@ -96,7 +98,7 @@ const SlotPicker = ({
   const [selectedOtherDate, setSelectedOtherDate] = useState<DateTime | undefined>();
 
   const visibleOtherDate =
-    !showPastSlots && selectedOtherDate && selectedOtherDate < DateTime.now().startOf('day')
+    !showPastSlots && selectedOtherDate && selectedOtherDate <= DateTime.now().endOf('day')
       ? undefined
       : selectedOtherDate;
 
@@ -196,6 +198,7 @@ const SlotPicker = ({
           scheduleType: bookableScheduleType,
           selectedDate: newDate.toISODate() ?? undefined,
           ...(serviceCategoryCode ? { serviceCategoryCode } : {}),
+          ...(atLocationSlug ? { atLocationSlug } : {}),
         });
 
         setOtherDateSlots(response.available?.map((s) => s.slot) ?? []);
@@ -205,7 +208,7 @@ const SlotPicker = ({
         setOtherDateSlotsLoading(false);
       }
     },
-    [oystehrZambda, bookableSlug, bookableScheduleType, serviceCategoryCode]
+    [oystehrZambda, bookableSlug, bookableScheduleType, serviceCategoryCode, atLocationSlug]
   );
 
   const isFirstAvailableDayToday = firstAvailableDay?.hasSame(DateTime.now().setZone(timezone), 'day') ?? false;
@@ -216,6 +219,7 @@ const SlotPicker = ({
       bookableSlug,
       bookableScheduleType,
       serviceCategoryCode,
+      atLocationSlug,
       slotListKey,
       firstAvailableDay?.toISO(),
     ],
@@ -225,6 +229,7 @@ const SlotPicker = ({
         scheduleType: bookableScheduleType,
         selectedDate: firstAvailableDay!.toISODate() ?? undefined,
         ...(serviceCategoryCode ? { serviceCategoryCode } : {}),
+        ...(atLocationSlug ? { atLocationSlug } : {}),
       });
       return (response[slotListKey] ?? [])
         .map((s) => s.slot)
@@ -393,7 +398,9 @@ const SlotPicker = ({
                       shouldDisableDate={(date) => {
                         const today = DateTime.now().startOf('day');
                         const tomorrow = today.plus({ days: 1 });
-                        return date <= tomorrow.endOf('day') && (!showPastSlots || date >= today);
+                        if (!showPastSlots) return date <= tomorrow.endOf('day');
+                        const firstDayCoveredByTabs = isFirstAvailableDayToday ? today : tomorrow;
+                        return date >= firstDayCoveredByTabs && date <= tomorrow.endOf('day');
                       }}
                       // Minus one day for timezone shenanigans
                       minDate={showPastSlots ? undefined : firstAvailableDay?.minus({ days: 1 })}

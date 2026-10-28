@@ -44,7 +44,7 @@ export const AddVisitPatientSearchDialog: FC<AddVisitPatientSearchDialogProps> =
       }}
       fullWidth
       maxWidth="sm"
-      PaperProps={{ sx: { maxHeight: '450px' } }}
+      PaperProps={{ sx: { maxHeight: 'min(650px, calc(100% - 64px))' } }}
     >
       <DialogTitle variant="h4" sx={{ fontWeight: '600 !important', color: 'primary.main' }}>
         Select Patient
