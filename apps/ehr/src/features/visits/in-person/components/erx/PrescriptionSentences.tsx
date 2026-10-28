@@ -11,8 +11,9 @@ import {
   Snackbar,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
-import { FC, KeyboardEvent, ReactNode, useEffect, useId, useMemo, useState } from 'react';
+import { FC, KeyboardEvent, ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SentencePicks } from 'src/components/SuggestedSentences';
 import { useIcd10SearchInput } from 'src/features/admin/patient-education/useIcd10SearchInput';
@@ -258,7 +259,7 @@ type MedicationMenuPick =
 /** How many sets and how many quick picks the menu lists before anything is typed. */
 const MEDICATION_MENU_LIMIT = 10;
 
-/** The menu's left column. Before anything is typed: the first sets and the first quick picks, `more` when there are
+/** The menu's quick picks column. Before anything is typed: the first sets and the first quick picks, `more` when there are
  * others. Typed: every set matching by name or by a quick pick's name or product, and every quick pick matching by
  * name or product. */
 const quickPickColumn = (
@@ -303,8 +304,8 @@ const MenuMessage: FC<{ children: ReactNode }> = ({ children }) => (
   </Typography>
 );
 
-/** The line's medication menu: the practice's sets and quick picks in the left column, the medication search's
- * results in the right, both following what's typed. Focus stays in the field: Up/Down move within a column,
+/** The line's medication menu: the medication search's results in the left column, the practice's sets and quick
+ * picks in the right, both following what's typed. Focus stays in the field: Up/Down move within a column,
  * Left/Right (once a row is highlighted) between them, Enter picks. */
 const MedicationMenu: FC<{
   quickPicks: PrescriptionQuickPickData[];
@@ -314,24 +315,37 @@ const MedicationMenu: FC<{
   onSet: (set: PrescriptionSetQuickPickData) => void;
 }> = ({ quickPicks, sets, onDrug, onQuickPick, onSet }) => {
   const id = useId();
+  const theme = useTheme();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const { debounce } = useDebounce(300);
   const { data: drugs, isFetching, isError } = useSearchMedications(debouncedQuery);
-  // The search needs two characters.
+  // The search needs two characters. It runs from the first keystroke until the search for what's typed returns:
+  // the debounce's wait too, which would otherwise show the last search's answer (or none) as this one's.
   const searched = query.trim().length >= 2;
-  const left = quickPickColumn(query, sets, quickPicks);
-  const leftPicks = [...left.sets, ...left.quickPicks];
-  const rightPicks: MedicationMenuPick[] =
-    searched && !isFetching ? (drugs ?? []).map((drug) => ({ kind: 'drug', drug })) : [];
-  const columns = [leftPicks, rightPicks];
+  const searching = searched && (isFetching || debouncedQuery !== query);
+  const medicationPicks: MedicationMenuPick[] =
+    searched && !searching ? (drugs ?? []).map((drug) => ({ kind: 'drug', drug })) : [];
+  const listed = quickPickColumn(query, sets, quickPicks);
+  const quickPickPicks = [...listed.sets, ...listed.quickPicks];
+  const columns = [medicationPicks, quickPickPicks];
   const [active, setActive] = useState<{ column: number; row: number }>();
   // A highlight the lists no longer reach is none.
   const highlighted = active && columns[active.column][active.row] ? active : undefined;
   const optionId = (column: number, row: number): string => `${id}-option-${column}-${row}`;
   const activeId = highlighted && optionId(highlighted.column, highlighted.row);
+  // A row the keyboard moves to is scrolled into view within its column only. Never on hover: scrolling to a
+  // half-shown hovered row moved the rows under the pointer, which hovered the next one, and so on (scrollIntoView
+  // also scrolled the popup itself).
+  const keyboardMoved = useRef(false);
   useEffect(() => {
-    if (activeId) document.getElementById(activeId)?.scrollIntoView?.({ block: 'nearest' });
+    const row = activeId ? document.getElementById(activeId) : null;
+    const column = row?.closest<HTMLElement>('[data-menu-column]');
+    if (!row || !column || !keyboardMoved.current) return;
+    keyboardMoved.current = false;
+    const bottom = row.offsetTop + row.offsetHeight;
+    if (row.offsetTop < column.scrollTop) column.scrollTop = row.offsetTop;
+    else if (bottom > column.scrollTop + column.clientHeight) column.scrollTop = bottom - column.clientHeight;
   }, [activeId]);
 
   const choose = (pick: MedicationMenuPick): void => {
@@ -343,10 +357,11 @@ const MedicationMenu: FC<{
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     const move = (column: number, row: number): void => {
       event.preventDefault();
+      keyboardMoved.current = true;
       setActive({ column, row });
     };
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      const column = highlighted?.column ?? (leftPicks.length ? 0 : 1);
+      const column = highlighted?.column ?? (medicationPicks.length ? 0 : 1);
       const count = columns[column].length;
       const step = event.key === 'ArrowDown' ? 1 : -1;
       if (count) move(column, highlighted ? (highlighted.row + step + count) % count : step > 0 ? 0 : count - 1);
@@ -372,7 +387,10 @@ const MedicationMenu: FC<{
         aria-selected={isActive}
         // The field keeps focus.
         onMouseDown={(event) => event.preventDefault()}
-        onMouseMove={() => !isActive && setActive({ column, row })}
+        onMouseMove={() => {
+          keyboardMoved.current = false;
+          if (!isActive) setActive({ column, row });
+        }}
         onClick={() => choose(pick)}
         sx={{ px: 2, py: 0.75, cursor: 'pointer', bgcolor: isActive ? 'action.hover' : undefined }}
       >
@@ -406,13 +424,22 @@ const MedicationMenu: FC<{
       <li role="presentation">
         <MenuHeading id={`${id}-heading-${from}`}>{heading}</MenuHeading>
         <Box component="ul" role="group" aria-labelledby={`${id}-heading-${from}`} sx={MENU_LIST_SX}>
-          {picks.map((pick, i) => option(pick, 0, from + i))}
+          {picks.map((pick, i) => option(pick, 1, from + i))}
         </Box>
       </li>
     );
 
-  // Each column scrolls on its own; on a narrow screen the medications go under the quick picks.
-  const columnSx = { flex: 1, minWidth: 0, maxHeight: { xs: 180, sm: 300 }, overflowY: 'auto' };
+  // Each column scrolls on its own (the rows' offsets measured from it); on a narrow screen the quick picks go under
+  // the medications. A fixed height, not a maximum: one following the rows resized the popup as typing emptied and
+  // refilled the columns.
+  const columnSx = {
+    position: 'relative',
+    flex: 1,
+    minWidth: 0,
+    height: 180,
+    [theme.breakpoints.up('sm')]: { height: 300 },
+    overflowY: 'auto',
+  };
   return (
     <Box sx={{ pt: 0.5 }}>
       <TextField
@@ -432,26 +459,12 @@ const MedicationMenu: FC<{
           autoComplete: 'off',
           'aria-autocomplete': 'list',
           'aria-expanded': true,
-          'aria-controls': `${id}-quick-picks ${id}-medications`,
+          'aria-controls': `${id}-medications ${id}-quick-picks`,
           'aria-activedescendant': activeId,
         }}
       />
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1, mt: 1 }}>
-        <Box sx={columnSx}>
-          <Box
-            component="ul"
-            id={`${id}-quick-picks`}
-            role="listbox"
-            aria-label="Prescription sets and quick picks"
-            sx={MENU_LIST_SX}
-          >
-            {group('Prescription sets', left.sets, 0)}
-            {group('Quick picks', left.quickPicks, left.sets.length)}
-          </Box>
-          {leftPicks.length === 0 && <MenuMessage>No quick picks match</MenuMessage>}
-          {left.more && <MenuMessage>Type to search more</MenuMessage>}
-        </Box>
-        <Box sx={{ ...columnSx, borderLeft: { sm: 1 }, borderTop: { xs: 1, sm: 0 }, borderColor: 'divider' }}>
+        <Box data-menu-column sx={columnSx}>
           <MenuHeading id={`${id}-medications-heading`}>Medications</MenuHeading>
           <Box
             component="ul"
@@ -460,19 +473,36 @@ const MedicationMenu: FC<{
             aria-labelledby={`${id}-medications-heading`}
             sx={MENU_LIST_SX}
           >
-            {rightPicks.map((pick, row) => option(pick, 1, row))}
+            {medicationPicks.map((pick, row) => option(pick, 0, row))}
           </Box>
           {!searched ? (
             <MenuMessage>Type to search medications</MenuMessage>
-          ) : isFetching ? (
+          ) : searching ? (
             <MenuMessage>Searching medications…</MenuMessage>
           ) : isError ? (
             <Box sx={{ px: 2 }}>
               <ReportSearchIssue />
             </Box>
           ) : (
-            rightPicks.length === 0 && <MenuMessage>Nothing found for this search criteria</MenuMessage>
+            medicationPicks.length === 0 && <MenuMessage>Nothing found for this search criteria</MenuMessage>
           )}
+        </Box>
+        <Box
+          data-menu-column
+          sx={{ ...columnSx, borderLeft: { sm: 1 }, borderTop: { xs: 1, sm: 0 }, borderColor: 'divider' }}
+        >
+          <Box
+            component="ul"
+            id={`${id}-quick-picks`}
+            role="listbox"
+            aria-label="Prescription sets and quick picks"
+            sx={MENU_LIST_SX}
+          >
+            {group('Prescription sets', listed.sets, 0)}
+            {group('Quick picks', listed.quickPicks, listed.sets.length)}
+          </Box>
+          {quickPickPicks.length === 0 && <MenuMessage>No quick picks match</MenuMessage>}
+          {listed.more && <MenuMessage>Type to search more</MenuMessage>}
         </Box>
       </Box>
     </Box>

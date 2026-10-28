@@ -120,7 +120,7 @@ const DOSED_ROW: PrescriptionSuggestionRow = {
 const pickDrug = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   await user.click(screen.getByRole('button', { name: 'medication (empty)' }));
   await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
-  await user.click(screen.getByRole('option', { name: 'Amoxicillin' }));
+  await user.click(await screen.findByRole('option', { name: 'Amoxicillin' }));
 };
 
 /** Picks the drug, then a strength: the provider picks both. */
@@ -459,7 +459,7 @@ describe('PrescriptionSentences: suggestions first', () => {
       await pickOther(user);
       await user.click(screen.getByRole('button', { name: 'medication: Amoxicillin' }));
       await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
-      await user.click(screen.getByRole('option', { name: 'Amoxicillin' }));
+      await user.click(await screen.findByRole('option', { name: 'Amoxicillin' }));
       // Picking the drug again starts its strength over too.
       expect(screen.getByRole('button', { name: 'strength (empty)' })).toBeInTheDocument();
       expect(directionsShown()).toBe(false);
