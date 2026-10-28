@@ -55,6 +55,7 @@ import {
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
+  OYSTEHR_LABS_OBSERVATION_RATIO_COMPARATOR_EXT_URL,
   OYSTEHR_LABS_OBSERVATION_RATIO_SEPARATOR_EXT_URL,
   OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
   OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
@@ -1853,6 +1854,9 @@ export const parseObservationForPDF = (
     const separator = observation.valueRatio.extension?.find(
       (ext) => ext.url === OYSTEHR_LABS_OBSERVATION_RATIO_SEPARATOR_EXT_URL && ext.valueCode
     )?.valueCode;
+    const comparator = observation.valueRatio.extension?.find(
+      (ext) => ext.url === OYSTEHR_LABS_OBSERVATION_RATIO_COMPARATOR_EXT_URL && ext.valueCode
+    )?.valueCode;
     const numerator = observation.valueRatio.numerator;
     const denominator = observation.valueRatio.denominator;
     if (!numerator) console.warn(`Observation/${observation.id} had a missing valueRatio.numerator`);
@@ -1866,7 +1870,7 @@ export const parseObservationForPDF = (
     // we consolidate the unit because otherwise you end up with "1 titer : 180 titer" which isn't correct
     const consolidatedUnit = numerator?.code;
 
-    value = `${formatRatioValue(numerator, includeUnitOnEach)}${separator ?? ' '}${formatRatioValue(
+    value = `${comparator ?? ''}${formatRatioValue(numerator, includeUnitOnEach)}${separator ?? ' '}${formatRatioValue(
       denominator,
       includeUnitOnEach
     )}${!includeUnitOnEach && consolidatedUnit ? ` ${consolidatedUnit}` : ''}`;
