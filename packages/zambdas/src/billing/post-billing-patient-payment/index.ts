@@ -111,9 +111,20 @@ const performEffect = async (
     ).unbundle()[0];
     if (existing) {
       console.log('idempotent replay detected; returning existing PaymentNotice', existing.id);
-      // a first attempt may have written the notice but died before scheduling the Task
-      await ensurePaymentTaskForNotice(clinicalOystehr, existing, encounterId);
-      return existing;
+      let replayNotice = existing;
+      if (!replayNotice.request?.reference && replayNotice.id) {
+        const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
+        if (claim) {
+          await reconcilePaymentNoticesForClaim(billingOystehr, claim);
+          replayNotice = await billingOystehr.fhir.get<PaymentNotice>({
+            resourceType: 'PaymentNotice',
+            id: replayNotice.id,
+          });
+        }
+      }
+      // A replay must finish linking and scheduling work left by the first attempt.
+      await ensurePaymentTaskForNotice(clinicalOystehr, replayNotice, encounterId);
+      return replayNotice;
     }
   }
 
