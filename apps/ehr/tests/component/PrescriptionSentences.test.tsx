@@ -153,9 +153,9 @@ const withRows = (rows: PrescriptionSuggestionRow[], test: () => Promise<void>) 
 const directionsShown = (): boolean => screen.queryByRole('textbox', { name: 'directions' }) !== null;
 
 describe('PrescriptionSentences', () => {
-  it('numbers the line and waits for a medication before suggesting anything', () => {
+  it('starts the line with its medication, unnumbered, and waits for one before suggesting anything', () => {
     render(<Harness initial={emptyPrescriptionLine()} />);
-    expect(screen.getByText('Prescription 1:')).toBeInTheDocument();
+    expect(screen.queryByText(/Prescription \d:/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'medication (empty)' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'route (empty)' })).not.toBeInTheDocument();
     // Nothing shows above the sentence until a medication is picked.
@@ -170,14 +170,16 @@ describe('PrescriptionSentences', () => {
       render(<Harness initial={emptyPrescriptionLine()} />);
       await pickAmoxicillin(user);
       const box = screen.getByText('Suggested prescriptions');
-      const sentence = screen.getByText('Prescription 1:');
+      const sentence = screen.getByRole('button', { name: /^medication/ });
       expect(box.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     })
   );
 
-  it('opens the line with its medication blank, right after "Prescription 1:", and no separate quick pick list', () => {
+  it('opens the line with its medication blank first, and no separate quick pick list', () => {
     render(<Harness initial={emptyPrescriptionLine()} />);
-    const sentence = screen.getByText('Prescription 1:').closest('.MuiTypography-root') as HTMLElement;
+    const sentence = screen
+      .getByRole('button', { name: 'medication (empty)' })
+      .closest('.MuiTypography-root') as HTMLElement;
     expect(within(sentence).getAllByRole('button')[0]).toHaveAccessibleName('medication (empty)');
     expect(screen.queryByRole('button', { name: /quick pick/ })).not.toBeInTheDocument();
   });
@@ -343,7 +345,7 @@ describe('PrescriptionSentences', () => {
       expect(all[all.length - 1].compareDocumentPosition(save()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     };
     underLastSentence();
-    expect(sentences()[sentences().length - 1]).toHaveTextContent(/^Prescription 1:/);
+    expect(sentences()[sentences().length - 1]).toContainElement(screen.getByRole('button', { name: /^medication/ }));
     await user.click(save());
     expect(onSaveQuickPick).toHaveBeenCalledTimes(1);
 

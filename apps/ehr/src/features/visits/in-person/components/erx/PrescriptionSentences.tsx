@@ -853,10 +853,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       {/* A blue bar down the prescription's left edge sets it apart from the tinted suggestions above; its sentences
           sit line under line, single spaced. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', borderLeft: 3, borderColor: 'primary.main', pl: 1.5 }}>
+        {/* The line starts with its medication: the bar marks where each prescription starts, so it isn't numbered. */}
         <Sentence onRemove={onRemove} removeLabel={`Remove prescription ${index + 1}`}>
-          <Box component="span" sx={{ fontWeight: 700 }}>
-            Prescription {index + 1}:
-          </Box>{' '}
           <PopoverBlank
             label="medication"
             title="Medication"

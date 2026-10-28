@@ -482,7 +482,7 @@ describe('Prescription sets on the order form', () => {
       expect(latest.map(withoutKey)).toEqual([listed(BY_WEIGHT), listed(IBUPROFEN), withoutKey(after)]);
       // Re-dosed for the weight, with its maximum and settings, as the quick pick itself is.
       expect(latest[0]).toMatchObject({ dose: '9', dosing: { rate: 25, basis: 'mg/kg/dose' } });
-      expect(screen.getByText('Prescription 3:')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /^medication/ })).toHaveLength(3);
       expect(notices).toEqual([]);
     });
 
