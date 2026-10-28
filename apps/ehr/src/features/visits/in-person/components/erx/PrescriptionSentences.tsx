@@ -1,4 +1,4 @@
-import { Close } from '@mui/icons-material';
+import { Close, SaveOutlined } from '@mui/icons-material';
 import {
   Alert,
   AlertColor,
@@ -75,8 +75,8 @@ const SUBSTITUTION_OPTIONS = [
   { value: 'not allowed', label: 'not allowed (dispense as written)' },
 ];
 
-/** The line's last link for admins, worded as the Quick Picks menu on other pages. */
-export const ADD_QUICK_PICK_LABEL = '+ Add Quick Pick';
+/** The admins' button under the line that saves it as a quick pick. */
+export const SAVE_QUICK_PICK_LABEL = 'Save as quick pick';
 
 const SEARCH_UNAVAILABLE = 'Medication search is unavailable.';
 
@@ -624,13 +624,12 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   // The instructions blank is offered as a link, like "+ urgent", and stays once opened or written in.
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const instructionsShown = instructionsOpen || line.instructions !== '';
-  // Ends the line's last sentence; not while the line is hidden awaiting a pick: it would save directions no one has
-  // seen.
-  const saveLink = onSaveQuickPick && !readOnly && !(awaitingPick && !revealed) && (
-    <>
-      {' '}
-      <BlankButton label={ADD_QUICK_PICK_LABEL} ghost readOnly={readOnly} onClick={onSaveQuickPick} />
-    </>
+  // On its own row under the line's last sentence; not while the line is hidden awaiting a pick: it would save
+  // directions no one has seen.
+  const saveButton = onSaveQuickPick && !readOnly && !(awaitingPick && !revealed) && (
+    <Button size="small" startIcon={<SaveOutlined />} onClick={onSaveQuickPick} sx={{ alignSelf: 'flex-start' }}>
+      {SAVE_QUICK_PICK_LABEL}
+    </Button>
   );
   const setSteps = (steps: PrescriptionStep[]): void => onChange(withDirections(line, { steps }));
   // A dose over the maximum the line carries: orange under the dose sentence, its blank outlined; never blocks.
@@ -914,7 +913,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         {line.diagnosis && !readOnly && (
           <RemoveButton label={`Remove ${line.diagnosis.code}`} onClick={() => update({ diagnosis: null })} />
         )}
-        .{!revealed && saveLink}
+        .
       </Sentence>
 
       {/* The blanks behind the directions: each change rewrites the Directions box unless the provider typed there.
@@ -1072,10 +1071,11 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 </>
               )
             )}
-            {saveLink}
           </Sentence>
         </>
       )}
+
+      {saveButton}
 
       {errors.length > 0 && (
         <FormHelperText error sx={{ mt: '-8px' }}>

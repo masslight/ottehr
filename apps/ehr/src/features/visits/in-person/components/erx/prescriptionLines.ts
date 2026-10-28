@@ -706,7 +706,7 @@ export const quickPickDosingSummary = (dosing: PrescriptionQuickPickDosing): str
     .join(', ');
 };
 
-/** The name the order form's "+ Add Quick Pick" suggests, its parts joined as the other quick-pick screens join
+/** The name the order form's "Save as quick pick" suggests, its parts joined as the other quick-pick screens join
  * theirs: "Amoxicillin 400 mg/5ml Susp | 6 mL | twice daily | 10 days". A dose the calculator wrote is named by its
  * rule ("25 mg/kg per dose"), as the quick pick keeps it; empty parts are left out. */
 export const suggestedQuickPickName = (line: PrescriptionLine): string => {

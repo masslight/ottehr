@@ -10,8 +10,8 @@ import {
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
 import {
-  ADD_QUICK_PICK_LABEL,
   PrescriptionSentences,
+  SAVE_QUICK_PICK_LABEL,
 } from '../../src/features/visits/in-person/components/erx/PrescriptionSentences';
 import { PrescriptionSuggestionRow } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
@@ -325,25 +325,32 @@ describe('PrescriptionSentences', () => {
     expect(screen.getByRole('button', { name: '+ urgent (empty)' })).toBeInTheDocument();
   });
 
-  it('ends the line with "+ Add Quick Pick" for admins only: its last sentence, the first until the rest shows', async () => {
+  it('puts "Save as quick pick" on its own row under the line’s last sentence, for admins only: the first until the rest shows', async () => {
     const user = userEvent.setup();
     const onSaveQuickPick = vi.fn();
     const { unmount } = render(<Harness initial={emptyPrescriptionLine()} onSaveQuickPick={onSaveQuickPick} />);
-    const save = (): HTMLElement => screen.getByRole('button', { name: `${ADD_QUICK_PICK_LABEL} (empty)` });
-    const sentenceOf = (element: HTMLElement): Element | null => element.closest('.MuiTypography-root');
-    expect(sentenceOf(save())).toBe(sentenceOf(screen.getByText('Prescription 1:')));
+    const save = (): HTMLElement => screen.getByRole('button', { name: SAVE_QUICK_PICK_LABEL });
+    const sentences = (): HTMLElement[] => screen.getAllByText(/./, { selector: '.MuiTypography-root' });
+    /** In no sentence, and after the last one. */
+    const underLastSentence = (): void => {
+      expect(save().closest('.MuiTypography-root')).toBeNull();
+      const all = sentences();
+      expect(all[all.length - 1].compareDocumentPosition(save()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    };
+    underLastSentence();
+    expect(sentences()[sentences().length - 1]).toHaveTextContent(/^Prescription 1:/);
     await user.click(save());
     expect(onSaveQuickPick).toHaveBeenCalledTimes(1);
 
     await pickAmoxicillin(user);
-    const sentences = screen.getAllByText(/./, { selector: '.MuiTypography-root' });
-    expect(sentenceOf(save())).toBe(sentences[sentences.length - 1]);
-    expect(sentenceOf(save())).toHaveTextContent(/^Substitution/);
-    expect(save().nextSibling).toBeNull();
+    underLastSentence();
+    expect(sentences()[sentences().length - 1]).toHaveTextContent(/^Substitution/);
+    expect(save()).toHaveClass('MuiButton-sizeSmall', 'MuiButton-text');
+    expect(within(save()).getByTestId('SaveOutlinedIcon')).toBeInTheDocument();
     unmount();
 
     render(<Harness initial={emptyPrescriptionLine()} />);
-    expect(screen.queryByRole('button', { name: `${ADD_QUICK_PICK_LABEL} (empty)` })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: SAVE_QUICK_PICK_LABEL })).not.toBeInTheDocument();
   });
 
   it('names the medication and diagnosis popups once: by their search fields, with no heading repeating them', async () => {
@@ -512,8 +519,7 @@ describe('PrescriptionSentences: suggestions first', () => {
       const onSaveQuickPick = vi.fn();
       const user = userEvent.setup();
       render(<Harness initial={lineFor(LIQUIDS)} onSaveQuickPick={onSaveQuickPick} />);
-      const saveOffered = (): boolean =>
-        screen.queryByRole('button', { name: `${ADD_QUICK_PICK_LABEL} (empty)` }) !== null;
+      const saveOffered = (): boolean => screen.queryByRole('button', { name: SAVE_QUICK_PICK_LABEL }) !== null;
       await pickOther(user);
       expect(saveOffered()).toBe(true);
       await user.click(screen.getByRole('button', { name: 'strength: 400 mg/5ml Susp' }));
