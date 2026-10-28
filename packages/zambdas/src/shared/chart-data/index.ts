@@ -359,6 +359,12 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
   };
 }
 
+// The eRx service writes the pharmacy id as a string; an integer is still read as a fallback.
+const getPharmacyId = (medRequest: MedicationRequest): string | undefined => {
+  const extension = medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL);
+  return extension?.valueString ?? extension?.valueInteger?.toString();
+};
+
 export function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedMedicationDTO {
   return {
     resourceId: medRequest.id,
@@ -376,7 +382,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
     isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
-    pharmacyId: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL)?.valueInteger?.toString(),
+    pharmacyId: getPharmacyId(medRequest),
   };
 }
 
