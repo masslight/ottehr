@@ -26,7 +26,7 @@ import { userMe } from 'utils/lib/auth/user-me.helper';
 import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getExtensionValue, getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import {
   parsePaymentRefundsFromNotice,
   parsePaymentVoidFromNotice,
@@ -82,8 +82,12 @@ import {
   ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fhirName,
   formatAddress,
+  getClaimBillType,
   getClaimService,
   getClaimType,
   getEraExtensionString,
@@ -218,6 +222,36 @@ function projectClaim(claim: Claim): FieldProjection[] {
       field: 'service',
       label: 'Service',
       value: formatAntCaseString(getClaimService(claim)),
+    },
+    {
+      field: 'billType',
+      label: 'Bill Type',
+      value: getClaimBillType(claim),
+    },
+    {
+      field: 'dischargeStatus',
+      label: 'Patient Discharge Status',
+      value: getExtensionValue(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS, 'valueString') ?? '',
+    },
+    {
+      field: 'admissionType',
+      label: 'Admission Type',
+      value: getExtensionValue(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE, 'valueString') ?? '',
+    },
+    {
+      field: 'admissionSource',
+      label: 'Admission Source',
+      value: getExtensionValue(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE, 'valueString') ?? '',
+    },
+    {
+      field: 'admissionDate',
+      label: 'Admission Date',
+      value: claim.billablePeriod?.start ?? '',
+    },
+    {
+      field: 'dischargeDate',
+      label: 'Discharge Date',
+      value: claim.billablePeriod?.end ?? '',
     }
   );
   return out;

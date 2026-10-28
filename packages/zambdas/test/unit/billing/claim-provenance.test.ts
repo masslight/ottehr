@@ -45,7 +45,15 @@ import {
   commitClaimResourceChange,
   diffResources,
 } from '../../../src/billing/provenance';
-import { ERA_ICN_EXTENSION, ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
+import {
+  ERA_ICN_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+} from '../../../src/billing/shared';
 import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/u1' } };
@@ -165,6 +173,118 @@ describe('diffResources claims', () => {
         newValue: 'Workers Comp',
       },
     ]);
+  });
+});
+
+describe('diffResources institutional claim fields', () => {
+  const extension = (url: string, valueString: string): Partial<Claim> => ({
+    extension: [
+      {
+        url,
+        valueString,
+      },
+    ],
+  });
+
+  it.each<[string, Partial<Claim>, Partial<Claim>, ClaimFieldChange]>([
+    [
+      'bill type',
+      {
+        extension: [
+          {
+            url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+            valueString: '13',
+          },
+        ],
+      },
+      {
+        extension: [
+          {
+            url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+            valueString: '13',
+          },
+          {
+            url: EXTENSION_CLAIM_FREQUENCY_CODE,
+            valueString: '7',
+          },
+        ],
+      },
+      {
+        field: 'billType',
+        label: 'Bill Type',
+        previousValue: '0131',
+        newValue: '0137',
+      },
+    ],
+    [
+      'discharge status',
+      extension(EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS, '01'),
+      extension(EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS, '02'),
+      {
+        field: 'dischargeStatus',
+        label: 'Patient Discharge Status',
+        previousValue: '01',
+        newValue: '02',
+      },
+    ],
+    [
+      'admission type',
+      {},
+      extension(EXTENSION_CLAIM_ADMISSION_TYPE_CODE, '1'),
+      {
+        field: 'admissionType',
+        label: 'Admission Type',
+        previousValue: null,
+        newValue: '1',
+      },
+    ],
+    [
+      'admission source',
+      extension(EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE, '1'),
+      {},
+      {
+        field: 'admissionSource',
+        label: 'Admission Source',
+        previousValue: '1',
+        newValue: null,
+      },
+    ],
+    [
+      'admission date',
+      {
+        billablePeriod: {
+          start: '2026-10-01',
+        },
+      },
+      {
+        billablePeriod: {
+          start: '2026-10-02',
+        },
+      },
+      {
+        field: 'admissionDate',
+        label: 'Admission Date',
+        previousValue: '2026-10-01',
+        newValue: '2026-10-02',
+      },
+    ],
+    [
+      'discharge date',
+      {},
+      {
+        billablePeriod: {
+          end: '2026-10-05',
+        },
+      },
+      {
+        field: 'dischargeDate',
+        label: 'Discharge Date',
+        previousValue: null,
+        newValue: '2026-10-05',
+      },
+    ],
+  ])('records a %s change', (_name, before, after, change) => {
+    expect(diffResources(claimWith(before), claimWith(after))).toEqual([change]);
   });
 });
 

@@ -60,13 +60,12 @@ import {
   ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
-  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
-  EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchClaimGraph,
   fhirName,
   formatAddress,
+  getClaimBillType,
   getClaimPcn,
   getClaimService,
   getClaimStatus,
@@ -272,8 +271,6 @@ export async function performEffect(
     });
   const status = getClaimStatus(claim);
   const patientAddr = patient?.address?.[0];
-  const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
-  const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
   const attachments = documentReferences.flatMap<ClaimAttachment>((dr) => {
     const si = claim.supportingInfo?.find(
       (si) => si.valueReference?.reference?.replace('DocumentReference/', '') === dr.id
@@ -401,7 +398,7 @@ export async function performEffect(
       .map((t) => t.code ?? '')
       .filter(Boolean),
     pcn: getClaimPcn(claim),
-    billType: facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '',
+    billType: getClaimBillType(claim),
     patientDischargeStatusCode: getExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
     admissionType: getExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
     admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
