@@ -275,12 +275,12 @@ const useFormData = (
   const initializedForPatientRef = useRef<string | null>(null);
   const coveragesRefetching = coveragesFetching && Boolean(insuranceData);
   useEffect(() => {
-    if (!defaultFormVals || coveragesRefetching) return;
+    if (!defaultFormVals) return;
     if (initializedForPatientRef.current !== (patientId ?? null)) {
       // New patient: fully populate the form from the freshly loaded defaults.
       methods.reset(defaultFormVals);
       initializedForPatientRef.current = patientId ?? null;
-    } else {
+    } else if (!coveragesRefetching) {
       // Same patient, defaults changed — e.g. the coverages query resolves after the account, so the
       // insurance fields only become available on a later render. Re-populate from the new defaults
       // but keep any values the user has already edited (keepDirtyValues), so insurance fills in
