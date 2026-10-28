@@ -101,7 +101,7 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
   const set = (patch: Partial<PrescriptionQuickPickFormValues>): void => setValues((prev) => ({ ...prev, ...patch }));
 
   const handleSave = (): void => {
-    const result = prescriptionQuickPickFromForm(values);
+    const result = prescriptionQuickPickFromForm(values, quickPicks, editingItem?.id);
     if (result.errors) {
       setErrors(result.errors);
       return;

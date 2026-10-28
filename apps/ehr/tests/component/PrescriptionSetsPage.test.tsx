@@ -140,6 +140,45 @@ describe('Prescription sets admin', () => {
     expect(api.createPrescriptionSetQuickPick).not.toHaveBeenCalled();
   });
 
+  it('won’t add a set with another set’s name, trimmed and in any case', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Add' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Name/), ' ear INFECTION ');
+    await addMember(user, dialog, 'Ofloxacin drops');
+    await user.click(within(dialog).getByRole('button', { name: 'Add' }));
+    expect(within(dialog).getByText('A prescription set named "ear INFECTION" already exists')).toBeInTheDocument();
+    expect(api.createPrescriptionSetQuickPick).not.toHaveBeenCalled();
+  });
+
+  it('won’t rename a set to another set’s name, and shows the server’s error if it finds one', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Strep throat')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    const name = within(dialog).getByLabelText(/^Name/);
+    await user.clear(name);
+    await user.type(name, 'Ear infection');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(within(dialog).getByText('A prescription set named "Ear infection" already exists')).toBeInTheDocument();
+    expect(api.updatePrescriptionSetQuickPick).not.toHaveBeenCalled();
+    // A set saved elsewhere since the list loaded: the server's check is the last word.
+    api.updatePrescriptionSetQuickPick.mockRejectedValue({
+      code: 4000,
+      message: 'A prescription set named "Sore throat" already exists',
+    });
+    await user.clear(name);
+    await user.type(name, 'Sore throat');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(mockEnqueueSnackbar).toHaveBeenCalledWith('A prescription set named "Sore throat" already exists', {
+        variant: 'error',
+      })
+    );
+  });
+
   it('edits a set: reorders, removes a quick pick, changes the status; saving clears the removal note', async () => {
     const user = userEvent.setup();
     renderPage();

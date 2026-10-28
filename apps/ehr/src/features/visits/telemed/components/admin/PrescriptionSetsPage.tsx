@@ -36,6 +36,7 @@ import { ReactElement, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { nameTaken } from 'src/features/visits/in-person/components/erx/prescriptionLines';
 import { prescriptionSetMembers } from 'src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -97,7 +98,11 @@ export default function PrescriptionSetsPage(): ReactElement {
   // Saving clears the notes of removed quick picks: the set has been reviewed.
   const handleSave = (): void => {
     const nextErrors: SetFormErrors = {
-      ...(name.trim() ? {} : { name: 'Name is required' }),
+      ...(!name.trim()
+        ? { name: 'Name is required' }
+        : nameTaken(name, sets, editingItem?.id)
+        ? { name: `A prescription set named "${name.trim()}" already exists` }
+        : {}),
       ...(members.length ? {} : { members: 'Add at least one prescription quick pick' }),
     };
     setErrors(nextErrors);

@@ -184,6 +184,25 @@ describe('Prescription quick picks admin', () => {
     });
   });
 
+  it('won’t save a quick pick under another one’s name, trimmed and in any case; its own name stays', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Amoxicillin caps')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    const name = within(dialog).getByLabelText(/^Name/);
+    await user.clear(name);
+    await user.type(name, ' amoxicillin OTITIS ');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(within(dialog).getByText('A quick pick named "amoxicillin OTITIS" already exists')).toBeInTheDocument();
+    expect(api.updatePrescriptionQuickPick).not.toHaveBeenCalled();
+    await user.clear(name);
+    await user.type(name, 'AMOXICILLIN CAPS');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.updatePrescriptionQuickPick).toHaveBeenCalledTimes(1));
+    expect(api.updatePrescriptionQuickPick.mock.calls[0][2]).toMatchObject({ name: 'AMOXICILLIN CAPS' });
+  });
+
   it('shows the validation errors and saves nothing; shows the backend’s error when it refuses', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -304,6 +323,31 @@ describe('setsRemovalText', () => {
       "It's in 3 sets: A, B, C. Removing it takes it out of all of them and makes them Inactive until someone reviews them."
     );
     expect(setsRemovalText([])).toBeUndefined();
+  });
+});
+
+describe('prescriptionQuickPickFromForm: the name', () => {
+  const saved = [
+    { id: 'qp-1', name: 'Amoxicillin otitis' },
+    { id: 'qp-2', name: 'Amoxicillin caps' },
+  ];
+
+  it('is another quick pick’s only when no other one has it; the one being edited keeps its own', () => {
+    const values = { ...prescriptionQuickPickFormValues(AS_WRITTEN), name: ' amoxicillin OTITIS ' };
+    expect(prescriptionQuickPickFromForm(values, saved).errors).toEqual({
+      name: 'A quick pick named "amoxicillin OTITIS" already exists',
+    });
+    expect(prescriptionQuickPickFromForm(values, saved, 'qp-2').errors?.name).toBeDefined();
+    expect(prescriptionQuickPickFromForm(values, saved, 'qp-1').errors).toBeUndefined();
+    expect(prescriptionQuickPickFromForm({ ...values, name: 'Amox 2' }, saved).errors).toBeUndefined();
+  });
+
+  it('is reported with the other fields’ problems', () => {
+    const values = { ...prescriptionQuickPickFormValues(AS_WRITTEN), name: 'Amoxicillin caps', ndc: '' };
+    expect(prescriptionQuickPickFromForm(values, saved).errors).toMatchObject({
+      name: 'A quick pick named "Amoxicillin caps" already exists',
+      ndc: 'Pick a medication and strength',
+    });
   });
 });
 

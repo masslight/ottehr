@@ -167,6 +167,26 @@ export const prescriptionSetQuickPickSchema = z
   })
   .passthrough();
 
+/** Names are unique within a category, trimmed and in any case; the quick pick being edited keeps its own. Existing
+ * duplicates still load: only a create or an update is checked. */
+const assertNameUnused = async <T extends { id?: string; name: string }>(
+  oystehr: Oystehr,
+  category: QuickPickCategory<T>,
+  quickPick: Record<string, unknown>,
+  quickPickId: string | undefined,
+  label: string
+): Promise<void> => {
+  const name = String(quickPick.name).trim();
+  const existing = await searchQuickPicks(oystehr, category);
+  if (
+    existing.some(
+      (p) => p.name.trim().toLowerCase() === name.toLowerCase() && (quickPickId ? p.id !== quickPickId : true)
+    )
+  ) {
+    throw INVALID_INPUT_ERROR(`${label} named "${name}" already exists`);
+  }
+};
+
 const CATEGORIES: CategoryConfig[] = [
   { category: ALLERGY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
   { category: IMMUNIZATION_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
@@ -194,11 +214,7 @@ const CATEGORIES: CategoryConfig[] = [
 
       // A quick pick's name is now an arbitrary label (multiple picks may reference the same payer),
       // so enforce uniqueness on the name rather than the payer reference.
-      const name = String(quickPick.name).trim().toLowerCase();
-      const existing = await searchQuickPicks(oystehr, INSURANCE_QUICK_PICK_CATEGORY);
-      if (existing.some((p) => p.name.trim().toLowerCase() === name && (quickPickId ? p.id !== quickPickId : true))) {
-        throw INVALID_INPUT_ERROR(`An insurance quick pick named "${quickPick.name}" already exists`);
-      }
+      await assertNameUnused(oystehr, INSURANCE_QUICK_PICK_CATEGORY, quickPick, quickPickId, 'An insurance quick pick');
     },
   },
   { category: MEDICAL_CONDITION_QUICK_PICK_CATEGORY, requiredStringFields: ['display'] },
@@ -208,15 +224,23 @@ const CATEGORIES: CategoryConfig[] = [
     category: PRESCRIPTION_QUICK_PICK_CATEGORY,
     // Every prescription quick pick orders a product, as written or dosed by the calculator.
     requiredStringFields: ['name', 'ndc', 'medicationDescription'],
-    validator: async (_oystehr, quickPick) => {
+    validator: async (oystehr, quickPick, quickPickId) => {
       safeValidate(prescriptionQuickPickSchema, quickPick);
+      await assertNameUnused(oystehr, PRESCRIPTION_QUICK_PICK_CATEGORY, quickPick, quickPickId, 'A quick pick');
     },
   },
   {
     category: PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
     requiredStringFields: ['name'],
-    validator: async (_oystehr, quickPick) => {
+    validator: async (oystehr, quickPick, quickPickId) => {
       safeValidate(prescriptionSetQuickPickSchema, quickPick);
+      await assertNameUnused(
+        oystehr,
+        PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
+        quickPick,
+        quickPickId,
+        'A prescription set'
+      );
     },
   },
   {

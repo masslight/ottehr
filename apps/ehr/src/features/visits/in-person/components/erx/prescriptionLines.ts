@@ -699,17 +699,24 @@ export const quickPickDosingSummary = (dosing: PrescriptionQuickPickDosing): str
     .join(', ');
 };
 
+/** Whether another quick pick or set already has this name (trimmed, in any case); the one being edited keeps its
+ * own. The server checks the same when it saves. */
+export const nameTaken = (name: string, items: { id?: string; name: string }[], editingId?: string): boolean => {
+  const trimmed = name.trim().toLowerCase();
+  return items.some(
+    (item) => item.name.trim().toLowerCase() === trimmed && (editingId === undefined || item.id !== editingId)
+  );
+};
+
 /** Why the order form's "Save as Quick Pick", which only adds, can't save this name: a quick pick already has it
  * (trimmed, in any case). */
 export const quickPickNameInUse = (
   name: string,
-  quickPicks: Pick<PrescriptionQuickPickData, 'name'>[]
-): string | undefined => {
-  const trimmed = name.trim();
-  return quickPicks.some((quickPick) => quickPick.name.trim().toLowerCase() === trimmed.toLowerCase())
-    ? `A quick pick named '${trimmed}' already exists. Edit it in Admin → Quick Picks, or choose another name.`
+  quickPicks: Pick<PrescriptionQuickPickData, 'id' | 'name'>[]
+): string | undefined =>
+  nameTaken(name, quickPicks)
+    ? `A quick pick named '${name.trim()}' already exists. Edit it in Admin → Quick Picks, or choose another name.`
     : undefined;
-};
 
 /** Why the order form's "Save as Quick Pick" can't save the line: every quick pick orders a product. */
 export const quickPickProductMissing = (line: Pick<PrescriptionLine, 'medication'>): string | undefined =>

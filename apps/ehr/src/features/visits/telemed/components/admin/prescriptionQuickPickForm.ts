@@ -10,7 +10,7 @@ import {
   PrescriptionQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
 import { z } from 'zod';
-import { numberOrUndefined, productDetailsOf } from '../../../in-person/components/erx/prescriptionLines';
+import { nameTaken, numberOrUndefined, productDetailsOf } from '../../../in-person/components/erx/prescriptionLines';
 
 /** How the quick pick doses: its directions as written, or the dose calculator's settings, re-dosed per patient. */
 export type PrescriptionDoseMode = 'as-written' | 'dosing';
@@ -188,7 +188,10 @@ const FormSchema = z
 /** The quick pick the dialog saves, or the problems with each field. A pick dosed by weight keeps no written
  * directions, quantity or days supply: the order form works those out from the dose for each patient. */
 export const prescriptionQuickPickFromForm = (
-  input: PrescriptionQuickPickFormValues
+  input: PrescriptionQuickPickFormValues,
+  // The quick picks already saved, and the one being edited, for a name no other one has.
+  saved: Pick<PrescriptionQuickPickData, 'id' | 'name'>[] = [],
+  editingId?: string
 ):
   | { quickPick: Omit<PrescriptionQuickPickData, 'id'>; errors?: undefined }
   | { errors: PrescriptionQuickPickFormErrors } => {
@@ -206,9 +209,12 @@ export const prescriptionQuickPickFromForm = (
           additionalInstructions: '',
         };
   const result = FormSchema.safeParse(values);
-  if (!result.success) {
-    const errors: PrescriptionQuickPickFormErrors = {};
-    for (const issue of result.error.issues) {
+  const nameError = nameTaken(values.name, saved, editingId)
+    ? `A quick pick named "${values.name.trim()}" already exists`
+    : undefined;
+  if (!result.success || nameError) {
+    const errors: PrescriptionQuickPickFormErrors = nameError ? { name: nameError } : {};
+    for (const issue of result.success ? [] : result.error.issues) {
       const key = issue.path[0] as keyof PrescriptionQuickPickFormValues;
       errors[key] ??= issue.message;
     }
