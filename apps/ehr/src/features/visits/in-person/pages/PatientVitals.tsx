@@ -8,6 +8,7 @@ import { DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 import { Loader } from '../../shared/components/Loader';
 import { useChartData } from '../../shared/hooks/useChartData';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
+import { GrowthCharts } from '../components/vitals/growth-charts/GrowthCharts';
 import { PatientVitalsBody } from '../components/vitals/PatientVitalsBody';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 
@@ -44,6 +45,8 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
+  const showGrowthCharts = underGrowthChartAgeAt(patient?.birthDate, appointment.start);
+
   return (
     <Stack spacing={1}>
       <PageTitle
@@ -53,7 +56,25 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
       />
       <SystemReportTabs
         pageTab="Enter vitals"
-        reports={underGrowthChartAgeAt(patient?.birthDate, appointment.start) ? GROWTH_CHARTS : []}
+        reports={showGrowthCharts ? GROWTH_CHARTS : []}
+        nativeTabs={
+          showGrowthCharts
+            ? [
+                {
+                  label: 'Growth charts (native)',
+                  content: (
+                    <GrowthCharts
+                      patientId={patient?.id}
+                      birthDate={patient?.birthDate}
+                      gender={patient?.gender}
+                      encounterId={encounter?.id}
+                      visitDate={appointment.start}
+                    />
+                  ),
+                },
+              ]
+            : []
+        }
         inputs={{ patientId: patient?.id, encounterId: encounter?.id, visitDate: appointment.start }}
       >
         <PatientVitalsBody />

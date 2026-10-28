@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { SystemReportTab, SystemReportTabs } from 'src/features/system-reports/SystemReportTabs';
+import { NativeTab, SystemReportTab, SystemReportTabs } from 'src/features/system-reports/SystemReportTabs';
 import type { SystemReport as SystemReportDefinition } from 'utils/lib/types/adhoc/system/system-report';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -32,11 +32,12 @@ const published: Record<string, SystemReportDefinition> = {
 
 const renderTabs = (
   reports: SystemReportTab[],
-  inputs: Record<string, unknown> = { patientId: 'p1' }
+  inputs: Record<string, unknown> = { patientId: 'p1' },
+  nativeTabs?: NativeTab[]
 ): ReturnType<typeof render> =>
   render(
     <MemoryRouter>
-      <SystemReportTabs pageTab="Enter vitals" reports={reports} inputs={inputs}>
+      <SystemReportTabs pageTab="Enter vitals" reports={reports} nativeTabs={nativeTabs} inputs={inputs}>
         <div data-testid="page">the vitals form</div>
       </SystemReportTabs>
     </MemoryRouter>
@@ -87,6 +88,29 @@ describe('SystemReportTabs', () => {
     renderTabs([{ name: 'missing', label: 'Missing' }]);
     await userEvent.click(screen.getByRole('tab', { name: 'Missing' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('No system report named "missing"'));
+  });
+
+  it('puts native tabs after the reports, mounting each on first open', async () => {
+    renderTabs([{ name: 'growth-charts', label: 'Growth charts' }], { patientId: 'p1' }, [
+      { label: 'Growth charts (native)', content: <div data-testid="native">native charts</div> },
+    ]);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      'Enter vitals',
+      'Growth charts',
+      'Growth charts (native)',
+    ]);
+    expect(screen.queryByTestId('native')).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: 'Growth charts (native)' }));
+    expect(screen.getByTestId('native')).toBeVisible();
+    expect(screen.getByTestId('page')).not.toBeVisible();
+    expect(getSystemReport).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('tab', { name: 'Enter vitals' }));
+    expect(screen.getByTestId('native')).not.toBeVisible();
+  });
+
+  it('shows the tab bar for native tabs alone', () => {
+    renderTabs([], { patientId: 'p1' }, [{ label: 'Native', content: <div /> }]);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Enter vitals', 'Native']);
   });
 
   it('hands every host input to the report, the units and visit date among them', async () => {

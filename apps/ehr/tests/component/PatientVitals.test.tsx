@@ -174,7 +174,11 @@ describe('PatientVitals', () => {
 
       render(<PatientVitals />, { wrapper });
 
-      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Enter vitals', 'Growth charts']);
+      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+        'Enter vitals',
+        'Growth charts',
+        'Growth charts (native)',
+      ]);
       expect(screen.getByTestId('temperature-card')).toBeVisible();
     });
 

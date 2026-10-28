@@ -17,11 +17,19 @@ export interface SystemReportTab {
   label: string;
 }
 
+/** A tab built into the EHR, shown after the reports' tabs. */
+export interface NativeTab {
+  label: string;
+  /** Mounted when the tab is first opened, then kept, like a report. */
+  content: React.ReactNode;
+}
+
 interface SystemReportTabsProps {
   /** The screen's own tab (the page as it is today). */
   pageTab: string;
   /** The reports to show; with none, the page renders alone, without a tab bar. */
   reports: SystemReportTab[];
+  nativeTabs?: NativeTab[];
   inputs: Record<string, unknown>;
   children: React.ReactNode;
 }
@@ -30,12 +38,19 @@ type Loaded = { report: SystemReportDefinition } | { error: string };
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-export function SystemReportTabs({ pageTab, reports, inputs, children }: SystemReportTabsProps): React.ReactElement {
+export function SystemReportTabs({
+  pageTab,
+  reports,
+  nativeTabs = [],
+  inputs,
+  children,
+}: SystemReportTabsProps): React.ReactElement {
   const { oystehrZambda } = useApiClients();
   const [tab, setTab] = useState(0);
   const [loaded, setLoaded] = useState<Record<string, Loaded | 'loading'>>({});
+  const [openedNative, setOpenedNative] = useState<number[]>([]);
 
-  if (reports.length === 0) return <>{children}</>;
+  if (reports.length === 0 && nativeTabs.length === 0) return <>{children}</>;
 
   const open = (name: string): void => {
     if (!oystehrZambda || loaded[name]) return;
@@ -58,13 +73,17 @@ export function SystemReportTabs({ pageTab, reports, inputs, children }: SystemR
             value={tab}
             onChange={(_, value: number) => {
               setTab(value);
-              if (value > 0) open(reports[value - 1].name);
+              if (value > 0 && value <= reports.length) open(reports[value - 1].name);
+              if (value > reports.length && !openedNative.includes(value)) setOpenedNative([...openedNative, value]);
             }}
             aria-label="page and report tabs"
           >
             <Tab label={pageTab} />
             {reports.map(({ name, label }) => (
               <Tab key={name} label={label} />
+            ))}
+            {nativeTabs.map(({ label }) => (
+              <Tab key={label} label={label} />
             ))}
           </Tabs>
         </Box>
@@ -84,6 +103,15 @@ export function SystemReportTabs({ pageTab, reports, inputs, children }: SystemR
               <Alert severity="error">The report could not be loaded: {state.error}</Alert>
             )}
             {state !== 'loading' && 'report' in state && <SystemReport report={state.report} inputs={inputs} />}
+          </Box>
+        );
+      })}
+      {nativeTabs.map(({ label, content }, i) => {
+        const index = reports.length + 1 + i;
+        if (!openedNative.includes(index)) return null;
+        return (
+          <Box key={label} sx={{ display: tab === index ? 'block' : 'none', pt: 2 }}>
+            {content}
           </Box>
         );
       })}

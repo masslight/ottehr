@@ -61,6 +61,10 @@ import {
 } from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
 import { MigrateExamDataInput, MigrateExamDataOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
+  GetGrowthChartDataInput,
+  GetGrowthChartDataOutput,
+} from 'utils/lib/types/api/chart-data/get-growth-chart-data.types';
+import {
   CreateEmCodeInput,
   DeleteEmCodeInput,
   EmCodeOutput,
@@ -444,6 +448,7 @@ const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
 const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
 const GET_SYSTEM_REPORT_ZAMBDA_ID = 'get-system-report';
 const RUN_SYSTEM_REPORT_ZAMBDA_ID = 'run-system-report';
+const GET_GROWTH_CHART_DATA_ZAMBDA_ID = 'get-growth-chart-data';
 const MAILED_STATEMENTS_REPORT_ZAMBDA_ID = 'mailed-statements-report';
 const SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID = 'sync-mailed-statement-statuses';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
@@ -814,6 +819,19 @@ export const getSystemReport = async (
 ): Promise<GetSystemReportOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: GET_SYSTEM_REPORT_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getGrowthChartData = async (
+  oystehr: Oystehr,
+  parameters: GetGrowthChartDataInput
+): Promise<GetGrowthChartDataOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_GROWTH_CHART_DATA_ZAMBDA_ID, ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
