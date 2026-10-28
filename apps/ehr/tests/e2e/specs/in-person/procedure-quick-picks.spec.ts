@@ -24,15 +24,22 @@ const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(
 )?.[1].resource.expansion.contains;
 
 // This spec fills the generic procedure form, Site/location and Side of body included. A procedure
-// type whose coding family asks for the site inside its own questions hides those two dropdowns,
-// and a type with no coding family at all reaches out to AI for suggestions — so pick the first
-// type that keeps the generic form and stays on the local rules engine.
+// type whose coding family asks for the site inside its own questions, or leaves standard fields
+// out altogether (an EKG has no site, anesthesia or specimen), hides some of them, and a type with
+// no coding family at all reaches out to AI for suggestions — so pick the first type that keeps the
+// generic form and stays on the local rules engine.
 const FIRST_PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS!
   .map((coding) => ({
     display: coding.display,
     codingFamily: detectProcedureFamily({ procedureType: coding.display }),
   }))
-  .filter(({ codingFamily }) => codingFamily && !codingFamily.capturesSite && !codingFamily.capturesSide)[0].display;
+  .filter(
+    ({ codingFamily }) =>
+      codingFamily &&
+      !codingFamily.capturesSite &&
+      !codingFamily.capturesSide &&
+      !codingFamily.omitsStandardFields?.length
+  )[0].display;
 
 const BODY_SITES = Object.entries(procedureBodySites.fhirResources).find(([key]) =>
   key.startsWith('value-set-procedure-body-sites')

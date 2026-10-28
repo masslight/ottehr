@@ -106,6 +106,8 @@ export interface EkgTemplateBlank {
 
 export interface EkgTemplate {
   id: string;
+  /** What the row reads as, naming its "use" button for screen readers. */
+  name: string;
   /** `{rate}` `{pr}` `{qrs}` `{qtc}` print the typed number; any other `{name}` is a blank from `blanks`. */
   text: string;
   blanks?: Record<string, EkgTemplateBlank>;
@@ -126,6 +128,7 @@ const IMPRESSION = 'Impression';
 export const EKG_TEMPLATES: EkgTemplate[] = [
   {
     id: 'normal',
+    name: 'Normal',
     text: 'Sinus rhythm. Normal axis. Normal intervals. No acute ST-T wave changes. Impression: {impression}.',
     blanks: { impression: { title: IMPRESSION, options: ['normal EKG', 'otherwise normal EKG'] } },
     rank: 2,
@@ -135,6 +138,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   },
   {
     id: 'rate',
+    name: 'Sinus bradycardia or tachycardia',
     text: '{rhythm}, rate {rate}. Normal axis. Normal intervals. No acute ST-T wave changes. Impression: {impression}.',
     blanks: {
       rhythm: {
@@ -150,6 +154,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   },
   {
     id: 'first-degree-block',
+    name: 'First-degree AV block',
     text: 'Sinus rhythm with first-degree AV block, PR {pr} ms. Normal axis. No acute ST-T wave changes. Impression: {impression}.',
     blanks: { impression: { title: IMPRESSION, options: ['borderline EKG', 'abnormal EKG', 'otherwise normal EKG'] } },
     findings: ['longPr'],
@@ -158,6 +163,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   },
   {
     id: 'wide-qrs',
+    name: 'Bundle branch block or conduction delay',
     text: 'Sinus rhythm with {conduction}, QRS {qrs} ms. {axis}. {stt}. Impression: abnormal EKG.',
     blanks: {
       conduction: {
@@ -181,6 +187,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   },
   {
     id: 'prolonged-qtc',
+    name: 'Prolonged QTc',
     text: 'Sinus rhythm. Prolonged QTc, {qtc} ms. Normal axis. No acute ST-T wave changes. Impression: {impression}.',
     blanks: { impression: { title: IMPRESSION, options: ['abnormal EKG', 'borderline EKG'] } },
     findings: ['longQtc'],
@@ -189,6 +196,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   },
   {
     id: 'nonspecific-st-t',
+    name: 'Nonspecific ST-T changes',
     text: 'Sinus rhythm. Nonspecific ST-T wave changes. Normal axis. Normal intervals. Impression: {impression}.',
     blanks: { impression: { title: IMPRESSION, options: ['borderline EKG', 'abnormal EKG'] } },
     rank: 1,

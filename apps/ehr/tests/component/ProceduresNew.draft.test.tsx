@@ -154,7 +154,7 @@ vi.mock('../../src/api/api', () => ({
 
 // Component and store imports come after all vi.mock calls.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
@@ -250,24 +250,40 @@ describe('ProceduresNew — draft store', () => {
 
   // --- Standard fields a family omits ---
 
-  it('hides the standard fields EKG omits but keeps consent and instructions', async () => {
+  it('hides Site and the standard fields EKG omits but keeps consent, instructions and procedure details', async () => {
     useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG' });
     renderComponent();
     await waitFor(() => {
       expect(screen.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions)).toBeInTheDocument();
     });
-    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.technique)).not.toBeInTheDocument();
-    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.specimenSent)).not.toBeInTheDocument();
+    for (const testId of [
+      dataTestIds.documentProcedurePage.site,
+      dataTestIds.documentProcedurePage.sideOfBody,
+      dataTestIds.documentProcedurePage.anaesthesia,
+      dataTestIds.documentProcedurePage.technique,
+      dataTestIds.documentProcedurePage.instruments,
+      dataTestIds.documentProcedurePage.specimenSent,
+      dataTestIds.documentProcedurePage.complications,
+      dataTestIds.documentProcedurePage.patientResponse,
+      dataTestIds.documentProcedurePage.timeSpent,
+    ])
+      expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
+    expect(screen.queryByText('Site')).not.toBeInTheDocument();
     expect(screen.queryByText('Technique')).not.toBeInTheDocument();
     expect(screen.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)).toBeInTheDocument();
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.procedureDetails)).toBeInTheDocument();
   });
 
-  it('still shows an omitted EKG field that already has a value', async () => {
-    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG', timeSpent: '< 5 min' });
+  it('still shows an omitted EKG field, Site included, that already has a value', async () => {
+    useProcedureStore
+      .getState()
+      .setDraft(ENCOUNTER_ID, { procedureType: 'EKG', timeSpent: '< 5 min', bodySite: 'Chest', bodySide: 'Left' });
     renderComponent();
     await waitFor(() => {
       expect(screen.getByTestId(dataTestIds.documentProcedurePage.timeSpent)).toBeInTheDocument();
     });
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.site)).toHaveTextContent(/chest/i);
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.sideOfBody)).toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.complications)).not.toBeInTheDocument();
   });
 
@@ -686,5 +702,53 @@ describe('procedure diagnosis search and cleanup', () => {
     expect(mockSaveChartData.mock.calls[0][0].diagnosis[0]).toMatchObject({ code: 'J06.9', addedViaProcedure: true });
     expect(mockChartData.diagnosis).toEqual([expect.objectContaining({ resourceId: 'new' })]);
     expect(mockDeleteChartData).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProceduresNew — EKG save and reopen', () => {
+  const EKG_FACTS = {
+    component: 'tracing and report',
+    rate: 72,
+    qt: 380,
+    qtc: 430,
+    qtcMethod: 'manual',
+    conduction: ['normal'],
+  };
+  const INTERPRETATION_KEYS = ['rhythm', 'axis', 'stt', 'otherFindings', 'comparison', 'impression'];
+
+  it('saves an incomplete EKG with its typed QTc and method, and nothing it was not given', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG', structuredFacts: EKG_FACTS });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    const saved = mockSaveChartData.mock.calls[1][0].procedures[0].structuredFacts;
+    expect(saved).toMatchObject(EKG_FACTS);
+    for (const key of ['pr', 'qrs', 'axisDegrees', ...INTERPRETATION_KEYS]) expect(saved[key], key).toBeUndefined();
+  });
+
+  it('reopens a saved EKG with its QTc and method, and an older one with the new fields empty', async () => {
+    const user = userEvent.setup();
+    mockChartData.procedures = [
+      { resourceId: 'ekg-new', procedureType: 'EKG', structuredFacts: EKG_FACTS },
+      { resourceId: 'ekg-old', procedureType: 'EKG', structuredFacts: { component: 'tracing and report', count: 1 } },
+    ];
+    const { unmount } = render(<ProceduresNew procedureId="ekg-new" />, { wrapper: createWrapper() });
+    expect(await screen.findByRole('spinbutton', { name: 'QTc (ms)' })).toHaveValue(430);
+    expect(
+      within(screen.getByTestId(dataTestIds.documentProcedurePage.ekgTile('qtc'))).getByText('manual')
+    ).toBeInTheDocument();
+    unmount();
+
+    render(<ProceduresNew procedureId="ekg-old" />, { wrapper: createWrapper() });
+    for (const name of ['Rate (bpm)', 'QT (ms)', 'QTc (ms)'])
+      expect(await screen.findByRole('spinbutton', { name })).toHaveValue(null);
+    expect(screen.getByRole('button', { name: 'rhythm (empty)' })).toBeInTheDocument();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    const saved = mockSaveChartData.mock.calls[1][0].procedures[0].structuredFacts;
+    expect(saved).toMatchObject({ component: 'tracing and report', count: 1 });
+    for (const key of ['rate', 'qt', 'qtc', 'qtcMethod', 'conduction', ...INTERPRETATION_KEYS])
+      expect(saved[key], key).toBeUndefined();
   });
 });

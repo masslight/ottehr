@@ -27,6 +27,9 @@ const EKG_CODES = {
 
 type EkgCode = (typeof EKG_CODES)[keyof typeof EKG_CODES];
 
+/** 93000 and 93010 include the interpretation and report; 93005 (tracing only) does not. */
+const neededForReport = (facts: StructuredFacts): boolean => facts.component !== 'tracing only';
+
 const fields: readonly CodingField[] = [
   {
     key: 'component',
@@ -63,20 +66,34 @@ const fields: readonly CodingField[] = [
     details: true,
   },
   // Measurements, read off the printout. None is required to save; a report needs the rate and intervals.
-  { key: 'rate', label: 'Rate (bpm)', kind: 'number', min: 0, step: 1 },
-  { key: 'pr', label: 'PR (ms)', kind: 'number', min: 0, step: 1 },
-  { key: 'qrs', label: 'QRS (ms)', kind: 'number', min: 0, step: 1 },
-  { key: 'qt', label: 'QT (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'rate', neededForCoding: neededForReport, label: 'Rate (bpm)', kind: 'number', min: 0, step: 1 },
+  { key: 'pr', neededForCoding: neededForReport, label: 'PR (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qrs', neededForCoding: neededForReport, label: 'QRS (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qt', neededForCoding: neededForReport, label: 'QT (ms)', kind: 'number', min: 0, step: 1 },
   // Calculated from QT and rate by the page (see ekgQtc) unless the method is manual; both are stored so
   // the note can say how the value was arrived at.
   { key: 'qtc', label: 'QTc (ms)', kind: 'number', min: 0, step: 1 },
   { key: 'qtcMethod', label: 'QTc method', kind: 'select', options: QTC_METHODS },
   { key: 'axisDegrees', label: 'Axis (°)', kind: 'number', min: -180, step: 1 },
   // Interpretation. "Other findings" is optional; the rest are needed for the interpretation and report.
-  { key: 'rhythm', label: 'Rhythm', kind: 'select', options: EKG_RHYTHMS },
-  { key: 'axis', label: 'Axis', kind: 'select', options: EKG_AXES },
-  { key: 'conduction', label: 'Intervals and conduction', kind: 'multi', options: EKG_CONDUCTION, exclusive: 'normal' },
-  { key: 'stt', label: 'ST / T', kind: 'multi', options: EKG_ST_T, exclusive: 'no acute ST-T wave changes' },
+  { key: 'rhythm', neededForCoding: neededForReport, label: 'Rhythm', kind: 'select', options: EKG_RHYTHMS },
+  { key: 'axis', neededForCoding: neededForReport, label: 'Axis', kind: 'select', options: EKG_AXES },
+  {
+    key: 'conduction',
+    neededForCoding: neededForReport,
+    label: 'Intervals and conduction',
+    kind: 'multi',
+    options: EKG_CONDUCTION,
+    exclusive: 'normal',
+  },
+  {
+    key: 'stt',
+    neededForCoding: neededForReport,
+    label: 'ST / T',
+    kind: 'multi',
+    options: EKG_ST_T,
+    exclusive: 'no acute ST-T wave changes',
+  },
   {
     key: 'otherFindings',
     label: 'Other findings',
@@ -85,8 +102,20 @@ const fields: readonly CodingField[] = [
     exclusive: 'none',
     details: true,
   },
-  { key: 'comparison', label: 'Comparison with prior', kind: 'select', options: EKG_COMPARISONS },
-  { key: 'impression', label: 'Impression', kind: 'select', options: EKG_IMPRESSIONS },
+  {
+    key: 'comparison',
+    neededForCoding: neededForReport,
+    label: 'Comparison with prior',
+    kind: 'select',
+    options: EKG_COMPARISONS,
+  },
+  {
+    key: 'impression',
+    neededForCoding: neededForReport,
+    label: 'Impression',
+    kind: 'select',
+    options: EKG_IMPRESSIONS,
+  },
 ];
 
 /** The interpretation fields a report must cover besides the rate and intervals; "Other findings" is optional. */
@@ -119,11 +148,10 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   id: 'ekg',
   procedureNames: PROCEDURE_NAMES['ekg'],
   displayName: 'EKG',
-  // A 12-lead EKG has no body site or side (fixed chest and limb leads), so the page hides Site.
-  capturesSite: true,
-  capturesSide: true,
-  // Nothing is anaesthetised, cut or sent off in an EKG; consent and instructions given still apply.
+  // A 12-lead EKG has no body site or side (fixed chest and limb leads), and nothing is anaesthetised, cut or
+  // sent off; consent, instructions given and procedure details still apply.
   omitsStandardFields: [
+    'site',
     'anesthesia',
     'technique',
     'supplies',
@@ -133,6 +161,8 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
     'timeSpent',
   ],
   fields,
+  // The numbers come off this patient's printout; a quick pick saved from the procedure must not carry them to the next.
+  quickPickExcludes: EKG_MEASUREMENT_KEYS,
   // The note reads the measurements as one line ("Rate 72 bpm, PR 160 ms, …") rather than field by field.
   noteLines: (facts) => ({
     lines: [ekgMeasurementLine(facts)].filter((line): line is string => line !== undefined),

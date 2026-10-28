@@ -25,12 +25,12 @@ export const isSentenceBlank = (segment: SentenceSegment): segment is SentenceBl
   typeof segment !== 'string' && 'options' in segment;
 
 /** The first blank with neither a default nor a picked value — the sentence can't be added until it has one. */
-export const findUnpickedBlank = (
-  segments: SentenceSegment[],
+export const findUnpickedBlank = <S extends SentenceSegment>(
+  segments: readonly S[],
   values: (string | undefined)[]
-): SentenceBlank | undefined =>
+): Extract<S, SentenceBlank> | undefined =>
   segments.find(
-    (segment, i): segment is SentenceBlank =>
+    (segment, i): segment is Extract<S, SentenceBlank> =>
       isSentenceBlank(segment) && segment.initial === undefined && values[i] === undefined
   );
 
@@ -55,12 +55,12 @@ export const assembleSentence = (segments: SentenceSegment[], values: (string | 
  * are merged, runs of whitespace collapsed and the ends trimmed, so the segments read the same on screen as the
  * assembled sentence does.
  */
-export const parseTemplate = (
+export const parseTemplate = <S extends SentenceSegment = SentenceSegment>(
   text: string,
-  resolve: (name: string) => SentenceSegment | undefined
-): SentenceSegment[] => {
-  const segments: SentenceSegment[] = [];
-  const push = (segment: SentenceSegment): void => {
+  resolve: (name: string) => S | string | undefined
+): (S | string)[] => {
+  const segments: (S | string)[] = [];
+  const push = (segment: S | string): void => {
     const last = segments[segments.length - 1];
     if (typeof segment === 'string' && typeof last === 'string') segments[segments.length - 1] = last + segment;
     else segments.push(segment);

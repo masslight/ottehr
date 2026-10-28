@@ -1125,6 +1125,22 @@ export const UNFINISHED_FORMS: { visit: string; procedure: string; answers: Form
     asksFor: ['PR, QRS and QT intervals', 'Comparison with prior'],
   },
   {
+    visit: 'Intervals and conduction say "normal" beside a block',
+    procedure: EKG,
+    answers: {
+      'Component furnished': 'tracing and report',
+      ...EKG_REPORT,
+      'Intervals and conduction': ['normal', 'first-degree AV block'],
+    },
+    asksFor: ['Intervals and conduction'],
+  },
+  {
+    visit: 'The ST / T finding is not one of the choices',
+    procedure: EKG,
+    answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT, 'ST / T': ['ST elevation, all leads'] },
+    asksFor: ['ST / T'],
+  },
+  {
     visit: 'The catheter type has not been chosen',
     procedure: CATHETER,
     answers: {},

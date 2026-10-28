@@ -111,10 +111,18 @@ export function invalidStructuredFields(fields: readonly CodingField[], facts: S
           )
         : [field.label];
 
-    if (field.kind === 'multi')
-      return Array.isArray(value) && value.every((item) => typeof item === 'string' && field.options.includes(item))
+    // Each choice one of the options, and the stand-alone option ("normal") never beside another choice.
+    if (field.kind === 'multi') {
+      const chosen = readStrings(facts, field.key);
+      const exclusiveWithOthers =
+        field.exclusive !== undefined && chosen.length > 1 && chosen.includes(field.exclusive);
+      return Array.isArray(value) &&
+        chosen.length === value.length &&
+        chosen.every((item) => field.options.includes(item)) &&
+        !exclusiveWithOthers
         ? []
         : [field.label];
+    }
 
     if (field.kind === 'checkbox') return typeof value === 'boolean' ? [] : [field.label];
 

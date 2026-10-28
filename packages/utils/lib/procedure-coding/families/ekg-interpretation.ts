@@ -35,18 +35,20 @@ export function ekgQtc(facts: StructuredFacts): number | undefined {
   if (method === 'manual') return readNumber(facts, 'qtc');
   const qt = readNumber(facts, 'qt');
   const rate = readNumber(facts, 'rate');
-  return qt && rate ? calculateQtc(qt, rate, method) : undefined;
+  // Only from positive numbers: a stray minus sign would otherwise store NaN, which the save rejects.
+  return qt !== undefined && rate !== undefined && qt > 0 && rate > 0 ? calculateQtc(qt, rate, method) : undefined;
 }
 
 /**
  * The facts with the stored QTc and method kept in step with QT and rate, so the saved note needs no
- * arithmetic. Neither is stored without the other: a method with no value would be noise in the note.
+ * arithmetic. A value is always stored with its method. A method the provider picked is kept while there is no
+ * value yet (Fridericia before the QT is typed, or manual with the box cleared), but the default is never
+ * written on its own; the note prints a method only beside a value.
  */
 export function withEkgQtc(facts: StructuredFacts): StructuredFacts {
   const qtc = ekgQtc(facts);
-  return qtc === undefined
-    ? { ...facts, qtc: undefined, qtcMethod: undefined }
-    : { ...facts, qtc, qtcMethod: ekgQtcMethod(facts) };
+  const picked = QTC_METHODS.find((method) => method === facts.qtcMethod);
+  return { ...facts, qtc, qtcMethod: qtc === undefined ? picked : ekgQtcMethod(facts) };
 }
 
 export interface EkgMeasurements {
@@ -107,6 +109,7 @@ export interface EkgSuggestionBlank extends SentenceBlank, Pick<EkgTemplateBlank
 
 export interface EkgSuggestion {
   id: string;
+  name: string;
   segments: SentenceSegment[];
   /** Why the numbers rank it; empty for the standing offers. */
   reason?: string;
@@ -150,6 +153,7 @@ export function suggestEkgInterpretations(numbers: EkgMeasurements, isChild: boo
     const finding = template.findings?.find((item) => found.includes(item));
     return {
       id: template.id,
+      name: template.name,
       segments: templateSegments(template, numbers, found),
       reason: finding && fillTokens(EKG_FINDINGS[finding].reason, { ...numbers, limit: EKG_FINDINGS[finding].limit }),
       fills: template.fills,
@@ -245,14 +249,14 @@ export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
         fixes: [{ label: 'Add prolonged QTc', apply: withFinding('prolonged QTc') }],
       });
   }
+  // Which of the two the findings make it is the provider's call, so both are offered.
   if (findings.length && facts.impression === 'normal EKG')
     reminders.push({
-      message: `Impression is "normal EKG", but the findings above (${findings.join(
-        ', '
-      )}) make it borderline or abnormal.`,
-      fixes: [
-        { label: 'Change impression', apply: { impression: findings.length > 1 ? 'abnormal EKG' : 'borderline EKG' } },
-      ],
+      message: `Impression is "normal EKG", but the numbers show ${findings.join(', ')}.`,
+      fixes: ['borderline EKG', 'abnormal EKG'].map((impression) => ({
+        label: `Change impression to ${impression}`,
+        apply: { impression },
+      })),
     });
   return reminders;
 }

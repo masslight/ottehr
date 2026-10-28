@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import procedureTypes from '../../../../../config/oystehr/procedure-type.json';
 import { assembleSentence, isSentenceBlank } from '../../helpers/suggested-sentences';
+import { PROCEDURES_CONFIG } from '../../ottehr-config/procedures';
+import { detectProcedureFamily } from '../evaluate';
+import { resolveFamilyFacts } from '../family-support';
 import { formatStructuredFacts } from '../format';
 import { PROCEDURE_NAMES } from '../procedure-names';
+import { invalidStructuredFields } from '../structured-fields';
+import { ekgFamily } from './ekg';
 import {
   calculateQtc,
   ekgMeasurementLine,
@@ -33,6 +39,10 @@ describe('QTc', () => {
     expect(ekgQtcMethod({ qt: 380, rate: 72 })).toBe('Bazett');
     expect(ekgQtc({ qt: 380, rate: 72, qtcMethod: 'Fridericia' })).toBe(404);
     expect(ekgQtc({ qt: 380 })).toBeUndefined();
+    // A stray minus sign or a zero gives no QTc rather than NaN, which would not survive the save.
+    expect(ekgQtc({ qt: 380, rate: -72 })).toBeUndefined();
+    expect(ekgQtc({ qt: 380, rate: 0 })).toBeUndefined();
+    expect(ekgQtc({ qt: -380, rate: 72, qtcMethod: 'Fridericia' })).toBeUndefined();
   });
 
   it('shows the typed value, whatever the QT and rate, once the method is manual', () => {
@@ -43,13 +53,24 @@ describe('QTc', () => {
   it('keeps the stored value and method in step with QT and rate so the note needs no arithmetic', () => {
     expect(withEkgQtc({ qt: 380, rate: 72 })).toMatchObject({ qtc: 416, qtcMethod: 'Bazett' });
     expect(withEkgQtc({ qt: 380, rate: 72, qtcMethod: 'Fridericia' })).toMatchObject({ qtc: 404 });
-    // No QTc, no method: a method alone would only be noise in the note.
+    // No QTc: the value goes, and the default method is never written on its own.
+    expect(withEkgQtc({ qt: 380 })).toEqual({ qt: 380, qtc: undefined, qtcMethod: undefined });
+    // A method the provider picked stays until the numbers arrive, then applies to them.
+    const fridericiaFirst = withEkgQtc({ qtcMethod: 'Fridericia' });
+    expect(fridericiaFirst).toEqual({ qtc: undefined, qtcMethod: 'Fridericia' });
+    expect(withEkgQtc({ ...fridericiaFirst, qt: 380, rate: 72 })).toMatchObject({ qtc: 404, qtcMethod: 'Fridericia' });
     expect(withEkgQtc({ qt: 380, qtc: 416, qtcMethod: 'Bazett' })).toEqual({
       qt: 380,
       qtc: undefined,
-      qtcMethod: undefined,
+      qtcMethod: 'Bazett',
     });
-    expect(withEkgQtc({ qtcMethod: 'manual' }).qtcMethod).toBeUndefined();
+    // Manual with the box cleared stays manual: a new rate or QT does not bring a calculated value back.
+    expect(withEkgQtc({ qtcMethod: 'manual', qt: 380, rate: 72 })).toEqual({
+      qt: 380,
+      rate: 72,
+      qtc: undefined,
+      qtcMethod: 'manual',
+    });
     expect(withEkgQtc({ qt: 380, rate: 72, qtc: 430, qtcMethod: 'manual' })).toMatchObject({
       qtc: 430,
       qtcMethod: 'manual',
@@ -85,6 +106,29 @@ describe('QTc', () => {
     expect(formatStructuredFacts({ component: 'tracing only' }, PROCEDURE_NAMES.ekg[0])).toBe(
       'Component furnished: tracing only'
     );
+  });
+});
+
+describe('starter quick picks', () => {
+  // A quick pick names the catalog code; the page shows, and the families match, the type's display name.
+  const typeName = (code: string | undefined): string | undefined =>
+    procedureTypes.fhirResources['value-set-procedure-type'].resource.expansion.contains.find(
+      (type) => type.code === code
+    )?.display;
+
+  it('hold only choices their family offers', () => {
+    for (const quickPick of PROCEDURES_CONFIG.quickPicks.filter((pick) => pick.structuredFacts)) {
+      const family = detectProcedureFamily({ procedureType: typeName(quickPick.procedureType) });
+      const facts = family && resolveFamilyFacts(family, { structuredFacts: quickPick.structuredFacts });
+      expect(family && facts && invalidStructuredFields(family.fields, facts), quickPick.name).toEqual([]);
+    }
+  });
+
+  it('include "EKG – normal": the normal interpretation, no CPT code, nothing measured and no comparison', () => {
+    const normal = PROCEDURES_CONFIG.quickPicks.find((pick) => pick.name === 'EKG – normal');
+    expect(normal?.cptCodes).toBeUndefined();
+    expect(detectProcedureFamily({ procedureType: typeName(normal?.procedureType) })?.id).toBe(ekgFamily.id);
+    expect(normal?.structuredFacts).toEqual({ ...EKG_NORMAL_READ });
   });
 });
 
@@ -211,7 +255,7 @@ describe('reminders', () => {
       'A PR of 236 ms meets the definition of first-degree AV block; Intervals says "normal".',
       'A QRS of 136 ms is wide, consistent with a bundle branch block or conduction delay; Intervals says "normal".',
       'A QTc of 495 ms is prolonged; Intervals says "normal".',
-      'Impression is "normal EKG", but the findings above (first-degree AV block, wide QRS, prolonged QTc) make it borderline or abnormal.',
+      'Impression is "normal EKG", but the numbers show first-degree AV block, wide QRS, prolonged QTc.',
     ]);
     expect(reminders[0].fixes).toEqual([
       { label: 'Add first-degree AV block', apply: { conduction: ['first-degree AV block'] } },
@@ -221,9 +265,35 @@ describe('reminders', () => {
       'Add left bundle branch block',
       'Add nonspecific conduction delay',
     ]);
-    expect(reminders[3].fixes[0].apply).toEqual({ impression: 'abnormal EKG' });
-    // Applying a fix clears its reminder; a single finding makes the impression borderline.
+    // Borderline or abnormal is the provider's call, whatever the number of findings: both are offered.
+    expect(reminders[3].fixes).toEqual([
+      { label: 'Change impression to borderline EKG', apply: { impression: 'borderline EKG' } },
+      { label: 'Change impression to abnormal EKG', apply: { impression: 'abnormal EKG' } },
+    ]);
+    // Applying a fix clears its reminder; the impression one stays while any finding remains.
     const fixed = { ...facts, ...reminders[0].fixes[0].apply, qrs: 90, qtc: 430 };
-    expect(ekgReminders(fixed).map((reminder) => reminder.fixes[0].apply)).toEqual([{ impression: 'borderline EKG' }]);
+    expect(ekgReminders(fixed).map((reminder) => reminder.message)).toEqual([
+      'Impression is "normal EKG", but the numbers show first-degree AV block.',
+    ]);
+    expect(ekgReminders({ ...fixed, ...reminders[3].fixes[1].apply })).toEqual([]);
+  });
+
+  it.each([
+    ['PR', { pr: 200 }, { pr: 201 }, 'first-degree AV block'],
+    ['QRS', { qrs: 119 }, { qrs: 120 }, 'wide QRS'],
+    ['QTc', { qtc: 450 }, { qtc: 451 }, 'prolonged QTc'],
+  ])('reminds about the %s only past the adult cut-off', (_name, atLimit, past, finding) => {
+    const read = { rate: 72, qt: 380, qtcMethod: 'manual', conduction: ['normal'], impression: 'normal EKG' };
+    expect(ekgReminders({ ...read, qtc: 420, ...atLimit })).toEqual([]);
+    const reminders = ekgReminders({ ...read, qtc: 420, ...past });
+    expect(reminders).toHaveLength(2);
+    expect(reminders[1].message).toContain(finding);
+  });
+
+  it('ranks the suggestions by the rate cut-offs exactly at 60 and 100', () => {
+    const top = (rate: number): string => suggestEkgInterpretations({ rate, qt: 380 }, false)[0].id;
+    expect([top(59), top(60), top(100), top(101)]).toEqual(['rate', 'normal', 'normal', 'rate']);
+    expect(suggestEkgInterpretations({ rate: 59, qt: 380 }, false)[0].reason).toBe('rate 59 is below 60');
+    expect(suggestEkgInterpretations({ rate: 101, qt: 380 }, false)[0].reason).toBe('rate 101 is above 100');
   });
 });
