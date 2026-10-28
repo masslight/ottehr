@@ -157,16 +157,26 @@ describe('getEncounterFormResponses', () => {
 
   const oystehr = {
     fhir: {
-      search: vi.fn(async ({ resourceType, params }: FhirSearchParams<FhirResource>) => ({
+      search: vi.fn(async ({ params }: FhirSearchParams<FhirResource>) => ({
         unbundle: () =>
-          resourceType === 'QuestionnaireResponse'
-            ? []
-            : [flowForm, flowQuestionnaire].filter((q) => params?.some((p) => p.name === 'url' && p.value === q.url)),
+          [flowForm, flowQuestionnaire].filter((q) => params?.some((p) => p.name === 'url' && p.value === q.url)),
       })),
     },
   } as unknown as Oystehr;
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAllPages.mockResolvedValue([]);
+  });
+
+  it("reads every page of the encounter's responses", async () => {
+    await getEncounterFormResponses(oystehr, 'enc-main', undefined, null);
+
+    expect(mockGetAllPages).toHaveBeenCalledWith(
+      { resourceType: 'QuestionnaireResponse', params: [{ name: 'encounter', value: 'Encounter/enc-main' }] },
+      oystehr
+    );
+  });
 
   it("prints the forms the patient answered in this visit's paperwork", async () => {
     const forms = await getEncounterFormResponses(oystehr, 'enc-main', intakeQr('enc-main'), null);
@@ -180,6 +190,6 @@ describe('getEncounterFormResponses', () => {
     const forms = await getEncounterFormResponses(oystehr, 'enc-follow-up', intakeQr('enc-main'), null);
 
     expect(forms).toEqual([]);
-    expect(oystehr.fhir.search).toHaveBeenCalledTimes(1);
+    expect(oystehr.fhir.search).not.toHaveBeenCalled();
   });
 });

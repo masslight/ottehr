@@ -236,24 +236,36 @@ const PastResponse: FC<{ response: PatientFormResponse; label: string }> = ({ re
   );
 };
 
+type FormsLoadState = { isLoading: boolean; isError: boolean };
+
 /** This visit's responses to Screening and Questionnaires forms, for the progress note. */
-export const useThisVisitFormResponses = (): Record<'screening' | 'questionnaires', PatientFormResponse[]> => {
+export const useThisVisitFormResponses = (): Record<'screening' | 'questionnaires', PatientFormResponse[]> &
+  FormsLoadState => {
   const { encounter } = useAppointmentData();
-  const { data } = usePatientFormResponses();
+  const { data, isLoading, isError } = usePatientFormResponses();
   const thisVisit = (data?.responses ?? []).filter((r) => r.encounterId === encounter?.id && hasAnyAnswer(r));
   return {
     screening: thisVisit.filter((r) => r.placement === 'screening'),
     questionnaires: thisVisit.filter((r) => r.placement === 'questionnaires'),
+    isLoading,
+    isError,
   };
 };
 
 /** Read-only answers, one block per form, as the note shows them. */
-export const FormResponsesSummary: FC<{ responses: PatientFormResponse[]; emptyMessage?: string }> = ({
-  responses,
-  emptyMessage,
-}) => (
+export const FormResponsesSummary: FC<
+  { responses: PatientFormResponse[]; emptyMessage?: string } & Partial<FormsLoadState>
+> = ({ responses, emptyMessage, isLoading, isError }) => (
   <Stack spacing={1}>
-    {emptyMessage && responses.length === 0 && <Typography color="text.secondary">{emptyMessage}</Typography>}
+    {isLoading && <Loader />}
+    {isError && (
+      <Typography variant="body2" color="error">
+        Could not load forms. Reload to try again.
+      </Typography>
+    )}
+    {emptyMessage && !isLoading && !isError && responses.length === 0 && (
+      <Typography color="text.secondary">{emptyMessage}</Typography>
+    )}
     {responses.map((r) => (
       <Box key={responseKey(r)}>
         <Typography fontWeight={600}>{r.questionnaireTitle}</Typography>

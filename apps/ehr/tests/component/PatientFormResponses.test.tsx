@@ -47,7 +47,10 @@ vi.mock('../../src/features/visits/telemed/hooks/usePracticeManagedQuestionnaire
 import { getPatientFormResponses, sendPatientForm } from '../../src/api/api';
 import { SendFormDialog } from '../../src/components/dialogs/SendFormDialog';
 import { dataTestIds } from '../../src/constants/data-test-ids';
-import { PatientFormResponses } from '../../src/features/visits/shared/components/patient-forms/PatientFormResponses';
+import {
+  FormResponsesSummary,
+  PatientFormResponses,
+} from '../../src/features/visits/shared/components/patient-forms/PatientFormResponses';
 import { useGetAppointmentAccessibility } from '../../src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 
 const response = (id: string, encounterId: string, visitDate: string): PatientFormResponse => ({
@@ -166,6 +169,21 @@ describe('PatientFormResponses', () => {
 
     await waitFor(() => expect(getPatientFormResponses).toHaveBeenCalled());
     expect(screen.queryByText(/SDOH/)).toBeNull();
+  });
+});
+
+describe('FormResponsesSummary', () => {
+  it('says the forms could not load instead of showing that there are none', () => {
+    render(<FormResponsesSummary responses={[]} emptyMessage="No clinical forms" isLoading={false} isError />);
+
+    expect(screen.getByText('Could not load forms. Reload to try again.')).toBeInTheDocument();
+    expect(screen.queryByText('No clinical forms')).toBeNull();
+  });
+
+  it('shows the empty message once the forms have loaded', () => {
+    render(<FormResponsesSummary responses={[]} emptyMessage="No clinical forms" isLoading={false} isError={false} />);
+
+    expect(screen.getByText('No clinical forms')).toBeInTheDocument();
   });
 });
 

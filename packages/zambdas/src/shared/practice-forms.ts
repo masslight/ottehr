@@ -91,12 +91,13 @@ export const getEncounterFormResponses = async (
   intakeQr: QuestionnaireResponse | undefined,
   secrets: Secrets | null
 ): Promise<StandaloneFormDTO[]> => {
-  const questionnaireResponses = (
-    await oystehr.fhir.search<QuestionnaireResponse>({
+  const questionnaireResponses = await getAllFhirSearchPages<QuestionnaireResponse>(
+    {
       resourceType: 'QuestionnaireResponse',
       params: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
   const loadQuestionnaire = makeQuestionnaireLoader(oystehr);
   const ownIntakeQr = intakeQr?.encounter?.reference === `Encounter/${encounterId}` ? intakeQr : undefined;
   const [standalone, flowForms] = await Promise.all([

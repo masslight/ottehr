@@ -407,6 +407,15 @@ describe('formatQuestionnaireItemValueToString', () => {
     expect(format({ linkId: 'item-1', answer: [{ valueReference: { reference: 'x' } }] })).toBe('');
   });
 
+  it('formats every selection of a multi-select question', () => {
+    expect(
+      format({
+        linkId: 'symptoms',
+        answer: [{ valueCoding: { display: 'Headache' } }, { valueCoding: { display: 'Nausea' } }],
+      })
+    ).toBe('Headache, Nausea');
+  });
+
   describe('calculated items', () => {
     const calculated: CalculableItem = {
       linkId: 'total',

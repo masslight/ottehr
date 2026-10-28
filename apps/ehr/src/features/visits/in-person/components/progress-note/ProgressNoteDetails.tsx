@@ -149,10 +149,12 @@ export const ProgressNoteDetails: FC = () => {
   const showHpi = !!(hpi && hpi.length > 0);
   const showLegacyReviewOfSystems = !!(rosLegacyText && rosLegacyText.length > 0);
   const visitForms = useThisVisitFormResponses();
+  const formsLoadState = { isLoading: visitForms.isLoading, isError: visitForms.isError };
   const showAdditionalQuestions =
     !!(observations && observations.length > 0) ||
     !!(screeningNotes && screeningNotes.length > 0) ||
-    visitForms.screening.length > 0;
+    visitForms.screening.length > 0 ||
+    visitForms.isError;
   const showAssessment = !!(diagnoses && diagnoses.length > 0);
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
@@ -356,12 +358,16 @@ export const ProgressNoteDetails: FC = () => {
       >
         <AdditionalQuestionsContainer
           notes={screeningNotes}
-          emptyMessage={visitForms.screening.length ? undefined : 'No screening information'}
+          emptyMessage={
+            visitForms.screening.length || visitForms.isLoading || visitForms.isError
+              ? undefined
+              : 'No screening information'
+          }
         />
-        <FormResponsesSummary responses={visitForms.screening} />
+        <FormResponsesSummary responses={visitForms.screening} {...formsLoadState} />
       </InlineEditSection>
     ),
-    (visitForms.questionnaires.length > 0 || inlineEditEnabled) && (
+    (visitForms.questionnaires.length > 0 || visitForms.isError || inlineEditEnabled) && (
       <InlineEditSection
         key="questionnaires"
         sectionName="questionnaires"
@@ -370,7 +376,11 @@ export const ProgressNoteDetails: FC = () => {
         editLabel="Edit clinical forms"
         editContent={<PatientFormResponses placement="questionnaires" scope="this-visit" />}
       >
-        <FormResponsesSummary responses={visitForms.questionnaires} emptyMessage="No clinical forms" />
+        <FormResponsesSummary
+          responses={visitForms.questionnaires}
+          emptyMessage="No clinical forms"
+          {...formsLoadState}
+        />
       </InlineEditSection>
     ),
     (showVitalsObservations || inlineEditEnabled) && (

@@ -3,6 +3,7 @@ import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputReque
 import { Operation } from 'fast-json-patch';
 import { Questionnaire } from 'fhir/r4b';
 import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   FormPlacement,
   getFormPlacement,
@@ -58,6 +59,37 @@ export const placementTagOperations = (versions: Questionnaire[], placement: For
         ],
       ])
   );
+
+/** Retires the previous version, moving every version of the form to `placement` in the same requests. */
+export async function supersedeVersionRequests(input: {
+  url: string;
+  previousId: string;
+  placement: FormPlacement;
+  oystehr: Oystehr;
+}): Promise<BatchInputPatchRequest<Questionnaire>[]> {
+  const { url, previousId, placement, oystehr } = input;
+  const versions = await getAllFhirSearchPages<Questionnaire>(
+    { resourceType: 'Questionnaire', params: [{ name: 'url', value: url }] },
+    oystehr
+  );
+  const retagOperations = placementTagOperations(versions, placement);
+  return [
+    {
+      method: 'PATCH',
+      url: `Questionnaire/${previousId}`,
+      operations: [{ op: 'replace', path: '/status', value: 'retired' }, ...(retagOperations.get(previousId) ?? [])],
+    },
+    ...[...retagOperations]
+      .filter(([id]) => id !== previousId)
+      .map(
+        ([id, operations]): BatchInputPatchRequest<Questionnaire> => ({
+          method: 'PATCH',
+          url: `Questionnaire/${id}`,
+          operations,
+        })
+      ),
+  ];
+}
 
 export const validateQisPracticeManaged = (questionnaire: Questionnaire, questionnaireId: string): void => {
   const isPracticeManaged = questionnaire.meta?.tag?.some(

@@ -5,6 +5,7 @@ import {
   QuestionnaireItem,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
 import { cloneDeep, isEqual } from 'lodash-es';
 import {
@@ -246,20 +247,7 @@ export function qrSentManually(qr: QuestionnaireResponse | undefined): boolean {
   return Boolean(qr.meta?.tag?.some((t) => t.code === code && t.system === system));
 }
 
-export const formatQuestionnaireItemValueToString = (
-  item: QuestionnaireResponseItem | undefined,
-  questions: Map<string, CalculableItem>
-): string => {
-  if (!item) return '';
-
-  const a = item.answer?.[0];
-  if (!a) return '';
-
-  const question = questions.get(item.linkId);
-  if (question && isCalculatedItem(question)) {
-    return formatCalculatedValue(a.valueBoolean ?? a.valueInteger ?? a.valueDecimal ?? a.valueString);
-  }
-
+const formatAnswer = (a: QuestionnaireResponseItemAnswer): string => {
   if (a.valueCoding?.display) return a.valueCoding.display;
   if (a.valueString !== undefined) return a.valueString;
   if (a.valueBoolean !== undefined) return a.valueBoolean ? 'Positive' : 'Negative';
@@ -268,6 +256,21 @@ export const formatQuestionnaireItemValueToString = (
   if (a.valueDate) return a.valueDate;
   if (a.valueDateTime) return a.valueDateTime;
   return '';
+};
+
+export const formatQuestionnaireItemValueToString = (
+  item: QuestionnaireResponseItem | undefined,
+  questions: Map<string, CalculableItem>
+): string => {
+  if (!item?.answer?.length) return '';
+
+  const question = questions.get(item.linkId);
+  if (question && isCalculatedItem(question)) {
+    const a = item.answer[0];
+    return formatCalculatedValue(a.valueBoolean ?? a.valueInteger ?? a.valueDecimal ?? a.valueString);
+  }
+
+  return item.answer.map(formatAnswer).filter(Boolean).join(', ');
 };
 
 /** A filled-out form as question/answer lines, in form order; unanswered questions have an empty answer. */

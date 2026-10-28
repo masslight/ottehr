@@ -10,6 +10,7 @@ import {
   isLatestVersion,
   patchQuestionnaireVersion,
   placementTagOperations,
+  supersedeVersionRequests,
 } from './index';
 
 const questionnaire = (overrides: Partial<FhirQuestionnaireSubset> = {}): FhirQuestionnaireSubset => ({
@@ -366,5 +367,66 @@ describe('placementTagOperations', () => {
     );
 
     expect(operations.size).toBe(0);
+  });
+});
+
+describe('supersedeVersionRequests', () => {
+  const screeningTag = { system: FORM_PLACEMENT_TAG_SYSTEM, code: 'screening' };
+  const version = (id: string): Questionnaire => ({
+    resourceType: 'Questionnaire',
+    id,
+    url: 'https://ottehr.com/FHIR/Questionnaire/sdoh',
+    status: id === 'v2' ? 'active' : 'retired',
+    meta: { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] },
+  });
+  const oystehrWith = (versions: Questionnaire[]): Oystehr =>
+    ({
+      fhir: {
+        search: vi.fn(async () => ({
+          entry: versions.map((resource) => ({ resource, search: { mode: 'match' } })),
+          total: versions.length,
+          unbundle: () => versions,
+        })),
+      },
+    }) as unknown as Oystehr;
+
+  // Builder saves and JSON uploads both mint a version, so both must move the answers to earlier ones.
+  it('retires the previous version and moves it and every older version to the new placement', async () => {
+    const requests = await supersedeVersionRequests({
+      url: 'https://ottehr.com/FHIR/Questionnaire/sdoh',
+      previousId: 'v2',
+      placement: 'screening',
+      oystehr: oystehrWith([version('v1'), version('v2')]),
+    });
+
+    const screeningTags = [PRACTICE_MANAGED_QUESTIONNAIRE_TAG, screeningTag];
+    expect(requests).toEqual([
+      {
+        method: 'PATCH',
+        url: 'Questionnaire/v2',
+        operations: [
+          { op: 'replace', path: '/status', value: 'retired' },
+          { op: 'replace', path: '/meta/tag', value: screeningTags },
+        ],
+      },
+      {
+        method: 'PATCH',
+        url: 'Questionnaire/v1',
+        operations: [{ op: 'replace', path: '/meta/tag', value: screeningTags }],
+      },
+    ]);
+  });
+
+  it('only retires the previous version when the placement is unchanged', async () => {
+    const requests = await supersedeVersionRequests({
+      url: 'https://ottehr.com/FHIR/Questionnaire/sdoh',
+      previousId: 'v2',
+      placement: 'visit-details',
+      oystehr: oystehrWith([version('v1'), version('v2')]),
+    });
+
+    expect(requests).toEqual([
+      { method: 'PATCH', url: 'Questionnaire/v2', operations: [{ op: 'replace', path: '/status', value: 'retired' }] },
+    ]);
   });
 });
