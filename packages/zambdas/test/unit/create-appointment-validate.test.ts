@@ -25,15 +25,14 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
   const validBody = { slotId: '550e8400-e29b-41d4-a716-446655440000', patient: validPatient };
 
   it('accepts request without followUpOptions (regular visit)', () => {
-    const result = validateCreateAppointmentParams(makeInput(validBody), ehrUser, false);
+    const result = validateCreateAppointmentParams(makeInput(validBody), { user: ehrUser });
     expect(result.followUpOptions).toBeUndefined();
   });
 
   it('accepts followUpOptions with only parentEncounterId', () => {
     const result = validateCreateAppointmentParams(
       makeInput({ ...validBody, followUpOptions: { parentEncounterId: 'enc-1' } }),
-      ehrUser,
-      false
+      { user: ehrUser }
     );
     expect(result.followUpOptions).toEqual({ parentEncounterId: 'enc-1' });
   });
@@ -41,8 +40,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
   it('accepts followUpOptions with skipPatientDiagnosis: true', () => {
     const result = validateCreateAppointmentParams(
       makeInput({ ...validBody, followUpOptions: { parentEncounterId: 'enc-1', skipPatientDiagnosis: true } }),
-      ehrUser,
-      false
+      { user: ehrUser }
     );
     expect(result.followUpOptions).toEqual({ parentEncounterId: 'enc-1', skipPatientDiagnosis: true });
   });
@@ -50,25 +48,22 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
   it('accepts followUpOptions with skipPatientDiagnosis: false', () => {
     const result = validateCreateAppointmentParams(
       makeInput({ ...validBody, followUpOptions: { parentEncounterId: 'enc-1', skipPatientDiagnosis: false } }),
-      ehrUser,
-      false
+      { user: ehrUser }
     );
     expect(result.followUpOptions).toEqual({ parentEncounterId: 'enc-1', skipPatientDiagnosis: false });
   });
 
   it('rejects followUpOptions without parentEncounterId', () => {
     expect(() =>
-      validateCreateAppointmentParams(makeInput({ ...validBody, followUpOptions: {} }), ehrUser, false)
+      validateCreateAppointmentParams(makeInput({ ...validBody, followUpOptions: {} }), { user: ehrUser })
     ).toThrow(/parentEncounterId/);
   });
 
   it('rejects followUpOptions with empty parentEncounterId', () => {
     expect(() =>
-      validateCreateAppointmentParams(
-        makeInput({ ...validBody, followUpOptions: { parentEncounterId: '' } }),
-        ehrUser,
-        false
-      )
+      validateCreateAppointmentParams(makeInput({ ...validBody, followUpOptions: { parentEncounterId: '' } }), {
+        user: ehrUser,
+      })
     ).toThrow('"followUpOptions.parentEncounterId" must be a non-empty string');
   });
 
@@ -76,8 +71,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
     expect(() =>
       validateCreateAppointmentParams(
         makeInput({ ...validBody, followUpOptions: { parentEncounterId: 'enc-1', skipPatientDiagnosis: 'yes' } }),
-        ehrUser,
-        false
+        { user: ehrUser }
       )
     ).toThrow('"followUpOptions.skipPatientDiagnosis" must be a boolean if provided');
   });
@@ -86,8 +80,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
     expect(() =>
       validateCreateAppointmentParams(
         makeInput({ ...validBody, followUpOptions: 'not-an-object' as unknown as Record<string, unknown> }),
-        ehrUser,
-        false
+        { user: ehrUser }
       )
     ).toThrow('"followUpOptions" must be an object');
   });
@@ -96,8 +89,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
     expect(() =>
       validateCreateAppointmentParams(
         makeInput({ ...validBody, followUpOptions: ['enc-1'] as unknown as Record<string, unknown> }),
-        ehrUser,
-        false
+        { user: ehrUser }
       )
     ).toThrow('"followUpOptions" must be an object');
   });
@@ -108,8 +100,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
         ...validBody,
         followUpOptions: { parentEncounterId: 'enc-1', unknownFlag: true } as unknown as Record<string, unknown>,
       }),
-      ehrUser,
-      false
+      { user: ehrUser }
     );
     expect(result.followUpOptions).toEqual({ parentEncounterId: 'enc-1' });
   });
