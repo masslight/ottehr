@@ -391,7 +391,7 @@ export default function ClaimDetail(): ReactElement {
 
   const arStageCode = claim.statuses.arStage;
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
-  const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
+  const dos = claim.dos;
   // Which engine the run button triggers for this claim (none -> no button).
   const runEngine = applicableRulesEngine(claim);
 
