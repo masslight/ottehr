@@ -14,6 +14,16 @@ export const buildPaymentRefundsExtension = (refunds: PaymentRefundDTO[]): Exten
       ...(refund.reason ? [{ url: 'reason', valueString: refund.reason }] : []),
       ...(refund.notes ? [{ url: 'notes', valueString: refund.notes }] : []),
       ...(refund.refundedBy ? [{ url: 'refundedBy', valueString: refund.refundedBy }] : []),
+      ...(refund.refundedByReference
+        ? [
+            {
+              url: 'refundedByReference',
+              valueReference: {
+                reference: refund.refundedByReference,
+              },
+            },
+          ]
+        : []),
       ...(refund.medium ? [{ url: 'medium', valueString: refund.medium }] : []),
       ...(refund.operationKey ? [{ url: 'operationKey', valueString: refund.operationKey }] : []),
     ],
@@ -40,6 +50,7 @@ export const parsePaymentRefundsFromNotice = (notice: PaymentNotice): PaymentRef
       reason: field('reason')?.valueString,
       notes: field('notes')?.valueString,
       refundedBy: field('refundedBy')?.valueString,
+      refundedByReference: field('refundedByReference')?.valueReference?.reference,
       medium: field('medium')?.valueString as PaymentRefundMedium | undefined,
       operationKey: field('operationKey')?.valueString,
     });
@@ -99,10 +110,11 @@ export const mergeStripeRefundsWithStored = (
 // Failed/canceled refunds never settle, so they don't reduce what the patient paid.
 // Pending reservations haven't moved money either; they reserve balance (see below) but must not
 // count as refunded in settled/display totals.
+export const isSettledRefund = (refund: PaymentRefundDTO): boolean =>
+  refund.status !== 'failed' && refund.status !== 'canceled' && !isPendingReservation(refund);
+
 export const settledRefundTotalInCents = (refunds: PaymentRefundDTO[] | undefined): number =>
-  (refunds ?? [])
-    .filter((refund) => refund.status !== 'failed' && refund.status !== 'canceled' && !isPendingReservation(refund))
-    .reduce((sum, refund) => sum + refund.amountInCents, 0);
+  (refunds ?? []).filter(isSettledRefund).reduce((sum, refund) => sum + refund.amountInCents, 0);
 
 // balance held by in-flight refund reservations; refund validation subtracts this from remaining
 export const pendingReservationTotalInCents = (refunds: PaymentRefundDTO[] | undefined): number =>
@@ -122,6 +134,7 @@ export interface PaymentVoidInfo {
   notes?: string;
   voidedAtISO: string;
   voidedBy?: string; // display name of the logged-in user who voided the payment
+  voidedByReference?: string; // that user's Practitioner reference for claim history
 }
 
 export const buildPaymentVoidExtension = (info: PaymentVoidInfo): Extension => ({
@@ -131,6 +144,16 @@ export const buildPaymentVoidExtension = (info: PaymentVoidInfo): Extension => (
     { url: 'voidedAt', valueDateTime: info.voidedAtISO },
     ...(info.notes ? [{ url: 'notes', valueString: info.notes }] : []),
     ...(info.voidedBy ? [{ url: 'voidedBy', valueString: info.voidedBy }] : []),
+    ...(info.voidedByReference
+      ? [
+          {
+            url: 'voidedByReference',
+            valueReference: {
+              reference: info.voidedByReference,
+            },
+          },
+        ]
+      : []),
   ],
 });
 
@@ -141,5 +164,11 @@ export const parsePaymentVoidFromNotice = (notice: PaymentNotice): PaymentVoidIn
   const reason = field('reason')?.valueString;
   const voidedAtISO = field('voidedAt')?.valueDateTime;
   if (!reason || !voidedAtISO) return undefined;
-  return { reason, voidedAtISO, notes: field('notes')?.valueString, voidedBy: field('voidedBy')?.valueString };
+  return {
+    reason,
+    voidedAtISO,
+    notes: field('notes')?.valueString,
+    voidedBy: field('voidedBy')?.valueString,
+    voidedByReference: field('voidedByReference')?.valueReference?.reference,
+  };
 };

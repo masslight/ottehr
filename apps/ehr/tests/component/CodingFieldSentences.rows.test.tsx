@@ -9,10 +9,7 @@ import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import { readRows, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { describe, expect, it } from 'vitest';
-import {
-  CodingFieldSentences,
-  LacerationSentences,
-} from '../../src/features/visits/in-person/components/procedures/narrative/CodingFieldSentences';
+import { ProcedureFamilySentences } from '../../src/features/visits/in-person/components/procedures/narrative/CodingFieldSentences';
 
 /** Rows the sentence UI writes must reach the coding engine in on-screen order, so the engine's
  * "Wound 2: …" / "Administration 3: …" wording names the row the provider is looking at. */
@@ -21,8 +18,7 @@ const latest: { facts?: StructuredFacts } = {};
 function Form({ family }: { family: ProcedureFamilyModel }): ReactElement {
   const [value, setValue] = useState<StructuredFacts>(resolveFamilyFacts(family, {}));
   latest.facts = value;
-  const Component = family.id === lacerationFamily.id ? LacerationSentences : CodingFieldSentences;
-  return <Component family={family} value={value} onChange={setValue} readOnly={false} />;
+  return <ProcedureFamilySentences family={family} value={value} onChange={setValue} readOnly={false} />;
 }
 
 /** The engine's "still needed" messages (its best-practice reminders are left out). */
@@ -71,6 +67,21 @@ describe('coding rows written by the sentence UI', () => {
         suggestCode({ procedureType: lacerationFamily.procedureNames[0], structuredFacts: latest.facts })
       ).map((line) => line.code)
     ).toEqual(['12042']);
+  });
+
+  it('marks coding-required text and time answers while leaving optional group text unmarked', async () => {
+    const user = userEvent.setup();
+    render(<Form family={injectionInfusionFamily} />);
+    expect(screen.getByRole('textbox', { name: 'drug' })).toHaveAttribute('data-needed', 'true');
+    await user.click(screen.getByRole('button', { name: 'route (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'IV infusion' }));
+    expect(screen.getByRole('textbox', { name: 'iv access site' })).toHaveAttribute('data-needed', 'true');
+    expect(screen.getByLabelText('start')).toHaveAttribute('data-needed', 'true');
+    expect(
+      screen.getByRole('textbox', { name: 'same administration group (for interrupted infusions)' })
+    ).not.toHaveAttribute('data-needed');
+    await user.type(screen.getByRole('textbox', { name: 'drug' }), 'Medication');
+    expect(screen.getByRole('textbox', { name: 'drug' })).not.toHaveAttribute('data-needed');
   });
 
   it('names the incomplete administration by its on-screen position', async () => {

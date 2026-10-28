@@ -1,4 +1,6 @@
 import { renderHook } from '@testing-library/react';
+import { Encounter } from 'fhir/r4b';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type VitalsResult = {
@@ -11,16 +13,28 @@ const state = vi.hoisted(() => ({
   currentResult: { data: undefined, isLoading: false, isFetched: true } as VitalsResult,
   historicalResult: { data: undefined, isLoading: false, isFetched: true } as VitalsResult,
   patient: { id: 'p1', birthDate: '1980-01-01' } as { id: string; birthDate?: string },
+  encounter: { id: 'enc-1' } as Partial<Encounter>,
+  vitalsEncounterIds: [] as Array<string | undefined>,
 }));
 
 // A height or weight from any of the patient's visits counts: this visit's vitals and the historical ones.
 vi.mock('../../src/features/visits/shared/components/vitals/hooks/useGetVitals', () => ({
-  useGetVitals: () => state.currentResult,
-  useGetHistoricalVitals: () => state.historicalResult,
+  useGetVitals: (encounterId?: string) => {
+    state.vitalsEncounterIds.push(encounterId);
+    return state.currentResult;
+  },
+  useGetHistoricalVitals: (encounterId?: string) => {
+    state.vitalsEncounterIds.push(encounterId);
+    return state.historicalResult;
+  },
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useAppointmentData: () => ({ patient: state.patient, encounter: { id: 'enc-1' } }),
+  useAppointmentData: () => ({
+    patient: state.patient,
+    encounter: state.encounter,
+    followUpOriginEncounter: { id: 'origin-enc' },
+  }),
 }));
 
 import { useErxPatientVitals } from '../../src/features/visits/shared/hooks/useErxPatientVitals';
@@ -40,6 +54,8 @@ describe('useErxPatientVitals', () => {
     state.currentResult = idle();
     state.historicalResult = idle();
     state.patient = { id: 'p1', birthDate: '1980-01-01' };
+    state.encounter = { id: 'enc-1' };
+    state.vitalsEncounterIds = [];
   });
 
   it('treats an adult as having vitals even when none are recorded', () => {
@@ -100,6 +116,51 @@ describe('useErxPatientVitals', () => {
     const { result } = renderHook(() => useErxPatientVitals());
 
     expect(result.current.hasVitals).toBe(false);
+  });
+
+  it("reads this visit's vitals and points to its Vitals tab", () => {
+    state.patient = { id: 'p1', birthDate: '2015-01-01' };
+
+    const { result } = renderHook(() => useErxPatientVitals());
+
+    expect(new Set(state.vitalsEncounterIds)).toEqual(new Set(['enc-1']));
+    expect(result.current.missingVitalsMessage).toBe(
+      "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab"
+    );
+  });
+
+  it("reads an annotation follow-up's vitals from the visit it annotates", () => {
+    state.patient = { id: 'p1', birthDate: '2015-01-01' };
+    state.encounter = { id: 'followup-enc', type: buildFollowupEncounterType('annotation') };
+    state.currentResult = vitals({ 'vital-height': height, 'vital-weight': weight });
+    state.historicalResult = none;
+
+    const { result } = renderHook(() => useErxPatientVitals());
+
+    expect(new Set(state.vitalsEncounterIds)).toEqual(new Set(['origin-enc']));
+    expect(result.current.hasVitals).toBe(true);
+  });
+
+  it('points an annotation follow-up without vitals to the original visit', () => {
+    state.patient = { id: 'p1', birthDate: '2015-01-01' };
+    state.encounter = { id: 'followup-enc', type: buildFollowupEncounterType('annotation') };
+    state.currentResult = none;
+    state.historicalResult = none;
+
+    const { result } = renderHook(() => useErxPatientVitals());
+
+    expect(result.current.hasVitals).toBe(false);
+    expect(result.current.missingVitalsMessage).toBe(
+      "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab of the original visit"
+    );
+  });
+
+  it("reads a scheduled follow-up's own vitals", () => {
+    state.encounter = { id: 'scheduled-enc', type: buildFollowupEncounterType('scheduled') };
+
+    renderHook(() => useErxPatientVitals());
+
+    expect(new Set(state.vitalsEncounterIds)).toEqual(new Set(['scheduled-enc']));
   });
 
   it('surfaces loading and fetched flags from the underlying vitals queries', () => {

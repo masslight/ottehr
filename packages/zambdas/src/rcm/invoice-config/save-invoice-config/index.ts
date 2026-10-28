@@ -1,15 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { QuestionnaireResponse } from 'fhir/r4b';
+import { SaveInvoiceConfigBodySchema } from 'utils/lib/types/api/invoice-config.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { validateWithSchema } from '../../../shared/validation';
 import { getOrCreateInvoicingConfig } from '../helpers';
-import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 export const index = wrapHandler('save-invoice-config', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validated = validateRequestParameters(input);
+  const validated = validateWithSchema(SaveInvoiceConfigBodySchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validated.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validated.secrets);

@@ -25,10 +25,13 @@ import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
 import InvoiceReport from './pages/InvoiceReport';
+import InvoicingConfiguration from './pages/InvoicingConfiguration';
+import ManualRemit from './pages/ManualRemit';
 import NetCollectionsReport from './pages/NetCollectionsReport';
 import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
+import { PayerDetail } from './pages/PayerDetail';
 import PaymentsReport from './pages/PaymentsReport';
 import PipelineReport from './pages/PipelineReport';
 import ProductivityReport from './pages/ProductivityReport';
@@ -38,6 +41,8 @@ import RuleDetail from './pages/RuleDetail';
 import Rules from './pages/Rules';
 import { ServiceFacilitiesList, ServiceFacilityDetail } from './pages/ServiceFacilities';
 import Tags from './pages/Tags';
+import WorkQueueDetail from './pages/WorkQueueDetail';
+import WorkQueues from './pages/WorkQueues';
 import { theme } from './themes/ottehr';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -82,11 +87,14 @@ export default function App(): ReactElement {
               <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
               <Route path="/claim-creation-queue" element={<ClaimCreationQueue />} />
+              <Route path="/work-queues" element={<WorkQueues />} />
+              <Route path="/work-queues/:id" element={<WorkQueueDetail />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
+              <Route path="/insurance-organizations/rcm/:payerId" element={<PayerDetail />} />
               <Route path="/insurance-organizations/:id" element={<CustomInsuranceOrganizationDetail />} />
               <Route path="/billing-providers" element={<BillingProvidersList />} />
               <Route path="/billing-providers/:id" element={<BillingProviderDetail />} />
@@ -105,9 +113,12 @@ export default function App(): ReactElement {
                 element={<ChargeItemDefinitionDetail type="charge-master" />}
               />
               <Route path="/eras" element={<ERAList />} />
+              <Route path="/eras/new" element={<ManualRemit />} />
               <Route path="/eras/:id" element={<ERADetail />} />
+              <Route path="/eras/:id/edit" element={<ManualRemit />} />
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
+              <Route path="/invoicing-configuration" element={<InvoicingConfiguration />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/payments" element={<PaymentsReport />} />
               <Route path="/reports/cards-on-file" element={<CardsOnFileReport />} />

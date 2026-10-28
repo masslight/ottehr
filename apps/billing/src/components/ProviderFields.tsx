@@ -255,7 +255,6 @@ function ProviderLicenseFields(): ReactElement {
       <Controller
         name="licenseType"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <Autocomplete
             size="small"
@@ -266,7 +265,7 @@ function ProviderLicenseFields(): ReactElement {
             onChange={(_, v) => field.onChange(v?.value ?? '')}
             isOptionEqualToValue={(o, v) => o.value === v.value}
             renderInput={(params) => (
-              <TextField {...params} label="License Type *" error={!!fieldError} helperText={fieldError?.message} />
+              <TextField {...params} label="License Type" error={!!fieldError} helperText={fieldError?.message} />
             )}
           />
         )}
@@ -274,10 +273,9 @@ function ProviderLicenseFields(): ReactElement {
       <Controller
         name="licenseNumber"
         control={control}
-        rules={{ validate: (value) => !!value?.trim() || REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <TextField
-            label="License Number *"
+            label="License Number"
             size="small"
             sx={{ flex: 1, minWidth: 0 }}
             value={field.value}
@@ -290,15 +288,14 @@ function ProviderLicenseFields(): ReactElement {
       <Controller
         name="licenseState"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
             <InputLabel id="license-state-select-label" error={!!fieldError}>
-              License State *
+              License State
             </InputLabel>
             <Select
               aria-describedby={fieldError ? 'license-state-helper-text' : undefined}
-              label="License State *"
+              label="License State"
               labelId="license-state-select-label"
               size="small"
               value={field.value}

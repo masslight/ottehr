@@ -2,8 +2,12 @@ import { Box } from '@mui/material';
 import React, { useMemo } from 'react';
 import { SuggestedSentences } from 'src/components/SuggestedSentences';
 import type { LateralityValue } from 'utils/lib/fhir/radiology';
-import { buildPreliminaryReadSuggestions } from 'utils/lib/helpers/radiology/preliminaryReadSuggestions';
-import { assembleSentence } from 'utils/lib/helpers/suggested-sentences';
+import {
+  assemblePreliminaryRead,
+  buildPreliminaryReadSuggestions,
+  findConflictingValue,
+  resolvePreliminaryReadValues,
+} from 'utils/lib/helpers/radiology/preliminaryReadSuggestions';
 
 interface RadiologyPreliminaryReadSuggestionsProps {
   cptCode?: string;
@@ -31,6 +35,7 @@ export const RadiologyPreliminaryReadSuggestions: React.FC<RadiologyPreliminaryR
     () =>
       buildPreliminaryReadSuggestions({ cptCode, laterality, isChild }).map((suggestion) => ({
         id: suggestion.name,
+        name: suggestion.name,
         segments: suggestion.segments,
       })),
     [cptCode, laterality, isChild]
@@ -43,9 +48,12 @@ export const RadiologyPreliminaryReadSuggestions: React.FC<RadiologyPreliminaryR
       <SuggestedSentences
         title="Suggested reads"
         rows={rows}
+        // Defaults give way to the provider's picks, and a blank can wait on another (see the templates).
+        resolveValues={(row, picks) => resolvePreliminaryReadValues(row.segments, picks)}
+        findConflict={(_row, picks, segment, option) => findConflictingValue(picks, segment, option)}
         // Derived from the field, so deleting the sentence there (or changing a blank) re-arms the "+".
-        isAdded={(row, picks) => value.includes(assembleSentence(row.segments, picks))}
-        onAdd={(row, picks) => onAdd(assembleSentence(row.segments, picks))}
+        isAdded={(row, picks) => value.includes(assemblePreliminaryRead(row.segments, picks))}
+        onAdd={(row, picks) => onAdd(assemblePreliminaryRead(row.segments, picks))}
         addLabel="Add to read"
         addedLabel="Added to read"
       />

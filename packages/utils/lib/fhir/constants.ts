@@ -59,6 +59,7 @@ export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
 export const FHIR_IDENTIFIER_CODE_STATE_LICENSE = 'SL';
+export const OYSTEHR_RCM_PAYER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-payer-id';
 export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
@@ -135,6 +136,14 @@ export const FHIR_EXTENSION = {
   MedicationRequest: {
     isRenewal: {
       url: 'https://extensions.fhir.oystehr.com/medication-request/is-renewal',
+    },
+  },
+  MedicationStatement: {
+    lastFilledDate: {
+      url: ottehrExtensionUrl('medication-last-filled-date'),
+    },
+    refills: {
+      url: ottehrExtensionUrl('medication-refills'),
     },
   },
   InsurancePlan: {
@@ -508,6 +517,13 @@ export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service
 export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   system: ottehrCodeSystemUrl('questionnaire-type'),
   code: 'practice-managed',
+};
+
+// applied (alongside the practice-managed tag) to questionnaires uploaded as raw FHIR JSON.
+// these are read only in the admin portal: they can only be updated by uploading a new version
+export const JSON_IMPORT_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'json-import',
 };
 
 /** meta.tag identifying a paperwork flow Questionnaire. */
@@ -979,6 +995,8 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
   attachmentText: `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`,
   autofillFromWhenDisabled: `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`,
+  // standard SDC extension (not a private one): the item's value is derived from other answers
+  calculatedExpression: 'http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression',
   categoryTag: `${PRIVATE_EXTENSION_BASE_URL}/category-tag`,
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,

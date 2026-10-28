@@ -2,6 +2,7 @@ import { AllChartValues, SchoolWorkNoteExcuseDocFileDTO } from './chart-data.typ
 
 export interface DeleteChartDataRequest extends AllChartValues {
   encounterId: string;
+  cleanupProcedureDiagnoses?: boolean;
   schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[];
 }
 

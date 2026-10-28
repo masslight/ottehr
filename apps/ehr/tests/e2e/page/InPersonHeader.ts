@@ -21,7 +21,21 @@ export class InPersonHeader {
     await this.verifyStatus(status);
   }
 
+  async openCareTeam(): Promise<void> {
+    const popover = this.#page.getByTestId(dataTestIds.inPersonHeader.careTeamPopover);
+    if (!(await popover.isVisible())) {
+      await this.#page.getByTestId(dataTestIds.inPersonHeader.careTeamButton).click();
+    }
+    await expect(popover).toBeVisible();
+  }
+
+  async closeCareTeam(): Promise<void> {
+    await this.#page.keyboard.press('Escape');
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.careTeamPopover)).toBeHidden();
+  }
+
   async selectIntakePractitioner(id?: string): Promise<void> {
+    await this.openCareTeam();
     await this.#page.getByTestId(dataTestIds.inPersonHeader.intakePractitionerInput).click();
     if (id) {
       await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();
@@ -33,15 +47,18 @@ export class InPersonHeader {
     await expect(
       this.#page.getByTestId(dataTestIds.inPersonHeader.intakePractitionerInput).locator('input')
     ).toBeEnabled();
+    await this.closeCareTeam();
   }
 
   async selectProviderPractitioner(): Promise<void> {
+    await this.openCareTeam();
     await this.#page.getByTestId(dataTestIds.inPersonHeader.providerPractitionerInput).click();
     await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();
     await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().click();
     await expect(
       this.#page.getByTestId(dataTestIds.inPersonHeader.providerPractitionerInput).locator('input')
     ).toBeEnabled();
+    await this.closeCareTeam();
   }
 
   async verifyWeight(weight: string): Promise<void> {
@@ -63,21 +80,22 @@ export class InPersonHeader {
   }
 
   async verifyPaymentText(expectedText: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.payment)).toContainText(expectedText, {
-      timeout: 15000,
-    });
+    const icon = this.#page.getByTestId(dataTestIds.inPersonHeader.payment);
+    await expect(icon).toHaveAttribute('aria-label', new RegExp(expectedText), { timeout: 15000 });
+    await icon.hover();
+    await expect(this.#page.getByRole('tooltip')).toContainText(`Payment: ${expectedText}`);
   }
 
   async verifyPaymentIsUnset(): Promise<void> {
-    const el = this.#page.getByTestId(dataTestIds.inPersonHeader.payment);
-    await expect(el).toContainText('Not set', { timeout: 15000 });
-    await expect(el).toHaveCSS('font-weight', '600');
+    await this.verifyPaymentText('Not set');
   }
 
   async verifyPaymentIsSet(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.payment)).not.toContainText('Not set', {
-      timeout: 15000,
-    });
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.payment)).not.toHaveAttribute(
+      'aria-label',
+      /Not set/,
+      { timeout: 15000 }
+    );
   }
 
   async clickPatientName(patientId: string): Promise<PatientRecordPage> {

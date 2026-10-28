@@ -1,8 +1,12 @@
-import { Autocomplete, Box, Button, MenuItem, Select, TextField } from '@mui/material';
-import { ReactElement } from 'react';
+import { DeleteOutline as DeleteOutlineIcon } from '@mui/icons-material';
+import { Autocomplete, Box, Button, IconButton, MenuItem, Select, TextField, Tooltip, Typography } from '@mui/material';
+import { ReactElement, useState } from 'react';
 import { CMS_PLACE_OF_SERVICE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { DateInput } from '../DateInput';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
+import { MedicationDetailDialog, ServiceLineDrug } from './MedicationDetailDialog';
+import { OrderingProviderDialog, ServiceLineOrderingProvider } from './OrderingProviderDialog';
+import { ServiceLineIndicators } from './ServiceLineIndicators';
 
 export interface ServiceLineRow {
   cptCode: string;
@@ -13,6 +17,8 @@ export interface ServiceLineRow {
   placeOfService: string;
   diagnosisPointers: number[];
   revenueCode: string;
+  drug: ServiceLineDrug | null;
+  orderingProvider: ServiceLineOrderingProvider | null;
 }
 
 /** A diagnosis as referenced by a service line's `diagnosisPointers` (1-based sequence + its code). */
@@ -30,6 +36,8 @@ export const emptyServiceLineRow = (overrides?: Partial<ServiceLineRow>): Servic
   placeOfService: '',
   diagnosisPointers: [],
   revenueCode: '',
+  drug: null,
+  orderingProvider: null,
   ...overrides,
 });
 
@@ -54,6 +62,9 @@ export function ServiceLinesEditor({
   defaultServiceDate,
   claimType,
 }: ServiceLinesEditorProps): ReactElement {
+  const [drugIndex, setDrugIndex] = useState<number | null>(null);
+  const [providerIndex, setProviderIndex] = useState<number | null>(null);
+
   const setRow = <K extends keyof ServiceLineRow>(index: number, field: K, fieldValue: ServiceLineRow[K]): void =>
     onChange(value.map((row, i) => (i === index ? { ...row, [field]: fieldValue } : row)));
 
@@ -73,7 +84,18 @@ export function ServiceLinesEditor({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {value.map((row, i) => (
-        <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', width: 76, flexShrink: 0 }}>
+            <ServiceLineIndicators
+              drug={row.drug}
+              orderingProvider={row.orderingProvider}
+              onDrugClick={() => setDrugIndex(i)}
+              onProviderClick={() => setProviderIndex(i)}
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 16, ml: 0.25 }}>
+              {i + 1}
+            </Typography>
+          </Box>
           <ProcedureCodeAutocomplete value={row.cptCode} onChange={(code) => setRow(i, 'cptCode', code)} width={150} />
           <TextField
             size="small"
@@ -153,9 +175,16 @@ export function ServiceLinesEditor({
               </MenuItem>
             ))}
           </Select>
-          <Button size="small" color="error" onClick={() => onChange(value.filter((_, j) => j !== i))}>
-            Remove
-          </Button>
+          <Tooltip title="Remove">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onChange(value.filter((_, j) => j !== i))}
+              aria-label="Remove service line"
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
       ))}
       <Box>
@@ -163,6 +192,40 @@ export function ServiceLinesEditor({
           + Add service line
         </Button>
       </Box>
+      <MedicationDetailDialog
+        open={drugIndex !== null}
+        value={drugIndex !== null ? value[drugIndex]?.drug ?? null : null}
+        onSave={(drug) => {
+          if (drugIndex !== null) setRow(drugIndex, 'drug', drug);
+          setDrugIndex(null);
+        }}
+        onRemove={
+          drugIndex !== null && value[drugIndex]?.drug
+            ? () => {
+                setRow(drugIndex, 'drug', null);
+                setDrugIndex(null);
+              }
+            : undefined
+        }
+        onClose={() => setDrugIndex(null)}
+      />
+      <OrderingProviderDialog
+        open={providerIndex !== null}
+        value={providerIndex !== null ? value[providerIndex]?.orderingProvider ?? null : null}
+        onSave={(provider) => {
+          if (providerIndex !== null) setRow(providerIndex, 'orderingProvider', provider);
+          setProviderIndex(null);
+        }}
+        onRemove={
+          providerIndex !== null && value[providerIndex]?.orderingProvider
+            ? () => {
+                setRow(providerIndex, 'orderingProvider', null);
+                setProviderIndex(null);
+              }
+            : undefined
+        }
+        onClose={() => setProviderIndex(null)}
+      />
     </Box>
   );
 }

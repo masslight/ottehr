@@ -65,12 +65,14 @@ import {
   ServiceLineSetValue,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { valueToText } from '../../utils/format';
 import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
 import { NioSelect } from '../NioSelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 import { ProviderSelect } from '../ProviderSelect';
+import { ServiceSelect } from '../ServiceSelect';
 import { TagSelect } from '../TagSelect';
 
 // ---------------------------------------------------------------------------
@@ -137,9 +139,6 @@ function fieldMenuItems(fields: RuleFieldDef[]): ReactElement[] {
   }
   return items;
 }
-
-const valueToText = (value: string | string[] | null | undefined): string =>
-  Array.isArray(value) ? value.join(', ') : value ?? '';
 
 const textToList = (text: string): string[] =>
   text
@@ -324,7 +323,7 @@ function TypedValueInput({
 }
 
 // Field-aware value input, dispatched on the catalog's valueType/format so new typed fields
-// (dropdowns with options, date pickers, numbers, tag/CPT/payer pickers) only need a catalog entry —
+// (dropdowns with options, date pickers, numbers, tag/CPT/payer/service pickers) only need a catalog entry —
 // and, for a genuinely new type, a branch here or in TypedValueInput.
 function FieldValueInput({
   fieldId,
@@ -412,6 +411,20 @@ function FieldValueInput({
         value={value}
         onChange={onChange}
         label={label ?? 'Facility'}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
+  if (def?.format === 'service') {
+    return (
+      <ServiceSelect
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        label={label}
         required={required}
         error={error}
         helperText={helperText}

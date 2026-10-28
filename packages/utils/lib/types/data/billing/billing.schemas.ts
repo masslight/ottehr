@@ -13,10 +13,18 @@ import { STATE_CODES } from '../../common';
 import {
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
+  DRUG_UNIT_CODE_VALUES,
+  ERA_CLAIM_STATUS_CODES,
+  ERA_PAYMENT_METHOD_CODES,
+  ERA_STATUSES,
+  MANUAL_ERA_LIMITS,
+  NDC_REGEX,
   REFRESH_REPORT_KINDS,
   TAG_NAME_FORBIDDEN_CHARACTERS,
   TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
+  X12_ADJUSTMENT_GROUP_CODES,
 } from './billing.constants';
+import { CHARGE_ITEM_DEFINITION_DEFAULTS } from './billing.types';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -24,6 +32,7 @@ import {
   ClaimStatusFieldKey,
   isValidClaimStatusValue,
 } from './claim-status';
+import { RULES_ENGINE_SUBMISSION_INSURANCES, RULES_ENGINE_SUBMISSION_TYPES } from './rules-engine.constants';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -62,6 +71,9 @@ export const AddClaimNoteInputSchema = z.object({
 
 export const ExportClaimX12InputSchema = z.object({
   claimId: z.string().uuid(),
+  submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES).optional(),
+  submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES).optional(),
+  payerClaimControlNumber: z.string().min(1).optional(),
 });
 
 export const GetClaimCms1500InputSchema = z.object({
@@ -72,12 +84,16 @@ export const GetEraDetailInputSchema = z.object({
   eraId: nonEmptyString,
 });
 
+export const VoidEraInputSchema = z.object({
+  eraId: nonEmptyString,
+});
+
 export const SearchErasInputSchema = z.object({
   // ERA-level filters (work for matched + unmatched)
+  status: z.enum(ERA_STATUSES).optional(),
   checkNumber: nonEmptyString.optional(),
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),
-  eraStatus: nonEmptyString.optional(),
   // A value shaped like a custom insurance organization's business id ("OTR-...") is resolved to
   // that org rather than looked up as an RCM payer id (see resolvePayerIssuerFilter).
   payerId: nonEmptyString.optional(),
@@ -160,6 +176,14 @@ export const GetBillingProviderInputSchema = z.object({
   providerId: nonEmptyString,
 });
 
+// The claim list columns a search can sort by. Neither has a Claim search parameter, so the search
+// scans the matching claims and sorts them in memory.
+export const CLAIM_SORT_FIELDS = ['serviceDate', 'billed'] as const;
+export const ClaimSortSchema = z.object({
+  field: z.enum(CLAIM_SORT_FIELDS),
+  direction: z.enum(['asc', 'desc']),
+});
+
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   // Limit search to patient names and claim IDs.
@@ -182,12 +206,15 @@ export const SearchBillingClaimsInputSchema = z.object({
   nonInsurancePayerId: oneOrMany(nonEmptyString.uuid()).optional(),
   service: oneOrMany(nonEmptyString).optional(),
   patientId: oneOrMany(nonEmptyString).optional(),
+  // Unset keeps the default order: most recently updated first.
+  sort: ClaimSortSchema.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
 
 export const ExportBillingClaimsInputSchema = SearchBillingClaimsInputSchema.omit({
   patientNameOnly: true,
+  sort: true,
   offset: true,
   pageSize: true,
 });
@@ -229,9 +256,7 @@ export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
 });
 
-export const SearchBillingServicesInputSchema = z.object({
-  name: nonEmptyString.optional(),
-});
+export const SearchBillingServicesInputSchema = z.object({});
 
 export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
@@ -255,6 +280,33 @@ const claimServiceLineSchema = z.object({
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
   revenueCode: z.string().max(5).optional(),
+  drug: z
+    .object({
+      ndc: z.string().regex(NDC_REGEX, 'NDC must be 11 digits in the 5-4-2 layout; dashes are optional'),
+      quantity: z.number().positive(),
+      units: z.enum(DRUG_UNIT_CODE_VALUES),
+    })
+    .optional(),
+  orderingProvider: z
+    .object({
+      firstName: nonEmptyString,
+      lastName: nonEmptyString,
+      npi: z.string().trim().optional(),
+      // FHIR id of an existing Practitioner (only a Practitioner can be an ordering provider)
+      providerId: z.string().optional(),
+    })
+    // Providers picked from the system (providerId set) are trusted as stored; only
+    // manually entered NPIs get checksum-validated.
+    .superRefine((provider, ctx) => {
+      if (provider.npi && !provider.providerId && !isNPIValidWithChecksum(provider.npi)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['npi'],
+          message: 'NPI must be 10 digits with a valid check digit',
+        });
+      }
+    })
+    .optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({
@@ -310,6 +362,7 @@ export const DeleteServiceFacilityInputSchema = z.object({
 // so this input carries no override fields.
 export const CreateBillingClaimInputSchema = z.object({
   patientId: nonEmptyString,
+  // Optional — self-pay claims are represented with a no-coverage stub in Claim.insurance.
   coverageId: nonEmptyString.optional(),
   renderingProvider: z
     .object({
@@ -352,6 +405,22 @@ const billingStripeAccountIdSchema = nonEmptyString.regex(
   'Stripe account ID must start with acct_'
 );
 const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
+// A claim's accident details are complete: any accident type needs the accident date, and an auto
+// accident also needs the state it happened in. Shared by the claim editor's update schema and the
+// rules engine's end-of-run check, so a rule can't leave a claim in a state the editor would reject.
+export function claimAccidentProblems(info: {
+  accidentType?: readonly string[];
+  accidentState?: string;
+  accidentDate?: string;
+}): string[] {
+  const problems: string[] = [];
+  if (info.accidentType?.includes('auto') && !info.accidentState) {
+    problems.push('Accident state is required for auto accidents');
+  }
+  if (info.accidentType?.length && !info.accidentDate) problems.push('Accident date is required');
+  return problems;
+}
+
 // Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
 // because patient working copies carry addresses cloned from clinical data.
 const billingProviderAddressSchema = billingAddressSchema.extend({
@@ -522,8 +591,9 @@ export const CreateBillingClaimTaskInputSchema = z.object({
   encounterId: z.string().uuid(),
 });
 
-export const RetryBillingClaimTaskInputSchema = z.object({
+export const UpdateBillingClaimTaskInputSchema = z.object({
   taskId: z.string().uuid(),
+  action: z.enum(['retry', 'cancel']),
 });
 
 export const SearchBillingClaimTasksInputSchema = z.object({
@@ -647,17 +717,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         accidentDate: nonEmptyString.optional().or(z.literal('')),
       })
       .superRefine((data, ctx) => {
-        if (data.accidentType?.includes('auto') && !data.accidentState) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Accident state is required for auto accidents',
-          });
-        }
-        if (data.accidentType?.length && !data.accidentDate) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Accident date is required',
-          });
+        for (const message of claimAccidentProblems(data)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message });
         }
       }),
   }),
@@ -711,7 +772,7 @@ export const CreateChargeItemDefinitionInputSchema = z.object({
   name: nonEmptyString,
   effectiveDate: nonEmptyString.optional(),
   description: nonEmptyString.optional(),
-  default: z.enum(['insurance', 'self-pay']).optional(),
+  default: z.enum(CHARGE_ITEM_DEFINITION_DEFAULTS).optional(),
 });
 
 export const GetChargeItemDefinitionInputSchema = z.object({
@@ -733,7 +794,7 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
   status: z.enum(['active', 'retired']).optional(),
   effectiveDate: nonEmptyString.nullable().optional(),
   description: nonEmptyString.nullable().optional(),
-  default: z.enum(['insurance', 'self-pay']).nullable().optional(),
+  default: z.enum(CHARGE_ITEM_DEFINITION_DEFAULTS).nullable().optional(),
   procedureCodes: z.array(ChargeItemDefinitionProcedureCodeSchema).optional(),
 });
 
@@ -854,11 +915,34 @@ export const RecordBillingVoidInputSchema = z.object({
   clinicalPaymentNoticeId: nonEmptyString.uuid(),
 });
 
+export const AddClaimWriteOffInputSchema = z
+  .object({
+    claimId: nonEmptyString,
+    amount: z.number().nonnegative(),
+    date: z.string().date(),
+    party: z.enum(['insurance', 'nio', 'patient']),
+    payer: nonEmptyString.optional(),
+    reason: nonEmptyString,
+    note: nonEmptyString.optional(),
+  })
+  .superRefine((args, ctx) => {
+    if (args.party === 'insurance' && !args.payer) {
+      ctx.addIssue({ code: 'custom', path: ['payer'], message: '"payer" is required when "party" is "insurance"' });
+    }
+  });
+
+export const VoidClaimWriteOffInputSchema = z.object({
+  writeOffId: nonEmptyString,
+});
+
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
   fileName: nonEmptyString,
   reportTypeCode: nonEmptyString.optional(),
+  // the browser's File.type; guessed from fileName when absent. Not named contentType: the Oystehr SDK
+  // reads a zambda.execute argument with a MIME-shaped contentType as request options, and drops the id.
+  mimeType: nonEmptyString.optional(),
 });
 
 export const RenameClaimAttachmentInputSchema = z.object({
@@ -880,12 +964,166 @@ export const CreateTimelyFilingReportInputSchema = z.object({
   claimId: nonEmptyString.uuid(),
 });
 
+// --- Manually keyed ERAs (paper / PDF remits) ---
+
+// Money travels as integer cents (like record-billing-manual-payment); remit lines may be negative
+// (reversals), the check itself may not.
+const cents = z.number().int();
+const optionalText = (max: number): z.ZodOptional<z.ZodString> => z.string().trim().max(max).optional();
+
+export const ManualEraHeaderSchema = z.object({
+  // what PayerSelect stores: an Oystehr RCM payer id, or a custom insurance organization's id
+  payerId: nonEmptyString,
+  // the billing provider the check pays
+  billingProviderRef: z
+    .string()
+    .regex(/^(Organization|Practitioner)\/[A-Za-z0-9.-]{1,64}$/, 'Expected Organization/<id> or Practitioner/<id>'),
+  checkNumber: nonEmptyString.max(MANUAL_ERA_LIMITS.checkNumberLength),
+  checkAmountCents: cents.nonnegative(),
+  paymentMethod: z.enum(ERA_PAYMENT_METHOD_CODES).optional(),
+  remitDate: isoDate,
+  checkDate: isoDate,
+  // when the check reached the bank, if the biller knows it
+  depositDate: isoDate.optional(),
+  notes: optionalText(MANUAL_ERA_LIMITS.notesLength),
+});
+
+export const ManualEraAdjustmentSchema = z.object({
+  groupCode: z.enum(X12_ADJUSTMENT_GROUP_CODES),
+  reasonCode: z
+    .string()
+    .trim()
+    .regex(/^[A-Z]{0,2}\d{1,4}$/, 'Expected a CARC'),
+  amountCents: cents,
+});
+
+export const ManualEraServiceLineSchema = z.object({
+  // ClaimResponse.item.itemSequence; for a line of a claim the remit was associated with, that
+  // claim line's sequence. Assigned by the server when absent.
+  itemSequence: z.number().int().positive().optional(),
+  serviceDate: isoDate,
+  procedureCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{5}$/, 'Expected a 5-character CPT/HCPCS code'),
+  billedCents: cents,
+  // null when the remit doesn't report an allowed amount
+  allowedCents: cents.nullable(),
+  paidCents: cents,
+  adjustments: z.array(ManualEraAdjustmentSchema).max(MANUAL_ERA_LIMITS.adjustmentsPerLine),
+  remarkCodes: z
+    .array(
+      z
+        .string()
+        .trim()
+        .regex(/^(M|MA|N)\d{1,4}$/, 'Expected a RARC')
+    )
+    .max(MANUAL_ERA_LIMITS.remarkCodesPerLine),
+});
+
+export const ManualEraClaimSchema = z.object({
+  // echoed back in the save response so the client can pair new claims with their ids
+  clientKey: z.string().max(64).optional(),
+  // an existing claim of this remit; absent for a claim being added
+  claimResponseId: nonEmptyString.optional(),
+  // new claims only: the existing Claim this remit claim adjudicates (it is added matched)
+  matchedClaimId: nonEmptyString.optional(),
+  // CLP02
+  statusCode: z.enum(ERA_CLAIM_STATUS_CODES),
+  patientName: nonEmptyString.max(MANUAL_ERA_LIMITS.patientNameLength),
+  memberId: optionalText(MANUAL_ERA_LIMITS.memberIdLength),
+  patientAccountNumber: optionalText(MANUAL_ERA_LIMITS.patientAccountNumberLength),
+  payerClaimControlNumber: optionalText(MANUAL_ERA_LIMITS.payerClaimControlNumberLength),
+  serviceDate: isoDate.optional(),
+  serviceLines: z.array(ManualEraServiceLineSchema).min(1).max(MANUAL_ERA_LIMITS.serviceLinesPerClaim),
+});
+
+// Create (no eraId: header required) or update a manual ERA. Updates are
+// operations: header when it changed, claims to add or change, and claims to remove by id.
+export const SaveManualEraInputSchema = z
+  .object({
+    eraId: nonEmptyString.optional(),
+    // the PaymentReconciliation version the editor loaded; required on update
+    expectedVersionId: nonEmptyString.optional(),
+    header: ManualEraHeaderSchema.optional(),
+    claims: z.array(ManualEraClaimSchema).max(MANUAL_ERA_LIMITS.claimsPerRemit).default([]),
+    deleteClaimResponseIds: z.array(nonEmptyString).max(MANUAL_ERA_LIMITS.claimsPerRemit).default([]),
+  })
+  .superRefine((input, ctx) => {
+    if (!input.eraId) {
+      if (!input.header) ctx.addIssue({ code: 'custom', path: ['header'], message: 'Required to create a remit' });
+      if (input.deleteClaimResponseIds.length > 0)
+        ctx.addIssue({ code: 'custom', path: ['deleteClaimResponseIds'], message: 'Nothing to delete on a new remit' });
+    } else if (!input.expectedVersionId) {
+      ctx.addIssue({ code: 'custom', path: ['expectedVersionId'], message: 'Required to update a remit' });
+    }
+    const seenIds = new Set<string>();
+    const seenClaims = new Set<string>();
+    input.claims.forEach((claim, index) => {
+      if (claim.claimResponseId) {
+        if (!input.eraId)
+          ctx.addIssue({
+            code: 'custom',
+            path: ['claims', index, 'claimResponseId'],
+            message: 'Unknown on a new remit',
+          });
+        if (claim.matchedClaimId)
+          ctx.addIssue({
+            code: 'custom',
+            path: ['claims', index, 'matchedClaimId'],
+            message: 'Only a claim being added can be associated; match existing ones from the ERA',
+          });
+        if (seenIds.has(claim.claimResponseId) || input.deleteClaimResponseIds.includes(claim.claimResponseId))
+          ctx.addIssue({
+            code: 'custom',
+            path: ['claims', index, 'claimResponseId'],
+            message: 'Listed more than once',
+          });
+        seenIds.add(claim.claimResponseId);
+      }
+      if (claim.matchedClaimId) {
+        if (seenClaims.has(claim.matchedClaimId))
+          ctx.addIssue({ code: 'custom', path: ['claims', index, 'matchedClaimId'], message: 'Claim added twice' });
+        seenClaims.add(claim.matchedClaimId);
+      }
+    });
+  });
+
+export const AddEraAttachmentInputSchema = z.object({
+  eraId: nonEmptyString,
+  // the title billers see and can rename
+  name: nonEmptyString.max(MANUAL_ERA_LIMITS.attachmentNameLength),
+  // the uploaded file's own name, which names the stored object
+  fileName: nonEmptyString.max(255),
+  // the browser's File.type (empty for types it doesn't know), else guessed from fileName; checked
+  // against the allowed types. Not named contentType, as for claim attachments.
+  mimeType: z.string().trim().optional(),
+});
+
+export const RenameEraAttachmentInputSchema = z.object({
+  eraId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
+  name: nonEmptyString.max(MANUAL_ERA_LIMITS.attachmentNameLength),
+});
+
+export const DeleteEraAttachmentInputSchema = z.object({
+  eraId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
+});
+
+export const DownloadEraAttachmentInputSchema = z.object({
+  eraId: nonEmptyString,
+  documentReferenceId: nonEmptyString,
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetClaimCms1500Input = z.output<typeof GetClaimCms1500InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
+export type VoidEraInput = z.output<typeof VoidEraInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;
@@ -895,6 +1133,8 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type ClaimSort = z.output<typeof ClaimSortSchema>;
+export type ClaimSortField = ClaimSort['field'];
 export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
 export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
 export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
@@ -928,7 +1168,7 @@ export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBilling
 export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
 export type RecordBillingRefundInput = z.output<typeof RecordBillingRefundInputSchema>;
 export type RecordBillingVoidInput = z.output<typeof RecordBillingVoidInputSchema>;
-export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
+export type UpdateBillingClaimTaskInput = z.output<typeof UpdateBillingClaimTaskInputSchema>;
 export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
@@ -950,7 +1190,18 @@ export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseT
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
+export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;
 export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
 export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
 export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;
 export type CreateTimelyFilingReportInput = z.output<typeof CreateTimelyFilingReportInputSchema>;
+export type ManualEraHeader = z.output<typeof ManualEraHeaderSchema>;
+export type ManualEraAdjustment = z.output<typeof ManualEraAdjustmentSchema>;
+export type ManualEraServiceLine = z.output<typeof ManualEraServiceLineSchema>;
+export type ManualEraClaim = z.output<typeof ManualEraClaimSchema>;
+export type SaveManualEraInput = z.output<typeof SaveManualEraInputSchema>;
+export type AddEraAttachmentInput = z.output<typeof AddEraAttachmentInputSchema>;
+export type RenameEraAttachmentInput = z.output<typeof RenameEraAttachmentInputSchema>;
+export type DeleteEraAttachmentInput = z.output<typeof DeleteEraAttachmentInputSchema>;
+export type DownloadEraAttachmentInput = z.output<typeof DownloadEraAttachmentInputSchema>;

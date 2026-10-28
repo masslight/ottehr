@@ -1,8 +1,6 @@
 import { FC } from 'react';
-import { useFormContext } from 'react-hook-form';
-import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { useContactFields } from 'src/features/address-book/useContactFields';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
-import { AddressBookContact } from 'utils/lib/types/data/address-book';
 import { PatientRecordAddressBookField } from './PatientRecordAddressBookField';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
@@ -10,10 +8,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 
 const primaryCareSection = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician;
 const FIELD_KEYS = Object.values(primaryCareSection.items).map((item) => item.key);
-
-/** The PCP address is one line: "line1, line2, city, state zip". */
-const formatContactAddress = ({ line1, line2, city, state, zip }: NonNullable<AddressBookContact['address']>): string =>
-  [line1, line2, city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 
 interface PrimaryCareContainerProps {
   isLoading: boolean;
@@ -23,17 +17,14 @@ interface PrimaryCareContainerProps {
 
 export const PrimaryCareContainer: FC<PrimaryCareContainerProps> = ({ isLoading, patientId, encounterId }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: primaryCareSection });
-  const { setValue } = useFormContext();
-
-  // Every field is set (to '' when the contact lacks it) so a re-pick leaves nothing stale.
-  const fillFromContact = (contact: AddressBookContact): void => {
-    const set = (item: { key: string }, value: string): void => setValue(item.key, value, { shouldDirty: true });
-    set(items.firstName, contact.firstName ?? '');
-    set(items.lastName, contact.lastName ?? '');
-    set(items.address, contact.address ? formatContactAddress(contact.address) : '');
-    set(items.phone, formatPhoneNumberDisplay(contact.phone));
-    set(items.fax, formatPhoneNumberDisplay(contact.fax));
-  };
+  const { onSelect, toContact } = useContactFields({
+    organizationName: items.practiceName.key,
+    firstName: items.firstName.key,
+    lastName: items.lastName.key,
+    fullAddress: items.address.key,
+    phone: items.phone.key,
+    fax: items.fax.key,
+  });
 
   return (
     <PatientRecordFormSection
@@ -49,7 +40,8 @@ export const PrimaryCareContainer: FC<PrimaryCareContainerProps> = ({ isLoading,
             hiddenFormFields={hiddenFields}
             requiredFormFields={requiredFields}
             tag="pcp"
-            onSelect={fillFromContact}
+            onSelect={onSelect}
+            toContact={toContact}
           />
         ) : (
           <PatientRecordFormField

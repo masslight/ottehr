@@ -1,12 +1,14 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Claim, Encounter, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, Encounter, FhirResource, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Secrets } from 'utils/lib/secrets';
+import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
 
 vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -27,6 +29,15 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createBillingClient: vi.fn(),
+}));
+
+vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveClaimActor: vi.fn(async () => ({
+    who: {
+      reference: 'Device/system',
+    },
+  })),
 }));
 
 import { CHECK_NUMBER_IDENTIFIER_SYSTEM, MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM } from '../../../src/billing/payments';
@@ -77,19 +88,44 @@ const claimWithProvider: Claim = {
   identifier: [{ system: CLAIM_ENC_SYSTEM, value: ENCOUNTER_ID }],
 };
 
-const makeBillingOystehr = (claimResults: Claim[][]): { oystehr: Oystehr; create: Mock; update: Mock } => {
+// storedNotices answers the lookup by idempotency key; a transaction echoes the new notice with an id
+const makeBillingOystehr = (
+  claimResults: Claim[][],
+  storedNotices: PaymentNotice[] = []
+): { oystehr: Oystehr; transaction: Mock } => {
   const claimQueue = [...claimResults];
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
-    const results = resourceType === 'Claim' ? claimQueue.shift() ?? [] : [];
+    const results =
+      resourceType === 'Claim' ? claimQueue.shift() ?? [] : resourceType === 'PaymentNotice' ? storedNotices : [];
     return Promise.resolve({ unbundle: () => results });
   });
-  const create = vi
-    .fn()
-    .mockImplementation((resource: PaymentNotice) => Promise.resolve({ ...resource, id: 'pn-new' }));
-  const update = vi.fn().mockResolvedValue({});
+  const transaction = vi.fn().mockImplementation(({ requests }: { requests: BatchInputRequest<FhirResource>[] }) => {
+    const resources = requests.map((request) => {
+      const { resource } = request as { resource: FhirResource };
+      return request.url === '/PaymentNotice'
+        ? {
+            ...resource,
+            id: 'pn-new',
+          }
+        : resource;
+    });
+    return Promise.resolve({ unbundle: () => resources });
+  });
   const batch = vi.fn().mockResolvedValue({ entry: [] });
-  return { oystehr: { fhir: { search, create, update, batch } } as unknown as Oystehr, create, update };
+  return {
+    oystehr: {
+      fhir: {
+        search,
+        transaction,
+        batch,
+      },
+    } as unknown as Oystehr,
+    transaction,
+  };
 };
+
+const writtenNotice = (transaction: Mock): { resource: PaymentNotice; fullUrl: string; ifNoneExist: unknown } =>
+  transaction.mock.calls[0][0].requests.find((request: { url: string }) => request.url === '/PaymentNotice');
 
 const makeClinicalOystehr = (encounters: Encounter[]): Oystehr =>
   ({
@@ -157,34 +193,34 @@ describe('record-billing-manual-payment', () => {
   ];
 
   it.each(invalidInputs)('rejects $name', async ({ override }) => {
-    const { oystehr, create } = makeBillingOystehr([]);
+    const { oystehr, transaction } = makeBillingOystehr([]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
 
     await expect(index(makeInput({ ...baseParams, ...override }))).rejects.toMatchObject({
       code: APIErrorCode.INVALID_INPUT,
     });
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('throws when the encounter does not exist', async () => {
     (createClinicalOystehrClient as Mock).mockReturnValue(makeClinicalOystehr([]));
-    const { oystehr, create } = makeBillingOystehr([]);
+    const { oystehr, transaction } = makeBillingOystehr([]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
 
     await expect(index(makeInput(baseParams))).rejects.toMatchObject({
       code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
     });
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('records a notice with the expected shape when no claim exists yet', async () => {
-    const { oystehr, create, update } = makeBillingOystehr([[], []]);
+    const { oystehr, transaction } = makeBillingOystehr([[], []]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
 
     const result = await index(makeInput(baseParams));
 
-    const [resource, options] = create.mock.calls[0];
-    expect(options.ifNoneExist).toEqual([
+    const { resource, ifNoneExist } = writtenNotice(transaction);
+    expect(ifNoneExist).toEqual([
       { name: 'identifier', value: `${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|${baseParams.idempotencyKey}` },
       { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
     ]);
@@ -206,51 +242,106 @@ describe('record-billing-manual-payment', () => {
     expect(reconciliation.paymentIdentifier).toEqual({ system: CHECK_NUMBER_IDENTIFIER_SYSTEM, value: '1234' });
     expect(reconciliation.detail?.[0]?.submitter).toEqual({ reference: 'Practitioner/prac-1' });
     expect(resource.created).toBe('2026-07-22T12:00:00.000Z');
-    expect(update).not.toHaveBeenCalled();
     expect(JSON.parse(result.body)).toEqual({ paymentNoticeId: 'pn-new' });
   });
 
   it('lands on the prior Eastern date when paymentDateISO is just past midnight UTC', async () => {
-    const { oystehr, create } = makeBillingOystehr([[], []]);
+    const { oystehr, transaction } = makeBillingOystehr([[], []]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
 
     await index(makeInput({ ...baseParams, paymentDateISO: '2026-07-02T02:00:00Z' }));
 
-    expect(create.mock.calls[0][0].paymentDate).toBe('2026-07-01');
+    expect(writtenNotice(transaction).resource.paymentDate).toBe('2026-07-01');
   });
 
   it('links to an existing claim and uses its provider as payee', async () => {
-    const { oystehr, create } = makeBillingOystehr([[claimWithProvider]]);
+    const { oystehr, transaction } = makeBillingOystehr([[claimWithProvider]]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
 
     const result = await index(makeInput(baseParams));
 
-    expect(create.mock.calls[0][0].request.reference).toBe('Claim/claim-1');
-    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/claim-bp' });
+    expect(writtenNotice(transaction).resource.request?.reference).toBe('Claim/claim-1');
+    expect(writtenNotice(transaction).resource.payee).toEqual({ reference: 'Organization/claim-bp' });
     expect(JSON.parse(result.body)).toEqual({ paymentNoticeId: 'pn-new', claimId: 'claim-1' });
   });
 
+  it("records the payment in the claim's history, attributed to the biller who took it", async () => {
+    const { oystehr, transaction } = makeBillingOystehr([[claimWithProvider]]);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+
+    await index(makeInput(baseParams));
+
+    const [entry] = claimHistoryEntries(transaction.mock.calls[0][0].requests);
+    expect(entry).toMatchObject({
+      target: [
+        {
+          reference: writtenNotice(transaction).fullUrl,
+        },
+        {
+          reference: 'Claim/claim-1',
+        },
+      ],
+      activity: {
+        coding: [CLAIM_PROVENANCE_ACTIVITY.create],
+      },
+      agent: [
+        {
+          who: {
+            reference: 'Practitioner/prac-1',
+          },
+        },
+      ],
+    });
+    expect(provenanceChanges(entry)).toContainEqual({
+      field: 'amount',
+      label: 'Amount',
+      previousValue: null,
+      newValue: '$40.00',
+    });
+  });
+
+  it('records a payment taken before its claim exists against the payment alone', async () => {
+    const { oystehr, transaction } = makeBillingOystehr([[], []]);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+
+    await index(makeInput(baseParams));
+
+    const [entry] = claimHistoryEntries(transaction.mock.calls[0][0].requests);
+    expect(entry.target).toEqual([
+      {
+        reference: writtenNotice(transaction).fullUrl,
+      },
+    ]);
+  });
+
   it('returns the existing notice untouched on an identical replay', async () => {
-    const { oystehr, create, update } = makeBillingOystehr([[], []]);
-    create.mockResolvedValue(makeExistingNotice());
+    const { oystehr, transaction } = makeBillingOystehr([[], []], [makeExistingNotice()]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
 
     const result = await index(makeInput(baseParams));
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).paymentNoticeId).toBe('pn-existing');
-    expect(update).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('records the payment without a submitter when caller lookup fails', async () => {
+  it('records the payment without a submitter, attributed to the system, when caller lookup fails', async () => {
     (getUser as Mock).mockRejectedValue(new Error('user lookup failed'));
-    const { oystehr, create } = makeBillingOystehr([[], []]);
+    const { oystehr, transaction } = makeBillingOystehr([[], []]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
 
     await index(makeInput(baseParams));
 
-    const reconciliation = containedReconciliation(create.mock.calls[0][0]);
+    const reconciliation = containedReconciliation(writtenNotice(transaction).resource);
     expect(reconciliation.detail).toBeUndefined();
+    const [entry] = claimHistoryEntries(transaction.mock.calls[0][0].requests);
+    expect(entry.agent).toEqual([
+      {
+        who: {
+          reference: 'Device/system',
+        },
+      },
+    ]);
   });
 
   const conflictingReplayCases: { field: string; mutate: (notice: PaymentNotice) => void }[] = [
@@ -297,15 +388,14 @@ describe('record-billing-manual-payment', () => {
     async ({ mutate }) => {
       const existing = makeExistingNotice();
       mutate(existing);
-      const { oystehr, create, update } = makeBillingOystehr([[], []]);
-      create.mockResolvedValue(existing);
+      const { oystehr, transaction } = makeBillingOystehr([[], []], [existing]);
       (createBillingClient as Mock).mockReturnValue(oystehr);
 
       await expect(index(makeInput(baseParams))).rejects.toMatchObject({
         code: APIErrorCode.MANUAL_PAYMENT_CONFLICT,
         statusCode: 409,
       });
-      expect(update).not.toHaveBeenCalled();
+      expect(transaction).not.toHaveBeenCalled();
     }
   );
 });

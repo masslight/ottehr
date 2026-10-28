@@ -2,16 +2,21 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { parsePaymentVoidFromNotice } from 'utils/lib/fhir/paymentRefunds';
+import { RecordBillingVoidInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingVoidResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+// eslint-disable-next-line no-restricted-imports -- reads the voided clinical payment notice
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { voidPaymentNotice } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
-import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../payments';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordPaymentNoticeChange } from '../payments';
+import { resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
-import { RecordBillingVoidParams, validateRequestParameters } from './validateRequestParameters';
+
+type RecordBillingVoidParams = ValidatedZambdaInput<typeof RecordBillingVoidInputSchema>;
 
 const ZAMBDA_NAME = 'record-billing-void';
 
@@ -22,7 +27,7 @@ let m2mToken: string;
 // rather than taken from the caller: EHR roles hold wildcard Zambda:InvokeFunction, so a direct
 // caller must only be able to propagate a void that already happened clinically.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(RecordBillingVoidInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
@@ -54,8 +59,10 @@ async function performEffect(
     })
   ).unbundle();
 
+  // called on the EHR's machine token: the clinical notice says who voided it
+  const agent = await resolveClaimActor('system', oystehr, undefined, params.secrets);
   for (const billingNotice of billingNotices) {
-    await voidPaymentNotice(oystehr, billingNotice, voidInfo);
+    await voidPaymentNotice(oystehr, billingNotice, voidInfo, recordPaymentNoticeChange(agent));
   }
 
   return { billingNoticesVoided: billingNotices.length };

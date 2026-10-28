@@ -21,6 +21,7 @@ import {
   transactionWasSuccessful,
   withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
+import { isInHouseMedicationOrder } from 'utils/lib/fhir/medication-administration';
 import { isExternalLabServiceRequest, isPSCOrder } from 'utils/lib/helpers/labs/helpers';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
@@ -41,11 +42,15 @@ import {
   PSC_HOLD_CONFIG,
 } from 'utils/lib/types/data/labs/labs.constants';
 import { v4 as uuidV4 } from 'uuid';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { isDmeBillingProcedure } from '../../shared/dme';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
+import { fetchEncounterDmeBillingProcedureIds } from '../dme/shared/order-helpers';
 import { labOrderCommunicationType } from '../lab/external/get-lab-orders/helpers';
 import { AD_CANONICAL_URL_BASE } from '../lab/shared/in-house-labs';
 import {
@@ -57,7 +62,11 @@ import {
   isPatientEducationCommunication,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+export const AdminCreateTemplateSchema = z.object({
+  encounterId: z.string().uuid(),
+  templateName: z.string().trim().min(1),
+});
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
@@ -69,7 +78,7 @@ export const index = wrapHandler(
   'admin-create-template',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(AdminCreateTemplateSchema, input);
 
       const { secrets } = validatedInput;
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -96,7 +105,11 @@ const performEffect = async (
   const warnings: TemplateWarning[] = [];
 
   // Fetch encounter with all related clinical resources
-  let encounterBundle = await getTemplateEncounterBundle(oystehr, encounterId);
+  const [initialEncounterBundle, dmeBillingProcedureIds] = await Promise.all([
+    getTemplateEncounterBundle(oystehr, encounterId),
+    fetchEncounterDmeBillingProcedureIds(encounterId, oystehr),
+  ]);
+  let encounterBundle = initialEncounterBundle;
 
   if (!encounterBundle.length) {
     throw new Error('No entries found in encounter bundle, cannot make a template');
@@ -106,6 +119,15 @@ const performEffect = async (
   if (!oldEncounter) {
     throw new Error('Unexpectedly found no Encounter when preparing template');
   }
+
+  const inHouseMedicationOrderReferences = new Set(
+    encounterBundle
+      .filter(
+        (resource): resource is MedicationAdministration =>
+          resource.resourceType === 'MedicationAdministration' && isInHouseMedicationOrder(resource)
+      )
+      .map((ma) => `MedicationAdministration/${ma.id}`)
+  );
 
   // Determine code system and version based on exam type
   const codeSystem = GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM;
@@ -235,12 +257,9 @@ const performEffect = async (
     // Skip the Encounter — we create a stub encounter separately
     if (resource.resourceType === 'Encounter') continue;
     // we won't grab any cpt codes that were added to the assessment because of an administered in house med
-    if (
-      resource.resourceType === 'Procedure' &&
-      resourceHasTagSystem(resource, chartDataTagSystem('cpt-code')) &&
-      resource.partOf?.some((part) => part.reference?.startsWith('MedicationAdministration/'))
-    )
-      continue;
+    if (isInHouseMedicationCptLine(resource, inHouseMedicationOrderReferences)) continue;
+    // DME billing lines belong to that patient's order, which a template must not reference
+    if (isDmeBillingCptLine(resource, dmeBillingProcedureIds)) continue;
 
     const anonymizedResource: any = { ...resource };
     delete anonymizedResource.meta?.versionId;
@@ -318,7 +337,7 @@ const performEffect = async (
   // Materialize each captured external lab order as a "plan" ServiceRequest on
   // the template. Like in-house labs, we don't snapshot the live order graph;
   // the plan stores the lab + test combo (lab GUID + name, orderable item
-  // code), the Dx reason codes, the clinical info note, and the PSC flag. At
+  // code), the Dx reason codes, the clinical info note, and the PSC and stat flags. At
   // apply time the test is re-resolved against the lab's current compendium,
   // the ordering office is derived from the encounter the template is applied
   // to, and the payment method defaults from that visit's payment details -
@@ -359,6 +378,7 @@ const performEffect = async (
       ],
       ...(order.reasonCode ? { reasonCode: order.reasonCode } : {}),
       ...(clinicalInfoNote ? { note: [{ text: clinicalInfoNote }] } : {}),
+      ...(order.priority === 'stat' ? { priority: 'stat' as const } : {}),
       ...(isPSCOrder(order)
         ? {
             orderDetail: [
@@ -714,6 +734,22 @@ const TEMPLATE_INCLUDABLE_MA_STATUSES = new Set<MedicationAdministration['status
   'completed',
   'not-done',
 ]);
+
+export const isInHouseMedicationCptLine = (
+  resource: TemplateEncounterResource,
+  inHouseMedicationOrderReferences: ReadonlySet<string>
+): boolean =>
+  resource.resourceType === 'Procedure' &&
+  resourceHasTagSystem(resource, chartDataTagSystem('cpt-code')) &&
+  (resource.partOf?.some((part) => (part.reference ? inHouseMedicationOrderReferences.has(part.reference) : false)) ??
+    false);
+
+export const isDmeBillingCptLine = (
+  resource: TemplateEncounterResource,
+  dmeBillingProcedureIds: ReadonlySet<string>
+): boolean =>
+  resource.resourceType === 'Procedure' &&
+  (isDmeBillingProcedure(resource) || (!!resource.id && dmeBillingProcedureIds.has(resource.id)));
 
 export const isValidMedicationAdministrationForTemplate = (resource: TemplateEncounterResource): boolean => {
   if (resource.resourceType !== 'MedicationAdministration') return false;

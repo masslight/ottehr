@@ -1,6 +1,6 @@
 import Oystehr, { Bundle } from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { APIGatewayProxyResult } from 'aws-lambda';
+import { Context } from 'aws-lambda';
 import {
   Appointment,
   Communication,
@@ -13,7 +13,6 @@ import {
   Practitioner,
   Provenance,
   QuestionnaireResponse,
-  QuestionnaireResponseItem,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -26,20 +25,18 @@ import {
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { getAttestedConsentFromEncounter, getCoding } from 'utils/lib/fhir/helpers';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
   getMiddleName,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getSMSNumberForIndividual,
-  isPatientDemographicsComplete,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
-import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
-import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
 import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { SMSModel, SMSRecipient } from 'utils/lib/types/api/messaging.types';
@@ -53,6 +50,7 @@ import { isTruthy } from 'utils/lib/types/utils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getPaperworkCompleteness } from '../../shared/paperwork-completeness';
 import { getTrackingBoardVisitStatus, sortAppointments } from '../../shared/queueingUtils';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -124,16 +122,25 @@ const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
 // issues searches as POST bodies.
 const PROVENANCE_SEARCH_CHUNK_SIZE = 100;
 
-/** Visit type and service category are appointment-level filters, so they need nothing beyond the Appointment itself. */
+// Kept back from the Lambda's limit for Step C, the response and the Sentry flush; Step B is cut short before it.
+const TRACKING_BOARD_RESPONSE_RESERVE_MS = 5_000;
+
+/** Visit type and service category filters. The encounter map is needed to detect scheduled follow-ups. */
 const filterAppointmentsForBoard = (
   appointments: Appointment[],
   visitType: string[],
-  serviceCategories: string[] | undefined
+  serviceCategories: string[] | undefined,
+  apptRefToEncounterMap: Record<string, Encounter>
 ): Appointment[] => {
   let filtered = appointments;
 
   if (visitType?.length > 0) {
+    const includeScheduledFollowUps = visitType.includes('in-person-scheduled-follow-up');
     filtered = filtered.filter((appointment) => {
+      const encounter = apptRefToEncounterMap[`Appointment/${appointment.id}`];
+      if (encounter?.partOf) {
+        return includeScheduledFollowUps;
+      }
       return visitType.includes(
         (isInPersonAppointment(appointment) ? 'in-person-' : 'virtual-') + appointmentTypeForAppointment(appointment)
       );
@@ -152,8 +159,23 @@ const filterAppointmentsForBoard = (
 
 let m2mToken: string;
 
-export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.group('validateRequestParameters');
+export const index = wrapHandler('get-appointments', async (input: ZambdaInput, context?: Context) => {
+  const trackingBoardDeadline = context
+    ? Date.now() + context.getRemainingTimeInMillis() - TRACKING_BOARD_RESPONSE_RESERVE_MS
+    : undefined;
+  // The tracking board polls this endpoint every 30 s per open tab, so per-invocation logging is one summary line
+  // (see logSummary) rather than a line per phase.
+  const phaseMs: Record<string, number> = {};
+  let phaseStartedAt = Date.now();
+  const endPhase = (phase: string): void => {
+    const now = Date.now();
+    phaseMs[phase] = now - phaseStartedAt;
+    phaseStartedAt = now;
+  };
+  const logSummary = (summary: Record<string, unknown>): void => {
+    console.log(`get-appointments summary ${JSON.stringify({ ...summary, ms: phaseMs })}`);
+  };
+
   const validatedParameters = validateRequestParameters(input);
 
   // Appointment dates in the resource are stored in Zulu (UTC) format:
@@ -174,13 +196,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     secrets,
   } = validatedParameters;
 
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
-
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-
-  console.time('get_active_encounters + get_appointment_data');
 
   const requestedTimezoneRelatedResources: {
     resourceId: string;
@@ -272,7 +289,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     };
   })();
 
-  console.timeEnd('get_active_encounters + get_appointment_data');
+  endPhase('search');
 
   let preBooked: InPersonAppointmentInformation[] = [];
   let inOffice: InPersonAppointmentInformation[] = [];
@@ -288,14 +305,13 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       cancelled,
       ...emptyTrackingBoardExtras(),
     };
+    logSummary({ appointments: 0 });
 
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
   }
-
-  console.time('parse_search_results');
 
   const patientIds: string[] = [];
   const practitionerIds: string[] = [];
@@ -399,11 +415,11 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     }
   });
 
-  console.timeEnd('parse_search_results');
+  endPhase('parse');
 
   // The queues only need the appointment and its encounter, so they are built here, ahead of the related-resource
   // searches, and reused when the response is assembled below.
-  const appointments = filterAppointmentsForBoard(allAppointments, visitType, serviceCategories);
+  const appointments = filterAppointmentsForBoard(allAppointments, visitType, serviceCategories, apptRefToEncounterMap);
   const appointmentQueues = appointments.length > 0 ? sortAppointments(appointments, apptRefToEncounterMap) : undefined;
 
   // Tracking board Step B: order icons and vitals badges are keyed on the encounters in these queues, so their
@@ -417,19 +433,24 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     patientIdMap,
   });
   const vitalsAlertConfigPromise = trackingBoardEncounterIds.length > 0 ? getVitalsEngineConfig(oystehr) : undefined;
+  const trackingBoardStartedAt = Date.now();
   const trackingBoardResourcesPromise: Promise<TrackingBoardResources> = fetchTrackingBoardResources({
     oystehr,
     encounterIds: trackingBoardEncounterIds,
     // Optional: it only shortens `next` links, and a missing secret must not fail the page (see the catch below).
     fhirApiUrl: getOptionalSecret(SecretsKeys.FHIR_API, secrets),
-  }).catch((error) => {
-    // The board can render without its icons; log and fall back to empty maps rather than fail the page.
-    console.error('tracking board orders/vitals fetch failed', error);
-    captureException(error);
-    return { resources: [], failedUrls: ['*'] };
-  });
-
-  console.time('related_resources');
+    deadline: trackingBoardDeadline,
+  })
+    .finally(() => {
+      // It overlaps the related-resource phase, so it gets its own timing rather than a phase.
+      phaseMs.trackingBoard = Date.now() - trackingBoardStartedAt;
+    })
+    .catch((error) => {
+      // The board can render without its icons; log and fall back to empty maps rather than fail the page.
+      console.error('tracking board orders/vitals fetch failed', error);
+      captureException(error);
+      return { resources: [], failedUrls: ['*'] };
+    });
 
   const patientIdsForSearch = patientIds.join(',');
 
@@ -587,7 +608,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     }
   });
 
-  console.timeEnd('related_resources');
+  endPhase('related');
 
   // because the related person tied to the user's account has been excluded from the graph of persons
   // connected to patient resources, while the Zap sms creates communications with sender reference based on
@@ -630,8 +651,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   // makeAppointmentInformation reads timezoneMap, so the prefetch started before the appointment
   // search has to be settled by now.
   await timezonesResolved;
-
-  console.time('structure_appointment_data');
 
   if (appointmentQueues) {
     const baseMapInput: Omit<AppointmentInformationInputs, 'appointment'> = {
@@ -708,7 +727,16 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     cancelled,
     ...trackingBoardExtras,
   };
-  console.timeEnd('structure_appointment_data');
+  endPhase('structure');
+
+  const rows = [...preBooked, ...inOffice, ...completed, ...cancelled];
+  logSummary({
+    appointments: rows.length,
+    trackingBoardEncounters: trackingBoardEncounterIds.length,
+    // Patients with no RelatedPerson holding an SMS number: ordinary data, so counted here instead of logged per row.
+    withoutSmsModel: rows.filter((row) => !row.smsModel).length,
+    ...(trackingBoardExtras.ordersAndVitalsIncomplete ? { ordersAndVitalsIncomplete: true } : {}),
+  });
 
   return {
     statusCode: 200,
@@ -795,17 +823,17 @@ const makeAppointmentInformation = (
       });
 
       const recipients = Array.from(recipientsMap.values());
-      if (recipients.length === 0) {
-        throw new Error(`no RelatedPerson with contact number for patient ${patientId}`);
+      // A patient with no RelatedPerson holding an SMS number simply has no smsModel. That is ordinary data, not an
+      // error, so it is neither logged nor reported: on a polled board it would repeat for every such row every tick.
+      if (recipients.length > 0) {
+        const allCommunications = recipients.flatMap((recipient) => {
+          return rpToCommMap[recipient.recipientResourceUri] ?? [];
+        });
+        smsModel = {
+          hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
+          recipients,
+        };
       }
-
-      const allCommunications = recipients.flatMap((recipient) => {
-        return rpToCommMap[recipient.recipientResourceUri] ?? [];
-      });
-      smsModel = {
-        hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
-        recipients,
-      };
     } catch (e) {
       console.log('error building sms model: ', e);
       captureException(e);
@@ -814,33 +842,12 @@ const makeAppointmentInformation = (
     console.log(`no patient ref found for appointment ${appointment.id}`);
   }
 
-  const flattenedItems = flattenItems(questionnaireResponse?.item ?? []);
-  const consentComplete =
-    CONSENT_FORMS_CONFIG.forms.every(
-      (form) =>
-        flattenedItems.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
-    ) &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'signature') &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'full-name') &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-form-signer-relationship');
-  const docRefComplete = (type: string, frontTitle: string): boolean => {
-    const docFound = allDocRefs.filter(
-      (document) =>
-        document.context?.related?.find((related) => related.reference === `Patient/${patient?.id}`) &&
-        document.type?.text === type
-    );
-    return !!docFound.find((doc) => doc.content.find((content) => content.attachment.title === frontTitle));
-  };
-  const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
-  const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');
+  const paperwork = getPaperworkCompleteness({ patient, encounter, questionnaireResponse, docRefs: allDocRefs });
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
   const status = getTrackingBoardVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
-
-  const ovrpInterest = flattenedItems.find((response: QuestionnaireResponseItem) => response.linkId === 'ovrp-interest')
-    ?.answer?.[0]?.valueString;
 
   const practitionerId = getAttendingPractitionerId(encounter);
   const practitioner = practitionerIdToResourceMap[`Practitioner/${practitionerId}`];
@@ -848,13 +855,6 @@ const makeAppointmentInformation = (
   if (practitioner && practitioner.name) {
     provider = oystehr.fhir.formatHumanName(practitioner.name[0]);
   }
-
-  // if the QR has been updated at least once, this tag will not be present
-  const demographicsByPaperworkSubmission = !!questionnaireResponse?.authored;
-
-  const demographicsByPatientResource = isPatientDemographicsComplete(patient);
-  const consentByPaperworkSignatures = !!consentComplete;
-  const consentByStaffAttestation = !!(encounter && getAttestedConsentFromEncounter(encounter));
 
   const participants = parseEncounterParticipants(encounter, practitionerIdToResourceMap);
   const attenderProviderType = parseAttenderProviderType(encounter, practitionerIdToResourceMap);
@@ -877,6 +877,7 @@ const makeAppointmentInformation = (
       firstName: getPatientFirstName(patient),
       lastName: getPatientLastName(patient),
       middleName: getMiddleName(patient),
+      friendlyId: getPatientFriendlyId(patient) || undefined,
       // suffix: patient?.name?.[0].suffix?.[0],
       sex: patient.gender,
       dateOfBirth: patient?.birthDate || 'Unknown',
@@ -895,11 +896,11 @@ const makeAppointmentInformation = (
     group: group ? group.name : undefined,
     room: room,
     paperwork: {
-      demographics: demographicsByPaperworkSubmission || demographicsByPatientResource,
-      photoID: idCard,
-      insuranceCard: insuranceCard,
-      consent: consentByPaperworkSignatures || consentByStaffAttestation,
-      ovrpInterest: Boolean(ovrpInterest && ovrpInterest.startsWith('Yes')),
+      demographics: paperwork.demographics,
+      photoID: paperwork.photoID,
+      insuranceCard: paperwork.insuranceCard,
+      consent: paperwork.consent,
+      ovrpInterest: paperwork.ovrpInterest,
     },
     participants,
     next,

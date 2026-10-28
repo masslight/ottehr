@@ -1,5 +1,5 @@
 import { Autocomplete, TextField } from '@mui/material';
-import { FC, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { FieldError } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
@@ -21,13 +21,25 @@ type DiagnosesFieldProps = {
 export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
   const { onChange, disabled, disableForPrimary, value, label, placeholder, error, quickPickOptions } = props;
 
+  const [inputText, setInputText] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
-  const icdSearchOptions = debouncedSearchTerm === '' && quickPickOptions ? quickPickOptions : data?.codes || [];
+  const { isFetching: isSearching, isPlaceholderData, data } = useICD10SearchNew({ search: debouncedSearchTerm });
+  const waitingForSearch = inputText !== debouncedSearchTerm || isSearching || isPlaceholderData;
+  const icdSearchOptions = inputText === '' ? quickPickOptions ?? [] : waitingForSearch ? [] : data?.codes ?? [];
 
-  const { debounce } = useDebounce(800);
+  const { debounce, clear } = useDebounce(800);
+  const clearRef = useRef(clear);
+  clearRef.current = clear;
+  useEffect(() => () => clearRef.current(), []);
+
+  const resetSearch = (): void => {
+    clear();
+    setInputText('');
+    setDebouncedSearchTerm('');
+  };
 
   const debouncedHandleInputChange = (data: string): void => {
+    setInputText(data);
     debounce(() => {
       setDebouncedSearchTerm(data);
     });
@@ -36,18 +48,19 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
   const onInternalChange = (_e: unknown, data: IcdSearchResponse['codes'][number] | null): void => {
     if (data) {
       onChange(data);
+      resetSearch();
     }
   };
 
   return (
-    <Autocomplete
+    <Autocomplete<IcdSearchResponse['codes'][number], false, boolean, false>
       fullWidth
       blurOnSelect
       disabled={disabled}
       options={icdSearchOptions}
       openOnFocus={quickPickOptions != null}
       noOptionsText={
-        debouncedSearchTerm && icdSearchOptions.length === 0
+        inputText && !waitingForSearch && icdSearchOptions.length === 0
           ? 'Nothing found for this search criteria'
           : 'Start typing to load results'
       }
@@ -55,17 +68,20 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
       includeInputInList
       disableClearable
       filterOptions={(x) => x}
-      value={value || (null as unknown as undefined)}
+      value={value ?? null}
       isOptionEqualToValue={(option, value) => value.code === option.code}
-      loading={isSearching}
+      loading={Boolean(inputText) && waitingForSearch}
       onChange={onInternalChange}
+      onInputChange={(_event, text, reason) => {
+        if (reason === 'input') debouncedHandleInputChange(text);
+        else resetSearch();
+      }}
       getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
       getOptionDisabled={(option) => disableForPrimary && option.code.startsWith('W')}
       renderInput={(params) => (
         <TextField
           {...params}
           data-testid={dataTestIds.diagnosisContainer.diagnosisDropdown}
-          onChange={(e) => debouncedHandleInputChange(e.target.value)}
           size="small"
           label={label || 'Search'}
           placeholder={placeholder || 'Diagnoses'}

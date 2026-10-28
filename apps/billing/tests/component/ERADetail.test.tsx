@@ -1,18 +1,24 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EraClaimRemit, EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ERADetail from '../../src/pages/ERADetail';
 
-const { getBillingEraDetailMock, oystehrZambdaStub } = vi.hoisted(() => ({
-  getBillingEraDetailMock: vi.fn(),
-  oystehrZambdaStub: {},
-}));
+const { getBillingEraDetailMock, voidBillingEraMock, downloadEraAttachmentMock, oystehrZambdaStub } = vi.hoisted(
+  () => ({
+    getBillingEraDetailMock: vi.fn(),
+    voidBillingEraMock: vi.fn(),
+    downloadEraAttachmentMock: vi.fn(),
+    oystehrZambdaStub: {},
+  })
+);
 
 vi.mock('../../src/api/api', () => ({
   getBillingEraDetail: getBillingEraDetailMock,
+  voidBillingEra: voidBillingEraMock,
+  downloadEraAttachment: downloadEraAttachmentMock,
   unmatchClaimResponse: vi.fn(),
   matchClaimResponseToClaim: vi.fn(),
   getBillingClaimDetail: vi.fn(),
@@ -84,7 +90,6 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
 const matchedRemit: EraClaimRemit = {
   claimResponseId: 'cr-1',
   created: '2026-07-15',
-  outcome: 'complete',
   disposition: '',
   eraStatusCode: '1',
   payerClaimControlNumber: 'ICN-123',
@@ -99,7 +104,6 @@ const matchedRemit: EraClaimRemit = {
 const unmatchedRemit: EraClaimRemit = {
   claimResponseId: 'cr-2',
   created: '2026-07-15',
-  outcome: 'queued',
   disposition: '',
   eraStatusCode: '4',
   payerClaimControlNumber: '',
@@ -113,6 +117,10 @@ const unmatchedRemit: EraClaimRemit = {
 
 const makeEra = (): EraDetailResponse => ({
   id: 'era-1',
+  status: 'active',
+  source: 'clearing-house',
+  versionId: '1',
+  attachments: [],
   checkNumber: 'CHK-100',
   checkDate: '2026-07-18',
   createdDate: '2026-07-20T10:00:00Z',
@@ -120,7 +128,6 @@ const makeEra = (): EraDetailResponse => ({
   payerName: 'Acme Insurance',
   payerFhirId: 'org-9',
   payee: { name: 'Ottehr Medical Group', npi: '1234567890', taxId: '123456789' },
-  status: 'complete',
   paymentMethod: 'CHK',
   totalClaims: 2,
   matchedClaims: 1,
@@ -139,7 +146,6 @@ const makeEra = (): EraDetailResponse => ({
       patientResp: 20,
       patientAccountNumber: 'abc123',
       memberId: '999000111',
-      status: 'complete',
       matched: true,
       claimResponseIds: ['cr-1'],
       remits: [matchedRemit],
@@ -156,7 +162,6 @@ const makeEra = (): EraDetailResponse => ({
       patientResp: 25,
       patientAccountNumber: 'ACC-7',
       memberId: '',
-      status: 'queued',
       matched: false,
       claimResponseIds: ['cr-2'],
       remits: [unmatchedRemit],
@@ -171,15 +176,120 @@ function renderDetail(): void {
         <Route path="/eras/:id" element={<ERADetail />} />
         <Route path="/eras" element={<div>ERA list</div>} />
         <Route path="/eras/:eraId/claims/:claimId" element={<div>Reimbursement page</div>} />
+        <Route path="/eras/:id/edit" element={<div>Manual remit editor</div>} />
       </Routes>
     </MemoryRouter>
   );
 }
 
+async function openVoidDialog(): Promise<HTMLElement> {
+  fireEvent.click(await screen.findByRole('button', { name: 'Void ERA' }));
+  return screen.findByRole('dialog');
+}
+
 describe('ERADetail', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(() => {
+    voidBillingEraMock.mockReset().mockResolvedValue({ ok: true });
+    downloadEraAttachmentMock.mockReset().mockResolvedValue({ downloadUrl: 'https://download.example/remit.pdf' });
     getBillingEraDetailMock.mockReset();
     getBillingEraDetailMock.mockResolvedValue(makeEra());
+  });
+
+  it('requires confirmation and leaves the ERA alone when cancelled', async () => {
+    renderDetail();
+    const dialog = await openVoidDialog();
+    expect(dialog).toHaveTextContent('Void ERA CHK-100?');
+    expect(dialog).toHaveTextContent('This cannot be undone');
+    expect(dialog).toHaveTextContent('after refresh');
+    expect(dialog).toHaveTextContent('Existing invoices, patient payments, and claim statuses will not change');
+    expect(voidBillingEraMock).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(voidBillingEraMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Match' })).toBeInTheDocument();
+  });
+
+  it.each(['manual', 'x12-import', 'clearing-house'] as const)(
+    'voids a %s ERA and keeps its details',
+    async (source) => {
+      getBillingEraDetailMock.mockResolvedValue({ ...makeEra(), source });
+      renderDetail();
+      const dialog = await openVoidDialog();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Void ERA' }));
+      expect(await screen.findByText('Voided')).toBeInTheDocument();
+      expect(voidBillingEraMock).toHaveBeenCalledExactlyOnceWith(oystehrZambdaStub, { eraId: 'era-1' });
+      expect(screen.getByText('CHK-100')).toBeInTheDocument();
+      expect(screen.getByText('Doe, Jane')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Match' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Claim actions' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Void ERA' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Export X12' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'open-unmatched-cr-2' }));
+      expect(await screen.findByText('Reimbursement page')).toBeInTheDocument();
+    }
+  );
+
+  it('blocks duplicate confirmation while the void request is pending', async () => {
+    let finish!: (result: { ok: true }) => void;
+    voidBillingEraMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    renderDetail();
+    const dialog = await openVoidDialog();
+    const confirm = within(dialog).getByRole('button', { name: 'Void ERA' });
+    fireEvent.click(confirm);
+    expect(confirm).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    fireEvent.click(confirm);
+    expect(voidBillingEraMock).toHaveBeenCalledTimes(1);
+    await act(async () => finish({ ok: true }));
+    expect(await screen.findByText('Voided')).toBeInTheDocument();
+  });
+
+  it('shows a failed void without changing status and lets the biller reload before retrying', async () => {
+    const message = 'This ERA has changed. Reload the page before voiding it.';
+    voidBillingEraMock.mockRejectedValueOnce(new Error(message));
+    renderDetail();
+    fireEvent.click(within(await openVoidDialog()).getByRole('button', { name: 'Void ERA' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.queryByText('Voided')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Match' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reload ERA' }));
+    fireEvent.click(within(await openVoidDialog()).getByRole('button', { name: 'Void ERA' }));
+    expect(await screen.findByText('Voided')).toBeInTheDocument();
+    expect(voidBillingEraMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens an already voided ERA read-only and still downloads its attachments', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    getBillingEraDetailMock.mockResolvedValue({
+      ...makeEra(),
+      source: 'manual',
+      status: 'voided',
+      attachments: [
+        { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-13T16:00:00Z' },
+      ],
+    });
+    renderDetail();
+    expect(await screen.findByText('Voided')).toBeInTheDocument();
+    for (const name of ['Edit', 'Match', 'Claim actions', 'Void ERA', 'Add', 'More actions']) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+    expect(screen.getByText('Remit.pdf')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+    await waitFor(() =>
+      expect(downloadEraAttachmentMock).toHaveBeenCalledWith(oystehrZambdaStub, {
+        eraId: 'era-1',
+        documentReferenceId: 'doc-1',
+      })
+    );
+    await waitFor(() => expect(open).toHaveBeenLastCalledWith('https://download.example/remit.pdf', '_blank'));
+    expect(voidBillingEraMock).not.toHaveBeenCalled();
   });
 
   it('renders check info, created date, and the payee section', async () => {
@@ -194,6 +304,59 @@ describe('ERADetail', () => {
     expect(screen.getByText('Ottehr Medical Group')).toBeInTheDocument();
     expect(screen.getByText('1234567890')).toBeInTheDocument();
     expect(screen.getByText('12-3456789')).toBeInTheDocument();
+  });
+
+  it('labels a clearing-house ERA and offers its X12, but no editing', async () => {
+    renderDetail();
+    expect(await screen.findByText('Clearing House')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export X12' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    // BPR04 codes read as words
+    expect(screen.getByText('Check')).toBeInTheDocument();
+  });
+
+  it('shows a keyed-in remit with its paper details, scan and an Edit button', async () => {
+    getBillingEraDetailMock.mockResolvedValue({
+      ...makeEra(),
+      source: 'manual',
+      x12: '',
+      paymentMethod: 'ACH',
+      manualEntry: {
+        enteredBy: 'biller@example.com',
+        enteredAt: '2026-09-13T15:00:00Z',
+        header: {
+          payerId: 'payer-uhc',
+          billingProviderRef: 'Organization/org-1',
+          checkNumber: 'CHK-100',
+          checkAmountCents: 6000,
+          paymentMethod: 'ACH',
+          remitDate: '2026-09-12',
+          checkDate: '2026-07-18',
+          depositDate: '2026-09-14',
+          notes: 'Mailed remit',
+        },
+        claims: [],
+      },
+      attachments: [
+        { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-13T16:00:00Z' },
+      ],
+    });
+    renderDetail();
+
+    expect(await screen.findByText('Manual')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export X12' })).not.toBeInTheDocument();
+    expect(screen.getByText('EFT')).toBeInTheDocument();
+    // the remit and deposit dates
+    expect(screen.getByText('09/12/2026')).toBeInTheDocument();
+    expect(screen.getByText('09/14/2026')).toBeInTheDocument();
+    expect(screen.getByText('biller@example.com on 09/13/2026')).toBeInTheDocument();
+    expect(screen.getByText('Mailed remit')).toBeInTheDocument();
+    expect(screen.getByText('Remit.pdf')).toBeInTheDocument();
+    // the scan is download-only here; it is managed from the editor
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(await screen.findByText('Manual remit editor')).toBeInTheDocument();
   });
 
   it('shows only the payee fields the ERA carries', async () => {
@@ -223,6 +386,15 @@ describe('ERADetail', () => {
 
     expect(await screen.findByText('CHK-100')).toBeInTheDocument();
     expect(screen.getByTestId('grid-headers').textContent).toContain('Patient Resp');
+  });
+
+  it('says whether each claim is matched, and nothing about the FHIR outcome every ERA carries', async () => {
+    renderDetail();
+
+    expect(await screen.findByText('CHK-100')).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-c1')).getByText('Matched')).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-unmatched-cr-2')).getByText('Unmatched')).toBeInTheDocument();
+    expect(screen.queryByText(/^(complete|queued)$/i)).not.toBeInTheDocument();
   });
 
   it('keeps the Match button on unmatched rows', async () => {

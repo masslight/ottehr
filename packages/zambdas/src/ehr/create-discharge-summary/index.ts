@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -20,7 +21,7 @@ import { countPdfPages, downloadFileBytes, mergePdfDocuments } from '../../share
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { createPresignedUrl } from '../../shared/z3Utils';
 import { getMedicationOrders } from '../get-medication-orders';
 import { validateRequestParameters } from './validateRequestParameters';
 

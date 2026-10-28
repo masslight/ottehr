@@ -1,4 +1,5 @@
 import { aiIcon } from '@ehrTheme/icons';
+import AccessibleOutlinedIcon from '@mui/icons-material/AccessibleOutlined';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 
@@ -169,6 +170,7 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
+  DME: <AccessibleOutlinedIcon />,
   'Nursing Orders': (
     <svg width="22" height="18" viewBox="0 0 22 18" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path

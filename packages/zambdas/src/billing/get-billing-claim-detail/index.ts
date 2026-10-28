@@ -4,7 +4,14 @@ import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, Rela
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
-import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
+import {
+  getCoding,
+  getExtension,
+  getExtensionValue,
+  getNPI,
+  getResourcesFromBatchInlineRequests,
+  getTaxID,
+} from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
@@ -15,15 +22,18 @@ import {
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
 } from 'utils/lib/helpers/rcm/constants';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { GetClaimDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPolicyHolderSummary,
   ClaimAttachment,
   ClaimDetailResponse,
+  ClaimWriteOff,
 } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,
@@ -41,10 +51,13 @@ import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
+  // eslint-disable-next-line no-restricted-imports -- submission ClaimResponses are never billing-tagged
   createEraReadClient,
+  ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
@@ -61,29 +74,35 @@ import {
   getClaimType,
   getEraCheckNumber,
   getTaxonomy,
+  readClaimItemDrug,
+  readClaimItemOrderingProvider,
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
-import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
+import { fetchWriteOffs, sumWriteOffs, writeOffFromPaymentNotice } from '../write-offs';
+
+type GetClaimDetailParams = ValidatedZambdaInput<typeof GetClaimDetailInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetClaimDetailInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const untaggedClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, untaggedClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+// untaggedClient reads only the claim's submission ClaimResponses, which never get the billing tag; its
+// ERA remits are tagged by sub-tag-era-resources, so they come through the billing client.
 export async function performEffect(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  untaggedClient: Oystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -111,19 +130,26 @@ export async function performEffect(
 
   // Other claims via Person lookup, this claim's ERA adjudications and first submission, its patient
   // payments, and its non-insurance payer (when stamped)
-  const [otherClaims, claimResponsesByClaimId, firstSubmittedDate, paymentsByEncounter, nonInsurancePayer] =
-    await Promise.all([
-      fetchOtherClaims(oystehr, patient?.id, claimId),
-      fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
-      fetchClaimFirstSubmittedDate(eraReadClient, claimId),
-      encounterId
-        ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
-        : Promise.resolve(new Map<string, PaymentNotice[]>()),
-      resolveNonInsurancePayerDetail(oystehr, claim),
-    ]);
+  const [
+    otherClaims,
+    claimResponsesByClaimId,
+    firstSubmittedDate,
+    paymentsByEncounter,
+    nonInsurancePayer,
+    writeOffResources,
+  ] = await Promise.all([
+    fetchOtherClaims(oystehr, patient?.id, claimId),
+    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
+    fetchClaimFirstSubmittedDate(untaggedClient, claimId),
+    encounterId
+      ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
+      : Promise.resolve(new Map<string, PaymentNotice[]>()),
+    resolveNonInsurancePayerDetail(oystehr, claim),
+    fetchWriteOffs(oystehr, claimId),
+  ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
-    eraReadClient,
+    oystehr,
     claimResponses
   );
   const paymentReconciliationById = new Map(
@@ -136,6 +162,9 @@ export async function performEffect(
     .map(toClaimPatientPayment)
     .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
 
+  const writeOffsTotal = sumWriteOffs(writeOffResources);
+  const writeOffs: ClaimWriteOff[] = writeOffResources.map<ClaimWriteOff>(writeOffFromPaymentNotice);
+
   // Resolve primary, secondary, remit, and insurance payment payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [
     claim.insurer?.reference,
@@ -145,28 +174,64 @@ export async function performEffect(
     ...claimResponses.map((cr) => cr.insurer?.reference),
     ...paymentReconciliations.map((paymentReconciliation) => paymentReconciliation.paymentIssuer?.reference),
   ]);
+  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
+    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+  );
   const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
+  const payerClaimControlNumber = payerClaimControlNumbers.find(
+    (i) =>
+      // is primary type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'primary'
+      ) ||
+      // is legacy type-less identifier
+      !i.type
+  )?.value;
   const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(secondaryCoverage.payor[0].reference)
     : undefined;
+  const secondaryPayerClaimControlNumber = payerClaimControlNumbers.find(
+    (i) =>
+      // is secondary type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'secondary'
+      )
+  )?.value;
   const tertiaryInsurer = tertiaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(tertiaryCoverage.payor[0].reference)
     : undefined;
+  const tertiaryPayerClaimControlNumber = payerClaimControlNumbers.find(
+    (i) =>
+      // is tertiary type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'tertiary'
+      )
+  )?.value;
   const quaternaryInsurer = quaternaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(quaternaryCoverage.payor[0].reference)
     : undefined;
+  const quaternaryPayerClaimControlNumber = payerClaimControlNumbers.find(
+    (i) =>
+      // is quaternary type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'quaternary'
+      )
+  )?.value;
 
   const billed = claim.total?.value ?? 0;
-  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid);
+  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
-    const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
     const era = paymentReconciliationById.get(paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') ?? '');
+    // the ERA's paymentIssuer outranks ClaimResponse.insurer, which a manual match may have corrupted
+    const issuerRef = era?.paymentIssuer?.reference;
+    const payer =
+      (issuerRef ? payersByRef.get(issuerRef) : undefined) ??
+      (cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined);
     return {
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
       payerName: payer?.name ?? cr.insurer?.display ?? '',
-      status: cr.outcome ?? '',
       eraStatusCode: asEraClaimStatusCode(
         cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString
       ),
@@ -185,24 +250,32 @@ export async function performEffect(
   const insurancePayments = [...paymentReconciliations]
     .sort((a, b) => paymentMillis(b) - paymentMillis(a))
     .map((paymentReconciliation) => {
-      // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
-      // of this ERA's ClaimResponses
+      // paymentIssuer may be missing (process-era) or carry an unresolvable id (the 835's GS/ISA
+      // sender, e.g. a payer's EDI/TIN id); fall back to the payer on one of this ERA's ClaimResponses
       const linkedCr = claimResponses.find(
         (cr) => paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') === paymentReconciliation.id
       );
-      const payerRef = paymentReconciliation.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
-      const payer = payerRef ? payersByRef.get(payerRef) : undefined;
+      const issuerRef = paymentReconciliation.paymentIssuer?.reference;
+      const linkedCrRef = linkedCr?.insurer?.reference;
+      const payer =
+        (issuerRef ? payersByRef.get(issuerRef) : undefined) ??
+        (linkedCrRef ? payersByRef.get(linkedCrRef) : undefined);
       return {
         paymentReconciliationId: paymentReconciliation.id ?? '',
         checkNumber: getEraCheckNumber(paymentReconciliation) ?? '',
         remitDate: paymentReconciliation.created ?? '',
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
-        payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? '',
-        status: paymentReconciliation.outcome ?? paymentReconciliation.status ?? '',
+        payerName: payer?.name ?? linkedCr?.insurer?.display ?? paymentReconciliation.paymentIssuer?.display ?? '',
+        payerClaimControlNumber: linkedCr ? getExtensionValue(linkedCr, ERA_ICN_EXTENSION, 'valueString') ?? '' : '',
       };
     });
   const status = getClaimStatus(claim);
+  const dos =
+    claim.billablePeriod?.start ??
+    claim.item?.[0]?.servicedPeriod?.start ??
+    claim.item?.[0]?.servicedDate ??
+    claim.created;
   const patientAddr = patient?.address?.[0];
   const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
   const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
@@ -232,6 +305,7 @@ export async function performEffect(
     status,
     statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
+    dos,
     service: getClaimService(claim),
     patientName: fhirName(patient),
     patientDob: patient?.birthDate ?? '',
@@ -244,6 +318,7 @@ export async function performEffect(
     payorFhirId: insurer?.id ?? '',
     payerName: insurer?.name ?? '',
     payerId: resolvedPayerId(insurer) ?? '',
+    payerClaimControlNumber,
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
@@ -254,14 +329,17 @@ export async function performEffect(
     secondaryPayerName: secondaryInsurer?.name ?? '',
     secondaryPayerId: resolvedPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
+    secondaryPayerClaimControlNumber,
     tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
     tertiaryPayerName: tertiaryInsurer?.name ?? '',
     tertiaryPayerId: resolvedPayerId(tertiaryInsurer) ?? '',
     tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
+    tertiaryPayerClaimControlNumber,
     quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
     quaternaryPayerName: quaternaryInsurer?.name ?? '',
     quaternaryPayerId: resolvedPayerId(quaternaryInsurer) ?? '',
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
+    quaternaryPayerClaimControlNumber,
     nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
     nonInsurancePayerName: nonInsurancePayer.name,
     renderingProviderId: renderingProvider?.id ?? '',
@@ -307,18 +385,22 @@ export async function performEffect(
       placeOfService: item.locationCodeableConcept?.coding?.[0]?.code ?? '',
       diagnosisPointers: item.diagnosisSequence ?? [],
       revenueCode: getCoding(item.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code ?? '',
+      drug: readClaimItemDrug(item),
+      orderingProvider: readClaimItemOrderingProvider(claim, item, graph.orderingProviders),
     })),
     billed,
     allowed: payments.allowed,
     insurancePaid: payments.insurancePaid,
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
+    writeOffsTotal: payments.writeOffsTotal,
     balance: payments.balance,
     adjudicated: payments.adjudicated,
     firstSubmittedDate,
     remits,
     insurancePayments,
     patientPayments,
+    writeOffs,
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)
@@ -344,9 +426,6 @@ export async function performEffect(
         CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
       )?.timingDate ?? '',
     attachments,
-    payerClaimControlNumber: claim.identifier?.find(
-      (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
-    )?.value,
   };
 }
 

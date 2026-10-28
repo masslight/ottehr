@@ -654,6 +654,30 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[1]).toContain('facility reference');
   });
 
+  it('takes only whole service values: contains, starts with and patterns are rejected', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: {
+              type: 'group',
+              logic: 'or',
+              conditions: [
+                { type: 'field', field: 'service', operator: 'in', value: ['Workers Comp', 'urgent-care'] },
+                { type: 'field', field: 'service', operator: 'startsWith', value: 'pre-' },
+                { type: 'field', field: 'service', operator: 'matches', value: '^Workers' },
+              ],
+            },
+            outcome: { type: 'noop' },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain('condition on "service" with unsupported operator "startsWith"');
+    expect(problems[1]).toContain('condition on "service" with unsupported operator "matches"');
+  });
+
   it('accepts a compilable regex condition and rejects an uncompilable one, in conditions and line matches', () => {
     const problems = validateRuleFieldReferences(
       ruleWith({

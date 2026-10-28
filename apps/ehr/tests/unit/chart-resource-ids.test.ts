@@ -1,0 +1,48 @@
+import { describe, expect, it } from 'vitest';
+import { collectResourceIds, diffCreatedResourceIds } from '../../src/features/easy-chart/hooks/chart-resource-ids';
+
+describe('collectResourceIds', () => {
+  it('finds resourceIds at any depth, across sections', () => {
+    const chart = {
+      chiefComplaint: { resourceId: 'cc-1', text: 'Ear pain' },
+      diagnosis: [
+        { resourceId: 'dx-1', code: 'H66.91' },
+        { resourceId: 'dx-2', code: 'J02.0' },
+      ],
+      aiChat: { documents: [{ id: 'doc-1' }], providers: [] },
+      inHouseLabResults: { labs: [{ nested: { deeper: { resourceId: 'lab-1' } } }] },
+    };
+    expect([...collectResourceIds(chart)].sort()).toEqual(['cc-1', 'dx-1', 'dx-2', 'lab-1']);
+  });
+
+  // A per-section list would go stale, and an AI-written row would then render as provider-entered.
+  it('picks up a section it has never heard of', () => {
+    expect([...collectResourceIds({ somethingNew: [{ resourceId: 'new-1' }] })]).toEqual(['new-1']);
+  });
+
+  it('ignores blank and non-string resourceIds, and survives null', () => {
+    expect([...collectResourceIds({ a: { resourceId: '' }, b: { resourceId: 42 }, c: null })]).toEqual([]);
+    expect([...collectResourceIds(undefined)]).toEqual([]);
+  });
+
+  it('accumulates into a caller-supplied set', () => {
+    const into = new Set(['existing']);
+    collectResourceIds({ resourceId: 'added' }, into);
+    expect([...into].sort()).toEqual(['added', 'existing']);
+  });
+});
+
+describe('diffCreatedResourceIds', () => {
+  it('returns only the ids that were not there before', () => {
+    const before = new Set(['dx-1', 'cc-1']);
+    expect(diffCreatedResourceIds(before, ['cc-1', 'dx-1', 'dx-2', 'med-1'])).toEqual(['dx-2', 'med-1']);
+  });
+
+  it('returns nothing when the save added nothing', () => {
+    expect(diffCreatedResourceIds(new Set(['dx-1']), ['dx-1'])).toEqual([]);
+  });
+
+  it('treats an empty baseline as "everything is new"', () => {
+    expect(diffCreatedResourceIds(new Set(), ['dx-1', 'dx-2'])).toEqual(['dx-1', 'dx-2']);
+  });
+});

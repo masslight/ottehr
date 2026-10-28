@@ -5,10 +5,17 @@ import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
-import { convertOutreachTextToHtml, isEmailValid, maskEmail, maskPhoneNumber } from 'utils/lib/helpers/helpers';
+import {
+  convertOutreachTextToHtml,
+  isEmailValid,
+  maskEmail,
+  maskPhoneNumber,
+  removePrefix,
+} from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TaskIndicator } from 'utils/lib/types/common';
+import { resolveOutreachTaskStripeAccount } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createOutreachEmailCommunication, getEmailClient, sendSmsForPatient } from '../../../shared/communication';
@@ -70,13 +77,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Fetch the Patient once for the whole task. All mediums validate against and send to the same
     // snapshot, avoiding redundant FHIR reads and validate-vs-send inconsistencies. Missing reference
     // or a failed fetch is a system/data error (not an invalid contact), so we throw and fail the task.
-    const patientId = patientRef?.replace('Patient/', '');
-    if (!patientId) throw new Error('Task has no patient reference');
+    if (!patientRef) throw new Error('Task has no patient reference');
+    const patientId = patientRef.startsWith('Patient/') ? removePrefix('Patient/', patientRef) : undefined;
+    if (!patientId || patientId.includes('/')) {
+      throw new Error(`Task patient reference "${patientRef}" is not a literal "Patient/<id>" reference`);
+    }
     let patient: Patient;
     try {
       patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
-    } catch {
-      throw new Error(`Failed to fetch patient ${patientId} for notification`);
+    } catch (err) {
+      throw new Error(`Failed to fetch patient ${patientId} for notification: ${describeFhirError(err)}`);
     }
 
     console.log(`Executing send-notification for patient ${patientRef}, mediums: ${mediums.join(', ')}`);
@@ -243,6 +253,13 @@ function extractInputValue(task: Task, key: string): string | undefined {
   return task.input?.find((i) => i.type?.text === key)?.valueString;
 }
 
+function describeFhirError(err: unknown): string {
+  if (err instanceof Oystehr.OystehrFHIRError) {
+    return `${err.code} ${err.message}`;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
 // ── Contact validation ─────────────────────────────────────────────────────
 
 function validatePatientPhone(patient: Patient): { valid: boolean; reason?: string } {
@@ -285,6 +302,7 @@ async function sendOutreachSms(
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
+    stripeAccount: await resolveOutreachTaskStripeAccount(task, oystehr),
     oystehr,
     secrets,
   });
@@ -318,6 +336,7 @@ async function sendOutreachEmail(
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
+    stripeAccount: await resolveOutreachTaskStripeAccount(task, oystehr),
     oystehr,
     secrets,
   });

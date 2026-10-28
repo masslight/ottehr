@@ -12,7 +12,7 @@ import {
   HIDE_WHILE_PRELIMINARY_TAG,
 } from 'utils/lib/fhir/constants';
 import { EMPTY_MAPPING, FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
-import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getPresignedURL, uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { FillFormTemplateInput, FillFormTemplateOutput } from 'utils/lib/types/api/form-template.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
@@ -27,7 +27,7 @@ import { makeZ3ObjectUrl, z3ObjectNameDatePrefix } from '../../shared/presigned-
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { createPresignedUrl } from '../../shared/z3Utils';
 import { loadFormFillAccounts, loadFormFillInsurance, LOG_TAG } from '../shared/form-fill-context';
 import { fillFormTemplatePdf } from '../shared/form-template-fill';
 import { getFormTemplateOrThrow, isPublished, readExtensionJson } from '../shared/form-template-helpers';

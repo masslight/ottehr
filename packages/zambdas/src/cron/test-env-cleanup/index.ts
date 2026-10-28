@@ -10,14 +10,18 @@ import {
   cleanupIntegrationTestLocations,
   cleanupIntegrationTestPatients,
   cleanupIntegrationTestQuestionnaires,
+  cleanupOrphanedInProgressEncounters,
 } from 'utils/lib/utils/e2eCleanup';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 
+const ORPHANED_ENCOUNTER_CLEANUP_BUDGET_MS = 12 * 60 * 1000;
+
 let oystehrToken: string;
 export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const startedAt = Date.now();
   if (!oystehrToken) {
     console.log('getting token');
     oystehrToken = await getAuth0Token(input.secrets);
@@ -43,6 +47,8 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
     oystehrToken,
     `${getSecret(SecretsKeys.PROJECT_API, input.secrets)}/z3/${getSecret(SecretsKeys.PROJECT_ID, input.secrets)}-`
   );
+
+  await cleanupOrphanedInProgressEncounters(oystehr, startedAt + ORPHANED_ENCOUNTER_CLEANUP_BUDGET_MS);
 
   return {
     statusCode: 200,

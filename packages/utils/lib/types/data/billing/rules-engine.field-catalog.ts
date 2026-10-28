@@ -1,6 +1,11 @@
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import { CMS_PLACE_OF_SERVICE_CODE_SET, CMS_PLACE_OF_SERVICE_CODES } from '../../../helpers/rcm/constants';
+import {
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
+  CLAIM_ACCIDENT_TYPES,
+  CMS_PLACE_OF_SERVICE_CODE_SET,
+  CMS_PLACE_OF_SERVICE_CODES,
+} from '../../../helpers/rcm/constants';
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
 import { isValidUUID } from '../../../validation/helper';
 import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
@@ -42,6 +47,7 @@ import {
 
 export type RuleFieldGroup =
   | 'claim'
+  | 'accident'
   | 'status'
   | 'patient'
   | 'insurance'
@@ -60,6 +66,7 @@ export type RuleFieldGroup =
 // Display order of groups in the rule builder's property pickers and in the generated docs.
 export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
   'claim',
+  'accident',
   'status',
   'patient',
   'insurance',
@@ -78,6 +85,7 @@ export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
 
 export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
   claim: 'Claim',
+  accident: 'Accident',
   status: 'Claim status',
   patient: 'Patient',
   insurance: 'Primary insurance',
@@ -125,13 +133,13 @@ export interface RuleFieldOption {
 
 // Value formats a text-typed field can declare. Formats with a `validate` are enforced on
 // exact-match condition values and written values (fragment operators like contains/startsWith
-// legitimately take partial values and skip them); `tag` and `cpt` carry no sync validator — they
-// pick the rule builder's input component (tag dropdown / CPT terminology autocomplete), and tag
-// existence is checked server-side at save time.
-export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt';
+// legitimately take partial values and skip them); `tag`, `cpt` and `service` carry no sync
+// validator — they pick the rule builder's input component (tag dropdown / CPT terminology
+// autocomplete / service picker), and tag existence is checked server-side at save time.
+export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt' | 'service';
 
 export interface RuleValueFormatDef {
-  // Sync per-value check; absent for formats that only drive input dispatch (tag, cpt).
+  // Sync per-value check; absent for formats that only drive input dispatch (tag, cpt, service).
   validate?: (value: string) => string | undefined;
   // One-line format hint for the generated docs and UI helper text.
   hint: string;
@@ -163,6 +171,7 @@ export const RULE_VALUE_FORMATS: Record<RuleValueFormat, RuleValueFormatDef> = {
   },
   tag: { hint: 'a tag defined on the Tags page' },
   cpt: { hint: 'a CPT/HCPCS code' },
+  service: { hint: 'a service on claims created from visits' },
 };
 
 export interface RuleFieldDef {
@@ -205,16 +214,24 @@ const SCALAR_OPS: RuleOperator[] = [
   'notExists',
 ];
 const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'matches', 'notMatches', 'exists', 'notExists'];
-// Provider/facility reference values ("Practitioner/<id>") are opaque ids — pattern matching them
-// is meaningless, so ref-typed fields skip the regex operators.
+// Provider/facility reference values ("Practitioner/<id>") are opaque ids and services are picked
+// whole from the list of services on claims — matching part of them or a pattern is meaningless, so
+// these fields take whole values only.
 const REF_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'matches', 'notMatches', 'exists', 'notExists'];
+// Yes/no flags always read as 'true' or 'false', so only equality makes sense.
+const BOOLEAN_OPS: RuleOperator[] = ['eq', 'neq'];
 // Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
 const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
 
 const GENDER_OPTIONS: RuleFieldOption[] = PERSON_GENDER_OPTIONS;
+
+const YES_NO_OPTIONS: RuleFieldOption[] = [
+  { value: 'true', label: 'Yes' },
+  { value: 'false', label: 'No' },
+];
 
 const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map((option) => ({
   value: option.candidCode,
@@ -267,6 +284,20 @@ const STATUS_FIELDS: RuleFieldDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
   settable: true,
   description: `The claim's ${field.label} indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do).`,
   options: field.options.map((option) => ({ value: option.code, label: option.label })),
+}));
+
+// One yes/no flag per accident type (CMS-1500 box 10a-c) — a claim can carry several at once, the
+// same multi-select the claim editor offers.
+const ACCIDENT_TYPE_FIELDS: RuleFieldDef[] = CLAIM_ACCIDENT_TYPES.map((type) => ({
+  id: `accident.${type}`,
+  label: CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type],
+  group: 'accident',
+  valueType: 'select',
+  operators: BOOLEAN_OPS,
+  settable: true,
+  description: `Whether the claim carries the "${CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type]}" accident type. Setting "No" removes it.`,
+  requiredOnSet: true,
+  options: YES_NO_OPTIONS,
 }));
 
 // A person-shaped resource (patient or policy holder) contributes the same name / birth date /
@@ -548,10 +579,12 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     label: 'Service category',
     group: 'claim',
     valueType: 'string',
-    operators: SCALAR_OPS,
+    operators: REF_OPS,
     settable: true,
     description:
-      'The service category code on the claim (e.g. urgent-care, workers-comp). Categories are configurable, so the value is free text.',
+      'The service category: one of the services on claims created from visits so far, picked by the name the claims list shows (e.g. Workers Comp) and stored and compared as its code (workers-comp). ' +
+      'Setting it requires the code of a listed service.',
+    format: 'service',
   },
   {
     id: 'serviceDate',
@@ -685,6 +718,33 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     description: 'Point of Origin / Admission Source code on the claim',
   },
 
+  // --- Accident ---
+  ...ACCIDENT_TYPE_FIELDS,
+  {
+    id: 'accident.state',
+    label: 'Auto accident state',
+    group: 'accident',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      'The state the auto accident occurred in (two-letter code, e.g. CA). Required on claims flagged as an auto accident: ' +
+      'checked once all rules have run, so it can be set before or after the flag — a run that leaves it missing holds the claim.',
+    options: STATE_OPTIONS,
+    optionsDocNote: STATE_OPTIONS_DOC_NOTE,
+  },
+  {
+    id: 'accident.date',
+    label: 'Accident date',
+    group: 'accident',
+    valueType: 'date',
+    operators: DATE_OPS,
+    settable: true,
+    description:
+      'The date of the accident (YYYY-MM-DD). Required on claims flagged with any accident type: checked once all rules ' +
+      'have run, so it can be set before or after the flag — a run that leaves it missing holds the claim.',
+  },
+
   // --- Claim status indicators ---
   ...STATUS_FIELDS,
 
@@ -717,6 +777,30 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
 
   // --- Rendering provider ---
   ...providerFields('renderingProvider', 'rendering provider'),
+  {
+    id: 'renderingProvider.licenseNumber',
+    label: 'License number',
+    group: 'renderingProvider',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description:
+      "The rendering provider's professional license number (individual providers only; setting it on an organization provider fails the rule). " +
+      'A license number needs a license state: setting a number when the license has no state fails the rule, so set the state first.',
+  },
+  {
+    id: 'renderingProvider.licenseState',
+    label: 'License state',
+    group: 'renderingProvider',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      "The state that issued the rendering provider's professional license (individual providers only; setting it on an organization provider fails the rule). " +
+      'Clearing it while the license still has a number fails the rule — clear the number first.',
+    options: STATE_OPTIONS,
+    optionsDocNote: STATE_OPTIONS_DOC_NOTE,
+  },
 
   // --- Billing provider ---
   ...providerFields('billingProvider', 'billing provider'),
@@ -1347,6 +1431,20 @@ export function ruleReferencesPatientCoverage(rule: { conditional: RuleCondition
 export interface SetResourceRef {
   field: string;
   ref: string;
+}
+
+export const SERVICE_FIELD_ID = 'service';
+
+// The service values a rule's setField actions assign (deduped, in tree order) — save-billing-rules
+// checks each is the code of a service on claims created from visits. Untrimmed: the engine writes the
+// value exactly as saved, so a padded code must not pass as the listed one.
+export function collectSetServiceValues(rule: { conditional: RuleConditional }): string[] {
+  const values: string[] = [];
+  forEachRuleAction(rule, (action) => {
+    if (action.type !== 'setField' || action.field !== SERVICE_FIELD_ID) return;
+    if (action.value && !values.includes(action.value)) values.push(action.value);
+  });
+  return values;
 }
 
 export const NON_INSURANCE_PAYER_FIELD_ID = 'nonInsurancePayerId';

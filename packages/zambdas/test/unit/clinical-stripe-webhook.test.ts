@@ -27,6 +27,7 @@ const stripe = new Stripe('sk_test_123');
 const list = vi.fn();
 const search = vi.fn();
 const patch = vi.fn();
+const transaction = vi.fn();
 const accountSecrets = [{ accountId: 'acct_1', signingSecret: 'whsec_1' }];
 let notice: PaymentNotice;
 let refund: Stripe.Refund;
@@ -66,14 +67,20 @@ beforeEach(() => {
     },
   });
   search.mockResolvedValue({ unbundle: () => [notice] });
-  patch.mockImplementation(async ({ operations }) => {
-    notice.extension = operations[0].value;
+  transaction.mockImplementation(async ({ requests }) => {
+    notice.extension = requests[0].operations[0].value;
   });
   vi.mocked(getStripeClient).mockReturnValue({
     webhooks: stripe.webhooks,
     refunds: { list },
   } as unknown as Stripe);
-  vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { search, patch } } as unknown as Oystehr);
+  vi.mocked(createClinicalOystehrClient).mockReturnValue({
+    fhir: {
+      search,
+      patch,
+      transaction,
+    },
+  } as unknown as Oystehr);
 });
 
 describe('clinical-stripe-webhook', () => {
@@ -118,7 +125,7 @@ describe('clinical-stripe-webhook', () => {
         { stripeRefundId: 're_1', amountInCents: 400, status: refund.status },
       ]);
       await invoke(type);
-      expect(patch).toHaveBeenCalledTimes(1);
+      expect(transaction).toHaveBeenCalledTimes(1);
     }
   );
 
@@ -139,12 +146,12 @@ describe('clinical-stripe-webhook', () => {
     search.mockResolvedValueOnce({ unbundle: () => [] });
     expect((await invoke()).statusCode).toBe(200);
     expect(list).not.toHaveBeenCalled();
-    expect(patch).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('passes failed FHIR writes to the existing handler error handling', async () => {
     const failure = new Error('FHIR unavailable');
-    patch.mockRejectedValueOnce(failure);
+    transaction.mockRejectedValueOnce(failure);
     await expect(invoke()).rejects.toBe(failure);
   });
 });

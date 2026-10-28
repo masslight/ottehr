@@ -22,6 +22,7 @@ vi.mock('../../src/shared/fax/build-fax-packet', async (importOriginal) => ({
 import { resolveFaxPacketPlan } from '../../src/shared/fax/resolve-fax-source';
 
 const PATIENT_ID = 'patient-1';
+const MAY = { from: '2026-05-01T00:00:00.000Z', to: '2026-05-31T23:59:59.999Z' };
 
 const patient: Patient = {
   resourceType: 'Patient',
@@ -57,6 +58,7 @@ const docRef = (id: string, url: string, over: Partial<DocumentReference> = {}):
 });
 
 let searchResults: unknown[] = [];
+let visitSearchResults: unknown[] = [];
 let documentsById: Record<string, DocumentReference> = {};
 
 const oystehr = {
@@ -64,7 +66,12 @@ const oystehr = {
     get: vi.fn(({ resourceType, id }: { resourceType: string; id: string }) =>
       Promise.resolve(resourceType === 'Patient' ? patient : documentsById[id])
     ),
-    search: vi.fn(() => Promise.resolve({ unbundle: () => searchResults, link: [] } as unknown as never)),
+    search: vi.fn(({ resourceType }: { resourceType: string }) =>
+      Promise.resolve({
+        unbundle: () => (resourceType === 'Appointment' ? visitSearchResults : searchResults),
+        link: [],
+      } as unknown as never)
+    ),
   },
 } as unknown as Oystehr;
 
@@ -75,6 +82,7 @@ describe('resolveFaxPacketPlan', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchResults = [];
+    visitSearchResults = [];
     documentsById = {};
     mockGetAppointmentAndRelatedResources.mockImplementation((_oystehr, appointmentId: string) =>
       Promise.resolve(visitResources(appointmentId))
@@ -220,7 +228,7 @@ describe('resolveFaxPacketPlan', () => {
       }),
     ];
 
-    const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID });
+    const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID, dateRange: MAY });
 
     expect(plan.sourceType).toBe('medical-record');
     expect(plan.sections[0].subject).toMatchObject({ visitTypeLabel: 'Medical Record', patientId: PATIENT_ID });
@@ -232,6 +240,29 @@ describe('resolveFaxPacketPlan', () => {
     ]);
   });
 
+  it('faxes only the documents inside the requested date range, placing visit paperwork on its visit', async () => {
+    searchResults = [
+      docRef('doc-1', 'https://z3.example/doc-1.pdf'),
+      docRef('doc-2', 'https://z3.example/doc-2.pdf'),
+      docRef('doc-3', 'https://z3.example/doc-3.pdf'),
+      docRef('doc-4', 'https://z3.example/paperwork.pdf', {
+        context: { related: [{ reference: 'Appointment/appointment-may-2' }] },
+      }),
+    ];
+    visitSearchResults = [{ resourceType: 'Appointment', id: 'appointment-may-2', start: '2026-05-02T15:00:00.000Z' }];
+
+    await resolve({
+      type: 'medical-record',
+      patientId: PATIENT_ID,
+      dateRange: { from: '2026-05-02T00:00:00.000Z', to: '2026-05-02T23:59:59.999Z' },
+    });
+
+    expect(mockBuildFaxPacketSection.mock.calls[0][0].parts.map((part: any) => part.z3Url)).toEqual([
+      'https://z3.example/doc-2.pdf',
+      'https://z3.example/paperwork.pdf',
+    ]);
+  });
+
   it('preserves the content type needed to render image documents', async () => {
     searchResults = [
       docRef('doc-1', 'https://z3.example/photo.png', {
@@ -239,7 +270,7 @@ describe('resolveFaxPacketPlan', () => {
       }),
     ];
 
-    await resolve({ type: 'medical-record', patientId: PATIENT_ID });
+    await resolve({ type: 'medical-record', patientId: PATIENT_ID, dateRange: MAY });
 
     expect(mockBuildFaxPacketSection.mock.calls[0][0].parts[0]).toMatchObject({
       z3Url: 'https://z3.example/photo.png',
@@ -282,7 +313,7 @@ describe('resolveFaxPacketPlan', () => {
   it('produces no sections when the patient has nothing faxable', async () => {
     searchResults = [docRef('doc-1', 'https://z3.example/medical_record.zip')];
 
-    const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID });
+    const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID, dateRange: MAY });
 
     expect(plan.sections).toHaveLength(0);
   });

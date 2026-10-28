@@ -133,39 +133,71 @@ const AskThePatient = (): React.ReactElement => {
     [getObservation, watchedValues]
   );
 
+  const observationQueues = useRef(new Map<string, Promise<void>>());
+  const savedResourceIds = useRef(new Map<string, string>());
+
+  const runSerializedForObservation = useCallback(async (field: string, task: () => Promise<void>): Promise<void> => {
+    const previous = observationQueues.current.get(field) ?? Promise.resolve();
+    const current = previous.catch(() => undefined).then(task);
+    observationQueues.current.set(field, current);
+    try {
+      await current;
+    } finally {
+      if (observationQueues.current.get(field) === current) observationQueues.current.delete(field);
+    }
+  }, []);
+
+  const withKnownResourceId = (observation: ObservationDTO): ObservationDTO => {
+    const resourceId = observation.resourceId ?? savedResourceIds.current.get(observation.field);
+    return resourceId ? { ...observation, resourceId } : observation;
+  };
+
   const saveObservation = useCallback(
-    async (observation: ObservationDTO, fieldId: string): Promise<void> => {
-      setLoading(fieldId, true);
-      const originalObservation = getObservation(observation.field);
+    (observation: ObservationDTO, fieldId: string): Promise<void> =>
+      runSerializedForObservation(observation.field, async () => {
+        setLoading(fieldId, true);
+        const originalObservation = getObservation(observation.field);
 
-      try {
-        const result = await apiClient?.saveChartData?.({
-          encounterId: encounter.id || '',
-          observations: [observation],
-        });
+        try {
+          const result = await apiClient?.saveChartData?.({
+            encounterId: encounter.id || '',
+            observations: [withKnownResourceId(observation)],
+          });
 
-        if (result?.chartData?.observations?.[0]) {
-          updateObservation(result.chartData.observations[0]);
-        }
-      } catch (error) {
-        if (originalObservation) {
-          updateObservation(originalObservation);
-        }
-
-        console.error('Error saving observation:', error);
-        const fieldDisplayName = getFieldDisplayName(fieldId);
-
-        enqueueSnackbar(
-          `An error occurred while saving the answer for question: "${fieldDisplayName}". Please try again.`,
-          {
-            variant: 'error',
+          const savedObservation = result?.chartData?.observations?.[0];
+          if (savedObservation) {
+            if (savedObservation.resourceId) {
+              savedResourceIds.current.set(observation.field, savedObservation.resourceId);
+            }
+            updateObservation(savedObservation);
           }
-        );
-      } finally {
-        setLoading(fieldId, false);
-      }
-    },
-    [setLoading, getObservation, apiClient, encounter.id, updateObservation, getFieldDisplayName]
+        } catch (error) {
+          if (originalObservation) {
+            updateObservation(originalObservation);
+          }
+
+          console.error('Error saving observation:', error);
+          const fieldDisplayName = getFieldDisplayName(fieldId);
+
+          enqueueSnackbar(
+            `An error occurred while saving the answer for question: "${fieldDisplayName}". Please try again.`,
+            {
+              variant: 'error',
+            }
+          );
+        } finally {
+          setLoading(fieldId, false);
+        }
+      }),
+    [
+      runSerializedForObservation,
+      setLoading,
+      getObservation,
+      apiClient,
+      encounter.id,
+      updateObservation,
+      getFieldDisplayName,
+    ]
   );
 
   const deleteChartData = useCallback(
@@ -215,27 +247,29 @@ const AskThePatient = (): React.ReactElement => {
   );
 
   const deleteObservation = useCallback(
-    async (observation: ObservationDTO, fieldId: string): Promise<void> => {
-      setLoading(fieldId, true);
+    (observation: ObservationDTO, fieldId: string): Promise<void> =>
+      runSerializedForObservation(observation.field, async () => {
+        setLoading(fieldId, true);
 
-      const originalObservation = getObservation(observation.field);
+        const originalObservation = getObservation(observation.field);
 
-      await deleteChartData(
-        { observations: [observation] },
-        {
-          onSuccess: async () => {
-            setLoading(fieldId, false);
-          },
-          onError: () => {
-            if (originalObservation) {
-              updateObservation(originalObservation);
-            }
-            setLoading(fieldId, false);
-          },
-        }
-      );
-    },
-    [deleteChartData, getObservation, setLoading, updateObservation]
+        await deleteChartData(
+          { observations: [withKnownResourceId(observation)] },
+          {
+            onSuccess: async () => {
+              savedResourceIds.current.delete(observation.field);
+              setLoading(fieldId, false);
+            },
+            onError: () => {
+              if (originalObservation) {
+                updateObservation(originalObservation);
+              }
+              setLoading(fieldId, false);
+            },
+          }
+        );
+      }),
+    [runSerializedForObservation, deleteChartData, getObservation, setLoading, updateObservation]
   );
 
   const { handleFieldChange, initialValues } = useScreeningQuestionsHandler({

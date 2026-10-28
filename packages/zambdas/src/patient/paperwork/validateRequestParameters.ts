@@ -1,5 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  applyCalculatedAnswers,
+  extractCalculatedItems,
+  sanitizeCalculatedAnswers,
+} from 'utils/lib/helpers/paperwork/calculated-answers';
 import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
 import {
   filterDisabledPages,
@@ -7,15 +12,22 @@ import {
   recursiveGroupTransform,
 } from 'utils/lib/helpers/paperwork/validation';
 import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { getOptionalSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
-import { QUESTIONNAIRE_RESPONSE_INVALID_ERROR } from 'utils/lib/types/errors';
+import {
+  QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
+} from 'utils/lib/types/errors';
 import { ValidationError } from 'yup';
 import { z } from 'zod';
+import { sendErrors } from '../../shared/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 interface BasicInput extends PatchPaperworkParameters {
   appointmentId?: string;
+  // set when `calculatedAnswers` could not be read at all; the calculated values are then left out of the save
+  calculatedAnswersProblem?: string;
 }
 interface PatchPaperworkZambdaInput extends Omit<BasicInput, 'answers'> {
   answers: QuestionnaireResponseItem;
@@ -25,9 +37,18 @@ interface SubmitPaperworkZambdaInput extends Omit<BasicInput, 'answers'>, Zambda
   answers: QuestionnaireResponseItem[];
 }
 
+// the new items of a page other than the one being patched, whose calculated values changed
+export interface CalculatedPageUpdate {
+  linkId: string;
+  // where the page sits in the stored response; undefined when the response has no item for it yet
+  qrIndex: number | undefined;
+  items: QuestionnaireResponseItem[];
+}
+
 export interface PatchPaperworkEffectInput {
   submittedAnswer: QuestionnaireResponseItem;
   updatedAnswers: QuestionnaireResponseItem[];
+  calculatedPageUpdates: CalculatedPageUpdate[];
   patchIndex: number;
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
@@ -44,22 +65,51 @@ export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>,
 
 const PaperworkBodySchema = z.object({
   answers: z.unknown(),
+  // read leniently: a calculated value that cannot be recorded must never stop the patient's page from saving
+  calculatedAnswers: z.unknown().optional(),
   questionnaireResponseId: z.string().uuid(),
   appointmentId: z.string().uuid().optional(),
 });
+
+const CalculatedAnswerItemSchema: z.ZodType<QuestionnaireResponseItem> = z.lazy(() =>
+  z
+    .object({
+      linkId: z.string(),
+      answer: z.array(z.object({}).passthrough()).optional(),
+      item: z.array(CalculatedAnswerItemSchema).optional(),
+    })
+    .passthrough()
+);
 
 const basicValidation = (input: ZambdaInput): BasicInput => {
   if (!input.body) {
     throw new Error('No request body provided');
   }
   const inputJSON = safeJsonParse(input.body);
-  const { answers, questionnaireResponseId, appointmentId } = safeValidate(PaperworkBodySchema, inputJSON);
+  const { answers, calculatedAnswers, questionnaireResponseId, appointmentId } = safeValidate(
+    PaperworkBodySchema,
+    inputJSON
+  );
 
   if (!answers) {
     throw new Error(`"answers" is a required param`);
   }
 
-  return { answers: answers as QuestionnaireResponseItem, questionnaireResponseId, appointmentId };
+  const parsedCalculatedAnswers = z.array(CalculatedAnswerItemSchema).safeParse(calculatedAnswers);
+  const calculatedAnswersProblem =
+    calculatedAnswers !== undefined && !parsedCalculatedAnswers.success
+      ? '"calculatedAnswers" is not a list of questionnaire response items'
+      : undefined;
+
+  return {
+    answers: answers as QuestionnaireResponseItem,
+    calculatedAnswers: parsedCalculatedAnswers.success
+      ? (parsedCalculatedAnswers.data as QuestionnaireResponseItem[] | undefined)
+      : undefined,
+    calculatedAnswersProblem,
+    questionnaireResponseId,
+    appointmentId,
+  };
 };
 
 const itemAnswerHasValue = (item: QuestionnaireResponseItem): boolean => {
@@ -94,6 +144,10 @@ const complexSubmitValidation = async (
 
   const { items, fullQRResource } = qrAndQItems;
 
+  if (fullQRResource.status === 'entered-in-error') {
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('This form has been deleted and can no longer be submitted.');
+  }
+
   const currentAnswers = fullQRResource.item ?? [];
 
   console.log('validating updates for questionnaire response', questionnaireResponseId);
@@ -108,7 +162,9 @@ const complexSubmitValidation = async (
     }
     // because it may be more convenient to keep readOnly items in form state for purposes of front-end validation of dependent fields,
     // we merely filter them out here so there inclusion is a no-op rather than an error
-    if (item.readOnly) {
+    // calculated values only get onto the response through `calculatedAnswers` on a page save (validated there), so one
+    // arriving in a submit is ignored
+    if (item.readOnly || item.calculatedExpression) {
       return false;
     }
     return true;
@@ -205,10 +261,17 @@ const complexSubmitValidation = async (
 };
 const complexPatchValidation = async (
   input: PatchPaperworkZambdaInput,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  secrets: Secrets | null
 ): Promise<PatchPaperworkEffectInput> => {
   // we should return QR id and use it to get both appointment Id and Questionnaire
-  const { answers: itemToPatch, questionnaireResponseId, appointmentId } = input;
+  const {
+    answers: itemToPatch,
+    calculatedAnswers: submittedCalculatedAnswers = [],
+    calculatedAnswersProblem,
+    questionnaireResponseId,
+    appointmentId,
+  } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
 
   if (!qrAndQItems) {
@@ -216,6 +279,10 @@ const complexPatchValidation = async (
   }
 
   const { items, fullQRResource } = qrAndQItems;
+
+  if (fullQRResource.status === 'entered-in-error') {
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('This form has been deleted and can no longer be updated.');
+  }
 
   console.log('validating updates for questionnaire response', questionnaireResponseId);
 
@@ -240,12 +307,61 @@ const complexPatchValidation = async (
 
   console.log('submittedAnswers', JSON.stringify(submittedAnswers));
 
+  // The values of calculated items were worked out in the browser (the questionnaire's javascript is never run on the
+  // server), so all that can be checked is that each one is a calculated item on the page it names, typed as declared.
+  // A value that fails the check is left out and sentry is alerted, but the patient's page is always saved: it
+  // simply has no value recorded, which the EHR's form viewer points out.
+  const { calculatedAnswers, issues: calculatedIssues } = sanitizeCalculatedAnswers(items, submittedCalculatedAnswers);
+  if (calculatedAnswersProblem) calculatedIssues.unshift(calculatedAnswersProblem);
+  if (calculatedIssues.length > 0) {
+    console.error('invalid calculatedAnswers', JSON.stringify(submittedCalculatedAnswers));
+    try {
+      await sendErrors(
+        `Could not record calculated values for QuestionnaireResponse/${questionnaireResponseId}, so they were left out of the save: ${calculatedIssues.join(
+          ' '
+        )}`,
+        getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets) ?? ''
+      );
+    } catch (e) {
+      console.error('failed to alert sentry about invalid calculatedAnswers', e);
+    }
+  }
+
+  // The page's items are replaced wholesale, and `submittedAnswers` never holds calculated items. Copy the stored
+  // calculated values back in, then apply the changed ones from `calculatedAnswers`, so a save doesn't erase them.
+  const calculatedForThisPage = calculatedAnswers.find((page) => page.linkId === itemToPatch.linkId)?.item ?? [];
+  const carriedOver = extractCalculatedItems(currentAnswersForPage, itemsForThisPage);
+  const updatedAnswers = applyCalculatedAnswers(
+    applyCalculatedAnswers([...currentAnswersToKeep, ...submittedAnswers], carriedOver, itemsForThisPage),
+    calculatedForThisPage,
+    itemsForThisPage
+  );
+
+  // every other page (the hidden results page of a scored form, for one) is never patched by itself, so its calculated
+  // values are merged into whatever it currently holds. its real answers are left untouched.
+  const calculatedPageUpdates: CalculatedPageUpdate[] = calculatedAnswers
+    .filter((page) => page.linkId !== itemToPatch.linkId)
+    .flatMap((page) => {
+      const currentItems = fullQRResource.item?.find((i) => i.linkId === page.linkId)?.item;
+      const pageItems = applyCalculatedAnswers(
+        currentItems,
+        page.item ?? [],
+        items.find((i) => i.linkId === page.linkId)?.item ?? []
+      );
+      if (JSON.stringify(pageItems) === JSON.stringify(currentItems ?? [])) {
+        return [];
+      }
+      const qrIndex = (fullQRResource.item ?? []).findIndex((i) => i.linkId === page.linkId);
+      return [{ linkId: page.linkId, qrIndex: qrIndex === -1 ? undefined : qrIndex, items: pageItems }];
+    });
+
   console.log('validation succeeded');
 
   return {
     questionnaireResponseId,
     submittedAnswer: itemToPatch,
-    updatedAnswers: [...currentAnswersToKeep, ...submittedAnswers],
+    updatedAnswers,
+    calculatedPageUpdates,
     patchIndex: updatedAnswerIndex,
     currentQRStatus: fullQRResource.status,
     appointmentId,
@@ -260,7 +376,7 @@ export const validatePatchInputs = async (input: ZambdaInput, oystehr: Oystehr):
     throw new Error(`"answers" must be a questionnaire response item with defined "item" field`);
   }
   console.log('answer object from body: ', JSON.stringify(ansObj), basic.questionnaireResponseId);
-  return complexPatchValidation({ ...basic, answers: ansObj }, oystehr);
+  return complexPatchValidation({ ...basic, answers: ansObj }, oystehr, input.secrets);
 };
 
 export const validateSubmitInputs = async (

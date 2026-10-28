@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
+import { UpdateInvoiceTaskZambdaInputSchema } from 'utils/lib/types/api/invoicing.types';
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/ehr/update-invoice-task/validateRequestParameters';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('update-invoice-task - validateRequestParameters', () => {
@@ -9,7 +10,7 @@ describe('update-invoice-task - validateRequestParameters', () => {
   test('should return validated params with required fields', () => {
     const secrets = createMockSecrets();
     const input = createMockZambdaInput({ taskId: validTaskId, status: 'ready' }, { secrets });
-    const result = validateRequestParameters(input);
+    const result = validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input);
 
     expect(result.taskId).toBe(validTaskId);
     expect(result.status).toBe('ready');
@@ -30,7 +31,7 @@ describe('update-invoice-task - validateRequestParameters', () => {
       },
       { secrets }
     );
-    const result = validateRequestParameters(input);
+    const result = validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input);
 
     expect(result.invoiceTaskInput).toBeDefined();
     expect(result.invoiceTaskInput?.dueDate).toBe('2024-12-31');
@@ -40,36 +41,36 @@ describe('update-invoice-task - validateRequestParameters', () => {
   test('should throw when body is missing', () => {
     const secrets = createMockSecrets();
     const input = createMockZambdaInput(null, { body: null as any, secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input)).toThrow();
   });
 
   test('should throw when secrets are missing', () => {
     const input = createMockZambdaInput({ taskId: validTaskId, status: 'ready' }, { secrets: null });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input)).toThrow();
   });
 
   test('should throw when taskId is missing', () => {
     const secrets = createMockSecrets();
     const input = createMockZambdaInput({ status: 'ready' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input)).toThrow();
   });
 
   test('should throw when taskId is not a valid UUID', () => {
     const secrets = createMockSecrets();
     const input = createMockZambdaInput({ taskId: 'not-a-uuid', status: 'ready' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input)).toThrow();
   });
 
   test('should throw when status is missing', () => {
     const secrets = createMockSecrets();
     const input = createMockZambdaInput({ taskId: validTaskId }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input)).toThrow();
   });
 
   test('should accept without invoiceTaskInput', () => {
     const secrets = createMockSecrets();
     const input = createMockZambdaInput({ taskId: validTaskId, status: 'completed' }, { secrets });
-    const result = validateRequestParameters(input);
+    const result = validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input);
 
     expect(result.invoiceTaskInput).toBeUndefined();
   });

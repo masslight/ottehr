@@ -1,11 +1,19 @@
 import { captureException } from '@sentry/react';
-import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  UseMutationResult,
+  useQuery,
+  useQueryClient,
+  UseQueryOptions,
+  UseQueryResult,
+} from '@tanstack/react-query';
 import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
+import { hasInsurancePriorityChange } from 'utils/lib/helpers/paperwork/paperwork';
 import { RemoveCoverageZambdaInput } from 'utils/lib/types/api/patient-account';
 import { PromiseReturnType } from 'utils/lib/types/common';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -251,6 +259,7 @@ export const useUpdatePatientAccount = (
   successMessage: string = 'Patient information updated successfully'
 ): UseMutationResult<void, Error, QuestionnaireResponse> => {
   const apiClient = useOystehrAPIClient();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationKey: ['update-patient-account'],
@@ -267,10 +276,16 @@ export const useUpdatePatientAccount = (
       }
     },
 
-    onSuccess: () => {
+    onSuccess: (_data, questionnaireResponse) => {
       enqueueSnackbar(successMessage, {
         variant: 'success',
       });
+
+      if (hasInsurancePriorityChange(questionnaireResponse.item ?? [])) {
+        void queryClient.resetQueries({ queryKey: ['get-visit-files'] });
+        void queryClient.resetQueries({ queryKey: ['insurance-card-extraction'] });
+      }
+
       if (onSuccess) {
         onSuccess();
       }

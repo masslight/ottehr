@@ -7,6 +7,8 @@ import { safeValidate } from '../../../shared/validation';
 
 export interface AdjustStatusInput {
   claimResponseId: string;
+  // the version of the response the notification is about
+  firedVersionId?: string;
   secrets: Secrets;
 }
 
@@ -14,6 +16,7 @@ const ClaimResponseBodySchema = z
   .object({
     resourceType: z.literal('ClaimResponse'),
     id: z.string().min(1),
+    meta: z.object({ versionId: z.string().optional() }).passthrough().optional(),
   })
   .passthrough();
 
@@ -25,6 +28,7 @@ export function validateRequestParameters(input: ZambdaInput): AdjustStatusInput
 
   return {
     claimResponseId: claimResponse.id,
+    ...(claimResponse.meta?.versionId ? { firedVersionId: claimResponse.meta.versionId } : {}),
     secrets: input.secrets,
   };
 }

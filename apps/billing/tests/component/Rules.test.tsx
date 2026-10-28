@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -13,6 +14,7 @@ const {
   saveBillingRulesMock,
   searchBillingNonInsuranceOrgsMock,
   searchBillingProvidersMock,
+  searchBillingServicesMock,
   searchBillingTagsMock,
   stableClients,
 } = vi.hoisted(() => ({
@@ -20,6 +22,7 @@ const {
   saveBillingRulesMock: vi.fn(),
   searchBillingNonInsuranceOrgsMock: vi.fn(),
   searchBillingProvidersMock: vi.fn(),
+  searchBillingServicesMock: vi.fn(),
   searchBillingTagsMock: vi.fn(),
   stableClients: { oystehrZambda: {} },
 }));
@@ -29,12 +32,13 @@ vi.mock('../../src/api/api', () => ({
   saveBillingRules: saveBillingRulesMock,
   // PayerSelect (rendered for the payerId condition) searches payers on open/input, not on mount;
   // same for TagSelect (apply-tag action), ProcedureCodeAutocomplete (CPT inputs), and the
-  // provider/facility/NIO reference pickers.
+  // provider/facility/NIO reference pickers. ServiceSelect loads the service registry on mount.
   searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
   searchBillingPayers: () => Promise.resolve({ payers: [] }),
   searchBillingProcedureCodes: () => Promise.resolve({ codes: [] }),
   searchBillingProviders: searchBillingProvidersMock,
   searchBillingServiceFacilities: () => Promise.resolve({ facilities: [], total: 0, offset: 0, pageSize: 50 }),
+  searchBillingServices: searchBillingServicesMock,
   searchBillingTags: searchBillingTagsMock,
 }));
 
@@ -216,6 +220,123 @@ describe('ConditionalEditor', () => {
     });
   });
 
+  describe('service picker', () => {
+    // The list holds service codes; the picker shows them the way the claims list does.
+    beforeEach(() => {
+      searchBillingServicesMock.mockReset();
+      searchBillingServicesMock.mockResolvedValue({ services: [{ name: 'urgent-care' }, { name: 'workers-comp' }] });
+    });
+
+    it('offers the services on claims by the name the claims list shows, and stores the code', async () => {
+      const conditional: RuleConditional = {
+        branches: [
+          { condition: { type: 'field', field: 'service', operator: 'eq', value: '' }, outcome: { type: 'noop' } },
+        ],
+      };
+      const onValid = vi.fn();
+      render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+
+      fireEvent.mouseDown(screen.getByPlaceholderText('Pick a service…'));
+      expect(await screen.findByRole('option', { name: 'Urgent Care' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('option', { name: 'Workers Comp' }));
+      expect(searchBillingServicesMock).toHaveBeenCalledWith(expect.anything(), {});
+
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() => expect(onValid).toHaveBeenCalled());
+      expect(onValid.mock.calls[0][0].conditional.branches[0].condition).toEqual({
+        type: 'field',
+        field: 'service',
+        operator: 'eq',
+        value: 'workers-comp',
+      });
+    });
+
+    it('picks only listed services: typing filters the list rather than adding a new one', async () => {
+      const conditional: RuleConditional = {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value: '' }] },
+          },
+        ],
+      };
+      const onValid = vi.fn();
+      const user = userEvent.setup();
+      render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+      const input = screen.getByPlaceholderText('Pick a service…');
+
+      await user.type(input, 'Sports');
+      expect(await screen.findByText('No options')).toBeInTheDocument();
+      await user.clear(input);
+      await user.type(input, 'work');
+      await user.click(await screen.findByRole('option', { name: 'Workers Comp' }));
+
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() => expect(onValid).toHaveBeenCalled());
+      expect(onValid.mock.calls[0][0].conditional.branches[0].outcome.actions[0]).toEqual({
+        type: 'setField',
+        field: 'service',
+        value: 'workers-comp',
+      });
+    });
+
+    it('shows a saved code as its service, and a value no listed service has as saved', async () => {
+      const conditional: RuleConditional = {
+        branches: [
+          {
+            condition: { type: 'field', field: 'service', operator: 'eq', value: 'workers-comp' },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value: 'sports-physicals' }] },
+          },
+        ],
+      };
+      render(<ConditionalForm conditional={conditional} />);
+      const [conditionInput, actionInput] = screen.getAllByPlaceholderText('Pick a service…');
+
+      await waitFor(() => expect(conditionInput).toHaveValue('Workers Comp'));
+      expect(actionInput).toHaveValue('Sports Physicals');
+      // The saved code is that listed service, not a second "Workers Comp" in the list.
+      fireEvent.mouseDown(conditionInput);
+      expect(await screen.findAllByRole('option', { name: 'Workers Comp' })).toHaveLength(1);
+    });
+
+    it('collects listed services for "is one of", and Enter never removes one already picked', async () => {
+      const conditional: RuleConditional = {
+        branches: [
+          {
+            condition: { type: 'field', field: 'service', operator: 'in', value: ['urgent-care'] },
+            outcome: { type: 'noop' },
+          },
+        ],
+      };
+      const onValid = vi.fn();
+      const user = userEvent.setup();
+      render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+      const input = screen.getByPlaceholderText('Pick services…');
+
+      await user.click(input);
+      await user.click(await screen.findByRole('option', { name: 'Workers Comp' }));
+      // MUI highlights the first picked service when the text matches it; Enter must not un-pick it.
+      await user.type(input, 'Urgent{Enter}');
+
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() => expect(onValid).toHaveBeenCalled());
+      expect(onValid.mock.calls[0][0].conditional.branches[0].condition.value).toEqual(['urgent-care', 'workers-comp']);
+    });
+
+    it('offers only whole-value operators: no contains, starts with or patterns', async () => {
+      const conditional: RuleConditional = {
+        branches: [
+          { condition: { type: 'field', field: 'service', operator: 'eq', value: '' }, outcome: { type: 'noop' } },
+        ],
+      };
+      render(<ConditionalForm conditional={conditional} />);
+
+      fireEvent.mouseDown(screen.getByText('equals'));
+      const offered = (await screen.findAllByRole('option')).map((option) => option.textContent);
+      expect(offered).toEqual(['equals', 'does not equal', 'is one of', 'is not one of', 'is present', 'is empty']);
+    });
+  });
+
   it('renders line match and set controls for an update-service-lines action', () => {
     const conditional: RuleConditional = {
       branches: [
@@ -321,7 +442,7 @@ describe('ConditionalEditor', () => {
     expect(await screen.findByRole('option', { name: /VIP/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Hold/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Auto Accident/ })).toBeInTheDocument();
-    expect(searchBillingTagsMock).toHaveBeenCalledTimes(1);
+    expect(searchBillingTagsMock).toHaveBeenCalledTimes(2);
   });
 
   it('renders a state dropdown (not free text) for state conditions', async () => {

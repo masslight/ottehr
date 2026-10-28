@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   AdHocBillingInputSchema,
   AdHocBillingOutputSchema,
@@ -42,29 +43,38 @@ function readParams(task: Task): ReportParams {
   return JSON.parse(raw) as ReportParams;
 }
 
-async function buildOutputJson(oystehr: Oystehr, params: ReportParams): Promise<{ json: string; rowCount: number }> {
+async function buildOutputJson(
+  oystehr: Oystehr,
+  params: ReportParams,
+  environment: string
+): Promise<{ json: string; rowCount: number }> {
   const { datasetId, dateRange, options } = params;
   switch (datasetId) {
     case 'encounters-comprehensive': {
       const input = AdHocEncountersInputSchema.parse({ dateRange, ...layerIncludeFlags(ENCOUNTER_LAYERS, options) });
-      const rows = await fetchAdHocEncounterRows(oystehr, input);
+      const rows = await fetchAdHocEncounterRows(oystehr, input, { environment });
+
       const json = JSON.stringify(
         validateOutputWithSchema(AdHocEncountersOutputSchema, { encounters: rows }, ZAMBDA_NAME)
       );
+
       return { json, rowCount: rows.length };
     }
+
     case 'patients': {
       const input = AdHocPatientsInputSchema.parse({ dateRange, ...layerIncludeFlags(PATIENT_LAYERS, options) });
       const rows = await fetchAdHocPatientRows(oystehr, input);
       const json = JSON.stringify(validateOutputWithSchema(AdHocPatientsOutputSchema, { patients: rows }, ZAMBDA_NAME));
       return { json, rowCount: rows.length };
     }
+
     case 'billing': {
       const input = AdHocBillingInputSchema.parse({ dateRange, ...layerIncludeFlags(BILLING_LAYERS, options) });
       const rows = await fetchAdHocBillingRows(oystehr, input);
       const json = JSON.stringify(validateOutputWithSchema(AdHocBillingOutputSchema, { rows }, ZAMBDA_NAME));
       return { json, rowCount: rows.length };
     }
+
     default:
       throw new Error(`Unknown ad-hoc dataset "${datasetId}"`);
   }
@@ -101,7 +111,9 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
       `layers=${JSON.stringify(Object.keys(params.options ?? {}).filter((id) => params.options[id]))}`
   );
 
-  const { json, rowCount } = await stage('build data', task.id, startedAt, () => buildOutputJson(oystehr, params));
+  const { json, rowCount } = await stage('build data', task.id, startedAt, () =>
+    buildOutputJson(oystehr, params, getSecret(SecretsKeys.ENVIRONMENT, secrets))
+  );
   console.log(`[adhoc] data ready task=${task.id} ms=${Date.now() - startedAt} rows=${rowCount} bytes=${json.length}`);
 
   const z3Url = await stage('upload', task.id, startedAt, () => uploadAdHocReportJsonToZ3(oystehr, secrets, json));
@@ -127,5 +139,6 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
   );
 
   console.log(`[adhoc] done task=${task.id} ms=${Date.now() - startedAt}`);
+
   return { taskStatus: 'completed' as const, statusReason: 'Ad-hoc report data generated' };
 });

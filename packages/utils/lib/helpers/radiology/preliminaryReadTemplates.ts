@@ -1,25 +1,23 @@
-import type { PreliminaryReadTemplatesConfig } from 'config-types/config/radiology';
-
-// Fracture descriptors shared by every extremity: adult types first, then the pediatric ones (children only).
-const PEDIATRIC_FRACTURE_TYPES = ['Buckle (torus)', 'Greenstick', 'Salter-Harris I', 'Salter-Harris II'];
-const FRACTURE_TYPES = [
-  'Nondisplaced',
-  'Minimally displaced',
-  'Displaced',
-  'Angulated',
-  'Comminuted',
-  'Avulsion',
-  ...PEDIATRIC_FRACTURE_TYPES,
-];
-const FX_TYPE = { title: 'Fracture type', options: FRACTURE_TYPES, childOnlyOptions: PEDIATRIC_FRACTURE_TYPES };
+import type { PreliminaryReadChoiceList, PreliminaryReadTemplatesConfig } from './preliminaryReadTypes';
 
 const NONE = '';
+const SALTER_HARRIS = ['Salter-Harris I', 'Salter-Harris II'];
+const BUCKLE = 'buckle (torus)';
+const PEDIATRIC_FRACTURE_TYPES = [BUCKLE, 'greenstick', ...SALTER_HARRIS];
+const NOT_TUBULAR_BONES = ['scaphoid', 'patella', 'scapular body', 'base of the 5th metatarsal'];
+const ALIGNMENT_MAINTAINED = 'No dislocation. Alignment maintained.';
+const ADULT_FRACTURE_TYPES = [NONE, 'comminuted', 'avulsion'];
+const FRACTURE_TYPES_SET = [...ADULT_FRACTURE_TYPES.filter(Boolean), ...PEDIATRIC_FRACTURE_TYPES];
 
-/**
- * Template sentences offered above the Preliminary Read field, keyed by body region. Wording follows the
- * conventional plain-film read; choice lists are ordered most-common-first. `{side}` is supplied by the
- * order's laterality, every other `{blank}` names an entry in `choices`.
- */
+const FX_TYPE_TUBULAR: PreliminaryReadChoiceList = {
+  title: 'Fracture type',
+  options: [...ADULT_FRACTURE_TYPES, ...PEDIATRIC_FRACTURE_TYPES],
+  childOnlyOptions: PEDIATRIC_FRACTURE_TYPES,
+};
+
+const GROWTH_PLATE_NOT_INVOLVED = 'Growth plate not involved.';
+const GROWTH_PLATE_EXTENDS = 'Extends to the growth plate.';
+
 export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
   choices: {
     // ---- shared ----
@@ -42,16 +40,25 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     growthPlate: {
       title: 'Growth plate (children only)',
       childOnly: true,
-      options: ['Growth plate not involved.', 'Extends to the growth plate.', NONE],
+      options: [GROWTH_PLATE_NOT_INVOLVED, GROWTH_PLATE_EXTENDS, NONE],
     },
-    fxType: FX_TYPE,
-    fxTypeBuckle: { ...FX_TYPE, childDefault: 'Buckle (torus)' },
-    fxTypeSalter: { ...FX_TYPE, childDefault: 'Salter-Harris I' },
-    fxClose: { title: 'Closing line', options: ['No dislocation. Alignment maintained.', 'No dislocation.', NONE] },
+    fxDisplacement: {
+      title: 'Displacement',
+      options: ['Nondisplaced', 'Minimally displaced', 'Displaced', 'Angulated', NONE],
+      emptyWhen: FRACTURE_TYPES_SET,
+    },
+    fxType: { title: 'Fracture type', options: ADULT_FRACTURE_TYPES },
+    fxTypeTubular: FX_TYPE_TUBULAR,
+    fxTypeBuckle: { ...FX_TYPE_TUBULAR, childDefault: BUCKLE },
+    fxTypeSalter: { ...FX_TYPE_TUBULAR, childDefault: 'Salter-Harris I' },
+    fxClose: { title: 'Closing line', options: [ALIGNMENT_MAINTAINED, 'No dislocation.', NONE] },
     effusion: { title: 'Joint effusion', options: [NONE, 'Joint effusion present.'] },
     ray: { title: 'Ray', options: ['5th', '4th', '3rd', '2nd', '1st'] },
     shaftSite: { title: 'Site', options: ['base', 'shaft', 'neck', 'head'] },
-    phalanx: { title: 'Phalanx', options: ['proximal phalanx', 'middle phalanx', 'distal phalanx (tuft)'] },
+    phalanx: {
+      title: 'Phalanx',
+      options: ['proximal phalanx', 'middle phalanx', 'distal phalanx (tuft)'],
+    },
     // ---- chest ----
     chestNeg: {
       title: 'Opening',
@@ -79,16 +86,17 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
         'Streaky interstitial opacities',
       ],
     },
+    // The article is part of the option so "both lungs" reads right ("in both lungs", not "in the both lungs").
     lobe: {
       title: 'Location',
       options: [
-        'right lower lobe',
-        'left lower lobe',
-        'right middle lobe',
-        'right upper lobe',
-        'left upper lobe',
-        'lingula',
-        'bilateral lower lobes',
+        'the right lower lobe',
+        'the left lower lobe',
+        'the right middle lobe',
+        'the right upper lobe',
+        'the left upper lobe',
+        'the lingula',
+        'both lower lobes',
         'both lungs',
       ],
     },
@@ -163,7 +171,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     femurSite: { title: 'Site', options: ['mid-shaft', 'distal', 'proximal'] },
     kneeBone: {
       title: 'Bone',
-      options: ['patella', 'tibial plateau', 'proximal fibula (head/neck)', 'distal femur', 'tibial tuberosity'],
+      options: ['patella', 'tibial plateau', 'fibular head', 'fibular neck', 'distal femur', 'tibial tuberosity'],
     },
     legBone: {
       title: 'Bone',
@@ -189,7 +197,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       ],
     },
     ankleClose: { title: 'Closing line', options: ['Ankle mortise intact.', 'Widening of the ankle mortise.', NONE] },
-    footBone: { title: 'Bone', options: ['metatarsal', 'proximal phalanx', 'middle phalanx', 'distal phalanx'] },
+    footBone: {
+      title: 'Bone',
+      options: ['metatarsal', 'proximal phalanx', 'middle phalanx', 'distal phalanx'],
+    },
     calcaneusSite: { title: 'Site', options: ['tuberosity', 'body', 'anterior process'] },
     toe: { title: 'Toe', options: ['5th toe', '4th toe', '3rd toe', '2nd toe', 'great toe'] },
     // ---- upper extremity ----
@@ -208,12 +219,19 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     humerusSite: { title: 'Site', options: ['proximal', 'mid-shaft', 'distal'] },
     elbowBone: {
       title: 'Bone',
-      options: ['radial head/neck', 'supracondylar humerus', 'olecranon', 'lateral condyle', 'medial epicondyle'],
+      options: [
+        'radial head',
+        'radial neck',
+        'supracondylar humerus',
+        'olecranon',
+        'lateral condyle',
+        'medial epicondyle',
+      ],
     },
     fatPads: { title: 'Fat pads', options: ['Elevated fat pads consistent with joint effusion.', NONE] },
     forearmBone: {
       title: 'Bone',
-      options: ['distal radius', 'ulnar shaft', 'radial shaft', 'radial head/neck', 'distal ulna'],
+      options: ['distal radius', 'ulnar shaft', 'radial shaft', 'radial head', 'radial neck', 'distal ulna'],
     },
     wristBone: {
       title: 'Bone',
@@ -221,7 +239,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     },
     wristClose: {
       title: 'Closing line',
-      options: ['No dislocation. Alignment maintained.', 'Mild dorsal angulation.', 'No dislocation.', NONE],
+      options: [ALIGNMENT_MAINTAINED, 'Mild dorsal angulation.', 'No dislocation.', NONE],
     },
     finger: {
       title: 'Finger',
@@ -229,22 +247,40 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     },
     // ---- abdomen ----
     kubIncidental: { title: 'Incidental finding', options: [NONE, 'Mild stool burden.', 'Phleboliths in the pelvis.'] },
-    stoolBurden: { title: 'Stool burden', options: ['Moderate', 'Moderate-to-large', 'Large', 'Mild'] },
+    // No "Mild": a mild stool burden is the negative read's incidental finding, not an increased one.
+    stoolBurden: { title: 'Stool burden', options: ['Moderate', 'Moderate-to-large', 'Large'] },
     fbLocation: { title: 'Location', options: ['stomach', 'small bowel', 'colon', 'pelvis'] },
     // ---- face ----
-    facialBones: { title: 'Bones', options: ['nasal bones', 'facial bones'] },
     facialSite: {
       title: 'Site',
       options: ['nasal bones', 'zygomatic arch', 'orbital floor', 'lateral wall of the maxillary sinus'],
     },
   },
+  conflicts: [
+    ...SALTER_HARRIS.flatMap((type): [string, string][] => [
+      [type, GROWTH_PLATE_NOT_INVOLVED],
+      [type, GROWTH_PLATE_EXTENDS],
+    ]),
+    ['middle phalanx', 'thumb'],
+    ['middle phalanx', 'great toe'],
+    ['middle phalanx', '1st'],
+    ['Displaced', ALIGNMENT_MAINTAINED],
+    ['Angulated', ALIGNMENT_MAINTAINED],
+    ['Displaced', BUCKLE],
+    ...PEDIATRIC_FRACTURE_TYPES.flatMap((type): [string, string][] =>
+      NOT_TUBULAR_BONES.map((bone): [string, string] => [type, bone])
+    ),
+    // "Focal" is one spot; it can't be in both lungs.
+    ['Focal airspace opacity', 'both lungs'],
+    ['Focal airspace opacity', 'both lower lobes'],
+  ],
   regions: [
     {
       name: 'Chest',
       cptCodes: ['71045', '71046', '71047', '71048'],
       templates: [
         { name: 'Negative', text: '{chestNeg} {chestIncidental}' },
-        { name: 'Pneumonia', text: '{opacity} in the {lobe} concerning for pneumonia. {pleura}' },
+        { name: 'Pneumonia', text: '{opacity} in {lobe} concerning for pneumonia. {pleura}' },
         { name: 'Pulmonary edema', text: '{edema} {edemaPleura}' },
       ],
     },
@@ -253,7 +289,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['71100', '71101', '71110', '71111'],
       templates: [
         { name: 'Negative', text: 'No acute rib fracture identified. No pneumothorax or pleural effusion.' },
-        { name: 'Rib fracture', text: '{fxType} fracture of the {side} {rib} rib. {ribPleura}' },
+        { name: 'Rib fracture', text: '{fxDisplacement} {fxType} fracture of the {side} {rib} rib. {ribPleura}' },
       ],
     },
     {
@@ -294,7 +330,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['72220'],
       templates: [
         { name: 'Negative', text: 'No acute fracture of the sacrum or coccyx. {incidental}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {sacrumSite}.' },
+        { name: 'Fracture', text: '{fxDisplacement} {fxType} fracture of the {sacrumSite}.' },
       ],
     },
     {
@@ -302,7 +338,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['72170', '72190', '73501', '73502', '73503', '73521', '73522', '73523'],
       templates: [
         { name: 'Negative', text: 'No acute fracture or dislocation of the pelvis or hips. {incidental}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {side} {hipBone}.' },
+        { name: 'Fracture', text: '{fxDisplacement} {fxType} fracture of the {side} {hipBone}.' },
       ],
     },
     {
@@ -310,7 +346,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73551', '73552'],
       templates: [
         { name: 'Negative', text: '{negOpening} Alignment maintained. {incidental} {physes}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {side} {femurSite} femur. {growthPlate} {fxClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {side} {femurSite} femur. {growthPlate} {fxClose}',
+        },
       ],
     },
     {
@@ -321,7 +360,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
           name: 'Negative',
           text: '{negOpening} Alignment and joint spaces maintained. {effusion} {incidental} {physes}',
         },
-        { name: 'Fracture', text: '{fxType} fracture of the {side} {kneeBone}. {effusion} {growthPlate} {fxClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {side} {kneeBone}. {effusion} {growthPlate} {fxClose}',
+        },
       ],
     },
     {
@@ -329,7 +371,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73590'],
       templates: [
         { name: 'Negative', text: '{negOpening} Alignment maintained. {incidental} {physes}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {side} {legBone}. {growthPlate} {fxClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {side} {legBone}. {growthPlate} {fxClose}',
+        },
       ],
     },
     {
@@ -337,7 +382,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73600', '73610'],
       templates: [
         { name: 'Negative', text: '{negOpening} Ankle mortise intact. {ankleIncidental} {physes}' },
-        { name: 'Fracture', text: '{fxTypeSalter} fracture of the {side} {ankleBone}. {growthPlate} {ankleClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeSalter} fracture of the {side} {ankleBone}. {growthPlate} {ankleClose}',
+        },
       ],
     },
     {
@@ -347,7 +395,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
         { name: 'Negative', text: '{negOpening} Alignment and joint spaces maintained. {incidental} {physes}' },
         {
           name: 'Fracture',
-          text: '{fxType} fracture of the {shaftSite} of the {side} {ray} {footBone}. {growthPlate} {fxClose}',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {shaftSite} of the {side} {ray} {footBone}. {growthPlate} {fxClose}',
         },
       ],
     },
@@ -356,7 +404,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73650'],
       templates: [
         { name: 'Negative', text: 'No acute fracture of the {side} calcaneus. {incidental}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {side} calcaneal {calcaneusSite}.' },
+        { name: 'Fracture', text: '{fxDisplacement} {fxType} fracture of the {side} calcaneal {calcaneusSite}.' },
       ],
     },
     {
@@ -364,7 +412,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73660'],
       templates: [
         { name: 'Negative', text: '{negOpening} Alignment and joint spaces maintained. {incidental} {physes}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {phalanx} of the {side} {toe}. {growthPlate} {fxClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {phalanx} of the {side} {toe}. {growthPlate} {fxClose}',
+        },
       ],
     },
     {
@@ -372,7 +423,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73000', '73010', '73020', '73030'],
       templates: [
         { name: 'Negative', text: '{negOpening} Alignment and joint spaces maintained. {incidental} {physes}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {side} {shoulderBone}. {growthPlate} {fxClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {side} {shoulderBone}. {growthPlate} {fxClose}',
+        },
         { name: 'Dislocation', text: '{dislocation} dislocation of the {side} shoulder. {dislocationFx}' },
         {
           name: 'AC separation',
@@ -385,7 +439,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73060'],
       templates: [
         { name: 'Negative', text: '{negOpening} Alignment maintained. {incidental} {physes}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {side} {humerusSite} humerus. {growthPlate} {fxClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {side} {humerusSite} humerus. {growthPlate} {fxClose}',
+        },
       ],
     },
     {
@@ -400,7 +457,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
           name: 'Fat pad sign',
           text: 'Elevated anterior and posterior fat pads consistent with joint effusion, without visible fracture; occult fracture possible.',
         },
-        { name: 'Fracture', text: '{fxType} fracture of the {side} {elbowBone}. {fatPads} {growthPlate} {fxClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {side} {elbowBone}. {fatPads} {growthPlate} {fxClose}',
+        },
       ],
     },
     {
@@ -408,10 +468,13 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73090'],
       templates: [
         { name: 'Negative', text: '{negOpening} Alignment maintained. {incidental} {physes}' },
-        { name: 'Fracture', text: '{fxTypeBuckle} fracture of the {side} {forearmBone}. {growthPlate} {wristClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeBuckle} fracture of the {side} {forearmBone}. {growthPlate} {wristClose}',
+        },
         {
           name: 'Both-bone fracture',
-          text: '{fxTypeBuckle} fractures of the {side} distal radius and ulna. {growthPlate} {wristClose}',
+          text: '{fxDisplacement} {fxTypeBuckle} fractures of the {side} distal radius and ulna. {growthPlate} {wristClose}',
         },
       ],
     },
@@ -420,10 +483,13 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
       cptCodes: ['73100', '73110'],
       templates: [
         { name: 'Negative', text: '{negOpening} Alignment and joint spaces maintained. {incidental} {physes}' },
-        { name: 'Fracture', text: '{fxTypeBuckle} fracture of the {side} {wristBone}. {growthPlate} {wristClose}' },
+        {
+          name: 'Fracture',
+          text: '{fxDisplacement} {fxTypeBuckle} fracture of the {side} {wristBone}. {growthPlate} {wristClose}',
+        },
         {
           name: 'Radius and ulna fracture',
-          text: '{fxTypeBuckle} fractures of the {side} distal radius and ulna. {growthPlate} {wristClose}',
+          text: '{fxDisplacement} {fxTypeBuckle} fractures of the {side} distal radius and ulna. {growthPlate} {wristClose}',
         },
       ],
     },
@@ -434,11 +500,11 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
         { name: 'Negative', text: '{negOpening} Alignment and joint spaces maintained. {incidental} {physes}' },
         {
           name: 'Metacarpal fracture',
-          text: '{fxType} fracture of the {shaftSite} of the {side} {ray} metacarpal. {growthPlate} {fxClose}',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {shaftSite} of the {side} {ray} metacarpal. {growthPlate} {fxClose}',
         },
         {
           name: 'Phalanx fracture',
-          text: '{fxType} fracture of the {phalanx} of the {side} {finger}. {growthPlate} {fxClose}',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {phalanx} of the {side} {finger}. {growthPlate} {fxClose}',
         },
       ],
     },
@@ -449,7 +515,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
         { name: 'Negative', text: '{negOpening} Alignment and joint spaces maintained. {incidental} {physes}' },
         {
           name: 'Fracture',
-          text: '{fxType} fracture of the {phalanx} of the {side} {finger}. {growthPlate} {fxClose}',
+          text: '{fxDisplacement} {fxTypeTubular} fracture of the {phalanx} of the {side} {finger}. {growthPlate} {fxClose}',
         },
       ],
     },
@@ -471,12 +537,21 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
         },
       ],
     },
+    // Facial and nasal studies are separate regions so the negative read names the bones that were imaged.
     {
-      name: 'Facial and nasal bones',
-      cptCodes: ['70140', '70150', '70160'],
+      name: 'Facial bones',
+      cptCodes: ['70140', '70150'],
       templates: [
-        { name: 'Negative', text: 'No acute fracture of the {facialBones}. {incidental}' },
-        { name: 'Fracture', text: '{fxType} fracture of the {facialSite}.' },
+        { name: 'Negative', text: 'No acute fracture of the facial bones. {incidental}' },
+        { name: 'Fracture', text: '{fxDisplacement} {fxType} fracture of the {facialSite}.' },
+      ],
+    },
+    {
+      name: 'Nasal bones',
+      cptCodes: ['70160'],
+      templates: [
+        { name: 'Negative', text: 'No acute fracture of the nasal bones. {incidental}' },
+        { name: 'Fracture', text: '{fxDisplacement} {fxType} fracture of the nasal bones.' },
       ],
     },
   ],

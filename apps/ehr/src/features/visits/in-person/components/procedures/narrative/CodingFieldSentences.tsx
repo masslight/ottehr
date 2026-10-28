@@ -1,24 +1,26 @@
 import { Add } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import { FC, Fragment, ReactNode } from 'react';
+import { LACERATION_CLOSURE, lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import {
   CodingField,
   FlatCodingField,
   getStructuredFieldsData,
+  MultiCodingField,
   readRows,
   RowsCodingField,
   StructuredFacts,
   StructuredRow,
   StructuredValue,
 } from 'utils/lib/procedure-coding/structured-fields';
-import { MultiBlank, SelectBlank, Sentence, TextBlank } from './InlineBlanks';
+import { ClockTimeBlank, MultiBlank, SelectBlank, Sentence, TextBlank } from './InlineBlanks';
 
 const YES_NO = ['yes', 'no'];
 
 /** One coding field as an inline blank. Checkboxes become a yes/no pick so the sentence stays readable.
- * Main answers are flagged while empty; `details` answers are optional by definition. */
-export interface FieldBlankOptions {
+ * Needed cues come from display metadata, independently of whether the answer is a detail. */
+interface FieldBlankOptions {
   /** Flag a details field as required when the sentence treats it as part of the main answer. */
   need?: boolean;
   /** Shorter placeholder for an input blank; the field label stays its accessible name. */
@@ -29,14 +31,14 @@ export interface FieldBlankOptions {
   ordered?: boolean;
 }
 
-export function fieldBlank(
+function fieldBlank(
   field: FlatCodingField,
   current: StructuredValue | string[],
   change: (next: StructuredValue | string[]) => void,
   readOnly: boolean,
   options: FieldBlankOptions = {}
 ): ReactNode {
-  const need = options.need ?? !field.details;
+  const need = options.need ?? field.neededForCoding === true;
   const label = options.label ?? field.label;
   if (field.kind === 'multi') {
     const values = Array.isArray(current) ? current : [];
@@ -46,17 +48,7 @@ export function fieldBlank(
         title={label}
         options={field.options}
         values={values}
-        onChange={(next) => {
-          const added = next.find((value) => !values.includes(value));
-          // The stand-alone option ("normal") and any other finding never sit together.
-          change(
-            field.exclusive === undefined || added === undefined
-              ? next
-              : added === field.exclusive
-              ? [added]
-              : next.filter((value) => value !== field.exclusive)
-          );
-        }}
+        onChange={(next) => change(withExclusiveOption(field, values, next))}
         readOnly={readOnly}
         need={need}
       />
@@ -72,6 +64,7 @@ export function fieldBlank(
         onChange={(value) => change(value === undefined ? undefined : value === 'yes')}
         readOnly={readOnly}
         helperText={field.helperText}
+        need={need}
       />
     );
   if (field.kind === 'select')
@@ -88,6 +81,16 @@ export function fieldBlank(
         helperText={field.helperText}
       />
     );
+  if (field.kind === 'time')
+    return (
+      <ClockTimeBlank
+        label={label.toLowerCase()}
+        value={typeof current === 'string' ? current : undefined}
+        onChange={change}
+        readOnly={readOnly}
+        need={need}
+      />
+    );
   return (
     <TextBlank
       label={label.toLowerCase()}
@@ -96,14 +99,24 @@ export function fieldBlank(
       value={typeof current === 'string' || typeof current === 'number' ? current : undefined}
       onChange={(raw) => change(raw === '' ? undefined : field.kind === 'number' ? Number(raw) : raw)}
       readOnly={readOnly}
-      need={need && field.kind !== 'text'}
+      need={need}
       min={field.kind === 'number' ? field.min : undefined}
       step={field.kind === 'number' ? field.step : undefined}
     />
   );
 }
 
-export interface RowRenderArgs {
+/** The stand-alone option ("normal", "none") and any other choice never sit together: the newest pick wins. */
+const withExclusiveOption = (field: MultiCodingField, previous: readonly string[], next: string[]): string[] => {
+  const added = next.find((value) => !previous.includes(value));
+  if (field.exclusive === undefined || added === undefined) return next;
+  return added === field.exclusive ? [added] : next.filter((value) => value !== field.exclusive);
+};
+
+const codingNeed = (field: FlatCodingField, answers: StructuredFacts | StructuredRow): boolean =>
+  typeof field.neededForCoding === 'function' ? field.neededForCoding(answers) : field.neededForCoding === true;
+
+interface RowRenderArgs {
   row: StructuredRow;
   readOnly: boolean;
   /** Blank for one of the row's fields, or null when its `visible` condition hides it. */
@@ -113,11 +126,9 @@ export interface RowRenderArgs {
   details: (placedKeys?: readonly string[]) => ReactNode;
 }
 
-export interface MainRenderArgs {
+interface MainRenderArgs {
   answers: StructuredFacts;
   readOnly: boolean;
-  /** Blank for one of the family's fields, or null when its `visible` condition hides it. */
-  blank: (key: string, options?: FieldBlankOptions) => ReactNode;
   /** "Label: [blank]" for each key, "; " between them; keys a `visible` condition hides are skipped. */
   pieces: (keys: readonly string[], options?: FieldBlankOptions) => ReactNode;
   /** The family's `details: true` fields, as `RowRenderArgs.details`. */
@@ -135,6 +146,8 @@ interface Props {
   renderMain?: (args: MainRenderArgs) => ReactNode;
   /** Hand-written sentence for a repeating group; the generic "label: [blank]" wording is the default. */
   renderRow?: (args: RowRenderArgs) => ReactNode;
+  /** Laceration details use a compact optional picker; other families spell out each answer. */
+  compactDetails?: boolean;
 }
 
 /** Turns a coding family's field definitions into sentences with inline blanks. The visibility, defaults and
@@ -147,6 +160,7 @@ export const CodingFieldSentences: FC<Props> = ({
   medicationUsed,
   renderMain,
   renderRow,
+  compactDetails = false,
 }) => {
   const pieces = (
     fields: readonly FlatCodingField[],
@@ -163,7 +177,7 @@ export const CodingFieldSentences: FC<Props> = ({
           answers[field.key] as StructuredValue | string[],
           (next) => update({ ...answers, [field.key]: next }),
           readOnly,
-          options
+          { need: codingNeed(field, answers), ...options }
         )}
       </Fragment>
     ));
@@ -174,9 +188,11 @@ export const CodingFieldSentences: FC<Props> = ({
     update: (next: StructuredFacts | StructuredRow) => void
   ): ReactNode => {
     if (!fields.length) return null;
+    if (!compactDetails) return <>{pieces(fields, answers, update)}.</>;
     const checkboxes = fields.filter((field) => field.kind === 'checkbox');
     const others = fields.filter((field) => field.kind !== 'checkbox');
     const chosen = checkboxes.filter((field) => answers[field.key] === true).map((field) => field.key);
+    if (readOnly && !chosen.length && !others.some((field) => answers[field.key] !== undefined)) return null;
     return (
       <>
         {checkboxes.length > 0 && (
@@ -185,6 +201,7 @@ export const CodingFieldSentences: FC<Props> = ({
             <MultiBlank
               label="details"
               title="Details (optional)"
+              ghost
               options={checkboxes.map((field) => ({ value: field.key, label: field.label }))}
               values={chosen}
               onChange={(keys) =>
@@ -223,16 +240,6 @@ export const CodingFieldSentences: FC<Props> = ({
           ? renderMain({
               answers: displayed,
               readOnly,
-              blank: (key, options) =>
-                byKey([key]).map((field) =>
-                  fieldBlank(
-                    field,
-                    displayed[key] as StructuredValue | string[],
-                    (next) => update({ ...displayed, [key]: next }),
-                    readOnly,
-                    options
-                  )
-                )[0] ?? null,
               pieces: (keys, options) => pieces(byKey(keys), displayed, scalarUpdate, options),
               details: (placedKeys = []) =>
                 detailsPieces(
@@ -274,7 +281,10 @@ export const CodingFieldSentences: FC<Props> = ({
           const blank = (key: string, options?: FieldBlankOptions): ReactNode => {
             const child = visible.find((item) => item.key === key);
             return child
-              ? fieldBlank(child, displayed[key], (next) => rowUpdate({ ...displayed, [key]: next }), readOnly, options)
+              ? fieldBlank(child, displayed[key], (next) => rowUpdate({ ...displayed, [key]: next }), readOnly, {
+                  need: codingNeed(child, displayed),
+                  ...options,
+                })
               : null;
           };
           const details = (placedKeys: readonly string[] = []): ReactNode =>
@@ -339,25 +349,29 @@ export const CodingFieldSentences: FC<Props> = ({
   );
 };
 
-/** Laceration wounds read as a repair sentence; the blanks are the family's real field keys. */
-/** The laceration closure option that needs no suture/staple count. */
-const ADHESIVE_ONLY = 'adhesive only';
-
-/** Material and count are `details` answers in the family (optional), so they keep the grey empty style. */
-export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
+/** Wounds use family field keys; closure material and count remain optional. */
+const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
   <CodingFieldSentences
     {...props}
-    renderRow={({ row, readOnly, blank, details }) => (
-      <>
-        {/* The family calls this "Closure"; in the sentence that read as the closure material. */}
-        {blank('closure', { label: 'Repair type' })} repair of a {blank('length')} cm laceration of the {blank('site')}{' '}
-        ({blank('side')}), closed with {blank('material', { placeholder: 'material' })}
-        {/* Display only: an adhesive closure has no count to show, but a stored count is left as it is. */}
-        {row.closure !== ADHESIVE_ONLY && !(readOnly && row.sutureCount === undefined) && (
-          <> ({blank('sutureCount')} sutures/staples)</>
-        )}
-        . {details(['sutureCount', 'material'])}
-      </>
-    )}
+    compactDetails
+    renderRow={({ row, readOnly, blank, details }) => {
+      const open = row.closure === LACERATION_CLOSURE.Open;
+      const count = blank('sutureCount');
+      return (
+        <>
+          {/* The family calls this "Closure"; in the sentence that read as the closure material. */}
+          {open && 'Wound left '}
+          {blank('closure', { label: 'Repair type' })}
+          {open ? ': a ' : ' repair of a '}
+          {blank('length')} cm laceration of the {blank('site')} ({blank('side')})
+          {!open && <>, closed with {blank('material', { placeholder: 'material' })}</>}
+          {count && !(readOnly && row.sutureCount === undefined) && <> ({count} sutures/staples)</>}.{' '}
+          {details(open ? [] : ['sutureCount', 'material'])}
+        </>
+      );
+    }}
   />
 );
+
+export const ProcedureFamilySentences: FC<Omit<Props, 'renderRow' | 'compactDetails'>> = (props) =>
+  props.family.id === lacerationFamily.id ? <LacerationSentences {...props} /> : <CodingFieldSentences {...props} />;

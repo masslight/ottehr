@@ -393,6 +393,56 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
     .filter((benefit) => !!benefit.description && !!benefit.code);
 };
 
+export function getPaymentAmountFromPatientBenefit({
+  coverage,
+  code,
+  coverageCode,
+  levelCode,
+  periodCode,
+}: {
+  coverage: PatientPaymentBenefit[];
+  code: string;
+  coverageCode: string;
+  levelCode: string;
+  periodCode: string | undefined;
+}): PatientPaymentBenefit | undefined {
+  if (!periodCode) {
+    return coverage.find(
+      (item) => item.code === code && item.coverageCode === coverageCode && item.levelCode === levelCode
+    );
+  }
+
+  return coverage.find(
+    (item) =>
+      item.code === code &&
+      item.coverageCode === coverageCode &&
+      item.levelCode === levelCode &&
+      item.periodCode === periodCode
+  );
+}
+
+export const getCopayAndRemainingDeductible = (
+  coverageCheck: { copay?: PatientPaymentBenefit[]; deductible?: PatientPaymentBenefit[] } | undefined
+): { copayAmount: PatientPaymentBenefit | undefined; remainingDeductibleAmount: PatientPaymentBenefit | undefined } => {
+  const copayAmount = getPaymentAmountFromPatientBenefit({
+    coverage: coverageCheck?.copay?.filter((item) => item.inNetwork === true) || [],
+    code: 'UC',
+    coverageCode: 'B',
+    levelCode: 'IND',
+    periodCode: undefined,
+  });
+
+  const remainingDeductibleAmount = getPaymentAmountFromPatientBenefit({
+    coverage: coverageCheck?.deductible?.filter((item) => item.inNetwork === true) || [],
+    code: '30',
+    coverageCode: 'C',
+    levelCode: 'IND',
+    periodCode: '29',
+  });
+
+  return { copayAmount, remainingDeductibleAmount };
+};
+
 export const pullCoverageIdentifyingDetails = (coverage: Coverage): CoverageCheckCoverageDetails | undefined => {
   const subscriberId = coverage.subscriberId;
   const payorRef = coverage.payor?.[0]?.reference;

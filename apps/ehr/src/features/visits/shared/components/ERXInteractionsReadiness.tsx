@@ -33,7 +33,7 @@ export const ERXInteractionsReadiness: FC<{
   const isErxConfigured = Boolean(erxConfig?.configured);
 
   // Step 2: patient vitals. DoseSpot patient sync requires height/weight for patients <= 18.
-  const { hasVitals, isVitalsLoading, isVitalsFetched } = useErxPatientVitals();
+  const { hasVitals, isVitalsLoading, isVitalsFetched, missingVitalsMessage } = useErxPatientVitals();
 
   // Step 3: sync the patient's demographics/allergies/medications to the eRx provider so the
   // precheck has data to compare against. No practitioner enrollment/connect is involved.
@@ -52,12 +52,13 @@ export const ERXInteractionsReadiness: FC<{
   // Prompt to add missing vitals — the patient sync can't succeed for minors without them.
   useEffect(() => {
     if (isErxConfigured && isVitalsFetched && !hasVitals) {
-      enqueueSnackbar(
-        "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab",
-        { variant: 'error', preventDuplicate: true, key: 'erx-interactions-missing-vitals' }
-      );
+      enqueueSnackbar(missingVitalsMessage, {
+        variant: 'error',
+        preventDuplicate: true,
+        key: 'erx-interactions-missing-vitals',
+      });
     }
-  }, [isErxConfigured, isVitalsFetched, hasVitals]);
+  }, [isErxConfigured, isVitalsFetched, hasVitals, missingVitalsMessage]);
 
   // Report readiness through the shared ERXStatus contract.
   useEffect(() => {

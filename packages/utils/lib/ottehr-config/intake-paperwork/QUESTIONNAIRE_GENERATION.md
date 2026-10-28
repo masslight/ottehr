@@ -246,6 +246,74 @@ Special `dataType` values trigger specific UI behavior:
 - **`Select`**: Dropdown instead of radio buttons
 - **`Call Out`**: Styled callout/alert box for important messages (can be used on display fields)
 
+## Scored Forms: Coded Choices, Calculated Items and Hidden Pages
+
+These apply to questionnaires written directly as FHIR JSON (for example practice-managed forms uploaded with the
+JSON import), not to questionnaires generated from the config above.
+
+### Coded choices
+
+A `choice` item may list its options as `valueCoding` instead of `valueString`:
+
+```json
+{ "linkId": "q1", "type": "choice", "answerOption": [
+  { "valueCoding": { "code": "0", "display": "No" } },
+  { "valueCoding": { "code": "1", "display": "Yes" } } ] }
+```
+
+The patient only ever sees the `display`. The answer is recorded as `valueCoding` (code and display). `enableWhen`
+can match a coded answer with `answerCoding` (on the code) or `answerString` (on the display).
+
+### Calculated items
+
+An item carrying the standard `sdc-questionnaire-calculatedExpression` extension is a calculated value.
+
+```json
+{ "linkId": "total", "type": "string", "text": "Total",
+  "extension": [ { "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+    "valueExpression": { "language": "text/javascript",
+      "expression": "(answers[\"q1\"]||0)+(answers[\"q2\"]||0)" } } ] }
+```
+
+- **The javascript only ever runs in the browser, never on the server.** The browser works the value out whenever a
+  page is saved and sends it to the server, which records it on the QuestionnaireResponse. The server cannot
+  recompute or verify it; it only checks that the value belongs to a calculated item and has the item's type. A value
+  that fails that check is left out (and reported to Sentry) rather than failing the patient's save.
+- The expression's one argument, `answers`, is keyed by `linkId`, across every page and group.
+- A coded answer is exposed as its code, **as a number when the code is numeric**, so scores can be summed. Strings,
+  booleans, numbers and dates pass through unchanged. An unanswered item is `undefined`, hence the `|| 0` above.
+- A calculated item can read another calculated item (`answers["total"]`), wherever it sits in the form.
+- Reference linkIds as literals (`answers["q1"]` or `answers.q1`). A reference built dynamically
+  (`answers[someVariable]`) can't be seen by the dependency ordering or by the import check, so only build a key
+  dynamically to read real answers, never another calculated item.
+- If an expression throws, doesn't produce a string, number or boolean, or produces a value that doesn't fit the
+  item's declared type (a `boolean` item needs a boolean, an `integer` item a whole number), the item has no value.
+  It never breaks the form.
+- Allowed on `string`, `text`, `boolean`, `integer`, `decimal` and `date` items. **The value is recorded as the type
+  the item declares**: `string`/`text`/`date` as `valueString`, `boolean` as `valueBoolean`, `integer` as `valueInteger`,
+  `decimal` as `valueDecimal`. Declare a numeric score as `integer` or `decimal` so it can be used as a number later;
+  declaring it `string` stores `"2"`.
+- Values are recorded on **every page save** (only the ones that changed), including values on pages the patient
+  never sees, so a score reflects the answers given so far and is complete once the last page is saved. The EHR
+  always shows the value calculated from the recorded answers, and flags a calculated value that was not recorded or
+  whose recorded value no longer agrees with the answers.
+- Add `disabled-display` set to `hidden` to keep an item off the patient's form. The EHR still shows it.
+- **linkIds must be unique across the forms of a paperwork flow.** A flow puts its forms in one response (and keeps
+  only the last of any repeated top-level page linkId), and the `answers` map is shared by the whole response. A flow
+  that contains a custom form sharing any page or question linkId with another form is **rejected when it is saved**,
+  with a message naming the forms and the ids. Prefix a form's ids with its name (`cage-items`, `cage-q1`) and
+  re-import it. The base intake and consent-only forms may keep sharing the consent page.
+
+The import validates every calculated item up front and reports all problems at once (missing or unsupported
+language, syntax errors, references to linkIds that don't exist with a suggestion, an item reading itself, circular
+references, unsupported item types), so the questionnaire can be fixed in one pass.
+
+### Hiding a whole page
+
+Hide a page (a top-level group) from the patient with `readOnly: true` **and** the `disabled-display` extension set
+to `hidden`. This is the same convention used for hidden logical fields. The patient is never sent to the page and
+it isn't listed on the review screen. Calculated items on it are still worked out and recorded, and shown in the EHR.
+
 ## Section Order and Structure
 
 Sections are generated in the order they appear in the `FormFields` object. Common sections in intake paperwork:

@@ -7,9 +7,12 @@ import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { GetAppointmentsZambdaInputValidated } from '.';
 
-const visitTypeOptions = Object.values(ServiceMode).flatMap((mode) =>
-  AppointmentTypeOptions.map((type) => `${mode}-${type}`)
-) as [string, ...string[]];
+const visitTypeOptions = (
+  [
+    ...Object.values(ServiceMode).flatMap((mode) => AppointmentTypeOptions.map((type) => `${mode}-${type}`)),
+    'in-person-scheduled-follow-up',
+  ] as string[]
+).slice() as [string, ...string[]];
 
 const GetAppointmentsBodySchema = z
   .object({

@@ -1,15 +1,29 @@
 locals {
+  # The generator supplies the configured URLs. On AWS, aws.tf.override adds the hosting URLs.
+  billing_configured_app = local.oystehr_application_OTTEHR_BILLING_config
+  billing_cdn_domain     = null
+  billing_hosted_urls = var.is_local ? [] : [
+    for domain in compact([var.billing_domain, local.billing_cdn_domain]) : "https://${domain}"
+  ]
+  billing_allowed_urls = {
+    for key in [
+      "allowed_callback_urls", "allowed_logout_urls", "allowed_web_origins_urls", "allowed_cors_origins_urls"
+    ] : key => distinct(compact(concat(local.billing_configured_app[key], local.billing_hosted_urls)))
+  }
+  billing_login_redirect_uri = var.billing_domain == null && local.billing_cdn_domain != null ? "https://${local.billing_cdn_domain}" : local.billing_configured_app.login_redirect_uri
+}
+
+locals {
   billing_vars = {
-    ENV                              = var.environment
-    PROJECT_ID                       = var.project_id
-    IS_LOCAL                         = var.is_local ? "true" : "false"
-    BILLING_APP_NAME                 = local.BILLING_APP_NAME.value
-    OYSTEHR_APPLICATION_CLIENT_ID    = oystehr_application.OTTEHR_BILLING.client_id
-    OYSTEHR_APPLICATION_REDIRECT_URL = oystehr_application.OTTEHR_BILLING.allowed_callback_urls[0]
-    OYSTEHR_CONNECTION_NAME          = oystehr_application.OTTEHR_BILLING.connection_name == null ? "" : oystehr_application.OTTEHR_BILLING.connection_name
-    MUI_X_LICENSE_KEY                = local.MUI_X_LICENSE_KEY.value
-    PROJECT_API_ZAMBDA_URL           = var.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
-    EHR_APP_URL                      = var.ehr_app_url
+    ENV                           = var.environment
+    PROJECT_ID                    = var.project_id
+    IS_LOCAL                      = var.is_local ? "true" : "false"
+    BILLING_APP_NAME              = local.BILLING_APP_NAME.value
+    OYSTEHR_APPLICATION_CLIENT_ID = oystehr_application.OTTEHR_BILLING.client_id
+    OYSTEHR_CONNECTION_NAME       = oystehr_application.OTTEHR_BILLING.connection_name == null ? "" : oystehr_application.OTTEHR_BILLING.connection_name
+    MUI_X_LICENSE_KEY             = local.MUI_X_LICENSE_KEY.value
+    PROJECT_API_ZAMBDA_URL        = var.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
+    EHR_APP_URL                   = var.ehr_app_url
   }
 }
 

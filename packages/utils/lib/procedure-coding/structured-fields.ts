@@ -8,6 +8,8 @@ export interface StructuredFacts {
 }
 
 interface CodingFieldBase {
+  /** Display-only cue for an unanswered coding prerequisite; does not prevent saving. */
+  neededForCoding?: boolean | ((facts: StructuredFacts) => boolean);
   details?: boolean;
   key: string;
   label: string;

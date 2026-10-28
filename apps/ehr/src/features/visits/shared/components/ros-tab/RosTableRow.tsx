@@ -39,17 +39,11 @@ export const RosTableRow: FC<RosTableRowProps> = (props) => {
   const isDenied = deniesObs?.value === true;
   const isReported = reportsObs?.value === true;
   // Checking either column may rewrite the other, so a request touching either field — including a
-  // bulk "Select all" or "Clear ROS" fired elsewhere — locks the whole row.
+  // bulk "Denies all" or "Clear ROS" fired elsewhere — locks the whole row.
   const isRowPending = isLoading || isFieldPending(deniesKey) || isFieldPending(reportsKey);
 
   return (
     <TableRow sx={{ '& td': { borderBottom: 'none', py: 0 } }}>
-      {/* Indented one step past the section's "Select all" row, which the findings sit under. */}
-      <TableCell sx={{ pl: 4, pr: 0 }}>
-        <Typography variant="body2" sx={{ fontSize: 13 }}>
-          {item.label}
-        </Typography>
-      </TableCell>
       <TableCell align="center" sx={{ px: 0 }} data-testid={dataTestIds.reviewOfSystemsPage.deniesCheckboxCell}>
         <Checkbox
           checked={isDenied}
@@ -75,6 +69,11 @@ export const RosTableRow: FC<RosTableRowProps> = (props) => {
           size="small"
           sx={{ p: 0.25, color: 'error.light', '&.Mui-checked': { color: 'error.main' } }}
         />
+      </TableCell>
+      <TableCell sx={{ pl: 1, pr: 0 }}>
+        <Typography variant="body2" sx={{ fontSize: 13 }}>
+          {item.label}
+        </Typography>
       </TableCell>
     </TableRow>
   );

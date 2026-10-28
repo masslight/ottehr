@@ -6,8 +6,10 @@ import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
 import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { ADMIN_TIER_ROLES, RoleType } from 'utils/lib/types/api/user.types';
-import { MISSING_AUTH_TOKEN, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
+import { createClinicalOystehrClient } from './helpers';
+import { ZambdaInput } from './types/common';
 
 /**
  * Authorization gate for role-restricted endpoints. Resolves the caller from a
@@ -33,11 +35,18 @@ export async function callerHasRole(
     return false;
   }
 }
-export const getUserToken = (input: { headers?: { Authorization?: string } }): string => {
-  const token = input.headers?.Authorization?.replace('Bearer ', '');
-  if (!token) throw MISSING_AUTH_TOKEN;
+/** The caller's bearer token; a missing or blank Authorization header is NOT_AUTHORIZED (401). */
+export function getUserToken(input: Pick<ZambdaInput, 'headers'>): string {
+  const authorization = input.headers?.Authorization ?? input.headers?.authorization;
+  if (typeof authorization !== 'string') {
+    throw NOT_AUTHORIZED;
+  }
+  const token = authorization.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    throw NOT_AUTHORIZED;
+  }
   return token;
-};
+}
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   let user: User;
@@ -48,7 +57,7 @@ export async function getUser(token: string, secrets: Secrets | null): Promise<U
     console.log('error getting user from token', error?.message || error);
     // 401/403 from user.me() is a client auth problem (revoked session / policy deny),
     // not an internal error — surface as a handled APIError instead of a 500.
-    if (error instanceof Oystehr.OystehrSdkError && (error.code === 401 || error.code === 403)) {
+    if (error instanceof Oystehr.OystehrSdkError && isOystehrAuthErrorCode(error.code)) {
       throw NOT_AUTHORIZED;
     }
     throw error;
@@ -56,6 +65,55 @@ export async function getUser(token: string, secrets: Secrets | null): Promise<U
 
   return user;
 }
+
+export interface M2MCaller {
+  id: string;
+  isValid: () => Promise<boolean>;
+}
+
+export interface Caller {
+  user?: User;
+  m2m?: M2MCaller;
+}
+
+/**
+ * The M2M caller is read from the token without verifying it, which is only safe in http_auth zambdas,
+ * where Oystehr verifies the token before invoking the handler. In an http_open zambda, check
+ * `m2m.isValid()` before trusting it.
+ */
+export async function getCaller(token: string | undefined, secrets: Secrets | null): Promise<Caller> {
+  if (!token) {
+    return {};
+  }
+
+  const m2mClientId = isM2MClient(token) ? getM2MClientId(token) : undefined;
+
+  if (m2mClientId) {
+    return { m2m: { id: m2mClientId, isValid: () => isValidM2MToken(token, m2mClientId, secrets) } };
+  }
+
+  return { user: await getUser(token, secrets) };
+}
+
+async function isValidM2MToken(token: string, clientId: string, secrets: Secrets | null): Promise<boolean> {
+  const oystehr = createClinicalOystehrClient(token, secrets, {
+    projectId: getSecret(SecretsKeys.PROJECT_ID, secrets),
+  });
+
+  try {
+    const m2m = await oystehr.m2m.me();
+
+    return m2m.clientId === clientId;
+  } catch (error) {
+    if (error instanceof Oystehr.OystehrSdkError && isOystehrAuthErrorCode(error.code)) {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
+export const isOystehrAuthErrorCode = (code: unknown): boolean => /^40[13]\d?$/.test(String(code));
 
 export const requireUserWithRole = async (
   userToken: string,
@@ -165,7 +223,6 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
   }
   const expiryStatus = getTokenExpiryStatus(token);
   if (expiryStatus === 'fresh') {
-    console.log('already have token');
     return token;
   }
   if (expiryStatus === 'near-expiry') {

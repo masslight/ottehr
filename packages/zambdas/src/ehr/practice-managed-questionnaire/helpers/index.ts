@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
 import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
@@ -132,4 +133,42 @@ export const evaluateFlowsForUrl = (targetFormQ: Questionnaire, flowQuestionnair
     );
   }
   console.log('safe to retire');
+};
+
+export const ensureUniqueQuestionnaire = async (
+  questionnaire: Questionnaire,
+  oystehr: Oystehr
+): Promise<Questionnaire> => {
+  const url = questionnaire.url;
+  // this should never happen so throw a real error
+  if (!url) throw new Error('ensureUniqueQuestionnaire requires a questionnaire with a url');
+
+  console.log(`Validating that Questionnaire has been sent with a unique canonical url ${url}`);
+
+  // url is the identifier used to grab forms / paperwork we should just check on url not url|version because
+  // maybe we will get lucky with url|1.0.0 but then have an issue with url|1.0.1 (in reality this shouldn't happen but handling for an edge case)
+  const questionnaireSearch = (
+    await oystehr.fhir.search<Questionnaire>({
+      resourceType: 'Questionnaire',
+      params: [
+        {
+          name: 'url',
+          value: url,
+        },
+      ],
+    })
+  ).unbundle();
+
+  if (questionnaireSearch.length === 0) return questionnaire;
+
+  // url is taken: append a random suffix to the url so the canonical is unique
+  console.log(
+    `Duplicate questionnaire found: ${questionnaireSearch.map((q) => `Questionnaire/${q.id}`)}. Appending suffix to url`
+  );
+
+  // if we hit a collision on the url, i think the chances of hitting another one on the url with then random index
+  // is so unlikely it is not worth another check
+  const suffix = randomBytes(3).toString('hex'); // e.g. "a3f9c1"
+
+  return { ...questionnaire, url: `${url}-${suffix}` };
 };
