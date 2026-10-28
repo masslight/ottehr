@@ -1205,6 +1205,7 @@ export function determineArStage(resources: ClaimResources): string {
 }
 
 function buildClaim(resources: ClaimResources): Claim {
+  const appointmentDateOfService = getAppointmentDateOfService(resources);
   const now = new Date().toISOString().slice(0, 10);
   const serviceCoding = getServiceCoding(resources.appointment);
 
@@ -1232,7 +1233,7 @@ function buildClaim(resources: ClaimResources): Claim {
     },
     type: { coding: [getClaimTypeCoding()] },
     use: 'claim',
-    created: now,
+    created: appointmentDateOfService.end ?? appointmentDateOfService.start ?? now,
     extension: [
       ...getDefaultClaimSubmissionExtensions(),
       ...(resources.nonInsurancePayer ? [claimNonInsurancePayerExtension(resources.nonInsurancePayer)] : []),
@@ -1457,9 +1458,18 @@ function getProcedureServicedPeriod(procedure: Procedure, resources: ClaimResour
   if (procedure.performedDateTime) {
     return { start: getLocalDateOfService(procedure.performedDateTime, location) };
   }
+  return getAppointmentDateOfService(resources);
+}
+
+function getAppointmentDateOfService(resources: ClaimResources): Period {
   return {
-    start: getLocalDateOfService(assertDefined(resources.appointment.start, 'Encounter start'), location),
-    end: resources.appointment.end ? getLocalDateOfService(resources.appointment.end, location) : undefined,
+    start: getLocalDateOfService(
+      assertDefined(resources.appointment.start, 'Encounter start'),
+      resources.serviceFacility
+    ),
+    end: resources.appointment.end
+      ? getLocalDateOfService(resources.appointment.end, resources.serviceFacility)
+      : undefined,
   };
 }
 
