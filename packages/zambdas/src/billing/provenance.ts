@@ -104,6 +104,7 @@ import {
   getEraExtensionString,
   getProviderLicense,
   getTaxonomy,
+  isInstitutionalClaim,
   readClaimItemDrug,
   readClaimItemOrderingProvider,
   sortClaimInsurance,
@@ -179,6 +180,7 @@ function joinOrderingProviders(claim: Claim): string {
 }
 
 function projectClaim(claim: Claim): FieldProjection[] {
+  const institutional = claim.type != null && isInstitutionalClaim(claim);
   const out: FieldProjection[] = [
     { field: 'claimType', label: 'Claim Type', value: claim.type ? getClaimType(claim) : '' },
   ];
@@ -267,12 +269,12 @@ function projectClaim(claim: Claim): FieldProjection[] {
     {
       field: 'admissionDate',
       label: 'Admission Date',
-      value: claim.billablePeriod?.start ?? '',
+      value: institutional ? claim.billablePeriod?.start ?? '' : '',
     },
     {
       field: 'dischargeDate',
       label: 'Discharge Date',
-      value: claim.billablePeriod?.end ?? '',
+      value: institutional ? claim.billablePeriod?.end ?? '' : '',
     },
     {
       field: 'accidentType',

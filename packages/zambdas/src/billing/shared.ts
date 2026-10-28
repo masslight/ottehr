@@ -1491,6 +1491,10 @@ export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_
   }
 }
 
+export function isInstitutionalClaim(claim: Claim): boolean {
+  return getClaimType(claim) === CODE_SYSTEM_CLAIM_TYPE_CODES.institutional;
+}
+
 export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES): Coding {
   // Currently all claims start as professional claims
   return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };

@@ -23,6 +23,7 @@ import {
   CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
   CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_NDC,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
 } from 'utils/lib/helpers/rcm/constants';
@@ -62,6 +63,7 @@ import {
   EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+  getClaimTypeCoding,
 } from '../../../src/billing/shared';
 import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
@@ -186,6 +188,14 @@ describe('diffResources claims', () => {
 });
 
 describe('diffResources institutional claim fields', () => {
+  const institutionalClaimWith = (overrides: Partial<Claim>): Claim =>
+    claimWith({
+      type: {
+        coding: [getClaimTypeCoding(CODE_SYSTEM_CLAIM_TYPE_CODES.institutional)],
+      },
+      ...overrides,
+    });
+
   const extension = (url: string, valueString: string): Partial<Claim> => ({
     extension: [
       {
@@ -293,7 +303,22 @@ describe('diffResources institutional claim fields', () => {
       },
     ],
   ])('records a %s change', (_name, before, after, change) => {
-    expect(diffResources(claimWith(before), claimWith(after))).toEqual([change]);
+    expect(diffResources(institutionalClaimWith(before), institutionalClaimWith(after))).toEqual([change]);
+  });
+
+  it('records no admission or discharge dates for a professional claim', () => {
+    const changes = diffResources(
+      undefined,
+      claimWith({
+        billablePeriod: {
+          start: '2026-10-01',
+          end: '2026-10-02',
+        },
+      })
+    );
+
+    expect(changes.map((change) => change.field)).not.toContain('admissionDate');
+    expect(changes.map((change) => change.field)).not.toContain('dischargeDate');
   });
 });
 

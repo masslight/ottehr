@@ -21,7 +21,6 @@ import {
   CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
   CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
 } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingClaimsRow } from 'utils/lib/types/adhoc/datasets/billing-claims';
 import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
@@ -50,9 +49,9 @@ import {
   findRef,
   getClaimPcn,
   getClaimSupportingInfo,
-  getClaimType,
   getEraCheckNumber,
   getEraSource,
+  isInstitutionalClaim,
   readClaimItemDrug,
   sortClaimInsurance,
 } from '../shared';
@@ -225,7 +224,7 @@ export function claimDetailsLayer(
   const facilityTypeCode = extensionString(EXTENSION_CLAIM_FACILITY_TYPE_CODE);
   const frequencyCode = extensionString(EXTENSION_CLAIM_FREQUENCY_CODE) || '1';
   const address = patient?.address?.[0];
-  const institutional = getClaimType(claim) === CODE_SYSTEM_CLAIM_TYPE_CODES.institutional;
+  const institutional = isInstitutionalClaim(claim);
 
   return {
     billingProvider: billingProvider
