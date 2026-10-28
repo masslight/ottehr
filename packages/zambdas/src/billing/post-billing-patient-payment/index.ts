@@ -1,15 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Claim, Encounter, Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import {
+  Claim,
+  Encounter,
+  FhirResource,
+  Identifier,
+  Money,
+  PaymentNotice,
+  PaymentReconciliation,
+  ProvenanceAgent,
+  Reference,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { PAYMENT_METHOD_EXTENSION_URL, PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
-  BILLING_RESOURCE_TAG,
-  PAYMENT_METHOD_EXTENSION_URL,
-  PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL,
-} from 'utils/lib/fhir/constants';
-import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+  getStripeCustomerIdFromAccount,
+  makeOptimisticLockIfMatchHeader,
+  withVersionConflictRetries,
+} from 'utils/lib/fhir/helpers';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { TIMEZONES } from 'utils/lib/types/constants';
@@ -34,11 +44,14 @@ import { ensurePaymentTaskForNotice, unionIdentifiers } from '../patient-payment
 import {
   billingProviderRefForStripeAccount,
   claimRequestFor,
+  createPaymentNotice,
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
+  paymentNoticeHistoryRequest,
   reconcilePaymentNoticesForClaim,
   stripeAccountExtension,
 } from '../payments';
+import { humanClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 
 type PostBillingPatientPaymentParams = ValidatedZambdaInput<typeof PostBillingPatientPaymentInputSchema>;
@@ -83,10 +96,8 @@ const performEffect = async (
   const { encounterId, paymentDetails, secrets } = input;
   // every payment carries the identifier so billing AR picks it up; a request without a client
   // key simply cannot be replayed
-  const dedupIdentifier: Identifier = {
-    system: EHR_PATIENT_PAYMENT_ID_SYSTEM,
-    value: `${encounterId}_${paymentDetails.idempotencyKey ?? randomUUID()}`,
-  };
+  const dedupValue = `${encounterId}_${paymentDetails.idempotencyKey ?? randomUUID()}`;
+  const dedupIdentifier: Identifier = { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: dedupValue };
 
   // Idempotency guard: a replayed request (e.g. resent after a response was lost on a flaky
   // connection) returns the recorded notice instead of writing a duplicate, and for card payments
@@ -135,28 +146,33 @@ const performEffect = async (
   });
 
   // The billing stripe webhook records the same charge, keyed by the charge id, and may get there
-  // first: both writers dedup on that id and merge into whichever notice exists. Without a charge,
-  // the conditional create closes the window where two replays race past the guard above.
-  const paymentNotice = await billingOystehr.fhir.create<PaymentNotice>(desiredNotice, {
-    ifNoneExist: [
-      {
-        name: 'identifier',
-        value: chargeId
-          ? `${STRIPE_PAYMENT_ID_SYSTEM}|${chargeId}`
-          : `${dedupIdentifier.system}|${dedupIdentifier.value}`,
-      },
-      { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
-    ],
+  // first: both writers dedup on that id and merge into whichever notice exists, and whichever
+  // stores it first records the payment in claim history. Without a charge, the conditional create
+  // closes the window where two replays race past the guard above.
+  const agent = humanClaimActor(input.submitterRef);
+  const stored = await createPaymentNotice({
+    oystehr: billingOystehr,
+    notice: desiredNotice,
+    dedupIdentifier: chargeId
+      ? { system: STRIPE_PAYMENT_ID_SYSTEM, value: chargeId }
+      : { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: dedupValue },
+    agent,
   });
-  const storedNotice = chargeId
-    ? await mergeIntoWebhookNotice(billingOystehr, paymentNotice, desiredNotice)
-    : paymentNotice;
+  let storedNotice = stored.created
+    ? stored.notice
+    : await mergeIntoWebhookNotice(billingOystehr, stored.notice, desiredNotice, agent);
 
-  if (!claim) {
-    // the claim may have appeared while the notice was being stored; reconcile only adds request.reference
-    const lateClaim = await findBillingClaimForEncounter(billingOystehr, encounterId);
-    if (lateClaim) {
-      await reconcilePaymentNoticesForClaim(billingOystehr, lateClaim);
+  if (!storedNotice.request?.reference && storedNotice.id) {
+    // the webhook may have stored the charge before the claim existed, or the claim may have appeared
+    // while the notice was being stored; reconcile links it along with its claim history, and the
+    // notice is re-read so the caller gets the linked version
+    const claimToLink = claim ?? (await findBillingClaimForEncounter(billingOystehr, encounterId));
+    if (claimToLink) {
+      await reconcilePaymentNoticesForClaim(billingOystehr, claimToLink);
+      storedNotice = await billingOystehr.fhir.get<PaymentNotice>({
+        resourceType: 'PaymentNotice',
+        id: storedNotice.id,
+      });
     }
   }
 
@@ -216,49 +232,60 @@ const chargeSavedCard = async (
   return { paymentIntent, stripeAccount };
 };
 
-// The webhook's copy has no submitter or EHR identifier; add ours, keeping its refund stamps.
+// The webhook's copy has no submitter or EHR identifier; add ours, keeping its refund stamps and its
+// claim link, which only reconcile adds so the history recorded before it comes along. The write is
+// locked to the version it read, so a refund stamped since is re-read instead of overwritten.
 const mergeIntoWebhookNotice = async (
   billingOystehr: Oystehr,
   storedNotice: PaymentNotice,
-  desiredNotice: PaymentNotice
+  desiredNotice: PaymentNotice,
+  agent: ProvenanceAgent
 ): Promise<PaymentNotice> => {
   const [dedupIdentifier] = desiredNotice.identifier ?? [];
   const alreadyOurs = storedNotice.identifier?.some(
     (identifier) => identifier.system === dedupIdentifier?.system && identifier.value === dedupIdentifier?.value
   );
   if (alreadyOurs || !storedNotice.id) return storedNotice;
+  const noticeId = storedNotice.id;
 
-  for (let attempt = 1; ; attempt++) {
-    // the webhook may have stored the charge before the claim existed; keep a claim link it has,
-    // else take ours, so the payment ends up linked either way
-    const reference = storedNotice.request?.reference ?? desiredNotice.request?.reference;
-    try {
-      return await billingOystehr.fhir.update<PaymentNotice>(
+  return withVersionConflictRetries(async (attempt) => {
+    const existing =
+      attempt === 1
+        ? storedNotice
+        : await billingOystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: noticeId });
+    const merged: PaymentNotice = {
+      ...existing,
+      request: { ...desiredNotice.request, reference: existing.request?.reference },
+      identifier: unionIdentifiers(existing.identifier, desiredNotice.identifier),
+      payee: desiredNotice.payee,
+      recipient: desiredNotice.recipient,
+      contained: desiredNotice.contained,
+      extension: [
+        ...(existing.extension ?? []).filter(
+          (ext) => ext.url !== PAYMENT_METHOD_EXTENSION_URL && ext.url !== PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL
+        ),
+        ...(desiredNotice.extension ?? []),
+      ],
+    };
+    const history = paymentNoticeHistoryRequest({
+      targetReference: `PaymentNotice/${noticeId}`,
+      before: existing,
+      after: merged,
+      agent,
+    });
+    await billingOystehr.fhir.transaction<FhirResource>({
+      requests: [
         {
-          ...storedNotice,
-          request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
-          identifier: unionIdentifiers(storedNotice.identifier, desiredNotice.identifier),
-          payee: desiredNotice.payee,
-          recipient: desiredNotice.recipient,
-          contained: desiredNotice.contained,
-          extension: [
-            ...(storedNotice.extension ?? []).filter(
-              (ext) => ext.url !== PAYMENT_METHOD_EXTENSION_URL && ext.url !== PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL
-            ),
-            ...(desiredNotice.extension ?? []),
-          ],
+          method: 'PUT',
+          url: `/PaymentNotice/${noticeId}`,
+          resource: merged,
+          ifMatch: makeOptimisticLockIfMatchHeader(existing),
         },
-        { optimisticLockingVersionId: storedNotice.meta?.versionId }
-      );
-    } catch (error) {
-      const versionConflict = error instanceof Oystehr.OystehrFHIRError && error.code === 412;
-      if (!versionConflict || attempt >= 3 || !storedNotice.id) throw error;
-      storedNotice = await billingOystehr.fhir.get<PaymentNotice>({
-        resourceType: 'PaymentNotice',
-        id: storedNotice.id,
-      });
-    }
-  }
+        ...(history ? [history] : []),
+      ],
+    });
+    return merged;
+  });
 };
 
 const makePaymentNotice = (input: {
