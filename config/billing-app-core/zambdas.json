@@ -148,6 +148,13 @@
       "src": "src/billing/export-billing-claims/index",
       "zip": ".dist/zips/export-billing-claims.zip"
     },
+    "ADHOC-BILLING-DATASET": {
+      "name": "adhoc-billing-dataset",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/adhoc-billing-dataset/index",
+      "zip": ".dist/zips/adhoc-billing-dataset.zip"
+    },
     "SEARCH-BILLING-PATIENT-AR-CLAIMS": {
       "name": "search-billing-patient-ar-claims",
       "type": "http_auth",
@@ -281,12 +288,54 @@
       "src": "src/billing/save-billing-rules/index",
       "zip": ".dist/zips/save-billing-rules.zip"
     },
+    "GET-BILLING-WORK-QUEUES": {
+      "name": "get-billing-work-queues",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-work-queues/index",
+      "zip": ".dist/zips/get-billing-work-queues.zip"
+    },
+    "GET-BILLING-WORK-QUEUE": {
+      "name": "get-billing-work-queue",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-work-queue/index",
+      "zip": ".dist/zips/get-billing-work-queue.zip"
+    },
+    "SAVE-BILLING-WORK-QUEUE": {
+      "name": "save-billing-work-queue",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-work-queue/index",
+      "zip": ".dist/zips/save-billing-work-queue.zip"
+    },
+    "SEARCH-BILLING-WORK-QUEUE-OWNERS": {
+      "name": "search-billing-work-queue-owners",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-work-queue-owners/index",
+      "zip": ".dist/zips/search-billing-work-queue-owners.zip"
+    },
     "RUN-BILLING-RULES-ENGINE": {
       "name": "run-billing-rules-engine",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/billing/run-billing-rules-engine/index",
       "zip": ".dist/zips/run-billing-rules-engine.zip"
+    },
+    "GET-BILLING-INVOICE-CONFIG": {
+      "name": "get-billing-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-invoice-config/index",
+      "zip": ".dist/zips/get-billing-invoice-config.zip"
+    },
+    "SAVE-BILLING-INVOICE-CONFIG": {
+      "name": "save-billing-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-invoice-config/index",
+      "zip": ".dist/zips/save-billing-invoice-config.zip"
     },
     "GET-BILLING-REPORT": {
       "name": "get-billing-report",
@@ -554,6 +603,15 @@
       "src": "src/subscriptions/task/sub-refresh-billing-report/index",
       "zip": ".dist/zips/sub-refresh-billing-report.zip"
     },
+    "SUB-ADHOC-BILLING-DATASET": {
+      "name": "sub-adhoc-billing-dataset",
+      "type": "subscription",
+      "timeout": "870",
+      "memorySize": "3008",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-adhoc-billing-dataset/index",
+      "zip": ".dist/zips/sub-adhoc-billing-dataset.zip"
+    },
     "CLEANUP-BILLING-CLAIM-EXPORTS": {
       "name": "cleanup-billing-claim-exports",
       "type": "cron",
@@ -695,6 +753,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-BILLING-CLAIMS-CSV/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_ADHOC_BILLING_DATASET_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Build a billing-app dataset for ad-hoc reporting",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/adhoc-report-task|adhoc-billing-dataset&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ADHOC-BILLING-DATASET/id}"
         },
         "extension": [
           {

@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   ActivityDefinition,
   Appointment,
+  DeviceRequest,
   DiagnosticReport,
   Encounter,
   FhirResource,
@@ -18,13 +19,16 @@ import {
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { ERX_MEDICATION_META_TAG_CODE, FHIR_EXTENSION, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getExtension } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
 import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
 import { emptyOrdersForTrackingBoardTable } from 'utils/lib/helpers/tracking-board';
 import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { convertVitalsListToMap, getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { GetVitalsForListOfEncountersResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { DmeOrderStatus } from 'utils/lib/types/api/dme.types';
 import { GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
@@ -35,6 +39,7 @@ import {
   makePrescribedMedicationDTO,
   makeProceduresDTOFromFhirResources,
 } from '../../shared/chart-data';
+import { DME_ORDER_SEARCH_TAG, getDmeOrderStatus, parseDmeOrder } from '../../shared/dme';
 import { sendErrors } from '../../shared/errors';
 import { SortedAppointmentQueues } from '../../shared/queueingUtils';
 import {
@@ -130,6 +135,8 @@ const NURSING_ORDER_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag`;
 const NURSING_ORDER_TAG_CODE = 'nursing order';
 const RADIOLOGY_ORDER_TAG_CODE = 'radiology';
 
+const DME_ORDERS_ON_BOARD = FEATURE_FLAGS_CONFIG.dmeOrdersEnabled;
+
 const encounterRefs = (encounterIds: string[]): string => encounterIds.map((id) => `Encounter/${id}`).join(',');
 
 /**
@@ -169,6 +176,16 @@ const medicationRequestSearchUrl = (encounterIds: string[]): string =>
     { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
   ]);
 
+const deviceRequestSearchUrl = (encounterIds: string[]): string =>
+  buildSearchUrl('DeviceRequest', [
+    { name: 'encounter', value: encounterRefs(encounterIds) },
+    { name: '_tag', value: DME_ORDER_SEARCH_TAG },
+    // The board shows DME orders still waiting to be dispensed.
+    { name: 'status', value: 'active' },
+    { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+    { name: '_include', value: 'DeviceRequest:requester' },
+  ]);
+
 const vitalsSearchUrl = (encounterIds: string[]): string =>
   buildSearchUrl('Observation', vitalsObservationSearchParams(encounterIds));
 
@@ -182,11 +199,15 @@ const encounterSearch = (buildUrl: (encounterIds: string[]) => string, encounter
 });
 
 /** One GET search per encounter chunk per resource family. */
-export const buildTrackingBoardSearches = (encounterIds: string[]): BatchSearch[] => [
+export const buildTrackingBoardSearches = (
+  encounterIds: string[],
+  includeDmeOrders = DME_ORDERS_ON_BOARD
+): BatchSearch[] => [
   ...chunkThings(encounterIds, ORDER_ENCOUNTER_CHUNK_SIZE).flatMap((chunk) => [
     encounterSearch(serviceRequestSearchUrl, chunk),
     encounterSearch(medicationAdministrationSearchUrl, chunk),
     encounterSearch(medicationRequestSearchUrl, chunk),
+    ...(includeDmeOrders ? [encounterSearch(deviceRequestSearchUrl, chunk)] : []),
   ]),
   ...chunkThings(encounterIds, VITALS_ENCOUNTER_CHUNK_SIZE).map((chunk) => encounterSearch(vitalsSearchUrl, chunk)),
 ];
@@ -254,17 +275,19 @@ export const fetchTrackingBoardResources = async ({
   encounterIds,
   fhirApiUrl,
   deadline,
+  includeDmeOrders = DME_ORDERS_ON_BOARD,
 }: {
   oystehr: Oystehr;
   encounterIds: string[];
   fhirApiUrl?: string;
   deadline?: number;
+  includeDmeOrders?: boolean;
 }): Promise<TrackingBoardResources> => {
   if (encounterIds.length === 0) {
     return { resources: [], failedUrls: [] };
   }
 
-  const fetched = await executeBatchSearches(oystehr, buildTrackingBoardSearches(encounterIds), {
+  const fetched = await executeBatchSearches(oystehr, buildTrackingBoardSearches(encounterIds, includeDmeOrders), {
     fhirApiUrl,
     maxEntriesPerBatch: TRACKING_BOARD_ENTRIES_PER_BATCH,
     deadline,
@@ -281,6 +304,7 @@ export interface TrackingBoardResourcePools {
   practitioners: Practitioner[];
   medicationAdministrations: MedicationAdministration[];
   medicationRequests: MedicationRequest[];
+  deviceRequests: DeviceRequest[];
   observations: Observation[];
   /** Every deduplicated resource, for mappers that look related resources up by id. */
   all: FhirResource[];
@@ -311,6 +335,7 @@ export const poolTrackingBoardResources = (resources: FhirResource[]): TrackingB
     practitioners: ofType<Practitioner>('Practitioner'),
     medicationAdministrations: ofType<MedicationAdministration>('MedicationAdministration'),
     medicationRequests: ofType<MedicationRequest>('MedicationRequest'),
+    deviceRequests: ofType<DeviceRequest>('DeviceRequest'),
     observations: ofType<Observation>('Observation'),
     all,
   };
@@ -536,6 +561,23 @@ export const buildOrdersForTrackingBoard = ({
     pools.medicationRequests.map(makePrescribedMedicationDTO),
     (order) => order.encounterId
   );
+
+  // External (print-only) DME orders are fulfilled by a third party, so only in-house ones awaiting dispense show.
+  const pendingDmeOrders = pools.deviceRequests.filter(
+    (deviceRequest) => deviceRequest.status === 'active' && getDmeOrderStatus(deviceRequest) === DmeOrderStatus.pending
+  );
+  if (pendingDmeOrders.length > 0) {
+    const practitionerNames = Object.fromEntries(
+      allPractitioners.map((practitioner) => [practitioner.id ?? '', getFullestAvailableName(practitioner) ?? ''])
+    );
+    const dmeOrders = pendingDmeOrders.sort(byLastUpdatedDesc).flatMap((deviceRequest) => {
+      const order = mapOrderSafely(`DME order ${deviceRequest.id}`, environment, () =>
+        parseDmeOrder(deviceRequest, practitionerNames)
+      );
+      return order ? [order] : [];
+    });
+    table.dmeOrdersByEncounterId = groupBy(dmeOrders, (order) => order.encounterId);
+  }
 
   return table;
 };

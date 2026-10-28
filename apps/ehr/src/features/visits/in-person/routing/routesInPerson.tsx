@@ -1,3 +1,7 @@
+import { DmeOrderCreatePage } from 'src/features/dme/pages/DmeOrderCreatePage';
+import { DmeOrderDetailsPage } from 'src/features/dme/pages/DmeOrderDetailsPage';
+import { DmeOrderEditPage } from 'src/features/dme/pages/DmeOrderEditPage';
+import { DmeOrdersPage } from 'src/features/dme/pages/DmeOrdersPage';
 import { Immunization } from 'src/features/immunization/pages/Immunization';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
@@ -85,6 +89,11 @@ export enum ROUTER_PATH {
   IN_HOUSE_LAB_ORDERS = 'in-house-lab-orders',
   IN_HOUSE_LAB_ORDER_CREATE = `in-house-lab-orders/create`,
   IN_HOUSE_LAB_ORDER_DETAILS = `in-house-lab-orders/:serviceRequestID/order-details`,
+
+  DME = 'dme',
+  DME_CREATE = 'dme/create',
+  DME_DETAILS = 'dme/:dmeOrderId/order-details',
+  DME_EDIT = 'dme/:dmeOrderId/edit',
 
   NURSING_ORDERS = 'nursing-orders',
   NURSING_ORDER_CREATE = 'nursing-orders/create',
@@ -300,6 +309,41 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <ProceduresNew />,
     text: 'Edit Procedure ',
     iconKey: 'Procedures',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.DME]: {
+    path: ROUTER_PATH.DME,
+    modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
+    element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrdersPage /> : null,
+    text: 'DME',
+    iconKey: 'DME',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.DME_CREATE]: {
+    path: ROUTER_PATH.DME_CREATE,
+    modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrderCreatePage /> : null,
+    text: 'DME',
+    iconKey: 'DME',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.DME_DETAILS]: {
+    path: ROUTER_PATH.DME_DETAILS,
+    modes: ['main', 'follow-up'],
+    isSkippedInNavigation: true,
+    element: <DmeOrderDetailsPage />,
+    text: 'DME',
+    iconKey: 'DME',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.DME_EDIT]: {
+    path: ROUTER_PATH.DME_EDIT,
+    modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrderEditPage /> : null,
+    text: 'DME',
+    iconKey: 'DME',
     groupLabel: 'Actions',
   },
   [ROUTER_PATH.NURSING_ORDERS]: {

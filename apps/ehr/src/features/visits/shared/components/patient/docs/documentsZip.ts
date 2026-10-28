@@ -43,7 +43,7 @@ export const makeDocumentsZipFileName = (patient: Patient | undefined, now: Date
   const namePart =
     sanitizeFileNameForZ3([getLastName(patient), getFirstName(patient)].filter(Boolean).join('_').toLowerCase()) ||
     'patient';
-  return `docs-${namePart}-${now.toUTC().toFormat('yyyy-MM-dd_HH-mm')}.zip`;
+  return `docs-${namePart}-${now.toFormat('yyyy-MM-dd_HH-mm')}.zip`;
 };
 
 export interface DocumentsZipWriter {

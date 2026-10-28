@@ -1,20 +1,9 @@
 import Oystehr from '@oystehr/sdk';
-import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
 
 const GET_INVOICE_CONFIG_ZAMBDA_ID = 'get-invoice-config';
 const SAVE_INVOICE_CONFIG_ZAMBDA_ID = 'save-invoice-config';
-
-export interface InvoiceConfigResponse {
-  questionnaire: Questionnaire;
-  questionnaireResponse: QuestionnaireResponse;
-}
-
-export interface SaveInvoiceConfigInput {
-  dueDaysFromGeneration: number;
-  defaultSmsTemplate: string;
-  defaultInvoiceMemo: string;
-}
 
 export const getInvoiceConfig = async (oystehr: Oystehr): Promise<InvoiceConfigResponse> => {
   try {

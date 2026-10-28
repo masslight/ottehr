@@ -99,6 +99,7 @@ describe('get-appointments integration — happy path', () => {
     const output = response.output as GetAppointmentsZambdaOutput;
     expect(Object.keys(output.orders ?? {}).sort()).toEqual(
       [
+        'dmeOrdersByEncounterId',
         'erxOrdersByEncounterId',
         'externalLabOrdersByAppointmentId',
         'immunizationOrdersByEncounterId',

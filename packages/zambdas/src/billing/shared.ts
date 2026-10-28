@@ -32,7 +32,6 @@ import {
   Location,
   Organization,
   Patient,
-  PaymentNotice,
   PaymentReconciliation,
   Period,
   Person,
@@ -77,7 +76,7 @@ import {
   setNpi,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
@@ -299,7 +298,7 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
 // A working copy can itself be copied, so a copy is not always one hop from its main Patient
-const MAX_COPY_CHAIN_HOPS = 10;
+export const MAX_COPY_CHAIN_HOPS = 10;
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
@@ -348,6 +347,9 @@ export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/Revenue
 
 export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
   'claim-payer-claim-control-number'
+);
+export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM = ottehrCodeSystemUrl(
+  'claim-payer-claim-control-number-insurance-ordinal'
 );
 
 export interface ClaimLineDrug {
@@ -900,6 +902,7 @@ export function createBillingClient(
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
 ): Oystehr {
+  // eslint-disable-next-line no-restricted-syntax -- the billing client factory
   return new Oystehr({
     accessToken: token,
     services: {
@@ -913,6 +916,7 @@ export function createBillingClient(
 
 // ERA resources are untagged by Oystehr
 export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+  // eslint-disable-next-line no-restricted-syntax -- the unscoped client factory; its importers are restricted instead
   return new Oystehr({
     accessToken: token,
     services: {
@@ -1924,38 +1928,6 @@ export async function tagEraResources({
   );
   await oystehr.fhir.transaction({ requests });
   return untagged.size;
-}
-
-// Links notices the stripe webhook stored before the claim existed.
-export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
-  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
-  const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
-  if (!claim.id || !encounterId) return;
-
-  const notices = (
-    await oystehr.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [{ name: 'request:identifier', value: `${encounterIdSystem}|${encounterId}` }],
-    })
-  ).unbundle();
-
-  const unlinked = notices.filter((n) => n.id && !n.request?.reference);
-  if (unlinked.length === 0) return;
-
-  const result = await oystehr.fhir.batch({
-    requests: unlinked.map((n) =>
-      getPatchBinary({
-        resourceType: 'PaymentNotice',
-        resourceId: n.id!,
-        patchOperations: [{ op: 'add', path: '/request/reference', value: `Claim/${claim.id}` }],
-      })
-    ),
-  });
-  const failed = (result.entry ?? []).filter((e) => e.response?.outcome?.id !== 'ok');
-  if (failed.length > 0) {
-    console.warn(`reconcilePaymentNoticesForClaim: ${failed.length} of ${unlinked.length} patches failed`);
-  }
-  console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
 }
 
 export async function resolveLinkedPatientIds({

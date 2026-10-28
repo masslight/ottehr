@@ -4,7 +4,14 @@ import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, Rela
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
-import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
+import {
+  getCoding,
+  getExtension,
+  getExtensionValue,
+  getNPI,
+  getResourcesFromBatchInlineRequests,
+  getTaxID,
+} from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
@@ -44,10 +51,13 @@ import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
+  // eslint-disable-next-line no-restricted-imports -- submission ClaimResponses are never billing-tagged
   createEraReadClient,
+  ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
@@ -82,15 +92,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const untaggedClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, untaggedClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+// untaggedClient reads only the claim's submission ClaimResponses, which never get the billing tag; its
+// ERA remits are tagged by sub-tag-era-resources, so they come through the billing client.
 export async function performEffect(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  untaggedClient: Oystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -127,8 +139,8 @@ export async function performEffect(
     writeOffResources,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
-    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
+    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
+    fetchClaimFirstSubmittedDate(untaggedClient, claimId),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
@@ -137,7 +149,7 @@ export async function performEffect(
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
-    eraReadClient,
+    oystehr,
     claimResponses
   );
   const paymentReconciliationById = new Map(
@@ -162,16 +174,49 @@ export async function performEffect(
     ...claimResponses.map((cr) => cr.insurer?.reference),
     ...paymentReconciliations.map((paymentReconciliation) => paymentReconciliation.paymentIssuer?.reference),
   ]);
+  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
+    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+  );
   const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
+  const payerClaimControlNumber = payerClaimControlNumbers.find(
+    (i) =>
+      // is primary type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'primary'
+      ) ||
+      // is legacy type-less identifier
+      !i.type
+  )?.value;
   const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(secondaryCoverage.payor[0].reference)
     : undefined;
+  const secondaryPayerClaimControlNumber = payerClaimControlNumbers.find(
+    (i) =>
+      // is secondary type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'secondary'
+      )
+  )?.value;
   const tertiaryInsurer = tertiaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(tertiaryCoverage.payor[0].reference)
     : undefined;
+  const tertiaryPayerClaimControlNumber = payerClaimControlNumbers.find(
+    (i) =>
+      // is tertiary type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'tertiary'
+      )
+  )?.value;
   const quaternaryInsurer = quaternaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(quaternaryCoverage.payor[0].reference)
     : undefined;
+  const quaternaryPayerClaimControlNumber = payerClaimControlNumbers.find(
+    (i) =>
+      // is quaternary type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'quaternary'
+      )
+  )?.value;
 
   const billed = claim.total?.value ?? 0;
   const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);
@@ -202,8 +247,6 @@ export async function performEffect(
   });
   const paymentMillis = (paymentReconciliation: PaymentReconciliation): number =>
     DateTime.fromISO(paymentReconciliation.paymentDate ?? paymentReconciliation.created ?? '').toMillis() || 0;
-  const payerClaimControlNumber =
-    claim.identifier?.find((i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)?.value ?? '';
   const insurancePayments = [...paymentReconciliations]
     .sort((a, b) => paymentMillis(b) - paymentMillis(a))
     .map((paymentReconciliation) => {
@@ -224,10 +267,15 @@ export async function performEffect(
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
         payerName: payer?.name ?? linkedCr?.insurer?.display ?? paymentReconciliation.paymentIssuer?.display ?? '',
-        payerClaimControlNumber,
+        payerClaimControlNumber: linkedCr ? getExtensionValue(linkedCr, ERA_ICN_EXTENSION, 'valueString') ?? '' : '',
       };
     });
   const status = getClaimStatus(claim);
+  const dos =
+    claim.billablePeriod?.start ??
+    claim.item?.[0]?.servicedPeriod?.start ??
+    claim.item?.[0]?.servicedDate ??
+    claim.created;
   const patientAddr = patient?.address?.[0];
   const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
   const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
@@ -257,6 +305,7 @@ export async function performEffect(
     status,
     statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
+    dos,
     service: getClaimService(claim),
     patientName: fhirName(patient),
     patientDob: patient?.birthDate ?? '',
@@ -269,6 +318,7 @@ export async function performEffect(
     payorFhirId: insurer?.id ?? '',
     payerName: insurer?.name ?? '',
     payerId: resolvedPayerId(insurer) ?? '',
+    payerClaimControlNumber,
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
@@ -279,14 +329,17 @@ export async function performEffect(
     secondaryPayerName: secondaryInsurer?.name ?? '',
     secondaryPayerId: resolvedPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
+    secondaryPayerClaimControlNumber,
     tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
     tertiaryPayerName: tertiaryInsurer?.name ?? '',
     tertiaryPayerId: resolvedPayerId(tertiaryInsurer) ?? '',
     tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
+    tertiaryPayerClaimControlNumber,
     quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
     quaternaryPayerName: quaternaryInsurer?.name ?? '',
     quaternaryPayerId: resolvedPayerId(quaternaryInsurer) ?? '',
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
+    quaternaryPayerClaimControlNumber,
     nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
     nonInsurancePayerName: nonInsurancePayer.name,
     renderingProviderId: renderingProvider?.id ?? '',
@@ -373,9 +426,6 @@ export async function performEffect(
         CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
       )?.timingDate ?? '',
     attachments,
-    payerClaimControlNumber: claim.identifier?.find(
-      (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
-    )?.value,
   };
 }
 

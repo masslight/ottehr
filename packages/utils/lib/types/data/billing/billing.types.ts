@@ -482,6 +482,7 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
+  dos: string;
   service?: string;
   patientName: string;
   patientDob: string;
@@ -501,6 +502,7 @@ export interface ClaimDetailResponse {
   payorFhirId: string;
   payerName: string;
   payerId: string;
+  payerClaimControlNumber?: string;
   memberId: string;
   subscriberId: string;
   planType: string;
@@ -511,14 +513,17 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  secondaryPayerClaimControlNumber?: string;
   tertiaryCoverageFhirId: string;
   tertiaryPayerName: string;
   tertiaryPayerId: string;
   tertiaryMemberId: string;
+  tertiaryPayerClaimControlNumber?: string;
   quaternaryCoverageFhirId: string;
   quaternaryPayerName: string;
   quaternaryPayerId: string;
   quaternaryMemberId: string;
+  quaternaryPayerClaimControlNumber?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
@@ -594,7 +599,6 @@ export interface ClaimDetailResponse {
   accidentState: string;
   accidentDate: string;
   attachments: ClaimAttachment[];
-  payerClaimControlNumber?: string;
   writeOffs: ClaimWriteOff[];
 }
 
