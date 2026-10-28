@@ -1,4 +1,3 @@
-import { DateTime } from 'luxon';
 import {
   DoseMeasure,
   doseRoundingNote,
@@ -229,14 +228,6 @@ export const emptyPrescriptionLine = (): PrescriptionLine => ({
   generated: NOTHING_GENERATED,
   quickPicked: null,
 });
-
-/** Whole months old at the visit. */
-export const ageMonthsAtVisit = (birthDate: string | undefined, visitDate: string | undefined): number | undefined => {
-  const birth = birthDate ? DateTime.fromISO(birthDate) : undefined;
-  if (!birth?.isValid) return undefined;
-  const visit = visitDate ? DateTime.fromISO(visitDate) : DateTime.now();
-  return Math.floor(visit.diff(birth, 'months').get('months'));
-};
 
 /** The strength the line's medication is, among its drug's. */
 export const pickedStrength = (line: Pick<PrescriptionLine, 'drug' | 'medication'>): MedicationStrength | undefined =>

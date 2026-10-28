@@ -21,7 +21,7 @@ import {
   SentenceBlank,
   SentenceSegment,
 } from 'utils/lib/helpers/suggested-sentences';
-import { MedicationSearchDrug, MedicationSearchResult } from 'utils/lib/types/api/erx-search.types';
+import { MedicationSearchResult } from 'utils/lib/types/api/erx-search.types';
 import {
   PrescriptionQuickPickData,
   PrescriptionQuickPickDosing,
@@ -58,12 +58,8 @@ export interface PrescriptionSuggestionRow extends ErxSuggestionRow {
 
 /** What the suggestions are chosen by. */
 export interface PrescriptionSuggestionQuery {
-  drug: MedicationSearchDrug | null;
   medication: MedicationSearchResult;
-  ageMonths?: number;
   weightKg?: number;
-  /** The line's own diagnosis code, then the visit's, primary first. */
-  diagnosisCodes: string[];
   /** The practice's prescription quick picks, as the list has them. */
   quickPicks?: PrescriptionQuickPickData[];
   /** The practice's Active prescription sets. */

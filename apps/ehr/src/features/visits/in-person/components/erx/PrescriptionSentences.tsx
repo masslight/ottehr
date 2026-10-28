@@ -444,10 +444,9 @@ interface PrescriptionSentencesProps {
   onSet?: (set: PrescriptionSetQuickPickData, used?: { line: PrescriptionLine; memberId: string }) => void;
   /** Admins save the line as a quick pick; absent for everyone else. */
   onSaveQuickPick?: () => void;
-  /** The chart's diagnoses; the primary one leads the suggestions when the line has no diagnosis of its own. */
-  visitDiagnoses: (IcdSearchResponse['codes'][number] & { isPrimary?: boolean })[];
-  /** The age in months and the vitals weight, which pick the suggestions and work out weight-based doses. */
-  patientAgeMonths?: number;
+  /** The chart's diagnoses, listed first in the line's diagnosis search. */
+  visitDiagnoses: IcdSearchResponse['codes'];
+  /** The vitals weight, which works out weight-based doses. */
   weightKg?: number;
   /** "using weight 18 kg (previous visit, …)" when the suggestions use an earlier visit's weight. */
   weightNote?: string;
@@ -472,7 +471,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   onSet,
   onSaveQuickPick,
   visitDiagnoses,
-  patientAgeMonths,
   weightKg,
   weightNote,
   weight,
@@ -483,32 +481,13 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
 }) => {
   const update = (patch: Partial<PrescriptionLine>): void => onChange({ ...line, ...patch });
   const description = line.medication?.description;
-  const { drug, medication } = line;
-  // The line's own diagnosis, then the visit's, primary first, as one string: a re-rendered list with the same codes
-  // is the same key.
-  const diagnosisCodesKey = [
-    ...(line.diagnosis ? [line.diagnosis.code] : []),
-    ...[...visitDiagnoses]
-      .sort((a, b) => Number(b.isPrimary ?? false) - Number(a.isPrimary ?? false))
-      .map((diagnosis) => diagnosis.code),
-  ].join(' ');
+  const { medication } = line;
   const activeSets = useMemo(() => sets?.filter((set) => set.status === 'Active') ?? [], [sets]);
-  // A new rows array resets the picks inside the suggestions box, so it changes only with the product, patient or
-  // diagnoses.
+  // A new rows array resets the picks inside the suggestions box, so it changes only with the product, weight, quick
+  // picks or sets.
   const suggestions = useMemo(
-    () =>
-      medication
-        ? prescriptionSuggestionsFor({
-            drug,
-            medication,
-            ageMonths: patientAgeMonths,
-            weightKg,
-            diagnosisCodes: diagnosisCodesKey.split(' ').filter(Boolean),
-            quickPicks,
-            sets: activeSets,
-          })
-        : [],
-    [drug, medication, patientAgeMonths, weightKg, diagnosisCodesKey, quickPicks, activeSets]
+    () => (medication ? prescriptionSuggestionsFor({ medication, weightKg, quickPicks, sets: activeSets }) : []),
+    [medication, weightKg, quickPicks, activeSets]
   );
   // The directions and dispense blanks wait for a pick among the suggestions (or "Other"), unless the line opens
   // with directions (a quick pick, an edited line). A new medication or strength hides them again until a pick,

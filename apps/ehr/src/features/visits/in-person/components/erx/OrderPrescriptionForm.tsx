@@ -35,7 +35,6 @@ import { PopoverBlank, Sentence } from '../procedures/narrative/InlineBlanks';
 import { ProcedureQuickPickDialogs } from '../procedures/ProcedureQuickPickDialogs';
 import { calculatorWeightKg, previousVisitWeightNote } from './DoseCalculator';
 import {
-  ageMonthsAtVisit,
   emptyPrescriptionLine,
   PrescriptionLine,
   prescriptionLineErrors,
@@ -96,8 +95,7 @@ const PharmacySearch: FC<{ onPick: (pharmacy: PharmacySearchResult) => void }> =
 
 export const OrderPrescriptionForm: FC = () => {
   const theme = useTheme();
-  const { patient, encounter, appointment } = useAppointmentData();
-  const patientAgeMonths = ageMonthsAtVisit(patient?.birthDate, appointment?.start);
+  const { patient, encounter } = useAppointmentData();
   const weight = useVisitWeight();
   // A weight typed in any line's dose calculator stands in for the vitals' everywhere on the page.
   const [weightText, setWeightText] = useState<string>();
@@ -357,7 +355,6 @@ export const OrderPrescriptionForm: FC = () => {
                     onSet={(set, used) => applySet(line, set, used)}
                     onSaveQuickPick={isAdmin ? () => openQuickPickDialog(line) : undefined}
                     visitDiagnoses={visitDiagnoses}
-                    patientAgeMonths={patientAgeMonths}
                     weightKg={weightKg}
                     weightNote={previousVisitWeightNote(weightText, weight)}
                     weight={weight}

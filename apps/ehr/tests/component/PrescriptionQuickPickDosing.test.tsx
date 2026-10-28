@@ -92,10 +92,12 @@ const Harness = ({
   initial,
   quickPicks = [],
   weight,
+  visitDiagnoses = [],
 }: {
   initial: PrescriptionLine;
   quickPicks?: PrescriptionQuickPickData[];
   weight?: VisitWeight;
+  visitDiagnoses?: { code: string; display: string }[];
 }): JSX.Element => {
   const [line, setLine] = useState(initial);
   const [weightText, setWeightText] = useState<string>();
@@ -109,7 +111,7 @@ const Harness = ({
       quickPicks={quickPicks}
       // As the order form does it.
       onQuickPick={(quickPick) => setLine((current) => withListedQuickPick(current, quickPick, weightKg))}
-      visitDiagnoses={[]}
+      visitDiagnoses={visitDiagnoses}
       weightKg={weightKg}
       weight={weight}
       weightText={weightText}
@@ -449,6 +451,25 @@ describe('Suggestion rows: review fixes', () => {
       patientInstructions: 'Take 9.5 mL by mouth three times daily for 10 days.',
       dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 },
     });
+  });
+
+  it('keeps what was picked on a row when the line’s diagnosis changes', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initial={liquidLine()}
+        quickPicks={[PER_DAY_ROW]}
+        weight={WEIGHT}
+        visitDiagnoses={[{ code: 'H66.90', display: 'Otitis media' }]}
+      />
+    );
+    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Frequency: twice daily' }));
+    await user.click(screen.getByRole('option', { name: 'three times daily' }));
+    await user.click(screen.getByRole('button', { name: 'add diagnosis (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'H66.90 - Otitis media' }));
+    expect(latest?.diagnosis).toEqual({ code: 'H66.90', display: 'Otitis media' });
+    expect(within(suggestionRow(0)).getByRole('button', { name: 'Frequency: three times daily' })).toBeInTheDocument();
+    expect(within(suggestionRow(0)).getByRole('button', { name: 'Dose: 9.5' })).toBeInTheDocument();
   });
 
   it('a frequency picked in a row’s calculator works the dose out again and "Use this dose" writes it', async () => {
@@ -791,10 +812,8 @@ describe('Additional instructions of a dosed quick pick', () => {
   const used = (quickPick: PrescriptionQuickPickData, weightKg = WEIGHT.kg): PrescriptionLine => {
     const line = liquidLine();
     const [row] = prescriptionSuggestionsFor({
-      drug: line.drug,
       medication: line.medication!,
       weightKg,
-      diagnosisCodes: [],
       quickPicks: [quickPick],
     });
     return row.apply(line, []);
@@ -867,10 +886,8 @@ describe('The line’s own calculator', () => {
     const user = userEvent.setup();
     const line = liquidLine();
     const [row] = prescriptionSuggestionsFor({
-      drug: line.drug,
       medication: line.medication!,
       weightKg: WEIGHT.kg,
-      diagnosisCodes: [],
       quickPicks: [{ ...CAPPED, dosing: { ...CAPPED.dosing!, maxPerDayMg: 1500 } }],
     });
     render(<Harness initial={row.apply(line, [])} weight={WEIGHT} />);
@@ -898,10 +915,8 @@ describe('The line’s own calculator', () => {
     const user = userEvent.setup();
     const line = liquidLine();
     const [row] = prescriptionSuggestionsFor({
-      drug: line.drug,
       medication: line.medication!,
       weightKg: WEIGHT.kg,
-      diagnosisCodes: [],
       quickPicks: [{ ...BY_WEIGHT, dosing: { ...BY_WEIGHT.dosing!, rate: 80, basis: 'mg/kg/day' } }],
     });
     render(<Harness initial={row.apply(line, [])} weight={WEIGHT} />);
@@ -965,10 +980,8 @@ describe('The dose’s ⓘ on the line', () => {
   const lineOf = (quickPick: PrescriptionQuickPickData): PrescriptionLine => {
     const line = liquidLine();
     const [row] = prescriptionSuggestionsFor({
-      drug: line.drug,
       medication: line.medication!,
       weightKg: WEIGHT.kg,
-      diagnosisCodes: [],
       quickPicks: [quickPick],
     });
     return row.apply(line, []);
