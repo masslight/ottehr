@@ -56,7 +56,9 @@ const legacyNotice = {
 const createdWithin = (notice: PaymentNotice, params: SearchArgs['params']): boolean => {
   const ge = params.find((param) => param.name === 'created' && param.value.startsWith('ge'))?.value.slice(2);
   const le = params.find((param) => param.name === 'created' && param.value.startsWith('le'))?.value.slice(2);
-  return (!ge || notice.created >= ge) && (!le || notice.created <= le);
+  // compared at each bound's own precision, as FHIR does ('le2026-10-27' covers that whole day)
+  const created = notice.created ?? '';
+  return (!ge || created.slice(0, ge.length) >= ge) && (!le || created.slice(0, le.length) <= le);
 };
 
 // a window search filters by created; a counterpart search matches by identifier, whatever the date
@@ -99,5 +101,13 @@ describe('daily-payments-report', () => {
     expect(dayOne.paymentMethods[0].payments[0].id).toBe('billing-1');
     expect(dayTwo).toMatchObject({ totalAmount: 0, totalTransactions: 0 });
     expect(bothDays).toMatchObject({ totalAmount: 40, totalTransactions: 1 });
+  });
+
+  it('reads a date-only range as whole days', async () => {
+    const dayTwo = await report('2026-10-27', '2026-10-27');
+    const dayOne = await report('2026-10-26', '2026-10-26');
+
+    expect(dayTwo).toMatchObject({ totalAmount: 0, totalTransactions: 0 });
+    expect(dayOne).toMatchObject({ totalAmount: 40, totalTransactions: 1 });
   });
 });

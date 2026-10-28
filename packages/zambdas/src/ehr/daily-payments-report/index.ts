@@ -31,6 +31,21 @@ const uniqueById = (notices: PaymentNotice[]): PaymentNotice[] => [
   ...new Map(notices.map((notice) => [notice.id, notice])).values(),
 ];
 
+// A FHIR date search value covers the whole period at its own precision ('2026-10-27' is that entire
+// day), so a bound widens to the start or end of that period; zone-less values are read as UTC.
+function fhirSearchBoundMillis(value: string, side: 'start' | 'end'): number {
+  const time = value.split('T')[1]?.replace(/(Z|[+-]\d{2}:\d{2})$/, '');
+  const unit = time
+    ? time.includes('.')
+      ? 'millisecond'
+      : time.split(':').length > 2
+      ? 'second'
+      : 'minute'
+    : (['year', 'month', 'day'] as const)[value.split('-').length - 1];
+  const dateTime = DateTime.fromISO(value, { zone: 'utc' });
+  return (side === 'start' ? dateTime.startOf(unit) : dateTime.endOf(unit)).toMillis();
+}
+
 // Helper function to parse string as number, defaulting to 0
 function parseAsNumber(value: any): number {
   if (value === null || value === undefined || value === '') {
@@ -119,8 +134,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     billingNotices,
     legacyNotices,
   });
-  const rangeStart = DateTime.fromISO(dateRange.start).toMillis();
-  const rangeEnd = DateTime.fromISO(dateRange.end).toMillis();
+  const rangeStart = fhirSearchBoundMillis(dateRange.start, 'start');
+  const rangeEnd = fhirSearchBoundMillis(dateRange.end, 'end');
   let paymentNotices = mergeBillingAndLegacyPaymentNotices(
     uniqueById([...billingNotices, ...counterparts.billing]),
     uniqueById([...legacyNotices, ...counterparts.legacy])
