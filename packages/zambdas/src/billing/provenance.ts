@@ -89,6 +89,7 @@ import {
   getEraExtensionString,
   getProviderLicense,
   getTaxonomy,
+  readClaimItemDrug,
   sortClaimInsurance,
 } from './shared';
 
@@ -127,9 +128,26 @@ function joinServiceLines(claim: Claim): string {
   return (claim.item ?? [])
     .map((item) => {
       const cpt = item.productOrService?.coding?.[0]?.code ?? '';
+      const serviceDate = item.servicedPeriod?.start ?? item.servicedDate;
+      const placeOfService = item.locationCodeableConcept?.coding?.[0]?.code;
+      const modifiers = (item.modifier ?? []).map((modifier) => modifier.coding?.[0]?.code).filter(Boolean);
+      const revenueCode = item.revenue?.coding?.[0]?.code;
       const units = item.quantity?.value;
       const charge = item.net?.value;
-      return [cpt, units != null ? `x${units}` : '', charge != null ? `$${charge}` : ''].filter(Boolean).join(' ');
+      const drug = readClaimItemDrug(item);
+      return [
+        cpt,
+        serviceDate,
+        placeOfService ? `POS ${placeOfService}` : '',
+        modifiers.length ? `mod ${modifiers.join(',')}` : '',
+        item.diagnosisSequence?.length ? `dx ${item.diagnosisSequence.join(',')}` : '',
+        revenueCode ? `rev ${revenueCode}` : '',
+        units != null ? `x${units}` : '',
+        charge != null ? `$${charge}` : '',
+        drug ? `NDC ${drug.ndc} ${drug.quantity} ${drug.units}` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
     })
     .filter(Boolean)
     .join('; ');

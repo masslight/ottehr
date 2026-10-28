@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Claim,
+  ClaimItem,
   ClaimResponse,
   Coverage,
   DocumentReference,
@@ -16,7 +17,7 @@ import {
   buildPaymentVoidExtension,
   PENDING_RESERVATION_PREFIX,
 } from 'utils/lib/fhir/paymentRefunds';
-import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
+import { CODE_SYSTEM_NDC, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
@@ -162,6 +163,158 @@ describe('diffResources claims', () => {
         label: 'Service',
         previousValue: 'Urgent Care',
         newValue: 'Workers Comp',
+      },
+    ]);
+  });
+});
+
+describe('diffResources claim service lines', () => {
+  const line = (overrides: Partial<ClaimItem> = {}): ClaimItem => ({
+    sequence: 1,
+    productOrService: {
+      coding: [
+        {
+          code: '99213',
+        },
+      ],
+    },
+    servicedPeriod: {
+      start: '2026-10-01',
+    },
+    locationCodeableConcept: {
+      coding: [
+        {
+          code: '11',
+        },
+      ],
+    },
+    modifier: [
+      {
+        coding: [
+          {
+            code: '25',
+          },
+        ],
+      },
+    ],
+    diagnosisSequence: [1, 2],
+    revenue: {
+      coding: [
+        {
+          code: '0450',
+        },
+      ],
+    },
+    quantity: {
+      value: 1,
+    },
+    net: {
+      value: 100,
+    },
+    detail: [
+      {
+        sequence: 1,
+        productOrService: {
+          coding: [
+            {
+              system: CODE_SYSTEM_NDC,
+              code: '00002143380',
+            },
+          ],
+        },
+        quantity: {
+          value: 2,
+          unit: 'ML',
+        },
+      },
+    ],
+    ...overrides,
+  });
+
+  const serviceLinesChange = (before: ClaimItem, after: ClaimItem): ClaimFieldChange[] =>
+    diffResources(
+      claimWith({
+        item: [before],
+      }),
+      claimWith({
+        item: [after],
+      })
+    );
+
+  it.each<[string, Partial<ClaimItem>, string]>([
+    [
+      'service date',
+      {
+        servicedPeriod: {
+          start: '2026-10-02',
+        },
+      },
+      '99213 2026-10-02 POS 11 mod 25 dx 1,2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'place of service',
+      {
+        locationCodeableConcept: {
+          coding: [
+            {
+              code: '02',
+            },
+          ],
+        },
+      },
+      '99213 2026-10-01 POS 02 mod 25 dx 1,2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'modifiers',
+      {
+        modifier: [
+          {
+            coding: [
+              {
+                code: '59',
+              },
+            ],
+          },
+        ],
+      },
+      '99213 2026-10-01 POS 11 mod 59 dx 1,2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'diagnosis pointers',
+      {
+        diagnosisSequence: [2],
+      },
+      '99213 2026-10-01 POS 11 mod 25 dx 2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'revenue code',
+      {
+        revenue: {
+          coding: [
+            {
+              code: '0510',
+            },
+          ],
+        },
+      },
+      '99213 2026-10-01 POS 11 mod 25 dx 1,2 rev 0510 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'drug',
+      {
+        detail: [],
+      },
+      '99213 2026-10-01 POS 11 mod 25 dx 1,2 rev 0450 x1 $100',
+    ],
+  ])('records a %s change as a service lines change', (_name, overrides, newValue) => {
+    const changes = serviceLinesChange(line(), line(overrides));
+
+    expect(changes).toEqual([
+      {
+        field: 'serviceLines',
+        label: 'Service Lines',
+        previousValue: '99213 2026-10-01 POS 11 mod 25 dx 1,2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+        newValue,
       },
     ]);
   });
