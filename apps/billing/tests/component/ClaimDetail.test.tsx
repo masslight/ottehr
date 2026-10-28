@@ -93,6 +93,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
     arStage,
   },
   created: '2026-01-01',
+  dos: '2026-01-01',
   patientName: 'Jane Doe',
   patientDob: '1990-01-01',
   patientGender: 'female',
