@@ -92,14 +92,26 @@ vi.mock('utils/lib/fhir/patient', async (importOriginal) => ({
 }));
 
 const { createUserResourcesForPatient } = await import('utils/lib/fhir/patient');
+const { createAppointmentComplexValidation } = await import(
+  '../../src/patient/appointment/create-appointment/validateRequestParameters'
+);
 const { index } = await import('../../src/patient/appointment/create-appointment/index');
 
+// The exact OperationOutcome the FHIR API returned when a Patient.birthDate that Luxon accepted was
+// not a FHIR `date`. Before the rejection was translated, the caller got `500 {"error":"Internal error"}`.
 const fhirRejection = (): Error =>
   new Oystehr.OystehrFHIRError({
     code: 400,
     error: {
       resourceType: 'OperationOutcome',
-      issue: [{ severity: 'error', code: 'structure', details: { text: 'Invalid date format - POST /Patient' } }],
+      issue: [
+        {
+          severity: 'error',
+          code: 'structure',
+          details: { text: 'Invalid date format - POST /Patient' },
+          expression: ['Patient.birthDate'],
+        },
+      ],
     } as OperationOutcome,
   });
 
@@ -122,20 +134,41 @@ const invoke = async (): Promise<APIGatewayProxyResult> =>
     secrets: { ENVIRONMENT: 'local' },
   } as unknown as ZambdaInput);
 
-describe('create-appointment translates only pre-commit FHIR rejections', () => {
+describe('create-appointment translates only FHIR rejections of the booking transaction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
-  it('answers a rejection of the booking transaction with a 422, since nothing was committed', async () => {
+  // 422 rather than 400: the shared translator reports every FHIR validation failure as
+  // Unprocessable Entity. The OperationOutcome names internal resources and elements, and this
+  // endpoint answers patients, so its details are logged and sent to Sentry, never returned.
+  it('answers a rejection of the booking transaction with a 422 that keeps the FHIR details server-side', async () => {
     transaction.mockRejectedValue(fhirRejection());
 
     const response = await invoke();
 
     expect(response.statusCode).toBe(422);
-    expect(JSON.parse(response.body).code).toBe(APIErrorCode.FHIR_RESOURCE_VALIDATION_ERROR);
+    expect(JSON.parse(response.body)).toEqual({
+      code: APIErrorCode.FHIR_RESOURCE_VALIDATION_ERROR,
+      message: 'The appointment could not be created with the information provided',
+    });
+    expect(console.error).toHaveBeenCalledWith(
+      'FHIR validation failed: Invalid date format - POST /Patient (Patient.birthDate)'
+    );
+  });
+
+  // Everything FHIR sees before the transaction is built by us (slotId is a schema-checked UUID),
+  // so a rejection there is our bug, and a 4xx would wrongly tell the caller to fix their input.
+  it('answers a rejection during complex validation with a 500', async () => {
+    vi.mocked(createAppointmentComplexValidation).mockRejectedValueOnce(fhirRejection());
+
+    const response = await invoke();
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body)).toEqual({ error: 'Internal error' });
   });
 
   // The booking exists by this point, so a 400 would invite the caller to fix their input and retry,
