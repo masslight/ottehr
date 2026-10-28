@@ -13,6 +13,7 @@ import {
   quickPickDosingText,
   quickPickNameInUse,
   quickPickProductMissing,
+  suggestedQuickPickName,
   withCalculatorDosing,
   withDirections,
   withDrug,
@@ -161,6 +162,10 @@ describe('Save as quick pick: the calculator’s dosing', () => {
       daysSupply: '10',
     });
 
+    // The suggested name says the calculator's rule, as the quick pick keeps it.
+    expect(suggestedQuickPickName(latest!)).toBe(
+      'Amoxicillin 400 mg/5ml Susp | 25 mg/kg per dose | twice daily | 10 days'
+    );
     const saved = prescriptionLineToQuickPick(latest!, 'Amox strep');
     expect(saved.dosing).toEqual({
       rate: 25,
@@ -215,6 +220,47 @@ describe('Save as quick pick: the calculator’s dosing', () => {
     await user.clear(screen.getByRole('spinbutton', { name: 'dose' }));
     await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '7');
     expect(prescriptionLineToQuickPick(latest!, 'Amox strep')).not.toHaveProperty('dosing');
+    expect(suggestedQuickPickName(latest!)).toBe('Amoxicillin 400 mg/5ml Susp | 7 mL | twice daily | 10 days');
+  });
+});
+
+describe('Save as quick pick: the suggested name', () => {
+  const TABLETS = { name: 'Amoxicillin', strengths: [detailed({ strength: '500 mg Tab', ndcs: ['00093226301'] })] };
+  const tabletLine = (): PrescriptionLine => withProduct(emptyPrescriptionLine(), TABLETS, TABLETS.strengths[0]);
+
+  it('is the product, the dose with its unit, the frequency and the days, as the line holds them', () => {
+    const line = withDirections(liquidLine(), { dose: '6', frequency: 'twice daily', durationDays: '10' });
+    expect(suggestedQuickPickName(line)).toBe('Amoxicillin 400 mg/5ml Susp | 6 mL | twice daily | 10 days');
+    expect(
+      suggestedQuickPickName(withDirections(tabletLine(), { dose: '0.5', frequency: 'once daily', durationDays: '1' }))
+    ).toBe('Amoxicillin 500 mg Tab | ½ tablet | once daily | 1 day');
+  });
+
+  it('leaves out the parts not filled in', () => {
+    expect(suggestedQuickPickName(liquidLine())).toBe('Amoxicillin 400 mg/5ml Susp');
+    expect(suggestedQuickPickName(withDirections(liquidLine(), { frequency: 'as needed' }))).toBe(
+      'Amoxicillin 400 mg/5ml Susp | as needed'
+    );
+    expect(suggestedQuickPickName(withDirections(tabletLine(), { dose: '2', durationDays: '5' }))).toBe(
+      'Amoxicillin 500 mg Tab | 2 tablets | 5 days'
+    );
+  });
+
+  it('names a fixed dose from the calculator by its mg, and a course’s calculated dose by its amount', () => {
+    const line = withDirections(liquidLine(), { dose: '6', frequency: 'twice daily', durationDays: '10' });
+    expect(suggestedQuickPickName({ ...line, dosing: { rate: 500, basis: 'fixed' } })).toBe(
+      'Amoxicillin 400 mg/5ml Susp | 500 mg per dose | twice daily | 10 days'
+    );
+    expect(suggestedQuickPickName({ ...line, dosing: { rate: 45, basis: 'mg/kg/day' } })).toBe(
+      'Amoxicillin 400 mg/5ml Susp | 45 mg/kg per day | twice daily | 10 days'
+    );
+    // A taper saves no dosing, so its name doesn't say one.
+    const taper = {
+      ...line,
+      dosing: { rate: 25, basis: 'mg/kg/dose' as const },
+      steps: [{ dose: '3', frequency: 'once daily', durationDays: '5' }],
+    };
+    expect(suggestedQuickPickName(taper)).toBe('Amoxicillin 400 mg/5ml Susp | 6 mL | twice daily | 10 days');
   });
 });
 

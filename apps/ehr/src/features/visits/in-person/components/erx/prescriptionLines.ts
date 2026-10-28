@@ -13,6 +13,7 @@ import {
   prescriptionDispense,
   PrescriptionDoseForm,
   prescriptionDoseForm,
+  prescriptionDoseUnit,
   prescriptionFrequency,
   PrescriptionProduct,
   prescriptionQuantityUnit,
@@ -685,18 +686,49 @@ export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing): string
     dosing
   )} (from the calculator)`;
 
+/** "25 mg/kg per dose", "45 mg/kg per day", "500 mg per dose". */
+const dosingRuleText = ({ rate, basis }: Pick<PrescriptionQuickPickDosing, 'rate' | 'basis'>): string =>
+  basis === 'fixed' ? `${mgText(rate)} per dose` : `${rate} mg/kg per ${basis === 'mg/kg/day' ? 'day' : 'dose'}`;
+
+const daysText = (days: number): string => `${days} ${days === 1 ? 'day' : 'days'}`;
+
 /** "25 mg/kg per dose, twice daily, 10 days, max 500 mg per dose". */
 export const quickPickDosingSummary = (dosing: PrescriptionQuickPickDosing): string => {
-  const { rate, basis, frequency, durationDays, maxPerDoseMg, maxPerDayMg } = dosing;
+  const { frequency, durationDays, maxPerDoseMg, maxPerDayMg } = dosing;
   return [
-    basis === 'fixed' ? `${mgText(rate)} per dose` : `${rate} mg/kg per ${basis === 'mg/kg/day' ? 'day' : 'dose'}`,
+    dosingRuleText(dosing),
     frequency,
-    durationDays !== undefined ? `${durationDays} ${durationDays === 1 ? 'day' : 'days'}` : undefined,
+    durationDays !== undefined ? daysText(durationDays) : undefined,
     maxPerDoseMg !== undefined ? `max ${mgText(maxPerDoseMg)} per dose` : undefined,
     maxPerDayMg !== undefined ? `max ${mgText(maxPerDayMg)} per day` : undefined,
   ]
     .filter((part): part is string => part !== undefined)
     .join(', ');
+};
+
+/** The name the order form's "+ Add Quick Pick" suggests, its parts joined as the other quick-pick screens join
+ * theirs: "Amoxicillin 400 mg/5ml Susp | 6 mL | twice daily | 10 days". A dose the calculator wrote is named by its
+ * rule ("25 mg/kg per dose"), as the quick pick keeps it; empty parts are left out. */
+export const suggestedQuickPickName = (line: PrescriptionLine): string => {
+  const amount = numberOrUndefined(line.dose);
+  const doseUnit = prescriptionDoseUnit(line.medication);
+  const durationDays = numberOrUndefined(line.durationDays);
+  // As prescriptionLineToQuickPick saves it: a course's later steps aren't the calculator's.
+  const savedDosing = line.dosing && line.steps.length === 0 ? line.dosing : undefined;
+  return [
+    line.medication?.description,
+    savedDosing
+      ? dosingRuleText(savedDosing)
+      : amount !== undefined
+      ? doseUnit
+        ? doseAmountText(amount, doseUnit)
+        : String(amount)
+      : undefined,
+    line.frequency || undefined,
+    durationDays !== undefined ? daysText(durationDays) : undefined,
+  ]
+    .filter((part): part is string => !!part)
+    .join(' | ');
 };
 
 /** Whether another quick pick or set already has this name (trimmed, in any case); the one being edited keeps its

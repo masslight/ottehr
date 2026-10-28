@@ -43,6 +43,7 @@ import {
   quickPickDosingText,
   quickPickNameInUse,
   quickPickProductMissing,
+  suggestedQuickPickName,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
@@ -224,7 +225,7 @@ export const OrderPrescriptionForm: FC = () => {
       enqueueSnackbar(noProduct, { variant: 'error' });
       return;
     }
-    setQuickPickName(line.medication?.description ?? '');
+    setQuickPickName(suggestedQuickPickName(line));
     setQuickPickNameError(undefined);
     setQuickPickLineKey(line.key);
   };
