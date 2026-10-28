@@ -19,6 +19,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedPrescriptionQuickPicks, useMergedPrescriptionSetQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
 import { PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
@@ -253,7 +254,7 @@ export const OrderPrescriptionForm: FC = () => {
       void refetchQuickPicks();
     } catch (error) {
       console.error('Failed to save quick pick:', error);
-      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to save quick pick' }), { variant: 'error' });
     } finally {
       setQuickPickSaving(false);
     }
