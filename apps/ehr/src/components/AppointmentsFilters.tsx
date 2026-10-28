@@ -75,6 +75,17 @@ const restoreVisitTypes = (
 };
 
 export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+
+// Read before the form subscription overwrites storage; a URL that carries filters on page load skips the restore
+// effect, so without this the legacy selection would be stamped as current and never migrated.
+const getSavedKnownVisitTypes = (): string[] | undefined => {
+  try {
+    const known = JSON.parse(localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY) ?? 'null')?.knownVisitTypes;
+    return Array.isArray(known) ? known : undefined;
+  } catch {
+    return undefined;
+  }
+};
 // The tracking-board date range is kept in sessionStorage (not localStorage) so it survives
 // in-app navigation but resets to today on a new browser session.
 export const SESSION_STORAGE_DATE_RANGE_KEY = 'appointments.dateRange';
@@ -168,7 +179,11 @@ export default function AppointmentsFilters(): ReactElement {
           .get('location')
           ?.split(',')
           .map((id) => ({ id })) ?? [],
-      visitType: searchParams.get('visitType')?.split(',') ?? [],
+      visitType: restoreVisitTypes(
+        Object.keys(visitTypeToLabel),
+        searchParams.get('visitType')?.split(',') ?? [],
+        getSavedKnownVisitTypes()
+      ),
       serviceCategory: searchParams.get('serviceCategory')?.split(',') ?? [],
       ...dateRange,
       provider:
@@ -178,7 +193,7 @@ export default function AppointmentsFilters(): ReactElement {
           .map((id) => ({ id })) ?? [],
     };
     methods.reset({ ...defaultFilterValues, ...values });
-  }, [hasTrackingBoardFilterParams, searchParams, methods]);
+  }, [hasTrackingBoardFilterParams, searchParams, methods, visitTypeToLabel]);
 
   useEffect(() => {
     const callback = methods.subscribe({
