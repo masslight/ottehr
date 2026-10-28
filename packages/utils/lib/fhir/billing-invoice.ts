@@ -1,5 +1,20 @@
-import { Coding, Extension, Identifier, Invoice, Money, PaymentNotice, Reference } from 'fhir/r4b';
+import {
+  Address,
+  Coding,
+  Extension,
+  Identifier,
+  Invoice,
+  Location,
+  Money,
+  Organization,
+  PaymentNotice,
+  Practitioner,
+  Reference,
+} from 'fhir/r4b';
+import { isEqual } from 'lodash-es';
 import { Stripe } from 'stripe';
+import { InvoiceIssuerSource } from '../types/constants';
+import { INVALID_INPUT_ERROR } from '../types/errors';
 import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT } from './constants';
 import { ottehrIdentifierSystem } from './systemUrls';
 
@@ -175,3 +190,68 @@ export function getStripeInvoiceLink(invoice: Invoice): StripeInvoiceLink | unde
   )?.valueString;
   return { stripeInvoiceId: identifier.value, stripeAccount };
 }
+
+// name and address are the invoice's "from" block; organization is Invoice.issuer
+export interface InvoiceIssuer {
+  organization: Reference;
+  name: string;
+  address: Address;
+}
+
+export interface ResolveInvoiceIssuerInput {
+  source: InvoiceIssuerSource;
+  facility: Location | undefined;
+  billingProvider: Organization | Practitioner | undefined;
+}
+
+// R4B Invoice.issuer can only be an Organization. Service facilities have no managing Organization
+// today, so a facility-sourced issuer falls back to the billing provider's Organization.
+export function resolveInvoiceIssuer({ source, facility, billingProvider }: ResolveInvoiceIssuerInput): InvoiceIssuer {
+  const billingOrganization: Reference | undefined =
+    billingProvider?.resourceType === 'Organization' && billingProvider.id
+      ? {
+          reference: `Organization/${billingProvider.id}`,
+        }
+      : undefined;
+
+  if (source === 'service-facility') {
+    if (!facility) throw INVALID_INPUT_ERROR('The claim has no service facility to send the invoice from');
+    const organization = facility.managingOrganization ?? billingOrganization;
+    if (!organization) {
+      throw INVALID_INPUT_ERROR(
+        `Service facility ${facility.name ?? facility.id} has no managing organization and the claim's ` +
+          'billing provider is not an organization'
+      );
+    }
+    return issuerWithDetails(organization, facility.name, facility.address, `Service facility ${facility.id}`);
+  }
+
+  if (!billingOrganization || billingProvider?.resourceType !== 'Organization') {
+    throw INVALID_INPUT_ERROR("The claim's billing provider must be an organization to issue an invoice");
+  }
+  return issuerWithDetails(
+    billingOrganization,
+    billingProvider.name,
+    billingProvider.address?.[0],
+    `Billing provider ${billingProvider.id}`
+  );
+}
+
+function issuerWithDetails(
+  organization: Reference,
+  name: string | undefined,
+  address: Address | undefined,
+  label: string
+): InvoiceIssuer {
+  if (!name) throw INVALID_INPUT_ERROR(`${label} has no name to send the invoice from`);
+  if (!address) throw INVALID_INPUT_ERROR(`${label} has no address to send the invoice from`);
+  return {
+    organization,
+    name,
+    address,
+  };
+}
+
+// Claims at one facility each point at their own working copy, so issuers compare by content.
+export const isSameInvoiceIssuer = (a: InvoiceIssuer, b: InvoiceIssuer): boolean =>
+  a.organization.reference === b.organization.reference && a.name === b.name && isEqual(a.address, b.address);

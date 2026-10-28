@@ -1,8 +1,11 @@
 import { DateTime } from 'luxon';
 import {
   DEFAULT_INVOICE_DUE_DAYS,
+  DEFAULT_INVOICE_ISSUER_SOURCE,
   DEFAULT_INVOICE_MEMO_TEMPLATE,
   DEFAULT_INVOICE_SMS_TEMPLATE,
+  INVOICE_ISSUER_SOURCES,
+  InvoiceIssuerSource,
 } from '../../types/constants';
 import { replaceTemplateVariablesHandlebars } from '../helpers';
 
@@ -10,7 +13,11 @@ export interface ParsedInvoiceConfig {
   dueDaysFromGeneration: number;
   defaultSmsTemplate: string;
   defaultInvoiceMemo: string;
+  invoiceIssuerSource: InvoiceIssuerSource;
 }
+
+const isInvoiceIssuerSource = (value: string | undefined): value is InvoiceIssuerSource =>
+  INVOICE_ISSUER_SOURCES.some((source) => source === value);
 
 export function parseInvoiceConfigFromQR(
   qr:
@@ -31,10 +38,14 @@ export function parseInvoiceConfigFromQR(
     linkId: string
   ): { valueInteger?: number; valueBoolean?: boolean; valueString?: string } | undefined =>
     items.find((i) => i.linkId === linkId)?.answer?.[0];
+  const invoiceIssuerSource = findAnswer('invoicing.invoiceIssuerSource')?.valueString;
   return {
     dueDaysFromGeneration: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? DEFAULT_INVOICE_DUE_DAYS,
     defaultSmsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULT_INVOICE_SMS_TEMPLATE,
     defaultInvoiceMemo: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULT_INVOICE_MEMO_TEMPLATE,
+    invoiceIssuerSource: isInvoiceIssuerSource(invoiceIssuerSource)
+      ? invoiceIssuerSource
+      : DEFAULT_INVOICE_ISSUER_SOURCE,
   };
 }
 

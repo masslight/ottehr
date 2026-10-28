@@ -47,6 +47,7 @@ vi.mock('../../src/rcm/invoice-config/helpers', () => ({
     dueDaysFromGeneration: 30,
     defaultSmsTemplate: 'sms template',
     defaultInvoiceMemo: 'memo template',
+    invoiceIssuerSource: 'service-facility',
   }),
 }));
 

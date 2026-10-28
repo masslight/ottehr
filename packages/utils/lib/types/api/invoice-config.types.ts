@@ -1,5 +1,6 @@
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { z } from 'zod';
+import { INVOICE_ISSUER_SOURCES } from '../constants';
 
 const DUE_DAYS_MESSAGE = 'dueDaysFromGeneration must be an integer between 1 and 365';
 
@@ -15,6 +16,8 @@ export const SaveInvoiceConfigBodySchema = z.object({
   defaultInvoiceMemo: z
     .string({ invalid_type_error: 'defaultInvoiceMemo must be a non-empty string' })
     .refine((value) => value.trim().length > 0, 'defaultInvoiceMemo must be a non-empty string'),
+  // Omitted by callers that don't manage it (the EHR); the stored setting is kept.
+  invoiceIssuerSource: z.enum(INVOICE_ISSUER_SOURCES).optional(),
 });
 
 export type SaveInvoiceConfigInput = z.infer<typeof SaveInvoiceConfigBodySchema>;

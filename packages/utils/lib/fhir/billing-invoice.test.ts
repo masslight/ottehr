@@ -1,4 +1,4 @@
-import { PaymentNotice } from 'fhir/r4b';
+import { Location, Organization, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
   buildBillingInvoice,
@@ -15,6 +15,8 @@ import {
   invoicePaymentExtension,
   invoiceStatusFromStripe,
   isInvoicePastDue,
+  isSameInvoiceIssuer,
+  resolveInvoiceIssuer,
   withStripeInvoiceLink,
 } from './billing-invoice';
 
@@ -303,5 +305,179 @@ describe('withStripeInvoiceLink', () => {
     expect(withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_1', stripeAccount: 'acct_1' })).toBe(linked);
     expect(() => withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_2', stripeAccount: 'acct_1' })).toThrow();
     expect(() => withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_1', stripeAccount: 'acct_2' })).toThrow();
+  });
+});
+
+describe('resolveInvoiceIssuer', () => {
+  const facilityAddress = {
+    line: ['1 Clinic Way'],
+    city: 'Austin',
+    state: 'TX',
+    postalCode: '78701',
+  };
+  const providerAddress = {
+    line: ['9 Legal St'],
+    city: 'Dallas',
+    state: 'TX',
+    postalCode: '75201',
+  };
+  const facility: Location = {
+    resourceType: 'Location',
+    id: 'facility-1',
+    name: 'Downtown Urgent Care',
+    address: facilityAddress,
+  };
+  const billingProvider: Organization = {
+    resourceType: 'Organization',
+    id: 'provider-1',
+    name: 'Acme Medical Group LLC',
+    address: [providerAddress],
+  };
+  const practitioner: Practitioner = {
+    resourceType: 'Practitioner',
+    id: 'doc-1',
+  };
+
+  it('sends from the facility, issued by the billing provider when the facility has no managing organization', () => {
+    expect(
+      resolveInvoiceIssuer({
+        source: 'service-facility',
+        facility,
+        billingProvider,
+      })
+    ).toEqual({
+      organization: {
+        reference: 'Organization/provider-1',
+      },
+      name: 'Downtown Urgent Care',
+      address: facilityAddress,
+    });
+  });
+
+  it("is issued by the facility's managing organization when it has one", () => {
+    const managed: Location = {
+      ...facility,
+      managingOrganization: {
+        reference: 'Organization/clinic-1',
+      },
+    };
+
+    expect(
+      resolveInvoiceIssuer({
+        source: 'service-facility',
+        facility: managed,
+        billingProvider: practitioner,
+      }).organization
+    ).toEqual({
+      reference: 'Organization/clinic-1',
+    });
+  });
+
+  it('sends from and is issued by the billing provider', () => {
+    expect(
+      resolveInvoiceIssuer({
+        source: 'billing-provider',
+        facility,
+        billingProvider,
+      })
+    ).toEqual({
+      organization: {
+        reference: 'Organization/provider-1',
+      },
+      name: 'Acme Medical Group LLC',
+      address: providerAddress,
+    });
+  });
+
+  it.each([
+    [
+      'no facility',
+      {
+        source: 'service-facility' as const,
+        facility: undefined,
+        billingProvider,
+      },
+    ],
+    [
+      'a facility without a name',
+      {
+        source: 'service-facility' as const,
+        facility: {
+          ...facility,
+          name: undefined,
+        },
+        billingProvider,
+      },
+    ],
+    [
+      'a facility without an address',
+      {
+        source: 'service-facility' as const,
+        facility: {
+          ...facility,
+          address: undefined,
+        },
+        billingProvider,
+      },
+    ],
+    [
+      'no organization to issue from the facility',
+      {
+        source: 'service-facility' as const,
+        facility,
+        billingProvider: practitioner,
+      },
+    ],
+    [
+      'a practitioner billing provider',
+      {
+        source: 'billing-provider' as const,
+        facility,
+        billingProvider: practitioner,
+      },
+    ],
+    [
+      'a billing provider without an address',
+      {
+        source: 'billing-provider' as const,
+        facility,
+        billingProvider: {
+          ...billingProvider,
+          address: undefined,
+        },
+      },
+    ],
+  ])('rejects %s', (_label, input) => {
+    expect(() => resolveInvoiceIssuer(input)).toThrow();
+  });
+
+  it('treats working copies of one facility as the same issuer, and other facilities as different', () => {
+    const issuer = resolveInvoiceIssuer({
+      source: 'service-facility',
+      facility,
+      billingProvider,
+    });
+    const workingCopy = resolveInvoiceIssuer({
+      source: 'service-facility',
+      facility: {
+        ...facility,
+        id: 'facility-1-copy',
+        address: {
+          ...facilityAddress,
+        },
+      },
+      billingProvider,
+    });
+    const otherFacility = resolveInvoiceIssuer({
+      source: 'service-facility',
+      facility: {
+        ...facility,
+        name: 'Uptown Urgent Care',
+      },
+      billingProvider,
+    });
+
+    expect(isSameInvoiceIssuer(issuer, workingCopy)).toBe(true);
+    expect(isSameInvoiceIssuer(issuer, otherFacility)).toBe(false);
   });
 });

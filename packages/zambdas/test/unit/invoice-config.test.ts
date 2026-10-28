@@ -5,6 +5,7 @@ import {
   getOrCreateInvoicingConfig,
   INVOICING_CONFIG_QUESTIONNAIRE_URL,
   parseInvoicingConfig,
+  saveInvoicingConfig,
 } from '../../src/rcm/invoice-config/helpers';
 import { ZambdaInput } from '../../src/shared/types/common';
 import { validateWithSchema } from '../../src/shared/validation';
@@ -17,8 +18,19 @@ function makeQuestionnaireResponse(overrides?: {
   dueDays?: number;
   smsTemplate?: string;
   memoTemplate?: string;
+  issuerSource?: string;
 }): QuestionnaireResponse {
   const items = [];
+  if (overrides?.issuerSource !== undefined) {
+    items.push({
+      linkId: 'invoicing.invoiceIssuerSource',
+      answer: [
+        {
+          valueString: overrides.issuerSource,
+        },
+      ],
+    });
+  }
   if (overrides?.dueDays !== undefined) {
     items.push({
       linkId: 'invoicing.dueDaysFromGeneration',
@@ -99,6 +111,82 @@ describe('parseInvoicingConfig', () => {
     expect(result.dueDaysFromGeneration).toBe(30);
     expect(result.defaultSmsTemplate).toContain('{{clinic}}');
     expect(result.defaultInvoiceMemo).toContain('{{patient-portal-link}}');
+  });
+
+  test.each([
+    [undefined, 'service-facility'],
+    ['billing-provider', 'billing-provider'],
+    ['rendering-provider', 'service-facility'],
+  ])('reads a stored invoice issuer of %s as %s', (issuerSource, expected) => {
+    const result = parseInvoicingConfig(
+      makeQuestionnaireResponse({
+        issuerSource,
+      })
+    );
+
+    expect(result.invoiceIssuerSource).toBe(expected);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// saveInvoicingConfig
+// ---------------------------------------------------------------------------
+
+describe('saveInvoicingConfig', () => {
+  const values = {
+    dueDaysFromGeneration: 14,
+    defaultSmsTemplate: 'Hello {{patient-full-name}}',
+    defaultInvoiceMemo: 'Memo for visit',
+  };
+
+  function createMockOystehr(issuerSource: string): any {
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'q-1',
+      url: INVOICING_CONFIG_QUESTIONNAIRE_URL,
+    };
+    const response = {
+      ...makeQuestionnaireResponse({
+        issuerSource,
+      }),
+      id: 'qr-1',
+      questionnaire: 'Questionnaire/q-1',
+    };
+    return {
+      fhir: {
+        search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
+          Promise.resolve({
+            unbundle: () => (resourceType === 'Questionnaire' ? [questionnaire] : [response]),
+          })
+        ),
+        update: vi.fn().mockImplementation((resource: QuestionnaireResponse) => Promise.resolve(resource)),
+      },
+    };
+  }
+
+  test('saves the given invoice issuer', async () => {
+    const oystehr = createMockOystehr('service-facility');
+
+    const result = await saveInvoicingConfig(oystehr, {
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
+
+    expect(parseInvoicingConfig(result.questionnaireResponse)).toEqual({
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
+  });
+
+  test('keeps the stored invoice issuer when a caller leaves it out', async () => {
+    const oystehr = createMockOystehr('billing-provider');
+
+    const result = await saveInvoicingConfig(oystehr, values);
+
+    expect(parseInvoicingConfig(result.questionnaireResponse)).toEqual({
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
   });
 });
 

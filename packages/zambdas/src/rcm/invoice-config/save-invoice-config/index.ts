@@ -1,58 +1,23 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { QuestionnaireResponse } from 'fhir/r4b';
 import { SaveInvoiceConfigBodySchema } from 'utils/lib/types/api/invoice-config.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { getOrCreateInvoicingConfig } from '../helpers';
+import { saveInvoicingConfig } from '../helpers';
 
 let m2mToken: string;
 export const index = wrapHandler('save-invoice-config', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validated = validateWithSchema(SaveInvoiceConfigBodySchema, input);
+  const { secrets, ...values } = validateWithSchema(SaveInvoiceConfigBodySchema, input);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validated.secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, validated.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  // Get or create the config pair (ensures Questionnaire + Response exist)
-  const { questionnaire, questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);
-
-  // Build updated QuestionnaireResponse items
-  const updatedResponse: QuestionnaireResponse = {
-    ...questionnaireResponse,
-    questionnaire: `Questionnaire/${questionnaire.id}`,
-    status: 'completed',
-    authored: new Date().toISOString(),
-    item: [
-      {
-        linkId: 'invoicing',
-        text: 'Invoicing Settings',
-        item: [
-          {
-            linkId: 'invoicing.dueDaysFromGeneration',
-            text: 'Days until invoice due (from generation date)',
-            answer: [{ valueInteger: validated.dueDaysFromGeneration }],
-          },
-          {
-            linkId: 'invoicing.defaultSmsTemplate',
-            text: 'Default SMS message template',
-            answer: [{ valueString: validated.defaultSmsTemplate }],
-          },
-          {
-            linkId: 'invoicing.defaultInvoiceMemo',
-            text: 'Default invoice memo template',
-            answer: [{ valueString: validated.defaultInvoiceMemo }],
-          },
-        ],
-      },
-    ],
-  };
-
-  const savedResponse = await oystehr.fhir.update<QuestionnaireResponse>(updatedResponse);
+  const response = await saveInvoicingConfig(oystehr, values);
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ questionnaire, questionnaireResponse: savedResponse }),
+    body: JSON.stringify(response),
   };
 });
