@@ -33,6 +33,15 @@ import {
   settledRefundTotalInCents,
 } from 'utils/lib/fhir/paymentRefunds';
 import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
+import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CLAIM_ACCIDENT_TYPES,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+} from 'utils/lib/helpers/rcm/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -89,6 +98,7 @@ import {
   formatAddress,
   getClaimBillType,
   getClaimService,
+  getClaimSupportingInfo,
   getClaimType,
   getEraExtensionString,
   getProviderLicense,
@@ -252,6 +262,32 @@ function projectClaim(claim: Claim): FieldProjection[] {
       field: 'dischargeDate',
       label: 'Discharge Date',
       value: claim.billablePeriod?.end ?? '',
+    },
+    {
+      field: 'accidentType',
+      label: 'Accident Type',
+      value: CLAIM_ACCIDENT_TYPES.filter((type) =>
+        getExtensionValue(claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type], 'valueBoolean')
+      )
+        .map((type) => CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type])
+        .join(', '),
+    },
+    {
+      field: 'accidentState',
+      label: 'Accident State',
+      value: getExtensionValue(claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL, 'valueString') ?? '',
+    },
+    {
+      field: 'accidentDate',
+      label: 'Accident Date',
+      value:
+        getClaimSupportingInfo(
+          claim,
+          CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+          'info',
+          CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+          CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
+        )?.timingDate ?? '',
     }
   );
   return out;

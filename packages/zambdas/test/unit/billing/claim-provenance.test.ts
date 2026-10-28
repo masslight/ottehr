@@ -17,7 +17,15 @@ import {
   buildPaymentVoidExtension,
   PENDING_RESERVATION_PREFIX,
 } from 'utils/lib/fhir/paymentRefunds';
-import { CODE_SYSTEM_NDC, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
+import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+  CODE_SYSTEM_NDC,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+} from 'utils/lib/helpers/rcm/constants';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
@@ -284,6 +292,94 @@ describe('diffResources institutional claim fields', () => {
       },
     ],
   ])('records a %s change', (_name, before, after, change) => {
+    expect(diffResources(claimWith(before), claimWith(after))).toEqual([change]);
+  });
+});
+
+describe('diffResources accident claim fields', () => {
+  it.each<[string, Partial<Claim>, Partial<Claim>, ClaimFieldChange]>([
+    [
+      'type',
+      {
+        extension: [
+          {
+            url: CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.auto,
+            valueBoolean: true,
+          },
+        ],
+      },
+      {
+        extension: [
+          {
+            url: CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.other,
+            valueBoolean: true,
+          },
+          {
+            url: CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.employment,
+            valueBoolean: true,
+          },
+        ],
+      },
+      {
+        field: 'accidentType',
+        label: 'Accident Type',
+        previousValue: 'Auto Accident',
+        newValue: 'Employment Accident, Other Accident',
+      },
+    ],
+    [
+      'state',
+      {},
+      {
+        extension: [
+          {
+            url: CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+            valueString: 'NY',
+          },
+        ],
+      },
+      {
+        field: 'accidentState',
+        label: 'Accident State',
+        previousValue: null,
+        newValue: 'NY',
+      },
+    ],
+    [
+      'date',
+      {},
+      {
+        supportingInfo: [
+          {
+            sequence: 1,
+            category: {
+              coding: [
+                {
+                  system: CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+                  code: 'info',
+                },
+              ],
+            },
+            code: {
+              coding: [
+                {
+                  system: CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+                  code: CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+                },
+              ],
+            },
+            timingDate: '2026-09-30',
+          },
+        ],
+      },
+      {
+        field: 'accidentDate',
+        label: 'Accident Date',
+        previousValue: null,
+        newValue: '2026-09-30',
+      },
+    ],
+  ])('records an accident %s change', (_name, before, after, change) => {
     expect(diffResources(claimWith(before), claimWith(after))).toEqual([change]);
   });
 });
