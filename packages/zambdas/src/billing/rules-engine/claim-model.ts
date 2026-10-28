@@ -897,9 +897,9 @@ const writePlanType = (
 ): boolean => {
   const coverage = resolve(model);
   if (!coverage || !value || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(value)) return false;
-  // setCoveragePlanType returns an updated copy; swap it into the model (same resource id, so the
-  // engine's snapshot/dirty check still pairs it with the original).
-  model.coverages[0] = setCoveragePlanType(coverage, value);
+  // setCoveragePlanType returns an updated copy; swap it into the slot it came from (same resource
+  // id, so the engine's snapshot/dirty check still pairs it with the original).
+  model.coverages[model.coverages.indexOf(coverage)] = setCoveragePlanType(coverage, value);
   return true;
 };
 
