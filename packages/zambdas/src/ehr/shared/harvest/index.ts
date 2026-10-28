@@ -3544,13 +3544,25 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     }
   }
 
-  if (preserveOmittedCoverages && existingCoverages.primary && !newPrimaryCoverage) {
+  // An omitted coverage is kept in its slot only if it didn't move to the other one (e.g. a sole primary coverage
+  // changed to secondary by the insurance section save); otherwise it would end up in both slots.
+  if (
+    preserveOmittedCoverages &&
+    existingCoverages.primary &&
+    !newPrimaryCoverage &&
+    existingCoverages.primary.id !== newSecondaryCoverageId
+  ) {
     suggestedNewCoverageObject.push({
       coverage: { reference: `Coverage/${existingCoverages.primary.id}` },
       priority: 1,
     });
   }
-  if (preserveOmittedCoverages && existingCoverages.secondary && !newSecondaryCoverage) {
+  if (
+    preserveOmittedCoverages &&
+    existingCoverages.secondary &&
+    !newSecondaryCoverage &&
+    existingCoverages.secondary.id !== newPrimaryCoverageId
+  ) {
     suggestedNewCoverageObject.push({
       coverage: { reference: `Coverage/${existingCoverages.secondary.id}` },
       priority: 2,
