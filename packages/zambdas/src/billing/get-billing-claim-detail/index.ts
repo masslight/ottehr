@@ -271,6 +271,11 @@ export async function performEffect(
       };
     });
   const status = getClaimStatus(claim);
+  const dos =
+    claim.billablePeriod?.start ??
+    claim.item?.[0].servicedPeriod?.start ??
+    claim.item?.[0].servicedDate ??
+    claim.created;
   const patientAddr = patient?.address?.[0];
   const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
   const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
@@ -300,6 +305,7 @@ export async function performEffect(
     status,
     statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
+    dos,
     service: getClaimService(claim),
     patientName: fhirName(patient),
     patientDob: patient?.birthDate ?? '',
