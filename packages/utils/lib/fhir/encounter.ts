@@ -20,7 +20,7 @@ import { getPatchOperationForNewMetaTag } from './resourcePatch';
 export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
 export type FollowupType = (typeof FOLLOWUP_TYPES)[number];
 
-export type FollowupSubtype = 'annotation' | 'scheduled';
+export type FollowupSubtype = 'annotation' | 'scheduled' | 'free-form';
 export const FOLLOWUP_SUBTYPE_SYSTEM = `${FHIR_BASE_URL}/followup-subtype`;
 
 export const FOLLOWUP_REASONS = [
@@ -105,12 +105,14 @@ export const isFollowupEncounter = (encounter: Encounter): boolean => {
   );
 };
 
+const getFollowupSubtypeCode = (encounter: Encounter): string | undefined =>
+  encounter.type?.flatMap((t) => t.coding ?? []).find((c) => c.system === FOLLOWUP_SUBTYPE_SYSTEM)?.code;
+
 export const getFollowupSubtype = (encounter: Encounter): FollowupSubtype | undefined => {
   if (!isFollowupEncounter(encounter)) return undefined;
-  const subtypeCoding = encounter.type
-    ?.flatMap((t) => t.coding ?? [])
-    .find((c) => c.system === FOLLOWUP_SUBTYPE_SYSTEM);
-  if (subtypeCoding?.code === 'scheduled') return 'scheduled';
+  const subtypeCode = getFollowupSubtypeCode(encounter);
+  if (subtypeCode === 'scheduled') return 'scheduled';
+  if (subtypeCode === 'free-form') return 'free-form';
   return 'annotation';
 };
 
@@ -122,8 +124,12 @@ export const isAnnotationFollowupEncounter = (encounter: Encounter): boolean => 
   return isFollowupEncounter(encounter) && !isScheduledFollowupEncounter(encounter);
 };
 
-export const isFreeFormEncounter = (encounter: Encounter): boolean =>
-  isAnnotationFollowupEncounter(encounter) && !encounter.partOf && !encounter.appointment?.length;
+export const isFreeFormEncounter = (encounter: Encounter): boolean => {
+  if (!isFollowupEncounter(encounter)) return false;
+  const subtypeCode = getFollowupSubtypeCode(encounter);
+  if (subtypeCode) return subtypeCode === 'free-form';
+  return !encounter.partOf && !encounter.appointment?.length;
+};
 
 export type EncounterVisitType = 'main' | 'follow-up' | 'scheduled-follow-up';
 

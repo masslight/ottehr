@@ -27,7 +27,7 @@ const freeFormNotes: Encounter[] = Array.from({ length: SERVER_PAGE_SIZE + 10 },
   id: `note-${index}`,
   status: 'finished',
   class: { code: 'VR' },
-  type: buildFollowupEncounterType('annotation'),
+  type: buildFollowupEncounterType('free-form'),
   subject: { reference: `Patient/${PATIENT_ID}` },
   period: { start: `2026-10-${String(index + 1).padStart(2, '0')}T12:00:00.000Z` },
 }));

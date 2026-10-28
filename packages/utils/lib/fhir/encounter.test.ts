@@ -80,6 +80,10 @@ describe('Encounter follow-up helpers', () => {
       expect(getFollowupSubtype(makeEncounter({ type: makeFollowupType('scheduled') }))).toBe('scheduled');
     });
 
+    it('returns "free-form" when the subtype coding says free-form', () => {
+      expect(getFollowupSubtype(makeEncounter({ type: makeFollowupType('free-form') }))).toBe('free-form');
+    });
+
     it('defaults to "annotation" when follow-up has no subtype coding', () => {
       expect(getFollowupSubtype(makeEncounter({ type: makeFollowupType() }))).toBe('annotation');
     });
@@ -119,35 +123,55 @@ describe('Encounter follow-up helpers', () => {
     it('returns true for a follow-up without subtype coding (defaults to annotation)', () => {
       expect(isAnnotationFollowupEncounter(makeEncounter({ type: makeFollowupType() }))).toBe(true);
     });
+
+    it('returns true for a free-form follow-up, so it stays out of visit lookups', () => {
+      expect(isAnnotationFollowupEncounter(makeEncounter({ type: makeFollowupType('free-form') }))).toBe(true);
+    });
   });
 
   describe('isFreeFormEncounter', () => {
-    it('returns true for a parentless annotation follow-up', () => {
-      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType('annotation') }))).toBe(true);
+    const partOf = { reference: 'Encounter/parent' };
+    const appointment = [{ reference: 'Appointment/appt-1' }];
+
+    it('returns true for a follow-up with the free-form subtype', () => {
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType('free-form') }))).toBe(true);
     });
 
     it('returns true for a legacy parentless follow-up without subtype coding', () => {
       expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType() }))).toBe(true);
     });
 
+    it('returns false for a legacy follow-up without subtype coding that is attached to a visit', () => {
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType(), partOf, appointment }))).toBe(false);
+    });
+
+    it('returns false for a legacy follow-up without subtype coding that references an appointment', () => {
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType(), appointment }))).toBe(false);
+    });
+
     it('returns false for an annotation follow-up attached to a visit', () => {
-      expect(
-        isFreeFormEncounter(
-          makeEncounter({ type: makeFollowupType('annotation'), partOf: { reference: 'Encounter/parent' } })
-        )
-      ).toBe(false);
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType('annotation'), partOf, appointment }))).toBe(
+        false
+      );
+    });
+
+    it('returns false for an annotation follow-up saved without a parent visit or appointment', () => {
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType('annotation') }))).toBe(false);
     });
 
     it('returns false for a scheduled follow-up with its own appointment', () => {
-      expect(
-        isFreeFormEncounter(
-          makeEncounter({ type: makeFollowupType('scheduled'), appointment: [{ reference: 'Appointment/appt-1' }] })
-        )
-      ).toBe(false);
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType('scheduled'), partOf, appointment }))).toBe(
+        false
+      );
     });
 
-    it('returns false for a regular visit encounter', () => {
-      expect(isFreeFormEncounter(makeEncounter({ appointment: [{ reference: 'Appointment/appt-1' }] }))).toBe(false);
+    it('returns false for a scheduled follow-up without a parent visit or appointment', () => {
+      expect(isFreeFormEncounter(makeEncounter({ type: makeFollowupType('scheduled') }))).toBe(false);
+    });
+
+    it('returns false for regular encounters with or without an appointment', () => {
+      expect(isFreeFormEncounter(makeEncounter({ appointment }))).toBe(false);
+      expect(isFreeFormEncounter(makeEncounter())).toBe(false);
     });
   });
 
@@ -234,6 +258,13 @@ describe('Encounter follow-up helpers', () => {
       expect(isAnnotationFollowupEncounter(encounter)).toBe(true);
     });
 
+    it('produces a type the follow-up predicates recognize as free-form', () => {
+      const encounter = makeEncounter({ type: buildFollowupEncounterType('free-form') });
+      expect(isFreeFormEncounter(encounter)).toBe(true);
+      expect(getFollowupSubtype(encounter)).toBe('free-form');
+      expect(getEncounterVisitType(encounter)).toBe('follow-up' as EncounterVisitType);
+    });
+
     it('carries the SNOMED follow-up coding and the subtype coding, with text defaulted', () => {
       const [type] = buildFollowupEncounterType('scheduled')!;
       expect(type.text).toBe('Follow-up Encounter');
@@ -252,6 +283,7 @@ describe('Encounter follow-up helpers', () => {
     it('matches the hand-built follow-up type used across the codebase', () => {
       expect(buildFollowupEncounterType('scheduled')).toEqual(makeFollowupType('scheduled'));
       expect(buildFollowupEncounterType('annotation')).toEqual(makeFollowupType('annotation'));
+      expect(buildFollowupEncounterType('free-form')).toEqual(makeFollowupType('free-form'));
     });
   });
 

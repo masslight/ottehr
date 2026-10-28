@@ -43,7 +43,7 @@ export const createFreeFormEncounter = async (
     {
       patientId,
       followupType: FOLLOWUP_TYPES[0],
-      followupSubtype: 'annotation',
+      followupSubtype: 'free-form',
       start: now,
       end: now,
       message: note,

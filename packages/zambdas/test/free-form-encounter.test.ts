@@ -1,11 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { applyPatch, deepClone, Operation } from 'fast-json-patch';
 import { Encounter } from 'fhir/r4b';
-import { buildFollowupEncounterType, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { buildFollowupEncounterType, FOLLOWUP_SYSTEMS, isFreeFormEncounter } from 'utils/lib/fhir/encounter';
 import { describe, expect, it, vi } from 'vitest';
 import {
   assertFreeFormEncounterOfPatient,
   buildFreeFormNotePatchOperations,
+  createFreeFormEncounter,
   updateFreeFormEncounterNote,
 } from '../src/ehr/save-free-form-encounter/helpers';
 import {
@@ -22,7 +23,7 @@ const freeFormEncounter = (overrides: Partial<Encounter> = {}): Encounter => ({
   id: 'free-form-1',
   status: 'finished',
   class: { code: 'VR' },
-  type: buildFollowupEncounterType('annotation'),
+  type: buildFollowupEncounterType('free-form'),
   subject: { reference: `Patient/${PATIENT_ID}` },
   period: { start: '2026-09-15T15:30:00.000Z' },
   meta: { lastUpdated: '2026-09-15T15:30:01.000Z' },
@@ -76,15 +77,16 @@ describe('toFreeFormEncounterRows', () => {
     expect(rows.map((row) => row.encounterId)).toEqual(['free-form-1']);
   });
 
-  it('drops follow-ups attached to a visit and scheduled follow-ups', () => {
+  it('drops annotation, scheduled and appointment-linked follow-ups', () => {
+    const partOf = { reference: 'Encounter/parent' };
+    const appointment = [{ reference: 'Appointment/appt-1' }];
     const rows = toFreeFormEncounterRows(
       [
-        freeFormEncounter({ id: 'parented', partOf: { reference: 'Encounter/parent' } }),
-        freeFormEncounter({
-          id: 'scheduled',
-          type: buildFollowupEncounterType('scheduled'),
-          appointment: [{ reference: 'Appointment/appt-1' }],
-        }),
+        freeFormEncounter({ id: 'annotation', type: buildFollowupEncounterType('annotation'), partOf, appointment }),
+        freeFormEncounter({ id: 'parentless-annotation', type: buildFollowupEncounterType('annotation') }),
+        freeFormEncounter({ id: 'scheduled', type: buildFollowupEncounterType('scheduled'), partOf, appointment }),
+        freeFormEncounter({ id: 'legacy-with-parent', type: legacyFollowupType, partOf, appointment }),
+        freeFormEncounter({ id: 'legacy-with-appointment', type: legacyFollowupType, appointment }),
         freeFormEncounter({ id: 'kept' }),
       ],
       {}
@@ -237,9 +239,36 @@ describe('assertFreeFormEncounterOfPatient', () => {
     );
   });
 
+  it('accepts a legacy parentless follow-up without subtype coding', () => {
+    const legacy = freeFormEncounter({ type: legacyFollowupType });
+    expect(() => assertFreeFormEncounterOfPatient(legacy, PATIENT_ID)).not.toThrow();
+  });
+
   it('rejects a follow-up attached to a visit', () => {
-    const parented = freeFormEncounter({ partOf: { reference: 'Encounter/parent' } });
+    const parented = freeFormEncounter({
+      type: buildFollowupEncounterType('annotation'),
+      partOf: { reference: 'Encounter/parent' },
+    });
     expect(() => assertFreeFormEncounterOfPatient(parented, PATIENT_ID)).toThrow();
+  });
+
+  it('rejects an annotation follow-up saved without a parent visit', () => {
+    const parentless = freeFormEncounter({ type: buildFollowupEncounterType('annotation') });
+    expect(() => assertFreeFormEncounterOfPatient(parentless, PATIENT_ID)).toThrow();
+  });
+});
+
+describe('createFreeFormEncounter', () => {
+  it('creates a parentless follow-up marked with the free-form subtype', async () => {
+    const create = vi.fn(async (encounter: Encounter) => ({ ...encounter, id: 'created' }));
+    const oystehr = { fhir: { create } } as unknown as Oystehr;
+
+    const created = await createFreeFormEncounter(oystehr, PATIENT_ID, 'Called about the prescription');
+
+    expect(created.type).toEqual(buildFollowupEncounterType('free-form'));
+    expect(created.partOf).toBeUndefined();
+    expect(created.appointment).toBeUndefined();
+    expect(isFreeFormEncounter(created)).toBe(true);
   });
 });
 

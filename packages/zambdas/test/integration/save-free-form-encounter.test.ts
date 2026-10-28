@@ -26,6 +26,7 @@ describe('save-free-form-encounter integration', () => {
   let legacyFollowup: Encounter;
   let enteredInError: Encounter;
   let scheduledWithoutParent: Encounter;
+  let annotationWithoutParent: Encounter;
   const createdEncounterIds: string[] = [];
 
   const seedEncounter = async (encounter: Encounter): Promise<Encounter> =>
@@ -67,7 +68,7 @@ describe('save-free-form-encounter integration', () => {
       resourceType: 'Encounter',
       status: 'entered-in-error',
       class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
-      type: buildFollowupEncounterType('annotation'),
+      type: buildFollowupEncounterType('free-form'),
       subject,
       period: { start: DateTime.now().toUTC().toISO() },
       extension: [{ url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'Entered in error' }],
@@ -81,10 +82,25 @@ describe('save-free-form-encounter integration', () => {
       appointment: [{ reference: `Appointment/${base.appointment.id}` }],
       period: { start: DateTime.now().toUTC().toISO() },
     });
+    annotationWithoutParent = await seedEncounter({
+      resourceType: 'Encounter',
+      status: 'in-progress',
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
+      type: buildFollowupEncounterType('annotation'),
+      subject,
+      period: { start: DateTime.now().toUTC().toISO() },
+      extension: [{ url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'Annotation without a parent' }],
+    });
   }, 60_000);
 
   afterAll(async () => {
-    const encounterIds = [...createdEncounterIds, legacyFollowup?.id, enteredInError?.id, scheduledWithoutParent?.id];
+    const encounterIds = [
+      ...createdEncounterIds,
+      legacyFollowup?.id,
+      enteredInError?.id,
+      scheduledWithoutParent?.id,
+      annotationWithoutParent?.id,
+    ];
     await Promise.allSettled([
       ...encounterIds.flatMap((id) => (id ? [oystehrAdmin.fhir.delete({ resourceType: 'Encounter', id })] : [])),
       ...(otherPatient?.id ? [oystehrAdmin.fhir.delete({ resourceType: 'Patient', id: otherPatient.id })] : []),
@@ -139,6 +155,9 @@ describe('save-free-form-encounter integration', () => {
     expect(created.encounterId).toBeTruthy();
     expect(created.dateTime).toBeTruthy();
     expect(created.lastUpdated).toBeTruthy();
+
+    const stored = await oystehrAdmin.fhir.get<Encounter>({ resourceType: 'Encounter', id: created.encounterId });
+    expect(stored.type).toEqual(buildFollowupEncounterType('free-form'));
 
     await waitForHistory((after) => {
       expect(after.freeFormEncounters).toContainEqual(
@@ -240,11 +259,15 @@ describe('save-free-form-encounter integration', () => {
     );
   });
 
-  it('excludes entered-in-error encounters and scheduled follow-ups', async () => {
+  it('excludes entered-in-error notes, scheduled follow-ups and annotation follow-ups without a parent', async () => {
     const output = await history();
     const ids = output.freeFormEncounters.map((row) => row.encounterId);
     expect(ids).not.toContain(enteredInError.id);
     expect(ids).not.toContain(scheduledWithoutParent.id);
+    expect(ids).not.toContain(annotationWithoutParent.id);
+    expect(
+      await saveError({ patientId: base.patient.id, encounterId: annotationWithoutParent.id, note: 'Not a note' })
+    ).toBe(APIErrorCode.INVALID_INPUT);
   });
 
   it('keeps notes out of the initial-visit picker search', async () => {
