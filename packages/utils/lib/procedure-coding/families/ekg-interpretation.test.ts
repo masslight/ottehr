@@ -39,7 +39,6 @@ describe('QTc', () => {
     expect(ekgQtcMethod({ qt: 380, rate: 72 })).toBe('Bazett');
     expect(ekgQtc({ qt: 380, rate: 72, qtcMethod: 'Fridericia' })).toBe(404);
     expect(ekgQtc({ qt: 380 })).toBeUndefined();
-    // A stray minus sign or a zero gives no QTc rather than NaN, which would not survive the save.
     expect(ekgQtc({ qt: 380, rate: -72 })).toBeUndefined();
     expect(ekgQtc({ qt: 380, rate: 0 })).toBeUndefined();
     expect(ekgQtc({ qt: -380, rate: 72, qtcMethod: 'Fridericia' })).toBeUndefined();
@@ -53,9 +52,7 @@ describe('QTc', () => {
   it('keeps the stored value and method in step with QT and rate so the note needs no arithmetic', () => {
     expect(withEkgQtc({ qt: 380, rate: 72 })).toMatchObject({ qtc: 416, qtcMethod: 'Bazett' });
     expect(withEkgQtc({ qt: 380, rate: 72, qtcMethod: 'Fridericia' })).toMatchObject({ qtc: 404 });
-    // No QTc: the value goes, and the default method is never written on its own.
     expect(withEkgQtc({ qt: 380 })).toEqual({ qt: 380, qtc: undefined, qtcMethod: undefined });
-    // A method the provider picked stays until the numbers arrive, then applies to them.
     const fridericiaFirst = withEkgQtc({ qtcMethod: 'Fridericia' });
     expect(fridericiaFirst).toEqual({ qtc: undefined, qtcMethod: 'Fridericia' });
     expect(withEkgQtc({ ...fridericiaFirst, qt: 380, rate: 72 })).toMatchObject({ qtc: 404, qtcMethod: 'Fridericia' });
@@ -64,7 +61,6 @@ describe('QTc', () => {
       qtc: undefined,
       qtcMethod: 'Bazett',
     });
-    // Manual with the box cleared stays manual: a new rate or QT does not bring a calculated value back.
     expect(withEkgQtc({ qtcMethod: 'manual', qt: 380, rate: 72 })).toEqual({
       qt: 380,
       rate: 72,
@@ -272,12 +268,10 @@ describe('reminders', () => {
       'Add left bundle branch block',
       'Add nonspecific conduction delay',
     ]);
-    // Borderline or abnormal is the provider's call, whatever the number of findings: both are offered.
     expect(reminders[3].fixes).toEqual([
       { label: 'Change impression to borderline EKG', apply: { impression: 'borderline EKG' } },
       { label: 'Change impression to abnormal EKG', apply: { impression: 'abnormal EKG' } },
     ]);
-    // Applying a fix clears its reminder; the impression one stays while any finding remains.
     const fixed = { ...facts, ...reminders[0].fixes[0].apply, qrs: 90, qtc: 430 };
     expect(ekgReminders(fixed).map((reminder) => reminder.message)).toEqual([
       'Impression is "normal EKG", but the numbers show first-degree AV block.',

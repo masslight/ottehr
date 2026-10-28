@@ -1,9 +1,3 @@
-/**
- * The rules behind the 12-lead EKG interpretation: the QTc arithmetic, the measurement line of the note, the
- * suggested interpretations ranked for the entered numbers and the reminders where a chosen read contradicts
- * them. The sentences, choice lists and cut-offs are data in ekg-templates.ts. Plain rules on the typed
- * numbers: nothing reads the tracing.
- */
 import { isSentenceBlank, parseTemplate, SentenceBlank, SentenceSegment } from '../../helpers/suggested-sentences';
 import { readNumber, readStrings, StructuredFacts } from '../structured-fields';
 import {
@@ -16,7 +10,6 @@ import {
   EkgTemplateBlank,
 } from './ekg-templates';
 
-/** How the saved QTc was arrived at; the letters on the page's B / F / M toggle. */
 export const QTC_METHODS = ['Bazett', 'Fridericia', 'manual'] as const;
 export type QtcMethod = (typeof QTC_METHODS)[number];
 const DEFAULT_QTC_METHOD: QtcMethod = 'Bazett';
@@ -29,22 +22,14 @@ export const calculateQtc = (qt: number, rate: number, method: Exclude<QtcMethod
 export const ekgQtcMethod = (facts: StructuredFacts): QtcMethod =>
   QTC_METHODS.find((method) => method === facts.qtcMethod) ?? DEFAULT_QTC_METHOD;
 
-/** The QTc the page shows: the typed value under manual entry, otherwise calculated from QT and rate. */
 export function ekgQtc(facts: StructuredFacts): number | undefined {
   const method = ekgQtcMethod(facts);
   if (method === 'manual') return readNumber(facts, 'qtc');
   const qt = readNumber(facts, 'qt');
   const rate = readNumber(facts, 'rate');
-  // Only from positive numbers: a stray minus sign would otherwise store NaN, which the save rejects.
   return qt !== undefined && rate !== undefined && qt > 0 && rate > 0 ? calculateQtc(qt, rate, method) : undefined;
 }
 
-/**
- * The facts with the stored QTc and method kept in step with QT and rate, so the saved note needs no
- * arithmetic. A value is always stored with its method. A method the provider picked is kept while there is no
- * value yet (Fridericia before the QT is typed, or manual with the box cleared), but the default is never
- * written on its own; the note prints a method only beside a value.
- */
 export function withEkgQtc(facts: StructuredFacts): StructuredFacts {
   const qtc = ekgQtc(facts);
   const picked = QTC_METHODS.find((method) => method === facts.qtcMethod);
@@ -67,10 +52,8 @@ export const ekgMeasurements = (facts: StructuredFacts): EkgMeasurements => ({
   qtc: ekgQtc(facts),
 });
 
-/** The measurement fields the note prints as one line rather than field by field. */
 export const EKG_MEASUREMENT_KEYS = ['rate', 'pr', 'qrs', 'qt', 'qtc', 'qtcMethod', 'axisDegrees'];
 
-/** "Rate 72 bpm, PR 160 ms, QRS 88 ms, QT/QTc 380/416 ms (Bazett), axis +45°." — only what was entered. */
 export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
   const { rate, pr, qrs, qt, qtc } = ekgMeasurements(facts);
   const axis = readNumber(facts, 'axisDegrees');
@@ -91,7 +74,6 @@ export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
   return parts.length ? `${parts.join(', ')}.` : undefined;
 }
 
-/** Which adult cut-offs the numbers cross. */
 export function ekgFindings({ rate, pr, qrs, qtc }: EkgMeasurements): EkgFinding[] {
   const found: EkgFinding[] = [];
   if (rate !== undefined && rate < EKG_FINDINGS.slow.limit) found.push('slow');
@@ -102,7 +84,6 @@ export function ekgFindings({ rate, pr, qrs, qtc }: EkgMeasurements): EkgFinding
   return found;
 }
 
-/** A blank in a suggested interpretation names the field choice it stands for. */
 export interface EkgSuggestionBlank extends SentenceBlank, Pick<EkgTemplateBlank, 'fieldValue'> {
   key: string;
 }
@@ -111,7 +92,6 @@ export interface EkgSuggestion {
   id: string;
   name: string;
   segments: SentenceSegment[];
-  /** Why the numbers rank it; empty for the standing offers. */
   reason?: string;
   fills: EkgInterpretation;
 }
@@ -121,7 +101,6 @@ const TOKEN = /\{(\w+)\}/g;
 const fillTokens = (text: string, values: Record<string, string | number | undefined>): string =>
   text.replace(TOKEN, (token, name) => (values[name] === undefined ? token : String(values[name])));
 
-/** The template's text as segments: typed numbers in place, every other token a blank on its default. */
 function templateSegments(template: EkgTemplate, numbers: EkgMeasurements, found: EkgFinding[]): SentenceSegment[] {
   return parseTemplate(template.text, (name) => {
     const blank = template.blanks?.[name];
@@ -142,10 +121,6 @@ function templateSegments(template: EkgTemplate, numbers: EkgMeasurements, found
   });
 }
 
-/**
- * Up to three complete interpretations ranked for the entered numbers, each with the reason it is offered.
- * Nothing until rate and QT are in; under 18 only the normal read, since the cut-offs are adult ones.
- */
 export function suggestEkgInterpretations(numbers: EkgMeasurements, isChild: boolean): EkgSuggestion[] {
   if (numbers.rate === undefined || numbers.qt === undefined) return [];
   const found = ekgFindings(numbers);
@@ -175,14 +150,12 @@ export function suggestEkgInterpretations(numbers: EkgMeasurements, isChild: boo
     .map((entry) => build(entry.template));
 }
 
-/** The interpretation a row fills, with `picks[i]` (by segment, as the page keeps them) over each blank's default. */
 export function ekgSuggestionPicks(suggestion: EkgSuggestion, picks: (string | undefined)[]): EkgInterpretation {
   const choice: Record<string, string> = {};
   suggestion.segments.forEach((segment, i) => {
     if (!isSentenceBlank(segment)) return;
     const blank = segment as EkgSuggestionBlank;
     const word = picks[i] ?? blank.initial ?? '';
-    // A sentence word is the field option in lower case unless the template says otherwise.
     choice[blank.key] = blank.fieldValue?.[word] ?? word.charAt(0).toLowerCase() + word.slice(1);
   });
   const resolve = (value: string): string => fillTokens(value, choice);
@@ -195,7 +168,6 @@ export function ekgSuggestionPicks(suggestion: EkgSuggestion, picks: (string | u
 const sameChoice = (a: StructuredFacts[string], b: string | string[] | undefined): boolean =>
   Array.isArray(a) && Array.isArray(b) ? a.length === b.length && a.every((item, i) => item === b[i]) : a === b;
 
-/** Whether the interpretation fields already hold exactly what the row would fill in. */
 export const isEkgInterpretationApplied = (facts: StructuredFacts, read: EkgInterpretation): boolean =>
   Object.entries(read).every(([key, value]) => sameChoice(facts[key], value));
 
@@ -209,10 +181,6 @@ export interface EkgReminder {
   fixes: EkgReminderFix[];
 }
 
-/**
- * Where the chosen interpretation contradicts the numbers, by the adult cut-offs: the caller leaves these
- * out for a child. Each comes with the one-click change that resolves it; none blocks saving.
- */
 export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
   const numbers = ekgMeasurements(facts);
   const found = ekgFindings(numbers);
@@ -249,7 +217,6 @@ export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
         fixes: [{ label: 'Add prolonged QTc', apply: withFinding('prolonged QTc') }],
       });
   }
-  // Which of the two the findings make it is the provider's call, so both are offered.
   if (findings.length && facts.impression === 'normal EKG')
     reminders.push({
       message: `Impression is "normal EKG", but the numbers show ${findings.join(', ')}.`,

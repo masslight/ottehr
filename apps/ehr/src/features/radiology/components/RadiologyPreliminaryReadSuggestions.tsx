@@ -19,10 +19,6 @@ interface RadiologyPreliminaryReadSuggestionsProps {
   onAdd: (sentence: string) => void;
 }
 
-/**
- * Template sentences for the ordered study; "+" appends the finished sentence to the Preliminary Read.
- * Renders nothing for a study without templates.
- */
 export const RadiologyPreliminaryReadSuggestions: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
   cptCode,
   laterality,
@@ -48,10 +44,8 @@ export const RadiologyPreliminaryReadSuggestions: React.FC<RadiologyPreliminaryR
       <SuggestedSentences
         title="Suggested reads"
         rows={rows}
-        // Defaults give way to the provider's picks, and a blank can wait on another (see the templates).
         resolveValues={(row, picks) => resolvePreliminaryReadValues(row.segments, picks)}
         findConflict={(_row, picks, segment, option) => findConflictingValue(picks, segment, option)}
-        // Derived from the field, so deleting the sentence there (or changing a blank) re-arms the "+".
         isAdded={(row, picks) => value.includes(assemblePreliminaryRead(row.segments, picks))}
         onAdd={(row, picks) => onAdd(assemblePreliminaryRead(row.segments, picks))}
         addLabel="Add to read"

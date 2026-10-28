@@ -587,8 +587,6 @@ export const INJECTION_VISITS: Visit[] = [
 //    https://www.cms.gov/regulations-and-guidance/guidance/manuals/downloads/clm104c13.pdf
 //    NCCI Policy Manual 2026, Chapter 11 §I:
 //    https://www.cms.gov/files/document/11-chapter11a-ncci-medicare-policy-manual-2026-final.pdf
-//  A report (93000, 93010) must cover the rate and intervals, rhythm, axis, intervals/conduction, ST-T,
-//  comparison with a prior tracing and an impression; "normal EKG" alone is not an interpretation.
 const EKG_REPORT: FormAnswers = {
   'Rate (bpm)': 72,
   'PR (ms)': 160,

@@ -7,7 +7,6 @@ import { resolveFamilyFacts } from './family-support';
 import { CodeAssessmentKind, LegacyProcedureFields, ProcedureFactsInput, ProcedureFamilyModel } from './model.types';
 import { CodingField, parseStructuredFacts, StructuredFacts } from './structured-fields';
 
-/** A complete 12-lead read, as the report codes require before they are suggested. */
 const EKG_REPORT: StructuredFacts = {
   rate: 72,
   pr: 160,

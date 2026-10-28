@@ -20,13 +20,10 @@ import { readNumber, StructuredFacts } from 'utils/lib/procedure-coding/structur
 import { CodingFieldSentences } from './CodingFieldSentences';
 import { Sentence } from './InlineBlanks';
 
-/** Line colour between and around the tiles (the mockup's #dfe5e9). */
 const TILE_LINE = '#dfe5e9';
-/** Empty-tile underline and selected QTc method, exactly as in the approved mockup. */
 const TILE_EMPTY = '#ed6c02';
 const TILE_SELECTED = '#1976d2';
 
-/** The measurement tiles, in printout order; `qtc` is calculated unless the method is manual. */
 const TILES = [
   { key: 'rate', label: 'Rate', unit: 'bpm' },
   { key: 'pr', label: 'PR', unit: 'ms' },
@@ -36,7 +33,6 @@ const TILES = [
   { key: 'axisDegrees', label: 'Axis', unit: '°' },
 ] as const;
 
-/** The interpretation sentence, in the order a read is spoken. */
 const INTERPRETATION_KEYS = ['rhythm', 'axis', 'conduction', 'stt', 'otherFindings', 'comparison', 'impression'];
 
 interface TilesProps {
@@ -45,21 +41,17 @@ interface TilesProps {
   update: (next: StructuredFacts) => void;
 }
 
-/** Big plain numbers as on the printout: no flags or ranges, the reminders below speak to the interpretation. */
 const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
   const method = ekgQtcMethod(facts);
   const qtcInput = useRef<HTMLInputElement>(null);
   const qtc = ekgQtc(facts);
   const setNumber = (key: string, raw: string): void => {
     const number = raw === '' ? undefined : Number(raw);
-    // Typing a QTc makes it a manual value; any other tile keeps a calculated QTc in step.
     update(key === 'qtc' ? { ...facts, qtc: number, qtcMethod: 'manual' } : withEkgQtc({ ...facts, [key]: number }));
   };
   const setMethod = (next: QtcMethod | null): void => {
     if (!next) return;
-    // Manual means the provider will type the printout's value: put the cursor there.
     if (next === 'manual') requestAnimationFrame(() => qtcInput.current?.focus());
-    // Manual starts from the value on screen; a calculated method recomputes it.
     update(next === 'manual' ? { ...facts, qtcMethod: next, qtc } : withEkgQtc({ ...facts, qtcMethod: next }));
   };
   return (
@@ -67,7 +59,6 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
       sx={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
-        // Full width across the card, as in the approved mockup (the card has 24px side padding).
         mx: '-24px',
         borderTop: `1px solid ${TILE_LINE}`,
         borderBottom: `1px solid ${TILE_LINE}`,
@@ -118,7 +109,6 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                   sx={(theme) => ({
                     '& input': {
                       font: `500 20px ${theme.typography.fontFamily}`,
-                      // 3.2em of the 20px number, as in the mockup (not of the 16px input root).
                       width: '3.2em',
                       height: 'auto',
                       fontVariantNumeric: 'tabular-nums',
@@ -126,7 +116,6 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                       '&::placeholder': { color: 'rgba(0, 0, 0, 0.35)', fontWeight: 400, opacity: 1 },
                       borderBottom: '1px dashed transparent',
                       '&:hover': { borderBottomColor: 'rgba(0, 0, 0, 0.3)' },
-                      // Empty tiles get the same orange underline so the row reads as something to fill in.
                       '&:placeholder-shown': { borderBottomColor: TILE_EMPTY },
                       MozAppearance: 'textfield',
                       '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { WebkitAppearance: 'none', m: 0 },
@@ -150,7 +139,6 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                     sx={{
                       gap: '2px',
                       mt: '2px',
-                      // Three separate small buttons (mockup), not a joined group.
                       '& .MuiToggleButtonGroup-grouped': {
                         width: 20,
                         height: 18,
@@ -196,7 +184,6 @@ interface InterpretationProps {
   update: (next: StructuredFacts) => void;
 }
 
-/** Suggested interpretations ranked for the typed numbers; ⊕ fills the interpretation fields, never on its own. */
 const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }> = ({ facts, isChild, update }) => {
   const { rate, pr, qrs, qt, qtc } = ekgMeasurements(facts);
   const rows = useMemo(
@@ -223,7 +210,6 @@ const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }
   );
 };
 
-/** Where the chosen interpretation contradicts the numbers (adults only): a reminder with its fix, never a block. */
 const EkgReminders: FC<InterpretationProps> = ({ facts, update }) => {
   const reminders = ekgReminders(facts);
   if (!reminders.length) return null;
@@ -269,12 +255,9 @@ interface Props {
   value: StructuredFacts;
   onChange: (value: StructuredFacts) => void;
   readOnly: boolean;
-  /** Under 18 the adult cut-offs don't apply: only the normal interpretation is suggested and no reminders are shown. */
   isChild: boolean;
 }
 
-/** The EKG family's fields: the billing sentence, the measurement tiles, the suggested interpretations, then
- * the interpretation sentence with any reminders under it. */
 export const EkgSentences: FC<Props> = ({ isChild, ...props }) => (
   <CodingFieldSentences
     {...props}

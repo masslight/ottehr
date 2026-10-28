@@ -4,7 +4,6 @@ import { PRELIMINARY_READ_TEMPLATES } from './preliminaryReadTemplates';
 import type { PreliminaryReadChoiceList, PreliminaryReadRegion } from './preliminaryReadTypes';
 
 export interface PreliminaryReadBlank extends SentenceBlank {
-  /** Starts empty ('') while another blank in the sentence holds one of these values. */
   emptyWhen?: string[];
 }
 

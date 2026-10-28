@@ -426,7 +426,6 @@ interface MultiBlankProps {
   values: readonly string[] | undefined;
   onChange: (values: string[]) => void;
   readOnly: boolean;
-  /** Flags the empty blank as something billing or validation still needs. */
   need?: boolean;
   dataTestId?: string;
   ghost?: boolean;

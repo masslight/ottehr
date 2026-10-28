@@ -91,7 +91,6 @@ export function formatStructuredFacts(facts: StructuredFacts | undefined, proced
   const format = (answers: StructuredFacts, definitions: readonly CodingField[], top = false): string[] => {
     const keys = [...new Set([...definitions.map((field) => field.key), ...Object.keys(answers)])];
     return keys.flatMap((key, index) => {
-      // The family's own lines stand where its first covered field would have been.
       if (top && covered.has(key))
         return keys.findIndex((item) => covered.has(item)) === index ? note?.lines ?? [] : [];
       const value = answers[key];
@@ -99,7 +98,6 @@ export function formatStructuredFacts(facts: StructuredFacts | undefined, proced
       const field = definitions.find((item) => item.key === key);
       const label = field?.label ?? humanize(key);
       if (Array.isArray(value)) {
-        // Several choices read as a list: "Intervals and conduction: normal".
         if (field?.kind !== 'rows' && value.every((item) => typeof item === 'string'))
           return value.length ? [`${label}: ${value.join(', ')}`] : [];
         const children = field?.kind === 'rows' ? field.fields : [];

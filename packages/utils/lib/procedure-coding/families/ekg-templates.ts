@@ -1,10 +1,3 @@
-/**
- * Data behind the 12-lead EKG interpretation: the choice lists of the ekg family's interpretation fields,
- * the adult cut-offs, and the suggested interpretations offered for the typed numbers. Wording follows the
- * conventional machine-read statement set; lists are most-common-first. Edit here; the rules that read this
- * file are in ekg-interpretation.ts.
- */
-
 export const EKG_RHYTHMS = [
   'sinus rhythm',
   'sinus bradycardia',
@@ -59,7 +52,6 @@ export const EKG_COMPARISONS = ['no prior EKG available', 'no significant change
 
 export const EKG_IMPRESSIONS = ['normal EKG', 'otherwise normal EKG', 'borderline EKG', 'abnormal EKG'];
 
-/** The interpretation fields a suggestion, quick pick or reminder fills; keys are the ekg family's. */
 export interface EkgInterpretation {
   rhythm?: string;
   axis?: string;
@@ -70,7 +62,6 @@ export interface EkgInterpretation {
   impression?: string;
 }
 
-/** The read every suggestion starts from; a template changes only the fields it names. */
 export const EKG_NORMAL_READ: EkgInterpretation = {
   rhythm: 'sinus rhythm',
   axis: 'normal',
@@ -82,10 +73,6 @@ export const EKG_NORMAL_READ: EkgInterpretation = {
 
 export type EkgFinding = 'slow' | 'fast' | 'longPr' | 'wideQrs' | 'longQtc';
 
-/**
- * Adult cut-offs (limits for children differ and are not applied), each with the reason line shown under a
- * suggestion it ranks: `{rate}` `{pr}` `{qrs}` `{qtc}` are the typed numbers, `{limit}` the cut-off.
- */
 export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }> = {
   slow: { limit: 60, reason: 'rate {rate} is below {limit}' },
   fast: { limit: 100, reason: 'rate {rate} is above {limit}' },
@@ -96,30 +83,20 @@ export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }>
 
 export interface EkgTemplateBlank {
   title: string;
-  /** Sentence words, first one the default */
   options: string[];
-  /** A default that depends on which finding the numbers show */
   initial?: Partial<Record<EkgFinding, string>>;
-  /** The field option a sentence word stands for, where it is not simply the word in lower case */
   fieldValue?: Record<string, string>;
 }
 
 export interface EkgTemplate {
   id: string;
-  /** What the row reads as, naming its "use" button for screen readers. */
   name: string;
-  /** `{rate}` `{pr}` `{qrs}` `{qtc}` print the typed number; any other `{name}` is a blank from `blanks`. */
   text: string;
   blanks?: Record<string, EkgTemplateBlank>;
-  /** Offered only when the numbers show one of these (the reason line names it); absent: always offered. */
   findings?: EkgFinding[];
-  /** Order among the offered templates, highest first. */
   rank: number;
-  /** Rank when the numbers show no finding at all (the normal read then goes first). */
   rankWhenNormal?: number;
-  /** The one read offered under 18, where the adult cut-offs do not apply. */
   forChildren?: boolean;
-  /** Fields the row fills over EKG_NORMAL_READ; `{name}` takes the blank's choice as a field option. */
   fills: EkgInterpretation;
 }
 

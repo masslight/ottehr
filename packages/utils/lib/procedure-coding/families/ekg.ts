@@ -27,7 +27,6 @@ const EKG_CODES = {
 
 type EkgCode = (typeof EKG_CODES)[keyof typeof EKG_CODES];
 
-/** 93000 and 93010 include the interpretation and report; 93005 (tracing only) does not. */
 const neededForReport = (facts: StructuredFacts): boolean => facts.component !== 'tracing only';
 
 const fields: readonly CodingField[] = [
@@ -65,17 +64,13 @@ const fields: readonly CodingField[] = [
     defaultValue: false,
     details: true,
   },
-  // Measurements, read off the printout. None is required to save; a report needs the rate and intervals.
   { key: 'rate', neededForCoding: neededForReport, label: 'Rate (bpm)', kind: 'number', min: 0, step: 1 },
   { key: 'pr', neededForCoding: neededForReport, label: 'PR (ms)', kind: 'number', min: 0, step: 1 },
   { key: 'qrs', neededForCoding: neededForReport, label: 'QRS (ms)', kind: 'number', min: 0, step: 1 },
   { key: 'qt', neededForCoding: neededForReport, label: 'QT (ms)', kind: 'number', min: 0, step: 1 },
-  // Calculated from QT and rate by the page (see ekgQtc) unless the method is manual; both are stored so
-  // the note can say how the value was arrived at.
   { key: 'qtc', label: 'QTc (ms)', kind: 'number', min: 0, step: 1 },
   { key: 'qtcMethod', label: 'QTc method', kind: 'select', options: QTC_METHODS },
   { key: 'axisDegrees', label: 'Axis (°)', kind: 'number', min: -180, step: 1 },
-  // Interpretation. "Other findings" is optional; the rest are needed for the interpretation and report.
   { key: 'rhythm', neededForCoding: neededForReport, label: 'Rhythm', kind: 'select', options: EKG_RHYTHMS },
   { key: 'axis', neededForCoding: neededForReport, label: 'Axis', kind: 'select', options: EKG_AXES },
   {
@@ -118,12 +113,10 @@ const fields: readonly CodingField[] = [
   },
 ];
 
-/** The interpretation fields a report must cover besides the rate and intervals; "Other findings" is optional. */
 const REPORT_FIELDS = ['rhythm', 'axis', 'conduction', 'stt', 'comparison', 'impression'];
 
 const label = (key: string): string => fields.find((field) => field.key === key)?.label ?? key;
 
-/** What the interpretation and report (CMS Claims Manual Ch.13 §100.1) still needs before 93000 or 93010 is supported. */
 const reportGaps = (facts: StructuredFacts): string[] => [
   ...(readNumber(facts, 'rate') === undefined ? [label('rate')] : []),
   ...(['pr', 'qrs', 'qt'].some((key) => readNumber(facts, key) === undefined) ? ['PR, QRS and QT intervals'] : []),
@@ -148,8 +141,6 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   id: 'ekg',
   procedureNames: PROCEDURE_NAMES['ekg'],
   displayName: 'EKG',
-  // A 12-lead EKG has no body site or side (fixed chest and limb leads), and nothing is anaesthetised, cut or
-  // sent off; consent, instructions given and procedure details still apply.
   omitsStandardFields: [
     'site',
     'anesthesia',
@@ -161,9 +152,7 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
     'timeSpent',
   ],
   fields,
-  // The numbers come off this patient's printout; a quick pick saved from the procedure must not carry them to the next.
   quickPickExcludes: EKG_MEASUREMENT_KEYS,
-  // The note reads the measurements as one line ("Rate 72 bpm, PR 160 ms, …") rather than field by field.
   noteLines: (facts) => ({
     lines: [ekgMeasurementLine(facts)].filter((line): line is string => line !== undefined),
     covers: EKG_MEASUREMENT_KEYS,
@@ -177,7 +166,6 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
 
     if (!count || !Number.isInteger(count)) return missing('Same-day recordings');
 
-    // 93000 and 93010 include the interpretation and report; a brief "normal" alone does not support them.
     if (facts.component !== 'tracing only') {
       const gaps = reportGaps(facts);
       if (gaps.length) return missing(...gaps);

@@ -27,7 +27,6 @@ interface FieldBlankOptions {
   placeholder?: string;
   /** Wording for the blank and its popover when the field's own label reads wrong in the sentence. */
   label?: string;
-  /** Keep the family's option order (a scale, say) instead of sorting the list alphabetically. */
   ordered?: boolean;
 }
 
@@ -106,7 +105,6 @@ function fieldBlank(
   );
 }
 
-/** The stand-alone option ("normal", "none") and any other choice never sit together: the newest pick wins. */
 const withExclusiveOption = (field: MultiCodingField, previous: readonly string[], next: string[]): string[] => {
   const added = next.find((value) => !previous.includes(value));
   if (field.exclusive === undefined || added === undefined) return next;
@@ -129,9 +127,7 @@ interface RowRenderArgs {
 interface MainRenderArgs {
   answers: StructuredFacts;
   readOnly: boolean;
-  /** "Label: [blank]" for each key, "; " between them; keys a `visible` condition hides are skipped. */
   pieces: (keys: readonly string[], options?: FieldBlankOptions) => ReactNode;
-  /** The family's `details: true` fields, as `RowRenderArgs.details`. */
   details: (placedKeys?: readonly string[]) => ReactNode;
   update: (next: StructuredFacts) => void;
 }
@@ -142,7 +138,6 @@ interface Props {
   onChange: (value: StructuredFacts) => void;
   readOnly: boolean;
   medicationUsed?: string;
-  /** Hand-written layout for the family's own (non-row) fields; the generic single sentence is the default. */
   renderMain?: (args: MainRenderArgs) => ReactNode;
   /** Hand-written sentence for a repeating group; the generic "label: [blank]" wording is the default. */
   renderRow?: (args: RowRenderArgs) => ReactNode;

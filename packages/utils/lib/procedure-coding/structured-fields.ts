@@ -42,16 +42,13 @@ export interface TextCodingField extends CodingFieldBase {
 
 export type ScalarCodingField = SelectCodingField | NumberCodingField | CheckboxCodingField | TextCodingField;
 
-/** Several of the options at once, stored as a list of the chosen option values. */
 export interface MultiCodingField extends CodingFieldBase {
   kind: 'multi';
   options: readonly string[];
-  /** An option that stands alone ("normal", "none"): choosing it clears the rest, and any other clears it. */
   exclusive?: string;
   defaultValue?: never;
 }
 
-/** A field that is not a repeating group. */
 export type FlatCodingField = ScalarCodingField | MultiCodingField;
 
 export interface RowsCodingField extends CodingFieldBase {
@@ -111,7 +108,6 @@ export function invalidStructuredFields(fields: readonly CodingField[], facts: S
           )
         : [field.label];
 
-    // Each choice one of the options, and the stand-alone option ("normal") never beside another choice.
     if (field.kind === 'multi') {
       const chosen = readStrings(facts, field.key);
       const exclusiveWithOthers =

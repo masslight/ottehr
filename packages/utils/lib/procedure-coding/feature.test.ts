@@ -35,7 +35,6 @@ function answersToFacts(
     if (!field) {
       throw new Error(`The form has no field labelled "${label}". It has: ${[...byLabel.keys()].join(', ')}`);
     }
-    // A list answers a repeating group (rows) or a several-choices field (strings).
     facts[field.key] =
       Array.isArray(value) && field.fields
         ? (value as FormAnswers[]).map(

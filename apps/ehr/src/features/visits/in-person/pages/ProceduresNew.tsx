@@ -106,7 +106,6 @@ const CODING_COLUMN_QUERY = `@container (min-width: ${
 }px)`;
 const CONSENT = ['obtained', 'not obtained'];
 
-/** One inline sentence from the parts that are shown, joined as "A: x. B: y." — or nothing when none are. */
 const sentenceOf = (parts: (ReactElement | false)[]): ReactElement | null => {
   const shown = parts.filter((part): part is ReactElement => part !== false);
   if (!shown.length) return null;
@@ -268,7 +267,6 @@ export default function ProceduresNew({
   ]);
 
   const codingFamily = detectProcedureFamily(procedureFacts);
-  // A field the family omits stays visible when a saved procedure already has a value in it.
   const shows = (field: StandardProcedureField, hasValue: unknown): boolean =>
     !codingFamily?.omitsStandardFields?.includes(field) || !!hasValue;
   const siteShown = shows('site', state.bodySite || state.otherBodySite || state.bodySide);
@@ -930,7 +928,6 @@ export default function ProceduresNew({
                         value={resolvedStructuredFacts ?? {}}
                         onChange={(value) => updateState((state) => (state.structuredFacts = value))}
                         readOnly={isReadOnly}
-                        // Adult cut-offs don't apply under 18: only the normal interpretation is suggested and no reminders.
                         isChild={isPediatricOnDate(patient?.birthDate, state.procedureDate?.toISO() ?? undefined)}
                       />
                     ) : (

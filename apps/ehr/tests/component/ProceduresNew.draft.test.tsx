@@ -248,8 +248,6 @@ describe('ProceduresNew — draft store', () => {
     });
   });
 
-  // --- Standard fields a family omits ---
-
   it('hides Site and the standard fields EKG omits but keeps consent, instructions and procedure details', async () => {
     useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG' });
     renderComponent();

@@ -64,7 +64,6 @@ describe('procedure quick pick data transformations', () => {
       rhythm: 'sinus rhythm',
       conduction: ['normal'],
     });
-    // Other families keep every answer they were saved with.
     const laceration = buildProcedureQuickPick(
       { structuredFacts: { rate: 1, closure: 'simple' } },
       'Laceration',

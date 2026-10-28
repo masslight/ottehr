@@ -44,10 +44,9 @@ describe('EKG sentences', () => {
   it('shows six plain measurement tiles after the billing sentence and the interpretation blanks after them', () => {
     render(<Form />);
     expect(screen.getByText(/Component furnished:/)).toBeInTheDocument();
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(7); // the count blank and six tiles
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(7);
     for (const key of ['rate', 'pr', 'qrs', 'qt', 'qtc', 'axisDegrees']) expect(tile(key)).toBeInTheDocument();
     expect(within(tile('qtc')).getByText('Bazett')).toBeInTheDocument();
-    // Interpretation blanks in reading order, "other findings" optional (grey), the rest needed (orange).
     expect(needed('rhythm (empty)')).toBe(true);
     expect(needed('intervals and conduction (empty)')).toBe(true);
     expect(needed('other findings (empty)')).toBe(false);
@@ -78,12 +77,10 @@ describe('EKG sentences', () => {
     await user.type(qtc, '430');
     expect(within(tile('qtc')).getByText('manual')).toBeInTheDocument();
     expect(latest.facts).toMatchObject({ qtc: 430, qtcMethod: 'manual' });
-    // A manual value stays put when the inputs change; Bazett recalculates from them again.
     await typeNumbers(user, { 'Rate (bpm)': 80 });
     expect(qtc).toHaveValue(430);
     await user.click(screen.getByRole('button', { name: 'Bazett' }));
     expect(qtc).toHaveValue(439);
-    // Without a QT there is no QTc to store; the method the provider picked stays for when it is back.
     await user.clear(screen.getByRole('spinbutton', { name: 'QT (ms)' }));
     expect(latest.facts?.qtc).toBeUndefined();
     expect(latest.facts?.qtcMethod).toBe('Bazett');
@@ -146,14 +143,12 @@ describe('EKG sentences', () => {
     expect(screen.getByRole('button', { name: 'impression: borderline EKG' })).toBeInTheDocument();
     expect(within(box).getAllByRole('img', { name: ADDED })).toHaveLength(1);
 
-    // Changing a highlighted word re-arms the row; the fields are only touched on ⊕.
     await user.click(within(box).getAllByRole('button', { name: 'Impression: borderline EKG' })[0]);
     await user.click(screen.getByRole('option', { name: 'abnormal EKG' }));
     expect(within(box).queryByRole('img', { name: ADDED })).not.toBeInTheDocument();
     expect(latest.facts?.impression).toBe('borderline EKG');
     await user.click(within(box).getAllByRole('button', { name: USE })[0]);
     expect(latest.facts?.impression).toBe('abnormal EKG');
-    // Editing the interpretation by hand re-arms the row too.
     await user.click(screen.getByRole('button', { name: 'rhythm: sinus rhythm' }));
     await user.click(screen.getByRole('option', { name: 'sinus arrhythmia' }));
     expect(within(box).queryByRole('img', { name: ADDED })).not.toBeInTheDocument();
@@ -194,7 +189,6 @@ describe('EKG sentences', () => {
     await user.click(within(box).getByRole('button', { name: 'Add first-degree AV block' }));
     expect(latest.facts?.conduction).toEqual(['first-degree AV block']);
     expect(within(box).queryByText(/A PR of 236 ms/)).not.toBeInTheDocument();
-    // The provider picks borderline or abnormal; neither is chosen for them.
     expect(latest.facts?.impression).toBe('normal EKG');
     expect(within(box).getByRole('button', { name: 'Change impression to abnormal EKG' })).toBeInTheDocument();
     await user.click(within(box).getByRole('button', { name: 'Change impression to borderline EKG' }));

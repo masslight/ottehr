@@ -116,12 +116,6 @@ const PROCEDURE_TIME_SPENT_CODINGS =
 
 // Catalog entries no longer supply default CPTs; these scenarios add their codes through search.
 //
-// These scenarios fill every field of the generic procedure form, Site/location and Side of body
-// included. A procedure type whose coding family asks for the site inside its own questions, or
-// leaves standard fields out altogether (an EKG has no site, anesthesia or specimen), hides some of
-// them, and a type with no coding family at all reaches out to AI for suggestions —
-// so pick types that keep the generic form and stay on the local rules engine. Picked from the
-// catalog rather than hard-coded, so the spec follows the configuration as the covered set grows.
 const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS!
   .map((procedure) => ({
     dropDownChoice: procedure.display,

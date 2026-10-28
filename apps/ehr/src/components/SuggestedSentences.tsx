@@ -11,39 +11,28 @@ import {
 } from 'utils/lib/helpers/suggested-sentences';
 
 export interface SuggestedSentence {
-  /** Stable identity within the list; a changed `rows` array resets every pick. */
   id: string;
-  /** Names the row's add button for screen readers ("Add to read: Negative"); the buttons are otherwise alike. */
   name?: string;
   segments: SentenceSegment[];
-  /** Why this sentence is offered, shown under it as "Because …". */
   reason?: string;
 }
 
-/** The provider's pick for each segment: a value for a blank they changed, `undefined` for text and untouched blanks. */
 export type SentencePicks = (string | undefined)[];
 
 interface SuggestedSentencesProps<T extends SuggestedSentence> {
   title: string;
-  /** Lighter text after the title, e.g. how the rows were chosen. */
   caption?: string;
   rows: T[];
-  /** Whether the row, as currently filled in, is already in the target; derived by the caller, never stored here. */
   isAdded: (row: T, picks: SentencePicks) => boolean;
   onAdd: (row: T, picks: SentencePicks) => void;
   addLabel: string;
   addedLabel: string;
-  /** The value each segment shows, from the picks; by default a blank shows its pick, else its default. A blank
-   * resolved to '' is left out of the sentence and shown by name; `undefined` still has to be picked. */
   resolveValues?: (row: T, picks: SentencePicks) => SentencePicks;
-  /** The value already in the row that rules `option` out for the blank at `segment`, if any. */
   findConflict?: (row: T, picks: SentencePicks, segment: number, option: string) => string | undefined;
   dataTestId?: string;
-  /** Rendered between the title and the rows (a note about the patient, say). */
   children?: ReactNode;
 }
 
-/** Position of a blank: template row and segment index within it */
 interface BlankRef {
   row: number;
   segment: number;
@@ -54,13 +43,8 @@ const blankKey = ({ row, segment }: BlankRef): string => `${row}:${segment}`;
 const defaultValues = (row: SuggestedSentence, picks: SentencePicks): SentencePicks =>
   row.segments.map((segment, i) => (isSentenceBlank(segment) ? picks[i] ?? segment.initial : undefined));
 
-/** "Fracture type (child)" reads as "fracture type" inside the sentence. */
 const fieldName = (blank: SentenceBlank): string => blank.title.replace(/\s*\(.*\)$/, '').toLowerCase();
 
-/**
- * Template sentences with the variable words highlighted; picking a word swaps it and "+" hands the finished
- * row to the caller. Plain templates, nothing is read from the image or the chart.
- */
 export const SuggestedSentences = <T extends SuggestedSentence>({
   title,
   caption,
@@ -74,8 +58,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   dataTestId,
   children,
 }: SuggestedSentencesProps<T>): ReactElement => {
-  // Picks are kept with the rows they were made on, so a value the provider chose survives re-renders but not a
-  // change of the rows themselves (another study, other numbers), which rebuilds the templates.
   const [picked, setPicked] = useState<{ rows: T[]; values: Record<string, string> }>({ rows, values: {} });
   const [opened, setOpened] = useState<{ rows: T[]; blank: BlankRef; anchor: HTMLElement } | null>(null);
   const values = picked.rows === rows ? picked.values : {};
@@ -142,7 +124,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                     sx={(theme) => {
                       const tint = isPicked ? theme.palette.success.main : theme.palette.primary.main;
                       return {
-                        // A button, but laid out as a run of text so a long value wraps within the sentence.
                         display: 'inline',
                         textAlign: 'left',
                         font: 'inherit',
@@ -155,7 +136,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                         borderRadius: '3px',
                         padding: '1px 2px',
                         '&:hover': { backgroundColor: alpha(tint, 0.3) },
-                        // Still to be picked: an outlined placeholder rather than a value that could pass for one.
                         ...(unpicked && {
                           border: '1px dashed',
                           borderColor: theme.palette.warning.dark,
@@ -163,7 +143,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                           backgroundColor: 'transparent',
                           '&:hover': { backgroundColor: alpha(theme.palette.warning.main, 0.1) },
                         }),
-                        // Left out of the sentence: named so it can be added back, but plainly not part of it.
                         ...(empty && {
                           border: '1px dotted',
                           borderColor: theme.palette.divider,
@@ -208,8 +187,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
           </Box>
         );
       })}
-      {/* A Menu for the keyboard handling (arrows, Enter, Escape back to the blank); listbox roles because
-          the items are the blank's possible values, one of which is current, rather than commands. */}
       <Menu
         open={Boolean(active)}
         anchorEl={active?.anchor}

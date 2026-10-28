@@ -77,7 +77,6 @@ export function mergeProcedureCptCodes(
   return mergedCodes;
 }
 
-/** The answers actually given, without `excluded` keys; an unanswered field never overwrites an answer. */
 const answeredFacts = (facts: StructuredFacts, excluded: readonly string[] = []): StructuredFacts =>
   Object.fromEntries(Object.entries(facts).filter(([key, value]) => value !== undefined && !excluded.includes(key)));
 
@@ -89,8 +88,6 @@ export function applyProcedureQuickPick(
   const values: ProcedureQuickPickTarget = {
     ...quickPick,
     cptCodes: mergeProcedureCptCodes(target.cptCodes, quickPick.cptCodes),
-    // The same rule inside the structured answers: the pick's own fields win, the rest (an EKG's typed
-    // numbers or comparison, say) stay. The page clears the answers first when the pick changes the family.
     structuredFacts: quickPick.structuredFacts && {
       ...target.structuredFacts,
       ...answeredFacts(quickPick.structuredFacts),
