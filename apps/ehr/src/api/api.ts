@@ -122,7 +122,12 @@ import {
   MailedStatementsReportZambdaOutput,
   SyncMailedStatementStatusesOutput,
 } from 'utils/lib/types/api/mailed-statements-report.types';
-import { OrderPrescriptionInput, OrderPrescriptionOutput } from 'utils/lib/types/api/order-prescription.types';
+import {
+  CancelPrescriptionInput,
+  CancelPrescriptionOutput,
+  OrderPrescriptionInput,
+  OrderPrescriptionOutput,
+} from 'utils/lib/types/api/order-prescription.types';
 import {
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
@@ -603,6 +608,26 @@ export const orderPrescription = async (
     throw new Error(body?.message ?? `Failed to order prescription (${response.status})`);
   }
   return body as OrderPrescriptionOutput;
+};
+
+export const cancelPrescription = async (
+  token: string,
+  parameters: CancelPrescriptionInput
+): Promise<CancelPrescriptionOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/cancel-prescription`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+    body: JSON.stringify(parameters),
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to cancel prescription (${response.status})`);
+  }
+  return body as CancelPrescriptionOutput;
 };
 
 export const checkPractitionerEnrollment = async (

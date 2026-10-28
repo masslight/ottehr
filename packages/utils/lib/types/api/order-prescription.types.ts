@@ -67,3 +67,30 @@ export interface OrderPrescriptionOutput {
   messageId: string;
   status: { code?: string; description?: string };
 }
+
+// The cancellation reasons the cancel prescription endpoint accepts
+export const CANCEL_PRESCRIPTION_REASONS = [
+  'Allergic reaction',
+  'Prescription/Therapy change',
+  'Prescription/Therapy completed',
+  'Duplicate order (different pharmacy)',
+  'Duplicate order (same pharmacy)',
+  'Sent in error',
+  'Interaction, intolerance, or contraindication',
+  'Patient request',
+  'Transition of care has occurred',
+] as const;
+
+export type CancelPrescriptionReason = (typeof CANCEL_PRESCRIPTION_REASONS)[number];
+
+export interface CancelPrescriptionInput {
+  medicationRequestId: string;
+  practitionerId: string;
+  reason: CancelPrescriptionReason;
+}
+
+export interface CancelPrescriptionOutput {
+  medicationRequestId: string;
+  messageId: string;
+  status: { code?: string; description?: string };
+}
