@@ -796,6 +796,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                         disabled={isPickerLocked}
                         onChange={(event) => {
                           setServiceCategory(event.target.value);
+                          setSlot(undefined);
                         }}
                       >
                         {filteredServiceCategories.map((sc) => (
@@ -958,6 +959,9 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                     </Box>
                     {isSlotPickerShown && (
                       <SlotPicker
+                        key={`${selectedBookable?.slug}|${selectedBookable?.atLocationSlug ?? ''}|${
+                          serviceCategory ?? ''
+                        }|${slotListKey}`}
                         slotData={locationWithSlotData?.[slotListKey]?.map((si) => si.slot)}
                         slotsLoading={loadingSlotState.status === 'loading'}
                         bookableSlug={selectedBookable?.slug}

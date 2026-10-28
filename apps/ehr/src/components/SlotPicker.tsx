@@ -158,7 +158,7 @@ const SlotPicker = ({
   }, []);
 
   const selectedDate = useMemo(() => {
-    if (currentTab === 0) {
+    if (currentTab === 0 && firstAvailableDay) {
       return firstAvailableDay;
     } else if (secondAvailableDay && currentTab === 1) {
       return secondAvailableDay;
@@ -237,6 +237,54 @@ const SlotPicker = ({
     },
     enabled: showPastSlots && isFirstAvailableDayToday && Boolean(oystehrZambda) && Boolean(bookableSlug),
   });
+
+  const otherDatesContent = (
+    <>
+      <LocalizationProvider dateAdapter={AdapterLuxon}>
+        <StaticDatePicker
+          displayStaticWrapperAs="desktop"
+          disableHighlightToday={true}
+          views={['month', 'day']}
+          value={visibleOtherDate ?? null}
+          onChange={handleSelectOtherDate}
+          shouldDisableDate={(date) => {
+            const today = DateTime.now().startOf('day');
+            const tomorrow = today.plus({ days: 1 });
+            if (!showPastSlots) return date <= tomorrow.endOf('day');
+            const firstDayCoveredByTabs = isFirstAvailableDayToday ? today : tomorrow;
+            return date >= firstDayCoveredByTabs && date <= tomorrow.endOf('day');
+          }}
+          // Minus one day for timezone shenanigans
+          minDate={showPastSlots ? undefined : firstAvailableDay?.minus({ days: 1 })}
+          // Allow booking up to prebookMonthsAhead out (default 1).
+          // Slots for the picked day are fetched on demand.
+          maxDate={
+            firstAvailableDay
+              ? firstAvailableDay.plus({ months: prebookMonthsAhead })
+              : DateTime.now().minus({ days: 1 })
+          }
+        />
+      </LocalizationProvider>
+      {visibleOtherDate && (
+        <>
+          <Typography
+            variant="h3"
+            color="#000000"
+            sx={{ textAlign: 'center', fontSize: '20px', color: theme.palette.primary.main, mt: 3 }}
+          >
+            {visibleOtherDate.toLocaleString(DateTime.DATE_HUGE)}
+          </Typography>
+          <Slots
+            slots={otherDateSlots}
+            timezone={timezone}
+            selectedSlot={selectedSlot}
+            setSelectedSlot={setSelectedSlot}
+            loading={otherDateSlotsLoading}
+          />
+        </>
+      )}
+    </>
+  );
 
   return (
     <Box sx={{ backgroundColor: theme.palette.background.default, padding: 2, borderRadius: 2, marginTop: 2 }}>
@@ -388,48 +436,12 @@ const SlotPicker = ({
                   />
                 </TabPanel>
                 <TabPanel value={currentTab} index={secondAvailableDay ? 2 : 1} dir={theme.direction}>
-                  <LocalizationProvider dateAdapter={AdapterLuxon}>
-                    <StaticDatePicker
-                      displayStaticWrapperAs="desktop"
-                      disableHighlightToday={true}
-                      views={['month', 'day']}
-                      value={visibleOtherDate ?? null}
-                      onChange={handleSelectOtherDate}
-                      shouldDisableDate={(date) => {
-                        const today = DateTime.now().startOf('day');
-                        const tomorrow = today.plus({ days: 1 });
-                        if (!showPastSlots) return date <= tomorrow.endOf('day');
-                        const firstDayCoveredByTabs = isFirstAvailableDayToday ? today : tomorrow;
-                        return date >= firstDayCoveredByTabs && date <= tomorrow.endOf('day');
-                      }}
-                      // Minus one day for timezone shenanigans
-                      minDate={showPastSlots ? undefined : firstAvailableDay?.minus({ days: 1 })}
-                      // Allow booking up to prebookMonthsAhead out (default 1).
-                      // Slots for the picked day are fetched on demand.
-                      maxDate={firstAvailableDay?.plus({ months: prebookMonthsAhead })}
-                    />
-                  </LocalizationProvider>
-                  {visibleOtherDate && (
-                    <>
-                      <Typography
-                        variant="h3"
-                        color="#000000"
-                        sx={{ textAlign: 'center', fontSize: '20px', color: theme.palette.primary.main, mt: 3 }}
-                      >
-                        {visibleOtherDate.toLocaleString(DateTime.DATE_HUGE)}
-                      </Typography>
-                      <Slots
-                        slots={otherDateSlots}
-                        timezone={timezone}
-                        selectedSlot={selectedSlot}
-                        setSelectedSlot={setSelectedSlot}
-                        loading={currentTab === (secondAvailableDay ? 2 : 1) && otherDateSlotsLoading}
-                      />
-                    </>
-                  )}
+                  {otherDatesContent}
                 </TabPanel>
               </Box>
             </Box>
+          ) : showPastSlots ? (
+            <Box sx={{ pt: 3, pb: 3 }}>{otherDatesContent}</Box>
           ) : (
             <Typography variant="body2" color="#000000" sx={{ textAlign: 'center', marginTop: '30px' }}>
               There are no slots available, please come in when we are open.
