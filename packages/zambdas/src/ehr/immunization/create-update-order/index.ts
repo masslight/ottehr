@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationAdministration } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createReference } from 'utils/lib/fhir/helpers';
+import { mapFhirToOrderStatus } from 'utils/lib/fhir/medication-administration';
 import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
@@ -11,12 +12,19 @@ import {
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
 } from 'utils/lib/types/data/immunization/types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL, updateOrderDetails, validateOrderDetails } from '../common';
+import {
+  applyOrderAdministrationDetails,
+  IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
+  updateOrderDetails,
+  validateAdministrationDetailsValues,
+  validateOrderDetails,
+} from '../common';
 
 let m2mToken: string;
 
@@ -45,7 +53,7 @@ async function createImmunizationOrder(
   input: CreateUpdateImmunizationOrderRequest,
   userPractitionerId: string
 ): Promise<CreateUpdateImmunizationOrderResponse> {
-  const { encounterId, details } = input;
+  const { encounterId, details, administrationDetails } = input;
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
     id: encounterId,
@@ -81,22 +89,29 @@ async function createImmunizationOrder(
     meta: fillMeta('immunization', 'immunization'),
   };
   await updateOrderDetails(medicationAdministration, details, oystehr);
+  applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
   const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
   return {
     orderId: createdMedicationAdministration.id!,
   };
 }
 
-async function updateImmunizationOrder(
+export async function updateImmunizationOrder(
   oystehr: Oystehr,
   input: CreateUpdateImmunizationOrderRequest
 ): Promise<CreateUpdateImmunizationOrderResponse> {
-  const { orderId, details } = input;
+  const { orderId, details, administrationDetails } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
     id: orderId!,
   });
+  // administered orders are edited through administer-immunization-order, which keeps statements and CPT lines in sync
+  if (administrationDetails && medicationAdministration.status !== 'in-progress') {
+    const currentStatus = mapFhirToOrderStatus(medicationAdministration);
+    throw INVALID_INPUT_ERROR(`Can't update administration details of an order in "${currentStatus}" status`);
+  }
   await updateOrderDetails(medicationAdministration, details, oystehr);
+  applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
   await oystehr.fhir.update(medicationAdministration);
   return {
     orderId: medicationAdministration.id!,
@@ -106,17 +121,19 @@ async function updateImmunizationOrder(
 export function validateRequestParameters(
   input: ZambdaInput
 ): CreateUpdateImmunizationOrderRequest & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, encounterId, details } = validateJsonBody(input);
+  const { orderId, encounterId, details, administrationDetails } = validateJsonBody(input);
 
   const missingFields: string[] = [];
   if (!encounterId) missingFields.push('encounterId');
   missingFields.push(...validateOrderDetails(details));
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
+  validateAdministrationDetailsValues(administrationDetails);
 
   return {
     orderId,
     encounterId,
     details,
+    administrationDetails,
     secrets: input.secrets,
   };
 }
