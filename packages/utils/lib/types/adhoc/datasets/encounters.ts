@@ -765,15 +765,16 @@ export const ENCOUNTER_LAYERS = {
               .string()
               .nullable()
               .describe(
-                'Full ISO instant a user pressed "Send for Final Read", sending the study to the OUTSIDE ' +
-                  'teleradiologist (an over-read, billed by the teleradiology vendor). Stays set after the final ' +
-                  'read arrives. Null = never sent out. Use THIS for "sent for a final read" / over-read counts.'
+                'Full ISO instant a user pressed "Teleradiology Final Read", ' +
+                  'sending the study to the OUTSIDE teleradiologist (an over-read, billed by the teleradiology ' +
+                  'vendor). Stays set after the final read arrives. Null = never sent out. Use THIS for "sent for ' +
+                  'a final read" / over-read counts.'
               ),
             pendingFinalBy: z
               .string()
               .nullable()
               .describe(
-                'Who pressed "Send for Final Read" (may differ from orderedBy). Not recorded on older studies — ' +
+                'Who pressed "Teleradiology Final Read" (may differ from orderedBy). Not recorded on older studies — ' +
                   'null there even when pendingFinalAt is set.'
               ),
             finalAt: z
@@ -787,9 +788,9 @@ export const ENCOUNTER_LAYERS = {
               .enum(['teleradiology', 'in-house'])
               .nullable()
               .describe(
-                'Where the final read came from: "teleradiology" = the study was sent with "Send for Final Read" ' +
-                  '(an over-read; pendingFinalAt is set), "in-house" = finalized without being sent (the provider\'s ' +
-                  'own final read). Null until finalized.'
+                'Where the final read came from: "teleradiology" = the study was sent with "Teleradiology Final Read" ' +
+                  '(an over-read; pendingFinalAt is set), "in-house" = finalized without being sent ("Internal Final ' +
+                  'Read", the provider\'s own final read). Null until finalized.'
               ),
             finalReadBy: z
               .string()
