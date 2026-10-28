@@ -3,14 +3,20 @@ import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import {
   Claim,
   Coding,
+  Extension,
   FhirResource,
   Money,
+  Organization,
   PaymentNotice,
   PaymentReconciliation,
   ProvenanceAgent,
   Reference,
 } from 'fhir/r4b';
-import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  BILLING_RESOURCE_TAG,
+  PAYMENT_METHOD_EXTENSION_URL,
+  PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import {
   isSettledRefund,
@@ -25,7 +31,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
 import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { PaymentNoticeChangeRecorder } from '../shared/stripeIntegration';
+import { PaymentNoticeChangeRecorder, STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { safeValidate } from '../shared/validation';
 import {
   claimEventProvenanceRequest,
@@ -33,6 +39,7 @@ import {
   humanClaimActor,
   resolveClaimActor,
 } from './provenance';
+import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
 
 // dedup identifier for record-billing-manual-payment calls: value is the caller's idempotency key
 export const MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('manual-payment-idempotency-key');
@@ -40,6 +47,9 @@ export const MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('man
 // makes task re-fires idempotent and links the billing notice back to its source
 export const CLINICAL_PAYMENT_NOTICE_ID_SYSTEM = ottehrIdentifierSystem('clinical-payment-notice-id');
 export const CHECK_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('check-number');
+// dedup identifier for post-billing-patient-payment calls: value is `<encounterId>_<idempotency key>`,
+// scoped to the encounter because the key is client supplied
+export const EHR_PATIENT_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('ehr-patient-payment-id');
 
 const PAYMENT_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/payment-type';
 
@@ -51,6 +61,44 @@ const RecordablePaymentSchema = z.object({
 
 // dedup identifier for manual (non-processor) refunds recorded from the EHR
 export const MANUAL_REFUND_ID_SYSTEM = ottehrIdentifierSystem('manual-refund-id');
+
+// Stripe calls on the platform account take no account id, so the stamp names it explicitly: a
+// notice without the stamp predates it, which is not the same as a platform-account payment.
+const PLATFORM_STRIPE_ACCOUNT = 'platform';
+
+export const stripeAccountExtension = (stripeAccount: string | undefined): Extension => ({
+  url: PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL,
+  valueString: stripeAccount ?? PLATFORM_STRIPE_ACCOUNT,
+});
+
+// The Stripe account stamped on the notice: `{ stripeAccount: undefined }` for the platform
+// account, undefined when the notice carries no stamp.
+export const stampedStripeAccount = (notice: PaymentNotice): { stripeAccount: string | undefined } | undefined => {
+  const value = notice.extension?.find((ext) => ext.url === PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL)?.valueString;
+  if (!value) return undefined;
+  return { stripeAccount: value === PLATFORM_STRIPE_ACCOUNT ? undefined : value };
+};
+
+// replaces the notice's stamp, if any, with the given one
+export const withStripeAccountExtension = (
+  extension: Extension[] | undefined,
+  stripeAccount: string | undefined
+): Extension[] => [
+  ...(extension ?? []).filter((ext) => ext.url !== PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL),
+  stripeAccountExtension(stripeAccount),
+];
+
+// identifier filter (`system|` matches any value) selecting patient payment and refund notices,
+// which keeps write-offs and other billing PaymentNotices out
+export const PATIENT_PAYMENT_IDENTIFIER_FILTER = [
+  MANUAL_REFUND_ID_SYSTEM,
+  STRIPE_PAYMENT_ID_SYSTEM,
+  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
+  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
+  EHR_PATIENT_PAYMENT_ID_SYSTEM,
+]
+  .map((system) => `${system}|`)
+  .join(',');
 
 interface PaymentNoticeIdentifier {
   system: string;
@@ -280,6 +328,28 @@ export const recordBillingManualRefund = async (
       await reconcilePaymentNoticesForClaim(oystehr, lateClaim);
     }
   }
+};
+
+// The payee of a payment taken through Stripe: the billing provider org stamped with the connected
+// account id, or the default org otherwise. Every writer of a Stripe payment's notice uses this, so
+// the payee does not depend on which one stores it first. Providers sharing an account share a TIN,
+// so the first match is fine.
+export const billingProviderRefForStripeAccount = async (
+  oystehr: Oystehr,
+  stripeAccount: string | undefined,
+  secrets: Secrets | null
+): Promise<Reference> => {
+  if (stripeAccount) {
+    const providers = (
+      await oystehr.fhir.search<Organization>({
+        resourceType: 'Organization',
+        params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|${stripeAccount}` }],
+      })
+    ).unbundle();
+    if (providers[0]?.id) return { reference: `Organization/${providers[0].id}` };
+    console.warn(`No billing provider carries stripe account ${stripeAccount}, using the default organization`);
+  }
+  return { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` };
 };
 
 export const findBillingClaimForEncounter = async (

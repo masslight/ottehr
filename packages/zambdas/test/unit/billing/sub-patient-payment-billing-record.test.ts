@@ -1,5 +1,5 @@
 import { Encounter, PaymentNotice, Task } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,7 +11,9 @@ const mockCreateClinicalOystehrClient = vi.fn();
 const mockGetStripeClient = vi.fn();
 
 const mockFhirSearch = vi.fn();
-const mockOystehrClient = { fhir: { search: mockFhirSearch } };
+const mockFhirGet = vi.fn();
+const mockOystehrClient = { fhir: { search: mockFhirSearch, get: mockFhirGet } };
+const mockBillingFhirGet = vi.fn();
 const mockStripeClient = { paymentIntents: { retrieve: vi.fn() } };
 
 vi.mock('../../../src/shared/candid', async (importOriginal) => ({
@@ -57,7 +59,12 @@ vi.mock('../../../src/billing/payments', async (importOriginal) => ({
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  createBillingClient: vi.fn().mockReturnValue({}),
+  createBillingClient: vi.fn().mockReturnValue({
+    fhir: {
+      get: (...args: unknown[]) => mockBillingFhirGet(...args),
+      search: vi.fn().mockResolvedValue({ unbundle: () => [] }),
+    },
+  }),
 }));
 
 vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
@@ -154,7 +161,17 @@ function setupValidatedParams(paymentNoticeId: string, encounterId: string, secr
   });
 }
 
+// legacy EHR notices are only visible to the clinical client, billing notices only to the billing one
 function setupFhirSearches(paymentNotice: PaymentNotice, encounter: Encounter): void {
+  const isBilling = paymentNotice.meta?.tag?.some((tag) => tag.code === BILLING_RESOURCE_TAG.code);
+  mockBillingFhirGet.mockImplementation(async () => {
+    if (isBilling) return paymentNotice;
+    throw { code: 404 };
+  });
+  mockFhirGet.mockImplementation(async () => {
+    if (!isBilling) return paymentNotice;
+    throw { code: 404 };
+  });
   mockFhirSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
     if (resourceType === 'PaymentNotice') return { unbundle: () => [paymentNotice] };
     if (resourceType === 'Encounter') return { unbundle: () => [encounter] };
@@ -243,6 +260,26 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
 
     expect(mockRecordBillingPatientPayment).not.toHaveBeenCalled();
     expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(expect.objectContaining({ amountCents: undefined }));
+  });
+
+  it('does not copy a payment posted through billing, which is already a billing notice', async () => {
+    const notice: PaymentNotice = {
+      ...makePaymentNotice({ id: 'pn-billing', amountDollars: 15, encounterId: 'enc-6' }),
+      meta: { tag: [BILLING_RESOURCE_TAG] },
+      request: {
+        type: 'Claim',
+        identifier: { system: 'https://fhir.ottehr.com/Identifier/claim-encounter-id', value: 'enc-6' },
+      },
+    };
+    setup(notice, 'enc-6', 'all');
+
+    const result = await index({ headers: {}, body: '{}', secrets: {} });
+
+    expect(result.statusCode).toBe(200);
+    expect(mockRecordBillingPatientPayment).not.toHaveBeenCalled();
+    // Candid cannot import a cash payment on its own, so it still gets the amount
+    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1500 }));
+    expect(mockPatchTaskStatus.mock.calls[0][0].taskStatusToUpdate).toBe('completed');
   });
 
   it('skips candid and fails the task when the billing record fails, receipt still runs', async () => {

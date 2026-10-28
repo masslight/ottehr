@@ -4,8 +4,9 @@ import { randomUUID } from 'crypto';
 import { PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
+  isLocallyRecordedRefund,
+  isPendingReservation,
   mergeStripeRefundsWithStored,
   parsePaymentRefundsFromNotice,
   PENDING_RESERVATION_PREFIX,
@@ -13,68 +14,81 @@ import {
   settledRefundTotalInCents,
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  PAYMENT_REFUND_MEDIUMS,
-  PAYMENT_REFUND_VOID_REASONS,
   PaymentRefundDTO,
   RefundPatientPaymentInput,
   RefundPatientPaymentResponse,
 } from 'utils/lib/types/api/patient-payment-types';
-import { RoleType } from 'utils/lib/types/api/user.types';
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  parseStripeError,
-} from 'utils/lib/types/errors';
-import { isValidUUID } from 'utils/lib/validation/helper';
-import { getUserToken, requireUserWithRole } from '../../../shared/auth';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { lambdaResponse } from '../../../shared/lambda';
-import { practitionerRefForUser } from '../../../shared/practitioners';
-import { wrapHandler } from '../../../shared/sentry';
+import { RefundBillingPatientPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
+import { shouldUseCandid, syncCandidPatientRefunds } from '../../shared/candid';
+// eslint-disable-next-line no-restricted-imports -- reads legacy clinical payment notices, the Stripe account and Candid client, and syncs refunds to Candid
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { practitionerRefForUser } from '../../shared/practitioners';
+import { wrapHandler } from '../../shared/sentry';
 import {
   applyRefundsToPaymentNotice,
   getStripeClient,
-  STRIPE_PAYMENT_ID_SYSTEM,
+  PaymentNoticeChangeRecorder,
   stripeRefundToDTO,
-} from '../../../shared/stripeIntegration';
-import { ZambdaInput } from '../../../shared/types/common';
-import { safeJsonParse } from '../../../shared/validation';
+} from '../../shared/stripeIntegration';
+import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
+import {
+  createStripeAccountResolver,
+  PAYMENT_MANAGEMENT_ROLES,
+  paymentMethodForNotice,
+  recordLocalRefundOffsets,
+  resolvePaymentNoticeForWrite,
+  stripePaymentIntentIdForNotice,
+} from '../patient-payments';
+import { recordPaymentNoticeChange } from '../payments';
+import { humanClaimActor } from '../provenance';
+import { createBillingClient } from '../shared';
 
-const ZAMBDA_NAME = 'patient-payments-refund';
-
-export const PAYMENT_MANAGEMENT_ROLES = [RoleType.BillingAdmin];
+const ZAMBDA_NAME = 'refund-billing-patient-payment';
 
 // no processor link in these flows, so their refunds are recorded in FHIR only
 const MANUAL_REFUNDABLE_PAYMENT_METHODS = ['cash', 'check', 'external-card-reader'];
 
-// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrM2MClientToken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters: RefundPatientPaymentInput;
-  try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    console.log(error);
-    return lambdaResponse(400, { message: error.message });
-  }
-  const secrets = input.secrets;
+  const { secrets, ...validatedParameters } = validateWithSchema(RefundBillingPatientPaymentInputSchema, input);
 
   const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
-  if (!oystehrM2MClientToken) {
-    oystehrM2MClientToken = await getAuth0Token(secrets);
-  }
-  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const billingOystehr = createBillingClient(m2mToken, secrets);
   const stripeClient = getStripeClient(secrets);
 
-  const effectInput = await complexValidation(validatedParameters, oystehrClient, stripeClient);
+  const notice = await resolvePaymentNoticeForWrite({
+    clinicalOystehr,
+    billingOystehr,
+    getStripe: () => stripeClient,
+    paymentNoticeId: validatedParameters.paymentNoticeId,
+    encounterId: validatedParameters.encounterId,
+    secrets,
+  });
 
-  const refundedBy = await practitionerRefForUser(user, oystehrClient);
+  // the account the payment was taken on, which is not the schedule's for an outreach invoice; a
+  // payment outside Stripe has none, and its encounter need not have a schedule to fall back on
+  const stripeAccount = stripePaymentIntentIdForNotice(notice)
+    ? await createStripeAccountResolver({
+        billingOystehr,
+        clinicalOystehr,
+        encounterId: validatedParameters.encounterId,
+      })(notice)
+    : undefined;
+  const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);
+
+  const refundedBy = await practitionerRefForUser(user, clinicalOystehr);
+  // changes no refund entry attributes, such as a pending reservation, are credited to the issuer too
+  const recordChange = recordPaymentNoticeChange(humanClaimActor(refundedBy));
 
   const response = await performEffect(
     {
@@ -82,13 +96,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       refundedBy: refundedBy.display,
       refundedByReference: refundedBy.reference,
     },
-    oystehrClient,
+    { clinicalOystehr, billingOystehr, secrets, recordChange },
     stripeClient
   );
-  return lambdaResponse(200, response);
+  return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+interface RefundContext {
+  clinicalOystehr: Oystehr;
+  billingOystehr: Oystehr;
+  secrets: Secrets;
+  recordChange: PaymentNoticeChangeRecorder;
+}
+
 interface RefundEffectInput {
+  // the billing notice; a legacy EHR notice has already been adopted into billing
   notice: PaymentNotice;
   encounterId: string;
   // absent for manual (cash/check/external-reader) refunds, which never touch Stripe
@@ -118,7 +140,8 @@ interface RefundEffectInput {
 
 const complexValidation = async (
   params: RefundPatientPaymentInput,
-  oystehrClient: Oystehr,
+  notice: PaymentNotice,
+  stripeAccount: string | undefined,
   stripeClient: Stripe
 ): Promise<RefundEffectInput> => {
   const {
@@ -133,17 +156,11 @@ const complexValidation = async (
   } = params;
 
   // scope the client key to this payment: derived refund ids and billing dedup identifiers are
-  // global, so a key reused on another payment must not collide (mirrors patient-payments/post)
+  // global, so a key reused on another payment must not collide (mirrors post-billing-patient-payment)
   const operationKey = idempotencyKey ? `${paymentNoticeId}_${idempotencyKey}` : undefined;
   const manualRefundId = `manual_${operationKey ?? randomUUID()}`;
 
-  const notice = await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: paymentNoticeId });
-
-  if (notice.request?.reference !== `Encounter/${encounterId}`) {
-    throw INVALID_INPUT_ERROR('PaymentNotice does not belong to the specified encounter.');
-  }
-
-  const stripePaymentId = notice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
+  const stripePaymentId = stripePaymentIntentIdForNotice(notice);
   if (notice.status === 'cancelled') {
     throw INVALID_INPUT_ERROR('This payment has been voided.');
   }
@@ -154,7 +171,7 @@ const complexValidation = async (
         'External refunds only apply to Stripe-linked payments; this payment is already recorded manually.'
       );
     }
-    const paymentMethod = notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
+    const paymentMethod = paymentMethodForNotice(notice);
     if (!paymentMethod || !MANUAL_REFUNDABLE_PAYMENT_METHODS.includes(paymentMethod)) {
       throw INVALID_INPUT_ERROR('This payment is not linked to a Stripe payment and cannot be refunded.');
     }
@@ -203,8 +220,6 @@ const complexValidation = async (
       operationKey,
     };
   }
-
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
 
   const pendingReservationId = `${PENDING_RESERVATION_PREFIX}${operationKey ?? randomUUID()}`;
   let existingRefunds: PaymentRefundDTO[];
@@ -302,17 +317,36 @@ const complexValidation = async (
   };
 };
 
-// Billing FHIR resources are owned by the billing app; EHR zambdas must not write them directly.
-// The billing zambda derives copy stamps and AR offsets from the freshly stamped clinical notice.
-const recordRefundOnBillingSide = async (oystehr: Oystehr, clinicalPaymentNoticeId: string): Promise<void> => {
-  await oystehr.zambda.execute({ id: 'record-billing-refund', clinicalPaymentNoticeId });
+// FHIR-only refunds have no processor events, so the negative AR offsets the stripe webhook writes
+// for Stripe refunds, and the Candid refunds Candid imports from Stripe, are recorded here. Every
+// locally recorded entry is re-synced: both writers dedup, so this also repairs an earlier attempt
+// that died after stamping the notice.
+const recordManualRefundOffsets = async (
+  input: RefundEffectInput,
+  refunds: PaymentRefundDTO[],
+  { clinicalOystehr, billingOystehr, secrets }: RefundContext
+): Promise<void> => {
+  const { notice, encounterId } = input;
+  const manualRefunds = refunds.filter((refund) => isLocallyRecordedRefund(refund) && !isPendingReservation(refund));
+  if (manualRefunds.length === 0) return;
+
+  await recordLocalRefundOffsets(billingOystehr, notice, encounterId, secrets, manualRefunds);
+
+  if (shouldUseCandid(secrets)) {
+    const candidApiClient = await getOrCreateCandidApiClient(clinicalOystehr, secrets);
+    await syncCandidPatientRefunds({
+      encounterId,
+      refunds: manualRefunds,
+      oystehr: clinicalOystehr,
+      candidApiClient,
+    });
+  }
 };
 
-// Records the refund on the clinical notice and hands billing-side recording (copy stamps + the
-// negative AR notice the stripe webhook would have produced) to the billing zambda.
+// Records a refund of a payment with no processor link (cash, check, external reader) on the notice.
 const performManualRefund = async (
   input: RefundEffectInput,
-  oystehrClient: Oystehr
+  context: RefundContext
 ): Promise<RefundPatientPaymentResponse> => {
   const {
     notice,
@@ -338,19 +372,19 @@ const performManualRefund = async (
   };
   const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
 
-  await applyRefundsToPaymentNotice(oystehrClient, notice, refunds);
+  await applyRefundsToPaymentNotice(context.billingOystehr, notice, refunds, undefined, context.recordChange);
 
-  await recordRefundOnBillingSide(oystehrClient, notice.id!);
+  await recordManualRefundOffsets(input, refunds, context);
 
   return { refundId, amountInCents: refundEntry.amountInCents };
 };
 
 // Records a refund issued outside Stripe (external reader, cash, check, ...) for a Stripe-linked payment:
-// FHIR-only refund entry, billing-side recording via the billing zambda, and a documentation-only note
-// on the Stripe payment intent. No money moves through Stripe.
+// FHIR-only refund entry with its AR offset, and a documentation-only note on the Stripe payment
+// intent. No money moves through Stripe.
 const performExternalRefund = async (
   input: RefundEffectInput,
-  oystehrClient: Oystehr,
+  context: RefundContext,
   stripeClient: Stripe
 ): Promise<RefundPatientPaymentResponse> => {
   const {
@@ -381,9 +415,15 @@ const performExternalRefund = async (
   };
   const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
 
-  await applyRefundsToPaymentNotice(oystehrClient, notice, refunds, input.expiredReservationIds);
+  await applyRefundsToPaymentNotice(
+    context.billingOystehr,
+    notice,
+    refunds,
+    input.expiredReservationIds,
+    context.recordChange
+  );
 
-  await recordRefundOnBillingSide(oystehrClient, notice.id!);
+  await recordManualRefundOffsets(input, refunds, context);
 
   // documentation only — makes the external refund visible next to the payment in Stripe
   if (stripePaymentId) {
@@ -416,9 +456,10 @@ const performExternalRefund = async (
 
 const performEffect = async (
   input: RefundEffectInput,
-  oystehrClient: Oystehr,
+  context: RefundContext,
   stripeClient: Stripe
 ): Promise<RefundPatientPaymentResponse> => {
+  const { billingOystehr, recordChange } = context;
   const {
     notice,
     stripePaymentId,
@@ -432,11 +473,11 @@ const performEffect = async (
   } = input;
 
   if (!stripePaymentId) {
-    return performManualRefund(input, oystehrClient);
+    return performManualRefund(input, context);
   }
 
   if (input.external) {
-    return performExternalRefund(input, oystehrClient, stripeClient);
+    return performExternalRefund(input, context, stripeClient);
   }
 
   const reservationRemoveIds = [
@@ -446,7 +487,7 @@ const performEffect = async (
 
   // Stripe already created this refund on a prior attempt; finish the stamping and release the reservation
   if (input.resumeRefund) {
-    await applyRefundsToPaymentNotice(oystehrClient, notice, existingRefunds, reservationRemoveIds);
+    await applyRefundsToPaymentNotice(billingOystehr, notice, existingRefunds, reservationRemoveIds, recordChange);
     return { refundId: input.resumeRefund.stripeRefundId, amountInCents: input.resumeRefund.amountInCents };
   }
 
@@ -464,10 +505,11 @@ const performEffect = async (
       refundedByReference,
     };
     await applyRefundsToPaymentNotice(
-      oystehrClient,
+      billingOystehr,
       notice,
       [...existingRefunds, reservation],
-      input.expiredReservationIds
+      input.expiredReservationIds,
+      recordChange
     );
   }
 
@@ -505,15 +547,16 @@ const performEffect = async (
       );
     if (definitiveFailure && input.pendingReservationId && notice.id) {
       try {
-        const currentNotice = await oystehrClient.fhir.get<PaymentNotice>({
+        const currentNotice = await billingOystehr.fhir.get<PaymentNotice>({
           resourceType: 'PaymentNotice',
           id: notice.id,
         });
         await applyRefundsToPaymentNotice(
-          oystehrClient,
+          billingOystehr,
           currentNotice,
           parsePaymentRefundsFromNotice(currentNotice) ?? [],
-          [input.pendingReservationId]
+          [input.pendingReservationId],
+          recordChange
         );
       } catch (releaseError) {
         console.error('Failed to release refund reservation', input.pendingReservationId, releaseError);
@@ -526,68 +569,16 @@ const performEffect = async (
   // Re-read first (the reservation bumped the version) and build from the fresh notice's refunds so
   // anything stamped since our snapshot survives; release the reservation in the same patch.
   const freshNotice = notice.id
-    ? await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: notice.id })
+    ? await billingOystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: notice.id })
     : notice;
   const freshRefunds = parsePaymentRefundsFromNotice(freshNotice) ?? existingRefunds;
   await applyRefundsToPaymentNotice(
-    oystehrClient,
+    billingOystehr,
     freshNotice,
     [...freshRefunds.filter((existing) => existing.stripeRefundId !== refund.id), stripeRefundToDTO(refund)],
-    reservationRemoveIds
+    reservationRemoveIds,
+    recordChange
   );
 
   return { refundId: refund.id, amountInCents: refundAmountInCents };
-};
-
-const validateRequestParameters = (input: ZambdaInput): RefundPatientPaymentInput => {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
-  const { encounterId, paymentNoticeId, reason, notes, amountInCents, external, medium, idempotencyKey } =
-    safeJsonParse(input.body);
-
-  const missing = [!encounterId && 'encounterId', !paymentNoticeId && 'paymentNoticeId', !reason && 'reason'].filter(
-    Boolean
-  ) as string[];
-  if (missing.length) {
-    throw MISSING_REQUIRED_PARAMETERS(missing);
-  }
-  if (!isValidUUID(encounterId)) {
-    throw INVALID_INPUT_ERROR('"encounterId" must be a valid UUID.');
-  }
-  if (typeof paymentNoticeId !== 'string' || !isValidUUID(paymentNoticeId)) {
-    throw INVALID_INPUT_ERROR('"paymentNoticeId" must be a valid UUID.');
-  }
-  if (!PAYMENT_REFUND_VOID_REASONS.includes(reason)) {
-    throw INVALID_INPUT_ERROR(`"reason" must be one of: ${PAYMENT_REFUND_VOID_REASONS.join(', ')}`);
-  }
-  if (notes !== undefined && typeof notes !== 'string') {
-    throw INVALID_INPUT_ERROR('"notes" must be a string.');
-  }
-  if (amountInCents !== undefined && (!Number.isInteger(amountInCents) || amountInCents <= 0)) {
-    throw INVALID_INPUT_ERROR('"amountInCents" must be a positive integer.');
-  }
-  if (external !== undefined && typeof external !== 'boolean') {
-    throw INVALID_INPUT_ERROR('"external" must be a boolean.');
-  }
-  if (external && !PAYMENT_REFUND_MEDIUMS.includes(medium)) {
-    throw INVALID_INPUT_ERROR(`"medium" must be one of: ${PAYMENT_REFUND_MEDIUMS.join(', ')}`);
-  }
-  if (!external && medium !== undefined) {
-    throw INVALID_INPUT_ERROR('"medium" only applies to external refunds.');
-  }
-  if (idempotencyKey !== undefined && (typeof idempotencyKey !== 'string' || !isValidUUID(idempotencyKey))) {
-    throw INVALID_INPUT_ERROR('"idempotencyKey" must be a valid UUID.');
-  }
-
-  return {
-    encounterId,
-    paymentNoticeId,
-    reason,
-    notes: notes || undefined,
-    amountInCents,
-    external: external || undefined,
-    medium: external ? medium : undefined,
-    idempotencyKey,
-  };
 };

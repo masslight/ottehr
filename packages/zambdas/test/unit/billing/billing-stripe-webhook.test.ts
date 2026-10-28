@@ -53,8 +53,8 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
 
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
+import { stripeAccountExtension } from '../../../src/billing/payments';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
-import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 import { validateStripeWebhook } from '../../../src/shared/stripeWebhook';
@@ -372,7 +372,7 @@ describe('billing-stripe-webhook', () => {
     );
   });
 
-  it('acks without processing when BILLING_INTEGRATION does not include ottehr', async () => {
+  it('does not record an invoice paid out of band when BILLING_INTEGRATION does not include ottehr', async () => {
     (getStripeClient as Mock).mockReturnValue(stripe);
     const { oystehr, transaction } = makeOystehr([]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
@@ -384,9 +384,67 @@ describe('billing-stripe-webhook', () => {
     const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(input);
 
     expect(result.statusCode).toBe(200);
-    expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
     expect(createClinicalOystehrClient).not.toHaveBeenCalled();
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  describe('when BILLING_INTEGRATION does not include ottehr', () => {
+    const candidSecrets: Secrets = { ...secrets, BILLING_INTEGRATION: 'candid' };
+    const ehrCardNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-ehr',
+      meta: { versionId: '2' },
+      status: 'active',
+      amount: { value: 10, currency: 'USD' },
+      identifier: [
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      ],
+    } as PaymentNotice;
+    const succeededRefund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    it('refreshes the notice the EHR posted for a charge', async () => {
+      const { oystehr, transaction } = makeOystehr([[claim]], [], [ehrCardNotice]);
+
+      await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets: candidSecrets });
+
+      expect(createdNotices(transaction)).toEqual([]);
+      const refreshes = writes(transaction).filter((request) => request.method === 'PUT') as { ifMatch?: string }[];
+      expect(refreshedNotices(transaction)[0].id).toBe('pn-ehr');
+      expect(refreshes[0].ifMatch).toBe('W/"2"');
+    });
+
+    it('does not record a charge no billing notice records', async () => {
+      const { oystehr, transaction } = makeOystehr([[claim]]);
+
+      await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets: candidSecrets });
+
+      expect(transaction).not.toHaveBeenCalled();
+    });
+
+    it('stamps a refund on the payment without writing its AR offset', async () => {
+      const refundsList = vi.fn().mockResolvedValue({ data: [succeededRefund] });
+      (getStripeClient as Mock).mockReturnValue({
+        charges: { retrieve: vi.fn().mockResolvedValue(makeCharge()) },
+        refunds: { list: refundsList },
+      } as unknown as Stripe);
+      const { oystehr, transaction } = makeOystehr([[claim]], [], [ehrCardNotice]);
+
+      await performEffect(oystehr, { event: makeEvent('refund.created', succeededRefund), secrets: candidSecrets });
+
+      expect(createdNotices(transaction)).toEqual([]);
+      expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
+      expect(writes(transaction)).toContainEqual(
+        expect.objectContaining({ method: 'PATCH', url: '/PaymentNotice/pn-ehr' })
+      );
+    });
   });
 
   it('conditionally creates a linked notice for a charge when the claim exists', async () => {
@@ -641,6 +699,70 @@ describe('billing-stripe-webhook', () => {
     });
   });
 
+  it('merges into a notice the EHR posted for the charge instead of overwriting it', async () => {
+    const submitterDetail = { type: {}, submitter: { reference: 'Practitioner/pr-1', display: 'Front Desk' } };
+    const refundsExtension = { url: 'https://extensions.fhir.ottehr.com/payment-refunds', valueString: '[]' };
+    const ehrNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-ehr',
+      status: 'active',
+      amount: { value: 10, currency: 'USD' },
+      payee: { reference: 'Organization/billing-org' },
+      identifier: [
+        { system: ottehrIdentifierSystem('ehr-patient-payment-id'), value: 'enc-1_key' },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      ],
+      extension: [{ url: 'https://extensions.fhir.zapehr.com/payment-method', valueString: 'card' }, refundsExtension],
+      contained: [
+        {
+          resourceType: 'PaymentReconciliation',
+          id: 'contained-reconciliation',
+          status: 'active',
+          outcome: 'complete',
+          disposition: 'card payment intent created and confirmed with Stripe',
+          detail: [submitterDetail],
+        },
+      ],
+    } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [ehrNotice]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets });
+
+    const [merged] = refreshedNotices(transaction);
+    expect(merged.id).toBe('pn-ehr');
+    // the claim link is left to reconcile, which brings the payment's history along
+    expect(merged.request?.reference).toBeUndefined();
+    // the payee is the org behind the Stripe account, whichever writer stored the notice first
+    expect(merged.payee).toEqual({ reference: 'Organization/org-1' });
+    expect(merged.recipient).toEqual({ reference: 'Organization/org-1' });
+    // no identifier is duplicated or lost
+    expect(merged.identifier).toHaveLength(3);
+    expect(merged.extension).toContainEqual(refundsExtension);
+    // an event on the platform account stamps it explicitly, which a notice without a stamp gains
+    expect(merged.extension).toContainEqual(stripeAccountExtension(undefined));
+    const reconciliation = getContainedReconciliation(merged);
+    expect(reconciliation?.detail).toEqual([submitterDetail]);
+    expect(reconciliation?.disposition).toBe('Stripe charge ch_1 succeeded');
+  });
+
+  it('fails the event for redelivery when the conflict persists', async () => {
+    const stored = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-1',
+      meta: { versionId: '1' },
+      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+    } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [stored]);
+    const conflict = versionConflict();
+    transaction.mockRejectedValue(conflict);
+
+    await expect(performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets })).rejects.toBe(
+      conflict
+    );
+    expect(transaction.mock.calls.length).toBeGreaterThan(1);
+  });
+
   it('puts the resolved billing provider in payee and recipient', async () => {
     const bp = { resourceType: 'Organization', id: 'bp-1' } as Organization;
     const { oystehr, transaction } = makeOystehr([[claim]], [[bp]]);
@@ -700,7 +822,10 @@ describe('billing-stripe-webhook', () => {
       system: STRIPE_PAYMENT_ID_SYSTEM,
       value: 'ch_1',
     });
+    // both notices name the account the money moved on
+    expect(createdNotices(transaction)[0].extension).toContainEqual(stripeAccountExtension('acct_1'));
     const notice = createdNotices(transaction)[1];
+    expect(notice.extension).toContainEqual(stripeAccountExtension('acct_1'));
     expect(notice.identifier).toEqual([{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 're_1' }]);
     expect(notice.amount).toEqual({ value: -4, currency: 'USD' });
     expect(notice.status).toBe('active');
