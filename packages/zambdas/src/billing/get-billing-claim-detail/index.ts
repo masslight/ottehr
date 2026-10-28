@@ -46,6 +46,7 @@ import {
   sumPatientPayments,
   toClaimPatientPayment,
 } from '../claim-amounts';
+import { getClaimServiceDate } from '../claim-search';
 import { buildEraRemitServiceLines } from '../era-remits';
 import { getCLIA } from '../service-facility.helpers';
 import {
@@ -271,11 +272,7 @@ export async function performEffect(
       };
     });
   const status = getClaimStatus(claim);
-  const dos =
-    claim.billablePeriod?.start ??
-    claim.item?.[0]?.servicedPeriod?.start ??
-    claim.item?.[0]?.servicedDate ??
-    claim.created;
+  const dos = DateTime.fromISO(getClaimServiceDate(claim)).toFormat('yyyy-MM-dd');
   const patientAddr = patient?.address?.[0];
   const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
   const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
