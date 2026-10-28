@@ -536,20 +536,30 @@ describe('prescriptionLineToOrder', () => {
 });
 
 describe('prescription quick picks', () => {
-  it('round-trips a line, leaving the diagnosis behind', () => {
+  it('round-trips a line with its diagnosis, which replaces the line’s', () => {
     const line = { ...complete(), substitutionAllowed: false };
     const quickPick = prescriptionLineToQuickPick(line, '  Amoxicillin 10 days  ');
     expect(quickPick.name).toBe('Amoxicillin 10 days');
-    expect(quickPick).not.toHaveProperty('diagnosis');
+    expect(quickPick.diagnosis).toEqual({ code: 'J02.9', display: 'Acute pharyngitis, unspecified' });
 
     const target = { ...emptyPrescriptionLine(), diagnosis: { code: 'R50.9', display: 'Fever, unspecified' } };
     const applied = applyPrescriptionQuickPick(target, { id: 'qp-1', ...quickPick });
     expect(applied).toEqual({
       ...line,
       key: target.key,
-      diagnosis: target.diagnosis,
       quickPicked: { quantityValue: '20', daysSupply: '10', numberOfRefills: '0', noteToPharmacy: '' },
     });
+  });
+
+  it('saves no diagnosis from a line without one, and one without leaves the line’s diagnosis', () => {
+    const quickPick = prescriptionLineToQuickPick({ ...complete(), diagnosis: null }, 'Amoxicillin');
+    expect(quickPick).not.toHaveProperty('diagnosis');
+
+    const fever = { code: 'R50.9', display: 'Fever, unspecified' };
+    expect(applyPrescriptionQuickPick({ ...emptyPrescriptionLine(), diagnosis: fever }, quickPick).diagnosis).toEqual(
+      fever
+    );
+    expect(applyPrescriptionQuickPick(emptyPrescriptionLine(), quickPick).diagnosis).toBeNull();
   });
 
   it('starts the blanks empty, so they never overwrite the quick pick’s directions', () => {

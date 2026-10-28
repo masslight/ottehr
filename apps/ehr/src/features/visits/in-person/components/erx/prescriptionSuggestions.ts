@@ -258,6 +258,26 @@ const rowFor = (
 ): PrescriptionSuggestionRow =>
   quickPick.dosing ? dosedRow(quickPick, quickPick.dosing, id, medication, weightKg) : savedRow(quickPick, id);
 
+/** A quick pick's row with its diagnosis after the sentence, worded as the line words a chosen one: "… for Otitis
+ * media H66.90". Using the row fills the line's diagnosis with it (`applyPrescriptionQuickPick`). */
+const suggestionRowFor = (
+  quickPick: PrescriptionQuickPickData,
+  id: string,
+  medication: MedicationSearchResult,
+  weightKg: number | undefined
+): PrescriptionSuggestionRow => {
+  const row = rowFor(quickPick, id, medication, weightKg);
+  const { diagnosis } = quickPick;
+  if (!diagnosis) return row;
+  const forDiagnosis = ` for ${diagnosis.display} ${diagnosis.code}`;
+  const { segmentsFor } = row;
+  return {
+    ...row,
+    segments: [...row.segments, forDiagnosis],
+    ...(segmentsFor ? { segmentsFor: (picks: SentencePicks) => [...segmentsFor(picks), forDiagnosis] } : {}),
+  };
+};
+
 /** Another quick pick of a set as its row would read for its own product: "Ibuprofen 100 mg/5ml Susp. Take 5 mL by
  * mouth every 6 hours as needed for 5 days." */
 const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | undefined): string => {
@@ -291,7 +311,7 @@ export const prescriptionSuggestionsFor = ({
     .filter((quickPick) => isQuickPickFor(quickPick, medication))
     .map((quickPick, i) => ({
       name: quickPick.name,
-      row: rowFor(quickPick, `quick-pick-${quickPick.id ?? i}`, medication, weightKg),
+      row: suggestionRowFor(quickPick, `quick-pick-${quickPick.id ?? i}`, medication, weightKg),
     }));
   const fromSets = sets.flatMap((set) => {
     const { members } = prescriptionSetMembers(set, quickPicks);
@@ -299,7 +319,7 @@ export const prescriptionSuggestionsFor = ({
     const member = members[at];
     if (!member?.id) return [];
     const row: PrescriptionSuggestionRow = {
-      ...rowFor(member, `set-${set.id}`, medication, weightKg),
+      ...suggestionRowFor(member, `set-${set.id}`, medication, weightKg),
       setName: set.name,
       setSize: members.length,
       details: members.filter((_, i) => i !== at).map((other) => alsoAddsText(other, weightKg)),

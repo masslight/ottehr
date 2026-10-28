@@ -32,6 +32,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { PrimaryDiagnosisInput } from 'src/features/admin/patient-education/IcdDiagnosisInputs';
 import {
   productDetailsOf,
   productOf,
@@ -186,6 +187,7 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Product</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Dose</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Diagnosis</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Source</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }}>Actions</TableCell>
               </TableRow>
@@ -196,6 +198,7 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{item.medicationDescription || '-'}</TableCell>
                   <TableCell>{prescriptionQuickPickDoseText(item) || '-'}</TableCell>
+                  <TableCell>{item.diagnosis ? `${item.diagnosis.display} ${item.diagnosis.code}` : '-'}</TableCell>
                   <TableCell>
                     {item.source ? (
                       item.source.url ? (
@@ -416,6 +419,8 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
               inputProps: { maxLength: 210 },
               helperText: `${values.noteToPharmacy.length} / 210`,
             })}
+            {/* Using the quick pick fills the prescription's diagnosis with it. */}
+            <PrimaryDiagnosisInput value={values.diagnosis} onChange={(diagnosis) => set({ diagnosis })} />
             {field('sourceLabel', 'Source (optional)', { placeholder: 'e.g. AAP guideline' })}
             {field('sourceUrl', 'Source link (optional)', { placeholder: 'https://' })}
           </Stack>

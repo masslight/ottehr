@@ -606,8 +606,9 @@ export const quickPickProduct = (quickPick: PrescriptionQuickPickData): Medicati
     ? { ndc: quickPick.ndc, description: quickPick.medicationDescription, ...productDetailsOf(quickPick) }
     : null;
 
-/** A quick pick sets the whole prescription except the diagnosis, which belongs to the visit. Its directions were
- * written out, so the blanks start empty (the route from the product's dose form) and never overwrite them. */
+/** A quick pick sets the whole prescription; its diagnosis, when it has one, replaces the line's, else the line keeps
+ * its own. Its directions were written out, so the blanks start empty (the route from the product's dose form) and
+ * never overwrite them. */
 export const applyPrescriptionQuickPick = (
   line: PrescriptionLine,
   quickPick: PrescriptionQuickPickData
@@ -626,6 +627,7 @@ export const applyPrescriptionQuickPick = (
     substitutionAllowed: quickPick.substitutionAllowed ?? true,
     patientInstructions: quickPick.patientInstructions ?? '',
     noteToPharmacy: quickPick.noteToPharmacy ?? '',
+    diagnosis: quickPick.diagnosis ?? line.diagnosis,
     generated: NOTHING_GENERATED,
     // Its directions are text written for whoever it was saved from: not the calculator's for this patient.
     ...NO_DOSING,
@@ -660,7 +662,7 @@ export const prescriptionLineToQuickPick = (
   substitutionAllowed: line.substitutionAllowed,
   patientInstructions: line.patientInstructions.trim() || undefined,
   noteToPharmacy: line.noteToPharmacy.trim() || undefined,
-  // diagnosis excluded — encounter-specific
+  ...(line.diagnosis ? { diagnosis: line.diagnosis } : {}),
   // The calculator's settings with the line's frequency and duration, for a dose "Use this dose" wrote; a course's
   // later steps aren't the calculator's.
   ...(line.dosing && line.steps.length === 0

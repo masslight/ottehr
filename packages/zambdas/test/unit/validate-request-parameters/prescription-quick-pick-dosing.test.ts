@@ -197,6 +197,28 @@ describe.each([
   });
 });
 
+describe.each([
+  ['admin-create-quick-pick', validateCreate],
+  ['admin-update-quick-pick', validateUpdate],
+])('%s - prescription diagnosis', (_endpoint, validate) => {
+  test('accepts a diagnosis with a code and display', async () => {
+    await expect(
+      validate({ ...AMOX_STREP, diagnosis: { code: 'J02.0', display: 'Streptococcal pharyngitis' } })
+    ).resolves.toBeUndefined();
+  });
+
+  test.each([
+    ['no code', { display: 'Streptococcal pharyngitis' }],
+    ['an empty code', { code: '', display: 'Streptococcal pharyngitis' }],
+    ['no display', { code: 'J02.0' }],
+    ['a diagnosis that is not an object', 'J02.0'],
+  ])('rejects %s', async (_label, diagnosis) => {
+    const error = await rejection(validate({ ...AMOX_STREP, diagnosis }));
+    expect(error, 'expected the request to be rejected').toBeDefined();
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+  });
+});
+
 describe('prescription quick pick dosing - stored config round trip', () => {
   test('stores the source in the config extension and loads it back', () => {
     const withSource = { ...AMOX_STREP, source: SOURCE };

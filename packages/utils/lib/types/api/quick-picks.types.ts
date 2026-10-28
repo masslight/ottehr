@@ -176,9 +176,9 @@ export interface PrescriptionQuickPickSource {
  * characters of directions. */
 export const PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX = 500;
 
-/** A whole prescription: the medication with its dispense details and directions. The diagnosis and pharmacy
- * are encounter-specific and never saved. The product's RxCUI, dose form and ingredients are kept from the picked
- * strength; one saved before them has none. */
+/** A whole prescription: the medication with its dispense details and directions, and optionally its diagnosis. The
+ * pharmacy is encounter-specific and never saved. The product's RxCUI, dose form and ingredients are kept from the
+ * picked strength; one saved before them has none. */
 export interface PrescriptionQuickPickData extends MedicationProductDetails {
   id?: string;
   name: string;
@@ -191,6 +191,8 @@ export interface PrescriptionQuickPickData extends MedicationProductDetails {
   substitutionAllowed?: boolean;
   patientInstructions?: string;
   noteToPharmacy?: string;
+  /** One ICD-10 code; using the quick pick replaces the line's diagnosis with it. */
+  diagnosis?: { code: string; display: string };
   /** Only when the dose came from the calculator's "Use this dose". */
   dosing?: PrescriptionQuickPickDosing;
   /** With dosing only: written after the calculated directions ("Shake well. Take with food."), up to

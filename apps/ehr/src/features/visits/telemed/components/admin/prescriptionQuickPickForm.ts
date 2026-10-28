@@ -39,6 +39,7 @@ export interface PrescriptionQuickPickFormValues {
   numberOfRefills: string;
   substitutionAllowed: boolean;
   noteToPharmacy: string;
+  diagnosis: { code: string; display: string } | null;
   sourceLabel: string;
   sourceUrl: string;
 }
@@ -74,6 +75,7 @@ export const emptyPrescriptionQuickPickForm = (): PrescriptionQuickPickFormValue
   numberOfRefills: '0',
   substitutionAllowed: true,
   noteToPharmacy: '',
+  diagnosis: null,
   sourceLabel: '',
   sourceUrl: '',
 });
@@ -107,6 +109,7 @@ export const prescriptionQuickPickFormValues = (
     numberOfRefills: text(quickPick.numberOfRefills ?? 0),
     substitutionAllowed: quickPick.substitutionAllowed ?? true,
     noteToPharmacy: quickPick.noteToPharmacy ?? '',
+    diagnosis: quickPick.diagnosis ?? null,
     sourceLabel: source?.label ?? '',
     sourceUrl: source?.url ?? '',
   };
@@ -253,6 +256,7 @@ export const prescriptionQuickPickFromForm = (
       numberOfRefills: Number(v.numberOfRefills),
       substitutionAllowed: v.substitutionAllowed,
       ...(v.noteToPharmacy.trim() ? { noteToPharmacy: v.noteToPharmacy.trim() } : {}),
+      ...(v.diagnosis ? { diagnosis: { code: v.diagnosis.code, display: v.diagnosis.display } } : {}),
       ...(v.sourceLabel.trim()
         ? { source: { label: v.sourceLabel.trim(), ...(v.sourceUrl.trim() ? { url: v.sourceUrl.trim() } : {}) } }
         : {}),

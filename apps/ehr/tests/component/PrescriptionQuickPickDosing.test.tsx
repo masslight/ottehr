@@ -428,6 +428,38 @@ describe('Suggestions from quick picks', () => {
     expect(latest?.dosing).toBeUndefined();
   });
 
+  it('ends a quick pick’s row with its diagnosis as the line words it; using the row replaces the line’s', async () => {
+    const strep = { code: 'J02.0', display: 'Streptococcal pharyngitis' };
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initial={{ ...liquidLine(), diagnosis: { code: 'R50.9', display: 'Fever, unspecified' } }}
+        quickPicks={[
+          { ...BY_WEIGHT, diagnosis: strep },
+          { ...SAVED_TEXT, diagnosis: strep },
+        ]}
+        weight={WEIGHT}
+      />
+    );
+    expect(suggestionRow(0)).toHaveTextContent(
+      /^Take 9 mL by mouth twice daily for 10 days\. for Streptococcal pharyngitis J02\.0/
+    );
+    expect(suggestionRow(1)).toHaveTextContent(
+      'Take 5 mL by mouth twice daily for 10 days. for Streptococcal pharyngitis J02.0'
+    );
+    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));
+    expect(latest).toMatchObject({ dose: '9', diagnosis: strep });
+  });
+
+  it('a row without a diagnosis leaves the line’s', async () => {
+    const fever = { code: 'R50.9', display: 'Fever, unspecified' };
+    const user = userEvent.setup();
+    render(<Harness initial={{ ...liquidLine(), diagnosis: fever }} quickPicks={[SAVED_TEXT]} weight={WEIGHT} />);
+    expect(suggestionRow(0)).not.toHaveTextContent('for Fever');
+    await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));
+    expect(latest?.diagnosis).toEqual(fever);
+  });
+
   it('shows the calculator on a quick pick with dosing; one saved as written has it disabled, its hover saying so', async () => {
     const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[SAVED_TEXT, CAPPED]} weight={WEIGHT} />);

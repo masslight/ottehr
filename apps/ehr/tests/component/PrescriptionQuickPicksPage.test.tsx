@@ -39,6 +39,12 @@ vi.mock('src/features/visits/shared/hooks/useErxSearch', () => ({
   useSearchMedications: () => ({ data: [AMOXICILLIN_DRUG], isFetching: false, isError: false }),
 }));
 
+// The diagnosis field's ICD-10 search is a network call; it answers with one code whatever is typed.
+const STREP = { code: 'J02.0', display: 'Streptococcal pharyngitis' };
+vi.mock('src/features/admin/patient-education/useIcd10SearchInput', () => ({
+  useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [STREP], isFetching: false }),
+}));
+
 const BY_WEIGHT: PrescriptionQuickPickData = {
   id: 'qp-1',
   name: 'Amoxicillin otitis',
@@ -182,6 +188,32 @@ describe('Prescription quick picks admin', () => {
       substitutionAllowed: false,
       noteToPharmacy: 'Dispense in original bottle',
     });
+  });
+
+  it('saves the diagnosis picked from the ICD-10 search, and lists it', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Amoxicillin caps')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    await chooseOption(user, 'Diagnosis', 'J02.0 — Streptococcal pharyngitis');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.updatePrescriptionQuickPick).toHaveBeenCalledTimes(1));
+    expect(api.updatePrescriptionQuickPick.mock.calls[0][2]).toMatchObject({ diagnosis: STREP });
+  });
+
+  it('lists a quick pick’s diagnosis as the order form words it, and keeps it when edited', async () => {
+    api.getPrescriptionQuickPicks.mockResolvedValue({ quickPicks: [{ ...AS_WRITTEN, diagnosis: STREP }] });
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Amoxicillin caps')).closest('tr') as HTMLElement;
+    expect(within(row).getByText('Streptococcal pharyngitis J02.0')).toBeInTheDocument();
+    await user.click(within(row).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.updatePrescriptionQuickPick).toHaveBeenCalledTimes(1));
+    expect(api.updatePrescriptionQuickPick.mock.calls[0][2]).toMatchObject({ diagnosis: STREP });
   });
 
   it('won’t save a quick pick under another one’s name, trimmed and in any case; its own name stays', async () => {

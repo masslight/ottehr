@@ -152,6 +152,7 @@ const prescriptionQuickPickSchema = z
     substitutionAllowed: z.boolean().optional(),
     patientInstructions: z.string().max(1000).optional(),
     noteToPharmacy: z.string().max(210).optional(),
+    diagnosis: z.object({ code: z.string().min(1), display: z.string() }).optional(),
     dosing: prescriptionDosingSchema.optional(),
     additionalInstructions: z.string().max(PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX).optional(),
     source: prescriptionSourceSchema.optional(),
