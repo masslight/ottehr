@@ -127,6 +127,28 @@ describe('AppointmentsFilters persistence', () => {
     });
   });
 
+  it('keeps scheduled follow-up deselected when a current-format filter saved it as known but unselected', async () => {
+    renderFilters('/visits?tab=in-office');
+    let allVisitTypes: string[] = [];
+    await waitFor(() => {
+      allVisitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
+      expect(allVisitTypes).toContain('in-person-scheduled-follow-up');
+    });
+    cleanup();
+    const narrowed = allVisitTypes.filter((key) => key !== 'in-person-scheduled-follow-up');
+    localStorage.setItem(
+      LOCAL_STORAGE_FILTERS_KEY,
+      JSON.stringify({ visitType: narrowed, knownVisitTypes: allVisitTypes })
+    );
+
+    renderFilters('/visits?tab=in-office');
+
+    await waitFor(() => {
+      const visitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
+      expect(visitTypes.sort()).toEqual([...narrowed].sort());
+    });
+  });
+
   it('defaults the date to today on a fresh session even with other filters persisted', async () => {
     // A new browser session clears sessionStorage but not localStorage; the stale date in
     // localStorage (legacy) must be ignored and the date must fall back to today.

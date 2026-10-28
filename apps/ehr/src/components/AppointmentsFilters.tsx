@@ -251,7 +251,7 @@ export default function AppointmentsFilters(): ReactElement {
     }
 
     try {
-      const { knownVisitTypesAtSaveTime, ...parsed } = JSON.parse(persistedValues);
+      const { knownVisitTypes: knownVisitTypesAtSaveTime, ...parsed } = JSON.parse(persistedValues);
       methods.reset({
         ...defaultFilterValues,
         ...parsed,
