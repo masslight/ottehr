@@ -169,6 +169,8 @@ interface PopoverBlankProps extends Omit<BlankButtonProps, 'onClick'> {
   title?: string;
   /** Hides the heading, for content with a labelled field of its own; the title still names the dialog. */
   hideTitle?: boolean;
+  /** For content that needs more room than the usual popover. */
+  paperSx?: SxProps<Theme>;
   children: (close: () => void) => ReactNode;
   onClose?: () => void;
 }
@@ -301,7 +303,7 @@ export const BlankPopper: FC<BlankPopperProps> = ({ anchor, id, title, onClose, 
   );
 };
 
-export const PopoverBlank: FC<PopoverBlankProps> = ({ title, hideTitle, children, onClose, ...blank }) => {
+export const PopoverBlank: FC<PopoverBlankProps> = ({ title, hideTitle, paperSx, children, onClose, ...blank }) => {
   const popupId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -323,7 +325,14 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, hideTitle, children
         popupId={popupId}
       />
       {anchor && (
-        <BlankPopper anchor={anchor} id={popupId} title={title ?? blank.label} onClose={close} hideTitle={hideTitle}>
+        <BlankPopper
+          anchor={anchor}
+          id={popupId}
+          title={title ?? blank.label}
+          onClose={close}
+          hideTitle={hideTitle}
+          paperSx={paperSx}
+        >
           {children(close)}
         </BlankPopper>
       )}

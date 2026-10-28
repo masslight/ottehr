@@ -621,7 +621,9 @@ describe('A quick pick from the medication menu', () => {
 
   const choose = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
     await user.click(screen.getByRole('button', { name: /^medication/ }));
-    await user.click(within(screen.getByRole('listbox', { name: 'Medication' })).getByText(label));
+    await user.click(
+      within(screen.getByRole('listbox', { name: 'Prescription sets and quick picks' })).getByText(label)
+    );
   };
 
   it('re-doses a quick pick saved by weight for this patient, as its suggestion row does', async () => {
@@ -728,7 +730,9 @@ describe('Maximum warnings on the line', () => {
 
   const choose = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
     await user.click(screen.getByRole('button', { name: /^medication/ }));
-    await user.click(within(screen.getByRole('listbox', { name: 'Medication' })).getByText(label));
+    await user.click(
+      within(screen.getByRole('listbox', { name: 'Prescription sets and quick picks' })).getByText(label)
+    );
   };
   const typeDose = async (user: ReturnType<typeof userEvent.setup>, dose: string): Promise<void> => {
     await user.clear(screen.getByRole('spinbutton', { name: 'dose' }));

@@ -18,13 +18,16 @@ import { VisitWeight } from '../../src/features/visits/in-person/components/erx/
 import { detailed, ERX_PRODUCT_DETAILS } from './helpers/erxProducts';
 
 // The real suggestions seam: the rows here come from the quick picks and sets given. The medication search answers
-// with the liquids below whatever is typed; a test sets `fetching` to see it still searching.
-const medicationSearch = vi.hoisted(() => ({ fetching: false }));
+// with the liquids below whatever is typed; a test sets `fetching` to see it still searching, `failed` to see it fail
+// and `empty` to see it find nothing.
+const medicationSearch = vi.hoisted(() => ({ fetching: false, failed: false, empty: false }));
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
   useSearchMedications: () =>
     medicationSearch.fetching
       ? { data: undefined, isFetching: true, isError: false }
-      : { data: [LIQUIDS], isFetching: false, isError: false },
+      : medicationSearch.failed
+      ? { data: undefined, isFetching: false, isError: true }
+      : { data: medicationSearch.empty ? [] : [LIQUIDS], isFetching: false, isError: false },
 }));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { resourceType: 'Encounter', id: 'encounter-1', status: 'in-progress' } }),
@@ -156,19 +159,20 @@ const suggestionRow = (index: number): HTMLElement =>
   screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })[index].closest('.MuiBox-root')!
     .parentElement!;
 
-const openMenu = async (user: ReturnType<typeof userEvent.setup>, index = 0): Promise<HTMLElement> => {
+const openMenu = async (user: ReturnType<typeof userEvent.setup>, index = 0): Promise<void> => {
   await user.click(screen.getAllByRole('button', { name: /^medication/ })[index]);
-  return screen.getByRole('listbox', { name: 'Medication' });
 };
+const field = (): HTMLElement => screen.getByRole('combobox', { name: 'Medication' });
+const quickPickColumn = (): HTMLElement => screen.getByRole('listbox', { name: 'Prescription sets and quick picks' });
+const medicationColumn = (): HTMLElement => screen.getByRole('listbox', { name: 'Medications' });
 
-/** The menu's rows as read: a set's "Set: name" and count, a quick pick's name and product, a medication's name. */
+/** The column's rows as read: a set's "Set: name" and count, a quick pick's name, a medication's name. */
 const menuItems = (list: HTMLElement): string[] =>
   Array.from(list.querySelectorAll('[role="option"]')).map((item) => item.textContent ?? '');
-
-/** Whether the row is set in under the medication above it. */
-const nested = (name: string): boolean => {
-  const padding = getComputedStyle(screen.getByText(name).parentElement as HTMLElement).paddingLeft;
-  return padding !== '' && padding !== '0px';
+/** The row the field says is highlighted. */
+const highlighted = (): string | null | undefined => {
+  const id = field().getAttribute('aria-activedescendant');
+  return id ? document.getElementById(id)?.textContent : undefined;
 };
 
 const SETS_ROWS = ['Set: Acute otitis2 prescriptions', 'Set: Ear infection2 prescriptions'];
@@ -181,20 +185,29 @@ describe('Prescription sets on the order form', () => {
   });
 
   describe('the medication menu', () => {
-    it('lists the Active sets, then the quick picks, in one list without headings', async () => {
+    it('before typing: the Active sets and the quick picks on the left, a prompt to search on the right', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
-      const list = await openMenu(user);
-      expect(menuItems(list)).toEqual([...SETS_ROWS, ...AMOX_ROWS, IBUPROFEN_ROW]);
-      expect(list.querySelector('.MuiAutocomplete-groupLabel')).toBeNull();
+      await openMenu(user);
+      expect(field()).toHaveAttribute('placeholder', 'Select a quick pick or type to search');
+      expect(within(quickPickColumn()).getByRole('group', { name: 'Prescription sets' })).toBeInTheDocument();
+      expect(menuItems(within(quickPickColumn()).getByRole('group', { name: 'Prescription sets' }))).toEqual(SETS_ROWS);
+      expect(menuItems(within(quickPickColumn()).getByRole('group', { name: 'Quick picks' }))).toEqual([
+        ...AMOX_ROWS,
+        IBUPROFEN_ROW,
+      ]);
       // Quick picks' and sets' names italic; "Set:" muted, not italic.
       expect(screen.getByText('Amox strep')).toHaveStyle({ fontStyle: 'italic' });
       expect(screen.getByText('Acute otitis')).toHaveStyle({ fontStyle: 'italic' });
       expect(screen.getAllByText('Set:')[0]).not.toHaveStyle({ fontStyle: 'italic' });
       // Inactive: waiting for review in Admin.
       expect(screen.queryByText('Bronchitis')).not.toBeInTheDocument();
-      expect(screen.queryByText('Type to search more quick picks and medications')).not.toBeInTheDocument();
-      expect(screen.getByPlaceholderText('Select a quick pick or type to search')).toBeInTheDocument();
+      expect(screen.queryByText('Type to search more')).not.toBeInTheDocument();
+      expect(screen.getByText('Medications')).toBeInTheDocument();
+      expect(menuItems(medicationColumn())).toEqual([]);
+      expect(screen.getByText('Type to search medications')).toBeInTheDocument();
+      // The field names the two lists it drives.
+      expect(field().getAttribute('aria-controls')?.split(' ')).toEqual([quickPickColumn().id, medicationColumn().id]);
     });
 
     it('lists up to 10 sets and 10 quick picks before anything is typed, then says to type for more', async () => {
@@ -202,69 +215,151 @@ describe('Prescription sets on the order form', () => {
       const many = Array.from({ length: 12 }, (_, i) => ({ ...IBUPROFEN, id: `qp-${i}`, name: `Pick ${10 + i}` }));
       const sets = Array.from({ length: 11 }, (_, i) => set(`set-${i}`, `Set ${10 + i}`, ['qp-0']));
       render(<Form initial={[emptyPrescriptionLine()]} quickPicks={many} sets={sets} />);
-      const items = menuItems(await openMenu(user));
-      expect(items).toHaveLength(10 + 10 + 1);
+      await openMenu(user);
+      const items = menuItems(quickPickColumn());
+      expect(items).toHaveLength(10 + 10);
       expect(items[9]).toBe('Set: Set 191 prescription');
       expect(items[10]).toBe('Pick 10');
-      expect(items[20]).toBe('Type to search more quick picks and medications');
-      expect(screen.getByRole('option', { name: 'Type to search more quick picks and medications' })).toHaveAttribute(
-        'aria-disabled',
-        'true'
-      );
+      expect(screen.getByText('Type to search more')).toBeInTheDocument();
       expect(screen.queryByText('Set 20')).not.toBeInTheDocument();
       expect(screen.queryByText('Pick 20')).not.toBeInTheDocument();
       // Typed, every match shows: past the first 10.
-      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'pick 2');
+      await user.type(field(), 'pick 2');
       expect(screen.getByText('Pick 20')).toBeInTheDocument();
       expect(screen.getByText('Pick 21')).toBeInTheDocument();
+      expect(screen.queryByText('Type to search more')).not.toBeInTheDocument();
     });
 
-    it('typed: the matching sets, then each medication with its quick picks by NDC under it, then other matching quick picks', async () => {
+    it('typed: the matching sets and quick picks on the left, the search’s medications on the right', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
       await openMenu(user);
-      const list = (): HTMLElement => screen.getByRole('listbox', { name: 'Medication' });
-      // Both sets hold the ibuprofen (matched by product, in any case). The amoxicillin quick picks don't match the
-      // text but order the search's medication, so they sit under it; the ibuprofen one matches and orders none.
-      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'IBU');
-      expect(menuItems(list())).toEqual([...SETS_ROWS, 'Amoxicillin', ...AMOX_ROWS, IBUPROFEN_ROW]);
-      expect(nested('Amox strep')).toBe(true);
-      expect(nested('Ibuprofen pain')).toBe(false);
+      // "amox" matches the amoxicillin quick picks by name and both sets by one of theirs; not the ibuprofen.
+      await user.type(field(), 'amox');
+      expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, ...AMOX_ROWS]);
+      expect(menuItems(medicationColumn())).toEqual(['Amoxicillin']);
       expect(screen.getByText('Amoxicillin')).not.toHaveStyle({ fontStyle: 'italic' });
-      // A quick pick matching the text and under a medication is listed once, there.
-      await user.clear(screen.getByRole('combobox', { name: 'Medication' }));
-      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'strep');
-      expect(menuItems(list())).toEqual([...SETS_ROWS, 'Amoxicillin', ...AMOX_ROWS]);
+      // By product, in any case: both sets hold the ibuprofen.
+      await user.clear(field());
+      await user.type(field(), 'IBUPROFEN 100');
+      expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, IBUPROFEN_ROW]);
+      // A set matched by its own name only: no quick picks heading.
+      await user.clear(field());
+      await user.type(field(), 'otitis');
+      expect(menuItems(quickPickColumn())).toEqual([SETS_ROWS[0]]);
+      expect(within(quickPickColumn()).queryByRole('group', { name: 'Quick picks' })).not.toBeInTheDocument();
+      // A quick pick only: no sets heading.
+      await user.clear(field());
+      await user.type(field(), 'written');
+      expect(menuItems(quickPickColumn())).toEqual(['Amox as written']);
+      expect(within(quickPickColumn()).queryByRole('group', { name: 'Prescription sets' })).not.toBeInTheDocument();
+      // Nothing on the left; the search still answers on the right.
+      await user.clear(field());
+      await user.type(field(), 'zz');
+      expect(menuItems(quickPickColumn())).toEqual([]);
+      expect(screen.getByText('No quick picks match')).toBeInTheDocument();
+      expect(menuItems(medicationColumn())).toEqual(['Amoxicillin']);
       // One letter is too few for the medication search.
-      await user.clear(screen.getByRole('combobox', { name: 'Medication' }));
-      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'w');
-      expect(menuItems(list())).toEqual(['Amox as written']);
+      await user.clear(field());
+      await user.type(field(), 'w');
+      expect(menuItems(quickPickColumn())).toEqual(['Amox as written']);
+      expect(menuItems(medicationColumn())).toEqual([]);
+      expect(screen.getByText('Type to search medications')).toBeInTheDocument();
     });
 
-    it('holds the medications’ place with "Searching medications…" while the search runs', async () => {
+    it('says "Searching medications…" on the right while the search runs, the left column already matching', async () => {
       medicationSearch.fetching = true;
       try {
         const user = userEvent.setup();
         render(<Form initial={[emptyPrescriptionLine()]} />);
         await openMenu(user);
-        await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'ibu');
-        expect(menuItems(screen.getByRole('listbox', { name: 'Medication' }))).toEqual([
-          ...SETS_ROWS,
-          'Searching medications…',
-          IBUPROFEN_ROW,
-        ]);
-        expect(screen.getByRole('option', { name: 'Searching medications…' })).toHaveAttribute('aria-disabled', 'true');
+        await user.type(field(), 'ibu');
+        expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, IBUPROFEN_ROW]);
+        expect(menuItems(medicationColumn())).toEqual([]);
+        expect(screen.getByText('Searching medications…')).toBeInTheDocument();
       } finally {
         medicationSearch.fetching = false;
       }
+    });
+
+    it('says the search is unavailable on the right when it fails, the left column still there', async () => {
+      medicationSearch.failed = true;
+      try {
+        const user = userEvent.setup();
+        render(<Form initial={[emptyPrescriptionLine()]} />);
+        await openMenu(user);
+        await user.type(field(), 'amox');
+        expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, ...AMOX_ROWS]);
+        expect(
+          within(medicationColumn().parentElement!).getByText('Medication search is unavailable.')
+        ).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Report an issue' })).toBeInTheDocument();
+        expect(screen.queryByText('Nothing found for this search criteria')).not.toBeInTheDocument();
+      } finally {
+        medicationSearch.failed = false;
+      }
+    });
+
+    it('says when the search finds nothing', async () => {
+      medicationSearch.empty = true;
+      try {
+        const user = userEvent.setup();
+        render(<Form initial={[emptyPrescriptionLine()]} />);
+        await openMenu(user);
+        await user.type(field(), 'amox');
+        expect(screen.getByText('Nothing found for this search criteria')).toBeInTheDocument();
+      } finally {
+        medicationSearch.empty = false;
+      }
+    });
+
+    it('keyboard: Up/Down within a column, Left/Right between them, Enter picks, focus staying in the field', async () => {
+      const user = userEvent.setup();
+      render(<Form initial={[emptyPrescriptionLine()]} />);
+      await openMenu(user);
+      await user.type(field(), 'amox');
+      expect(highlighted()).toBeUndefined();
+      await user.keyboard('{ArrowDown}');
+      expect(highlighted()).toBe(SETS_ROWS[0]);
+      expect(screen.getByRole('option', { selected: true })).toHaveTextContent(SETS_ROWS[0]);
+      await user.keyboard('{ArrowDown}');
+      expect(highlighted()).toBe(SETS_ROWS[1]);
+      // Over to the medications: the nearest row there, the only one.
+      await user.keyboard('{ArrowRight}');
+      expect(highlighted()).toBe('Amoxicillin');
+      // Down in a one-row column stays on it.
+      await user.keyboard('{ArrowDown}');
+      expect(highlighted()).toBe('Amoxicillin');
+      await user.keyboard('{ArrowLeft}');
+      expect(highlighted()).toBe(SETS_ROWS[0]);
+      // Up from the top goes round to the bottom.
+      await user.keyboard('{ArrowUp}');
+      expect(highlighted()).toBe('Amox strep');
+      expect(field()).toHaveFocus();
+      await user.keyboard('{Enter}');
+      expect(withoutKey(latest[0])).toEqual(listed(BY_WEIGHT));
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
+    it('keyboard: Enter on a medication picks it; typing again clears the highlight', async () => {
+      const user = userEvent.setup();
+      render(<Form initial={[emptyPrescriptionLine()]} />);
+      await openMenu(user);
+      await user.type(field(), 'am');
+      await user.keyboard('{ArrowDown}{ArrowRight}');
+      expect(highlighted()).toBe('Amoxicillin');
+      await user.type(field(), 'o');
+      expect(highlighted()).toBeUndefined();
+      await user.keyboard('{ArrowDown}{ArrowRight}{Enter}');
+      expect(latest[0]).toMatchObject({ drug: LIQUIDS, medication: null });
     });
 
     it('picks a medication from the search as before: its strength next', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
       await openMenu(user);
-      await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
-      await user.click(screen.getByRole('option', { name: 'Amoxicillin' }));
+      await user.type(field(), 'amox');
+      await user.click(within(medicationColumn()).getByRole('option', { name: 'Amoxicillin' }));
       expect(latest[0]).toMatchObject({ drug: LIQUIDS, medication: null });
       expect(screen.getByRole('button', { name: 'strength (empty)' })).toBeInTheDocument();
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
@@ -273,7 +368,8 @@ describe('Prescription sets on the order form', () => {
     it('picks a quick pick as before: the line as the quick pick fills it', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
-      await user.click(within(await openMenu(user)).getByText('Amox as written'));
+      await openMenu(user);
+      await user.click(within(quickPickColumn()).getByText('Amox as written'));
       expect(withoutKey(latest[0])).toEqual(listed(SAVED_TEXT));
       expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
         'Take 5 mL by mouth twice daily for 10 days.'
@@ -284,7 +380,8 @@ describe('Prescription sets on the order form', () => {
       const user = userEvent.setup();
       const after = withListedQuickPick(emptyPrescriptionLine(), SAVED_TEXT, WEIGHT.kg);
       render(<Form initial={[emptyPrescriptionLine(), after]} />);
-      await user.click(within(await openMenu(user)).getByText('Ear infection'));
+      await openMenu(user);
+      await user.click(within(quickPickColumn()).getByText('Ear infection'));
       expect(latest.map(withoutKey)).toEqual([listed(BY_WEIGHT), listed(IBUPROFEN), withoutKey(after)]);
       // Re-dosed for the weight, with its maximum and settings, as the quick pick itself is.
       expect(latest[0]).toMatchObject({ dose: '9', dosing: { rate: 25, basis: 'mg/kg/dose' } });
@@ -296,14 +393,16 @@ describe('Prescription sets on the order form', () => {
       const user = userEvent.setup();
       const held = withListedQuickPick(emptyPrescriptionLine(), SAVED_TEXT, WEIGHT.kg);
       render(<Form initial={[held]} />);
-      await user.click(within(await openMenu(user)).getByText('Ear infection'));
+      await openMenu(user);
+      await user.click(within(quickPickColumn()).getByText('Ear infection'));
       expect(latest.map(withoutKey)).toEqual([withoutKey(held), listed(BY_WEIGHT), listed(IBUPROFEN)]);
     });
 
     it('skips a quick pick that no longer exists and says so', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
-      await user.click(within(await openMenu(user)).getByText('Acute otitis'));
+      await openMenu(user);
+      await user.click(within(quickPickColumn()).getByText('Acute otitis'));
       expect(latest.map(withoutKey)).toEqual([listed(IBUPROFEN), listed(BY_WEIGHT)]);
       expect(notices).toEqual(['1 prescription in this set no longer exists.']);
     });

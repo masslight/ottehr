@@ -12,7 +12,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { FC, ReactNode, useEffect, useMemo, useState } from 'react';
+import { FC, KeyboardEvent, ReactNode, useEffect, useId, useMemo, useState } from 'react';
 import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SentencePicks } from 'src/components/SuggestedSentences';
 import { useIcd10SearchInput } from 'src/features/admin/patient-education/useIcd10SearchInput';
@@ -249,100 +249,63 @@ const DiagnosisSearch: FC<{
   );
 };
 
-/** A row of the line's medication menu. */
-type MedicationMenuOption =
+/** A pick in the line's medication menu. */
+type MedicationMenuPick =
   | { kind: 'set'; set: PrescriptionSetQuickPickData; members: PrescriptionQuickPickData[] }
-  // Nested: under the medication whose strength it orders.
-  | { kind: 'quickPick'; quickPick: PrescriptionQuickPickData; nested?: boolean }
-  | { kind: 'drug'; drug: MedicationSearchDrug }
-  | { kind: 'searching' }
-  | { kind: 'more' };
+  | { kind: 'quickPick'; quickPick: PrescriptionQuickPickData }
+  | { kind: 'drug'; drug: MedicationSearchDrug };
 
-/** How many sets and how many quick picks the medication menu lists before anything is typed. */
+/** How many sets and how many quick picks the menu lists before anything is typed. */
 const MEDICATION_MENU_LIMIT = 10;
-const MORE_TEXT = 'Type to search more quick picks and medications';
-const SEARCHING_TEXT = 'Searching medications…';
 
-const medicationMenuLabel = (option: MedicationMenuOption): string =>
-  option.kind === 'set'
-    ? option.set.name
-    : option.kind === 'quickPick'
-    ? option.quickPick.name
-    : option.kind === 'drug'
-    ? option.drug.name
-    : option.kind === 'searching'
-    ? SEARCHING_TEXT
-    : MORE_TEXT;
-
-const medicationMenuKey = (option: MedicationMenuOption): string =>
-  option.kind === 'set'
-    ? `set-${option.set.id}`
-    : option.kind === 'quickPick'
-    ? `quick-pick-${option.quickPick.id ?? option.quickPick.name}`
-    : option.kind === 'drug'
-    ? `drug-${option.drug.name}`
-    : option.kind;
-
-/** The menu's rows. Before anything is typed: the first sets, then the first quick picks, and a row saying to type
- * for more. Typed: the sets matching by name or by a quick pick's name or product; then each medication the search
- * found, with the quick picks ordering one of its strengths (by NDC) under it; then the quick picks matching by name
- * or product that are under none. While the search runs, a row holds the medications' place. */
-const medicationMenuOptions = ({
-  typed,
-  sets,
-  quickPicks,
-  drugs,
-  searching,
-}: {
-  typed: string;
-  sets: PrescriptionSetQuickPickData[];
-  quickPicks: PrescriptionQuickPickData[];
-  /** Absent until there is a search's answer to show. */
-  drugs?: MedicationSearchDrug[];
-  searching: boolean;
-}): MedicationMenuOption[] => {
-  const setOptions = sets.map((set) => ({
+/** The menu's left column. Before anything is typed: the first sets and the first quick picks, `more` when there are
+ * others. Typed: every set matching by name or by a quick pick's name or product, and every quick pick matching by
+ * name or product. */
+const quickPickColumn = (
+  typed: string,
+  sets: PrescriptionSetQuickPickData[],
+  quickPicks: PrescriptionQuickPickData[]
+): { sets: MedicationMenuPick[]; quickPicks: MedicationMenuPick[]; more: boolean } => {
+  const setPicks = sets.map((set) => ({
     kind: 'set' as const,
     set,
     members: prescriptionSetMembers(set, quickPicks).members,
   }));
   const query = typed.trim().toLowerCase();
-  if (!query) {
-    const more = sets.length > MEDICATION_MENU_LIMIT || quickPicks.length > MEDICATION_MENU_LIMIT;
-    return [
-      ...setOptions.slice(0, MEDICATION_MENU_LIMIT),
-      ...quickPicks.slice(0, MEDICATION_MENU_LIMIT).map((quickPick) => ({ kind: 'quickPick' as const, quickPick })),
-      ...(more ? [{ kind: 'more' as const }] : []),
-    ];
-  }
+  const toPick = (quickPick: PrescriptionQuickPickData): MedicationMenuPick => ({ kind: 'quickPick', quickPick });
+  if (!query)
+    return {
+      sets: setPicks.slice(0, MEDICATION_MENU_LIMIT),
+      quickPicks: quickPicks.slice(0, MEDICATION_MENU_LIMIT).map(toPick),
+      more: sets.length > MEDICATION_MENU_LIMIT || quickPicks.length > MEDICATION_MENU_LIMIT,
+    };
   const matches = (quickPick: PrescriptionQuickPickData): boolean =>
     [quickPick.name, quickPick.medicationDescription].some((text) => text?.toLowerCase().includes(query));
-  const underDrugs = new Set<PrescriptionQuickPickData>();
-  const drugRows = searching
-    ? []
-    : (drugs ?? []).flatMap((drug) => {
-        const ndcs = new Set(drug.strengths.flatMap((strength) => strength.ndcs));
-        const nested = quickPicks.filter(
-          (quickPick) => !underDrugs.has(quickPick) && quickPick.ndc !== undefined && ndcs.has(quickPick.ndc)
-        );
-        nested.forEach((quickPick) => underDrugs.add(quickPick));
-        return [
-          { kind: 'drug' as const, drug },
-          ...nested.map((quickPick) => ({ kind: 'quickPick' as const, quickPick, nested: true })),
-        ];
-      });
-  return [
-    ...setOptions.filter(
-      ({ set, members }) => set.name.toLowerCase().includes(query) || members.some((member) => matches(member))
-    ),
-    ...(searching ? [{ kind: 'searching' as const }] : drugRows),
-    ...quickPicks
-      .filter((quickPick) => !underDrugs.has(quickPick) && matches(quickPick))
-      .map((quickPick) => ({ kind: 'quickPick' as const, quickPick })),
-  ];
+  return {
+    sets: setPicks.filter(({ set, members }) => set.name.toLowerCase().includes(query) || members.some(matches)),
+    quickPicks: quickPicks.filter(matches).map(toPick),
+    more: false,
+  };
 };
 
-/** The line's one medication menu: the practice's sets and quick picks with the medication search's results. */
+const MENU_HEADING_SX = { display: 'block', px: 2, pt: 1, pb: 0.5, fontWeight: 700, color: 'text.secondary' };
+const MENU_LIST_SX = { listStyle: 'none', m: 0, p: 0 };
+
+const MenuHeading: FC<{ id: string; children: ReactNode }> = ({ id, children }) => (
+  <Typography id={id} variant="caption" sx={MENU_HEADING_SX}>
+    {children}
+  </Typography>
+);
+
+const MenuMessage: FC<{ children: ReactNode }> = ({ children }) => (
+  <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>
+    {children}
+  </Typography>
+);
+
+/** The line's medication menu: the practice's sets and quick picks in the left column, the medication search's
+ * results in the right, both following what's typed. Focus stays in the field: Up/Down move within a column,
+ * Left/Right (once a row is highlighted) between them, Enter picks. */
 const MedicationMenu: FC<{
   quickPicks: PrescriptionQuickPickData[];
   sets: PrescriptionSetQuickPickData[];
@@ -350,83 +313,177 @@ const MedicationMenu: FC<{
   onQuickPick: (quickPick: PrescriptionQuickPickData) => void;
   onSet: (set: PrescriptionSetQuickPickData) => void;
 }> = ({ quickPicks, sets, onDrug, onQuickPick, onSet }) => {
+  const id = useId();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const { debounce } = useDebounce(300);
   const { data: drugs, isFetching, isError } = useSearchMedications(debouncedQuery);
   // The search needs two characters.
   const searched = query.trim().length >= 2;
-  const options = medicationMenuOptions({
-    typed: query,
-    sets,
-    quickPicks,
-    drugs: searched ? drugs : undefined,
-    searching: searched && isFetching,
-  });
-  return (
-    <Box sx={{ width: 360, pt: 0.5 }}>
-      <Autocomplete<MedicationMenuOption>
-        options={options}
-        filterOptions={(items) => items}
-        getOptionLabel={medicationMenuLabel}
-        getOptionKey={medicationMenuKey}
-        getOptionDisabled={(option) => option.kind === 'more' || option.kind === 'searching'}
-        renderOption={(props, option) => (
-          <li {...props}>
-            {option.kind === 'more' || option.kind === 'searching' ? (
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                {medicationMenuLabel(option)}
-              </Typography>
-            ) : option.kind === 'drug' ? (
-              option.drug.name
-            ) : (
-              <Box sx={option.kind === 'quickPick' && option.nested ? { pl: 2 } : undefined}>
-                {option.kind === 'set' && (
-                  <Box component="span" sx={{ color: 'text.secondary' }}>
-                    Set:{' '}
-                  </Box>
-                )}
-                <Box component="span" sx={{ fontStyle: 'italic' }}>
-                  {medicationMenuLabel(option)}
-                </Box>
-                {/* A quick pick shows only its name, which the practice words as it likes (with a strength or not). */}
-                {option.kind === 'set' && (
-                  <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {`${option.members.length} ${option.members.length === 1 ? 'prescription' : 'prescriptions'}`}
-                  </Typography>
-                )}
+  const left = quickPickColumn(query, sets, quickPicks);
+  const leftPicks = [...left.sets, ...left.quickPicks];
+  const rightPicks: MedicationMenuPick[] =
+    searched && !isFetching ? (drugs ?? []).map((drug) => ({ kind: 'drug', drug })) : [];
+  const columns = [leftPicks, rightPicks];
+  const [active, setActive] = useState<{ column: number; row: number }>();
+  // A highlight the lists no longer reach is none.
+  const highlighted = active && columns[active.column][active.row] ? active : undefined;
+  const optionId = (column: number, row: number): string => `${id}-option-${column}-${row}`;
+  const activeId = highlighted && optionId(highlighted.column, highlighted.row);
+  useEffect(() => {
+    if (activeId) document.getElementById(activeId)?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeId]);
+
+  const choose = (pick: MedicationMenuPick): void => {
+    if (pick.kind === 'set') onSet(pick.set);
+    else if (pick.kind === 'quickPick') onQuickPick(pick.quickPick);
+    else onDrug(pick.drug);
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    const move = (column: number, row: number): void => {
+      event.preventDefault();
+      setActive({ column, row });
+    };
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      const column = highlighted?.column ?? (leftPicks.length ? 0 : 1);
+      const count = columns[column].length;
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      if (count) move(column, highlighted ? (highlighted.row + step + count) % count : step > 0 ? 0 : count - 1);
+    } else if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && highlighted) {
+      // Until a row is highlighted, Left/Right move in the text.
+      const column = event.key === 'ArrowLeft' ? 0 : 1;
+      const count = columns[column].length;
+      if (column !== highlighted.column && count) move(column, Math.min(highlighted.row, count - 1));
+    } else if (event.key === 'Enter' && highlighted) {
+      event.preventDefault();
+      choose(columns[highlighted.column][highlighted.row]);
+    }
+  };
+
+  const option = (pick: MedicationMenuPick, column: number, row: number): ReactNode => {
+    const isActive = highlighted?.column === column && highlighted.row === row;
+    return (
+      <Box
+        component="li"
+        key={optionId(column, row)}
+        id={optionId(column, row)}
+        role="option"
+        aria-selected={isActive}
+        // The field keeps focus.
+        onMouseDown={(event) => event.preventDefault()}
+        onMouseMove={() => !isActive && setActive({ column, row })}
+        onClick={() => choose(pick)}
+        sx={{ px: 2, py: 0.75, cursor: 'pointer', bgcolor: isActive ? 'action.hover' : undefined }}
+      >
+        {pick.kind === 'drug' ? (
+          pick.drug.name
+        ) : (
+          <>
+            {pick.kind === 'set' && (
+              <Box component="span" sx={{ color: 'text.secondary' }}>
+                Set:{' '}
               </Box>
             )}
-          </li>
+            <Box component="span" sx={{ fontStyle: 'italic' }}>
+              {pick.kind === 'set' ? pick.set.name : pick.quickPick.name}
+            </Box>
+            {/* A quick pick shows only its name, which the practice words as it likes (with a strength or not). */}
+            {pick.kind === 'set' && (
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                {`${pick.members.length} ${pick.members.length === 1 ? 'prescription' : 'prescriptions'}`}
+              </Typography>
+            )}
+          </>
         )}
-        inputValue={query}
-        onInputChange={(_event, value, reason) => {
-          if (reason !== 'input' && reason !== 'clear') return;
-          const next = reason === 'input' ? value : '';
-          setQuery(next);
-          debounce(() => setDebouncedQuery(next));
+      </Box>
+    );
+  };
+
+  /** A heading and its picks, numbered from `from` in the column; nothing when it has none. */
+  const group = (heading: string, picks: MedicationMenuPick[], from: number): ReactNode =>
+    picks.length > 0 && (
+      <li role="presentation">
+        <MenuHeading id={`${id}-heading-${from}`}>{heading}</MenuHeading>
+        <Box component="ul" role="group" aria-labelledby={`${id}-heading-${from}`} sx={MENU_LIST_SX}>
+          {picks.map((pick, i) => option(pick, 0, from + i))}
+        </Box>
+      </li>
+    );
+
+  // Each column scrolls on its own; on a narrow screen the medications go under the quick picks.
+  const columnSx = { flex: 1, minWidth: 0, maxHeight: { xs: 180, sm: 300 }, overflowY: 'auto' };
+  return (
+    <Box sx={{ pt: 0.5 }}>
+      <TextField
+        size="small"
+        fullWidth
+        label="Medication"
+        placeholder="Select a quick pick or type to search"
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setActive(undefined);
+          debounce(() => setDebouncedQuery(event.target.value));
         }}
-        value={null}
-        onChange={(_event, option) => {
-          if (option?.kind === 'set') onSet(option.set);
-          else if (option?.kind === 'quickPick') onQuickPick(option.quickPick);
-          else if (option?.kind === 'drug') onDrug(option.drug);
+        onKeyDown={onKeyDown}
+        inputProps={{
+          role: 'combobox',
+          autoComplete: 'off',
+          'aria-autocomplete': 'list',
+          'aria-expanded': true,
+          'aria-controls': `${id}-quick-picks ${id}-medications`,
+          'aria-activedescendant': activeId,
         }}
-        openOnFocus
-        noOptionsText={
-          query.trim().length < 2
-            ? 'Type to search medications'
-            : isError
-            ? SEARCH_UNAVAILABLE
-            : 'Nothing found for this search criteria'
-        }
-        renderInput={(params) => (
-          <TextField {...params} size="small" label="Medication" placeholder="Select a quick pick or type to search" />
-        )}
       />
-      {isError && <ReportSearchIssue />}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1, mt: 1 }}>
+        <Box sx={columnSx}>
+          <Box
+            component="ul"
+            id={`${id}-quick-picks`}
+            role="listbox"
+            aria-label="Prescription sets and quick picks"
+            sx={MENU_LIST_SX}
+          >
+            {group('Prescription sets', left.sets, 0)}
+            {group('Quick picks', left.quickPicks, left.sets.length)}
+          </Box>
+          {leftPicks.length === 0 && <MenuMessage>No quick picks match</MenuMessage>}
+          {left.more && <MenuMessage>Type to search more</MenuMessage>}
+        </Box>
+        <Box sx={{ ...columnSx, borderLeft: { sm: 1 }, borderTop: { xs: 1, sm: 0 }, borderColor: 'divider' }}>
+          <MenuHeading id={`${id}-medications-heading`}>Medications</MenuHeading>
+          <Box
+            component="ul"
+            id={`${id}-medications`}
+            role="listbox"
+            aria-labelledby={`${id}-medications-heading`}
+            sx={MENU_LIST_SX}
+          >
+            {rightPicks.map((pick, row) => option(pick, 1, row))}
+          </Box>
+          {!searched ? (
+            <MenuMessage>Type to search medications</MenuMessage>
+          ) : isFetching ? (
+            <MenuMessage>Searching medications…</MenuMessage>
+          ) : isError ? (
+            <Box sx={{ px: 2 }}>
+              <ReportSearchIssue />
+            </Box>
+          ) : (
+            rightPicks.length === 0 && <MenuMessage>Nothing found for this search criteria</MenuMessage>
+          )}
+        </Box>
+      </Box>
     </Box>
   );
+};
+
+/** The medication blank's popup: twice the other blanks' width for the menu's two columns, within the screen. */
+const MEDICATION_MENU_PAPER_SX = {
+  width: 'min(680px, calc(100vw - 32px))',
+  maxWidth: 'min(680px, calc(100vw - 32px))',
+  maxHeight: 'min(440px, calc(100dvh - 32px))',
 };
 
 interface PrescriptionSentencesProps {
@@ -759,6 +816,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           title="Medication"
           // The menu's own field says "Medication".
           hideTitle
+          paperSx={MEDICATION_MENU_PAPER_SX}
           value={line.drug?.name ?? description}
           need
           readOnly={readOnly}
