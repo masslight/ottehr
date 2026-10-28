@@ -715,7 +715,7 @@ export const suggestedQuickPickName = (line: PrescriptionLine): string => {
   const durationDays = numberOrUndefined(line.durationDays);
   // As prescriptionLineToQuickPick saves it: a course's later steps aren't the calculator's.
   const savedDosing = line.dosing && line.steps.length === 0 ? line.dosing : undefined;
-  return [
+  const name = [
     line.medication?.description,
     savedDosing
       ? dosingRuleText(savedDosing)
@@ -729,6 +729,8 @@ export const suggestedQuickPickName = (line: PrescriptionLine): string => {
   ]
     .filter((part): part is string => !!part)
     .join(' | ');
+  // A course's later steps aren't in the name, only that there are some.
+  return line.steps.length > 0 ? `${name} +taper` : name;
 };
 
 /** Whether another quick pick or set already has this name (trimmed, in any case); the one being edited keeps its

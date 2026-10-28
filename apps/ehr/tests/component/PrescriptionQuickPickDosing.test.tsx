@@ -254,13 +254,13 @@ describe('Save as quick pick: the suggested name', () => {
     expect(suggestedQuickPickName({ ...line, dosing: { rate: 45, basis: 'mg/kg/day' } })).toBe(
       'Amoxicillin 400 mg/5ml Susp | 45 mg/kg per day | twice daily | 10 days'
     );
-    // A taper saves no dosing, so its name doesn't say one.
+    // A taper saves no dosing, so its name doesn't say one; it ends "+taper".
     const taper = {
       ...line,
       dosing: { rate: 25, basis: 'mg/kg/dose' as const },
       steps: [{ dose: '3', frequency: 'once daily', durationDays: '5' }],
     };
-    expect(suggestedQuickPickName(taper)).toBe('Amoxicillin 400 mg/5ml Susp | 6 mL | twice daily | 10 days');
+    expect(suggestedQuickPickName(taper)).toBe('Amoxicillin 400 mg/5ml Susp | 6 mL | twice daily | 10 days +taper');
   });
 });
 
