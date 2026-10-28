@@ -172,8 +172,8 @@ const nested = (name: string): boolean => {
 };
 
 const SETS_ROWS = ['Set: Acute otitis2 prescriptions', 'Set: Ear infection2 prescriptions'];
-const AMOX_ROWS = ['Amox as writtenAmoxicillin 400 mg/5ml Susp', 'Amox strepAmoxicillin 400 mg/5ml Susp'];
-const IBUPROFEN_ROW = 'Ibuprofen painIbuprofen 100 mg/5ml Susp';
+const AMOX_ROWS = ['Amox as written', 'Amox strep'];
+const IBUPROFEN_ROW = 'Ibuprofen pain';
 
 describe('Prescription sets on the order form', () => {
   beforeEach(() => {
@@ -205,7 +205,7 @@ describe('Prescription sets on the order form', () => {
       const items = menuItems(await openMenu(user));
       expect(items).toHaveLength(10 + 10 + 1);
       expect(items[9]).toBe('Set: Set 191 prescription');
-      expect(items[10]).toBe('Pick 10Ibuprofen 100 mg/5ml Susp');
+      expect(items[10]).toBe('Pick 10');
       expect(items[20]).toBe('Type to search more quick picks and medications');
       expect(screen.getByRole('option', { name: 'Type to search more quick picks and medications' })).toHaveAttribute(
         'aria-disabled',
@@ -238,7 +238,7 @@ describe('Prescription sets on the order form', () => {
       // One letter is too few for the medication search.
       await user.clear(screen.getByRole('combobox', { name: 'Medication' }));
       await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'w');
-      expect(menuItems(list())).toEqual(['Amox as writtenAmoxicillin 400 mg/5ml Susp']);
+      expect(menuItems(list())).toEqual(['Amox as written']);
     });
 
     it('holds the medications’ place with "Searching medications…" while the search runs', async () => {

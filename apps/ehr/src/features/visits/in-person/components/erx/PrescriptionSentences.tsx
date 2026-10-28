@@ -389,11 +389,12 @@ const MedicationMenu: FC<{
                 <Box component="span" sx={{ fontStyle: 'italic' }}>
                   {medicationMenuLabel(option)}
                 </Box>
-                <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  {option.kind === 'set'
-                    ? `${option.members.length} ${option.members.length === 1 ? 'prescription' : 'prescriptions'}`
-                    : option.quickPick.medicationDescription}
-                </Typography>
+                {/* A quick pick shows only its name, which the practice words as it likes (with a strength or not). */}
+                {option.kind === 'set' && (
+                  <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    {`${option.members.length} ${option.members.length === 1 ? 'prescription' : 'prescriptions'}`}
+                  </Typography>
+                )}
               </Box>
             )}
           </li>
