@@ -76,6 +76,7 @@ import {
   EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+  getClaimBillType,
   getClaimService,
   getClaimSupportingInfo,
   getClaimType,
@@ -498,11 +499,7 @@ const READERS: Record<string, FieldReader> = {
   placeOfServiceCodes: (m) =>
     (m.claim.item ?? []).map((item) => item.locationCodeableConcept?.coding?.[0]?.code).filter((c): c is string => !!c),
   serviceLineCount: (m) => String(m.claim.item?.length ?? 0),
-  billType: (m) => {
-    const facilityTypeCode = getExtension(m.claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
-    const frequencyCode = getExtension(m.claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
-    return facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '';
-  },
+  billType: (m) => getClaimBillType(m.claim),
   patientDischargeStatusCode: (m) => getExtension(m.claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
   admissionType: (m) => getExtension(m.claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
   admissionSource: (m) => getExtension(m.claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',

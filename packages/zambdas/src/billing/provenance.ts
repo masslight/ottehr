@@ -26,13 +26,22 @@ import { userMe } from 'utils/lib/auth/user-me.helper';
 import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getExtensionValue, getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import {
   parsePaymentRefundsFromNotice,
   parsePaymentVoidFromNotice,
   settledRefundTotalInCents,
 } from 'utils/lib/fhir/paymentRefunds';
 import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
+import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CLAIM_ACCIDENT_TYPES,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+} from 'utils/lib/helpers/rcm/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -57,6 +66,7 @@ import {
   buildClaimStatusDateExtensions,
   CLAIM_STATUS_FIELDS,
   ClaimStatusFieldKey,
+  formatAntCaseString,
   formatClaimStatusValue,
   getClaimStatusValues,
 } from 'utils/lib/types/data/billing/claim-status';
@@ -81,12 +91,22 @@ import {
   ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fhirName,
   formatAddress,
+  getClaimBillType,
+  getClaimService,
+  getClaimSupportingInfo,
   getClaimType,
   getEraExtensionString,
   getProviderLicense,
   getTaxonomy,
+  isInstitutionalClaim,
+  readClaimItemDrug,
+  readClaimItemOrderingProvider,
   sortClaimInsurance,
 } from './shared';
 
@@ -125,15 +145,42 @@ function joinServiceLines(claim: Claim): string {
   return (claim.item ?? [])
     .map((item) => {
       const cpt = item.productOrService?.coding?.[0]?.code ?? '';
+      const serviceDate = item.servicedPeriod?.start ?? item.servicedDate;
+      const placeOfService = item.locationCodeableConcept?.coding?.[0]?.code;
+      const modifiers = (item.modifier ?? []).map((modifier) => modifier.coding?.[0]?.code).filter(Boolean);
+      const revenueCode = item.revenue?.coding?.[0]?.code;
       const units = item.quantity?.value;
       const charge = item.net?.value;
-      return [cpt, units != null ? `x${units}` : '', charge != null ? `$${charge}` : ''].filter(Boolean).join(' ');
+      const drug = readClaimItemDrug(item);
+      return [
+        cpt,
+        serviceDate,
+        placeOfService ? `POS ${placeOfService}` : '',
+        modifiers.length ? `mod ${modifiers.join(',')}` : '',
+        item.diagnosisSequence?.length ? `dx ${item.diagnosisSequence.join(',')}` : '',
+        revenueCode ? `rev ${revenueCode}` : '',
+        units != null ? `x${units}` : '',
+        charge != null ? `$${charge}` : '',
+        drug ? `NDC ${drug.ndc} ${drug.quantity} ${drug.units}` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
     })
     .filter(Boolean)
     .join('; ');
 }
 
+function joinOrderingProviders(claim: Claim): string {
+  const lines = (claim.item ?? []).map((item) => {
+    const display = getExtensionValue(item, EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER, 'valueReference')?.display;
+    const npi = readClaimItemOrderingProvider(claim, item, [])?.npi;
+    return [display, npi ? `NPI ${npi}` : ''].filter(Boolean).join(' ');
+  });
+  return lines.some(Boolean) ? lines.join('; ') : '';
+}
+
 function projectClaim(claim: Claim): FieldProjection[] {
+  const institutional = claim.type != null && isInstitutionalClaim(claim);
   const out: FieldProjection[] = [
     { field: 'claimType', label: 'Claim Type', value: claim.type ? getClaimType(claim) : '' },
   ];
@@ -193,6 +240,72 @@ function projectClaim(claim: Claim): FieldProjection[] {
       value:
         claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
           ?.value ?? '',
+    },
+    {
+      field: 'service',
+      label: 'Service',
+      value: formatAntCaseString(getClaimService(claim)),
+    },
+    {
+      field: 'billType',
+      label: 'Bill Type',
+      value: getClaimBillType(claim),
+    },
+    {
+      field: 'dischargeStatus',
+      label: 'Patient Discharge Status',
+      value: getExtensionValue(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS, 'valueString') ?? '',
+    },
+    {
+      field: 'admissionType',
+      label: 'Admission Type',
+      value: getExtensionValue(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE, 'valueString') ?? '',
+    },
+    {
+      field: 'admissionSource',
+      label: 'Admission Source',
+      value: getExtensionValue(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE, 'valueString') ?? '',
+    },
+    {
+      field: 'admissionDate',
+      label: 'Admission Date',
+      value: institutional ? claim.billablePeriod?.start ?? '' : '',
+    },
+    {
+      field: 'dischargeDate',
+      label: 'Discharge Date',
+      value: institutional ? claim.billablePeriod?.end ?? '' : '',
+    },
+    {
+      field: 'accidentType',
+      label: 'Accident Type',
+      value: CLAIM_ACCIDENT_TYPES.filter((type) =>
+        getExtensionValue(claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type], 'valueBoolean')
+      )
+        .map((type) => CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type])
+        .join(', '),
+    },
+    {
+      field: 'accidentState',
+      label: 'Accident State',
+      value: getExtensionValue(claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL, 'valueString') ?? '',
+    },
+    {
+      field: 'accidentDate',
+      label: 'Accident Date',
+      value:
+        getClaimSupportingInfo(
+          claim,
+          CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+          'info',
+          CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+          CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
+        )?.timingDate ?? '',
+    },
+    {
+      field: 'orderingProviders',
+      label: 'Ordering Providers',
+      value: joinOrderingProviders(claim),
     }
   );
   return out;
