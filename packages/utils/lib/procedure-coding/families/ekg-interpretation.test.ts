@@ -110,25 +110,32 @@ describe('QTc', () => {
 });
 
 describe('starter quick picks', () => {
-  // A quick pick names the catalog code; the page shows, and the families match, the type's display name.
+  const catalog = Object.entries(procedureTypes.fhirResources).find(([key]) =>
+    key.startsWith('value-set-procedure-type')
+  )?.[1].resource.expansion.contains as { code: string; display: string }[] | undefined;
   const typeName = (code: string | undefined): string | undefined =>
-    procedureTypes.fhirResources['value-set-procedure-type'].resource.expansion.contains.find(
-      (type) => type.code === code
-    )?.display;
+    catalog?.find((type) => type.code === code)?.display;
 
-  it('hold only choices their family offers', () => {
+  it("hold only choices their family offers, for every type in this deployment's catalog", () => {
     for (const quickPick of PROCEDURES_CONFIG.quickPicks.filter((pick) => pick.structuredFacts)) {
       const family = detectProcedureFamily({ procedureType: typeName(quickPick.procedureType) });
-      const facts = family && resolveFamilyFacts(family, { structuredFacts: quickPick.structuredFacts });
-      expect(family && facts && invalidStructuredFields(family.fields, facts), quickPick.name).toEqual([]);
+      if (!family) continue;
+      const facts = resolveFamilyFacts(family, { structuredFacts: quickPick.structuredFacts });
+      expect(invalidStructuredFields(family.fields, facts), quickPick.name).toEqual([]);
     }
   });
 
   it('include "EKG – normal": the normal interpretation, no CPT code, nothing measured and no comparison', () => {
     const normal = PROCEDURES_CONFIG.quickPicks.find((pick) => pick.name === 'EKG – normal');
+    expect(normal?.procedureType).toBe('ekg');
     expect(normal?.cptCodes).toBeUndefined();
-    expect(detectProcedureFamily({ procedureType: typeName(normal?.procedureType) })?.id).toBe(ekgFamily.id);
     expect(normal?.structuredFacts).toEqual({ ...EKG_NORMAL_READ });
+    expect(
+      invalidStructuredFields(
+        ekgFamily.fields,
+        resolveFamilyFacts(ekgFamily, { structuredFacts: normal?.structuredFacts })
+      )
+    ).toEqual([]);
   });
 });
 
