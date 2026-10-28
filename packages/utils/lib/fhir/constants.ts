@@ -522,6 +522,13 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
 /** meta.tag system naming where a practice-managed form's answers appear; no tag means Visit Details. */
 export const FORM_PLACEMENT_TAG_SYSTEM = ottehrCodeSystemUrl('form-placement');
 
+// applied (alongside the practice-managed tag) to questionnaires uploaded as raw FHIR JSON.
+// these are read only in the admin portal: they can only be updated by uploading a new version
+export const JSON_IMPORT_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'json-import',
+};
+
 /** meta.tag identifying a paperwork flow Questionnaire. */
 export const PAPERWORK_FLOW_TAG = {
   system: `${PRIVATE_EXTENSION_BASE_URL}/flow-type`,
@@ -991,6 +998,8 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
   attachmentText: `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`,
   autofillFromWhenDisabled: `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`,
+  // standard SDC extension (not a private one): the item's value is derived from other answers
+  calculatedExpression: 'http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression',
   categoryTag: `${PRIVATE_EXTENSION_BASE_URL}/category-tag`,
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,

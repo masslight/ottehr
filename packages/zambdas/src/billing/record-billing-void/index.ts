@@ -6,12 +6,14 @@ import { RecordBillingVoidInputSchema } from 'utils/lib/types/data/billing/billi
 import { RecordBillingVoidResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+// eslint-disable-next-line no-restricted-imports -- reads the voided clinical payment notice
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { voidPaymentNotice } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../payments';
+import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordPaymentNoticeChange } from '../payments';
+import { resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
 
 type RecordBillingVoidParams = ValidatedZambdaInput<typeof RecordBillingVoidInputSchema>;
@@ -57,8 +59,10 @@ async function performEffect(
     })
   ).unbundle();
 
+  // called on the EHR's machine token: the clinical notice says who voided it
+  const agent = await resolveClaimActor('system', oystehr, undefined, params.secrets);
   for (const billingNotice of billingNotices) {
-    await voidPaymentNotice(oystehr, billingNotice, voidInfo);
+    await voidPaymentNotice(oystehr, billingNotice, voidInfo, recordPaymentNoticeChange(agent));
   }
 
   return { billingNoticesVoided: billingNotices.length };

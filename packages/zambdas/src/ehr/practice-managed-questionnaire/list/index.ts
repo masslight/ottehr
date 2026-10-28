@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
 import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getFormPlacement } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { getFormPlacement, isJsonImportedQ } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
   PracticeManagedQuestionnaireDTO,
   PracticeManagedQuestionnaireListOutput,
@@ -66,6 +66,7 @@ async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuesti
       status: questionnaire.status,
       url: questionnaire.url ?? '',
       placement: getFormPlacement(questionnaire),
+      readOnly: isJsonImportedQ(questionnaire),
     };
 
     return dto;

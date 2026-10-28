@@ -93,6 +93,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
     arStage,
   },
   created: '2026-01-01',
+  dos: '2026-01-01',
   patientName: 'Jane Doe',
   patientDob: '1990-01-01',
   patientGender: 'female',
@@ -940,40 +941,40 @@ describe('ClaimDetail — run rules engine button', () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
     renderDetail();
 
-    expect(await screen.findByRole('button', { name: 'Submit claim' })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Submit Claim' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Prepare for Invoice' })).not.toBeInTheDocument();
   });
 
   it('shows Prepare for invoice for a claim in Non-insurance Payer AR', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
     renderDetail();
 
-    expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Prepare for Invoice' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Submit Claim' })).not.toBeInTheDocument();
   });
 
   it('shows Prepare for invoice for a self-pay claim in Patient AR', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient)); // coverageFhirId '' -> self-pay
     renderDetail();
 
-    expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Prepare for Invoice' })).toBeEnabled();
   });
 
   it('shows Prepare for invoice for a Patient AR claim with insurance coverage', async () => {
     getBillingClaimDetailMock.mockResolvedValue({ ...makeClaim(AR_STAGE.patient), coverageFhirId: 'coverage-1' });
     renderDetail();
 
-    const prepareButton = await screen.findByRole('button', { name: 'Prepare for invoice' });
+    const prepareButton = await screen.findByRole('button', { name: 'Prepare for Invoice' });
     expect(prepareButton).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit Claim' })).not.toBeInTheDocument();
   });
 
   it('hides the run button when the claim has no AR stage', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(''));
     renderDetail();
     await screen.findByText('No AR Stage');
-    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Prepare for Invoice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit Claim' })).not.toBeInTheDocument();
   });
 
   it('runs the claim submission rules through the confirm dialog', async () => {
@@ -983,14 +984,17 @@ describe('ClaimDetail — run rules engine button', () => {
     });
     renderDetail();
 
-    const submitButton = await screen.findByRole('button', { name: 'Submit claim' });
+    const submitButton = await screen.findByRole('button', { name: 'Submit Claim' });
     fireEvent.click(submitButton);
 
     const confirmButton = await screen.findByRole('button', { name: 'Run rules' });
     fireEvent.click(confirmButton);
 
     await waitFor(() =>
-      expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'], skipRules: false })
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+        {},
+        { claimIds: ['claim-1'], submissionType: 'new', submissionInsurance: 'primary', skipRules: false }
+      )
     );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Claim Submission Rules started — when every rule passes, the claim is submitted to the payer; a Hold keeps the claim for review. Refresh to see the result.',
@@ -1005,7 +1009,7 @@ describe('ClaimDetail — run rules engine button', () => {
     });
     renderDetail();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Prepare for invoice' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Prepare for Invoice' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
     await waitFor(() =>

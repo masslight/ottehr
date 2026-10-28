@@ -4,9 +4,12 @@ import { Questionnaire } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   getFormPlacement,
+  isJsonImportedQ,
   practiceManagedQuestionnaireToFhir,
 } from 'utils/lib/helpers/practice-managed-questionnaires';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -33,7 +36,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   // only practice managed questionnaires can be updated via this endpoint
-  await validateQuestionnaire(validatedParameters, oystehr);
+  const existingQuestionnaire = await validateQuestionnaire(validatedParameters, oystehr);
+
+  // json imported questionnaires are read only: their content can only change by importing a new version,
+  // and only customer support can delete / restore them
+  if (isJsonImportedQ(existingQuestionnaire)) {
+    if (updateType === 'update-questionnaire') {
+      throw MANAGED_QUESTIONNAIRE_ERROR(
+        'This questionnaire was imported via json and is read only. Upload a new version of the json to update it.'
+      );
+    }
+    await requireUserWithRole(getUserToken(input), secrets, [RoleType.CustomerSupport]);
+  }
 
   let questionnaireIdToReturn: string | undefined;
 

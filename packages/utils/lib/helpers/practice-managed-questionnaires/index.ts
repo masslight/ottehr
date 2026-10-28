@@ -9,6 +9,7 @@ import {
 import { cloneDeep, isEqual } from 'lodash-es';
 import {
   FORM_PLACEMENT_TAG_SYSTEM,
+  JSON_IMPORT_QUESTIONNAIRE_TAG,
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
@@ -26,6 +27,7 @@ import {
   StandaloneFormDTO,
   TAGGED_FORM_PLACEMENTS,
 } from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { CalculableItem, formatCalculatedValue, isCalculatedItem } from '../paperwork/calculated-answers';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork/paperwork';
 import { slugify } from '../slugify';
 
@@ -230,6 +232,13 @@ export function withFormPlacement(tags: Coding[] | undefined, placement: FormPla
   return placement === 'visit-details' ? others : [...others, { system: FORM_PLACEMENT_TAG_SYSTEM, code: placement }];
 }
 
+export function isJsonImportedQ(q: Pick<Questionnaire, 'meta'> | undefined): boolean {
+  if (!q) return false;
+
+  const { system, code } = JSON_IMPORT_QUESTIONNAIRE_TAG;
+  return Boolean(q.meta?.tag?.some((t) => t.code === code && t.system === system));
+}
+
 export function qrSentManually(qr: QuestionnaireResponse | undefined): boolean {
   if (!qr) return false;
 
@@ -237,11 +246,20 @@ export function qrSentManually(qr: QuestionnaireResponse | undefined): boolean {
   return Boolean(qr.meta?.tag?.some((t) => t.code === code && t.system === system));
 }
 
-export const formatQuestionnaireItemValueToString = (item: QuestionnaireResponseItem | undefined): string => {
+export const formatQuestionnaireItemValueToString = (
+  item: QuestionnaireResponseItem | undefined,
+  questions: Map<string, CalculableItem>
+): string => {
   if (!item) return '';
 
   const a = item.answer?.[0];
   if (!a) return '';
+
+  const question = questions.get(item.linkId);
+  if (question && isCalculatedItem(question)) {
+    return formatCalculatedValue(a.valueBoolean ?? a.valueInteger ?? a.valueDecimal ?? a.valueString);
+  }
+
   if (a.valueCoding?.display) return a.valueCoding.display;
   if (a.valueString !== undefined) return a.valueString;
   if (a.valueBoolean !== undefined) return a.valueBoolean ? 'Positive' : 'Negative';
@@ -263,14 +281,17 @@ export const formResponseLines = (
       walk([...(item.item ?? []), ...(item.answer ?? []).flatMap((answer) => answer.item ?? [])]);
     });
   walk(form.questionnaireResponse.item ?? []);
-  return flattenIntakeQuestionnaireItems(form.allItems)
-    .filter((q) => q.type !== 'group' && q.type !== 'display')
-    .map((q) => ({
-      linkId: q.linkId,
-      question: q.text ?? '',
-      answer: formatQuestionnaireItemValueToString(answers.get(q.linkId)),
-      answered: answers.has(q.linkId),
-    }));
+  const questions = flattenIntakeQuestionnaireItems(form.allItems).filter(
+    (q) => q.type !== 'group' && q.type !== 'display'
+  );
+  const questionsByLinkId = new Map(questions.map((q) => [q.linkId, q]));
+  return questions.map((q) => ({
+    linkId: q.linkId,
+    question: q.text ?? '',
+    answer: formatQuestionnaireItemValueToString(answers.get(q.linkId), questionsByLinkId),
+    // A recorded score alone doesn't mean anyone has started the form.
+    answered: answers.has(q.linkId) && !isCalculatedItem(q),
+  }));
 };
 
 /** True once at least one of the form's questions has an answer; a sent-but-unopened form has none. */

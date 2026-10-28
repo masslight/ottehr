@@ -25,6 +25,7 @@ import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-
 import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
 import {
   RULES_ENGINES,
+  RulesEngineSubmissionInsurance,
   RulesEngineSubmissionType,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -56,6 +57,7 @@ import { applyAction, executeRule } from '../../../billing/rules-engine/evaluato
 import {
   RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
   RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SUBMISSION_INSURANCE_CODE,
   RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
   RULES_ENGINE_INPUT_SYSTEM,
 } from '../../../billing/rules-engine/serialization';
@@ -89,84 +91,95 @@ import { ClaimSubmissionRejectedError } from './submit-claim';
 
 let m2mToken: string;
 
-export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr) => {
-  const { task, secrets } = input;
-  const claimId = extractClaimId(task);
-  const engine = extractEngine(task);
-  const skipRules = extractInput<boolean>(
-    task,
-    RULES_ENGINE_INPUT_SYSTEM,
-    RULES_ENGINE_INPUT_SKIP_RULES_CODE,
-    'valueBoolean'
-  );
-  const submissionType = extractInput<string>(
-    task,
-    RULES_ENGINE_INPUT_SYSTEM,
-    RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
-    'valueString'
-  );
-  const payerClaimControlNumber = extractInput<string>(
-    task,
-    RULES_ENGINE_INPUT_SYSTEM,
-    RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
-    'valueString'
-  );
-
-  // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
-  // billing workspace where the claim, its working copies, and the rules Lists live.
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createBillingClient(m2mToken, secrets);
-  // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
-  // change the engine writes lands in the claim history attributed to it.
-  const agent = [await resolveClaimActor('rules', oystehr, undefined, secrets)];
-  if (task.requester?.reference) {
-    const requesterType = task.requester.reference.startsWith('Practitioner/')
-      ? CLAIM_PROVENANCE_AGENT_TYPE.human
-      : CLAIM_PROVENANCE_AGENT_TYPE.system;
-    agent.push({
-      type: { coding: [requesterType] },
-      who: task.requester,
-    });
-  }
-  const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-
-  try {
-    const validated = await complexValidation(
-      oystehr,
-      engine,
-      claimId,
-      env,
-      skipRules,
-      submissionType,
-      payerClaimControlNumber
+export const index = wrapTaskHandler(
+  'sub-rules-engine',
+  async (input, _oystehr) => {
+    const { task, secrets } = input;
+    const claimId = extractClaimId(task);
+    const engine = extractEngine(task);
+    const skipRules = extractInput<boolean>(
+      task,
+      RULES_ENGINE_INPUT_SYSTEM,
+      RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+      'valueBoolean'
     );
-    return await performEffect(oystehr, validated, agent);
-  } catch (error) {
+    const submissionType = extractInput<string>(
+      task,
+      RULES_ENGINE_INPUT_SYSTEM,
+      RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+      'valueString'
+    );
+    const submissionInsurance = extractInput<string>(
+      task,
+      RULES_ENGINE_INPUT_SYSTEM,
+      RULES_ENGINE_INPUT_SUBMISSION_INSURANCE_CODE,
+      'valueString'
+    );
+    const payerClaimControlNumber = extractInput<string>(
+      task,
+      RULES_ENGINE_INPUT_SYSTEM,
+      RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+      'valueString'
+    );
+
+    // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
+    // billing workspace where the claim, its working copies, and the rules Lists live.
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createBillingClient(m2mToken, secrets);
+    // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
+    // change the engine writes lands in the claim history attributed to it.
+    const agent = [await resolveClaimActor('rules', oystehr, undefined, secrets)];
+    if (task.requester?.reference) {
+      const requesterType = task.requester.reference.startsWith('Practitioner/')
+        ? CLAIM_PROVENANCE_AGENT_TYPE.human
+        : CLAIM_PROVENANCE_AGENT_TYPE.system;
+      agent.push({
+        type: { coding: [requesterType] },
+        who: task.requester,
+      });
+    }
+    const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+
     try {
-      // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
-      // the claim context, and make sure the claim ends up held — a failed run must never leave the
-      // claim looking ready to proceed.
-      console.error(`[rules-engine] ${engine} failed for Claim/${claimId}:`, error);
-      const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
-      const failedRule = error instanceof RuleFailureError ? error.rule : undefined;
-      await addErrorProvenanceForClaimSubmission(oystehr, claim, error as Error, agent, failedRule);
-      await ensureClaimHeld(oystehr, claim, agent);
-    } catch (handleErrorError) {
-      console.error(
-        `[rules-engine] could not add error or apply Hold tag to Claim/${claimId} after failure:`,
-        handleErrorError
+      const validated = await complexValidation(
+        oystehr,
+        engine,
+        claimId,
+        env,
+        skipRules,
+        submissionType,
+        submissionInsurance,
+        payerClaimControlNumber
       );
+      return await performEffect(oystehr, validated, agent);
+    } catch (error) {
+      try {
+        // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
+        // the claim context, and make sure the claim ends up held — a failed run must never leave the
+        // claim looking ready to proceed.
+        console.error(`[rules-engine] ${engine} failed for Claim/${claimId}:`, error);
+        const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
+        const failedRule = error instanceof RuleFailureError ? error.rule : undefined;
+        await addErrorProvenanceForClaimSubmission(oystehr, claim, error as Error, agent, failedRule);
+        await ensureClaimHeld(oystehr, claim, agent);
+      } catch (handleErrorError) {
+        console.error(
+          `[rules-engine] could not add error or apply Hold tag to Claim/${claimId} after failure:`,
+          handleErrorError
+        );
+      }
+      if (error instanceof ClaimSubmissionRejectedError) {
+        // Oystehr rejected the submission for a request-level reason (e.g. a duplicate diagnosis
+        // code) — an expected business outcome, not an engine bug. Complete the Task as "failed"
+        // instead of rethrowing, so wrapTaskHandler doesn't report it to Sentry as a crash; the
+        // rejection is already recorded on the claim history above.
+        return { taskStatus: 'failed', statusReason: error.message };
+      }
+      throw error;
     }
-    if (error instanceof ClaimSubmissionRejectedError) {
-      // Oystehr rejected the submission for a request-level reason (e.g. a duplicate diagnosis
-      // code) — an expected business outcome, not an engine bug. Complete the Task as "failed"
-      // instead of rethrowing, so wrapTaskHandler doesn't report it to Sentry as a crash; the
-      // rejection is already recorded on the claim history above.
-      return { taskStatus: 'failed', statusReason: error.message };
-    }
-    throw error;
-  }
-});
+  },
+  { createClient: createBillingClient }
+);
 
 export interface ValidatedRulesRun {
   engine: RulesEngineType;
@@ -175,6 +188,7 @@ export interface ValidatedRulesRun {
   model: RulesEngineClaimModel;
   skipRules: boolean;
   submissionType: RulesEngineSubmissionType | null;
+  submissionInsurance: RulesEngineSubmissionInsurance | null;
   payerClaimControlNumber: string | null;
 }
 
@@ -185,8 +199,17 @@ export async function complexValidation(
   env: string,
   skipRules: boolean | null,
   submissionType: string | null,
+  submissionInsurance: string | null,
   payerClaimControlNumber: string | null
 ): Promise<ValidatedRulesRun> {
+  if (engine === 'claim-submission' && !submissionType) {
+    console.error(`[rules-engine] "submissionType" is required`);
+    throw new Error('"submissionType" is required');
+  }
+  if (engine === 'claim-submission' && !submissionInsurance) {
+    console.error(`[rules-engine] "submissionInsurance" is required`);
+    throw new Error('"submissionInsurance" is required');
+  }
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
   const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations, customInsuranceOrganizations] =
@@ -223,7 +246,8 @@ export async function complexValidation(
     rules,
     model,
     skipRules: skipRules ?? false,
-    submissionType: submissionType as RulesEngineSubmissionType,
+    submissionType: submissionType as RulesEngineSubmissionType | null,
+    submissionInsurance: submissionInsurance as RulesEngineSubmissionInsurance | null,
     payerClaimControlNumber,
   };
 }
@@ -404,7 +428,16 @@ export class RuleFailureError extends Error {
 
 export async function performEffect(
   oystehr: Oystehr,
-  { engine, claimId, rules, model, skipRules, submissionType, payerClaimControlNumber }: ValidatedRulesRun,
+  {
+    engine,
+    claimId,
+    rules,
+    model,
+    skipRules,
+    submissionType,
+    submissionInsurance,
+    payerClaimControlNumber,
+  }: ValidatedRulesRun,
   agent: ProvenanceAgent[]
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
@@ -500,7 +533,14 @@ export async function performEffect(
     };
   }
 
-  const finalized = await finalizeEngineRun(engine, { oystehr, model, agent, submissionType, payerClaimControlNumber });
+  const finalized = await finalizeEngineRun(engine, {
+    oystehr,
+    model,
+    agent,
+    submissionType,
+    submissionInsurance,
+    payerClaimControlNumber,
+  });
   console.log(`[rules-engine] ${engine} completed for Claim/${claimId}: ${finalized.statusReason}`);
   return { taskStatus: 'completed', statusReason: finalized.statusReason };
 }

@@ -79,6 +79,18 @@ import {
 } from 'utils/lib/types/api/daily-payments-report.types';
 import { DeleteUserZambdaInput, DeleteUserZambdaOutput } from 'utils/lib/types/api/delete-user.types';
 import {
+  CreateDmeOrderInput,
+  CreateDmeOrderResponse,
+  GetDmeOrderPdfInput,
+  GetDmeOrderPdfResponse,
+  GetDmeOrdersInput,
+  GetDmeOrdersResponse,
+  SendDmeOrderFaxInput,
+  SendDmeOrderFaxResponse,
+  UpdateDmeOrderInput,
+  UpdateDmeOrderResponse,
+} from 'utils/lib/types/api/dme.types';
+import {
   GetEmployeeChatsResponse,
   OpenEmployeeChatInput,
   OpenEmployeeChatResponse,
@@ -160,6 +172,8 @@ import {
   AllergyQuickPickData,
   CreateAllergyQuickPickInput,
   CreateAllergyQuickPickResponse,
+  CreateDmeQuickPickInput,
+  CreateDmeQuickPickResponse,
   CreateImmunizationQuickPickInput,
   CreateImmunizationQuickPickResponse,
   CreateInHouseMedicationQuickPickInput,
@@ -178,7 +192,9 @@ import {
   CreateQuickTextQuickPickResponse,
   CreateRadiologyQuickPickInput,
   CreateRadiologyQuickPickResponse,
+  DmeQuickPickData,
   GetAllergyQuickPicksResponse,
+  GetDmeQuickPicksResponse,
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
   GetInsuranceQuickPicksResponse,
@@ -199,6 +215,7 @@ import {
   QuickTextQuickPickData,
   RadiologyQuickPickData,
   UpdateAllergyQuickPickResponse,
+  UpdateDmeQuickPickResponse,
   UpdateImmunizationQuickPickResponse,
   UpdateInHouseMedicationQuickPickResponse,
   UpdateInsuranceQuickPickResponse,
@@ -389,6 +406,8 @@ import {
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
   PracticeManagedQuestionnaireGetOutput,
+  PracticeManagedQuestionnaireImportJsonInput,
+  PracticeManagedQuestionnaireImportJsonOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
@@ -502,6 +521,11 @@ const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
+const CREATE_DME_ORDER_ZAMBDA_ID = 'create-dme-order';
+const GET_DME_ORDERS_ZAMBDA_ID = 'get-dme-orders';
+const UPDATE_DME_ORDER_ZAMBDA_ID = 'update-dme-order';
+const GET_DME_ORDER_PDF_ZAMBDA_ID = 'get-dme-order-pdf';
+const SEND_DME_ORDER_FAX_ZAMBDA_ID = 'send-dme-order-fax';
 const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
@@ -551,6 +575,7 @@ const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get'
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const MANAGED_QUESTIONNAIRE_IMPORT_JSON_ZAMBDA_ID = 'practice-managed-questionnaire-import-json';
 const PAPERWORK_FLOW_LIST_ZAMBDA_ID = 'paperwork-flow-list';
 const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
 const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
@@ -2080,6 +2105,31 @@ export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNur
   }
 };
 
+const executeDmeZambda = async <T>(oystehr: Oystehr, id: string, parameters: object): Promise<T> => {
+  try {
+    const response = await oystehr.zambda.execute({ id, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createDmeOrder = (oystehr: Oystehr, parameters: CreateDmeOrderInput): Promise<CreateDmeOrderResponse> =>
+  executeDmeZambda(oystehr, CREATE_DME_ORDER_ZAMBDA_ID, parameters);
+
+export const getDmeOrders = (oystehr: Oystehr, parameters: GetDmeOrdersInput): Promise<GetDmeOrdersResponse> =>
+  executeDmeZambda(oystehr, GET_DME_ORDERS_ZAMBDA_ID, parameters);
+
+export const updateDmeOrder = (oystehr: Oystehr, parameters: UpdateDmeOrderInput): Promise<UpdateDmeOrderResponse> =>
+  executeDmeZambda(oystehr, UPDATE_DME_ORDER_ZAMBDA_ID, parameters);
+
+export const getDmeOrderPdf = (oystehr: Oystehr, parameters: GetDmeOrderPdfInput): Promise<GetDmeOrderPdfResponse> =>
+  executeDmeZambda(oystehr, GET_DME_ORDER_PDF_ZAMBDA_ID, parameters);
+
+export const sendDmeOrderFax = (oystehr: Oystehr, parameters: SendDmeOrderFaxInput): Promise<SendDmeOrderFaxResponse> =>
+  executeDmeZambda(oystehr, SEND_DME_ORDER_FAX_ZAMBDA_ID, parameters);
+
 export const createDischargeSummary = async (
   oystehr: Oystehr,
   parameters: CreateDischargeSummaryInput
@@ -3009,6 +3059,52 @@ export const createTemplate = async (
   }
 };
 
+export const getDmeQuickPicks = async (oystehr: Oystehr): Promise<GetDmeQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID, category: 'dme-quick-pick' });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createDmeQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateDmeQuickPickInput
+): Promise<CreateDmeQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'dme-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateDmeQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<DmeQuickPickData, 'id'>
+): Promise<UpdateDmeQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'dme-quick-pick',
+      quickPickId,
+      quickPick,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const getProcedureQuickPicks = async (oystehr: Oystehr): Promise<GetProcedureQuickPicksResponse> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -3724,6 +3820,22 @@ export const practiceManagedQuestionnaireCreate = async (
   try {
     const response = await oystehr.zambda.execute({
       id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const practiceManagedQuestionnaireImportJson = async (
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireImportJsonInput
+): Promise<PracticeManagedQuestionnaireImportJsonOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_IMPORT_JSON_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

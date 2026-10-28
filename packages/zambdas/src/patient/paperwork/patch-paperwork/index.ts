@@ -38,7 +38,8 @@ export const index = wrapHandler('patch-paperwork', async (input: ZambdaInput): 
 });
 
 const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {
-  const { updatedAnswers, questionnaireResponseId, currentQRStatus, patchIndex, appointmentId } = input;
+  const { updatedAnswers, calculatedPageUpdates, questionnaireResponseId, currentQRStatus, patchIndex, appointmentId } =
+    input;
   console.log('patchIndex:', patchIndex);
   console.log('updatedAnswers', JSON.stringify(updatedAnswers));
   const operations: Operation[] = [
@@ -48,6 +49,15 @@ const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr)
       value: updatedAnswers,
     },
   ];
+
+  // the values of calculated items on other pages (a hidden results page is never patched by itself) go in the same patch
+  calculatedPageUpdates.forEach(({ linkId, qrIndex, items }) => {
+    if (qrIndex === undefined) {
+      operations.push({ op: 'add', path: '/item/-', value: { linkId, item: items } });
+    } else {
+      operations.push({ op: 'add', path: `/item/${qrIndex}/item`, value: items });
+    }
+  });
 
   if (currentQRStatus === 'completed') {
     operations.push({

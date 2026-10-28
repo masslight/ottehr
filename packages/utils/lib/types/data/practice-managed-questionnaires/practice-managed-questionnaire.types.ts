@@ -67,6 +67,7 @@ export type PracticeManagedQuestionnaireDTO = {
   status: Questionnaire['status'];
   url: string;
   placement: FormPlacement;
+  readOnly: boolean; // questionnaires imported via raw json are read only in the admin portal
 };
 
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
@@ -98,9 +99,18 @@ export type GetPatientFormResponsesOutput = { responses: PatientFormResponse[] }
 export type PracticeManagedQuestionnaireGetInput = {
   questionnaireId: string;
 };
-export type PracticeManagedQuestionnaireGetOutput = {
-  practiceManagedQuestionnaire: PracticeManagedQuestionnaire;
-};
+
+// json imported questionnaires are not edited with the questionnaire builder, so they are returned as raw fhir
+// (they may contain attributes the builder cannot process)
+export type PracticeManagedQuestionnaireGetOutput =
+  | {
+      readOnly: false;
+      practiceManagedQuestionnaire: PracticeManagedQuestionnaire;
+    }
+  | {
+      readOnly: true;
+      questionnaire: Questionnaire;
+    };
 
 // get practice managed questionnaire list
 export type PracticeManagedQuestionnaireListOutput = {
@@ -132,6 +142,16 @@ export type PracticeManagedQuestionnaireCreateInput = {
 };
 export type PracticeManagedQuestionnaireCreateOutput = {
   questionnaireId: string;
+};
+
+// import a raw fhir questionnaire json, sent as the uploaded / pasted text so the zambda does all the validation
+export type PracticeManagedQuestionnaireImportJsonInput = {
+  questionnaireJson: string;
+  questionnaireId?: string; // when questionnaireId is passed, the json is validated against that specific questionnaire
+};
+export type PracticeManagedQuestionnaireImportJsonOutput = {
+  questionnaireId: string;
+  version: string;
 };
 
 // used for patient app rendering custom, standalone forms

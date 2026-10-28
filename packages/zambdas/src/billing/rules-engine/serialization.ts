@@ -1,6 +1,10 @@
 import { Basic, Extension, List, Reference, Task } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
-import { RulesEngineSubmissionType, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RulesEngineSubmissionInsurance,
+  RulesEngineSubmissionType,
+  RulesEngineType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   BillingRule,
   BillingRuleSchema,
@@ -32,6 +36,7 @@ const LIST_ORDER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/list-order';
 export const RULES_ENGINE_INPUT_SYSTEM = ottehrCodeSystemUrl('rules-engine-input');
 export const RULES_ENGINE_INPUT_SKIP_RULES_CODE = 'skip-rules';
 export const RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE = 'submission-type';
+export const RULES_ENGINE_INPUT_SUBMISSION_INSURANCE_CODE = 'submission-insurance';
 export const RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE = 'payer-claim-control-number';
 
 export function ruleToContainedBasic(rule: BillingRule): Basic {
@@ -120,7 +125,8 @@ export function buildRulesEngineKickoffTask(
   claimId: string,
   skipRules: boolean,
   requester: Reference,
-  submissionType?: RulesEngineSubmissionType,
+  submissionType: RulesEngineSubmissionType = 'new',
+  submissionInsurance: RulesEngineSubmissionInsurance = 'primary',
   payerClaimControlNumber?: string
 ): Task {
   return {
@@ -139,12 +145,26 @@ export function buildRulesEngineKickoffTask(
             },
           ]
         : []),
-      ...(submissionType !== 'new' && payerClaimControlNumber
+      ...(submissionType
         ? [
             {
               type: { coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE }] },
               valueString: submissionType,
             },
+          ]
+        : []),
+      ...(submissionInsurance
+        ? [
+            {
+              type: {
+                coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SUBMISSION_INSURANCE_CODE }],
+              },
+              valueString: submissionInsurance,
+            },
+          ]
+        : []),
+      ...(payerClaimControlNumber
+        ? [
             {
               type: {
                 coding: [

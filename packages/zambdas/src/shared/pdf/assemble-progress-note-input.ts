@@ -1,4 +1,6 @@
 import Oystehr from '@oystehr/sdk';
+import { DeviceRequest } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
@@ -7,15 +9,34 @@ import {
 } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { Secrets } from 'utils/lib/secrets';
+import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { getMedicationOrders } from '../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../ehr/immunization/get-orders';
 import { buildVisitNote } from '../chart-sections/visit-note';
+import { DME_ORDER_SEARCH_TAG, isDmeOrderDeleted, parseDmeOrder } from '../dme';
 import { fetchErxPharmacies } from '../erx';
 import { getEncounterFormResponses } from '../practice-forms';
 import { getEncounterSignatures } from './get-encounter-signatures';
 import { getUpcomingFollowUps } from './get-upcoming-follow-ups';
 import { ProgressNoteInput } from './types';
 import { FullAppointmentResourcePackage } from './visit-details-pdf/types';
+
+export const getEncounterDmeOrders = async (oystehr: Oystehr, encounterId: string): Promise<DmeOrderDTO[]> =>
+  (
+    await getAllFhirSearchPages<DeviceRequest>(
+      {
+        resourceType: 'DeviceRequest',
+        params: [
+          { name: 'encounter', value: `Encounter/${encounterId}` },
+          { name: '_tag', value: DME_ORDER_SEARCH_TAG },
+        ],
+      },
+      oystehr
+    )
+  )
+    .filter((deviceRequest) => !isDmeOrderDeleted(deviceRequest))
+    .map((deviceRequest) => parseDmeOrder(deviceRequest, {}))
+    .sort((a, b) => a.orderedAt.localeCompare(b.orderedAt));
 
 /**
  * Gathers every piece of chart data the visit/progress note PDF needs into a `ProgressNoteInput`.
@@ -42,7 +63,7 @@ export async function assembleProgressNoteInput(
   // Follow-ups hang off the top-level encounter, so resolve to the parent if this one is a follow-up.
   const followUpParentEncounterId = removePrefix('Encounter/', encounter.partOf?.reference ?? '') ?? encounterId;
 
-  const [visitNote, medicationOrdersData, upcomingFollowUps, signatures, formResponses] = await Promise.all([
+  const [visitNote, medicationOrdersData, upcomingFollowUps, signatures, dmeOrders, formResponses] = await Promise.all([
     buildVisitNote({ oystehr, m2mToken: token }, encounterId, {
       noteTypes: isInPersonAppointment ? progressNoteNoteTypes : telemedProgressNoteNoteTypes,
     }),
@@ -53,6 +74,7 @@ export async function assembleProgressNoteInput(
       console.error(`Failed to resolve encounter signatures for encounter ${encounterId}:`, error);
       return { signedBy: undefined, approvedBy: undefined };
     }),
+    getEncounterDmeOrders(oystehr, encounterId),
     getEncounterFormResponses(oystehr, encounterId, visitResources.questionnaireResponse, secrets),
   ]);
 
@@ -72,6 +94,7 @@ export async function assembleProgressNoteInput(
     questionnaireResponse: visitResources.questionnaireResponse,
     upcomingFollowUps,
     erxPharmacies,
+    dmeOrders,
     signatures,
     signed: options?.signed,
     formResponses,

@@ -27,6 +27,9 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
       "12001 Simple repair of superficial wounds",
     ],
   },
+  "dmeOrders": {
+    "dmeOrders": [],
+  },
   "emCode": {
     "emCode": "Office visit, established patient, moderate",
   },
