@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
+import { buildBillingInvoice, invoicePaymentExtension } from 'utils/lib/fhir/billing-invoice';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, Mock, vi } from 'vitest';
@@ -15,6 +16,7 @@ import {
   fetchPatientPaidByClaimId,
   fetchPatientPaymentsByEncounterIds,
   firstSubmittedDate,
+  getInvoiceBalanceInCents,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
   sortClaimResponsesByRecency,
@@ -844,6 +846,91 @@ describe('sumPatientPayments', () => {
       }),
     ];
     expect(sumPatientPayments(notices)).toBe(25);
+  });
+});
+
+describe('getInvoiceBalanceInCents', () => {
+  const invoice = {
+    ...buildBillingInvoice({
+      status: 'issued',
+      date: '2026-10-25T12:00:00.000Z',
+      dueDate: '2026-11-08',
+      recipient: {
+        reference: 'Organization/fedex',
+      },
+      claims: [
+        {
+          claimId: 'claim-1',
+          amountCents: 10000,
+        },
+        {
+          claimId: 'claim-2',
+          amountCents: 5050,
+        },
+      ],
+    }),
+    id: 'invoice-1',
+  };
+  const invoicePayment = (opts: Parameters<typeof paymentNotice>[0], invoiceId = 'invoice-1'): PaymentNotice => ({
+    ...paymentNotice(opts),
+    extension: [invoicePaymentExtension(invoiceId)],
+  });
+
+  it('is the invoice total with no payments', () => {
+    expect(getInvoiceBalanceInCents(invoice, [])).toBe(15050);
+  });
+
+  it('subtracts payments and nets refunds', () => {
+    const notices = [
+      invoicePayment({
+        id: 'a',
+        encounterId: 'e',
+        amount: 100,
+      }),
+      invoicePayment({
+        id: 'r',
+        encounterId: 'e',
+        amount: -20.25,
+      }),
+    ];
+    expect(getInvoiceBalanceInCents(invoice, notices)).toBe(7075);
+  });
+
+  it('ignores cancelled notices, notices for another invoice and notices with no invoice', () => {
+    const notices = [
+      invoicePayment({
+        id: 'cancelled',
+        encounterId: 'e',
+        amount: 100,
+        status: 'cancelled',
+      }),
+      invoicePayment(
+        {
+          id: 'other',
+          encounterId: 'e',
+          amount: 100,
+        },
+        'invoice-2'
+      ),
+      paymentNotice({
+        id: 'claim-only',
+        encounterId: 'e',
+        amount: 100,
+      }),
+    ];
+    expect(getInvoiceBalanceInCents(invoice, notices)).toBe(15050);
+  });
+
+  it('rejects an unsaved invoice', () => {
+    expect(() =>
+      getInvoiceBalanceInCents(
+        {
+          ...invoice,
+          id: undefined,
+        },
+        []
+      )
+    ).toThrow();
   });
 });
 

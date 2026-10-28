@@ -4,11 +4,13 @@ import {
   ClaimResponse,
   ClaimResponseItemAdjudication,
   FhirResource,
+  Invoice,
   PaymentNotice,
   PaymentReconciliation,
   Provenance,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getPaymentNoticeInvoiceId } from 'utils/lib/fhir/billing-invoice';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
@@ -241,6 +243,13 @@ export function summarizePatientBalance(
  */
 export function sumPatientPayments(notices: PaymentNotice[]): number {
   return notices.filter((n) => n.status === 'active').reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
+}
+
+// Notices for other invoices are ignored, so callers can pass a claim's whole list.
+export function getInvoiceBalanceInCents(invoice: Invoice, notices: PaymentNotice[]): number {
+  if (!invoice.id) throw new Error('An invoice balance needs a saved invoice');
+  const invoicePayments = notices.filter((notice) => getPaymentNoticeInvoiceId(notice) === invoice.id);
+  return Math.round(((invoice.totalGross?.value ?? 0) - sumPatientPayments(invoicePayments)) * 100);
 }
 
 export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPayment {
