@@ -1232,6 +1232,9 @@ export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
 
 export const PRESCRIPTION_ERX_PHARMACY_ID_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-id';
+export const PRESCRIPTION_ERX_PHARMACY_NAME_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-name';
+// The code system of the eRx service's prescription events (Provenance.activity)
+export const ERX_EVENT_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/erx-event';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 

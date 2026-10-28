@@ -181,6 +181,18 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   encounterId?: string;
   isRenewal?: boolean;
   pharmacyId?: string;
+  pharmacyName?: string;
+  /** When the prescription went to Surescripts */
+  sent?: string;
+  /** The eRx service's events for the prescription, oldest first */
+  events?: ErxEventDTO[];
+}
+
+export interface ErxEventDTO {
+  code: string;
+  text?: string;
+  recorded?: string;
+  agent?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {

@@ -22,6 +22,7 @@ import {
   Meta,
   Observation,
   Procedure,
+  Provenance,
   Reference,
   Resource,
   ServiceRequest,
@@ -36,10 +37,12 @@ import {
   BODY_SITE_SYSTEM,
   CPT_BILLABLE_UNITS_EXTENSION_URL,
   CPT_CODE_SYSTEM,
+  ERX_EVENT_CODE_SYSTEM,
   ERX_MEDICATION_META_TAG_CODE,
   FHIR_EXTENSION,
   PERFORMER_TYPE_SYSTEM,
   PRESCRIPTION_ERX_PHARMACY_ID_URL,
+  PRESCRIPTION_ERX_PHARMACY_NAME_URL,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
@@ -84,6 +87,7 @@ import {
   DispositionDTO,
   DispositionFollowUpType,
   DispositionType,
+  ErxEventDTO,
   EXAM_OBSERVATION_META_SYSTEM,
   ExamObservationDTO,
   FreeTextNoteDTO,
@@ -365,7 +369,31 @@ const getPharmacyId = (medRequest: MedicationRequest): string | undefined => {
   return extension?.valueString ?? extension?.valueInteger?.toString();
 };
 
-export function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedMedicationDTO {
+// The eRx service records each event of a prescription as a Provenance targeting it.
+const makeErxEvents = (medRequest: MedicationRequest, provenances: Provenance[]): ErxEventDTO[] =>
+  provenances
+    .filter((provenance) =>
+      provenance.target.some((target) => target.reference === `MedicationRequest/${medRequest.id}`)
+    )
+    .flatMap((provenance) => {
+      const code = provenance.activity?.coding?.find((coding) => coding.system === ERX_EVENT_CODE_SYSTEM)?.code;
+      if (!code) return [];
+      return [
+        {
+          code,
+          text: provenance.activity?.text,
+          recorded: provenance.recorded,
+          agent: provenance.agent?.[0]?.who?.display,
+        },
+      ];
+    })
+    .sort((a, b) => (a.recorded ?? '').localeCompare(b.recorded ?? ''));
+
+export function makePrescribedMedicationDTO(
+  medRequest: MedicationRequest,
+  provenances: Provenance[] = []
+): PrescribedMedicationDTO {
+  const events = makeErxEvents(medRequest, provenances);
   return {
     resourceId: medRequest.id,
     name: (
@@ -383,6 +411,12 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
     isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
     pharmacyId: getPharmacyId(medRequest),
+    pharmacyName: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_NAME_URL)?.valueString,
+    sent:
+      events.find((event) => event.code === 'ordered')?.recorded ??
+      medRequest.authoredOn ??
+      medRequest.meta?.lastUpdated,
+    events,
   };
 }
 
