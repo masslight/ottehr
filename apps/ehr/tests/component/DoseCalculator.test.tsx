@@ -146,6 +146,32 @@ describe('DoseCalculator (plain, inline)', () => {
     );
   });
 
+  it('keeps its size while values change: waiting, a result, a capped result, the weight row gone', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0])} weight={WEIGHT} />);
+    const calculator = await openCalculator(user);
+    const card = screen.getByTestId('dose-calculator');
+    const size = (): string[] => [getComputedStyle(card).width, getComputedStyle(card).height];
+    const before = size();
+    expect(before).toEqual(['340px', expect.stringMatching(/^\d+px$/)]);
+    expect(card).toHaveAttribute('data-look', 'waiting');
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '90');
+    await pickFrequency(user, calculator, 'twice daily');
+    expect(card).toHaveAttribute('data-look', 'own');
+    expect(screen.getByRole('button', { name: 'Use this dose' })).toBeInTheDocument();
+    expect(size()).toEqual(before);
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'maximum per day' }), '1000');
+    expect(within(calculator).getByTestId('dose-cap')).toBeInTheDocument();
+    expect(size()).toEqual(before);
+    await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
+    await user.click(screen.getByRole('option', { name: 'dose, not by weight' }));
+    expect(within(calculator).queryByRole('spinbutton', { name: 'weight' })).not.toBeInTheDocument();
+    expect(size()).toEqual(before);
+    await user.clear(within(calculator).getByRole('spinbutton', { name: 'rate' }));
+    expect(card).toHaveAttribute('data-look', 'waiting');
+    expect(size()).toEqual(before);
+  });
+
   it('writes the frequency it is given over the line’s, and keeps the line’s without one', () => {
     const line = withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
       frequency: 'every 8 hours as needed',

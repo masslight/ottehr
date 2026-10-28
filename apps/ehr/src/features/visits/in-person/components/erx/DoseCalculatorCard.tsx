@@ -58,6 +58,12 @@ const PANEL = { background: '#F3F6FA', edge: '#C9D6E6', display: '#E8F0FA', disp
 const MONO = "'Roboto Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 const NOTE_SX = { color: 'text.secondary', fontSize: 13 };
 const HEADING_SX = { fontSize: 12, textTransform: 'uppercase', letterSpacing: '.05em', color: 'text.secondary' };
+/** The calculator's height with its inputs, room for the most rows (a liquid's, the weight's note wrapping), a
+ * two-line result with its cap note, and "Use this dose"; more with a combination's "Dose by". A height following
+ * the content grew and shrank as a value was typed (the waiting message or the result, the cap note, the button, the
+ * weight row coming and going with the basis), and the popup, re-placed on each render, flipped and shifted with it. */
+const CARD_HEIGHT = 460;
+const PICKER_HEIGHT = 70;
 
 /** A white box around a blank and its unit and notes; numbers typed in it read in mono. */
 const FieldBox: FC<{ children: ReactNode; sx?: SxProps<Theme> }> = ({ children, sx }) => (
@@ -268,6 +274,13 @@ export const DoseCalculatorCard: FC<DoseCalculatorCardProps> = ({
       width: 340,
       maxWidth: '100%',
       boxSizing: 'border-box',
+      // A message alone (no inputs) never changes; with inputs the size stays put whatever is typed, scrolling if
+      // ever it must.
+      ...(display.fields && {
+        height: CARD_HEIGHT + (picker ? PICKER_HEIGHT : 0),
+        overflowY: 'auto',
+        '& > *': { flexShrink: 0 },
+      }),
       p: '12px',
       backgroundColor: PANEL.background,
       border: `1px solid ${PANEL.edge}`,
