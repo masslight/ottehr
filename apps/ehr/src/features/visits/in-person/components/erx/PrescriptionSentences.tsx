@@ -406,12 +406,7 @@ const MedicationMenu: FC<{
             <Box component="span" sx={{ fontStyle: 'italic' }}>
               {pick.kind === 'set' ? pick.set.name : pick.quickPick.name}
             </Box>
-            {/* A quick pick shows only its name, which the practice words as it likes (with a strength or not). */}
-            {pick.kind === 'set' && (
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                {`${pick.members.length} ${pick.members.length === 1 ? 'prescription' : 'prescriptions'}`}
-              </Typography>
-            )}
+            {/* A quick pick or set shows only its name, which the practice words as it likes. */}
           </>
         )}
       </Box>

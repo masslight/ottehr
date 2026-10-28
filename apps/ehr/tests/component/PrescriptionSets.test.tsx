@@ -171,7 +171,7 @@ const searchedColumn = async (): Promise<HTMLElement> => {
   return medicationColumn();
 };
 
-/** The column's rows as read: a set's "Set: name" and count, a quick pick's name, a medication's name. */
+/** The column's rows as read: a set's "Set: name", a quick pick's name, a medication's name. */
 const menuItems = (list: HTMLElement): string[] =>
   Array.from(list.querySelectorAll('[role="option"]')).map((item) => item.textContent ?? '');
 /** The row the field says is highlighted. */
@@ -180,7 +180,7 @@ const highlighted = (): string | null | undefined => {
   return id ? document.getElementById(id)?.textContent : undefined;
 };
 
-const SETS_ROWS = ['Set: Acute otitis2 prescriptions', 'Set: Ear infection2 prescriptions'];
+const SETS_ROWS = ['Set: Acute otitis', 'Set: Ear infection'];
 const AMOX_ROWS = ['Amox as written', 'Amox strep'];
 const IBUPROFEN_ROW = 'Ibuprofen pain';
 
@@ -226,7 +226,7 @@ describe('Prescription sets on the order form', () => {
       await openMenu(user);
       const items = menuItems(quickPickColumn());
       expect(items).toHaveLength(10 + 10);
-      expect(items[9]).toBe('Set: Set 191 prescription');
+      expect(items[9]).toBe('Set: Set 19');
       expect(items[10]).toBe('Pick 10');
       expect(screen.getByText('Type to search more')).toBeInTheDocument();
       expect(screen.queryByText('Set 20')).not.toBeInTheDocument();
