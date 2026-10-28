@@ -855,57 +855,60 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       <Box sx={{ display: 'flex', flexDirection: 'column', borderLeft: 3, borderColor: 'primary.main', pl: 1.5 }}>
         {/* The line starts with its medication: the bar marks where each prescription starts, so it isn't numbered. */}
         <Sentence onRemove={onRemove} removeLabel={`Remove prescription ${index + 1}`}>
-          <PopoverBlank
-            label="medication"
-            title="Medication"
-            // The menu's own field says "Medication".
-            hideTitle
-            paperSx={MEDICATION_MENU_PAPER_SX}
-            value={line.drug?.name ?? description}
-            need
-            readOnly={readOnly}
-          >
-            {(close) => (
-              <MedicationMenu
-                quickPicks={quickPicks}
-                sets={activeSets}
-                onDrug={(drug) => {
-                  changeProduct(withDrug(line, drug));
-                  close();
-                }}
-                onQuickPick={(quickPick) => {
-                  // A quick pick's directions are picked ones: they show.
-                  setAwaitingPick(false);
-                  onQuickPick(quickPick);
-                  close();
-                }}
-                onSet={(set) => {
-                  // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
-                  if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
-                  onSet?.(set);
-                  close();
-                }}
-              />
+          {/* The drug and its strength read a little larger than the rest of the line. */}
+          <Box component="span" sx={{ fontSize: '1.125em' }}>
+            <PopoverBlank
+              label="medication"
+              title="Medication"
+              // The menu's own field says "Medication".
+              hideTitle
+              paperSx={MEDICATION_MENU_PAPER_SX}
+              value={line.drug?.name ?? description}
+              need
+              readOnly={readOnly}
+            >
+              {(close) => (
+                <MedicationMenu
+                  quickPicks={quickPicks}
+                  sets={activeSets}
+                  onDrug={(drug) => {
+                    changeProduct(withDrug(line, drug));
+                    close();
+                  }}
+                  onQuickPick={(quickPick) => {
+                    // A quick pick's directions are picked ones: they show.
+                    setAwaitingPick(false);
+                    onQuickPick(quickPick);
+                    close();
+                  }}
+                  onSet={(set) => {
+                    // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
+                    if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
+                    onSet?.(set);
+                    close();
+                  }}
+                />
+              )}
+            </PopoverBlank>{' '}
+            {line.drug && (
+              <>
+                <SelectBlank
+                  label="strength"
+                  title="Strength"
+                  // A product name ("250 mg/5ml Susp"), shown as the list spells it rather than lower-cased for prose.
+                  verbatim
+                  options={line.drug.strengths.map((option) => option.strength)}
+                  value={strength?.strength}
+                  onChange={(value) => {
+                    const next = line.drug?.strengths.find((option) => option.strength === value);
+                    if (line.drug && next) changeProduct(withProduct(line, line.drug, next));
+                  }}
+                  readOnly={readOnly}
+                  need
+                />
+              </>
             )}
-          </PopoverBlank>{' '}
-          {line.drug && (
-            <>
-              <SelectBlank
-                label="strength"
-                title="Strength"
-                // A product name ("250 mg/5ml Susp"), shown as the list spells it rather than lower-cased for prose.
-                verbatim
-                options={line.drug.strengths.map((option) => option.strength)}
-                value={strength?.strength}
-                onChange={(value) => {
-                  const next = line.drug?.strengths.find((option) => option.strength === value);
-                  if (line.drug && next) changeProduct(withProduct(line, line.drug, next));
-                }}
-                readOnly={readOnly}
-                need
-              />{' '}
-            </>
-          )}
+          </Box>{' '}
           for {/* A chosen diagnosis stays a blank: clicking it searches again to swap it. */}
           <PopoverBlank
             label={line.diagnosis ? 'diagnosis' : 'add diagnosis'}
