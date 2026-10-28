@@ -31,7 +31,7 @@ export interface PlainDoseInput {
   rate?: number;
   dosesPerDay?: number;
   /** Optional maxima: a dose over one is capped, and measured down so it stays at or under it. A per-day maximum
-   * needs the doses a day. */
+   * is checked only with the doses a day. */
   maxPerDoseMg?: number;
   maxPerDayMg?: number;
 }
@@ -113,7 +113,7 @@ export const plainDose = ({
 }: PlainDoseInput): PlainDose | undefined => {
   if (!mgPerMeasure || !rate) return undefined;
   if (basis !== 'fixed' && !weightKg) return undefined;
-  if ((basis === 'mg/kg/day' || maxPerDayMg) && !dosesPerDay) return undefined;
+  if (basis === 'mg/kg/day' && !dosesPerDay) return undefined;
   const kg = weightKg ?? 0;
   const worked = roundNumberToDecimalPlaces(
     basis === 'fixed' ? rate : basis === 'mg/kg/dose' ? kg * rate : (kg * rate) / (dosesPerDay ?? 1),

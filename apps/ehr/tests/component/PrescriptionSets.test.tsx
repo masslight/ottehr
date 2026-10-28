@@ -57,7 +57,7 @@ const BY_WEIGHT: PrescriptionQuickPickData = {
   numberOfRefills: 0,
   substitutionAllowed: false,
   noteToPharmacy: 'Shake well',
-  dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+  dosing: { rate: 25, basis: 'mg/kg/dose', frequency: 'twice daily', durationDays: 10 },
 };
 const SAVED_TEXT: PrescriptionQuickPickData = {
   id: 'qp-text',
@@ -353,7 +353,7 @@ describe('Prescription sets on the order form', () => {
         durationDays: '10',
         noteToPharmacy: 'Shake well',
         patientInstructions: 'Take 9 mL by mouth twice daily for 10 days.',
-        dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2 },
+        dosing: { rate: 25, basis: 'mg/kg/dose' },
       });
       expect(withoutKey(latest[1])).toEqual(listed(IBUPROFEN));
       expect(notices).toEqual(['1 prescription in this set no longer exists.']);

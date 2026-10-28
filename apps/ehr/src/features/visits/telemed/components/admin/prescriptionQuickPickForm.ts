@@ -31,7 +31,6 @@ export interface PrescriptionQuickPickFormValues {
   rate: string;
   basis: DoseBasis;
   frequency: string;
-  dosesPerDay: string;
   durationDays: string;
   maxPerDoseMg: string;
   maxPerDayMg: string;
@@ -68,7 +67,6 @@ export const emptyPrescriptionQuickPickForm = (): PrescriptionQuickPickFormValue
   rate: '',
   basis: 'mg/kg/dose',
   frequency: '',
-  dosesPerDay: '',
   durationDays: '',
   maxPerDoseMg: '',
   maxPerDayMg: '',
@@ -100,7 +98,6 @@ export const prescriptionQuickPickFormValues = (
           rate: String(dosing.rate),
           basis: dosing.basis,
           frequency: dosing.frequency ?? '',
-          dosesPerDay: text(dosing.dosesPerDay),
           durationDays: text(dosing.durationDays),
           maxPerDoseMg: text(dosing.maxPerDoseMg),
           maxPerDayMg: text(dosing.maxPerDayMg),
@@ -149,7 +146,6 @@ const FormSchema = z
     frequency: z
       .string()
       .refine((value) => blank(value) || prescriptionFrequency(value) !== undefined, 'Pick a frequency'),
-    dosesPerDay: positive('Doses a day'),
     durationDays: wholeNumber('Duration', 1, 999),
     maxPerDoseMg: positive('Maximum per dose'),
     maxPerDayMg: positive('Maximum per day'),
@@ -179,16 +175,13 @@ const FormSchema = z
     if (blank(values.ndc)) issue('ndc', 'Pick a medication and strength');
     if (values.doseMode !== 'dosing') return;
     if (blank(values.rate) || !(Number(values.rate) > 0)) issue('rate', 'Dose must be greater than 0');
-    if (values.basis === 'mg/kg/day' && blank(values.dosesPerDay)) {
-      issue('dosesPerDay', 'Doses a day is required for mg/kg per day');
+    // Only a scheduled frequency gives the doses a day ("as needed" doesn't), as the backend checks.
+    const scheduled = prescriptionFrequency(values.frequency)?.dosesPerDay !== undefined;
+    if (values.basis === 'mg/kg/day' && !scheduled) {
+      issue('frequency', 'A scheduled frequency is required for mg/kg per day');
     }
-    // The doses a day follow a frequency that gives a count (picking one fills them in), as the backend checks.
-    const count = dosesPerDayOf(values.frequency);
-    if (count !== undefined && !blank(values.dosesPerDay) && Number(values.dosesPerDay) !== count) {
-      issue('dosesPerDay', `Doses a day must be ${count} for ${values.frequency}`);
-    }
-    if (!blank(values.maxPerDayMg) && blank(values.dosesPerDay) && count === undefined) {
-      issue('maxPerDayMg', 'A maximum per day needs the doses a day or a frequency that gives them');
+    if (!blank(values.maxPerDayMg) && !scheduled) {
+      issue('maxPerDayMg', 'A maximum per day needs a scheduled frequency');
     }
   });
 
@@ -207,7 +200,6 @@ export const prescriptionQuickPickFromForm = (
           ...input,
           rate: '',
           frequency: '',
-          dosesPerDay: '',
           durationDays: '',
           maxPerDoseMg: '',
           maxPerDayMg: '',
@@ -223,7 +215,6 @@ export const prescriptionQuickPickFromForm = (
     return { errors };
   }
   const v = values;
-  const dosesPerDay = numberOrUndefined(v.dosesPerDay);
   const durationDays = numberOrUndefined(v.durationDays);
   const maxPerDoseMg = numberOrUndefined(v.maxPerDoseMg);
   const maxPerDayMg = numberOrUndefined(v.maxPerDayMg);
@@ -240,7 +231,6 @@ export const prescriptionQuickPickFromForm = (
             dosing: {
               rate: Number(v.rate),
               basis: v.basis,
-              ...(dosesPerDay !== undefined ? { dosesPerDay } : {}),
               ...(v.frequency ? { frequency: v.frequency } : {}),
               ...(durationDays !== undefined ? { durationDays } : {}),
               ...(maxPerDoseMg !== undefined ? { maxPerDoseMg } : {}),
@@ -266,6 +256,3 @@ export const prescriptionQuickPickFromForm = (
 
 /** The order form's frequencies, for the dosing's frequency choice. */
 export const FREQUENCY_OPTIONS = Object.keys(PRESCRIPTION_FREQUENCIES);
-
-/** The doses a day a frequency gives, when it gives a count ("as needed" doesn't). */
-export const dosesPerDayOf = (frequency: string): number | undefined => prescriptionFrequency(frequency)?.dosesPerDay;

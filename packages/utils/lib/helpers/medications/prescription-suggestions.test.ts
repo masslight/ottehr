@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MedicationIngredient } from '../../types/api/erx-search.types';
 import {
-  frequencyForDosesPerDay,
   isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
   prescriptionDirectionsText,
@@ -153,7 +152,7 @@ describe('PRESCRIPTION_FREQUENCIES', () => {
     expect(PRESCRIPTION_FREQUENCIES['every 12 hours']).toEqual({ dosesPerDay: 2, asNeeded: false });
     expect(PRESCRIPTION_FREQUENCIES['every 4 to 6 hours as needed']).toEqual({ dosesPerDay: 6, asNeeded: true });
     expect(PRESCRIPTION_FREQUENCIES['as needed']).toEqual({ asNeeded: true });
-    expect(PRESCRIPTION_FREQUENCIES['as directed']).toEqual({ asNeeded: false, directed: true });
+    expect(PRESCRIPTION_FREQUENCIES['as directed']).toEqual({ asNeeded: false });
   });
 
   it('writes "every 6 to 8 hours" as the provider words it and counts the quantity at every 6 hours', () => {
@@ -166,8 +165,6 @@ describe('PRESCRIPTION_FREQUENCIES', () => {
       quantityValue: '100',
       daysSupply: '5',
     });
-    // Four a day is still written "four times daily" when the calculator names a frequency.
-    expect(frequencyForDosesPerDay(4)).toBe('four times daily');
   });
 });
 

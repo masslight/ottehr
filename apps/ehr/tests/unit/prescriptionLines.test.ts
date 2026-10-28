@@ -671,7 +671,7 @@ describe('withCalculatorDosing', () => {
     daysSupply: '',
     dose: '3',
     frequency: 'twice daily',
-    dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2 },
+    dosing: { rate: 25, basis: 'mg/kg/dose' },
   };
   /** A blank changed on the line, as the dose and frequency blanks do it. */
   const changed = (line: PrescriptionLine, patch: Partial<PrescriptionLine>, kg?: number): PrescriptionLine =>
@@ -687,7 +687,7 @@ describe('withCalculatorDosing', () => {
     dose: '10',
     frequency: 'twice daily',
     durationDays: '10',
-    dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 2 },
+    dosing: { rate: 80, basis: 'mg/kg/day' },
   };
 
   it('keeps the settings while the dose and the doses a day stay the calculator’s', () => {
@@ -707,14 +707,13 @@ describe('withCalculatorDosing', () => {
     expect(next).toMatchObject({
       dose: '3',
       frequency: 'three times daily',
-      dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 3 },
+      dosing: { rate: 25, basis: 'mg/kg/dose' },
       patientInstructions: 'Take 3 capsules by mouth three times daily.',
     });
     expect(next.doseNotes).toBeUndefined();
     expect(prescriptionLineToQuickPick(next, 'Dosed').dosing).toEqual({
       rate: 25,
       basis: 'mg/kg/dose',
-      dosesPerDay: 3,
       frequency: 'three times daily',
     });
   });
@@ -724,7 +723,7 @@ describe('withCalculatorDosing', () => {
     expect(next).toMatchObject({
       dose: '6.5',
       frequency: 'three times daily',
-      dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 },
+      dosing: { rate: 80, basis: 'mg/kg/day' },
       patientInstructions: 'Take 6.5 mL by mouth three times daily for 10 days.',
       quantityValue: '195',
     });
@@ -738,7 +737,6 @@ describe('withCalculatorDosing', () => {
     expect(prescriptionLineToQuickPick(next, 'Per day').dosing).toEqual({
       rate: 80,
       basis: 'mg/kg/day',
-      dosesPerDay: 3,
       frequency: 'three times daily',
       durationDays: 10,
     });
@@ -754,9 +752,9 @@ describe('withCalculatorDosing', () => {
     const next = changed(capped, { frequency: 'three times daily' }, 20);
     expect(next.dose).toBe('6');
     expect(next.doseNotes?.[0]?.working).toBe('20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → capped at 500 mg per dose');
-    expect(next.dosing).toEqual({ rate: 80, basis: 'mg/kg/day', dosesPerDay: 3, maxPerDoseMg: 500 });
+    expect(next.dosing).toEqual({ rate: 80, basis: 'mg/kg/day', maxPerDoseMg: 500 });
     const noWeight = changed(perDay, { frequency: 'three times daily' });
-    expect(noWeight).toMatchObject({ dose: '', dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 } });
+    expect(noWeight).toMatchObject({ dose: '', dosing: { rate: 80, basis: 'mg/kg/day' } });
   });
 
   it('drops them on a new product and saves none for a course', () => {

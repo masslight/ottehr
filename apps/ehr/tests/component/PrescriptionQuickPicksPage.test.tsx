@@ -49,7 +49,6 @@ const BY_WEIGHT: PrescriptionQuickPickData = {
   dosing: {
     rate: 25,
     basis: 'mg/kg/dose',
-    dosesPerDay: 2,
     frequency: 'twice daily',
     durationDays: 10,
     maxPerDoseMg: 500,
@@ -121,7 +120,7 @@ describe('Prescription quick picks admin', () => {
     await user.type(within(dialog).getByLabelText(/^Dose\W*$/), '45');
     await chooseOption(user, 'Per', 'mg/kg per day');
     await chooseOption(user, 'Frequency', 'twice daily');
-    expect(within(dialog).getByLabelText('Doses a day')).toHaveValue(2);
+    expect(within(dialog).queryByLabelText('Doses a day')).not.toBeInTheDocument();
     await user.type(within(dialog).getByLabelText('Duration (days)'), '10');
     await user.type(within(dialog).getByLabelText('Max per day (mg)'), '4000');
     await user.type(within(dialog).getByLabelText(/^Additional instructions/), 'Shake well. Take with food.');
@@ -140,7 +139,6 @@ describe('Prescription quick picks admin', () => {
         dosing: {
           rate: 45,
           basis: 'mg/kg/day',
-          dosesPerDay: 2,
           frequency: 'twice daily',
           durationDays: 10,
           maxPerDayMg: 4000,
@@ -199,7 +197,7 @@ describe('Prescription quick picks admin', () => {
     expect(within(dialog).getByText('Name is required')).toBeInTheDocument();
     expect(within(dialog).getByText('Pick a medication and strength')).toBeInTheDocument();
     expect(within(dialog).getByText('Dose must be greater than 0')).toBeInTheDocument();
-    expect(within(dialog).getByText('Doses a day is required for mg/kg per day')).toBeInTheDocument();
+    expect(within(dialog).getByText('A scheduled frequency is required for mg/kg per day')).toBeInTheDocument();
     expect(within(dialog).getByText('Link must be an https link')).toBeInTheDocument();
     expect(within(dialog).getByText('Source is required with a link')).toBeInTheDocument();
     expect(api.createPrescriptionQuickPick).not.toHaveBeenCalled();
@@ -343,7 +341,7 @@ describe('prescriptionQuickPickFromForm: additional instructions', () => {
   });
 });
 
-describe('prescriptionQuickPickFromForm: frequency and doses a day', () => {
+describe('prescriptionQuickPickFromForm: frequency', () => {
   const dosed = {
     ...emptyPrescriptionQuickPickForm(),
     name: 'Amox',
@@ -363,29 +361,36 @@ describe('prescriptionQuickPickFromForm: frequency and doses a day', () => {
     );
   });
 
-  it('wants the doses a day the frequency gives, when it gives a count', () => {
-    expect(
-      prescriptionQuickPickFromForm({ ...dosed, frequency: 'twice daily', dosesPerDay: '3' }).errors?.dosesPerDay
-    ).toBe('Doses a day must be 2 for twice daily');
-    expect(
-      prescriptionQuickPickFromForm({ ...dosed, frequency: 'twice daily', dosesPerDay: '2' }).errors
-    ).toBeUndefined();
-    // "As needed" gives no count: any doses a day will do.
-    expect(
-      prescriptionQuickPickFromForm({ ...dosed, frequency: 'as needed', dosesPerDay: '3' }).errors
-    ).toBeUndefined();
+  it('wants a scheduled frequency for a per-day rate; per dose any frequency, or none, will do', () => {
+    const perDay = { ...dosed, basis: 'mg/kg/day' as const };
+    for (const frequency of ['', 'as needed', 'as directed', 'per package instructions']) {
+      expect(prescriptionQuickPickFromForm({ ...perDay, frequency }).errors?.frequency).toBe(
+        'A scheduled frequency is required for mg/kg per day'
+      );
+      expect(prescriptionQuickPickFromForm({ ...dosed, frequency }).errors).toBeUndefined();
+    }
+    expect(prescriptionQuickPickFromForm({ ...perDay, frequency: 'twice daily' })).toMatchObject({
+      quickPick: { dosing: { rate: 25, basis: 'mg/kg/day', frequency: 'twice daily' } },
+    });
   });
 
-  it('wants a count of doses a day for a maximum per day', () => {
+  it('wants a scheduled frequency for a maximum per day', () => {
     expect(prescriptionQuickPickFromForm({ ...dosed, maxPerDayMg: '1000' }).errors?.maxPerDayMg).toBe(
-      'A maximum per day needs the doses a day or a frequency that gives them'
+      'A maximum per day needs a scheduled frequency'
     );
     expect(
       prescriptionQuickPickFromForm({ ...dosed, frequency: 'as needed', maxPerDayMg: '1000' }).errors?.maxPerDayMg
-    ).toBe('A maximum per day needs the doses a day or a frequency that gives them');
+    ).toBe('A maximum per day needs a scheduled frequency');
     expect(
       prescriptionQuickPickFromForm({ ...dosed, frequency: 'twice daily', maxPerDayMg: '1000' }).errors
     ).toBeUndefined();
-    expect(prescriptionQuickPickFromForm({ ...dosed, dosesPerDay: '2', maxPerDayMg: '1000' }).errors).toBeUndefined();
+  });
+
+  it('no longer saves an older quick pick’s doses a day when it is edited', () => {
+    const older = { ...BY_WEIGHT, dosing: { ...BY_WEIGHT.dosing!, dosesPerDay: 2 } };
+    const { quickPick } = prescriptionQuickPickFromForm(prescriptionQuickPickFormValues(older)) as {
+      quickPick: PrescriptionQuickPickData;
+    };
+    expect(quickPick.dosing).not.toHaveProperty('dosesPerDay');
   });
 });

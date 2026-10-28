@@ -54,7 +54,6 @@ import {
 } from './admin.queries';
 import {
   BASIS_LABELS,
-  dosesPerDayOf,
   emptyPrescriptionQuickPickForm,
   FREQUENCY_OPTIONS,
   PrescriptionDoseMode,
@@ -369,13 +368,7 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                     select
                     label="Frequency"
                     value={values.frequency}
-                    onChange={(e) => {
-                      const dosesPerDay = dosesPerDayOf(e.target.value);
-                      set({
-                        frequency: e.target.value,
-                        ...(dosesPerDay !== undefined ? { dosesPerDay: String(dosesPerDay) } : {}),
-                      });
-                    }}
+                    onChange={(e) => set({ frequency: e.target.value })}
                     error={!!errors.frequency}
                     helperText={errors.frequency}
                     fullWidth
@@ -387,7 +380,6 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                       </MenuItem>
                     ))}
                   </TextField>
-                  {field('dosesPerDay', 'Doses a day', { type: 'number' })}
                   {field('durationDays', 'Duration (days)', { type: 'number' })}
                 </Stack>
                 <Stack direction="row" spacing={2}>

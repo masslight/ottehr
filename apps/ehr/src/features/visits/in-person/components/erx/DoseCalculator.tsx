@@ -1,7 +1,6 @@
 import { FC, useState } from 'react';
 import { DOSE_STEP, DoseBasis, ML_MEASURE_STEPS, plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
-  frequencyForDosesPerDay,
   isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
   prescriptionDirectionsText,
@@ -47,7 +46,6 @@ interface Picks {
   basis?: DoseBasis;
   /** The frequency picked here, over the line's. */
   frequency?: string;
-  dosesPerDay?: string;
   maxPerDose?: string;
   maxPerDay?: string;
 }
@@ -55,10 +53,13 @@ interface Picks {
 /** A liquid's "Measure to" choices: "0.1 mL", "0.5 mL", "1 mL". */
 const MEASURE_TO_OPTIONS = ML_MEASURE_STEPS.map((step) => ({ value: String(step), label: `${step} mL` }));
 
+/** What a per-day rate waits on with a frequency that gives no doses a day. */
+export const UNSCHEDULED_MESSAGE = 'Pick a scheduled frequency to divide a per-day dose';
+
 const text = (value: number | undefined): string => (value === undefined ? '' : String(value));
 
-/** A quick pick's or the line's settings as if typed in, for its product; its doses a day only where the line's
- * frequency doesn't already say them, and the ingredient a combination was dosed by, where the line has one. */
+/** A quick pick's or the line's settings as if typed in, for its product, with the ingredient a combination was dosed
+ * by, where the line has one. */
 const picksOf = (dosing: CalculatorDosing | undefined, line: PrescriptionLine): Picks =>
   dosing
     ? {
@@ -66,10 +67,6 @@ const picksOf = (dosing: CalculatorDosing | undefined, line: PrescriptionLine): 
         ...(line.doseBy !== undefined ? { doseBy: line.doseBy } : {}),
         rate: text(dosing.rate),
         basis: dosing.basis,
-        ...(dosing.dosesPerDay !== undefined &&
-        dosing.dosesPerDay !== prescriptionFrequency(line.frequency)?.dosesPerDay
-          ? { dosesPerDay: text(dosing.dosesPerDay) }
-          : {}),
         ...(dosing.maxPerDoseMg !== undefined ? { maxPerDose: text(dosing.maxPerDoseMg) } : {}),
         ...(dosing.maxPerDayMg !== undefined ? { maxPerDay: text(dosing.maxPerDayMg) } : {}),
       }
@@ -159,7 +156,7 @@ interface DoseCalculatorProps {
 
 /** The calculator icon after the line's dose blank and the plain dose calculator it opens: weight from the vitals,
  * strength from the product, the rate typed and a frequency starting at the line's, all editable, and the doses a day
- * from that frequency, typed only while it gives none. Its result reads as the line's sentence, with the working
+ * from that frequency: a per-day rate waits for one that gives them. Its result reads as the line's sentence, with the working
  * behind the ⓘ. Nothing on the line changes until "Use this dose", and closing without it drops what was typed and
  * picked (a typed weight, the page's, stays). */
 export const DoseCalculator: FC<DoseCalculatorProps> = ({
@@ -203,10 +200,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const concentrationText = own.concentration ?? text(derivedConcentration);
   const basis = own.basis ?? 'mg/kg/day';
   const frequency = own.frequency ?? line.frequency;
-  const frequencyDosesPerDay = prescriptionFrequency(frequency)?.dosesPerDay;
-  // A frequency with a count is the doses a day, over anything typed or a quick pick's.
-  const dosesPerDayText = frequencyDosesPerDay !== undefined ? text(frequencyDosesPerDay) : own.dosesPerDay ?? '';
-  const dosesPerDay = numberOrUndefined(dosesPerDayText);
+  // Only a scheduled frequency gives the doses a day ("as needed" and "as directed" don't).
+  const dosesPerDay = prescriptionFrequency(frequency)?.dosesPerDay;
   const rateText = own.rate ?? '';
   const maxPerDoseMg = numberOrUndefined(own.maxPerDose ?? '');
   const maxPerDayMg = numberOrUndefined(own.maxPerDay ?? '');
@@ -222,8 +217,6 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     maxPerDoseMg,
     maxPerDayMg,
   });
-  // The frequency picked, else, with none, the one the doses a day typed match; matching none leaves it empty.
-  const fillFrequency = frequency || (dosesPerDay && frequencyForDosesPerDay(dosesPerDay)) || undefined;
 
   const fields: DoseField[] = [
     ...(basis === 'fixed'
@@ -273,10 +266,6 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       label: 'Frequency',
       choice: { title: 'Frequency', options: Object.keys(PRESCRIPTION_FREQUENCIES), value: frequency || undefined },
     },
-    // Typed only for a frequency without a count ("as needed", "as directed") or none, for the maths alone.
-    ...(frequencyDosesPerDay === undefined
-      ? [{ id: 'dosesPerDay', label: 'Doses a day', value: dosesPerDayText }]
-      : []),
     // Tablets and capsules stay whole: only a liquid has a choice.
     ...(measure === 'mL'
       ? [
@@ -296,16 +285,15 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     !ingredient && 'the ingredient to dose by',
     !numberOrUndefined(concentrationText) && `the ${measure === 'mL' ? 'concentration' : 'strength'}`,
     !numberOrUndefined(rateText) && 'a rate',
-    (basis === 'mg/kg/day' || maxPerDayMg) && !dosesPerDay && 'the doses a day',
+    basis === 'mg/kg/day' && !frequency && 'the frequency',
   ].filter((input): input is string => !!input);
   const fill: DoseFill | undefined = dose &&
     ingredient && {
       dose: String(dose.amount),
-      frequency: fillFrequency,
+      frequency: frequency || undefined,
       dosing: {
         rate: numberOrUndefined(rateText) ?? 0,
         basis,
-        ...(dosesPerDay !== undefined ? { dosesPerDay } : {}),
         ...(maxPerDoseMg !== undefined ? { maxPerDoseMg } : {}),
         ...(maxPerDayMg !== undefined ? { maxPerDayMg } : {}),
       },
@@ -326,9 +314,11 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     : {
         look: 'waiting',
         fields,
-        message: `Enter ${missing.slice(0, -1).join(', ')}${missing.length > 1 ? ' and ' : ''}${
-          missing[missing.length - 1]
-        } to work out the dose`,
+        message: missing.length
+          ? `Enter ${missing.slice(0, -1).join(', ')}${missing.length > 1 ? ' and ' : ''}${
+              missing[missing.length - 1]
+            } to work out the dose`
+          : UNSCHEDULED_MESSAGE,
       };
 
   return (

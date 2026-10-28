@@ -26,7 +26,7 @@ const AMOX: PrescriptionQuickPickData = {
   name: 'Amox otitis',
   ndc: '00093416173',
   medicationDescription: 'Amoxicillin 400 mg/5ml Susp',
-  dosing: { rate: 45, basis: 'mg/kg/day', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+  dosing: { rate: 45, basis: 'mg/kg/day', frequency: 'twice daily', durationDays: 10 },
 };
 const IBUPROFEN: PrescriptionQuickPickData = {
   id: 'qp-ibu',

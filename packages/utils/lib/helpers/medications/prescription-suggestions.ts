@@ -178,8 +178,6 @@ export interface PrescriptionFrequency {
    * when "as needed" says nothing about how often. */
   dosesPerDay?: number;
   asNeeded: boolean;
-  /** Leaves the how to someone else ("as directed", a dose pack's leaflet): never offered for a doses-a-day count. */
-  directed?: boolean;
 }
 
 /** A dose pack is taken by its own leaflet and dispensed as one package. */
@@ -207,8 +205,8 @@ export const PRESCRIPTION_FREQUENCIES: Record<string, PrescriptionFrequency> = {
   'every 6 hours as needed': { dosesPerDay: 4, asNeeded: true },
   'every 8 hours as needed': { dosesPerDay: 3, asNeeded: true },
   'as needed': { asNeeded: true },
-  'as directed': { asNeeded: false, directed: true },
-  [PER_PACKAGE_FREQUENCY]: { asNeeded: false, directed: true },
+  'as directed': { asNeeded: false },
+  [PER_PACKAGE_FREQUENCY]: { asNeeded: false },
 };
 
 /** The frequency a key names, if it is one of the form's own ("toString" isn't). Object.hasOwn, as utils' lib
@@ -334,10 +332,3 @@ export const prescriptionDirectionsText = (
   const tail = instructions ? `${bare && rest.length === 0 ? ' ' : ', '}${instructions}` : '';
   return `${course}${tail}.`;
 };
-
-/** The scheduled frequency that means this many doses a day ("twice daily" for 2), if the list has one. */
-export const frequencyForDosesPerDay = (dosesPerDay: number): string | undefined =>
-  Object.keys(PRESCRIPTION_FREQUENCIES).find((key) => {
-    const frequency = PRESCRIPTION_FREQUENCIES[key];
-    return !frequency.asNeeded && !frequency.directed && frequency.dosesPerDay === dosesPerDay;
-  });

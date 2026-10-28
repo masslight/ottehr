@@ -155,8 +155,9 @@ export const maximumWarnings = (line: PrescriptionLine): MaximumWarning[] => {
 export const maximumOriginText = (from: MaximumOrigin): string =>
   from === 'calculator' ? 'From the dose calculator' : `From the quick pick: ${from.quickPick}`;
 
-/** What the calculator worked the dose out from; the frequency and duration are the line's own. */
-export type CalculatorDosing = Omit<PrescriptionQuickPickDosing, 'frequency' | 'durationDays'>;
+/** What the calculator worked the dose out from; the frequency, and so the doses a day, and the duration are the
+ * line's own. */
+export type CalculatorDosing = Omit<PrescriptionQuickPickDosing, 'frequency' | 'durationDays' | 'dosesPerDay'>;
 
 /** How far a dose a strength change re-measured lands from the mg it was, or how the calculator's settings worked it
  * out (a dosing suggestion, "Use this dose", a new frequency): shown beside the dose while it stays so. */
@@ -260,8 +261,8 @@ export const withDirections = (
 };
 
 /** The line's calculator settings after a change by hand to its dose or frequency. A dose typed over the calculator's
- * drops them. A frequency of other doses a day keeps them, with the new doses a day: by mg/kg/day the dose is worked out
- * again for the weight (blank without one), with the working behind the ⓘ; per dose, or not by weight, it stays. */
+ * drops them. A frequency keeps them: one of other doses a day by mg/kg/day works the dose out again for the weight
+ * (blank without one), with the working behind the ⓘ; per dose, or not by weight, it stays. */
 export const withCalculatorDosing = (
   line: PrescriptionLine,
   patch: Partial<PrescriptionStep>,
@@ -271,16 +272,20 @@ export const withCalculatorDosing = (
   if (!dosing) return line;
   if (patch.dose !== undefined && patch.dose !== line.dose) return { ...line, dosing: undefined };
   const dosesPerDay = patch.frequency === undefined ? undefined : prescriptionFrequency(patch.frequency)?.dosesPerDay;
-  if (dosesPerDay === undefined || dosesPerDay === dosing.dosesPerDay) return line;
-  const kept: PrescriptionLine = { ...line, dosing: { ...dosing, dosesPerDay } };
-  if (dosing.basis !== 'mg/kg/day') return kept;
+  if (
+    dosesPerDay === undefined ||
+    dosesPerDay === prescriptionFrequency(line.frequency)?.dosesPerDay ||
+    dosing.basis !== 'mg/kg/day'
+  ) {
+    return line;
+  }
   const measure = measureOf(line.medication);
   const mg = mgPerMeasure(line.medication, doseByIngredient(line.medication, line.doseBy));
   const dose = measure && plainDose({ ...dosing, weightKg, mgPerMeasure: mg, measure, dosesPerDay });
-  if (!dose) return { ...kept, dose: '' };
+  if (!dose) return { ...line, dose: '' };
   const amount = String(dose.amount);
   return {
-    ...kept,
+    ...line,
     dose: amount,
     // Still the quick pick's dosing, if it was.
     doseNotes: [calculatorDoseNote(dose, line.doseNotes?.[0]?.quickPick), ...(line.doseNotes ?? []).slice(1)],
@@ -682,10 +687,10 @@ export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing): string
 
 /** "25 mg/kg per dose, twice daily, 10 days, max 500 mg per dose". */
 export const quickPickDosingSummary = (dosing: PrescriptionQuickPickDosing): string => {
-  const { rate, basis, dosesPerDay, frequency, durationDays, maxPerDoseMg, maxPerDayMg } = dosing;
+  const { rate, basis, frequency, durationDays, maxPerDoseMg, maxPerDayMg } = dosing;
   return [
     basis === 'fixed' ? `${mgText(rate)} per dose` : `${rate} mg/kg per ${basis === 'mg/kg/day' ? 'day' : 'dose'}`,
-    frequency ?? (dosesPerDay !== undefined ? `${dosesPerDay} doses a day` : undefined),
+    frequency,
     durationDays !== undefined ? `${durationDays} ${durationDays === 1 ? 'day' : 'days'}` : undefined,
     maxPerDoseMg !== undefined ? `max ${mgText(maxPerDoseMg)} per dose` : undefined,
     maxPerDayMg !== undefined ? `max ${mgText(maxPerDayMg)} per day` : undefined,

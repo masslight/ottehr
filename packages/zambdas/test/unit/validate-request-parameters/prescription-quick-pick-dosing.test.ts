@@ -86,6 +86,15 @@ describe.each([
     ).resolves.toBeUndefined();
   });
 
+  test('accepts a per-day rate with a scheduled frequency and no doses a day, and an older one with them', async () => {
+    await expect(
+      validate({ ...AMOX_STREP, dosing: { rate: 80, basis: 'mg/kg/day', frequency: 'twice daily' } })
+    ).resolves.toBeUndefined();
+    await expect(
+      validate({ ...AMOX_STREP, dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3, frequency: 'twice daily' } })
+    ).resolves.toBeUndefined();
+  });
+
   test('accepts a dose not by weight with only a rate and a basis', async () => {
     await expect(validate({ ...AMOX_STREP, dosing: { rate: 500, basis: 'fixed' } })).resolves.toBeUndefined();
   });
@@ -95,7 +104,8 @@ describe.each([
     ['a zero rate', { rate: 0, basis: 'mg/kg/dose' }],
     ['a rate as text', { rate: '25', basis: 'mg/kg/dose' }],
     ['an unknown basis', { rate: 25, basis: 'mg/dose' }],
-    ['a per-day rate without its doses a day', { rate: 80, basis: 'mg/kg/day' }],
+    ['a per-day rate without a frequency', { rate: 80, basis: 'mg/kg/day' }],
+    ['a per-day rate with only "as needed"', { rate: 80, basis: 'mg/kg/day', frequency: 'as needed' }],
     ['a frequency the order form doesn’t have', { rate: 25, basis: 'mg/kg/dose', frequency: 'bid' }],
     ['a part day', { rate: 25, basis: 'mg/kg/dose', durationDays: 2.5 }],
     ['a negative maximum per dose', { rate: 25, basis: 'mg/kg/dose', maxPerDoseMg: -1 }],
@@ -103,10 +113,6 @@ describe.each([
     ['dosing that is not an object', 'twice daily'],
     ['a frequency every object has ("constructor")', { rate: 25, basis: 'mg/kg/dose', frequency: 'constructor' }],
     ['a frequency every object has ("toString")', { rate: 25, basis: 'mg/kg/dose', frequency: 'toString' }],
-    [
-      'doses a day its frequency disagrees with',
-      { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 3, frequency: 'twice daily' },
-    ],
     [
       'a maximum per day without doses a day or a counted frequency',
       { rate: 25, basis: 'mg/kg/dose', maxPerDayMg: 1000 },

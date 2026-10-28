@@ -6,6 +6,7 @@ import {
   calculatorWeightKg,
   DoseCalculator,
   previousVisitWeightNote,
+  UNSCHEDULED_MESSAGE,
   withDose,
 } from '../../src/features/visits/in-person/components/erx/DoseCalculator';
 import {
@@ -46,6 +47,15 @@ const Harness = ({
       initial={dosing}
     />
   );
+};
+
+const pickFrequency = async (
+  user: ReturnType<typeof userEvent.setup>,
+  calculator: HTMLElement,
+  frequency: string
+): Promise<void> => {
+  await user.click(within(calculator).getByRole('button', { name: /^frequency/ }));
+  await user.click(screen.getByRole('option', { name: frequency }));
 };
 
 const openCalculator = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
@@ -92,7 +102,9 @@ describe('DoseCalculator (plain, inline)', () => {
     await user.click(screen.getByRole('option', { name: 'dose' }));
     expect(screen.getByRole('dialog', { name: 'Dose calculator' })).toBeInTheDocument();
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '25');
-    await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
+    // Per dose, any frequency (or none) works it out.
+    expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 3 capsules by mouth.');
+    await pickFrequency(user, calculator, 'twice daily');
     expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 3 capsules by mouth twice daily.');
     // The working and the rounding note aren't on show until the ⓘ is hovered.
     expect(screen.queryByText('28.12 kg × 25 mg/kg/dose = 703 mg')).not.toBeInTheDocument();
@@ -113,7 +125,9 @@ describe('DoseCalculator (plain, inline)', () => {
     render(<Harness initial={withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0])} weight={WEIGHT} />);
     const calculator = await openCalculator(user);
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '90');
-    await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
+    // A per-day rate needs the frequency.
+    expect(within(calculator).getByText('Enter the frequency to work out the dose')).toBeInTheDocument();
+    await pickFrequency(user, calculator, 'twice daily');
     expect(within(calculator).queryByTestId('dose-cap')).not.toBeInTheDocument();
     // 28.12 kg × 90 mg/kg/day = 2,530.8 mg a day: over 1,000 mg a day, so 500 mg a dose = 2 capsules.
     await user.type(within(calculator).getByRole('spinbutton', { name: 'maximum per day' }), '1000');
@@ -159,7 +173,7 @@ describe('DoseCalculator (plain, inline)', () => {
     const initial = withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
       frequency: 'three times daily',
     });
-    render(<Harness initial={initial} weight={WEIGHT} dosing={{ rate: 75, basis: 'mg/kg/day', dosesPerDay: 2 }} />);
+    render(<Harness initial={initial} weight={WEIGHT} dosing={{ rate: 75, basis: 'mg/kg/day' }} />);
     let calculator = await openCalculator(user);
     // 28.12 kg × 75 mg/kg/day ÷ 3 = 703 mg → 3 capsules.
     expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 3 capsules by mouth three times daily.');
@@ -198,7 +212,7 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(latest).toMatchObject({ dose: '3', frequency: 'every 6 hours as needed' });
   });
 
-  it('takes typed doses a day for "as directed" and keeps its words', async () => {
+  it('waits for a scheduled frequency to divide a per-day rate with "as directed"; per dose it keeps its words', async () => {
     const user = userEvent.setup();
     const initial = withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
       frequency: 'as directed',
@@ -206,23 +220,17 @@ describe('DoseCalculator (plain, inline)', () => {
     render(<Harness initial={initial} weight={WEIGHT} />);
     const calculator = await openCalculator(user);
     expect(within(calculator).getByRole('button', { name: 'frequency: as directed' })).toBeInTheDocument();
-    const dosesPerDay = within(calculator).getByRole('spinbutton', { name: 'doses a day' });
-    expect(dosesPerDay).toHaveValue(null);
+    expect(within(calculator).queryByRole('spinbutton', { name: 'doses a day' })).not.toBeInTheDocument();
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '75');
-    await user.type(dosesPerDay, '3');
+    expect(within(calculator).getByText(UNSCHEDULED_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use this dose' })).not.toBeInTheDocument();
+    await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
+    await user.click(screen.getByRole('option', { name: 'dose' }));
+    await user.clear(within(calculator).getByRole('spinbutton', { name: 'rate' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '25');
     expect(screen.getByTestId('dose-sentence')).toHaveTextContent('Take 3 capsules by mouth as directed.');
     await user.click(screen.getByRole('button', { name: 'Use this dose' }));
     expect(latest).toMatchObject({ dose: '3', frequency: 'as directed' });
-  });
-
-  it('fills an empty frequency from the doses a day typed', async () => {
-    const user = userEvent.setup();
-    render(<Harness initial={withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0])} weight={WEIGHT} />);
-    const calculator = await openCalculator(user);
-    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '75');
-    await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '3');
-    await user.click(screen.getByRole('button', { name: 'Use this dose' }));
-    expect(latest).toMatchObject({ dose: '3', frequency: 'three times daily' });
   });
 
   it('doses a combination product by the ingredient the provider picks, each time', async () => {

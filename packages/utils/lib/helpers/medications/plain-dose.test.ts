@@ -157,13 +157,13 @@ describe('plainDose', () => {
     expect(dose?.capNote).toBeUndefined();
   });
 
-  it('leaves a dose under its maximum as it is, and waits for the doses a day a per-day maximum needs', () => {
+  it('leaves a dose under its maximum as it is, and checks a per-day maximum only with the doses a day', () => {
     expect(
       plainDose({ weightKg: 10, mgPerMeasure: 80, measure: 'mL', basis: 'mg/kg/dose', rate: 25, maxPerDoseMg: 500 })
     ).toMatchObject({ amountText: '3 mL', working: '10 kg × 25 mg/kg/dose = 250 mg' });
     expect(
-      plainDose({ weightKg: 10, mgPerMeasure: 80, measure: 'mL', basis: 'mg/kg/dose', rate: 25, maxPerDayMg: 1000 })
-    ).toBeUndefined();
+      plainDose({ weightKg: 10, mgPerMeasure: 80, measure: 'mL', basis: 'mg/kg/dose', rate: 40, maxPerDayMg: 100 })
+    ).toMatchObject({ amountText: '5 mL', working: '10 kg × 40 mg/kg/dose = 400 mg → 5 mL = 400 mg' });
   });
 
   it('never blocks a maximum under one measurable amount: one unit, said to be above the maximum', () => {

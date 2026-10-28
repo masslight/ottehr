@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { describe, expect, it, vi } from 'vitest';
-import { withDose } from '../../src/features/visits/in-person/components/erx/DoseCalculator';
+import { UNSCHEDULED_MESSAGE, withDose } from '../../src/features/visits/in-person/components/erx/DoseCalculator';
 import {
   emptyPrescriptionLine,
   PrescriptionLine,
@@ -61,7 +61,7 @@ const BY_WEIGHT: PrescriptionQuickPickData = {
   substitutionAllowed: false,
   noteToPharmacy: 'Shake well',
   patientInstructions: 'Take 9 mL by mouth twice daily for 10 days.',
-  dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+  dosing: { rate: 25, basis: 'mg/kg/dose', frequency: 'twice daily', durationDays: 10 },
 };
 const CAPPED: PrescriptionQuickPickData = {
   ...BY_WEIGHT,
@@ -165,7 +165,6 @@ describe('Save as quick pick: the calculator’s dosing', () => {
     expect(saved.dosing).toEqual({
       rate: 25,
       basis: 'mg/kg/dose',
-      dosesPerDay: 2,
       maxPerDoseMg: 500,
       frequency: 'twice daily',
       durationDays: 10,
@@ -287,7 +286,7 @@ describe('Suggestions from quick picks', () => {
       substitutionAllowed: false,
       noteToPharmacy: 'Shake well',
       patientInstructions: 'Take 4 mL by mouth twice daily for 10 days.',
-      dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2 },
+      dosing: { rate: 25, basis: 'mg/kg/dose' },
     });
     expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
       'Take 4 mL by mouth twice daily for 10 days.'
@@ -362,7 +361,7 @@ describe('Suggestions from quick picks', () => {
       daysSupply: '10',
       noteToPharmacy: 'Shake well',
       patientInstructions: 'Take 9 mL by mouth twice daily for 10 days.',
-      dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2, maxPerDoseMg: 1000 },
+      dosing: { rate: 25, basis: 'mg/kg/dose', maxPerDoseMg: 1000 },
     });
     expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
       'Take 9 mL by mouth twice daily for 10 days.'
@@ -424,7 +423,7 @@ describe('Suggestion rows: review fixes', () => {
     ...BY_WEIGHT,
     id: 'qp-per-day-row',
     name: 'Amox per day',
-    dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+    dosing: { rate: 80, basis: 'mg/kg/day', frequency: 'twice daily', durationDays: 10 },
   };
 
   it('a new frequency on a row by mg/kg/day works the dose out again, and "+" uses the new doses a day', async () => {
@@ -449,7 +448,7 @@ describe('Suggestion rows: review fixes', () => {
       dose: '9.5',
       frequency: 'three times daily',
       patientInstructions: 'Take 9.5 mL by mouth three times daily for 10 days.',
-      dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 },
+      dosing: { rate: 80, basis: 'mg/kg/day' },
     });
   });
 
@@ -487,7 +486,7 @@ describe('Suggestion rows: review fixes', () => {
     expect(latest).toMatchObject({
       dose: '9.5',
       frequency: 'three times daily',
-      dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 3 },
+      dosing: { rate: 80, basis: 'mg/kg/day' },
     });
   });
 
@@ -505,8 +504,8 @@ describe('Suggestion rows: review fixes', () => {
       dosing: { ...BY_WEIGHT.dosing!, frequency: 'constructor' },
     };
     render(<Harness initial={liquidLine()} quickPicks={[odd]} weight={WEIGHT} />);
-    // Its doses a day name the frequency instead.
-    expect(within(suggestionRow(0)).getByRole('button', { name: 'Frequency: twice daily' })).toBeInTheDocument();
+    // Left to pick.
+    expect(within(suggestionRow(0)).getByRole('button', { name: 'Frequency: not picked' })).toBeInTheDocument();
   });
 
   it('a quick pick with dosing on a combination product leaves the dose to enter, with the note', async () => {
@@ -571,7 +570,7 @@ describe('A quick pick from the medication menu', () => {
     id: 'qp-per-day',
     name: 'Amox per day',
     patientInstructions: 'Take 10 mL by mouth twice daily for 10 days.',
-    dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+    dosing: { rate: 80, basis: 'mg/kg/day', frequency: 'twice daily', durationDays: 10 },
   };
 
   const choose = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
@@ -595,7 +594,7 @@ describe('A quick pick from the medication menu', () => {
       substitutionAllowed: false,
       noteToPharmacy: 'Shake well',
       patientInstructions: 'Take 4 mL by mouth twice daily for 10 days.',
-      dosing: { rate: 25, basis: 'mg/kg/dose', dosesPerDay: 2 },
+      dosing: { rate: 25, basis: 'mg/kg/dose' },
     });
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(4);
     expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
@@ -644,7 +643,6 @@ describe('A quick pick from the medication menu', () => {
     expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual({
       rate: 80,
       basis: 'mg/kg/day',
-      dosesPerDay: 3,
       frequency: 'three times daily',
       durationDays: 10,
     });
@@ -664,7 +662,6 @@ describe('A quick pick from the medication menu', () => {
     expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual({
       rate: 25,
       basis: 'mg/kg/dose',
-      dosesPerDay: 3,
       frequency: 'three times daily',
       durationDays: 10,
     });
@@ -935,16 +932,13 @@ describe('The line’s own calculator', () => {
     await typeRate(calculator, '200');
     await user.keyboard('{Escape}');
 
-    // A frequency with no count, then reopened: the line's rule, its doses a day typed.
+    // A frequency with no count, then reopened: the line's rule, its per-day rate waiting for a scheduled frequency.
     await user.click(screen.getByRole('button', { name: 'frequency: twice daily' }));
     await user.click(screen.getByRole('option', { name: 'as directed' }));
     await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
     calculator = screen.getByRole('dialog', { name: 'Dose calculator' });
     expect(within(calculator).getByRole('spinbutton', { name: 'rate' })).toHaveValue(80);
-    await user.clear(within(calculator).getByRole('spinbutton', { name: 'doses a day' }));
-    await user.type(within(calculator).getByRole('spinbutton', { name: 'doses a day' }), '2');
-    // 28.12 kg × 80 mg/kg/day ÷ 2 = 1124.8 mg = 14 mL.
-    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 14 mL by mouth');
+    expect(within(calculator).getByText(UNSCHEDULED_MESSAGE)).toBeInTheDocument();
   });
 
   it('a suggestion row’s calculator drops what was typed too, reopening with its quick pick’s rule', async () => {
@@ -1010,7 +1004,7 @@ describe('The dose’s ⓘ on the line', () => {
     const user = userEvent.setup();
     const PER_DAY_LINE: PrescriptionQuickPickData = {
       ...BY_WEIGHT,
-      dosing: { rate: 80, basis: 'mg/kg/day', dosesPerDay: 2, frequency: 'twice daily', durationDays: 10 },
+      dosing: { rate: 80, basis: 'mg/kg/day', frequency: 'twice daily', durationDays: 10 },
     };
     render(<Harness initial={lineOf(PER_DAY_LINE)} weight={WEIGHT} />);
     await user.hover(screen.getByRole('img', { name: 'How the dose was worked out' }));

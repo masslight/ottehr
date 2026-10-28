@@ -156,6 +156,7 @@ export type GetRadiologyQuickPicksResponse = QuickPickListResponse<RadiologyQuic
 export interface PrescriptionQuickPickDosing {
   rate: number;
   basis: DoseBasis;
+  /** Older quick picks only, and ignored: the frequency gives the doses a day. */
   dosesPerDay?: number;
   /** A key of `PRESCRIPTION_FREQUENCIES`. */
   frequency?: string;

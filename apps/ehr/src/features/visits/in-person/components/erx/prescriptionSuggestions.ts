@@ -2,7 +2,6 @@ import { SentencePicks } from 'src/components/SuggestedSentences';
 import { plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseUnitLabel,
-  frequencyForDosesPerDay,
   isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
   prescriptionDirectionsText,
@@ -109,8 +108,8 @@ const savedRow = (quickPick: PrescriptionQuickPickData, id: string): Prescriptio
 /** A quick pick saved from the calculator, re-dosed for this patient's weight by the same calculator: "Take [6] mL by
  * mouth [twice daily] for [10] days." with every blank editable, and the working behind the ⓘ. Without a weight the
  * dose blank waits ("(enter weight)"); a dose typed into it is the provider's, so the line keeps no settings. A
- * frequency picked on the row does as on the line (`withCalculatorDosing`): another count of doses a day keeps the
- * rate and basis with the new count, and by mg/kg/day the dose is worked out again. A combination product's dose is
+ * frequency picked on the row does as on the line (`withCalculatorDosing`): by mg/kg/day another count of doses a day
+ * works the dose out again. A combination product's dose is
  * left to enter, with a note: which ingredient to dose by is the provider's pick in the calculator. */
 const dosedRow = (
   quickPick: PrescriptionQuickPickData,
@@ -126,14 +125,10 @@ const dosedRow = (
   const combination = isCombinationProduct(medication);
   // A product saved before the search gave its details (an older quick pick's) has no strength to dose by.
   const noDetails = !medication.ingredients?.length;
-  const frequency =
-    dosing.frequency && prescriptionFrequency(dosing.frequency)
-      ? dosing.frequency
-      : dosing.dosesPerDay !== undefined
-      ? frequencyForDosesPerDay(dosing.dosesPerDay)
-      : undefined;
-  const { frequency: _frequency, durationDays, ...calculator } = dosing;
-  const savedDosesPerDay = dosing.dosesPerDay ?? prescriptionFrequency(frequency)?.dosesPerDay;
+  const frequency = dosing.frequency && prescriptionFrequency(dosing.frequency) ? dosing.frequency : undefined;
+  // An older quick pick's doses a day are left out: the frequency gives them.
+  const { frequency: _frequency, durationDays, dosesPerDay: _dosesPerDay, ...calculator } = dosing;
+  const savedDosesPerDay = prescriptionFrequency(frequency)?.dosesPerDay;
   const doseOf = (settings: CalculatorDosing, dosesPerDay: number | undefined): ReturnType<typeof plainDose> =>
     measure && plainDose({ ...settings, weightKg, mgPerMeasure: mgPerMeasure(medication), measure, dosesPerDay });
   const savedDose = doseOf(calculator, savedDosesPerDay);
@@ -143,8 +138,10 @@ const dosedRow = (
   ): { settings: CalculatorDosing; dose: ReturnType<typeof plainDose> } => {
     const dosesPerDay = picked === undefined ? undefined : prescriptionFrequency(picked)?.dosesPerDay;
     if (dosesPerDay === undefined || dosesPerDay === savedDosesPerDay) return { settings: calculator, dose: savedDose };
-    const settings = { ...calculator, dosesPerDay };
-    return { settings, dose: settings.basis === 'mg/kg/day' ? doseOf(settings, dosesPerDay) : savedDose };
+    return {
+      settings: calculator,
+      dose: calculator.basis === 'mg/kg/day' ? doseOf(calculator, dosesPerDay) : savedDose,
+    };
   };
   const [doseAt, frequencyAt, durationAt] = [1, 3, 5];
   const doseTextOf = (picks: SentencePicks): string | undefined => {

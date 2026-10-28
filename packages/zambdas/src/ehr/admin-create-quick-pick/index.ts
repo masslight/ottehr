@@ -81,8 +81,8 @@ const procedureQuickPickSchema = z
   })
   .passthrough();
 
-// The calculator's settings, so the pick can be re-dosed by weight; a per-day rate needs its doses a day, which agree
-// with the frequency's where it gives a count, and a per-day maximum needs a count from one or the other.
+// The calculator's settings, so the pick can be re-dosed by weight; a per-day rate and a per-day maximum need a count
+// of doses a day: a scheduled frequency's, or an older quick pick's own doses a day (no longer saved).
 const prescriptionDosingSchema = z
   .object({
     rate: z.number().positive(),
@@ -99,16 +99,12 @@ const prescriptionDosingSchema = z
     maxPerDoseMg: z.number().positive().optional(),
     maxPerDayMg: z.number().positive().optional(),
   })
-  .refine((dosing) => dosing.basis !== 'mg/kg/day' || dosing.dosesPerDay !== undefined, {
-    message: 'dosesPerDay is required for a mg/kg/day rate',
-    path: ['dosesPerDay'],
-  })
   .refine(
-    (dosing) => {
-      const count = prescriptionFrequency(dosing.frequency)?.dosesPerDay;
-      return dosing.dosesPerDay === undefined || count === undefined || dosing.dosesPerDay === count;
-    },
-    { message: 'dosesPerDay must be the doses a day of the frequency', path: ['dosesPerDay'] }
+    (dosing) =>
+      dosing.basis !== 'mg/kg/day' ||
+      dosing.dosesPerDay !== undefined ||
+      prescriptionFrequency(dosing.frequency)?.dosesPerDay !== undefined,
+    { message: 'a mg/kg/day rate needs a frequency with a count of doses a day', path: ['frequency'] }
   )
   .refine(
     (dosing) =>
