@@ -82,16 +82,43 @@ describe('Prescription table: cancel eRx prescriptions', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('shows when each prescription was sent, and its status with the latest event', () => {
+  it('shows each prescription’s status with the latest event, without the SIG and order added columns', () => {
     renderTable();
-    const sent = formatDateToMDYWithTime(SENT, DateTime.local().zoneName)!;
-    const orderAdded = row(AMOX.name!).querySelectorAll('td')[5];
-    expect(orderAdded).toHaveTextContent(`${sent.date}${sent.time}`);
+    expect(screen.queryByRole('columnheader', { name: 'Patient instructions (SIG)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Order added' })).not.toBeInTheDocument();
+    expect(screen.queryByText(AMOX.instructions!)).not.toBeInTheDocument();
     expect(within(row(AMOX.name!)).getByText('Sent')).toBeInTheDocument();
     expect(within(row(PRED.name!)).getByText('Cancel requested')).toBeInTheDocument();
     expect(within(row(PRED.name!)).getByText('Sent in error · waiting for the pharmacy')).toBeInTheDocument();
     expect(within(row(ONDANSETRON.name!)).getByText('Sending')).toBeInTheDocument();
     expect(within(row(ONDANSETRON.name!)).getByText('Waiting for Surescripts')).toBeInTheDocument();
+  });
+
+  it('marks the hovered row, and a click on a checkable row toggles it', async () => {
+    const user = renderTable();
+    expect(row(AMOX.name!)).toHaveClass('MuiTableRow-hover');
+    expect(row(AMOX.name!)).toHaveStyle({ cursor: 'pointer' });
+    await user.click(screen.getByText(AMOX.name!));
+    expect(within(row(AMOX.name!)).getByRole('checkbox')).toBeChecked();
+    await user.click(within(row(AMOX.name!)).getByText('Sent'));
+    expect(within(row(AMOX.name!)).getByRole('checkbox')).not.toBeChecked();
+    // The checkbox itself toggles once, not twice.
+    await user.click(within(row(AMOX.name!)).getByRole('checkbox'));
+    expect(within(row(AMOX.name!)).getByRole('checkbox')).toBeChecked();
+  });
+
+  it('does not toggle from the menu, nor a row that cannot be checked', async () => {
+    const user = renderTable();
+    await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'More actions' }));
+    // The open menu hides the page from the accessibility tree.
+    expect(within(row(AMOX.name!)).getByRole('checkbox', { hidden: true })).not.toBeChecked();
+    await user.click(screen.getByRole('menuitem', { name: 'Cancel prescription…' }));
+    await user.click(screen.getByRole('button', { name: 'Keep prescription' }));
+    expect(within(row(AMOX.name!)).getByRole('checkbox')).not.toBeChecked();
+    expect(row(PRED.name!)).not.toHaveStyle({ cursor: 'pointer' });
+    await user.click(screen.getByText(PRED.name!));
+    expect(within(row(PRED.name!)).getByRole('checkbox')).not.toBeChecked();
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
   });
 
   it('offers to cancel only a cancellable prescription from its menu', async () => {
@@ -105,7 +132,8 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     expect(within(dialog).getByText('Cancel prescription')).toBeInTheDocument();
     expect(within(dialog).getByText(AMOX.name!)).toBeInTheDocument();
     expect(within(dialog).getByText(AMOX.instructions!)).toBeInTheDocument();
-    expect(within(dialog).getByText(/^Apex Discount Drugs · Sent /)).toBeInTheDocument();
+    const sent = formatDateToMDYWithTime(SENT, DateTime.local().zoneName)!;
+    expect(within(dialog).getByText(`Apex Discount Drugs · Sent ${sent.date} ${sent.time}`)).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Keep prescription' })).toBeInTheDocument();
   });
 

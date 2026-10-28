@@ -131,30 +131,34 @@ export const PrescriptionTable: FC = () => {
                   />
                 </TableCell>
                 <TableCell>Medication</TableCell>
-                <TableCell>Patient instructions (SIG)</TableCell>
                 <TableCell>Visit</TableCell>
                 <TableCell>Provider</TableCell>
-                <TableCell>Order added</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
               {prescriptions.map((row) => {
-                const rowAdded = formatDateToMDYWithTime(row.sent, userTimezone);
                 const { chip, detail } = prescriptionStatusView(row);
+                const checkable = isPrescriptionCancellable(row);
                 return (
-                  <TableRow key={row.resourceId}>
+                  // A checkable row toggles from a click anywhere on it.
+                  <TableRow
+                    key={row.resourceId}
+                    hover
+                    onClick={checkable ? () => toggle(row.resourceId!) : undefined}
+                    sx={{ cursor: checkable ? 'pointer' : undefined }}
+                  >
                     <TableCell padding="checkbox">
                       <Checkbox
                         inputProps={{ 'aria-label': `Select ${row.name}` }}
-                        disabled={!isPrescriptionCancellable(row)}
+                        disabled={!checkable}
                         checked={checked.includes(row)}
+                        onClick={(event) => event.stopPropagation()}
                         onChange={() => toggle(row.resourceId!)}
                       />
                     </TableCell>
                     <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.instructions}</TableCell>
                     <TableCell>
                       {appointmentStart && (
                         <>
@@ -171,14 +175,6 @@ export const PrescriptionTable: FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {rowAdded && (
-                        <>
-                          <Typography variant="body2">{rowAdded.date}</Typography>
-                          <Typography variant="body2">{rowAdded.time}</Typography>
-                        </>
-                      )}
-                    </TableCell>
-                    <TableCell>
                       {chip ? (
                         <MappedStatusChip status={chip} mapper={prescriptionChipMapper} />
                       ) : (
@@ -190,7 +186,8 @@ export const PrescriptionTable: FC = () => {
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell>
+                    {/* The menu (portalled, but still a React child) doesn't toggle the row. */}
+                    <TableCell onClick={(event) => event.stopPropagation()}>
                       <PrescriptionActions prescription={row} onCancel={() => setToCancel([row])} />
                     </TableCell>
                   </TableRow>
