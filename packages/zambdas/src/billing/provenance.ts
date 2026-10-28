@@ -92,6 +92,7 @@ import {
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fhirName,
@@ -104,6 +105,7 @@ import {
   getProviderLicense,
   getTaxonomy,
   readClaimItemDrug,
+  readClaimItemOrderingProvider,
   sortClaimInsurance,
 } from './shared';
 
@@ -165,6 +167,15 @@ function joinServiceLines(claim: Claim): string {
     })
     .filter(Boolean)
     .join('; ');
+}
+
+function joinOrderingProviders(claim: Claim): string {
+  const lines = (claim.item ?? []).map((item) => {
+    const display = getExtensionValue(item, EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER, 'valueReference')?.display;
+    const npi = readClaimItemOrderingProvider(claim, item, [])?.npi;
+    return [display, npi ? `NPI ${npi}` : ''].filter(Boolean).join(' ');
+  });
+  return lines.some(Boolean) ? lines.join('; ') : '';
 }
 
 function projectClaim(claim: Claim): FieldProjection[] {
@@ -288,6 +299,11 @@ function projectClaim(claim: Claim): FieldProjection[] {
           CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
           CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
         )?.timingDate ?? '',
+    },
+    {
+      field: 'orderingProviders',
+      label: 'Ordering Providers',
+      value: joinOrderingProviders(claim),
     }
   );
   return out;

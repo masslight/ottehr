@@ -11,7 +11,7 @@ import {
   Provenance,
   ProvenanceAgent,
 } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { FHIR_IDENTIFIER_NPI, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
   buildPaymentRefundsExtension,
   buildPaymentVoidExtension,
@@ -59,6 +59,7 @@ import {
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
   EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
 } from '../../../src/billing/shared';
@@ -381,6 +382,78 @@ describe('diffResources accident claim fields', () => {
     ],
   ])('records an accident %s change', (_name, before, after, change) => {
     expect(diffResources(claimWith(before), claimWith(after))).toEqual([change]);
+  });
+});
+
+describe('diffResources claim ordering providers', () => {
+  const lineOrderedBy = (reference: string, display: string): ClaimItem => ({
+    sequence: 1,
+    productOrService: {
+      coding: [],
+    },
+    extension: [
+      {
+        url: EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
+        valueReference: {
+          reference,
+          display,
+        },
+      },
+    ],
+  });
+
+  const handEnteredProvider = (npi: string): Claim['contained'] => [
+    {
+      resourceType: 'Practitioner',
+      id: 'ordering-provider-1',
+      name: [
+        {
+          given: ['Jane'],
+          family: 'Doe',
+        },
+      ],
+      identifier: [
+        {
+          system: FHIR_IDENTIFIER_NPI,
+          value: npi,
+        },
+      ],
+    },
+  ];
+
+  it('records a change of ordering provider per line', () => {
+    const before = claimWith({
+      item: [lineOrderedBy('Practitioner/p1', 'John Smith'), lineOrderedBy('Practitioner/p1', 'John Smith')],
+    });
+    const after = claimWith({
+      item: [lineOrderedBy('Practitioner/p1', 'John Smith'), lineOrderedBy('Practitioner/p2', 'Ann Lee')],
+    });
+
+    expect(diffResources(before, after)).toEqual([
+      {
+        field: 'orderingProviders',
+        label: 'Ordering Providers',
+        previousValue: 'John Smith; John Smith',
+        newValue: 'John Smith; Ann Lee',
+      },
+    ]);
+  });
+
+  it("records a hand-entered provider's NPI change", () => {
+    const orderedBy = (npi: string): Claim =>
+      claimWith({
+        contained: handEnteredProvider(npi),
+        item: [lineOrderedBy('#ordering-provider-1', 'Jane Doe')],
+      });
+
+    expect(diffResources(orderedBy('1234567893'), orderedBy('1245319599'))).toEqual([
+      {
+        field: 'orderingProviders',
+        label: 'Ordering Providers',
+        previousValue: 'Jane Doe NPI 1234567893',
+        newValue: 'Jane Doe NPI 1245319599',
+      },
+    ]);
   });
 });
 
