@@ -1,4 +1,5 @@
 import {
+  InfiniteData,
   QueryClient,
   useMutation,
   UseMutationResult,
@@ -6,7 +7,11 @@ import {
   useQueryClient,
   UseQueryResult,
 } from '@tanstack/react-query';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import {
+  GetPatientNotesOutput,
+  MarkTaskNotesReadInput,
+  PatientNoteDTO,
+} from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { getPatientNotes, markTaskNotesRead } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
@@ -34,15 +39,30 @@ export const invalidateTaskBoardNotes = (queryClient: QueryClient, taskId: strin
   });
 };
 
-export const useMarkTaskNotesRead = (): UseMutationResult<void, Error, string> => {
+export const useMarkTaskNotesRead = (): UseMutationResult<void, Error, MarkTaskNotesReadInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (taskId: string) => {
+    mutationFn: async (input: MarkTaskNotesReadInput) => {
       if (!oystehrZambda) throw new Error('API client not available');
-      await markTaskNotesRead(oystehrZambda, { taskId });
+      await markTaskNotesRead(oystehrZambda, input);
     },
-    // Only the board shows whether notes are read; the open discussion has nothing to refresh.
-    onSuccess: (_result, taskId) => invalidateTaskBoardNotes(queryClient, taskId),
+    onSuccess: (_result, { taskId, noteIds }) => {
+      const readIds = new Set(noteIds);
+      queryClient.setQueryData<InfiniteData<GetPatientNotesOutput>>(['patient-notes', { taskId }], (data) =>
+        data
+          ? {
+              ...data,
+              pages: data.pages.map((page) => ({
+                ...page,
+                notes: page.notes.map((note) =>
+                  note.resourceId && readIds.has(note.resourceId) ? { ...note, isUnread: false } : note
+                ),
+              })),
+            }
+          : undefined
+      );
+      invalidateTaskBoardNotes(queryClient, taskId);
+    },
   });
 };

@@ -7,6 +7,7 @@ import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters as validateCreate } from '../src/ehr/patient-notes/create/validateRequestParameters';
 import { GetPatientNotesSchema } from '../src/ehr/patient-notes/get/index';
+import { MarkTaskNotesReadSchema } from '../src/ehr/patient-notes/mark-read/index';
 import {
   NOTE_EDITOR_EXTENSION_URL,
   PATIENT_NOTE_TAG,
@@ -117,6 +118,13 @@ describe('task note validation', () => {
       validateWithSchema(GetPatientNotesSchema, makeInput({ taskIds: [TASK_ID], patientId: PATIENT_ID }))
     ).toThrow();
   });
+
+  it.each([{ noteIds: undefined }, { noteIds: [] }, { noteIds: ['invalid-id'] }])(
+    'rejects invalid mark-read note IDs: $noteIds',
+    ({ noteIds }) => {
+      expect(() => validateWithSchema(MarkTaskNotesReadSchema, makeInput({ taskId: TASK_ID, noteIds }))).toThrow();
+    }
+  );
 });
 
 describe('toNoteDto', () => {
@@ -247,15 +255,16 @@ describe('task notes handlers', () => {
 
   it("mark-read: appends the caller's read tag to only the notes they hadn't read", async () => {
     vi.mocked(getAllFhirSearchPages).mockResolvedValue([
-      taskNote({ id: 'unread' }),
+      taskNote(),
       taskNote({ ...readBy(ME), id: 'read' }),
       taskNote({ id: 'mine', sender: { reference: `Practitioner/${ME}` } }),
     ]);
 
-    const result = await markReadHandler(makeInput({ taskId: TASK_ID }));
+    const result = await markReadHandler(makeInput({ taskId: TASK_ID, noteIds: [NOTE_ID] }));
 
     expect(vi.mocked(getAllFhirSearchPages).mock.calls[0][0].params).toEqual(
       expect.arrayContaining([
+        { name: '_id', value: NOTE_ID },
         { name: 'based-on', value: `Task/${TASK_ID}` },
         { name: '_tag', value: TASK_NOTE_TAG },
         { name: 'status', value: 'completed' },
@@ -264,7 +273,7 @@ describe('task notes handlers', () => {
     expect(JSON.parse(result.body).marked).toBe(1);
     const { requests } = mockFhirClient.fhir.transaction.mock.calls[0][0];
     expect(requests).toHaveLength(1);
-    expect(requests[0].url).toBe('/Communication/unread');
+    expect(requests[0].url).toBe(`/Communication/${NOTE_ID}`);
     // Appended, never a replace of /meta/tag, so other readers' tags written meanwhile survive.
     expect(JSON.parse(atob(requests[0].resource.data))).toEqual([
       { op: 'add', path: '/meta/tag/-', value: { system: TASK_NOTE_READ_BY_TAG_SYSTEM, code: ME } },
@@ -274,10 +283,31 @@ describe('task notes handlers', () => {
   it('mark-read: writes nothing when the caller has already read every note', async () => {
     vi.mocked(getAllFhirSearchPages).mockResolvedValue([taskNote(readBy(ME))]);
 
-    const result = await markReadHandler(makeInput({ taskId: TASK_ID }));
+    const result = await markReadHandler(makeInput({ taskId: TASK_ID, noteIds: [NOTE_ID] }));
 
     expect(JSON.parse(result.body).marked).toBe(0);
     expect(mockFhirClient.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('mark-read: leaves notes outside the displayed snapshot unread', async () => {
+    const unseenId = '990e8400-e29b-41d4-a716-446655440004';
+    const storedNotes = [taskNote(), taskNote({ id: unseenId })];
+    vi.mocked(getAllFhirSearchPages).mockImplementation(async ({ params = [] }) => {
+      const requestedIds = params
+        .find((param) => param.name === '_id')
+        ?.value?.toString()
+        .split(',');
+      return storedNotes.filter((note) => !requestedIds || requestedIds.includes(note.id!));
+    });
+
+    const result = await markReadHandler(makeInput({ taskId: TASK_ID, noteIds: [NOTE_ID, NOTE_ID] }));
+
+    expect(JSON.parse(result.body).marked).toBe(1);
+    expect(
+      mockFhirClient.fhir.transaction.mock.calls[0][0].requests.map((request: { url: string }) => request.url)
+    ).toEqual([`/Communication/${NOTE_ID}`]);
+    expect(vi.mocked(getAllFhirSearchPages).mock.calls[0][0].params).toContainEqual({ name: '_id', value: NOTE_ID });
+    expect(storedNotes[1].meta?.tag).not.toContainEqual({ system: TASK_NOTE_READ_BY_TAG_SYSTEM, code: ME });
   });
 });
 

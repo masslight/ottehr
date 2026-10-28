@@ -69,4 +69,5 @@ export interface DeletePatientNoteInput {
 
 export interface MarkTaskNotesReadInput {
   taskId: string;
+  noteIds: string[];
 }

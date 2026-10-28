@@ -844,6 +844,7 @@ export async function getRecentTaskNotes(
       resourceType: 'Communication',
       params: [
         { name: '_tag', value: TASK_NOTE_TAG },
+        { name: '_tag:not', value: `${TASK_NOTE_NOTIFIED_TAG_SYSTEM}|${TASK_NOTE_NOTIFIED_TAG_CODE}` },
         { name: 'status', value: 'completed' },
         { name: 'sent', value: `ge${fromDate.toISO()}` },
         { name: '_include', value: 'Communication:based-on' },

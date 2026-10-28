@@ -13,13 +13,14 @@ import { validateWithSchema } from '../../../shared/validation';
 
 export const MarkTaskNotesReadSchema = z.object({
   taskId: z.string().uuid(),
+  noteIds: z.array(z.string().uuid()).min(1),
 });
 
 const ZAMBDA_NAME = 'mark-task-notes-read';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { taskId, secrets } = validateWithSchema(MarkTaskNotesReadSchema, input);
+  const { taskId, noteIds, secrets } = validateWithSchema(MarkTaskNotesReadSchema, input);
   const userToken = getUserToken(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
@@ -29,6 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     {
       resourceType: 'Communication',
       params: [
+        { name: '_id', value: [...new Set(noteIds)].join(',') },
         { name: 'based-on', value: `Task/${taskId}` },
         { name: '_tag', value: TASK_NOTE_TAG },
         { name: 'status', value: 'completed' },

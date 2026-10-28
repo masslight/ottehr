@@ -94,7 +94,8 @@ describe('task notes integration', () => {
   });
 
   it("marks the caller's unread notes read by adding their tag to what is there", async () => {
-    const marked = await oystehrZambdas.zambda.execute({ id: 'mark-task-notes-read', taskId: task.id });
+    const input = { id: 'mark-task-notes-read', taskId: task.id, noteIds: [colleagueNote.id!] };
+    const marked = await oystehrZambdas.zambda.execute(input);
 
     expect(marked.output).toEqual({ marked: 1 });
     expect((await readNote(colleagueNote.id!)).meta?.tag).toEqual([
@@ -102,7 +103,7 @@ describe('task notes integration', () => {
       { system: TASK_NOTE_READ_BY_TAG_SYSTEM, code: callerId },
     ]);
     expect((await getNotes()).notes.map((note) => note.isUnread)).toEqual([false, false]);
-    expect((await oystehrZambdas.zambda.execute({ id: 'mark-task-notes-read', taskId: task.id })).output).toEqual({
+    expect((await oystehrZambdas.zambda.execute(input)).output).toEqual({
       marked: 0,
     });
   });

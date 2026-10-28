@@ -71,11 +71,13 @@ const bundle = (matches: FhirResource[], includes: FhirResource[] = []): object 
 const searchTaskNotes = ({ params = [] }: FhirSearchParams<FhirResource>): object => {
   const value = (name: string): string => String(params.find((param) => param.name === name)?.value);
   const [tagSystem, tagCode] = value('_tag').split('|');
+  const [excludedSystem, excludedCode] = value('_tag:not').split('|');
   const sentFrom = DateTime.fromISO(value('sent').replace(/^ge/, ''));
   const matches = stored<Communication>('Communication').filter(
     (communication) =>
       communication.status === value('status') &&
       communication.meta?.tag?.some((tag) => tag.system === tagSystem && tag.code === tagCode) &&
+      !communication.meta?.tag?.some((tag) => tag.system === excludedSystem && tag.code === excludedCode) &&
       DateTime.fromISO(communication.sent ?? '') >= sentFrom
   );
   const taskReferences = new Set(matches.flatMap((match) => match.basedOn?.map((basedOn) => basedOn.reference)));
@@ -297,6 +299,7 @@ describe('getRecentTaskNotes', () => {
     expect(oystehr.fhir.search.mock.calls[0][0].params).toEqual(
       expect.arrayContaining([
         { name: '_tag', value: TASK_NOTE_TAG },
+        { name: '_tag:not', value: `${TASK_NOTE_NOTIFIED_TAG_SYSTEM}|${TASK_NOTE_NOTIFIED_TAG_CODE}` },
         { name: 'status', value: 'completed' },
         { name: 'sent', value: `ge${windowStart.toISO()}` },
         { name: '_include', value: 'Communication:based-on' },
@@ -306,6 +309,20 @@ describe('getRecentTaskNotes', () => {
     expect(newNotes.map((n) => n.id)).toEqual(['fresh']);
     expect(notesByTaskId.get(task.id!)?.map((n) => n.id)).toEqual(['fresh', 'notified', 'older']);
     expect(tasksById.get(task.id!)).toEqual(task);
+  });
+
+  it('does not reload a processed discussion when no new notes remain', async () => {
+    put(
+      task,
+      note('notified', 'writer', { meta: { tag: [{ system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE }, notifiedTag] } }),
+      note('older', 'earlier', { sent: DateTime.utc().minus({ days: 3 }).toISO()! })
+    );
+
+    const { newNotes, notesByTaskId, tasksById } = await getRecentTaskNotes(oystehr as unknown as Oystehr, windowStart);
+
+    expect(newNotes).toEqual([]);
+    expect(notesByTaskId.size).toBe(0);
+    expect(tasksById.size).toBe(0);
   });
 });
 

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, QueryKey } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { MemoryRouter } from 'react-router-dom';
@@ -27,8 +27,12 @@ vi.mock('src/api/api', () => ({
     hasMore: false,
   })),
   createPatientNote: vi.fn(),
-  markTaskNotesRead: vi.fn(async (_client: unknown, { taskId }: MarkTaskNotesReadInput) => {
-    notes = notes.map((note) => (note.taskId === taskId ? { ...note, isUnread: false } : note));
+  markTaskNotesRead: vi.fn(async (_client: unknown, { taskId, noteIds }: MarkTaskNotesReadInput) => {
+    notes = notes.map((note) =>
+      note.taskId === taskId && note.resourceId && noteIds.includes(note.resourceId)
+        ? { ...note, isUnread: false }
+        : note
+    );
   }),
   updatePatientNote: vi.fn(),
   deletePatientNote: vi.fn(),
@@ -81,7 +85,7 @@ const note = (taskId: string, overrides: Partial<PatientNoteDTO> = {}): PatientN
   ...overrides,
 });
 
-const renderBoard = (): void => {
+const renderBoard = (): QueryClient => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
@@ -90,6 +94,7 @@ const renderBoard = (): void => {
       </MemoryRouter>
     </QueryClientProvider>
   );
+  return queryClient;
 };
 
 const title = (taskId: string): HTMLElement => screen.getByRole('button', { name: `Task ${taskId}` });
@@ -178,7 +183,7 @@ describe('Tasks board: task notes', () => {
     expect(within(dialog).getByText('Internal Notes')).toBeInTheDocument();
     expect(await within(dialog).findByText('About open')).toBeInTheDocument();
     expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
-    expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open' });
+    expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open', noteIds: ['open-note'] });
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -199,7 +204,9 @@ describe('Tasks board: task notes', () => {
     await userEvent.click(title('open'));
 
     expect(await within(await screen.findByRole('dialog')).findByText('About open')).toBeInTheDocument();
-    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open' }));
+    await waitFor(() =>
+      expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open', noteIds: ['open-note'] })
+    );
   });
 
   it('marks a note read that arrived after the board last loaded', async () => {
@@ -215,7 +222,76 @@ describe('Tasks board: task notes', () => {
     await userEvent.click(title('open'));
 
     expect(await within(await screen.findByRole('dialog')).findByText('Payer called back')).toBeInTheDocument();
-    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open' }));
+    await waitFor(() =>
+      expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open', noteIds: ['newer'] })
+    );
+  });
+
+  it('marks newly displayed notes read after the discussion refreshes', async () => {
+    tasks = [task('open', { assignee: assignedTo(ME) })];
+    notes = [note('open')];
+    const queryClient = renderBoard();
+    await userEvent.click(title('open'));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText('About open');
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['patient-notes', { taskId: 'open' }])).toMatchObject({
+        pages: [{ notes: [{ resourceId: 'open-note', isUnread: false }] }],
+      })
+    );
+
+    notes = [note('open', { resourceId: 'newer', text: 'Payer called back' }), ...notes];
+    await act(() => queryClient.refetchQueries({ queryKey: ['patient-notes', { taskId: 'open' }] }));
+
+    expect(await within(dialog).findByText('Payer called back')).toBeInTheDocument();
+    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(2));
+    expect(markTaskNotesRead).toHaveBeenLastCalledWith(expect.anything(), { taskId: 'open', noteIds: ['newer'] });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'close' }));
+    await waitFor(() => expect(hasUnreadDot('open')).toBe(false));
+  });
+
+  it('leaves notes arriving after the dialog loads unread until they are displayed', async () => {
+    tasks = [task('open', { assignee: assignedTo(ME) })];
+    notes = [note('open')];
+    vi.mocked(markTaskNotesRead).mockImplementationOnce(async (_client, { noteIds }) => {
+      notes = [note('open', { resourceId: 'unseen', text: 'Unseen follow-up' }), ...notes].map((note) =>
+        note.resourceId && noteIds.includes(note.resourceId) ? { ...note, isUnread: false } : note
+      );
+    });
+    renderBoard();
+    await userEvent.click(title('open'));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText('About open');
+
+    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(1));
+    expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open', noteIds: ['open-note'] });
+    await waitFor(() => expect(notes.find((note) => note.resourceId === 'unseen')?.isUnread).toBe(true));
+    expect(within(dialog).queryByText('Unseen follow-up')).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'close' }));
+    expect(hasUnreadDot('open')).toBe(true);
+  });
+
+  it('does not mark the same notes twice while an earlier request is pending', async () => {
+    tasks = [task('open', { assignee: assignedTo(ME) })];
+    notes = [note('open')];
+    let finishMarkRead = (): void => undefined;
+    vi.mocked(markTaskNotesRead).mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finishMarkRead = resolve))
+    );
+    const queryClient = renderBoard();
+    await userEvent.click(title('open'));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText('About open');
+    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(1));
+
+    notes = [note('open', { resourceId: 'newer', text: 'Payer called back' }), ...notes];
+    await act(() => queryClient.refetchQueries({ queryKey: ['patient-notes', { taskId: 'open' }] }));
+
+    await within(dialog).findByText('Payer called back');
+    await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(2));
+    expect(markTaskNotesRead).toHaveBeenLastCalledWith(expect.anything(), { taskId: 'open', noteIds: ['newer'] });
+    await act(async () => finishMarkRead());
+    expect(markTaskNotesRead).toHaveBeenCalledTimes(2);
   });
 
   it('clears the unread dot once the opened notes are marked read, marking them only once', async () => {
@@ -231,7 +307,6 @@ describe('Tasks board: task notes', () => {
     await waitFor(() => expect(hasUnreadDot('open')).toBe(false));
     expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
 
-    // Reopened: the discussion cached from the first opening still says unread until it reloads.
     const requestsBefore = vi.mocked(getPatientNotes).mock.calls.length;
     await userEvent.click(title('open'));
     await waitFor(() => expect(getPatientNotes).toHaveBeenCalledTimes(requestsBefore + 1));
