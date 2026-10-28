@@ -110,7 +110,7 @@ const performEffect = async (
   // The template bytes and the encounter context are independent, and both are slow.
   const [templateBytes, context] = await Promise.all([
     downloadTemplate(templateUrl, token),
-    assembleProgressNoteInput(oystehr, token, visitResources),
+    assembleProgressNoteInput(oystehr, token, visitResources, secrets),
   ]);
 
   // Coverage is resolved separately from the note input, which carries only one, because forms routinely
