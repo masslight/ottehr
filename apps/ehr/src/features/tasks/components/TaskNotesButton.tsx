@@ -13,7 +13,6 @@ interface TaskNotesButtonProps {
   onOpenNotes: () => void;
 }
 
-/** Opens the task's notes; a dot marks unread ones for the people involved in the task. */
 export const TaskNotesButton: React.FC<TaskNotesButtonProps> = ({ task, notes, currentUserId, onOpenNotes }) => {
   const theme = useTheme();
   const involved =

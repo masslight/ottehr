@@ -11,7 +11,6 @@ interface TaskTitleProps {
   onOpenNotes: () => void;
 }
 
-/** The task's name opens its notes and previews them on hover. */
 export const TaskTitle: React.FC<TaskTitleProps> = ({ task, notes, onOpenNotes }) => {
   const preview = notes.length ? (
     <Box sx={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>

@@ -135,7 +135,6 @@ describe('Tasks board: task notes', () => {
 
     await waitFor(() => expect(hasUnreadDot('assigned')).toBe(true));
     expect(hasUnreadDot('created')).toBe(true);
-    // A legacy task with no creator or assignee: writing a note is what makes someone involved.
     expect(hasUnreadDot('discussed')).toBe(true);
     expect(hasUnreadDot('uninvolved')).toBe(false);
     expect(hasUnreadDot('caught-up')).toBe(false);
@@ -196,7 +195,6 @@ describe('Tasks board: task notes', () => {
   it('marks the notes read when they are opened before the board has loaded them', async () => {
     tasks = [task('open', { assignee: assignedTo(ME) }), task('other')];
     notes = [note('open')];
-    // The board's request never finishes.
     vi.mocked(getPatientNotes).mockImplementationOnce(() => new Promise(() => undefined));
     renderBoard();
     expect(getPatientNotes).toHaveBeenCalledWith(expect.anything(), { taskIds: ['open', 'other'] });

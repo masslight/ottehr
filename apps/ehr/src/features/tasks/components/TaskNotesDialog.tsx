@@ -9,7 +9,6 @@ interface TaskNotesDialogProps {
   onNoteCreated: (text: string) => void;
 }
 
-/** A task's notes. Once they've loaded, any the viewer hasn't read are marked read. */
 export const TaskNotesDialog: React.FC<TaskNotesDialogProps> = ({ taskId, onClose, onNoteCreated }) => {
   const { data, isSuccess, isFetchedAfterMount } = usePatientNotes({ taskId });
   const { mutateAsync: markRead } = useMarkTaskNotesRead();

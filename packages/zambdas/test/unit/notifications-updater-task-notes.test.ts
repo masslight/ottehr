@@ -49,8 +49,6 @@ vi.mock('../../src/shared/users.helper', () => ({
   getRoleMembers: vi.fn(),
 }));
 
-// A small FHIR server: searches read the store and the cron's transaction writes to it, so a run sees what an earlier
-// run wrote. Only the searches the task-note path makes find anything; the rest come back empty.
 const store = new Map<string, FhirResource>();
 const put = (...resources: FhirResource[]): void => {
   for (const resource of resources) store.set(`${resource.resourceType}/${resource.id}`, resource);
@@ -67,7 +65,6 @@ const bundle = (matches: FhirResource[], includes: FhirResource[] = []): object 
   unbundle: () => [...matches, ...includes],
 });
 
-// _tag + status + sent, with the notes' Tasks (_include) and every other Communication on them (_revinclude:iterate).
 const searchTaskNotes = ({ params = [] }: FhirSearchParams<FhirResource>): object => {
   const value = (name: string): string => String(params.find((param) => param.name === name)?.value);
   const [tagSystem, tagCode] = value('_tag').split('|');
@@ -367,7 +364,6 @@ describe('notifications-updater: new task notes', () => {
   it("notifies each other involved person once per run per their settings, without the note's text", async () => {
     await run();
 
-    // The assignee's bell, once for both notes; the creator is phone-only, so they get a text and no bell entry.
     expect(bellNotifications()).toHaveLength(1);
     expect(bellNotifications()[0]).toMatchObject({
       category: [
@@ -396,13 +392,11 @@ describe('notifications-updater: new task notes', () => {
 
     expect(bellNotifications()).toHaveLength(1);
     expect(oystehr.transactionalSMS.send).toHaveBeenCalledTimes(1);
-    // The marker is appended: the note keeps its own tag and its read markers.
     expect(store.get('Communication/first')?.meta?.tag).toEqual([...(readBy('earlier').meta?.tag ?? []), notifiedTag]);
 
     put(note('third', 'earlier'));
     await run();
 
-    // writer, who wrote the first two notes, hears about the third.
     expect(bellNotifications().map((notification) => notification.recipient?.[0].reference)).toEqual([
       'Practitioner/assignee',
       'Practitioner/assignee',

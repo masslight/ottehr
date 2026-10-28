@@ -36,7 +36,6 @@ const { index: createManualTask } = (await import('../../src/ehr/tasks/create-ma
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 };
 
-// Unsigned: the handler only decodes the token to tell staff from M2M callers.
 const tokenFor = (sub: string): string =>
   [{ alg: 'none' }, { sub }].map((part) => Buffer.from(JSON.stringify(part)).toString('base64url')).join('.') + '.';
 

@@ -39,7 +39,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehr
   );
 
-  // Appended: getPatchOperationForNewMetaTag would replace the other readers' tags, which share this system.
   const requests = notes
     .filter((note) => isTaskNoteUnreadBy(note, callerId))
     .map((note) =>

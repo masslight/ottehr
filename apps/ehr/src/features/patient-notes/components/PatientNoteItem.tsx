@@ -14,7 +14,6 @@ interface PatientNoteItemProps {
   target: NoteTarget;
 }
 
-/** "<time written> by <author>", then who else edited it, or "(edited)" when only the author did. */
 export const formatNoteByline = (note: PatientNoteDTO): string => {
   const written = note.sent ?? note.lastUpdated;
   const date = written ? DateTime.fromISO(written).toFormat('MM/dd/yyyy hh:mm a') : '';

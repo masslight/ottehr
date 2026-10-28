@@ -32,7 +32,6 @@ export const PatientNotesDialog: React.FC<PatientNotesDialogProps> = ({ target, 
           </Typography>
         </Box>
       </DialogTitle>
-      {/* The add-note row and note rows bring their own side padding. */}
       <DialogContent sx={{ px: 0 }}>
         <AddPatientNote target={target} onCreated={onNoteCreated} />
         <PatientNotesList target={target} />

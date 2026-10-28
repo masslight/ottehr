@@ -54,7 +54,6 @@ describe('create-manual-task integration — happy path', () => {
     const output = response.output as Task;
     expect(output).toBeDefined();
     taskId = output.id;
-    // An M2M caller has no practitioner of its own to record as the creator.
     expect(output.requester).toBeUndefined();
   });
 });

@@ -6,12 +6,10 @@ import { invalidateTaskBoardNotes } from './useTaskNotes';
 
 const PAGE_SIZE = 20;
 
-/** Whose notes: a patient's, or a task's. */
 export type NoteTarget = { patientId: string; taskId?: never } | { taskId: string; patientId?: never };
 
 export const noteKind = (target: NoteTarget): 'task' | 'patient' => (target.taskId ? 'task' : 'patient');
 
-/** After a note changes: its list, and the patient's notes count or the Tasks board pages showing the task. */
 export const invalidateNotes = (queryClient: QueryClient, target: NoteTarget): void => {
   void queryClient.invalidateQueries({ queryKey: ['patient-notes', target] });
   if (target.taskId) invalidateTaskBoardNotes(queryClient, target.taskId);
@@ -28,7 +26,6 @@ export const usePatientNotes = (
     queryKey: ['patient-notes', target],
     queryFn: async ({ pageParam }) => {
       if (!oystehrZambda || !(patientId || taskId)) throw new Error('Missing client or note target');
-      // A task's notes come back in one page.
       if (taskId) return getPatientNotes(oystehrZambda, { taskIds: [taskId] });
       return getPatientNotes(oystehrZambda, { patientId, offset: pageParam, pageSize: PAGE_SIZE });
     },

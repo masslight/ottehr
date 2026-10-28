@@ -17,7 +17,6 @@ import { useApiClients } from '../../../hooks/useAppClients';
 
 const TASK_BOARD_NOTES_KEY = ['patient-notes', 'tasks'];
 
-/** Every note on the given tasks in one request, newest first. */
 export const useTaskNotes = (taskIds: string[]): UseQueryResult<PatientNoteDTO[], Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery({
@@ -31,7 +30,6 @@ export const useTaskNotes = (taskIds: string[]): UseQueryResult<PatientNoteDTO[]
   });
 };
 
-/** The Tasks board pages that show this task, for its unread dot and preview. */
 export const invalidateTaskBoardNotes = (queryClient: QueryClient, taskId: string): void => {
   void queryClient.invalidateQueries({
     queryKey: TASK_BOARD_NOTES_KEY,

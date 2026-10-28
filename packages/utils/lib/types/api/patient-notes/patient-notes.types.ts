@@ -1,5 +1,3 @@
-// Patient notes and task notes share these types and zambdas: a note belongs to a patient (patientId) or to a
-// task (taskId).
 export interface PatientNoteDTO {
   resourceId?: string;
   patientId: string;
@@ -7,13 +5,10 @@ export interface PatientNoteDTO {
   text: string;
   authorId: string;
   authorName: string;
-  // When the note was written.
   sent?: string;
   lastUpdated?: string;
   edited?: boolean;
-  // Everyone who edited the note other than its author, in the order they first edited it.
   editorNames?: string[];
-  // Task notes only: written by someone else and not yet read by the caller.
   isUnread?: boolean;
 }
 
@@ -40,7 +35,6 @@ export interface UpdatePatientNoteInput {
 
 export interface GetPatientNotesInput {
   patientId?: string;
-  // Task notes: every note on these tasks, newest first, in one page.
   taskIds?: string[];
   offset?: number;
   pageSize?: number;

@@ -23,7 +23,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const token = input.headers.Authorization.replace('Bearer ', '');
   const isM2M = isM2MClient(token);
   let createdBy: string;
-  // Who created the task, which task notes count as involved in it. Only staff have a Practitioner to record.
   let requester: Reference | undefined;
   if (isM2M) {
     createdBy = params.createdBy ?? `M2M Client ${getM2MClientId(token)}`;

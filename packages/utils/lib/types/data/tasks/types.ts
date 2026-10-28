@@ -17,7 +17,6 @@ export interface Task {
     name: string;
     date: string;
   };
-  // Practitioner who created the task, when recorded (manual tasks).
   createdById?: string;
   alert?: TaskAlertCode;
   completable: boolean;

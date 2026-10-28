@@ -31,7 +31,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   if (taskIds) {
-    // All notes on the Tasks board's tasks at once; whether a note is unread depends on who asks.
     const callerId = await getMyPractitionerId(getUserToken(input), secrets);
     const resources = await getAllFhirSearchPages<Communication>(
       {

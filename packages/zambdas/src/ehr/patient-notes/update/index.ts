@@ -55,9 +55,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     url: NOTE_EDITOR_EXTENSION_URL,
     valueReference: { reference: `Practitioner/${callerId}`, display: getPractitionerName(callerPractitioner) },
   };
-  // A patch, not a whole-resource update, so the author, sent time and tags stay as they are. Version-checked, so any
-  // concurrent write (another edit, a read or notified marker) has it re-read the note and recompute: a first editor
-  // racing another can't replace the other's entry when both would create the editor list.
   let current = existing;
   const saved = await withVersionConflictRetries(async (attempt) => {
     if (attempt > 1) {

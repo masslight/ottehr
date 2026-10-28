@@ -274,7 +274,6 @@ describe('task notes handlers', () => {
     const { requests } = mockFhirClient.fhir.transaction.mock.calls[0][0];
     expect(requests).toHaveLength(1);
     expect(requests[0].url).toBe(`/Communication/${NOTE_ID}`);
-    // Appended, never a replace of /meta/tag, so other readers' tags written meanwhile survive.
     expect(JSON.parse(atob(requests[0].resource.data))).toEqual([
       { op: 'add', path: '/meta/tag/-', value: { system: TASK_NOTE_READ_BY_TAG_SYSTEM, code: ME } },
     ]);
@@ -334,8 +333,6 @@ describe('update: concurrent edits', () => {
     { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE },
   ];
 
-  // One stored note, versioned as Oystehr versions it: a patch naming a stale version is refused with a 412. Every
-  // editor reads the note before any of them writes.
   const editConcurrently = async (initial: Communication, editorIds: string[]): Promise<Communication> => {
     let stored: Communication = { ...structuredClone(initial), meta: { ...initial.meta, versionId: '1' } };
     let firstReads = 0;
@@ -386,7 +383,6 @@ describe('update: concurrent edits', () => {
       expect.arrayContaining([editorEntry('practitioner-a'), editorEntry('practitioner-b')])
     );
     expect(saved).toMatchObject({ sender: original.sender, sent: original.sent, meta: { tag: tags } });
-    // The second write lost the race, re-read the note and tried again.
     expect(mockFhirClient.fhir.patch).toHaveBeenCalledTimes(3);
   });
 

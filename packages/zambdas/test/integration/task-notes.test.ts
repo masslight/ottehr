@@ -12,8 +12,6 @@ import { NOTE_EDITOR_EXTENSION_URL, TASK_NOTE_READ_BY_TAG_SYSTEM, TASK_NOTE_TAG 
 import { createTask } from '../../src/shared/tasks';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
-// A task with an earlier note by a colleague and a new one by the caller, written through the notes zambdas, then the
-// cron's note search over them. Everything created is removed afterwards.
 describe('task notes integration', () => {
   const [TASK_NOTE_SYSTEM, TASK_NOTE_CODE] = TASK_NOTE_TAG.split('|');
   let oystehrAdmin: Oystehr;
@@ -45,7 +43,6 @@ describe('task notes integration', () => {
     task = await oystehrAdmin.fhir.create<Task>(
       tagged(createTask({ category: MANUAL_TASK.category.patientFollowUp, title: 'Task notes test' }), setup.processId)
     );
-    // Written before the cron's window, so its search can only reach it through the task.
     colleagueNote = await oystehrAdmin.fhir.create<Communication>(
       tagged(
         {
@@ -142,7 +139,6 @@ describe('task notes integration', () => {
       expect.arrayContaining([callerNoteId, colleagueNote.id])
     );
 
-    // The cron's own marker, written the way the cron writes it.
     const callerNote = await readNote(callerNoteId!);
     await oystehrAdmin.fhir.transaction({
       requests: [

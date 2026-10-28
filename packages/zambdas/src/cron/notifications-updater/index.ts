@@ -504,8 +504,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
-  // New task notes: tell the other people involved in the task, per their settings for its category. A tag on
-  // each note makes this happen once per note.
   try {
     const { newNotes, notesByTaskId, tasksById } = await getRecentTaskNotes(oystehr, notificationWindowStart);
     const notifiedThisRun = new Set<string>();
@@ -539,13 +537,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             basedOn: [{ reference: `Task/${task.id}` }],
             about: buildTaskNotificationAbout(task),
             recipient: [{ reference: `Practitioner/${recipient.id}` }],
-            // Not the note's text: this may go out by text message.
             payload: [{ contentString: 'New note on task: ' + (task.description ?? `task ID ${task.id}`) }],
           };
           enqueueNotification(recipient, { method: 'POST', url: '/Communication', resource }, status, delivery.method);
         }
       }
-      // Marked notified only once everyone on it was handled, so a failure leaves the note for the next run.
       const notifiedTag = { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE };
       updateCommunicationRequests.push(
         getPatchBinary({
@@ -556,7 +552,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       );
     }
   } catch (error) {
-    // A failure here must not cost the run's other notifications.
     console.error('Error trying to process task note notifications', error);
     captureException(error);
   }
@@ -834,7 +829,6 @@ export async function getRecentTaskResources(oystehr: Oystehr, fromDate: DateTim
   );
 }
 
-/** Task notes written in the window and not yet notified, every note on their tasks, and the tasks. */
 export async function getRecentTaskNotes(
   oystehr: Oystehr,
   fromDate: DateTime
@@ -848,7 +842,6 @@ export async function getRecentTaskNotes(
         { name: 'status', value: 'completed' },
         { name: 'sent', value: `ge${fromDate.toISO()}` },
         { name: '_include', value: 'Communication:based-on' },
-        // Earlier notes on the same tasks: their authors are involved too.
         { name: '_revinclude:iterate', value: 'Communication:based-on' },
       ],
     },
@@ -875,10 +868,6 @@ export async function getRecentTaskNotes(
   return { newNotes, notesByTaskId, tasksById };
 }
 
-/**
- * Who hears about a new task note: the task's assignee, its creator and every note author, except the note's
- * author and anyone who has already read it.
- */
 export function resolveTaskNoteRecipientIds(task: Task, notesOnTask: Communication[], note: Communication): string[] {
   const involved = [task.owner, task.requester, ...notesOnTask.map((other) => other.sender)].map((reference) =>
     removePrefix('Practitioner/', reference?.reference ?? '')
@@ -886,7 +875,6 @@ export function resolveTaskNoteRecipientIds(task: Task, notesOnTask: Communicati
   return [...new Set(involved)].filter((id): id is string => !!id && isTaskNoteUnreadBy(note, id));
 }
 
-/** Being involved in the task counts as "assigned to me", so only the category row's on/off and locations apply. */
 export function resolveTaskNoteDelivery(
   input: Pick<AssignmentDeliveryInput, 'hasExplicitPrefs' | 'prefs' | 'legacySettings' | 'taskLocationId'> & {
     uiCategory: UiTaskCategoryId | undefined;

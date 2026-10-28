@@ -683,7 +683,7 @@ describe('update-patient-note handler', () => {
   });
 
   it('keeps the author and sent time: only the text and editor list change', async () => {
-    mockFhirClient.fhir.get.mockResolvedValueOnce(fakeNote()); // second fhir.get falls back to fakePractitioner from beforeEach
+    mockFhirClient.fhir.get.mockResolvedValueOnce(fakeNote());
     mockFhirClient.fhir.patch.mockResolvedValue(fakeNote());
 
     await updateHandler(
