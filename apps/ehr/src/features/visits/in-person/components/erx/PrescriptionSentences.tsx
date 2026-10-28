@@ -583,11 +583,22 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     [line.dose, line.frequency, line.durationDays, line.patientInstructions].some((value) => value.trim() !== '');
   if (!picked && (readOnly || (hasDirections && !awaitingPick))) setPicked(true);
   const revealed = picked || (line.medication !== null && suggestions.length === 0);
+  // The suggestions fold to their title once one is used (or "Other"); another medication, or a line waiting for a
+  // pick again (a new strength), opens them again.
+  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(false);
+  const suggestionsFor = line.drug?.name ?? line.medication?.description;
+  const [collapsedFor, setCollapsedFor] = useState(suggestionsFor);
+  if (collapsedFor !== suggestionsFor) {
+    setCollapsedFor(suggestionsFor);
+    setSuggestionsCollapsed(false);
+  }
   const changeProduct = (next: PrescriptionLine): void => {
     const changed = next.medication?.ndc !== line.medication?.ndc;
     if (changed) {
       setPicked(false);
       setAwaitingPick(true);
+      // The line waits for a pick among the suggestions: they show.
+      setSuggestionsCollapsed(false);
     }
     // The send check sees the hidden line as unfinished.
     onChange(changed ? { ...next, awaitingPick: true } : next);
@@ -600,15 +611,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     setPicked(true);
     setAwaitingPick(false);
   };
-  // The suggestions fold to their title once one is used (or "Other"); another medication opens them again, a new
-  // strength of the same one leaves them as they were.
-  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(false);
-  const suggestionsFor = line.drug?.name ?? line.medication?.description;
-  const [collapsedFor, setCollapsedFor] = useState(suggestionsFor);
-  if (collapsedFor !== suggestionsFor) {
-    setCollapsedFor(suggestionsFor);
-    setSuggestionsCollapsed(false);
-  }
   /** A row is "In use" when using it would change none of the line's quantity, days supply and directions, and the
    * line has one of them: on an empty line a row that fills none (a quick pick saved without them) still shows its
    * "+", which then sets its refills, substitution and note. */
@@ -820,7 +822,9 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 weightText={weightText}
                 onWeightText={onWeightText}
                 onChange={(next) => {
+                  // "Use this dose" uses the row, as its "+" does.
                   reveal();
+                  setSuggestionsCollapsed(true);
                   onChange(next);
                 }}
               />

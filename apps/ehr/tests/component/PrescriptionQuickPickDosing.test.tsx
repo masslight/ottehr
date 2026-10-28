@@ -412,6 +412,8 @@ describe('Suggestions from quick picks', () => {
     expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
       'Take 9 mL by mouth twice daily for 10 days.'
     );
+    // It used the row, so the suggestions fold as after its "+".
+    expect(screen.getByRole('button', { name: 'Show suggestions' })).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('uses a quick pick without dosing as the quick pick list does: its directions as written', async () => {
@@ -437,16 +439,19 @@ describe('Suggestions from quick picks', () => {
         quickPicks={[
           { ...BY_WEIGHT, diagnosis: strep },
           { ...SAVED_TEXT, diagnosis: strep },
+          { ...SAVED_TEXT, id: 'qp-no-period', patientInstructions: 'Take 5 mL twice daily', diagnosis: strep },
         ]}
         weight={WEIGHT}
       />
     );
     expect(suggestionRow(0)).toHaveTextContent(
-      /^Take 9 mL by mouth twice daily for 10 days\. for Streptococcal pharyngitis J02\.0/
+      /^Take 9 mL by mouth twice daily for 10 days for Streptococcal pharyngitis J02\.0\./
     );
     expect(suggestionRow(1)).toHaveTextContent(
-      'Take 5 mL by mouth twice daily for 10 days. for Streptococcal pharyngitis J02.0'
+      'Take 5 mL by mouth twice daily for 10 days for Streptococcal pharyngitis J02.0.'
     );
+    // A sentence without its period has the diagnosis after it.
+    expect(suggestionRow(2)).toHaveTextContent('Take 5 mL twice daily for Streptococcal pharyngitis J02.0');
     await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));
     expect(latest).toMatchObject({ dose: '9', diagnosis: strep });
   });

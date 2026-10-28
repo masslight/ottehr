@@ -258,8 +258,8 @@ const rowFor = (
 ): PrescriptionSuggestionRow =>
   quickPick.dosing ? dosedRow(quickPick, quickPick.dosing, id, medication, weightKg) : savedRow(quickPick, id);
 
-/** A quick pick's row with its diagnosis after the sentence, worded as the line words a chosen one: "… for Otitis
- * media H66.90". Using the row fills the line's diagnosis with it (`applyPrescriptionQuickPick`). */
+/** A quick pick's row with its diagnosis ending the sentence, worded as the line words a chosen one: "… for 10 days
+ * for Otitis media H66.90." Using the row fills the line's diagnosis with it (`applyPrescriptionQuickPick`). */
 const suggestionRowFor = (
   quickPick: PrescriptionQuickPickData,
   id: string,
@@ -270,11 +270,18 @@ const suggestionRowFor = (
   const { diagnosis } = quickPick;
   if (!diagnosis) return row;
   const forDiagnosis = ` for ${diagnosis.display} ${diagnosis.code}`;
+  // Before the sentence's period, so it reads as one sentence; the blanks keep their places.
+  const withDiagnosis = (segments: SentenceSegment[]): SentenceSegment[] => {
+    const last = segments[segments.length - 1];
+    return typeof last === 'string' && last.endsWith('.')
+      ? [...segments.slice(0, -1), `${last.slice(0, -1)}${forDiagnosis}.`]
+      : [...segments, forDiagnosis];
+  };
   const { segmentsFor } = row;
   return {
     ...row,
-    segments: [...row.segments, forDiagnosis],
-    ...(segmentsFor ? { segmentsFor: (picks: SentencePicks) => [...segmentsFor(picks), forDiagnosis] } : {}),
+    segments: withDiagnosis(row.segments),
+    ...(segmentsFor ? { segmentsFor: (picks: SentencePicks) => withDiagnosis(segmentsFor(picks)) } : {}),
   };
 };
 
