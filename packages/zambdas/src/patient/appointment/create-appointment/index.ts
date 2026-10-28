@@ -52,6 +52,7 @@ import { User } from 'utils/lib/types/api/user.types';
 import { CanonicalUrl, CREATED_BY_SYSTEM, ServiceMode, TaskIndicator } from 'utils/lib/types/common';
 import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, RETURNING_PATIENT_META_TAG } from 'utils/lib/types/constants';
 import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { FHIR_RESOURCE_VALIDATION_ERROR } from 'utils/lib/types/errors';
 import { getAppointmentDurationFromSlot, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import {
@@ -60,6 +61,7 @@ import {
   makePatientBillingAccountRequest,
 } from '../../../shared/appointment/helpers';
 import { getCaller, isTestUser, M2MCaller } from '../../../shared/auth';
+import { fhirValidationErrorToApiError } from '../../../shared/errors';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { truncateForLog } from '../../../shared/logging';
@@ -96,6 +98,15 @@ interface CreateAppointmentInput {
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
+
+const rethrowFhirRejection = (error: unknown): never => {
+  const apiError = fhirValidationErrorToApiError(error);
+  if (!apiError) throw error;
+  console.error(apiError.message);
+  // An APIError is silent in topLevelCatch, but a resource we built that FHIR refuses is still our bug.
+  captureException(error, { tags: { zambda: 'create-appointment' }, extra: { details: apiError.message } });
+  throw FHIR_RESOURCE_VALIDATION_ERROR('The appointment could not be created with the information provided');
+};
 
 export const index = wrapHandler('create-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
@@ -929,7 +940,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     ],
   };
   console.log('making transaction request');
-  const bundle = await oystehr.fhir.transaction(transactionInput);
+  const bundle = await oystehr.fhir.transaction(transactionInput).catch(rethrowFhirRejection);
   return extractResourcesFromBundle(bundle);
 };
 
