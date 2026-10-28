@@ -259,9 +259,7 @@ const SlotPicker = ({
           // Allow booking up to prebookMonthsAhead out (default 1).
           // Slots for the picked day are fetched on demand.
           maxDate={
-            firstAvailableDay
-              ? firstAvailableDay.plus({ months: prebookMonthsAhead })
-              : DateTime.now().endOf('day')
+            firstAvailableDay ? firstAvailableDay.plus({ months: prebookMonthsAhead }) : DateTime.now().endOf('day')
           }
         />
       </LocalizationProvider>
