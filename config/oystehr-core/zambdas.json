@@ -334,6 +334,13 @@
       "src": "src/ehr/save-followup-encounter/index",
       "zip": ".dist/zips/save-followup-encounter.zip"
     },
+    "SAVE-FREE-FORM-ENCOUNTER": {
+      "name": "save-free-form-encounter",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-free-form-encounter/index",
+      "zip": ".dist/zips/save-free-form-encounter.zip"
+    },
     "GET-EMPLOYEE-CHATS": {
       "name": "get-employee-chats",
       "type": "http_auth",
