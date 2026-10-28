@@ -110,7 +110,7 @@ describe('prepare-billing-invoice', () => {
     ehrInvoiceTasks = [
       {
         resourceType: 'Task',
-        status: 'cancelled',
+        status: 'completed',
         intent: 'order',
         code: RcmTaskCodings.sendInvoiceToPatient,
       },
@@ -120,6 +120,10 @@ describe('prepare-billing-invoice', () => {
       statusCode: 409,
       message: 'This visit is invoiced from the EHR.',
     });
+    // Cancelled tasks were handed to the billing app by the migrate-invoicing-to-billing script.
+    expect(mockClinicalClient.fhir.search).toHaveBeenCalledWith(
+      expect.objectContaining({ params: expect.arrayContaining([{ name: 'status:not', value: 'cancelled' }]) })
+    );
     expect(mockStripe.customers.retrieve).not.toHaveBeenCalled();
     expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
   });

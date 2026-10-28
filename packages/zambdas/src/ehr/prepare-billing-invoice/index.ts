@@ -60,10 +60,16 @@ async function performEffect(
   encounterId: string
 ): Promise<PrepareBillingInvoiceResponse> {
   // A visit with an EHR invoice task is invoiced from the EHR. Checked before any Stripe customer is created.
+  // The EHR never cancels these tasks. The migrate-invoicing-to-billing script cancels the unsent ones
+  // to hand their visits to the billing app.
   const ehrInvoiceTasks = (
     await oystehr.fhir.search<Task>({
       resourceType: 'Task',
-      params: [...sendInvoiceTaskDedupeQuery(encounterId), { name: '_count', value: '1' }],
+      params: [
+        ...sendInvoiceTaskDedupeQuery(encounterId),
+        { name: 'status:not', value: 'cancelled' },
+        { name: '_count', value: '1' },
+      ],
     })
   ).unbundle();
   if (ehrInvoiceTasks.length > 0) throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
