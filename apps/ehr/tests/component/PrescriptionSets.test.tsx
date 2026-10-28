@@ -187,10 +187,10 @@ describe('Prescription sets on the order form', () => {
       const list = await openMenu(user);
       expect(menuItems(list)).toEqual([...SETS_ROWS, ...AMOX_ROWS, IBUPROFEN_ROW]);
       expect(list.querySelector('.MuiAutocomplete-groupLabel')).toBeNull();
-      // Quick picks' and sets' names bold; "Set:" muted, not bold.
-      expect(screen.getByText('Amox strep')).toHaveStyle({ fontWeight: 700 });
-      expect(screen.getByText('Acute otitis')).toHaveStyle({ fontWeight: 700 });
-      expect(screen.getAllByText('Set:')[0]).not.toHaveStyle({ fontWeight: 700 });
+      // Quick picks' and sets' names italic; "Set:" muted, not italic.
+      expect(screen.getByText('Amox strep')).toHaveStyle({ fontStyle: 'italic' });
+      expect(screen.getByText('Acute otitis')).toHaveStyle({ fontStyle: 'italic' });
+      expect(screen.getAllByText('Set:')[0]).not.toHaveStyle({ fontStyle: 'italic' });
       // Inactive: waiting for review in Admin.
       expect(screen.queryByText('Bronchitis')).not.toBeInTheDocument();
       expect(screen.queryByText('Type to search more quick picks and medications')).not.toBeInTheDocument();
@@ -230,7 +230,7 @@ describe('Prescription sets on the order form', () => {
       expect(menuItems(list())).toEqual([...SETS_ROWS, 'Amoxicillin', ...AMOX_ROWS, IBUPROFEN_ROW]);
       expect(nested('Amox strep')).toBe(true);
       expect(nested('Ibuprofen pain')).toBe(false);
-      expect(screen.getByText('Amoxicillin')).not.toHaveStyle({ fontWeight: 700 });
+      expect(screen.getByText('Amoxicillin')).not.toHaveStyle({ fontStyle: 'italic' });
       // A quick pick matching the text and under a medication is listed once, there.
       await user.clear(screen.getByRole('combobox', { name: 'Medication' }));
       await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'strep');

@@ -386,7 +386,7 @@ const MedicationMenu: FC<{
                     Set:{' '}
                   </Box>
                 )}
-                <Box component="span" sx={{ fontWeight: 700 }}>
+                <Box component="span" sx={{ fontStyle: 'italic' }}>
                   {medicationMenuLabel(option)}
                 </Box>
                 <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
