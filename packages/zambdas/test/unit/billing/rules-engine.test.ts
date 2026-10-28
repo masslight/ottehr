@@ -9,6 +9,7 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { CPT_CODE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
@@ -491,18 +492,22 @@ describe('rules-engine evaluator', () => {
 
     prefixes.forEach((prefix, index) => {
       const m = makeFourCoverageModel();
-      const before = m.coverages.map((c) => ({ subscriberId: c.subscriberId, payor: c.payor }));
+      const before = m.coverages.map((c) => ({ id: c.id, subscriberId: c.subscriberId, payor: c.payor }));
 
       expect(writeField(m, `${prefix}.memberId`, `NEW-${index}`)).toBe(true);
       expect(writeField(m, `${prefix}.payerId`, `99999${index}`)).toBe(true);
+      expect(writeField(m, `${prefix}.planType`, 'MC')).toBe(true);
 
       m.coverages.forEach((coverage, i) => {
+        expect(coverage.id).toBe(before[i].id);
         if (i === index) {
           expect(coverage.subscriberId).toBe(`NEW-${index}`);
           expect(readField(m, `${prefix}.payerId`)).toBe(`99999${index}`);
+          expect(getCoveragePlanType(coverage)).toBe('MC');
         } else {
           expect(coverage.subscriberId).toBe(before[i].subscriberId);
           expect(coverage.payor).toEqual(before[i].payor);
+          expect(getCoveragePlanType(coverage)).toBeUndefined();
         }
       });
     });
