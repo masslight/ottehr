@@ -330,6 +330,8 @@ export default function PaymentDetailsDialog({
 
   const refundApplies =
     REFUNDABLE_METHODS.includes(payment.paymentMethod) &&
+    // a card payment Stripe recorded without a PaymentIntent cannot be refunded from here
+    (payment.paymentMethod !== 'card' || !!payment.stripePaymentId) &&
     !payment.voided &&
     netCents > 0 &&
     !!payment.fhirPaymentNotificationId;
