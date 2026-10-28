@@ -22,6 +22,8 @@ import {
   resolvePaymentNoticeForWrite,
   stripePaymentIntentIdForNotice,
 } from '../patient-payments';
+import { recordPaymentNoticeChange } from '../payments';
+import { humanClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
 
 const ZAMBDA_NAME = 'void-billing-patient-payment';
@@ -64,13 +66,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR('This payment has refunds recorded and can no longer be voided.');
   }
 
-  const voidedBy = (await practitionerRefForUser(user, clinicalOystehr)).display;
-  await voidPaymentNotice(billingOystehr, notice, {
-    reason,
-    notes,
-    voidedAtISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
-    voidedBy,
-  });
+  const voidedBy = await practitionerRefForUser(user, clinicalOystehr);
+  await voidPaymentNotice(
+    billingOystehr,
+    notice,
+    {
+      reason,
+      notes,
+      voidedAtISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
+      voidedBy: voidedBy.display,
+      voidedByReference: voidedBy.reference,
+    },
+    recordPaymentNoticeChange(humanClaimActor(voidedBy))
+  );
 
   const response: VoidPatientPaymentResponse = { paymentNoticeId, voidedBillingNoticeCount: 1 };
   return { statusCode: 200, body: JSON.stringify(response) };

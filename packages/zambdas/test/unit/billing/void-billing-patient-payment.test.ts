@@ -22,7 +22,6 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createBillingClient: vi.fn(),
-  reconcilePaymentNoticesForClaim: vi.fn(),
 }));
 const paymentIntentsRetrieve = vi.fn();
 vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
@@ -34,8 +33,13 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_1'),
 }));
+vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveClaimActor: vi.fn(async () => ({ who: { reference: 'Device/system' } })),
+}));
 vi.mock('../../../src/billing/payments', async (importOriginal) => ({
   ...(await importOriginal<object>()),
+  reconcilePaymentNoticesForClaim: vi.fn(),
   findBillingClaimForEncounter: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -43,13 +47,10 @@ import {
   CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
   findBillingClaimForEncounter,
   MANUAL_REFUND_ID_SYSTEM,
+  reconcilePaymentNoticesForClaim,
   stripeAccountExtension,
 } from '../../../src/billing/payments';
-import {
-  createBillingClient,
-  reconcilePaymentNoticesForClaim,
-  STRIPE_ACCOUNT_IDENTIFIER_SYSTEM,
-} from '../../../src/billing/shared';
+import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { index } from '../../../src/billing/void-billing-patient-payment';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM, voidPaymentNotice } from '../../../src/shared/stripeIntegration';
@@ -88,6 +89,7 @@ const billingGet = vi.fn();
 const billingSearch = vi.fn();
 const billingCreate = vi.fn();
 const billingPatch = vi.fn();
+const billingTransaction = vi.fn();
 
 const invoke = (paymentNoticeId = NOTICE_ID, secrets: object = {}): Promise<APIGatewayProxyResult> =>
   (index as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)({
@@ -100,17 +102,32 @@ const legacyRefund = buildPaymentRefundsExtension([
   { stripeRefundId: 'manual_legacy', amountInCents: 5000, dateISO: '2026-04-20T13:00:00Z', status: 'succeeded' },
 ]);
 
-const refundOffsetCreates = (): PaymentNotice[] =>
-  billingCreate.mock.calls
-    .map(([resource]) => resource as PaymentNotice)
-    .filter((resource) => (resource.amount?.value ?? 0) < 0);
+// refund offsets are stored with their claim history entry, in one transaction
+const offsetCreateRequests = (): { resource: PaymentNotice; ifNoneExist: { name: string; value: string }[] }[] =>
+  billingTransaction.mock.calls
+    .flatMap(([{ requests }]) => requests)
+    .filter(
+      (request: { method: string; url: string; resource: PaymentNotice }) =>
+        request.method === 'POST' && request.url === '/PaymentNotice' && (request.resource.amount?.value ?? 0) < 0
+    );
+
+const refundOffsetCreates = (): PaymentNotice[] => offsetCreateRequests().map((request) => request.resource);
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { get: clinicalGet } } as unknown as Oystehr);
   vi.mocked(createBillingClient).mockReturnValue({
-    fhir: { get: billingGet, search: billingSearch, create: billingCreate, patch: billingPatch },
+    fhir: {
+      get: billingGet,
+      search: billingSearch,
+      create: billingCreate,
+      patch: billingPatch,
+      transaction: billingTransaction,
+    },
   } as unknown as Oystehr);
+  billingTransaction.mockImplementation(async ({ requests }: { requests: { resource?: PaymentNotice }[] }) => ({
+    unbundle: () => requests.map((request) => request.resource).filter(Boolean),
+  }));
   billingGet.mockResolvedValue(bridgedCopy);
   billingSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
     unbundle: () => (resourceType === 'Organization' ? [{ resourceType: 'Organization', id: 'stripe-org' }] : []),
@@ -133,6 +150,21 @@ describe('void-billing-patient-payment', () => {
     expect(vi.mocked(voidPaymentNotice).mock.calls[0][1].id).toBe(NOTICE_ID);
     expect(vi.mocked(voidPaymentNotice).mock.calls[0][2]).toMatchObject({ reason: 'Other', voidedBy: 'Pat Admin' });
     expect(JSON.parse(result.body)).toEqual({ paymentNoticeId: NOTICE_ID, voidedBillingNoticeCount: 1 });
+  });
+
+  it('records the void in claim history, credited to the user who voided it', async () => {
+    clinicalGet.mockResolvedValue(legacyNotice([]));
+
+    await invoke();
+
+    const [, notice, voidInfo, recordChange] = vi.mocked(voidPaymentNotice).mock.calls[0];
+    expect(voidInfo.voidedByReference).toBe('Practitioner/pr-1');
+    const voided = { ...notice, status: 'cancelled' as const, extension: [buildPaymentVoidExtension(voidInfo)] };
+    expect(recordChange?.(notice, voided)).toMatchObject({
+      method: 'POST',
+      url: '/Provenance',
+      resource: { agent: [{ who: { reference: 'Practitioner/pr-1' } }] },
+    });
   });
 
   it('rejects voiding a payment refunded before its billing copy existed', async () => {
@@ -231,8 +263,7 @@ describe('void-billing-patient-payment', () => {
     const [offset] = refundOffsetCreates();
     expect(offset.amount).toEqual({ value: -50, currency: 'USD' });
     expect(offset.identifier).toEqual([{ system: MANUAL_REFUND_ID_SYSTEM, value: 'manual_legacy' }]);
-    const offsetCall = billingCreate.mock.calls.find(([resource]) => resource === offset);
-    expect(offsetCall?.[1].ifNoneExist[0]).toEqual({
+    expect(offsetCreateRequests()[0].ifNoneExist[0]).toEqual({
       name: 'identifier',
       value: `${MANUAL_REFUND_ID_SYSTEM}|manual_legacy`,
     });

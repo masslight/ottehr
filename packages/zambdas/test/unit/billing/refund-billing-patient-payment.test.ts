@@ -190,6 +190,19 @@ describe('refund-billing-patient-payment manual refunds', () => {
     expect(JSON.parse(result.body)).toEqual({ refundId: `manual_${NOTICE_ID}_${IDEMPOTENCY_KEY}`, amountInCents: 500 });
   });
 
+  it('records the refund in claim history, credited to the user who issued it', async () => {
+    await invoke('ottehr');
+
+    const [, notice, refunds, , recordChange] = vi.mocked(applyRefundsToPaymentNotice).mock.calls[0];
+    expect(refunds.at(-1)?.refundedByReference).toBe('Practitioner/pr-1');
+    const stamped = { ...notice, extension: [buildPaymentRefundsExtension(refunds)] };
+    expect(recordChange?.(notice, stamped)).toMatchObject({
+      method: 'POST',
+      url: '/Provenance',
+      resource: { agent: [{ who: { reference: 'Practitioner/pr-1' } }] },
+    });
+  });
+
   it('pushes only settled FHIR-only refunds to Candid and records no AR offsets in a candid-only env', async () => {
     await invoke('candid');
 

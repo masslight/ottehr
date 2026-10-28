@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse } from 'fhir/r4b';
+import { Claim, ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
@@ -13,7 +13,9 @@ import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
+import { claimMatchHistoryRequests, MATCH_FIELDS, matchFieldsPatchOperations } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
+import { resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
 
 let m2mToken: string;
@@ -23,8 +25,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, {
+    ...params,
+    agent,
+  });
 
   return {
     statusCode: 200,
@@ -32,7 +38,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimResponse> {
+export async function performEffect(
+  oystehr: Oystehr,
+  params: Params & { agent: ProvenanceAgent }
+): Promise<ClaimResponse> {
   const claim = await oystehr.fhir.get<Claim>({
     resourceType: 'Claim',
     id: params.claimId,
@@ -42,6 +51,14 @@ export async function performEffect(oystehr: Oystehr, params: Params): Promise<C
     id: params.claimResponseId,
   });
   await assertClaimResponseEraNotVoided(oystehr, claimResponse);
+  const matched: ClaimResponse = {
+    ...claimResponse,
+    request: {
+      reference: 'Claim/' + claim.id,
+    },
+    patient: claim.patient,
+    type: claim.type,
+  };
   const bundle = await oystehr.fhir.transaction({
     requests: [
       getPatchBinary({
@@ -49,26 +66,12 @@ export async function performEffect(oystehr: Oystehr, params: Params): Promise<C
         resourceId: claimResponse.id!,
         // Fails if a void cancelled the response after the check above.
         ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
-        patchOperations: [
-          {
-            op: 'replace',
-            path: '/request',
-            value: {
-              reference: 'Claim/' + claim.id,
-            },
-          },
-          // insurer stays as the ERA reported it — the claim's payer may differ
-          {
-            op: 'replace',
-            path: '/patient',
-            value: claim.patient,
-          },
-          {
-            op: 'replace',
-            path: '/type',
-            value: claim.type,
-          },
-        ],
+        patchOperations: matchFieldsPatchOperations(matched, MATCH_FIELDS),
+      }),
+      ...claimMatchHistoryRequests({
+        before: claimResponse,
+        after: matched,
+        agent: params.agent,
       }),
     ],
   });

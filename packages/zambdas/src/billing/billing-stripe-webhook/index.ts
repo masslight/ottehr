@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import { Claim, FhirResource, Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -22,12 +23,19 @@ import { unionIdentifiers } from '../patient-payments';
 import {
   billingProviderRefForStripeAccount,
   claimRequestFor,
+  createPaymentNotice,
   findBillingClaimForEncounter,
+  findPaymentNotice,
+  paymentActor,
+  paymentNoticeHistoryRequest,
+  reconcilePaymentNoticesForClaim,
+  recordPaymentNoticeChange,
   stampedStripeAccount,
   stripeAccountExtension,
   withStripeAccountExtension,
 } from '../payments';
-import { createBillingClient, reconcilePaymentNoticesForClaim } from '../shared';
+import { resolveClaimActor } from '../provenance';
+import { createBillingClient } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
@@ -237,22 +245,15 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, createIfMissing);
 };
 
-const UPSERT_ATTEMPTS = 3;
-
-// An existing claim link is kept if the claim search missed.
-const mergeStripeOwnedFields = (
-  stored: PaymentNotice,
-  desiredNotice: PaymentNotice,
-  claim: Claim | undefined
-): PaymentNotice => {
-  const reference = claim?.id ? `Claim/${claim.id}` : stored.request?.reference;
+// The claim link is the stored one: only reconcile adds it, so the history recorded before it comes along.
+const mergeStripeOwnedFields = (stored: PaymentNotice, desiredNotice: PaymentNotice): PaymentNotice => {
   const storedReconciliation = getContainedReconciliation(stored);
   const desiredReconciliation = getContainedReconciliation(desiredNotice);
   return {
     ...stored,
     status: desiredNotice.status,
     amount: desiredNotice.amount,
-    request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
+    request: { ...desiredNotice.request, reference: stored.request?.reference },
     // the organization behind the Stripe account the money landed in, whichever writer stored first
     payee: desiredNotice.payee,
     recipient: desiredNotice.recipient,
@@ -283,44 +284,78 @@ const persistPaymentNoticeUpsert = async (
   claim: Claim | undefined,
   encounterId: string,
   // false refreshes a notice that already exists and writes nothing otherwise
-  createIfMissing: boolean
+  createIfMissing: boolean,
+  refundedByReference?: string
 ): Promise<void> => {
-  // tag scoped because clinical PaymentNotices use the same identifier system
-  const dedupParams = [
-    { name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|${dedupStripeId}` },
-    { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
-  ];
-  const returned = createIfMissing
-    ? await oystehr.fhir.create<PaymentNotice>(desiredNotice, { ifNoneExist: dedupParams })
-    : (await oystehr.fhir.search<PaymentNotice>({ resourceType: 'PaymentNotice', params: dedupParams })).unbundle()[0];
-  if (!returned) {
+  const dedupIdentifier = {
+    system: STRIPE_PAYMENT_ID_SYSTEM,
+    value: dedupStripeId,
+  };
+  const found = await findPaymentNotice(oystehr, dedupIdentifier);
+  if (!found && !createIfMissing) {
     console.log(`No billing PaymentNotice records ${dedupStripeId}; nothing to refresh`);
     return;
   }
-
-  // Refresh what Stripe owns but keep the rest: the notice may have been written by
-  // post-billing-patient-payment (submitter, EHR identifier) and carry refund stamps. The update is
-  // version guarded so a post or refund landing after the read is never overwritten; on conflict the
-  // notice is re-read and re-merged, and a conflict that persists fails the event for redelivery.
-  let stored = returned;
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await oystehr.fhir.update<PaymentNotice>(mergeStripeOwnedFields(stored, desiredNotice, claim), {
-        optimisticLockingVersionId: stored.meta?.versionId,
+  const agent = await paymentActor(
+    oystehr,
+    refundedByReference
+      ? {
+          reference: refundedByReference,
+        }
+      : undefined,
+    null
+  );
+  const stored = found
+    ? {
+        notice: found,
+        created: false,
+      }
+    : await createPaymentNotice({
+        oystehr,
+        notice: desiredNotice,
+        dedupIdentifier,
+        agent,
       });
-      break;
-    } catch (error) {
-      const versionConflict = error instanceof Oystehr.OystehrFHIRError && error.code === 412;
-      if (!versionConflict || attempt >= UPSERT_ATTEMPTS || !stored.id) throw error;
-      stored = await oystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: stored.id });
-    }
-  }
+  // Refresh what Stripe owns but keep the rest: the notice may have been written by
+  // post-billing-patient-payment (submitter, EHR identifier) and carry refund stamps. A notice a
+  // concurrent delivery stored after the lookup is refreshed like one the lookup found; the refresh
+  // is locked to the version it read, so a write since then is re-read and re-merged.
+  const notice = stored.created
+    ? stored.notice
+    : await withVersionConflictRetries(async (attempt) => {
+        const existing =
+          attempt === 1
+            ? stored.notice
+            : await oystehr.fhir.get<PaymentNotice>({
+                resourceType: 'PaymentNotice',
+                id: stored.notice.id!,
+              });
+        const refreshed = mergeStripeOwnedFields(existing, desiredNotice);
+        const history = paymentNoticeHistoryRequest({
+          targetReference: `PaymentNotice/${existing.id}`,
+          before: existing,
+          after: refreshed,
+          agent,
+        });
+        await oystehr.fhir.transaction<FhirResource>({
+          requests: [
+            {
+              method: 'PUT',
+              url: `/PaymentNotice/${existing.id}`,
+              resource: refreshed,
+              ifMatch: makeOptimisticLockIfMatchHeader(existing),
+            },
+            ...(history ? [history] : []),
+          ],
+        });
+        return refreshed;
+      });
 
-  if (!claim) {
+  if (!notice.request?.reference) {
     // the claim may have appeared while the notice was being stored
-    const lateClaim = await findBillingClaimForEncounter(oystehr, encounterId);
-    if (lateClaim) {
-      await reconcilePaymentNoticesForClaim(oystehr, lateClaim);
+    const claimToLink = claim ?? (await findBillingClaimForEncounter(oystehr, encounterId));
+    if (claimToLink) {
+      await reconcilePaymentNoticesForClaim(oystehr, claimToLink);
     }
   }
 };
@@ -385,7 +420,15 @@ const upsertPaymentNoticeForRefund = async (
     cancelled: failed,
   });
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId, true);
+  await persistPaymentNoticeUpsert(
+    oystehr,
+    desiredNotice,
+    refund.id,
+    claim,
+    encounterId,
+    true,
+    refund.metadata?.refundedByReference
+  );
 
   await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };
@@ -428,12 +471,13 @@ const markBillingNoticesForRefundedCharge = async (
     return;
   }
 
+  const agent = await resolveClaimActor('system', oystehr, undefined, null);
   for (const notice of notices) {
     try {
       // retry variant: a version conflict from an unrelated concurrent update must not
       // discard the webhook's only stamping attempt; stale reservations are cleaned here too
       const staleIds = staleReservationIds([...(parsePaymentRefundsFromNotice(notice) ?? []), ...refunds]);
-      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds);
+      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds, recordPaymentNoticeChange(agent));
     } catch (error) {
       console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
     }

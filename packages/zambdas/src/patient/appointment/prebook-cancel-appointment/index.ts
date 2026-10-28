@@ -26,10 +26,11 @@ import { ServiceMode } from 'utils/lib/types/common';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
+  NOT_AUTHORIZED,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
 } from 'utils/lib/types/errors';
 import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
-import { checkIsEHRUser, getUser } from '../../../shared/auth';
+import { checkIsEHRUser, getCaller } from '../../../shared/auth';
 import { sendSmsToRelatedPersons } from '../../../shared/communication';
 import { getEmailClient } from '../../../shared/communication';
 import { getMainEncounterDetails } from '../../../shared/encounters';
@@ -61,8 +62,14 @@ let oystehrToken: string;
 export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   console.log('getting user');
-  const userToken = input.headers.Authorization?.replace('Bearer ', '');
-  const user = userToken && (await getUser(input.headers.Authorization.replace('Bearer ', ''), input.secrets));
+
+  const token = input.headers.Authorization?.replace('Bearer ', '');
+  const { user, m2m } = await getCaller(token, input.secrets);
+
+  if (m2m && !(await m2m.isValid())) {
+    throw NOT_AUTHORIZED;
+  }
+
   const isEHRUser = user && checkIsEHRUser(user);
   const validatedParameters = validateRequestParameters(input);
   const {
@@ -124,8 +131,11 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
 
   // stamp critical update tag so this event can be surfaced in activity logs
   const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
-  const cancelledBy =
-    user && isEHRUser ? `Staff ${user?.email}` : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
+  const cancelledBy = m2m
+    ? `M2M Client ${m2m.id}`
+    : user && isEHRUser
+    ? `Staff ${user?.email}`
+    : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
   const fhirCancellationReason: Coding = {
     // todo reassess codes and reasons, just using custom codes atm

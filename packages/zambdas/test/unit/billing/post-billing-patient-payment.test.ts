@@ -28,10 +28,10 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createBillingClient: vi.fn(),
   fetchById: vi.fn().mockResolvedValue({ resourceType: 'Encounter', id: 'enc' }),
-  reconcilePaymentNoticesForClaim: vi.fn(),
 }));
 vi.mock('../../../src/billing/payments', async (importOriginal) => ({
   ...(await importOriginal<object>()),
+  reconcilePaymentNoticesForClaim: vi.fn(),
   findBillingClaimForEncounter: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({

@@ -29,7 +29,12 @@ import { shouldUseCandid, syncCandidPatientRefunds } from '../../shared/candid';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
-import { applyRefundsToPaymentNotice, getStripeClient, stripeRefundToDTO } from '../../shared/stripeIntegration';
+import {
+  applyRefundsToPaymentNotice,
+  getStripeClient,
+  PaymentNoticeChangeRecorder,
+  stripeRefundToDTO,
+} from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import {
@@ -40,6 +45,8 @@ import {
   resolvePaymentNoticeForWrite,
   stripePaymentIntentIdForNotice,
 } from '../patient-payments';
+import { recordPaymentNoticeChange } from '../payments';
+import { humanClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
 
 const ZAMBDA_NAME = 'refund-billing-patient-payment';
@@ -79,11 +86,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     : undefined;
   const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);
 
-  const refundedBy = (await practitionerRefForUser(user, clinicalOystehr)).display;
+  const refundedBy = await practitionerRefForUser(user, clinicalOystehr);
+  // changes no refund entry attributes, such as a pending reservation, are credited to the issuer too
+  const recordChange = recordPaymentNoticeChange(humanClaimActor(refundedBy));
 
   const response = await performEffect(
-    { ...effectInput, refundedBy },
-    { clinicalOystehr, billingOystehr, secrets },
+    {
+      ...effectInput,
+      refundedBy: refundedBy.display,
+      refundedByReference: refundedBy.reference,
+    },
+    { clinicalOystehr, billingOystehr, secrets, recordChange },
     stripeClient
   );
   return { statusCode: 200, body: JSON.stringify(response) };
@@ -93,6 +106,7 @@ interface RefundContext {
   clinicalOystehr: Oystehr;
   billingOystehr: Oystehr;
   secrets: Secrets;
+  recordChange: PaymentNoticeChangeRecorder;
 }
 
 interface RefundEffectInput {
@@ -108,6 +122,7 @@ interface RefundEffectInput {
   reason: RefundPatientPaymentInput['reason'];
   notes?: string;
   refundedBy?: string;
+  refundedByReference?: string;
   // record-only refund issued outside Stripe for a Stripe-linked payment
   external?: boolean;
   medium?: RefundPatientPaymentInput['medium'];
@@ -340,6 +355,7 @@ const performManualRefund = async (
     reason,
     notes,
     refundedBy,
+    refundedByReference,
     manualRefundId: refundId,
     resumeRefund,
   } = input;
@@ -352,10 +368,11 @@ const performManualRefund = async (
     reason,
     notes,
     refundedBy,
+    refundedByReference,
   };
   const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
 
-  await applyRefundsToPaymentNotice(context.billingOystehr, notice, refunds);
+  await applyRefundsToPaymentNotice(context.billingOystehr, notice, refunds, undefined, context.recordChange);
 
   await recordManualRefundOffsets(input, refunds, context);
 
@@ -379,6 +396,7 @@ const performExternalRefund = async (
     reason,
     notes,
     refundedBy,
+    refundedByReference,
     medium,
     manualRefundId: refundId,
     resumeRefund,
@@ -392,11 +410,18 @@ const performExternalRefund = async (
     reason,
     notes,
     refundedBy,
+    refundedByReference,
     medium,
   };
   const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
 
-  await applyRefundsToPaymentNotice(context.billingOystehr, notice, refunds, input.expiredReservationIds);
+  await applyRefundsToPaymentNotice(
+    context.billingOystehr,
+    notice,
+    refunds,
+    input.expiredReservationIds,
+    context.recordChange
+  );
 
   await recordManualRefundOffsets(input, refunds, context);
 
@@ -434,9 +459,18 @@ const performEffect = async (
   context: RefundContext,
   stripeClient: Stripe
 ): Promise<RefundPatientPaymentResponse> => {
-  const { billingOystehr } = context;
-  const { notice, stripePaymentId, stripeAccount, existingRefunds, refundAmountInCents, reason, notes, refundedBy } =
-    input;
+  const { billingOystehr, recordChange } = context;
+  const {
+    notice,
+    stripePaymentId,
+    stripeAccount,
+    existingRefunds,
+    refundAmountInCents,
+    reason,
+    notes,
+    refundedBy,
+    refundedByReference,
+  } = input;
 
   if (!stripePaymentId) {
     return performManualRefund(input, context);
@@ -453,7 +487,7 @@ const performEffect = async (
 
   // Stripe already created this refund on a prior attempt; finish the stamping and release the reservation
   if (input.resumeRefund) {
-    await applyRefundsToPaymentNotice(billingOystehr, notice, existingRefunds, reservationRemoveIds);
+    await applyRefundsToPaymentNotice(billingOystehr, notice, existingRefunds, reservationRemoveIds, recordChange);
     return { refundId: input.resumeRefund.stripeRefundId, amountInCents: input.resumeRefund.amountInCents };
   }
 
@@ -468,12 +502,14 @@ const performEffect = async (
       reason,
       notes,
       refundedBy,
+      refundedByReference,
     };
     await applyRefundsToPaymentNotice(
       billingOystehr,
       notice,
       [...existingRefunds, reservation],
-      input.expiredReservationIds
+      input.expiredReservationIds,
+      recordChange
     );
   }
 
@@ -484,11 +520,12 @@ const performEffect = async (
         payment_intent: stripePaymentId,
         amount: refundAmountInCents,
         reason: reason === 'Duplicate charge' ? 'duplicate' : 'requested_by_customer',
-        // reason/notes/refundedBy survive webhook re-stamps; operationKey lets retries find this refund
+        // reason/notes/refunder survive webhook re-stamps; operationKey lets retries find this refund
         metadata: {
           reason,
           ...(notes ? { notes } : {}),
           ...(refundedBy ? { refundedBy } : {}),
+          ...(refundedByReference ? { refundedByReference } : {}),
           ...(input.operationKey ? { operationKey: input.operationKey } : {}),
         },
       },
@@ -518,7 +555,8 @@ const performEffect = async (
           billingOystehr,
           currentNotice,
           parsePaymentRefundsFromNotice(currentNotice) ?? [],
-          [input.pendingReservationId]
+          [input.pendingReservationId],
+          recordChange
         );
       } catch (releaseError) {
         console.error('Failed to release refund reservation', input.pendingReservationId, releaseError);
@@ -538,7 +576,8 @@ const performEffect = async (
     billingOystehr,
     freshNotice,
     [...freshRefunds.filter((existing) => existing.stripeRefundId !== refund.id), stripeRefundToDTO(refund)],
-    reservationRemoveIds
+    reservationRemoveIds,
+    recordChange
   );
 
   return { refundId: refund.id, amountInCents: refundAmountInCents };

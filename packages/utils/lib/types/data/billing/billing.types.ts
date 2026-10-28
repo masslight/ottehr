@@ -482,6 +482,7 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
+  dos: string;
   service?: string;
   patientName: string;
   patientDob: string;

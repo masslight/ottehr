@@ -36,9 +36,10 @@ import {
   claimRequestFor,
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
+  reconcilePaymentNoticesForClaim,
   stripeAccountExtension,
 } from '../payments';
-import { createBillingClient, fetchById, reconcilePaymentNoticesForClaim } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type PostBillingPatientPaymentParams = ValidatedZambdaInput<typeof PostBillingPatientPaymentInputSchema>;
 

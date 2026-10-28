@@ -35,11 +35,12 @@ import {
   claimRequestFor,
   CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
   findBillingClaimForEncounter,
+  reconcilePaymentNoticesForClaim,
   recordBillingManualRefund,
   stampedStripeAccount,
   withStripeAccountExtension,
 } from './payments';
-import { reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
+import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
 
 // Patient payments are owned by the billing app: new ones are billing-tagged PaymentNotices whose
 // request points at the encounter's claim. Notices the EHR wrote before the move are untagged,
@@ -520,6 +521,7 @@ export const recordLocalRefundOffsets = async (
       paymentMethod,
       createdISO: refund.dateISO,
       reason: refund.reason ?? 'Other',
+      refundedByReference: refund.refundedByReference,
       secrets,
     });
   }

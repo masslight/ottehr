@@ -1,19 +1,45 @@
-import Oystehr from '@oystehr/sdk';
-import { Claim, Extension, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import { randomUUID } from 'node:crypto';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import {
+  Claim,
+  Coding,
+  Extension,
+  FhirResource,
+  Money,
+  Organization,
+  PaymentNotice,
+  PaymentReconciliation,
+  ProvenanceAgent,
+  Reference,
+} from 'fhir/r4b';
 import {
   BILLING_RESOURCE_TAG,
   PAYMENT_METHOD_EXTENSION_URL,
   PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
+import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import {
+  isSettledRefund,
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
 import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
+import { PaymentNoticeChangeRecorder, STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { safeValidate } from '../shared/validation';
-import { reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
+import {
+  claimEventProvenanceRequest,
+  claimHistoryLinkRequests,
+  humanClaimActor,
+  resolveClaimActor,
+} from './provenance';
+import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
 
 // dedup identifier for record-billing-manual-payment calls: value is the caller's idempotency key
 export const MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('manual-payment-idempotency-key');
@@ -74,6 +100,156 @@ export const PATIENT_PAYMENT_IDENTIFIER_FILTER = [
   .map((system) => `${system}|`)
   .join(',');
 
+interface PaymentNoticeIdentifier {
+  system: string;
+  value: string;
+}
+
+export const paymentNoticeClaimId = (notice: PaymentNotice): string | undefined =>
+  getIdFromReference(notice.request?.reference, 'Claim');
+
+// Without a claim, the entry targets only the notice until reconcilePaymentNoticesForClaim links it
+export function paymentNoticeHistoryRequest({
+  targetReference,
+  before,
+  after,
+  agent,
+  dedupTag,
+}: {
+  targetReference: string;
+  before?: PaymentNotice;
+  after: PaymentNotice;
+  agent: ProvenanceAgent;
+  dedupTag?: Coding;
+}): BatchInputRequest<FhirResource> | null {
+  return claimEventProvenanceRequest({
+    targetReference,
+    claimId: paymentNoticeClaimId(after),
+    before,
+    after,
+    agent,
+    activity: before ? 'update' : 'create',
+    dedupTag,
+  }) as BatchInputRequest<FhirResource> | null;
+}
+
+// The user the EHR stamped on a void, or on every new refund that moved money; a change several users
+// share, or one a refund nobody stamped is part of, has no single issuer
+const changeIssuerReference = (before: PaymentNotice, after: PaymentNotice): string | undefined => {
+  const voidedByReference = parsePaymentVoidFromNotice(after)?.voidedByReference;
+  if (voidedByReference && !parsePaymentVoidFromNotice(before)) return voidedByReference;
+  const priorRefundIds = new Set((parsePaymentRefundsFromNotice(before) ?? []).map((refund) => refund.stripeRefundId));
+  const issuers = new Set(
+    (parsePaymentRefundsFromNotice(after) ?? [])
+      .filter((refund) => !priorRefundIds.has(refund.stripeRefundId) && isSettledRefund(refund))
+      .map((refund) => refund.refundedByReference)
+  );
+  const [issuer] = issuers;
+  return issuers.size === 1 ? issuer : undefined;
+};
+
+// For the shared refund and void writers, which stamp billing copies and clinical notices alike;
+// changes no user stamped are attributed to fallbackAgent
+export const recordPaymentNoticeChange =
+  (fallbackAgent: ProvenanceAgent): PaymentNoticeChangeRecorder =>
+  (before, after) => {
+    const issuerReference = changeIssuerReference(before, after);
+    return paymentNoticeHistoryRequest({
+      targetReference: `PaymentNotice/${before.id}`,
+      before,
+      after,
+      agent: issuerReference
+        ? humanClaimActor({
+            reference: issuerReference,
+          })
+        : fallbackAgent,
+    });
+  };
+
+export async function findPaymentNotice(
+  oystehr: Oystehr,
+  identifier: PaymentNoticeIdentifier
+): Promise<PaymentNotice | undefined> {
+  const [notice] = (
+    await oystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [
+        {
+          name: 'identifier',
+          value: `${identifier.system}|${identifier.value}`,
+        },
+      ],
+    })
+  ).unbundle();
+  return notice;
+}
+
+// The conditional create still guards against a concurrent writer that got past the caller's
+// lookup; `created` is false when that writer stored the notice first.
+export async function createPaymentNotice({
+  oystehr,
+  notice,
+  dedupIdentifier,
+  agent,
+}: {
+  oystehr: Oystehr;
+  notice: PaymentNotice;
+  dedupIdentifier: PaymentNoticeIdentifier;
+  agent: ProvenanceAgent;
+}): Promise<{ notice: PaymentNotice; created: boolean }> {
+  const fullUrl = `urn:uuid:${randomUUID()}`;
+  const history = paymentNoticeHistoryRequest({
+    targetReference: fullUrl,
+    after: notice,
+    agent,
+    // keyed like the notice, so the writer that stored the notice first is the one that records it
+    dedupTag: {
+      system: dedupIdentifier.system,
+      code: dedupIdentifier.value,
+    },
+  });
+  const bundle = await oystehr.fhir.transaction<FhirResource>({
+    requests: [
+      {
+        method: 'POST',
+        url: '/PaymentNotice',
+        resource: notice,
+        fullUrl,
+        // tag scoped because clinical PaymentNotices use the same identifier systems
+        ifNoneExist: [
+          {
+            name: 'identifier',
+            value: `${dedupIdentifier.system}|${dedupIdentifier.value}`,
+          },
+          {
+            name: '_tag',
+            value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`,
+          },
+        ],
+      },
+      ...(history ? [history] : []),
+    ],
+  });
+  const stored = bundle
+    .unbundle()
+    .find((resource): resource is PaymentNotice => resource.resourceType === 'PaymentNotice');
+  if (!stored) throw new Error('The PaymentNotice was saved without being returned');
+  // a conditional create that matched an existing notice answers 200 rather than 201
+  const status = bundle.entry?.find((entry) => entry.resource?.resourceType === 'PaymentNotice')?.response?.status;
+  return {
+    notice: stored,
+    created: !status?.startsWith('200'),
+  };
+}
+
+// Attributed to whoever took the payment or issued the refund, else to the system.
+export const paymentActor = async (
+  oystehr: Oystehr,
+  recordedBy: Reference | undefined,
+  secrets: Secrets | null
+): Promise<ProvenanceAgent> =>
+  recordedBy?.reference ? humanClaimActor(recordedBy) : resolveClaimActor('system', oystehr, undefined, secrets);
+
 // Mirrors the stripe webhook's negative refund notice so patient AR stays a plain sum over a
 // claim's notices; used for cash/check/external-reader refunds, which have no processor events.
 export const recordBillingManualRefund = async (
@@ -85,10 +261,12 @@ export const recordBillingManualRefund = async (
     paymentMethod: string;
     createdISO: string;
     reason: string;
+    refundedByReference?: string;
     secrets: Secrets | null;
   }
 ): Promise<void> => {
-  const { encounterId, refundId, amountInCents, paymentMethod, createdISO, reason, secrets } = input;
+  const { encounterId, refundId, amountInCents, paymentMethod, createdISO, reason, refundedByReference, secrets } =
+    input;
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
   const payeeRef: Reference = claim?.provider ?? {
@@ -122,12 +300,26 @@ export const recordBillingManualRefund = async (
     recipient: payeeRef,
   };
 
-  await oystehr.fhir.create<PaymentNotice>(desiredNotice, {
-    ifNoneExist: [
-      { name: 'identifier', value: `${MANUAL_REFUND_ID_SYSTEM}|${refundId}` },
-      { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
-    ],
-  });
+  const dedupIdentifier = {
+    system: MANUAL_REFUND_ID_SYSTEM,
+    value: refundId,
+  };
+  if (!(await findPaymentNotice(oystehr, dedupIdentifier))) {
+    await createPaymentNotice({
+      oystehr,
+      notice: desiredNotice,
+      dedupIdentifier,
+      agent: await paymentActor(
+        oystehr,
+        refundedByReference
+          ? {
+              reference: refundedByReference,
+            }
+          : undefined,
+        secrets
+      ),
+    });
+  }
 
   if (!claim) {
     // the claim may have appeared while the notice was being stored; reconcile only adds request.reference
@@ -283,21 +475,22 @@ export const recordBillingPatientPayment = async (
     recipient: payeeRef,
   };
 
-  const returned = await oystehr.fhir.create<PaymentNotice>(desiredNotice, {
-    ifNoneExist: [
-      { name: 'identifier', value: `${dedupIdentifier.system}|${dedupIdentifier.value}` },
-      { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
-    ],
-  });
+  const returned =
+    (await findPaymentNotice(oystehr, dedupIdentifier)) ??
+    (
+      await createPaymentNotice({
+        oystehr,
+        notice: desiredNotice,
+        dedupIdentifier,
+        agent: await paymentActor(oystehr, submitterRef, secrets),
+      })
+    ).notice;
 
   if (paymentFingerprint(returned) !== paymentFingerprint(desiredNotice)) {
     throw MANUAL_PAYMENT_CONFLICT_ERROR(dedupIdentifier.value);
   }
 
-  const referencedClaimId = returned.request?.reference?.startsWith('Claim/')
-    ? returned.request.reference.slice('Claim/'.length)
-    : undefined;
-  let claimId = claim?.id ?? referencedClaimId;
+  let claimId = claim?.id ?? paymentNoticeClaimId(returned);
   if (!claimId) {
     // the claim may have appeared while the notice was being stored; reconcile only adds request.reference
     const lateClaim = await findBillingClaimForEncounter(oystehr, encounterId);
@@ -309,3 +502,119 @@ export const recordBillingPatientPayment = async (
 
   return { notice: returned, claimId };
 };
+
+async function noticeLinkHistory({
+  oystehr,
+  claimId,
+  notices,
+}: {
+  oystehr: Oystehr;
+  claimId: string;
+  notices: PaymentNotice[];
+}): Promise<(notice: PaymentNotice) => BatchInputRequest<FhirResource>[]> {
+  const linkRequests = await claimHistoryLinkRequests({
+    oystehr,
+    claimId,
+    targetReferences: notices.map((notice) => `PaymentNotice/${notice.id}`),
+  });
+  const systemActor = notices.some((notice) => !linkRequests.has(`PaymentNotice/${notice.id}`))
+    ? await resolveClaimActor('system', oystehr, undefined, null)
+    : undefined;
+  return (notice) => {
+    const targetReference = `PaymentNotice/${notice.id}`;
+    const links = linkRequests.get(targetReference);
+    if (links) return links;
+    // notices stored before claim history was kept have no entry to link, so they get one now
+    const entry =
+      systemActor &&
+      paymentNoticeHistoryRequest({
+        targetReference,
+        after: {
+          ...notice,
+          request: {
+            ...notice.request,
+            reference: `Claim/${claimId}`,
+          },
+        },
+        agent: systemActor,
+      });
+    return entry ? [entry] : [];
+  };
+}
+
+// Links notices stored before the claim existed, and the claim history entries recorded with them.
+export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
+  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
+  if (!claim.id || !encounterId) return;
+
+  const notices = (
+    await oystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [
+        {
+          name: 'request:identifier',
+          value: `${encounterIdSystem}|${encounterId}`,
+        },
+      ],
+    })
+  ).unbundle();
+
+  const unlinked = notices.filter((n) => n.id && !n.request?.reference);
+  if (unlinked.length === 0) return;
+
+  const claimId = claim.id;
+  const searchedHistory = await noticeLinkHistory({
+    oystehr,
+    claimId,
+    notices: unlinked,
+  });
+
+  // each notice commits with its history, so one that fails is left whole for the next reconcile;
+  // the link is locked to the version its history was read at, so an entry written since is not
+  // left behind
+  const results = await Promise.allSettled(
+    unlinked.map((notice) =>
+      withVersionConflictRetries(async (attempt) => {
+        const current =
+          attempt === 1
+            ? notice
+            : await oystehr.fhir.get<PaymentNotice>({
+                resourceType: 'PaymentNotice',
+                id: notice.id!,
+              });
+        if (current.request?.reference) return;
+        const historyRequests =
+          attempt === 1
+            ? searchedHistory
+            : await noticeLinkHistory({
+                oystehr,
+                claimId,
+                notices: [current],
+              });
+        await oystehr.fhir.transaction<FhirResource>({
+          requests: [
+            getPatchBinary({
+              resourceType: 'PaymentNotice',
+              resourceId: current.id!,
+              ifMatch: makeOptimisticLockIfMatchHeader(current),
+              patchOperations: [
+                {
+                  op: 'add',
+                  path: '/request/reference',
+                  value: `Claim/${claimId}`,
+                },
+              ],
+            }),
+            ...historyRequests(current),
+          ],
+        });
+      })
+    )
+  );
+  const failedCount = results.filter((result) => result.status === 'rejected').length;
+  if (failedCount > 0) {
+    console.warn(`reconcilePaymentNoticesForClaim: ${failedCount} of ${unlinked.length} notices failed to link`);
+  }
+  console.log(`Linked ${unlinked.length - failedCount} PaymentNotice(s) to Claim/${claim.id}`);
+}

@@ -34,7 +34,16 @@ const response: ClaimResponse = {
 const get = vi.fn();
 const transaction = vi.fn();
 const client = { fhir: { get, transaction } } as unknown as Oystehr;
-const params = { claimResponseId: 'cr-1', claimId: 'claim-1', secrets: {} };
+const params = {
+  claimResponseId: 'cr-1',
+  claimId: 'claim-1',
+  secrets: {},
+  agent: {
+    who: {
+      reference: 'Practitioner/biller-1',
+    },
+  },
+};
 const links = (eras: PaymentReconciliation[]): Awaited<ReturnType<typeof fetchClaimEraLinks>> => ({
   paymentReconciliations: eras,
   paymentReconciliationIdByClaimResponseId: new Map([['cr-1', 'era-1']]),
@@ -64,8 +73,15 @@ describe.each([
   it('patches the response of an active ERA at the version it checked', async () => {
     await expect(perform(client, params)).resolves.toEqual(response);
     expect(fetchClaimEraLinks).toHaveBeenCalledWith(client, [response]);
+    // the claim history entry for the change rides in the same transaction
     expect(transaction).toHaveBeenCalledWith({
-      requests: [expect.objectContaining({ method: 'PATCH', url: '/ClaimResponse/cr-1', ifMatch: 'W/"5"' })],
+      requests: expect.arrayContaining([
+        expect.objectContaining({
+          method: 'PATCH',
+          url: '/ClaimResponse/cr-1',
+          ifMatch: 'W/"5"',
+        }),
+      ]),
     });
   });
 

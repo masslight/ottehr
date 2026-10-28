@@ -11,6 +11,7 @@ import {
 import { DateTime } from 'luxon';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
 import {
@@ -259,6 +260,10 @@ export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPaymen
 // real Claim/{id} reference.
 export function isMatchedToClaim(claimResponse: ClaimResponse): boolean {
   return claimResponse.request?.reference?.startsWith('Claim/') ?? false;
+}
+
+export function matchedClaimId(claimResponse: ClaimResponse): string | undefined {
+  return getIdFromReference(claimResponse.request?.reference, 'Claim');
 }
 
 export interface EraClaimCounts {
