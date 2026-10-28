@@ -26,6 +26,7 @@ import { Header } from 'src/features/visits/shared/components/patient/Header';
 import {
   buildInsuranceSectionCounts,
   useCoverageFormRehydration,
+  usePatientFormDefaultsSync,
 } from 'src/features/visits/shared/components/patient/insuranceFormHelpers';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { OccupationalMedicineEmployerInformationContainer } from 'src/features/visits/shared/components/patient/OccupationalMedicineEmployerContainer';
@@ -270,25 +271,12 @@ const useFormData = (
     resolver: createDynamicValidationResolver({ renderedSectionCounts }),
   });
 
-  // Populate form when data loads, and re-populate when navigating to a different
-  // patient on the same mounted component (defaultValues only applies at mount time).
-  const initializedForPatientRef = useRef<string | null>(null);
-  const coveragesRefetching = coveragesFetching && Boolean(insuranceData);
-  useEffect(() => {
-    if (!defaultFormVals) return;
-    if (initializedForPatientRef.current !== (patientId ?? null)) {
-      // New patient: fully populate the form from the freshly loaded defaults.
-      methods.reset(defaultFormVals);
-      initializedForPatientRef.current = patientId ?? null;
-    } else if (!coveragesRefetching) {
-      // Same patient, defaults changed — e.g. the coverages query resolves after the account, so the
-      // insurance fields only become available on a later render. Re-populate from the new defaults
-      // but keep any values the user has already edited (keepDirtyValues), so insurance fills in
-      // without clobbering in-progress edits. (Gating the whole reset on coverages instead delayed
-      // population of every field and overwrote user edits, breaking the discard-changes flow.)
-      methods.reset(defaultFormVals, { keepDirtyValues: true });
-    }
-  }, [defaultFormVals, coveragesRefetching, methods, patientId]);
+  usePatientFormDefaultsSync({
+    defaultFormVals,
+    coveragesRefetching: coveragesFetching && Boolean(insuranceData),
+    patientId,
+    methods,
+  });
 
   const appointmentContextSyncRef = useRef<string | null>(null);
   useEffect(() => {
