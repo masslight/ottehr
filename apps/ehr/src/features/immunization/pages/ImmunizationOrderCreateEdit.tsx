@@ -38,6 +38,7 @@ import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useImmunizationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
@@ -51,6 +52,19 @@ import { AdministeringImmunizationFields } from '../components/AdministeringImmu
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
+
+// explicit empty values: reset() falls back to defaultValues for fields it leaves undefined
+const EMPTY_ADMINISTRATION_DETAILS = {
+  lot: '',
+  ndc: '',
+  expDate: '',
+  mvx: '',
+  cvx: '',
+  cptCodes: [],
+  administeredDateTime: null,
+  visGiven: false,
+  visGivenDate: null,
+};
 
 interface ImmunizationOrderCreateEditProps {
   orderId?: string;
@@ -96,13 +110,20 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   const onSubmit = async (data: any): Promise<void> => {
     const { details, administrationDetails } = (await cleanupProperties(data)) ?? {};
-    await createUpdateOrder({
-      encounterId: encounter?.id ?? '',
-      orderId: orderId,
-      details,
-      // always sent so that clearing every field on edit clears them on the order too
-      administrationDetails: administrationDetails ?? {},
-    });
+    try {
+      await createUpdateOrder({
+        encounterId: encounter?.id ?? '',
+        orderId: orderId,
+        details,
+        // always sent so that clearing every field on edit clears them on the order too
+        administrationDetails: administrationDetails ?? {},
+      });
+    } catch (error) {
+      enqueueSnackbar(getApiError({ error, defaultError: 'An error occurred while saving the immunization order.' }), {
+        variant: 'error',
+      });
+      return;
+    }
     setIsOrderSaved(true);
     if (isCreating && encounterId) clearDraft(encounterId);
     finish();
@@ -135,9 +156,9 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     defaultValues: {
       details: {
         orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : undefined,
-        ...draftDetails,
+        ...(isCreating && draftDetails),
       },
-      administrationDetails: draftAdministrationDetails,
+      administrationDetails: { ...EMPTY_ADMINISTRATION_DETAILS, ...(isCreating && draftAdministrationDetails) },
     },
   });
 
@@ -158,17 +179,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
         instructions: '',
         orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : null,
       },
-      administrationDetails: {
-        lot: '',
-        ndc: '',
-        expDate: '',
-        mvx: '',
-        cvx: '',
-        cptCodes: [],
-        administeredDateTime: null,
-        visGiven: false,
-        visGivenDate: null,
-      },
+      administrationDetails: EMPTY_ADMINISTRATION_DETAILS,
     });
   };
 
@@ -197,6 +208,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   useEffect(() => {
     if (!orderId && defaultProviderId && !getDraft(encounterId)) {
       methods.reset({
+        ...methods.getValues(),
         details: {
           ...methods.getValues('details'),
           orderedProvider: {

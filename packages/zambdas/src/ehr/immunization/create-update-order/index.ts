@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationAdministration } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createReference } from 'utils/lib/fhir/helpers';
+import { mapFhirToOrderStatus } from 'utils/lib/fhir/medication-administration';
 import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
@@ -11,6 +12,7 @@ import {
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
 } from 'utils/lib/types/data/immunization/types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
@@ -20,6 +22,7 @@ import {
   applyOrderAdministrationDetails,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
   updateOrderDetails,
+  validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
 
@@ -93,7 +96,7 @@ async function createImmunizationOrder(
   };
 }
 
-async function updateImmunizationOrder(
+export async function updateImmunizationOrder(
   oystehr: Oystehr,
   input: CreateUpdateImmunizationOrderRequest
 ): Promise<CreateUpdateImmunizationOrderResponse> {
@@ -102,6 +105,11 @@ async function updateImmunizationOrder(
     resourceType: 'MedicationAdministration',
     id: orderId!,
   });
+  // administered orders are edited through administer-immunization-order, which keeps statements and CPT lines in sync
+  if (administrationDetails && medicationAdministration.status !== 'in-progress') {
+    const currentStatus = mapFhirToOrderStatus(medicationAdministration);
+    throw INVALID_INPUT_ERROR(`Can't update administration details of an order in "${currentStatus}" status`);
+  }
   await updateOrderDetails(medicationAdministration, details, oystehr);
   applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
   await oystehr.fhir.update(medicationAdministration);
@@ -119,6 +127,7 @@ export function validateRequestParameters(
   if (!encounterId) missingFields.push('encounterId');
   missingFields.push(...validateOrderDetails(details));
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
+  validateAdministrationDetailsValues(administrationDetails);
 
   return {
     orderId,

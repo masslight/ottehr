@@ -69,8 +69,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
       ...order,
       administrationDetails: {
         ...order.administrationDetails,
-        administeredDateTime:
-          (order.status === 'pending' && order.administrationDetails?.administeredDateTime) || DateTime.now().toISO(),
+        administeredDateTime: getInitialAdministeredDateTime(order),
+        visGiven: order.administrationDetails?.visGiven ?? false,
       },
       otherReason: '',
     });
@@ -379,3 +379,14 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     </FormProvider>
   );
 };
+
+function getInitialAdministeredDateTime(order: ImmunizationOrder): string {
+  const now = DateTime.now();
+  const fromOrder = order.status === 'pending' ? order.administrationDetails?.administeredDateTime : undefined;
+  if (!fromOrder) return now.toISO();
+  // a date picked without a time on the order screen gets the current time instead of midnight
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fromOrder)) {
+    return DateTime.fromISO(fromOrder).set({ hour: now.hour, minute: now.minute, second: 0, millisecond: 0 }).toISO()!;
+  }
+  return fromOrder;
+}

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration, Organization, Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { codeableConcept, getCoding } from 'utils/lib/fhir/helpers';
 import { searchMedicationLocation, searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { getFullName } from 'utils/lib/fhir/patient';
@@ -19,6 +20,7 @@ import {
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
 } from 'utils/lib/types/data/immunization/types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
 export const CONTAINED_MEDICATION_ID = 'medication';
@@ -216,6 +218,29 @@ export function applyOrderAdministrationDetails(
       : []),
     ...(visGiven ? [{ url: IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL, valueBoolean: true }] : []),
   ];
+}
+
+// Validates dates and trims codes in place
+export function validateAdministrationDetailsValues(
+  administrationDetails: InputImmunizationOrderAdministrationDetails | undefined
+): void {
+  if (!administrationDetails) return;
+  for (const [field, label] of [
+    ['expDate', 'expiration date'],
+    ['administeredDateTime', 'administered date'],
+    ['visGivenDate', 'VIS given date'],
+  ] as const) {
+    const value = administrationDetails[field];
+    if (!value) continue;
+    const dt = DateTime.fromISO(value);
+    if (!dt.isValid || dt.year < 1900) {
+      throw INVALID_INPUT_ERROR(`Invalid ${label}, "${value}" is not a valid date`);
+    }
+  }
+  for (const field of ['mvx', 'cvx', 'ndc'] as const) {
+    const value = administrationDetails[field];
+    if (value) administrationDetails[field] = value.trim();
+  }
 }
 
 export function validateOrderDetails(orderDetails: any): string[] {

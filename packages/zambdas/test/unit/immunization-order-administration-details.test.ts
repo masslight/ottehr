@@ -1,10 +1,13 @@
+import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   applyOrderAdministrationDetails,
   CONTAINED_MEDICATION_ID,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
+  validateAdministrationDetailsValues,
 } from '../../src/ehr/immunization/common';
+import { updateImmunizationOrder } from '../../src/ehr/immunization/create-update-order';
 import { mapMedicationAdministrationToImmunizationOrder } from '../../src/ehr/immunization/get-orders';
 
 const pendingOrder = (): MedicationAdministration => {
@@ -76,5 +79,44 @@ describe('applyOrderAdministrationDetails', () => {
 
   it('returns no administration details for a pending order without them', () => {
     expect(mapMedicationAdministrationToImmunizationOrder(pendingOrder()).administrationDetails).toBeUndefined();
+  });
+});
+
+describe('validateAdministrationDetailsValues', () => {
+  it('trims codes', () => {
+    const details = { mvx: ' SKB ', cvx: '115 ', ndc: ' 58160-0842-11' };
+    validateAdministrationDetailsValues(details);
+    expect(details).toEqual({ mvx: 'SKB', cvx: '115', ndc: '58160-0842-11' });
+  });
+
+  it.each(['expDate', 'administeredDateTime', 'visGivenDate'] as const)('rejects an invalid %s', (field) => {
+    expect(() => validateAdministrationDetailsValues({ [field]: 'not-a-date' })).toThrow();
+  });
+
+  it('accepts missing details', () => {
+    expect(() => validateAdministrationDetailsValues(undefined)).not.toThrow();
+  });
+});
+
+describe('updateImmunizationOrder', () => {
+  it('rejects order-time administration details once the order has been administered', async () => {
+    const administered = { ...pendingOrder(), status: 'completed' as const };
+    const update = vi.fn();
+    const oystehr = { fhir: { get: vi.fn().mockResolvedValue(administered), update } } as unknown as Oystehr;
+
+    await expect(
+      updateImmunizationOrder(oystehr, {
+        orderId: 'order-1',
+        encounterId: 'enc-1',
+        details: {
+          medication: { id: 'med-1', name: 'Tdap' },
+          dose: '0.5',
+          units: 'mL',
+          orderedProvider: { id: 'pr-1', name: 'Dr' },
+        },
+        administrationDetails: {},
+      })
+    ).rejects.toMatchObject({ message: expect.stringContaining('"administered" status') });
+    expect(update).not.toHaveBeenCalled();
   });
 });

@@ -11,7 +11,6 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getMedicationName,
@@ -44,6 +43,7 @@ import {
   getContainedMedication,
   updateOrderDetails,
   updateVaccineMedicationDetails,
+  validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
 
@@ -269,29 +269,7 @@ export function validateRequestParameters(
     }
   }
 
-  function validateDate(value: string, input: string): void {
-    const dt = DateTime.fromISO(value);
-    if (!dt.isValid || dt.year < 1900) {
-      throw INVALID_INPUT_ERROR(`Invalid ${input}, "${value}" is not a valid date`);
-    }
-  }
-
-  if (administrationDetails?.expDate) {
-    validateDate(administrationDetails.expDate, 'expiration date');
-  }
-  if (administrationDetails?.administeredDateTime) {
-    validateDate(administrationDetails.administeredDateTime, 'administered date');
-  }
-  if (administrationDetails?.visGivenDate) {
-    validateDate(administrationDetails.visGivenDate, 'VIS given date');
-  }
-
-  if (administrationDetails) {
-    if (administrationDetails.mvx) administrationDetails.mvx = administrationDetails.mvx.trim();
-    if (administrationDetails.cvx) administrationDetails.cvx = administrationDetails.cvx.trim();
-    if (administrationDetails.ndc) administrationDetails.ndc = administrationDetails.ndc.trim();
-    if (administrationDetails.cpt) administrationDetails.cpt = administrationDetails.cpt.trim();
-  }
+  validateAdministrationDetailsValues(administrationDetails);
 
   return {
     orderId,

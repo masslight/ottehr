@@ -244,6 +244,17 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
       expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', 'L1');
     });
 
+    it('does not apply the creation draft when editing an existing order', () => {
+      useImmunizationOrderStore
+        .getState()
+        .setDraft(ENCOUNTER_ID, { dose: '1.5', administrationDetails: { lot: 'L1' } });
+
+      render(<ImmunizationOrderCreateEdit orderId="order-1" />);
+
+      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '');
+      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', '');
+    });
+
     it('clicking Clear Form resets administration fields to empty', async () => {
       useImmunizationOrderStore
         .getState()
