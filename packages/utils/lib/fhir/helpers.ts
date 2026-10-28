@@ -400,6 +400,9 @@ export async function createFilesDocumentReferences(
       console.log('making DocumentReference results =>', JSON.stringify(docRefBundle, null, 2));
 
       const docRef = docRefBundle.entry?.[0]?.resource;
+      if (docRef) {
+        docRefs.push(docRef);
+      }
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
         let typeCode = type.coding[0].code;
@@ -422,7 +425,6 @@ export async function createFilesDocumentReferences(
             reference: `DocumentReference/${docRef.id}`,
           },
         });
-        docRefs.push(docRef);
       }
     }
 
