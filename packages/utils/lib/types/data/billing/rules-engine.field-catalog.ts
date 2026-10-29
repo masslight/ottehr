@@ -129,7 +129,14 @@ export type RuleFieldValueType =
 export interface RuleFieldOption {
   value: string;
   label: string;
+  // Whether a setField action may write this value (default true). False marks a value conditions
+  // can compare against but rules cannot set — e.g. a relationship can be set to Self only.
+  settable?: boolean;
 }
+
+// The options a setField action may write: every option not marked settable: false.
+export const settableOptions = (options: RuleFieldOption[]): RuleFieldOption[] =>
+  options.filter((option) => option.settable !== false);
 
 // Value formats a text-typed field can declare. Formats with a `validate` are enforced on
 // exact-match condition values and written values (fragment operators like contains/startsWith
@@ -186,9 +193,6 @@ export interface RuleFieldDef {
   description: string;
   // Valid values for select fields (drives the rule builder dropdown and the docs).
   options?: RuleFieldOption[];
-  // The values a setField action may write, when narrower than the values conditions compare
-  // against (options) — e.g. a relationship can be set to Self only.
-  setOptions?: RuleFieldOption[];
   // Value format for text-typed fields: validation for exact-match/written values plus the rule
   // builder's input dispatch (tag/cpt pickers).
   format?: RuleValueFormat;
@@ -241,12 +245,12 @@ const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map
   label: `${option.candidCode} - ${option.label}`,
 }));
 
+// Only Self is settable: every other relationship needs a policy-holder record rules cannot create.
 const RELATIONSHIP_OPTIONS: RuleFieldOption[] = SUBSCRIBER_RELATIONSHIPS.map((relationship) => ({
   value: relationship,
   label: relationship,
+  settable: relationship === 'Self',
 }));
-// Only Self is writable: every other relationship needs a policy-holder record rules cannot create.
-const RELATIONSHIP_SET_OPTIONS: RuleFieldOption[] = RELATIONSHIP_OPTIONS.filter((option) => option.value === 'Self');
 
 // The patient-coverage slots (primary / secondary / workers comp on the patient's billing
 // accounts) the "Coverage (from patient)" field can name — the same options the coverage screens
@@ -479,7 +483,6 @@ const coverageFields = (
         "record, which rules cannot create — edit the claim's insurance instead.",
       requiredOnSet: true,
       options: RELATIONSHIP_OPTIONS,
-      setOptions: RELATIONSHIP_SET_OPTIONS,
     },
   ];
 };
@@ -1298,12 +1301,12 @@ export function ruleConditionValueProblem(
 // A setField value's problem, or undefined. Empty means "clear the property" and is allowed unless
 // the field's writer requires a value (requiredOnSet); non-empty values are validated in full.
 export function setFieldValueProblem(
-  def: Pick<RuleFieldDef, 'valueType' | 'options' | 'setOptions' | 'format' | 'requiredOnSet'>,
+  def: Pick<RuleFieldDef, 'valueType' | 'options' | 'format' | 'requiredOnSet'>,
   value: string | null | undefined
 ): string | undefined {
   const trimmed = value?.trim() ?? '';
   if (trimmed === '') return def.requiredOnSet ? VALUE_REQUIRED_PROBLEM : undefined;
-  return strictValueProblem({ ...def, options: def.setOptions ?? def.options }, trimmed);
+  return strictValueProblem({ ...def, options: def.options && settableOptions(def.options) }, trimmed);
 }
 
 // A service-line match value's problem — same operator-aware logic over a line property def.

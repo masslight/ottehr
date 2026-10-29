@@ -40,6 +40,7 @@ import {
   serviceLineSetValueProblem,
   ServiceLineValueType,
   setFieldValueProblem,
+  settableOptions,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   DateValue,
@@ -343,7 +344,7 @@ function FieldValueInput({
   multiple: boolean;
   // The regex operators take a pattern: a plain text input replaces the field's usual picker.
   isRegex?: boolean;
-  // A setField value: offer the field's setOptions (when narrower) instead of its condition options.
+  // A setField value: offer only the field's settable options.
   forSetField?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
@@ -465,7 +466,7 @@ function FieldValueInput({
   return (
     <TypedValueInput
       valueType={def?.valueType}
-      options={(forSetField && def?.setOptions) || def?.options}
+      options={forSetField && def?.options ? settableOptions(def.options) : def?.options}
       multiple={multiple}
       value={value}
       onChange={onChange}

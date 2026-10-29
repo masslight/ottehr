@@ -13,6 +13,7 @@ import {
   SERVICE_LINE_PROPERTY_CATALOG,
   ServiceLinePropertyDef,
   ServiceLineValueType,
+  settableOptions,
 } from './rules-engine.field-catalog';
 import {
   MULTI_VALUE_OPERATORS,
@@ -71,12 +72,15 @@ const allowedValues = (field: Pick<RuleFieldDef, 'options' | 'optionsDocNote'>):
 // The validation/constraint suffix of a def's description: allowed values, format hint, and the
 // cannot-be-cleared note — everything save-time validation and the engine writers enforce.
 const constraintNotes = (
-  def: Pick<RuleFieldDef, 'options' | 'setOptions' | 'optionsDocNote' | 'format' | 'requiredOnSet'>
+  def: Pick<RuleFieldDef, 'options' | 'optionsDocNote' | 'format' | 'requiredOnSet'>
 ): string => {
   const notes: string[] = [];
   const values = allowedValues(def);
   if (values) notes.push(` Allowed values: ${values}.`);
-  if (def.setOptions) notes.push(` Settable values: ${formatOptions(def.setOptions)}.`);
+  const settable = def.options && settableOptions(def.options);
+  if (settable && settable.length < (def.options?.length ?? 0)) {
+    notes.push(` Settable values: ${formatOptions(settable)}.`);
+  }
   if (def.format && RULE_VALUE_FORMATS[def.format].validate) {
     notes.push(` Format: ${RULE_VALUE_FORMATS[def.format].hint}.`);
   }

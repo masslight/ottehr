@@ -240,7 +240,7 @@ describe('rule value validation', () => {
     expect(setFieldValueProblem(field('patient.state'), 'XX')).toContain('one of the listed options');
     expect(setFieldValueProblem(field('payerId'), '')).toBe('Value is required'); // requiredOnSet
     expect(setFieldValueProblem(field('payerId'), null)).toBe('Value is required');
-    // setOptions narrows what can be written below what conditions compare against.
+    // Options marked settable: false can be compared against but not written.
     for (const prefix of ['insurance', 'secondaryInsurance', 'tertiaryInsurance', 'quaternaryInsurance']) {
       const relationship = field(`${prefix}.relationship`);
       expect(setFieldValueProblem(relationship, 'Self')).toBeUndefined();
