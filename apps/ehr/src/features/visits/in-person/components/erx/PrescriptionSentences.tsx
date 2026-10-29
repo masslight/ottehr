@@ -299,7 +299,7 @@ type CompoundStart = { drug?: MedicationSearchDrug; search?: string };
 /** How many sets and how many quick picks the menu lists before anything is typed. */
 const MEDICATION_MENU_LIMIT = 10;
 
-/** The menu's quick picks column. Before anything is typed: the first sets and the first quick picks, `more` when there are
+/** The menu's quick picks column, sets after the quick picks. Before anything is typed: the first quick picks and the first sets, `more` when there are
  * others. Typed: every set matching by name or by a quick pick's name or product, and every quick pick matching by
  * name or product (a compound's name or an ingredient's). */
 const quickPickColumn = (
@@ -378,7 +378,7 @@ const MedicationMenu: FC<{
       ? { kind: 'compound', drug: medicationPicks.length ? drugs?.[0] : undefined }
       : undefined;
   const listed = quickPickColumn(query, sets, quickPicks);
-  const quickPickPicks = [...listed.sets, ...listed.quickPicks];
+  const quickPickPicks = [...listed.quickPicks, ...listed.sets];
   const columns = [[...medicationPicks, ...(compoundPick ? [compoundPick] : [])], quickPickPicks];
   const [active, setActive] = useState<{ column: number; row: number }>();
   // A highlight the lists no longer reach is none.
@@ -569,8 +569,8 @@ const MedicationMenu: FC<{
             aria-label="Prescription sets and quick picks"
             sx={MENU_LIST_SX}
           >
-            {group('Prescription sets', listed.sets, 0)}
-            {group('Quick picks', listed.quickPicks, listed.sets.length)}
+            {group('Quick picks', listed.quickPicks, 0)}
+            {group('Prescription sets', listed.sets, listed.quickPicks.length)}
           </Box>
           {quickPickPicks.length === 0 && <MenuMessage>No quick picks match</MenuMessage>}
           {listed.more && <MenuMessage>Type to search more</MenuMessage>}

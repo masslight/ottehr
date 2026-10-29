@@ -218,7 +218,7 @@ describe('Prescription sets on the order form', () => {
       expect(field().getAttribute('aria-controls')?.split(' ')).toEqual([medicationColumn().id, quickPickColumn().id]);
     });
 
-    it('lists up to 10 sets and 10 quick picks before anything is typed, then says to type for more', async () => {
+    it('lists up to 10 quick picks and 10 sets after them before anything is typed, then says to type for more', async () => {
       const user = userEvent.setup();
       const many = Array.from({ length: 12 }, (_, i) => ({ ...IBUPROFEN, id: `qp-${i}`, name: `Pick ${10 + i}` }));
       const sets = Array.from({ length: 11 }, (_, i) => set(`set-${i}`, `Set ${10 + i}`, ['qp-0']));
@@ -226,8 +226,10 @@ describe('Prescription sets on the order form', () => {
       await openMenu(user);
       const items = menuItems(quickPickColumn());
       expect(items).toHaveLength(10 + 10);
-      expect(items[9]).toBe('Set: Set 19');
-      expect(items[10]).toBe('Pick 10');
+      expect(items[0]).toBe('Pick 10');
+      expect(items[9]).toBe('Pick 19');
+      expect(items[10]).toBe('Set: Set 10');
+      expect(items[19]).toBe('Set: Set 19');
       expect(screen.getByText('Type to search more')).toBeInTheDocument();
       expect(screen.queryByText('Set 20')).not.toBeInTheDocument();
       expect(screen.queryByText('Pick 20')).not.toBeInTheDocument();
@@ -238,19 +240,19 @@ describe('Prescription sets on the order form', () => {
       expect(screen.queryByText('Type to search more')).not.toBeInTheDocument();
     });
 
-    it('typed: the search’s medications on the left, the matching sets and quick picks on the right', async () => {
+    it('typed: the search’s medications on the left, the matching quick picks and then sets on the right', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
       await openMenu(user);
       // "amox" matches the amoxicillin quick picks by name and both sets by one of theirs; not the ibuprofen.
       await user.type(field(), 'amox');
-      expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, ...AMOX_ROWS]);
+      expect(menuItems(quickPickColumn())).toEqual([...AMOX_ROWS, ...SETS_ROWS]);
       expect(menuItems(await searchedColumn())).toEqual(['Amoxicillin', '+ compound starting with Amoxicillin']);
       expect(screen.getByText('Amoxicillin')).not.toHaveStyle({ fontStyle: 'italic' });
       // By product, in any case: both sets hold the ibuprofen.
       await user.clear(field());
       await user.type(field(), 'IBUPROFEN 100');
-      expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, IBUPROFEN_ROW]);
+      expect(menuItems(quickPickColumn())).toEqual([IBUPROFEN_ROW, ...SETS_ROWS]);
       // A set matched by its own name only: no quick picks heading.
       await user.clear(field());
       await user.type(field(), 'otitis');
@@ -302,7 +304,7 @@ describe('Prescription sets on the order form', () => {
         await user.type(field(), 'ibu');
         // Past the debounce: the request itself is still running.
         await new Promise((resolve) => setTimeout(resolve, 400));
-        expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, IBUPROFEN_ROW]);
+        expect(menuItems(quickPickColumn())).toEqual([IBUPROFEN_ROW, ...SETS_ROWS]);
         expect(menuItems(medicationColumn())).toEqual([]);
         expect(screen.getByText('Searching medications…')).toBeInTheDocument();
       } finally {
@@ -317,7 +319,7 @@ describe('Prescription sets on the order form', () => {
         render(<Form initial={[emptyPrescriptionLine()]} />);
         await openMenu(user);
         await user.type(field(), 'amox');
-        expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, ...AMOX_ROWS]);
+        expect(menuItems(quickPickColumn())).toEqual([...AMOX_ROWS, ...SETS_ROWS]);
         expect(
           await within(medicationColumn().parentElement!).findByText('Medication search is unavailable.')
         ).toBeInTheDocument();
@@ -422,18 +424,20 @@ describe('Prescription sets on the order form', () => {
       await user.keyboard('{ArrowDown}');
       expect(highlighted()).toBe('Amoxicillin');
       await user.keyboard('{ArrowRight}');
-      expect(highlighted()).toBe(SETS_ROWS[0]);
+      expect(highlighted()).toBe(AMOX_ROWS[0]);
       await user.keyboard('{ArrowDown}');
-      expect(highlighted()).toBe(SETS_ROWS[1]);
+      expect(highlighted()).toBe(AMOX_ROWS[1]);
       // Back to the medications: the nearest row there, the last one.
       await user.keyboard('{ArrowLeft}');
       expect(highlighted()).toBe('+ compound starting with Amoxicillin');
       await user.keyboard('{ArrowUp}');
       expect(highlighted()).toBe('Amoxicillin');
       await user.keyboard('{ArrowRight}');
-      expect(highlighted()).toBe(SETS_ROWS[0]);
-      // Up from the top goes round to the bottom.
+      expect(highlighted()).toBe(AMOX_ROWS[0]);
+      // Up from the top goes round to the bottom: the last set.
       await user.keyboard('{ArrowUp}');
+      expect(highlighted()).toBe(SETS_ROWS[1]);
+      await user.keyboard('{ArrowUp}{ArrowUp}');
       expect(highlighted()).toBe('Amox strep');
       expect(field()).toHaveFocus();
       await user.keyboard('{Enter}');
@@ -447,7 +451,7 @@ describe('Prescription sets on the order form', () => {
       await openMenu(user);
       await user.click(field());
       await user.keyboard('{ArrowDown}');
-      expect(highlighted()).toBe(SETS_ROWS[0]);
+      expect(highlighted()).toBe(AMOX_ROWS[0]);
       // "+ compound" is a Left away.
       await user.keyboard('{ArrowLeft}');
       expect(highlighted()).toBe('+ compound');
@@ -514,23 +518,24 @@ describe('Prescription sets on the order form', () => {
   });
 
   describe('suggestions', () => {
-    it('mixes the sets for the product in with its quick picks by name, three in all', () => {
+    it('lists the product’s quick picks first and its sets after them, three in all', () => {
       render(<Form initial={[amoxLine()]} />);
-      // Acute otitis (set), Amox as written, Amox strep; Ear infection (set) is fourth. Bronchitis is Inactive.
+      // Amox as written, Amox strep, then Acute otitis (set); Ear infection (set) is fourth. Bronchitis is Inactive.
       expect(screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })).toHaveLength(4);
-      const setRow = suggestionRow(0);
+      expect(suggestionRow(0)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
+      expect(suggestionRow(0)).not.toHaveTextContent('Set ·');
+      expect(suggestionRow(1)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
+      expect(suggestionRow(1)).not.toHaveTextContent('Set ·');
+      const setRow = suggestionRow(2);
       expect(setRow).toHaveTextContent('Acute otitis');
       expect(within(setRow).getByText('Set · 2')).toBeInTheDocument();
-      expect(suggestionRow(1)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
-      expect(suggestionRow(1)).not.toHaveTextContent('Set ·');
-      expect(suggestionRow(2)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
       expect(screen.queryByText('Ear infection')).not.toBeInTheDocument();
       expect(screen.queryByText('Bronchitis')).not.toBeInTheDocument();
     });
 
     it('shows the set’s quick pick for the product re-dosed, then what else it adds, with the row’s calculator and ⓘ', () => {
       render(<Form initial={[amoxLine()]} sets={[EAR_INFECTION]} />);
-      // After the product's two quick picks, by name.
+      // After the product's two quick picks.
       const row = suggestionRow(2);
       // The calculator icon starts the row, then the set's name and chip, then the sentence.
       expect(within(row).getAllByRole('button')[0]).toHaveAccessibleName('Dose calculator for Amox strep');
@@ -546,7 +551,8 @@ describe('Prescription sets on the order form', () => {
     it('fills the line with the set’s quick pick for the product and adds the others after it', async () => {
       const user = userEvent.setup();
       render(<Form initial={[amoxLine()]} sets={[ACUTE_OTITIS]} />);
-      await user.click(within(suggestionRow(0)).getByRole('button', { name: 'Use this prescription' }));
+      // After the product's two quick picks.
+      await user.click(within(suggestionRow(2)).getByRole('button', { name: 'Use this prescription' }));
       expect(latest).toHaveLength(2);
       // As the quick pick's own row fills it.
       expect(latest[0]).toMatchObject({

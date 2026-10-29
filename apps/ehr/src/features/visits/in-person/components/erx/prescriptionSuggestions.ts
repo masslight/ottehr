@@ -305,7 +305,7 @@ const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | u
 };
 
 /** The suggestions for a product: the practice's quick picks for exactly this product and its Active sets with one,
- * up to `QUICK_PICK_SUGGESTIONS` together in the list's order (by name); the box adds "Other" (Write my own). A
+ * up to `QUICK_PICK_SUGGESTIONS` together, quick picks first and sets after; the box adds "Other" (Write my own). A
  * set's row is its quick pick for the product, named for the set, with what else it adds. Where more suggestion data
  * plugs in. */
 export const prescriptionSuggestionsFor = ({
@@ -334,14 +334,8 @@ export const prescriptionSuggestionsFor = ({
     };
     return [{ name: set.name, row }];
   });
-  // Each set goes in by name among the quick picks, which keep the list's order.
-  return fromSets
-    .reduce((rows, entry) => {
-      const at = rows.findIndex((other) => other.name.localeCompare(entry.name) > 0);
-      return at < 0 ? [...rows, entry] : [...rows.slice(0, at), entry, ...rows.slice(at)];
-    }, single)
-    .slice(0, QUICK_PICK_SUGGESTIONS)
-    .map(({ row }) => row);
+  // Sets, used less often, follow the quick picks; each keeps the list's order.
+  return [...single, ...fromSets].slice(0, QUICK_PICK_SUGGESTIONS).map(({ row }) => row);
 };
 
 /** The lines a set puts where `line` is. Picked from the medication menu, an empty line takes its first quick pick
