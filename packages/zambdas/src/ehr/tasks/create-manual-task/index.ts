@@ -3,7 +3,7 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getFullName } from 'utils/lib/fhir/patient';
-import { CreateManualTaskRequest, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { CreateManualTaskRequest, ERX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getM2MClientId, isM2MClient } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
@@ -42,6 +42,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const taskToCreate = createTask({
     category: params.category,
     title: params.taskTitle,
+    code:
+      params.refillRequest && params.category === MANUAL_TASK.category.erx
+        ? { system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }
+        : undefined,
     encounterId: params.encounterId,
     location: {
       id: params.location.id,
@@ -112,6 +116,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     category,
     appointmentId,
     orderId,
+    refillRequest,
     encounterId,
     taskTitle,
     taskDetails,
@@ -144,6 +149,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     category,
     appointmentId,
     orderId,
+    refillRequest: refillRequest === true,
     encounterId,
     taskTitle,
     taskDetails,

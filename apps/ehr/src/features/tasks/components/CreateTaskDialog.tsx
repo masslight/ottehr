@@ -2,6 +2,7 @@ import { Stack } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
+import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
@@ -72,12 +73,17 @@ export const CreateTaskDialog: React.FC<Props> = ({
     setRefreshKey(Date.now());
   }, [open, methods]);
 
+  // An eRx task is a patient's refill request, on a prescription, only when chosen as one.
+  const isErx = formValue.category === MANUAL_TASK.category.erx;
+  const refillRequest = isErx && !!formValue.refillRequest;
+
   const { mutateAsync: createManualTask } = useCreateManualTask();
   const handleConfirm = async (): Promise<void> => {
     await createManualTask({
       category: formValue.category,
       appointmentId: formValue.appointment,
-      orderId: formValue.order,
+      orderId: isErx && !refillRequest ? undefined : formValue.order,
+      refillRequest,
       encounterId: encounterId || undefined,
       taskTitle: formValue.taskTitle,
       taskDetails: formValue.taskDetails,
@@ -259,15 +265,17 @@ export const CreateTaskDialog: React.FC<Props> = ({
               getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
               required
             />
-            <SelectInput
-              name="order"
-              // An eRx task on a prescription is a patient's refill request.
-              label={formValue.category === MANUAL_TASK.category.erx ? 'Prescription' : 'Order'}
-              options={orderOptions.map((order) => order.id)}
-              getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
-              loading={ordersLoading}
-              disabled={!formValue.appointment || !formValue.category}
-            />
+            {isErx && <CheckboxInput name="refillRequest" label="Refill request" />}
+            {(!isErx || refillRequest) && (
+              <SelectInput
+                name="order"
+                label={isErx ? 'Prescription' : 'Order'}
+                options={orderOptions.map((order) => order.id)}
+                getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
+                loading={ordersLoading}
+                disabled={!formValue.appointment || !formValue.category}
+              />
+            )}
             <TextInput name="taskTitle" label="Title" required />
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>

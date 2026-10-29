@@ -144,14 +144,15 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
     ?.reference?.split('/')[1];
   let pharmacyRequest: ErxPharmacyRefillRequest | undefined;
   let medicationRequestId: string | undefined;
-  if (getCoding(task.code, ERX_TASK.system)?.code === ERX_TASK.code.refillRequest && renewalTaskId) {
+  const isRefillRequest = getCoding(task.code, ERX_TASK.system)?.code === ERX_TASK.code.refillRequest;
+  if (isRefillRequest && renewalTaskId) {
     const versions = (await oystehr.fhir.history<Task>({ resourceType: 'Task', id: renewalTaskId }))
       .unbundle()
       .sort((a, b) => (a.meta?.lastUpdated ?? '').localeCompare(b.meta?.lastUpdated ?? ''));
     if (!versions.length) throw FHIR_RESOURCE_NOT_FOUND('Task');
     pharmacyRequest = readPharmacyRefillRequest(versions);
     medicationRequestId = versions[versions.length - 1].focus?.reference?.split('/')[1];
-  } else if (task.groupIdentifier?.value === MANUAL_TASK.category.erx) {
+  } else if (isRefillRequest && task.groupIdentifier?.value === MANUAL_TASK.category.erx) {
     medicationRequestId = getTaskInputValue(task, MANUAL_TASK.input.orderId);
   }
   if (!medicationRequestId) throw INVALID_INPUT_ERROR(`Task ${taskId} is not a refill request`);

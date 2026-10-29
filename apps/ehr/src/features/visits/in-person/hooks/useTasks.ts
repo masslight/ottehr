@@ -651,7 +651,10 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
         };
       }
       // A patient's refill request: the order is the prescription.
-      if (category === MANUAL_TASK.category.erx) {
+      if (
+        category === MANUAL_TASK.category.erx &&
+        getCoding(task.code, ERX_TASK.system)?.code === ERX_TASK.code.refillRequest
+      ) {
         action = { name: GO_TO_REQUEST, link: '' };
       }
     } else if (appointmentId) {

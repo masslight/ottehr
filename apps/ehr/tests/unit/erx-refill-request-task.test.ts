@@ -36,20 +36,22 @@ describe('Tasks page: refill requests', () => {
     expect(row.completable).toBe(true);
   });
 
-  it('gives a manual eRx task on a prescription (a patient’s request) Go to request', () => {
+  it('gives a manual eRx task made as a refill request Go to request, and an ordinary one none', () => {
     const input = (code: string, valueString: string): NonNullable<FhirTask['input']>[number] => ({
       type: { coding: [{ system: TASK_INPUT_SYSTEM, code }] },
       valueString,
     });
-    const row = fhirTaskToTask(
+    const manual = (extra: Partial<FhirTask>): FhirTask =>
       task(MANUAL_TASK.category.erx, {
         input: [
           input(MANUAL_TASK.input.title, 'Refill request'),
           input(MANUAL_TASK.input.orderId, 'rx-1'),
           input(MANUAL_TASK.input.appointmentId, 'appointment-1'),
         ],
-      })
-    );
-    expect(row.action?.name).toBe(GO_TO_REQUEST);
+        ...extra,
+      });
+    const refill = { code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }] } };
+    expect(fhirTaskToTask(manual(refill)).action?.name).toBe(GO_TO_REQUEST);
+    expect(fhirTaskToTask(manual({})).action?.name).not.toBe(GO_TO_REQUEST);
   });
 });
