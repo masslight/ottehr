@@ -15,6 +15,7 @@ import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
 import { PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
 import { AllergiesContainer } from '../../../shared/components/review-tab/components/AllergiesContainer';
 import { MedicationsContainer } from '../../../shared/components/review-tab/components/MedicationsContainer';
 import { useChartData } from '../../../shared/hooks/useChartData';
@@ -27,6 +28,7 @@ import { PopoverBlank, Sentence } from '../procedures/narrative/InlineBlanks';
 import { ProcedureQuickPickDialogs } from '../procedures/ProcedureQuickPickDialogs';
 import { calculatorWeightKg, previousVisitWeightNote } from './DoseCalculator';
 import { PharmacySearch } from './PharmacySearch';
+import { patientAddressAndPhone } from './prescriptionDialogs';
 import {
   emptyPrescriptionLine,
   PrescriptionLine,
@@ -52,6 +54,7 @@ const SIDE_COLUMN_QUERY = `@container (min-width: ${FORM_COLUMN_MIN_WIDTH + COLU
 export const OrderPrescriptionForm: FC = () => {
   const theme = useTheme();
   const { patient, encounter } = useAppointmentData();
+  const patientContact = patientAddressAndPhone(patient);
   const weight = useVisitWeight();
   // A weight typed in any line's dose calculator stands in for the vitals' everywhere on the page.
   const [weightText, setWeightText] = useState<string>();
@@ -369,6 +372,28 @@ export const OrderPrescriptionForm: FC = () => {
           <Box sx={{ [SIDE_COLUMN_QUERY]: { position: 'sticky', top: 16 } }}>
             <AccordionCard>
               <Stack spacing={1.5} style={{ padding: '24px' }}>
+                {/* Read-only: what the visit header doesn't show of what's sent about the patient. */}
+                {(patientContact.address || patientContact.phone) && (
+                  <Box>
+                    <SectionHeading>Patient</SectionHeading>
+                    {patientContact.address && (
+                      <Typography>
+                        <Box component="span" color="text.secondary">
+                          Address:
+                        </Box>{' '}
+                        {patientContact.address}
+                      </Typography>
+                    )}
+                    {patientContact.phone && (
+                      <Typography>
+                        <Box component="span" color="text.secondary">
+                          Phone:
+                        </Box>{' '}
+                        {patientContact.phone}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
                 <AllergiesContainer />
                 <MedicationsContainer />
               </Stack>

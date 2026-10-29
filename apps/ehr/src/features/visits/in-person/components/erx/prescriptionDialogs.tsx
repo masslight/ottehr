@@ -1,13 +1,26 @@
 import { Stack, Typography } from '@mui/material';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getAddressString } from 'utils/lib/fhir/helpers';
+import { getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 
 export const errorMessage = (error: unknown): string =>
   error instanceof Error && error.message ? error.message : 'An error occurred.';
+
+/** The patient's address on one line and phone, as the eRx screens show them; each is undefined when missing. */
+export const patientAddressAndPhone = (patient: Patient | undefined): { address?: string; phone?: string } => {
+  const phone = patient && getPhoneNumberForIndividual(patient);
+  return {
+    address: getAddressString(patient?.address?.[0]) || undefined,
+    phone: phone ? formatPhoneNumberDisplay(phone) : undefined,
+  };
+};
 
 /** The prescriptions a dialog acts on: each one's name, directions, pharmacy and when it was sent. */
 export const PrescriptionSummaryList: FC<{ prescriptions: PrescribedMedicationDTO[] }> = ({ prescriptions }) => {
