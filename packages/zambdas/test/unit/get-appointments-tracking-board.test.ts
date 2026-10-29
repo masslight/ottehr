@@ -373,7 +373,7 @@ describe('buildOrdersForTrackingBoard', () => {
     expect(table.dmeOrdersByEncounterId).toEqual({});
   });
 
-  test('shows every DME order except deleted ones', () => {
+  test('shows pending and dispensed DME orders, not third-party or deleted ones', () => {
     const requesterId = '6c3d2e1a-7b8f-4c5d-9e0a-1b2c3d4e5f60';
     const requester: Practitioner = {
       resourceType: 'Practitioner',
@@ -417,7 +417,6 @@ describe('buildOrdersForTrackingBoard', () => {
     const orders = table.dmeOrdersByEncounterId['enc-1'];
     expect(Object.fromEntries(orders.map((order) => [order.id, order.status]))).toEqual({
       'dme-pending': DmeOrderStatus.pending,
-      'dme-external': DmeOrderStatus.ordered,
       'dme-dispensed': DmeOrderStatus.dispensed,
     });
     const pending = orders.find((order) => order.id === 'dme-pending');

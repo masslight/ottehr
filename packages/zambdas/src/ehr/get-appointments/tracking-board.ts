@@ -29,6 +29,7 @@ import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { convertVitalsListToMap, getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { GetVitalsForListOfEncountersResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { DmeOrderStatus } from 'utils/lib/types/api/dme.types';
 import { GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
@@ -39,7 +40,7 @@ import {
   makePrescribedMedicationDTO,
   makeProceduresDTOFromFhirResources,
 } from '../../shared/chart-data';
-import { DME_ORDER_SEARCH_TAG, isDmeOrderDeleted, parseDmeOrder } from '../../shared/dme';
+import { DME_ORDER_SEARCH_TAG, getDmeOrderStatus, isDmeOrderDeleted, parseDmeOrder } from '../../shared/dme';
 import { sendErrors } from '../../shared/errors';
 import { SortedAppointmentQueues } from '../../shared/queueingUtils';
 import {
@@ -564,7 +565,10 @@ export const buildOrdersForTrackingBoard = ({
     (order) => order.encounterId
   );
 
-  const liveDmeOrders = pools.deviceRequests.filter((deviceRequest) => !isDmeOrderDeleted(deviceRequest));
+  // Third-party (ordered) orders are fulfilled off-site, so there is nothing for staff to track here.
+  const liveDmeOrders = pools.deviceRequests.filter(
+    (deviceRequest) => !isDmeOrderDeleted(deviceRequest) && getDmeOrderStatus(deviceRequest) !== DmeOrderStatus.ordered
+  );
   if (liveDmeOrders.length > 0) {
     const practitionerNames = Object.fromEntries(
       allPractitioners.map((practitioner) => [practitioner.id ?? '', getFullestAvailableName(practitioner) ?? ''])
