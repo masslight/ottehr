@@ -87,6 +87,14 @@
     "INVOICE_NUMBER_COUNTER": {
       "resource": {
         "resourceType": "Basic",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://fhir.ottehr.com/billing/resource-type",
+              "code": "billing-resource"
+            }
+          ]
+        },
         "code": {
           "coding": [
             {

@@ -330,6 +330,13 @@
       "src": "src/billing/get-billing-invoice-config/index",
       "zip": ".dist/zips/get-billing-invoice-config.zip"
     },
+    "ISSUE-BILLING-INVOICE-NUMBER": {
+      "name": "issue-billing-invoice-number",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/issue-billing-invoice-number/index",
+      "zip": ".dist/zips/issue-billing-invoice-number.zip"
+    },
     "SAVE-BILLING-INVOICE-CONFIG": {
       "name": "save-billing-invoice-config",
       "type": "http_auth",

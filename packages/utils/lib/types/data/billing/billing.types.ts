@@ -720,6 +720,10 @@ export interface SearchBillingInvoicesResponse extends Paginated {
   invoices: BillingInvoiceItem[];
 }
 
+export interface IssueBillingInvoiceNumberResponse {
+  invoiceNumber: string;
+}
+
 export interface PatientBalanceSummary {
   currentBalance: number;
   claimsWithPatientBalance: number;
