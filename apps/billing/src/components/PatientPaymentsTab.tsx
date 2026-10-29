@@ -175,6 +175,7 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
         disableColumnMenu
         autoHeight
         hideFooter={rows.length <= PAGE_SIZE}
+        pagination
         pageSizeOptions={[PAGE_SIZE, 50]}
         initialState={{ pagination: { paginationModel: { pageSize: PAGE_SIZE } } }}
         slots={dataGridSlots()}
