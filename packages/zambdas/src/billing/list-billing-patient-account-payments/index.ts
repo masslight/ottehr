@@ -103,6 +103,8 @@ export const listAccountPayments = async (params: {
           account,
           encounterId,
           fhirPaymentNotices: notices,
+          // an account listing must not drop payments the way the EHR visit list caps them
+          uncappedCardPayments: true,
         });
         const appointment = appointmentsById.get(appointmentIdOf(encounter) ?? '');
         const claim = claimForPayments(claimsByEncounter.get(encounterId) ?? [], notices);
