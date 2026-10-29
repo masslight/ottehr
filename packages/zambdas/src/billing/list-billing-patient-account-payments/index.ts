@@ -109,6 +109,7 @@ export const listAccountPayments = async (params: {
         return dtos.map(
           (dto): BillingPatientAccountPayment => ({
             ...dto,
+            dateISO: notices.find((notice) => notice.id === dto.fhirPaymentNotificationId)?.paymentDate ?? dto.dateISO,
             method: methodOf(dto, notices),
             encounterId,
             appointmentId: appointment?.id,
