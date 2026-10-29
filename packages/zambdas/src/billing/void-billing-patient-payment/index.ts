@@ -9,7 +9,6 @@ import { VoidPatientPaymentResponse } from 'utils/lib/types/api/patient-payment-
 import { VoidBillingPatientPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- reads legacy clinical payment notices and resolves the voiding practitioner
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
@@ -43,6 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads legacy clinical payment notices and resolves the voiding practitioner
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 

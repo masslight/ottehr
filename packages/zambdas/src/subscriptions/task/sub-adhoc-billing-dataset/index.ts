@@ -17,7 +17,6 @@ import {
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { fetchAdHocClaimRows } from '../../../billing/adhoc/claims';
 import { fetchAdHocRuleRows } from '../../../billing/adhoc/rules';
-// eslint-disable-next-line no-restricted-imports -- reads the untagged E/M code ValueSet, and actor names span users' Practitioners and billing Devices
 import { createBillingClient, createEraReadClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { validateOutputWithSchema } from '../../../shared/validate-zod';
@@ -29,6 +28,7 @@ let m2mToken: string;
 
 async function eraReadClientFor(secrets: Secrets): Promise<Oystehr> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the untagged E/M code ValueSet, and actor names span users' Practitioners and billing Devices
   return createEraReadClient(m2mToken, secrets);
 }
 

@@ -6,7 +6,6 @@ import { TIMEZONES } from 'utils/lib/types/constants';
 import { RecordBillingManualPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingManualPaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- checks the clinical encounter exists before recording money against it
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -42,7 +41,7 @@ const complexValidation = async (
     }
   }
 
-  // The billing client cannot see Encounters, so check the ID before recording money against it.
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client can't see Encounters; checks this one exists before recording money against it
   const clinicalOystehr = createClinicalOystehrClient(token, params.secrets);
   await fetchById<Encounter>(clinicalOystehr, 'Encounter', params.encounterId);
 
