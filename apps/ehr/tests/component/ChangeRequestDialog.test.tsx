@@ -155,6 +155,21 @@ describe('Change request dialog', () => {
     });
   });
 
+  it('approves a drug-use alert with no suggestion as written, with no suggestion or changes', async () => {
+    const user = await open(CHANGE('D', { reason: 'Interacts with clopidogrel' }));
+    expect(screen.getByText('Drug-use alert.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve as written' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Change and approve' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalled());
+    expect(mocks.respondToChange.mock.calls[0][1]).toStrictEqual({
+      taskId: 'change-1',
+      decision: 'approve',
+      note: undefined,
+    });
+    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
+  });
+
   it('approves a prior authorization request with its number, with no Change and approve', async () => {
     const user = await open(CHANGE('P', { reason: 'Plan requires prior authorization' }));
     expect(screen.getByText('Prior authorization.')).toBeInTheDocument();

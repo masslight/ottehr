@@ -174,6 +174,11 @@ describe('change request: the answers', () => {
     });
   });
 
+  it('approves a drug-use alert with no suggestion as written: no suggestion, no changes', () => {
+    const response = changeResponse('change-1', 'approve', { note: 'Monitor' });
+    expect(response).toStrictEqual({ taskId: 'change-1', decision: 'approve', note: 'Monitor' });
+  });
+
   it('approves a prior authorization request with its number, never a suggestion or changes', () => {
     expect(changeResponse('change-1', 'approve', { priorAuthorization: 'PA-88431207' })).toEqual({
       taskId: 'change-1',

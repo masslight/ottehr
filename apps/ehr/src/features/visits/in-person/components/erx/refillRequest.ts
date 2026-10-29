@@ -163,8 +163,9 @@ export const changeApproval = (
   };
 };
 
-/** A change request's answer given in the dialog: the selected suggestion approved as the pharmacy sent it, a prior
- * authorization request approved with its number, or a denial or pending answer with its reason. */
+/** A change request's answer given in the dialog: the selected suggestion approved as the pharmacy sent it (none
+ * for a drug-use alert approved as written), a prior authorization request approved with its number, or a denial or
+ * pending answer with its reason. */
 export const changeResponse = (
   changeTaskId: string,
   decision: 'approve' | 'deny' | 'pending',
@@ -177,7 +178,9 @@ export const changeResponse = (
       note,
       ...(priorAuthorization
         ? { priorAuthorization: { number: priorAuthorization, status: 'approved' } }
-        : { requestedMedicationIndex: suggestion }),
+        : suggestion !== undefined
+        ? { requestedMedicationIndex: suggestion }
+        : {}),
     };
   }
   return {

@@ -136,15 +136,21 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const priorAuth = change?.code === 'P';
   const suggestions = change?.suggestions ?? [];
   const selected = suggestions[suggestion];
+  // A drug-use alert with no suggestion is approved as written: the eRx service answers Approved with the original.
+  const asWritten = change?.code === 'D' && !suggestions.length;
   // Approve sends what the pharmacy asked; a change request with no suggestion has nothing to approve as is.
   const answers = priorAuth
     ? ANSWERS.filter((item) => item !== 'change')
-    : change && !suggestions.length
+    : change && !suggestions.length && !asWritten
     ? ANSWERS.filter((item) => item !== 'approve')
     : ANSWERS;
   const answer = answers.includes(chosen) ? chosen : answers[0];
   const answerLabel = (key: Answer): string =>
-    key === 'approve' && change && !priorAuth ? 'Approve selected' : ANSWER_LABEL[key];
+    key === 'approve' && change && !priorAuth
+      ? asWritten
+        ? 'Approve as written'
+        : 'Approve selected'
+      : ANSWER_LABEL[key];
   const prescription = data?.prescription;
   const pharmacyName = request?.pharmacy.name ?? 'the pharmacy';
   const contact = patientAddressAndPhone(data?.patient);
