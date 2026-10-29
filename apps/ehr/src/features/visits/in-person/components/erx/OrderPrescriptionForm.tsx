@@ -416,7 +416,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
                 {/* Read-only: what the visit header doesn't show of what's sent about the patient. */}
                 {(patientContact.address || patientContact.phone) && (
                   <Box>
-                    <SectionHeading>Patient</SectionHeading>
+                    <SectionHeading>Contact Info</SectionHeading>
                     {patientContact.address && (
                       <Typography>
                         <Box component="span" color="text.secondary">

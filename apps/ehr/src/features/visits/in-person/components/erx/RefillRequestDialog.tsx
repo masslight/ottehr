@@ -318,7 +318,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             {data.patientRequest?.note && <Typography>{data.patientRequest.note}</Typography>}
             {(contact.address || contact.phone) && (
               <Box>
-                <SectionHeading>Patient</SectionHeading>
+                <SectionHeading>Contact Info</SectionHeading>
                 <Rows
                   rows={[
                     { label: 'Address', value: contact.address },
