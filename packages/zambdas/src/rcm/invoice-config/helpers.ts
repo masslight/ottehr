@@ -1,5 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Extension, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  Extension,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+} from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ParsedInvoiceConfig, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
@@ -91,23 +97,47 @@ function buildDefaultQuestionnaire(): Questionnaire {
             initial: [{ valueString: DEFAULT_INVOICE_MEMO_TEMPLATE }],
             extension: buildTokenExtension(TOKENS),
           },
-          {
-            linkId: 'invoicing.invoiceIssuerSource',
-            text: 'Invoice issuer',
-            type: 'choice',
-            required: true,
-            initial: [
-              {
-                valueString: DEFAULT_INVOICE_ISSUER_SOURCE,
-              },
-            ],
-            answerOption: INVOICE_ISSUER_SOURCES.map((source) => ({
-              valueString: source,
-            })),
-          },
+          buildInvoiceIssuerSourceQuestionnaireItem(),
         ],
       },
     ],
+  };
+}
+
+const INVOICE_ISSUER_SOURCE_LINK_ID = 'invoicing.invoiceIssuerSource';
+
+function buildInvoiceIssuerSourceQuestionnaireItem(): QuestionnaireItem {
+  return {
+    linkId: INVOICE_ISSUER_SOURCE_LINK_ID,
+    text: 'Invoice issuer',
+    type: 'choice',
+    required: true,
+    initial: [
+      {
+        valueString: DEFAULT_INVOICE_ISSUER_SOURCE,
+      },
+    ],
+    answerOption: INVOICE_ISSUER_SOURCES.map((source) => ({
+      valueString: source,
+    })),
+  };
+}
+
+// Questionnaires created before the invoice issuer setting lack its item. Undefined when present.
+export function withInvoiceIssuerSourceItem(questionnaire: Questionnaire): Questionnaire | undefined {
+  const group = questionnaire.item?.find((item) => item.linkId === 'invoicing');
+  if (!group) throw new Error(`Questionnaire/${questionnaire.id} has no invoicing group`);
+  if (group.item?.some((item) => item.linkId === INVOICE_ISSUER_SOURCE_LINK_ID)) return undefined;
+  return {
+    ...questionnaire,
+    item: questionnaire.item?.map((item) =>
+      item === group
+        ? {
+            ...group,
+            item: [...(group.item ?? []), buildInvoiceIssuerSourceQuestionnaireItem()],
+          }
+        : item
+    ),
   };
 }
 
@@ -133,7 +163,7 @@ function buildInvoicingConfigItems(config: ParsedInvoicingConfig): Questionnaire
           answer: [{ valueString: config.defaultInvoiceMemo }],
         },
         {
-          linkId: 'invoicing.invoiceIssuerSource',
+          linkId: INVOICE_ISSUER_SOURCE_LINK_ID,
           text: 'Invoice issuer',
           answer: [
             {

@@ -1,4 +1,4 @@
-import { QuestionnaireResponse } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import { SaveInvoiceConfigBodySchema } from 'utils/lib/types/api/invoice-config.types';
 import { describe, expect, test, vi } from 'vitest';
 import {
@@ -6,6 +6,7 @@ import {
   INVOICING_CONFIG_QUESTIONNAIRE_URL,
   parseInvoicingConfig,
   saveInvoicingConfig,
+  withInvoiceIssuerSourceItem,
 } from '../../src/rcm/invoice-config/helpers';
 import { ZambdaInput } from '../../src/shared/types/common';
 import { validateWithSchema } from '../../src/shared/validation';
@@ -187,6 +188,60 @@ describe('saveInvoicingConfig', () => {
       ...values,
       invoiceIssuerSource: 'billing-provider',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// withInvoiceIssuerSourceItem
+// ---------------------------------------------------------------------------
+
+describe('withInvoiceIssuerSourceItem', () => {
+  const dueDaysItem: QuestionnaireItem = {
+    linkId: 'invoicing.dueDaysFromGeneration',
+    type: 'integer',
+  };
+  const legacy: Questionnaire = {
+    resourceType: 'Questionnaire',
+    id: 'q-1',
+    status: 'active',
+    item: [
+      {
+        linkId: 'invoicing',
+        type: 'group',
+        item: [dueDaysItem],
+      },
+    ],
+  };
+
+  test('adds the issuer item after the existing settings', () => {
+    const updated = withInvoiceIssuerSourceItem(legacy);
+
+    expect(updated?.item?.[0].item).toEqual([
+      dueDaysItem,
+      expect.objectContaining({
+        linkId: 'invoicing.invoiceIssuerSource',
+        initial: [
+          {
+            valueString: 'service-facility',
+          },
+        ],
+      }),
+    ]);
+  });
+
+  test('leaves a questionnaire that already has it alone', () => {
+    const updated = withInvoiceIssuerSourceItem(legacy);
+
+    expect(updated && withInvoiceIssuerSourceItem(updated)).toBeUndefined();
+  });
+
+  test('rejects a questionnaire without the invoicing group', () => {
+    expect(() =>
+      withInvoiceIssuerSourceItem({
+        ...legacy,
+        item: [],
+      })
+    ).toThrow();
   });
 });
 
