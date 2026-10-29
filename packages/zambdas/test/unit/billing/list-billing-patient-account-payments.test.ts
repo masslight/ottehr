@@ -165,6 +165,35 @@ describe('listAccountPayments', () => {
     });
   });
 
+  it("orders a manual payment's date-only paymentDate by its day, then by when it was recorded", async () => {
+    vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
+      new Map([
+        [
+          'enc-1',
+          [
+            notice('pn-manual-evening', { paymentDate: '2026-10-05' }),
+            notice('pn-stripe-morning'),
+            // recorded the next day, backdated to the day before
+            notice('pn-manual-backdated', { paymentDate: '2026-10-04' }),
+          ],
+        ],
+      ])
+    );
+    vi.mocked(getPaymentsForEncounter).mockResolvedValue([
+      payment('pn-stripe-morning', '2026-10-05T09:00:00.000Z', { paymentMethod: 'card' }),
+      payment('pn-manual-backdated', '2026-10-06T10:00:00.000Z'),
+      payment('pn-manual-evening', '2026-10-05T18:00:00.000Z'),
+    ]);
+
+    const payments = await list(searchClient({ Encounter: [encounter('enc-1')] }), searchClient({}));
+
+    expect(payments.map((p) => [p.fhirPaymentNotificationId, p.dateISO])).toEqual([
+      ['pn-manual-evening', '2026-10-05'],
+      ['pn-stripe-morning', '2026-10-05T09:00:00.000Z'],
+      ['pn-manual-backdated', '2026-10-04'],
+    ]);
+  });
+
   it('returns nothing without looking up payments when the patient has no visits', async () => {
     const payments = await list(searchClient({}), searchClient({}));
 

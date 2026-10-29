@@ -90,7 +90,7 @@ export const listAccountPayments = async (params: {
     }),
   ]);
 
-  const payments: BillingPatientAccountPayment[] = [];
+  const payments: { payment: BillingPatientAccountPayment; recordedISO: string }[] = [];
   for (let i = 0; i < paidEncounters.length; i += ENCOUNTER_CONCURRENCY) {
     const batch = await Promise.all(
       paidEncounters.slice(i, i + ENCOUNTER_CONCURRENCY).map(async (encounter) => {
@@ -108,8 +108,9 @@ export const listAccountPayments = async (params: {
         });
         const appointment = appointmentsById.get(appointmentIdOf(encounter) ?? '');
         const claim = claimForPayments(claimsByEncounter.get(encounterId) ?? [], notices);
-        return dtos.map(
-          (dto): BillingPatientAccountPayment => ({
+        return dtos.map((dto) => ({
+          recordedISO: dto.dateISO,
+          payment: {
             ...dto,
             dateISO: notices.find((notice) => notice.id === dto.fhirPaymentNotificationId)?.paymentDate ?? dto.dateISO,
             method: methodOf(dto, notices),
@@ -118,15 +119,25 @@ export const listAccountPayments = async (params: {
             visitDateISO: appointment?.start ?? encounter.period?.start,
             claimId: claim?.id,
             claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
-          })
-        );
+          },
+        }));
       })
     );
     payments.push(...batch.flat());
   }
 
-  return payments.sort((a, b) => DateTime.fromISO(b.dateISO).toMillis() - DateTime.fromISO(a.dateISO).toMillis());
+  // Newest payment day first. A manual payment's date is a date-only paymentDate (it may be backdated),
+  // so within a day the time each payment was recorded orders it against timestamped Stripe payments.
+  return payments
+    .sort(
+      (a, b) =>
+        paymentDayOf(b.payment.dateISO).localeCompare(paymentDayOf(a.payment.dateISO)) ||
+        DateTime.fromISO(b.recordedISO).toMillis() - DateTime.fromISO(a.recordedISO).toMillis()
+    )
+    .map(({ payment }) => payment);
 };
+
+const paymentDayOf = (iso: string): string => DateTime.fromISO(iso, { zone: 'utc' }).toISODate() ?? iso;
 
 const fetchPatientEncounters = async (
   clinicalOystehr: Oystehr,
