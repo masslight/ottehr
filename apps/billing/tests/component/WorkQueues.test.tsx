@@ -309,7 +309,7 @@ describe('WorkQueueDetail', () => {
     getBillingWorkQueuesMock.mockResolvedValue({ queues: [] });
 
     renderAt('/work-queues/q-1');
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete Work Queue' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     const dialog = await screen.findByRole('dialog');
     expect(deleteBillingWorkQueueMock).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
