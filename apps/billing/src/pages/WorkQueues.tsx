@@ -1,9 +1,10 @@
-import { Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, DeleteOutline as DeleteOutlineIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
+  IconButton,
   Table,
   TableBody,
   TableCell,
@@ -20,6 +21,7 @@ import { WorkQueueSummary } from 'utils/lib/types/data/billing/work-queue.schema
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingWorkQueues } from '../api/api';
 import { CreateWorkQueueDialog } from '../components/work-queue/CreateWorkQueueDialog';
+import { DeleteWorkQueueDialog } from '../components/work-queue/DeleteWorkQueueDialog';
 import { useApiClients } from '../hooks/useAppClients';
 
 const INCOMPLETE_HINT = 'This queue holds more claims than could be counted, so the figures are lower bounds.';
@@ -85,6 +87,7 @@ export default function WorkQueues(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleting, setDeleting] = useState<WorkQueueSummary | null>(null);
 
   const fetchQueues = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) return;
@@ -161,6 +164,7 @@ export default function WorkQueues(): ReactElement {
                   Charged
                 </TableCell>
                 <TableCell sx={headerCellSx}>Owner</TableCell>
+                <TableCell sx={{ width: 56 }} aria-label="Actions" />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -189,6 +193,13 @@ export default function WorkQueues(): ReactElement {
                     />
                   </QueueLinkCell>
                   <QueueLinkCell queueId={queue.id}>{queue.owner?.name ?? ''}</QueueLinkCell>
+                  <TableCell align="right" sx={{ py: 0 }}>
+                    <Tooltip title="Delete work queue">
+                      <IconButton size="small" aria-label={`Delete ${queue.name}`} onClick={() => setDeleting(queue)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -200,6 +211,14 @@ export default function WorkQueues(): ReactElement {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={(queue) => navigate(`/work-queues/${queue.id}`)}
+      />
+      <DeleteWorkQueueDialog
+        queue={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => {
+          setQueues((current) => current.filter((q) => q.id !== deleting?.id));
+          setDeleting(null);
+        }}
       />
     </Box>
   );

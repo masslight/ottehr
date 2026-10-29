@@ -147,6 +147,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import {
   BillingWorkQueueResponse,
+  DeleteBillingWorkQueueInputSchema,
   GetBillingWorkQueueInputSchema,
   GetBillingWorkQueuesResponse,
   SaveBillingWorkQueueInputSchema,
@@ -518,6 +519,11 @@ export const saveBillingWorkQueue = (
   oystehr: Oystehr,
   parameters: z.input<typeof SaveBillingWorkQueueInputSchema>
 ): Promise<BillingWorkQueueResponse> => executeBillingZambda(oystehr, 'save-billing-work-queue', parameters);
+
+export const deleteBillingWorkQueue = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteBillingWorkQueueInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-work-queue', parameters);
 
 export const searchBillingWorkQueueOwners = (oystehr: Oystehr): Promise<SearchBillingWorkQueueOwnersResponse> =>
   executeBillingZambda(oystehr, 'search-billing-work-queue-owners');

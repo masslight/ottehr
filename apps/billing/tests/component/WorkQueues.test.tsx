@@ -11,6 +11,7 @@ const {
   getBillingWorkQueuesMock,
   getBillingWorkQueueMock,
   saveBillingWorkQueueMock,
+  deleteBillingWorkQueueMock,
   searchBillingWorkQueueOwnersMock,
   enqueueSnackbarMock,
   claimsListViewMock,
@@ -19,6 +20,7 @@ const {
   getBillingWorkQueuesMock: vi.fn(),
   getBillingWorkQueueMock: vi.fn(),
   saveBillingWorkQueueMock: vi.fn(),
+  deleteBillingWorkQueueMock: vi.fn(),
   searchBillingWorkQueueOwnersMock: vi.fn(),
   enqueueSnackbarMock: vi.fn(),
   claimsListViewMock: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock('../../src/api/api', () => ({
   getBillingWorkQueues: getBillingWorkQueuesMock,
   getBillingWorkQueue: getBillingWorkQueueMock,
   saveBillingWorkQueue: saveBillingWorkQueueMock,
+  deleteBillingWorkQueue: deleteBillingWorkQueueMock,
   searchBillingWorkQueueOwners: searchBillingWorkQueueOwnersMock,
 }));
 
@@ -142,6 +145,7 @@ describe('WorkQueues', () => {
 
     const row = (await screen.findByText('Medicaid Claims')).closest('tr') as HTMLElement;
     const links = row.querySelectorAll('a');
+    // Every cell but the delete button's.
     expect(links).toHaveLength(4);
     links.forEach((link) => expect(link).toHaveAttribute('href', '/work-queues/q-1'));
     // One tab stop per row: the queue name's link.
@@ -200,6 +204,38 @@ describe('WorkQueues', () => {
       })
     );
     await waitFor(() => expect(getBillingWorkQueueMock).toHaveBeenCalledWith(mockOystehrZambda, { queueId: 'q-new' }));
+  });
+
+  it('deletes a queue only once the dialog is confirmed, and drops it from the list', async () => {
+    getBillingWorkQueuesMock.mockResolvedValue({
+      queues: [summary({}), summary({ id: 'q-2', name: 'Aging Claims' })],
+    });
+    deleteBillingWorkQueueMock.mockResolvedValue({ deleted: true });
+
+    renderAt('/work-queues');
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete Medicaid Claims' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Medicaid Claims')).toBeInTheDocument();
+    expect(deleteBillingWorkQueueMock).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteBillingWorkQueueMock).toHaveBeenCalledWith(mockOystehrZambda, { queueId: 'q-1' }));
+    await waitFor(() => expect(screen.queryByRole('link', { name: /Medicaid Claims/ })).not.toBeInTheDocument());
+    expect(screen.getByText('Aging Claims')).toBeInTheDocument();
+    expect(enqueueSnackbarMock).toHaveBeenCalledWith('Work queue deleted.', { variant: 'success' });
+  });
+
+  it('keeps the queue when the delete is cancelled', async () => {
+    getBillingWorkQueuesMock.mockResolvedValue({ queues: [summary({})] });
+
+    renderAt('/work-queues');
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete Medicaid Claims' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(deleteBillingWorkQueueMock).not.toHaveBeenCalled();
+    expect(screen.getByText('Medicaid Claims')).toBeInTheDocument();
   });
 });
 
@@ -267,6 +303,33 @@ describe('WorkQueueDetail', () => {
     await waitFor(() =>
       expect(saveBillingWorkQueueMock).toHaveBeenCalledWith(mockOystehrZambda, expect.objectContaining({ owner: null }))
     );
+  });
+
+  it('deletes the queue after confirmation and goes back to the list', async () => {
+    deleteBillingWorkQueueMock.mockResolvedValue({ deleted: true });
+    getBillingWorkQueuesMock.mockResolvedValue({ queues: [] });
+
+    renderAt('/work-queues/q-1');
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete Work Queue' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(deleteBillingWorkQueueMock).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteBillingWorkQueueMock).toHaveBeenCalledWith(mockOystehrZambda, { queueId: 'q-1' }));
+    expect(await screen.findByText('No work queues yet')).toBeInTheDocument();
+  });
+
+  it('stays on the queue when the delete fails', async () => {
+    deleteBillingWorkQueueMock.mockRejectedValue(new Error('boom'));
+
+    renderAt('/work-queues/q-1');
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete Work Queue' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(enqueueSnackbarMock).toHaveBeenCalledWith(expect.any(String), { variant: 'error' }));
+    // The dialog stays open to try again, over the queue's page.
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(getBillingWorkQueuesMock).not.toHaveBeenCalled();
   });
 
   it("says so when the queue can't be loaded", async () => {
