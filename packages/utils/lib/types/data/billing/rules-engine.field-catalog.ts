@@ -186,6 +186,9 @@ export interface RuleFieldDef {
   description: string;
   // Valid values for select fields (drives the rule builder dropdown and the docs).
   options?: RuleFieldOption[];
+  // The values a setField action may write, when narrower than the values conditions compare
+  // against (options) — e.g. a relationship can be set to Self only.
+  setOptions?: RuleFieldOption[];
   // Value format for text-typed fields: validation for exact-match/written values plus the rule
   // builder's input dispatch (tag/cpt pickers).
   format?: RuleValueFormat;
@@ -242,6 +245,8 @@ const RELATIONSHIP_OPTIONS: RuleFieldOption[] = SUBSCRIBER_RELATIONSHIPS.map((re
   value: relationship,
   label: relationship,
 }));
+// Only Self is writable: every other relationship needs a policy-holder record rules cannot create.
+const RELATIONSHIP_SET_OPTIONS: RuleFieldOption[] = RELATIONSHIP_OPTIONS.filter((option) => option.value === 'Self');
 
 // The patient-coverage slots (primary / secondary / workers comp on the patient's billing
 // accounts) the "Coverage (from patient)" field can name — the same options the coverage screens
@@ -466,10 +471,15 @@ const coverageFields = (
       group,
       valueType: 'select',
       operators: ENUM_OPS,
-      // Explicitly false, since this requires also mutating another resource
-      settable: false,
-      description: `The patient's relationship to the ${countingWord} policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead.`,
+      settable,
+      description:
+        `The patient's relationship to the ${countingWord} policy holder. Rules can only set it to Self, which makes ` +
+        `the patient the ${countingWord} coverage's subscriber and drops its separate policy holder (the ` +
+        `${countingWord} policy holder properties then read empty); any other relationship needs a policy-holder ` +
+        "record, which rules cannot create — edit the claim's insurance instead.",
+      requiredOnSet: true,
       options: RELATIONSHIP_OPTIONS,
+      setOptions: RELATIONSHIP_SET_OPTIONS,
     },
   ];
 };
@@ -1288,12 +1298,12 @@ export function ruleConditionValueProblem(
 // A setField value's problem, or undefined. Empty means "clear the property" and is allowed unless
 // the field's writer requires a value (requiredOnSet); non-empty values are validated in full.
 export function setFieldValueProblem(
-  def: Pick<RuleFieldDef, 'valueType' | 'options' | 'format' | 'requiredOnSet'>,
+  def: Pick<RuleFieldDef, 'valueType' | 'options' | 'setOptions' | 'format' | 'requiredOnSet'>,
   value: string | null | undefined
 ): string | undefined {
   const trimmed = value?.trim() ?? '';
   if (trimmed === '') return def.requiredOnSet ? VALUE_REQUIRED_PROBLEM : undefined;
-  return strictValueProblem(def, trimmed);
+  return strictValueProblem({ ...def, options: def.setOptions ?? def.options }, trimmed);
 }
 
 // A service-line match value's problem — same operator-aware logic over a line property def.

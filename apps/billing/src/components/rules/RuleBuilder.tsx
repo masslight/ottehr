@@ -337,11 +337,14 @@ function FieldValueInput({
   helperText,
   inputRef,
   allowEmptyOption,
+  forSetField,
 }: {
   fieldId: string;
   multiple: boolean;
   // The regex operators take a pattern: a plain text input replaces the field's usual picker.
   isRegex?: boolean;
+  // A setField value: offer the field's setOptions (when narrower) instead of its condition options.
+  forSetField?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
@@ -462,7 +465,7 @@ function FieldValueInput({
   return (
     <TypedValueInput
       valueType={def?.valueType}
-      options={def?.options}
+      options={(forSetField && def?.setOptions) || def?.options}
       multiple={multiple}
       value={value}
       onChange={onChange}
@@ -1235,6 +1238,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
                 }
                 inputRef={ref}
                 allowEmptyOption={!!setFieldDef && !setFieldDef.requiredOnSet}
+                forSetField
               />
             )}
           />

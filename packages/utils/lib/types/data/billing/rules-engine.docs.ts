@@ -8,6 +8,7 @@ import {
   RULE_FIELD_GROUPS,
   RULE_VALUE_FORMATS,
   RuleFieldDef,
+  RuleFieldOption,
   RuleFieldValueType,
   SERVICE_LINE_PROPERTY_CATALOG,
   ServiceLinePropertyDef,
@@ -56,22 +57,26 @@ const operatorLabel = (
 
 // Allowed-values phrase for a def with options: the docs note when present (states and POS codes
 // would be unreadable enumerated in a table cell), otherwise the enumerated option list.
+const formatOptions = (options: RuleFieldOption[]): string =>
+  options
+    .map((option) => (option.label === option.value ? `\`${option.value}\`` : `\`${option.value}\` (${option.label})`))
+    .join(', ');
+
 const allowedValues = (field: Pick<RuleFieldDef, 'options' | 'optionsDocNote'>): string => {
   if (field.optionsDocNote) return field.optionsDocNote;
   if (!field.options) return '';
-  return field.options
-    .map((option) => (option.label === option.value ? `\`${option.value}\`` : `\`${option.value}\` (${option.label})`))
-    .join(', ');
+  return formatOptions(field.options);
 };
 
 // The validation/constraint suffix of a def's description: allowed values, format hint, and the
 // cannot-be-cleared note — everything save-time validation and the engine writers enforce.
 const constraintNotes = (
-  def: Pick<RuleFieldDef, 'options' | 'optionsDocNote' | 'format' | 'requiredOnSet'>
+  def: Pick<RuleFieldDef, 'options' | 'setOptions' | 'optionsDocNote' | 'format' | 'requiredOnSet'>
 ): string => {
   const notes: string[] = [];
   const values = allowedValues(def);
   if (values) notes.push(` Allowed values: ${values}.`);
+  if (def.setOptions) notes.push(` Settable values: ${formatOptions(def.setOptions)}.`);
   if (def.format && RULE_VALUE_FORMATS[def.format].validate) {
     notes.push(` Format: ${RULE_VALUE_FORMATS[def.format].hint}.`);
   }
