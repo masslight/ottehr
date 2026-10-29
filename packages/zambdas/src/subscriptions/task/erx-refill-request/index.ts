@@ -3,7 +3,7 @@ import { Task } from 'fhir/r4b';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { syncRefillRequestTask } from '../../../shared/erx-refill-requests';
+import { syncErxRequestTask } from '../../../shared/erx-refill-requests';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -11,21 +11,21 @@ import { ZambdaInput } from '../../../shared/types/common';
 const ZAMBDA_NAME = 'erx-refill-request-subscription';
 
 interface Input {
-  renewalTask: Task;
+  requestTask: Task;
   secrets: Secrets | null;
 }
 
 let m2mToken: string;
 
-// The eRx service makes a renewal Task for each pharmacy's refill request, and updates it when the pharmacy asks again,
-// withdraws it, or it is answered.
+// The eRx service makes a renewal or change Task for each pharmacy's refill or change request, and updates it when the
+// pharmacy asks again, withdraws it, or it is answered.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { renewalTask, secrets } = validateRequestParameters(input);
+  const { requestTask, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const tasks = await syncRefillRequestTask(oystehr, renewalTask);
+  const tasks = await syncErxRequestTask(oystehr, requestTask);
 
   return {
     statusCode: 200,
@@ -41,7 +41,7 @@ function validateRequestParameters(input: ZambdaInput): Input {
   }
 
   return {
-    renewalTask: body as Task,
+    requestTask: body as Task,
     secrets: input.secrets,
   };
 }

@@ -107,6 +107,7 @@ const PATIENT: GetErxRequestResponse['patient'] = {
 };
 const PHARMACY_REQUEST: GetErxRequestResponse = {
   taskId: 'task-1',
+  kind: 'refill',
   pharmacyRequest: {
     renewalTaskId: 'renewal-1',
     pharmacy: { name: 'CVS Pharmacy #7741', ncpdpId: '0000001', npi: '1234567890', phone: '5125550142' },
@@ -197,6 +198,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
   it('answers a patient’s request with a new prescription to the original visit, then completes the task', async () => {
     const user = await open({
       taskId: 'task-1',
+      kind: 'refill',
       patientRequest: { note: 'Called; out in 2 days.', takenBy: 'Kim Front', taken: '2026-10-28T10:00:00.000Z' },
       prescription: PRESCRIPTION,
       patient: PATIENT,

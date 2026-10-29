@@ -53,5 +53,20 @@ describe('Tasks page: refill requests', () => {
     const refill = { code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }] } };
     expect(fhirTaskToTask(manual(refill)).action?.name).toBe(GO_TO_REQUEST);
     expect(fhirTaskToTask(manual({})).action?.name).not.toBe(GO_TO_REQUEST);
+    const change = { code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.changeRequest }] } };
+    expect(fhirTaskToTask(manual(change)).action?.name).toBe(GO_TO_REQUEST);
+  });
+
+  it('shows a pharmacy’s change request by its sentence, with Go to request', () => {
+    const title = 'Change request from CVS Pharmacy #7741: Dexilant 30 mg capsule for Maria Lopez — Out of stock';
+    const row = fhirTaskToTask(
+      task(ERX_TASK.category, {
+        description: title,
+        code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.changeRequest }] },
+        basedOn: [{ reference: 'Task/change-1' }],
+      })
+    );
+    expect(row.title).toBe(title);
+    expect(row.action?.name).toBe(GO_TO_REQUEST);
   });
 });

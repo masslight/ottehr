@@ -28,6 +28,7 @@ const local = (iso: string): string => DateTime.fromISO(iso).toLocal().toFormat(
 
 const REQUEST: GetErxRequestResponse = {
   taskId: 'task-1',
+  kind: 'refill',
   pharmacyRequest: {
     renewalTaskId: 'renewal-1',
     pharmacy: { name: 'CVS Pharmacy #7741', ncpdpId: '0000001', npi: '1234567893', phone: '5125550142' },

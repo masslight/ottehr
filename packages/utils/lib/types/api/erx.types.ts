@@ -59,6 +59,49 @@ export type RenewalResponseInput = { taskId: string } & (
   | { decision: 'pending'; reason: (typeof RENEWAL_PENDING_REASONS)[number]; note?: string }
 );
 
+// The change response's denial reasons, as the eRx service's change-response endpoint takes them
+export const CHANGE_DENIAL_REASONS = [
+  'Patient unknown to the provider',
+  'Patient never under provider care',
+  'Patient no longer under provider care',
+  'Medication never prescribed for the patient',
+  'Patient should contact provider first',
+  'Change not appropriate',
+  'Patient needs appointment',
+  'Prescriber not associated with this practice or location',
+  'Request was or will be responded to by other means',
+  'No information available',
+  'Medication denied at patient request',
+  'Prescription not found',
+] as const;
+
+/** What a pharmacy asks to change (NCPDP MessageRequestCode), in plain words. */
+export const CHANGE_REQUEST_KINDS: Record<string, string> = {
+  G: 'Generic',
+  T: 'Therapeutic',
+  OS: 'Out of stock',
+  S: 'Script clarification',
+  D: 'Drug-use alert',
+  P: 'Prior authorization',
+};
+
+/** What the change-response endpoint takes: an approval of one of the pharmacy's suggestions (by its position) with
+ * what the provider changed over it (the eRx service picks Approved or ApprovedWithChanges), a denial or a pending
+ * answer. A prior authorization request (P) is approved with the prior authorization, never with changes. */
+export type ChangeResponseInput = { taskId: string } & (
+  | {
+      decision: 'approve';
+      requestedMedicationIndex?: number;
+      note?: string;
+      changes?: Extract<RenewalResponseInput, { decision: 'approve' }>['changes'] & { numberOfRefills?: number };
+      // Requested from the eRx service (Jon item 4): the prior authorization a P request is approved with, its number
+      // (NCPDP PriorAuthorization, up to 35 characters) and status (PriorAuthorizationStatus A, approved)
+      priorAuthorization?: { number: string; status: 'approved' };
+    }
+  | { decision: 'deny'; reason: (typeof CHANGE_DENIAL_REASONS)[number]; denialReason?: string }
+  | { decision: 'pending'; reason: (typeof RENEWAL_PENDING_REASONS)[number]; note?: string }
+);
+
 export interface RenewalResponseOutput {
   taskId: string;
   messageId: string;
@@ -84,6 +127,8 @@ export interface ErxPharmacyRefillRequest {
     sig?: string;
     noteToPharmacy?: string;
     requestedRefills?: number;
+    /** Refills written, in a change request's suggestion */
+    numberOfRefills?: number;
   };
   /** When the first request came */
   received?: string;
@@ -94,15 +139,30 @@ export interface ErxPharmacyRefillRequest {
   closed: boolean;
 }
 
+/** A pharmacy's change request, only as the pharmacy sent it (S.207). */
+export interface ErxPharmacyChangeRequest extends Omit<ErxPharmacyRefillRequest, 'renewalTaskId' | 'medication'> {
+  /** The eRx service's change Task, which the answer goes to */
+  changeTaskId: string;
+  /** What it asks to change, a CHANGE_REQUEST_KINDS code, and the sub-codes it added */
+  code: string;
+  subCodes: string[];
+  /** The pharmacy's own words */
+  reason?: string;
+  /** The medications it suggests, in its order: an approval names one by its position. None for S and P. */
+  suggestions: ErxPharmacyRefillRequest['medication'][];
+}
+
 export const GetErxRequestInputSchema = z.object({ taskId: z.string().uuid() });
 
 export type GetErxRequestInput = z.infer<typeof GetErxRequestInputSchema>;
 
-/** A refill request task's request: the pharmacy's, or a patient's that staff wrote down, with the prescription it is
+/** A refill or change request task's request: the pharmacy's, or a patient's that staff wrote down, with the prescription it is
  * about and its patient. */
 export interface GetErxRequestResponse {
   taskId: string;
+  kind: 'refill' | 'change';
   pharmacyRequest?: ErxPharmacyRefillRequest;
+  pharmacyChangeRequest?: ErxPharmacyChangeRequest;
   patientRequest?: { note?: string; takenBy?: string; taken?: string };
   prescription: PrescribedMedicationDTO;
   prescriberName?: string;

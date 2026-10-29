@@ -3411,6 +3411,28 @@
         ]
       }
     },
+    "ERX_CHANGE_REQUEST_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "eRx change request task",
+        "criteria": "Task?code=https://terminology.fhir.oystehr.com/CodeSystem/erx-task|rx-change",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX-REFILL-REQUEST/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
     "SUB_OUTREACH_SEND_NOTIFICATION_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",

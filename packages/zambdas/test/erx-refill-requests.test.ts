@@ -1,9 +1,15 @@
 import { Task } from 'fhir/r4b';
-import { ERX_REQUEST_TASK_INPUT_SYSTEM, SURESCRIPTS_MESSAGE_ID_SYSTEM } from 'utils/lib/fhir/constants';
+import {
+  ERX_CHANGE_REQUEST_TASK_CODE,
+  ERX_REQUEST_TASK_CODE_SYSTEM,
+  ERX_REQUEST_TASK_INPUT_SYSTEM,
+  SURESCRIPTS_MESSAGE_ID_SYSTEM,
+} from 'utils/lib/fhir/constants';
 import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
 import {
-  makeRefillRequestTask,
+  makeErxRequestTask,
+  readPharmacyChangeRequest,
   readPharmacyRefillRequest,
   refillRequestTaskAction,
   refillRequestTitle,
@@ -54,7 +60,7 @@ describe('eRx refill request tasks', () => {
   });
 
   it('is an eRx task basedOn the request, in its visit, assigned to the prescriber', () => {
-    const task = makeRefillRequestTask(
+    const task = makeErxRequestTask(
       renewal('requested'),
       { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Maria'], family: 'Lopez' }] },
       { resourceType: 'Practitioner', id: 'practitioner-1', name: [{ given: ['Carolyn'], family: 'Demo' }] }
@@ -115,5 +121,87 @@ describe('a pharmacy refill request, as the dialog reads it', () => {
       version('cancelled', 'm1', '2026-10-26T10:00:00.000Z'),
     ]);
     expect(request).toMatchObject({ withdrawn: true, closed: true });
+  });
+});
+
+const change = (status: Task['status'], inputs: NonNullable<Task['input']>): Task => ({
+  ...renewal(status),
+  id: 'change-1',
+  code: { coding: [{ system: ERX_REQUEST_TASK_CODE_SYSTEM, code: ERX_CHANGE_REQUEST_TASK_CODE }] },
+  authoredOn: '2026-10-28T14:02:00.000Z',
+  meta: { lastUpdated: '2026-10-28T14:02:00.000Z' },
+  identifier: [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: 'c1' }],
+  input: [input('pharmacy-name', 'CVS Pharmacy #7741'), ...inputs],
+});
+
+describe('eRx change request tasks', () => {
+  it('are made and completed as refill requests are', () => {
+    expect(refillRequestTaskAction(change('requested', []), [])).toBe('create');
+    expect(refillRequestTaskAction(change('requested', []), [ottehrTask('in-progress')])).toBeUndefined();
+    expect(refillRequestTaskAction(change('cancelled', []), [ottehrTask('in-progress')])).toBe('complete');
+    expect(refillRequestTaskAction(change('completed', []), [ottehrTask('in-progress')])).toBe('complete');
+  });
+
+  it('is a change request task named by the pharmacy, the original medication, the patient and the kind', () => {
+    const task = makeErxRequestTask(
+      change('requested', [input('change-code', 'OS')]),
+      { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Maria'], family: 'Lopez' }] },
+      { resourceType: 'Practitioner', id: 'practitioner-1', name: [{ given: ['Carolyn'], family: 'Demo' }] },
+      {
+        resourceType: 'MedicationRequest',
+        status: 'active',
+        intent: 'order',
+        subject: { reference: 'Patient/patient-1' },
+        medicationCodeableConcept: { coding: [{ code: '64764017130', display: 'Dexilant 30 mg capsule' }] },
+      }
+    );
+    expect(task.code?.coding?.[0]).toEqual({ system: ERX_TASK.system, code: ERX_TASK.code.changeRequest });
+    expect(task.basedOn).toEqual([{ reference: 'Task/change-1' }]);
+    expect(task.owner?.reference).toBe('Practitioner/practitioner-1');
+    expect(task.description).toBe(
+      'Change request from CVS Pharmacy #7741: Dexilant 30 mg capsule for Maria Lopez — Out of stock'
+    );
+  });
+});
+
+describe('a pharmacy change request, as the dialog reads it', () => {
+  it('reads the kind, sub-codes, words and suggestions, keeping only what the pharmacy sent', () => {
+    const request = readPharmacyChangeRequest([
+      change('requested', [
+        input('change-code', 'OS'),
+        input('change-sub-codes', 'A,B'),
+        input('change-reason', 'Dexilant on backorder until December'),
+        input(
+          'requested-medications',
+          JSON.stringify([
+            { description: 'Omeprazole 40 mg capsule', ndc: '00093521998', quantityValue: 0.27, numberOfRefills: 0 },
+            { description: 'Pantoprazole 40 mg tablet' },
+          ])
+        ),
+      ]),
+    ]);
+    expect(request).toMatchObject({
+      changeTaskId: 'change-1',
+      code: 'OS',
+      subCodes: ['A', 'B'],
+      reason: 'Dexilant on backorder until December',
+      received: '2026-10-28T14:02:00.000Z',
+      withdrawn: false,
+      closed: false,
+    });
+    expect(request.suggestions).toEqual([
+      { description: 'Omeprazole 40 mg capsule', ndc: '00093521998', quantityValue: 0.27, numberOfRefills: 0 },
+      { description: 'Pantoprazole 40 mg tablet' },
+    ]);
+    // Left out: absent, never 0 or the original's.
+    expect(request.suggestions[1].quantityValue).toBeUndefined();
+    expect(request.suggestions[1].daysSupply).toBeUndefined();
+    expect(request.suggestions[1].numberOfRefills).toBeUndefined();
+  });
+
+  it('has no suggestions for a prior authorization request', () => {
+    const request = readPharmacyChangeRequest([change('requested', [input('change-code', 'P')])]);
+    expect(request).toMatchObject({ code: 'P', subCodes: [], suggestions: [] });
+    expect(request.reason).toBeUndefined();
   });
 });

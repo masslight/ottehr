@@ -125,6 +125,8 @@ export const ERX_TASK = {
     providerNotification: 'provider-notification',
     // A pharmacy's refill (renewal) request, basedOn the eRx service's Task
     refillRequest: 'refill-request',
+    // A pharmacy's change request, basedOn the eRx service's Task
+    changeRequest: 'change-request',
   },
   input: {
     providerName: 'provider-name',
