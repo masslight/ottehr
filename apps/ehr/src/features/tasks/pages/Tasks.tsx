@@ -25,6 +25,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import {
   formatDate,
+  GO_TO_REQUEST,
   OPEN_DOSESPOT,
   TASKS_PAGE_SIZE,
   useCompleteTask,
@@ -35,6 +36,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
 import { Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
+import { RefillRequestDialog } from '../../visits/in-person/components/erx/RefillRequestDialog';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
@@ -68,6 +70,7 @@ export const Tasks: React.FC = () => {
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
   const { oystehr } = useApiClients();
+  const [requestTaskId, setRequestTaskId] = useState<string>();
 
   const renderActionButton = (task: Task): ReactElement | null => {
     // Completed tasks normally have no action, except read-only "View" actions (e.g. a filed
@@ -76,6 +79,13 @@ export const Tasks: React.FC = () => {
       return null;
     }
     if (task.action) {
+      if (task.action.name === GO_TO_REQUEST) {
+        return (
+          <RoundedButton variant="contained" onClick={() => setRequestTaskId(task.id)}>
+            {task.action.name}
+          </RoundedButton>
+        );
+      }
       if (task.action.name === OPEN_DOSESPOT) {
         return (
           <RoundedButton
@@ -392,6 +402,7 @@ export const Tasks: React.FC = () => {
             }}
           />
         </Paper>
+        {requestTaskId && <RefillRequestDialog taskId={requestTaskId} onClose={() => setRequestTaskId(undefined)} />}
         <CreateTaskDialog
           open={showCreateTaskDialog}
           handleClose={(): void => {

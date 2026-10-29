@@ -1,8 +1,13 @@
 import { Task } from 'fhir/r4b';
-import { ERX_REQUEST_TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
+import { ERX_REQUEST_TASK_INPUT_SYSTEM, SURESCRIPTS_MESSAGE_ID_SYSTEM } from 'utils/lib/fhir/constants';
 import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
-import { makeRefillRequestTask, refillRequestTaskAction, refillRequestTitle } from '../src/shared/erx-refill-requests';
+import {
+  makeRefillRequestTask,
+  readPharmacyRefillRequest,
+  refillRequestTaskAction,
+  refillRequestTitle,
+} from '../src/shared/erx-refill-requests';
 
 const input = (code: string, valueString: string): NonNullable<Task['input']>[number] => ({
   type: { coding: [{ system: ERX_REQUEST_TASK_INPUT_SYSTEM, code }] },
@@ -61,5 +66,54 @@ describe('eRx refill request tasks', () => {
     expect(task.status).toBe('in-progress');
     expect(task.owner?.reference).toBe('Practitioner/practitioner-1');
     expect(task.description).toBe('Refill request from CVS Pharmacy #7741: Lisinopril 10 mg tablet for Maria Lopez');
+  });
+});
+
+const version = (
+  status: Task['status'],
+  messageId: string,
+  lastUpdated: string,
+  inputs = renewal(status).input
+): Task => ({
+  ...renewal(status),
+  authoredOn: '2026-10-27T16:12:00.000Z',
+  meta: { lastUpdated },
+  identifier: [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: messageId }],
+  input: inputs,
+});
+
+describe('a pharmacy refill request, as the dialog reads it', () => {
+  it('keeps only what the pharmacy sent: a field it left out stays absent, never 0', () => {
+    const request = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-27T16:12:00.000Z', [
+        ...(renewal('requested').input ?? []),
+        { type: { coding: [{ system: ERX_REQUEST_TASK_INPUT_SYSTEM, code: 'quantity' }] }, valueDecimal: 0.27 },
+      ]),
+    ]);
+    expect(request.medication).toEqual({ description: 'Lisinopril 10 mg tablet', quantityValue: 0.27 });
+    expect(request.medication.daysSupply).toBeUndefined();
+    expect(request.medication.requestedRefills).toBeUndefined();
+    expect(request.pharmacy.name).toBe('CVS Pharmacy #7741');
+    expect(request).toMatchObject({ received: '2026-10-27T16:12:00.000Z', withdrawn: false, closed: false });
+    expect(request.askedAgain).toBeUndefined();
+  });
+
+  it('says when the pharmacy asked again: the first version with the newest message id', () => {
+    const request = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-27T16:12:00.000Z'),
+      version('in-progress', 'm1', '2026-10-27T17:00:00.000Z'),
+      version('requested', 'm2', '2026-10-28T09:05:00.000Z'),
+      version('requested', 'm2', '2026-10-28T09:06:00.000Z'),
+    ]);
+    expect(request.askedAgain).toBe('2026-10-28T09:05:00.000Z');
+    expect(request.received).toBe('2026-10-27T16:12:00.000Z');
+  });
+
+  it('is withdrawn once the eRx service cancels its Task', () => {
+    const request = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-25T10:00:00.000Z'),
+      version('cancelled', 'm1', '2026-10-26T10:00:00.000Z'),
+    ]);
+    expect(request).toMatchObject({ withdrawn: true, closed: true });
   });
 });

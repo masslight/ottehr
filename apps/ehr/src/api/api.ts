@@ -84,6 +84,12 @@ import {
   OpenEmployeeChatResponse,
 } from 'utils/lib/types/api/employee-chat.types';
 import {
+  GetErxRequestInput,
+  GetErxRequestResponse,
+  RenewalResponseInput,
+  RenewalResponseOutput,
+} from 'utils/lib/types/api/erx.types';
+import {
   ErxDirectoryPharmacy,
   ErxDirectoryQuery,
   MedicationSearchDrug,
@@ -689,6 +695,36 @@ export const searchPharmacyDirectory = async (
     throw new Error(body?.message ?? `Failed to search pharmacies (${response.status})`);
   }
   return (body as { data: ErxDirectoryPharmacy[] }).data;
+};
+
+/** Answers a pharmacy's refill request: approve (with any changes), deny or pending. */
+export const respondToRenewal = async (
+  token: string,
+  parameters: RenewalResponseInput
+): Promise<RenewalResponseOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/renewal-response`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+    body: JSON.stringify(parameters),
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to answer the refill request (${response.status})`);
+  }
+  return body as RenewalResponseOutput;
+};
+
+/** The request a refill request task is about: the pharmacy's or the patient's, with its prescription and patient. */
+export const getErxRequest = async (
+  oystehr: Oystehr,
+  parameters: GetErxRequestInput
+): Promise<GetErxRequestResponse> => {
+  const response = await oystehr.zambda.execute({ id: 'get-erx-request', ...parameters });
+  return chooseJson(response);
 };
 
 const TERMINOLOGY_API_URL = import.meta.env.VITE_APP_TERMINOLOGY_API_URL ?? 'https://terminology-api.zapehr.com/v1';

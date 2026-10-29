@@ -1,9 +1,12 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient, Practitioner, Task } from 'fhir/r4b';
-import { ERX_REQUEST_TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
+import { MedicationRequest, Patient, Practitioner, Provenance, Task } from 'fhir/r4b';
+import { ERX_REQUEST_TASK_INPUT_SYSTEM, SURESCRIPTS_MESSAGE_ID_SYSTEM } from 'utils/lib/fhir/constants';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getFullName } from 'utils/lib/fhir/patient';
-import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
+import { ErxPharmacyRefillRequest, GetErxRequestResponse } from 'utils/lib/types/api/erx.types';
+import { ERX_TASK, getTaskInputValue, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { makePrescribedMedicationDTO } from './chart-data';
 import { createOwnerReference, createTask } from './tasks';
 
 // The eRx service's renewal Task is the pharmacy's request; the Ottehr task, basedOn it, is what the Tasks page shows.
@@ -84,4 +87,109 @@ export const syncRefillRequestTask = async (oystehr: Oystehr, renewalTask: Task)
       : undefined,
   ]);
   return [await oystehr.fhir.create(makeRefillRequestTask(renewalTask, patient, prescriber))];
+};
+
+const messageId = (task: Task): string | undefined =>
+  task.identifier?.find((identifier) => identifier.system === SURESCRIPTS_MESSAGE_ID_SYSTEM)?.value;
+
+/**
+ * The pharmacy's request from every version of its renewal Task, oldest first. Only what the pharmacy sent is kept: a
+ * field it left out stays absent. When the pharmacy asks again the eRx service points the same Task at the newest
+ * request (its Surescripts message id); the first version with that id is when it asked again. The service marks a
+ * withdrawn request's Task cancelled.
+ */
+export const readPharmacyRefillRequest = (versions: Task[]): ErxPharmacyRefillRequest => {
+  const first = versions[0];
+  const latest = versions[versions.length - 1];
+  const value = (code: string): NonNullable<Task['input']>[number] | undefined => renewalInput(latest, code);
+  const newest = messageId(latest);
+  const askedAgain =
+    newest && messageId(first) !== newest
+      ? versions.find((version) => messageId(version) === newest)?.meta?.lastUpdated
+      : undefined;
+  return {
+    renewalTaskId: latest.id!,
+    pharmacy: {
+      name: value('pharmacy-name')?.valueString,
+      ncpdpId: value('pharmacy-ncpdp-id')?.valueString,
+      npi: value('pharmacy-npi')?.valueString,
+      phone: value('pharmacy-phone')?.valueString,
+    },
+    medication: {
+      description: value('drug-description')?.valueString,
+      ndc: value('ndc')?.valueString,
+      quantityValue: value('quantity')?.valueDecimal,
+      quantityUnit: value('quantity-unit')?.valueString,
+      daysSupply: value('days-supply')?.valueInteger,
+      lastFillDate: value('last-fill-date')?.valueDate,
+      writtenDate: value('written-date')?.valueDate,
+      substitutionAllowed: value('substitution-allowed')?.valueBoolean,
+      sig: value('sig')?.valueString,
+      noteToPharmacy: value('note-to-pharmacy')?.valueString,
+      requestedRefills: value('requested-refills')?.valueInteger,
+    },
+    received: first.authoredOn ?? first.meta?.lastUpdated,
+    askedAgain,
+    withdrawn: latest.status === 'cancelled',
+    closed: !isOpen(latest),
+  };
+};
+
+/** The request behind a refill request task: the pharmacy's (basedOn its renewal Task), or a patient's that staff
+ * wrote down as a manual eRx task on a prescription. */
+export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<GetErxRequestResponse> => {
+  const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
+  const renewalTaskId = task.basedOn
+    ?.find((reference) => reference.reference?.startsWith('Task/'))
+    ?.reference?.split('/')[1];
+  let pharmacyRequest: ErxPharmacyRefillRequest | undefined;
+  let medicationRequestId: string | undefined;
+  if (getCoding(task.code, ERX_TASK.system)?.code === ERX_TASK.code.refillRequest && renewalTaskId) {
+    const history = await oystehr.fhir.history<Task>({ resourceType: 'Task', id: renewalTaskId });
+    const versions = (history.entry ?? [])
+      .flatMap((entry) => (entry.resource ? [entry.resource] : []))
+      .sort((a, b) => (a.meta?.lastUpdated ?? '').localeCompare(b.meta?.lastUpdated ?? ''));
+    if (!versions.length) throw FHIR_RESOURCE_NOT_FOUND('Task');
+    pharmacyRequest = readPharmacyRefillRequest(versions);
+    medicationRequestId = versions[versions.length - 1].focus?.reference?.split('/')[1];
+  } else if (task.groupIdentifier?.value === MANUAL_TASK.category.erx) {
+    medicationRequestId = getTaskInputValue(task, MANUAL_TASK.input.orderId);
+  }
+  if (!medicationRequestId) throw INVALID_INPUT_ERROR(`Task ${taskId} is not a refill request`);
+
+  const resources = (
+    await oystehr.fhir.search<MedicationRequest | Patient | Practitioner | Provenance>({
+      resourceType: 'MedicationRequest',
+      params: [
+        { name: '_id', value: medicationRequestId },
+        { name: '_include', value: 'MedicationRequest:subject' },
+        { name: '_include', value: 'MedicationRequest:requester' },
+        { name: '_revinclude', value: 'Provenance:target' },
+      ],
+    })
+  ).unbundle();
+  const medicationRequest = resources.find(
+    (resource): resource is MedicationRequest => resource.resourceType === 'MedicationRequest'
+  );
+  const patient = resources.find((resource): resource is Patient => resource.resourceType === 'Patient');
+  if (!medicationRequest) throw FHIR_RESOURCE_NOT_FOUND('MedicationRequest');
+  if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+  const prescriber = resources.find((resource): resource is Practitioner => resource.resourceType === 'Practitioner');
+  return {
+    taskId,
+    pharmacyRequest,
+    patientRequest: pharmacyRequest
+      ? undefined
+      : {
+          note: getTaskInputValue(task, MANUAL_TASK.input.details),
+          takenBy: getTaskInputValue(task, MANUAL_TASK.input.providerName),
+          taken: task.authoredOn,
+        },
+    prescription: makePrescribedMedicationDTO(
+      medicationRequest,
+      resources.filter((resource): resource is Provenance => resource.resourceType === 'Provenance')
+    ),
+    prescriberName: prescriber && getFullName(prescriber),
+    patient,
+  };
 };
