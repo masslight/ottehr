@@ -88,6 +88,7 @@ import {
   resourceDisplayName,
   setClaimRenderingProviderCareTeam,
   setClia,
+  setCoverageRelationship,
   setStateLicense,
   setTaxId,
   setTaxonomy,
@@ -770,6 +771,32 @@ const setCoverageFromPatient = (
   return true;
 };
 
+// Make the patient the coverage's subscriber — the claim editor's "Self" relationship edit
+// (update-billing-claim). Only Self is writable: any other relationship needs a policy-holder record
+// rules cannot create. The coverage's standalone policy-holder copy leaves the model (pending edits to
+// it are discarded, a copy minted earlier in this run is never POSTed), so later rules read the
+// policy-holder fields as empty; unlike the editor the now-unreferenced copy is not deleted.
+const setRelationshipSelf = (
+  model: RulesEngineClaimModel,
+  value: string | null,
+  resolve: (m: RulesEngineClaimModel) => Coverage | undefined
+): boolean => {
+  const coverage = resolve(model);
+  const patientRef = coverage?.beneficiary?.reference;
+  if (!coverage || value !== 'Self' || !patientRef) return false;
+  const replacedSubscriber = policyHolder(resolve)(model);
+  const sharedWithOtherCoverage = model.coverages.some(
+    (other) => other !== coverage && other.subscriber?.reference === coverage.subscriber?.reference
+  );
+  if (replacedSubscriber?.id && !sharedWithOtherCoverage) {
+    model.subscribers = model.subscribers.filter((s) => s.id !== replacedSubscriber.id);
+    model.createdCopyIds?.delete(replacedSubscriber.id);
+  }
+  setCoverageRelationship(coverage, 'Self');
+  coverage.subscriber = { reference: patientRef };
+  return true;
+};
+
 const setProviderFamily = (p: Provider | undefined, value: string | null): boolean => {
   if (!p) return false;
   // `|| undefined`: an empty value clears the field — a literal '' is invalid FHIR.
@@ -973,7 +1000,7 @@ const coverageWriters = (
     return true;
   },
   [`${prefix}.planType`]: (m, v) => writePlanType(m, v, resolve),
-  // [`${prefix}.relationship`]: (m) => readRelationship(resolve(m)),
+  [`${prefix}.relationship`]: (m, v) => setRelationshipSelf(m, v, resolve),
 });
 
 // Writers for a provider (rendering or billing), paired with providerReaders.
