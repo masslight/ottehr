@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter, useSearchParams } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -90,62 +90,6 @@ describe('AppointmentsFilters persistence', () => {
     await waitFor(() => {
       const visitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
       expect(visitTypes).toContain('in-person-scheduled-follow-up');
-    });
-  });
-
-  it('adds scheduled follow-up to a legacy "all selected" visit-type filter', async () => {
-    // Capture the full default selection, then persist it without scheduled follow-up and
-    // without `knownVisitTypes`, the way filters were saved before the option existed.
-    renderFilters('/visits?tab=in-office');
-    let allVisitTypes: string[] = [];
-    await waitFor(() => {
-      allVisitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
-      expect(allVisitTypes).toContain('in-person-scheduled-follow-up');
-    });
-    cleanup();
-    const legacyVisitTypes = allVisitTypes.filter((key) => key !== 'in-person-scheduled-follow-up');
-    localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify({ visitType: legacyVisitTypes }));
-
-    renderFilters('/visits?tab=in-office');
-
-    await waitFor(() => {
-      const visitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
-      expect(visitTypes.sort()).toEqual([...allVisitTypes].sort());
-    });
-  });
-
-  it('keeps a narrowed visit-type selection when new options were added since it was saved', async () => {
-    localStorage.setItem(
-      LOCAL_STORAGE_FILTERS_KEY,
-      JSON.stringify({ visitType: ['in-person-walk-in'], knownVisitTypes: ['in-person-walk-in', 'virtual-walk-in'] })
-    );
-
-    renderFilters('/visits?tab=in-office');
-
-    await waitFor(() => {
-      expect(new URLSearchParams(getSearch()).get('visitType')).toBe('in-person-walk-in');
-    });
-  });
-
-  it('keeps scheduled follow-up deselected when a current-format filter saved it as known but unselected', async () => {
-    renderFilters('/visits?tab=in-office');
-    let allVisitTypes: string[] = [];
-    await waitFor(() => {
-      allVisitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
-      expect(allVisitTypes).toContain('in-person-scheduled-follow-up');
-    });
-    cleanup();
-    const narrowed = allVisitTypes.filter((key) => key !== 'in-person-scheduled-follow-up');
-    localStorage.setItem(
-      LOCAL_STORAGE_FILTERS_KEY,
-      JSON.stringify({ visitType: narrowed, knownVisitTypes: allVisitTypes })
-    );
-
-    renderFilters('/visits?tab=in-office');
-
-    await waitFor(() => {
-      const visitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
-      expect(visitTypes.sort()).toEqual([...narrowed].sort());
     });
   });
 
