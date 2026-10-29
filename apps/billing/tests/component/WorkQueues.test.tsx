@@ -309,7 +309,7 @@ describe('WorkQueueDetail', () => {
     getBillingWorkQueuesMock.mockResolvedValue({ queues: [] });
 
     renderAt('/work-queues/q-1');
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete Work Queue' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     const dialog = await screen.findByRole('dialog');
     expect(deleteBillingWorkQueueMock).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
@@ -322,7 +322,7 @@ describe('WorkQueueDetail', () => {
     deleteBillingWorkQueueMock.mockRejectedValue(new Error('boom'));
 
     renderAt('/work-queues/q-1');
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete Work Queue' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(enqueueSnackbarMock).toHaveBeenCalledWith(expect.any(String), { variant: 'error' }));
