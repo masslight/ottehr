@@ -343,6 +343,8 @@ export const PharmacySearch: FC<{
           ListboxProps={{
             sx: {
               p: 0,
+              // Short enough to fit the 360px popup card under the field and a notice, so only the list scrolls.
+              maxHeight: 240,
               '& .MuiAutocomplete-option': {
                 display: 'grid',
                 gridTemplateColumns: 'minmax(0, 1fr) auto',
