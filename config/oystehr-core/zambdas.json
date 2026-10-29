@@ -814,6 +814,16 @@
         "expression": "cron(*/5 * * * ? *)"
       }
     },
+    "ERX-PRESCRIPTION-TASKS-CRON": {
+      "name": "erx-prescription-tasks-cron",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/erx-prescription-tasks/index",
+      "zip": ".dist/zips/erx-prescription-tasks-cron.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    },
     "GET-PROVIDER-NOTIFICATIONS": {
       "name": "get-provider-notifications",
       "type": "http_auth",
