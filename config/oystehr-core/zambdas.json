@@ -2522,6 +2522,13 @@
         "reason": "Create Task for eRX notification"
       }
     },
+    "ERX-PRESCRIPTION-ERROR": {
+      "name": "erx-prescription-error-subscription",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/provenance/erx-prescription-error/index",
+      "zip": ".dist/zips/erx-prescription-error.zip"
+    },
     "GET-LABEL-PRINTING-CONFIG": {
       "name": "get-label-printing-config",
       "type": "http_auth",
@@ -3359,6 +3366,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/ERX_NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "ERX_PRESCRIPTION_ERROR_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "eRx prescription error task",
+        "criteria": "Provenance?_tag=erx-medication",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX-PRESCRIPTION-ERROR/id}"
         },
         "extension": [
           {

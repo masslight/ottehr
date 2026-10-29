@@ -121,6 +121,10 @@ export const ERX_TASK = {
   system: 'erx-task',
   code: {
     providerNotification: 'provider-notification',
+    // Surescripts reported an error on a prescription (it wasn't faxed instead)
+    prescriptionError: 'prescription-error',
+    // A prescription still Sending 24 hours after it was sent: call the pharmacy
+    prescriptionUnconfirmed: 'prescription-unconfirmed',
   },
   input: {
     providerName: 'provider-name',

@@ -376,7 +376,7 @@ const getPharmacyId = (medRequest: MedicationRequest): string | undefined => {
 
 /** The MedicationRequest id a reference points at, relative ("MedicationRequest/<id>") or absolute, and with or
  * without a version ("…/_history/<n>"); as `patientIdFromReference` reads a Patient's. */
-const medicationRequestIdFromReference = (reference: string | undefined): string | undefined =>
+export const medicationRequestIdFromReference = (reference: string | undefined): string | undefined =>
   reference?.match(/(?:^|\/)MedicationRequest\/([^/]+)(?:\/_history\/[^/]+)?$/)?.[1];
 
 /** A cancel reply event's details, from its Provenance extension. */
