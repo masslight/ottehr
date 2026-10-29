@@ -41,7 +41,6 @@ export const GO_TO_REQUEST = 'Go to request';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
-const GO_TO_PRESCRIPTION = 'Go to Prescription';
 
 export const TASKS_PAGE_SIZE = 20;
 
@@ -684,16 +683,6 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       // The refill request subscription writes the whole sentence into the description.
       title = task.description ?? '';
       action = { name: GO_TO_REQUEST, link: '' };
-    } else if (code === ERX_TASK.code.prescriptionError || code === ERX_TASK.code.prescriptionUnconfirmed) {
-      // The eRx task subscription and cron write the whole sentence into the description.
-      title = task.description ?? '';
-      const appointmentId = encounter?.appointment?.[0]?.reference?.split('/')?.[1];
-      if (appointmentId) {
-        action = {
-          name: GO_TO_PRESCRIPTION,
-          link: addEncounterIdToLink(`/in-person/${appointmentId}/erx-surescripts`),
-        };
-      }
     } else {
       const providerName = getInputString(ERX_TASK.input.providerName, task);
       title = `Provider ${providerName} has notifications in DoseSpot`;
