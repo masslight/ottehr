@@ -232,7 +232,7 @@ export default function PatientDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
-            <PatientPaymentsTab patientId={patient.id} />
+            <PatientPaymentsTab key={patient.id} patientId={patient.id} />
           </TabPanel>
         </TabContext>
       </Box>
