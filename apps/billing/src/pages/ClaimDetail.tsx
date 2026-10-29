@@ -349,6 +349,8 @@ export default function ClaimDetail(): ReactElement {
           : {
               claimIds: [id],
               skipRules,
+              submissionType: 'new',
+              submissionInsurance: 'primary',
             }
       );
       const messageSegment = skipRules
