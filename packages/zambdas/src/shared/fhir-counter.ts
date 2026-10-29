@@ -20,6 +20,51 @@ function lastIssued(counter: Basic): number {
   return value;
 }
 
+function furthestCounter(counters: Basic[]): Basic {
+  return counters.reduce((furthest, candidate) => {
+    const difference = lastIssued(candidate) - lastIssued(furthest);
+    if (difference !== 0) return difference > 0 ? candidate : furthest;
+    return (candidate.id ?? '') < (furthest.id ?? '') ? candidate : furthest;
+  });
+}
+
+async function findOrCreateCounter(oystehr: Oystehr, key: string): Promise<Basic> {
+  const codeParam = {
+    name: 'code',
+    value: `${FHIR_COUNTER_CODE_SYSTEM}|${key}`,
+  };
+  const counters = (
+    await oystehr.fhir.search<Basic>({
+      resourceType: 'Basic',
+      params: [codeParam],
+    })
+  ).unbundle();
+
+  if (counters.length === 0) {
+    return oystehr.fhir.create<Basic>(
+      {
+        resourceType: 'Basic',
+        code: {
+          coding: [
+            {
+              system: FHIR_COUNTER_CODE_SYSTEM,
+              code: key,
+            },
+          ],
+        },
+        extension: [lastIssuedExtension(0)],
+      },
+      {
+        ifNoneExist: [codeParam],
+      }
+    );
+  }
+  if (counters.length > 1) {
+    console.error(`Found ${counters.length} counters for ${key}: ${counters.map((c) => c.id).join(', ')}`);
+  }
+  return furthestCounter(counters);
+}
+
 // Returns the next value of the counter named `key`, starting at 1. Each value is handed out once:
 // the increment is guarded by the counter's version, so concurrent callers reread and retry.
 // The counter is found through the client, so a workspace-tagged client gets its own counter.
@@ -30,28 +75,7 @@ export async function nextCounterValue(
     maxAttempts?: number;
   }
 ): Promise<number> {
-  let counter = await oystehr.fhir.create<Basic>(
-    {
-      resourceType: 'Basic',
-      code: {
-        coding: [
-          {
-            system: FHIR_COUNTER_CODE_SYSTEM,
-            code: key,
-          },
-        ],
-      },
-      extension: [lastIssuedExtension(0)],
-    },
-    {
-      ifNoneExist: [
-        {
-          name: 'code',
-          value: `${FHIR_COUNTER_CODE_SYSTEM}|${key}`,
-        },
-      ],
-    }
-  );
+  let counter = await findOrCreateCounter(oystehr, key);
   const counterId = counter.id;
   if (!counterId) throw new Error(`Counter ${key} was saved without an id`);
 
