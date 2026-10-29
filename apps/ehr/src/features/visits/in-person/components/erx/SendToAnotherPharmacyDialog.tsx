@@ -10,6 +10,7 @@ import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription
 import { PharmacySearch } from './PharmacySearch';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
 import { isPrescriptionCancellable, prescriptionToOrderForPharmacy } from './prescriptionStatus';
+import { useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 const CANCEL_REASON: CancelPrescriptionReason = 'Duplicate order (different pharmacy)';
 
@@ -32,6 +33,8 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
 }) => {
   const { mutateAsync: cancelPrescription } = useCancelPrescription();
   const { mutateAsync: orderPrescription } = useOrderPrescription();
+  const height = useVisitHeight();
+  const weight = useVisitWeight();
   const [pharmacy, setPharmacy] = useState<PharmacySearchResult | null>(null);
   const { sending, close, run } = useSendEach({ prescriptions, onClose, onSent });
   const several = prescriptions.length > 1;
@@ -45,11 +48,22 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
     if (!pharmacy) return;
     // A prescription is always written today.
     const writtenDate = DateTime.local().toISODate() ?? '';
+    // The vitals' height and weight go with it, as with the order form.
+    const measuredDate = (takenAt?: string): string =>
+      (takenAt && DateTime.fromISO(takenAt).toLocal().toISODate()) || writtenDate;
+    const patientHeight = height && { cm: height.cm, measuredDate: measuredDate(height.takenAt) };
+    const patientWeight = weight && { kg: weight.kg, measuredDate: measuredDate(weight.takenAt) };
     await run(
       async (prescription, practitionerId) => {
         if (isAt(prescription, pharmacy))
           return `${prescription.name}: already sent to ${pharmacy.name}; nothing was sent`;
-        const order = prescriptionToOrderForPharmacy(prescription, { practitionerId, pharmacy, writtenDate });
+        const order = prescriptionToOrderForPharmacy(prescription, {
+          practitionerId,
+          pharmacy,
+          writtenDate,
+          patientHeight,
+          patientWeight,
+        });
         if (!order) return `${prescription.name}: its order is incomplete; nothing was sent`;
         const cancelling = isPrescriptionCancellable(prescription);
         if (cancelling) {
