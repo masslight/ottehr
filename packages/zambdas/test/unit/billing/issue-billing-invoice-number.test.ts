@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
-import miscFhirResources from '../../../../../config/oystehr/miscFhirResources.json';
+import billingZambdasSpec from '../../../../../config/billing-app-core/zambdas.json';
 import { INVOICE_NUMBER_COUNTER_KEY, performEffect } from '../../../src/billing/issue-billing-invoice-number/index';
 import {
   FHIR_COUNTER_CODE_SYSTEM,
@@ -16,7 +16,7 @@ vi.mock('../../../src/shared/fhir-counter', async (importOriginal) => ({
 
 describe('invoice number counter seed', () => {
   it('is a billing counter for invoice numbers that starts before the first number', () => {
-    expect(miscFhirResources.fhirResources.INVOICE_NUMBER_COUNTER.resource).toEqual({
+    expect(billingZambdasSpec.fhirResources.INVOICE_NUMBER_COUNTER.resource).toEqual({
       resourceType: 'Basic',
       meta: {
         tag: [BILLING_RESOURCE_TAG],

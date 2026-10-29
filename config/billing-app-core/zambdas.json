@@ -930,6 +930,36 @@
           }
         ]
       }
+    },
+    "INVOICE_NUMBER_COUNTER": {
+      "resource": {
+        "resourceType": "Basic",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://fhir.ottehr.com/billing/resource-type",
+              "code": "billing-resource"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/counter",
+              "code": "invoice-number"
+            }
+          ]
+        },
+        "extension": [
+          {
+            "url": "https://fhir.ottehr.com/Extension/counter-last-issued",
+            "valueInteger": 0
+          }
+        ]
+      },
+      "managedFields": [
+        "code"
+      ]
     }
   }
 }
