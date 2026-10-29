@@ -1,7 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
+import { Claim, Invoice, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
+import {
+  buildBillingInvoice,
+  getHostedInvoiceUrl,
+  STRIPE_INVOICE_ID_SYSTEM,
+  withStripeInvoiceLink,
+} from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -729,5 +735,72 @@ describe('billing-stripe-webhook chargeless invoices', () => {
     });
 
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe('billing-stripe-webhook billing app invoices', () => {
+  const billingInvoice = (status: Invoice['status']): Invoice => ({
+    ...withStripeInvoiceLink(
+      buildBillingInvoice({
+        status,
+        date: '2026-10-29T15:00:00.000Z',
+        dueDate: '2026-11-05',
+        recipient: { reference: 'Patient/pat-1' },
+        subject: { reference: 'Patient/pat-1' },
+        claims: [{ claimId: 'claim-1', amountCents: 9000 }],
+      }),
+      { stripeInvoiceId: 'in_1' }
+    ),
+    id: 'inv-1',
+    meta: { versionId: '3' },
+  });
+
+  const makeInvoiceOystehr = (invoices: Invoice[]): { oystehr: Oystehr; search: Mock; update: Mock } => {
+    const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () => (resourceType === 'Invoice' ? invoices : []),
+    }));
+    const update = vi.fn(async (resource: Invoice) => resource);
+    return { oystehr: { fhir: { search, update } } as unknown as Oystehr, search, update };
+  };
+
+  it('marks the invoice paid and fills in its Stripe page', async () => {
+    const { oystehr, search, update } = makeInvoiceOystehr([billingInvoice('issued')]);
+    // Settled by a charge, so only the invoice status changes here.
+    const stripeInvoice = makeInvoice({ charge: 'ch_1', hosted_invoice_url: 'https://pay.test/in_1' });
+
+    await performEffect(oystehr, { event: makeEvent('invoice.paid', stripeInvoice), secrets });
+
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Invoice',
+      params: [{ name: 'identifier', value: `${STRIPE_INVOICE_ID_SYSTEM}|in_1` }],
+    });
+    const [saved, options] = update.mock.calls[0];
+    expect(saved.status).toBe('balanced');
+    expect(getHostedInvoiceUrl(saved)).toBe('https://pay.test/in_1');
+    expect(options).toEqual({ optimisticLockingVersionId: '3' });
+  });
+
+  it('marks the invoice cancelled when it is voided in Stripe', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([billingInvoice('issued')]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.voided', makeInvoice({ status: 'void' })), secrets });
+
+    expect(update.mock.calls[0][0].status).toBe('cancelled');
+  });
+
+  it('leaves an invoice that is already paid when a late event arrives', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([billingInvoice('balanced')]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.voided', makeInvoice({ status: 'void' })), secrets });
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('skips a Stripe invoice the billing app did not create', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.voided', makeInvoice({ status: 'void' })), secrets });
+
+    expect(update).not.toHaveBeenCalled();
   });
 });

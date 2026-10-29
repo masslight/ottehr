@@ -1,8 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Invoice, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Invoice, Location, ProvenanceAgent } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { buildBillingInvoice, INVOICE_CLAIM_TAG_SYSTEM, withStripeInvoiceLink } from 'utils/lib/fhir/billing-invoice';
+import {
+  buildBillingInvoice,
+  getHostedInvoiceUrl,
+  INVOICE_CLAIM_TAG_SYSTEM,
+  INVOICE_FACILITY_TAG_SYSTEM,
+  withStripeInvoiceLink,
+} from 'utils/lib/fhir/billing-invoice';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   PREPARE_BILLING_INVOICE_ZAMBDA_KEY,
@@ -12,6 +18,7 @@ import {
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index, performEffect } from '../../../src/billing/create-billing-invoice';
+import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { index as sendBillingInvoiceSms } from '../../../src/ehr/send-billing-invoice-sms';
 import type { ZambdaInput } from '../../../src/shared/types/common';
 
@@ -70,6 +77,7 @@ const makeClaim = (patientArStatus = 'ready-to-invoice'): Claim =>
     resourceType: 'Claim',
     id: CLAIM_ID,
     patient: { reference: 'Patient/billing-pat-1' },
+    facility: { reference: 'Location/facility-copy-1' },
     identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: ENCOUNTER_ID }],
     meta: {
       tag: [
@@ -78,6 +86,13 @@ const makeClaim = (patientArStatus = 'ready-to-invoice'): Claim =>
       ],
     },
   }) as Claim;
+
+// The claim's copy of service facility facility-1.
+const facilityCopy: Location = {
+  resourceType: 'Location',
+  id: 'facility-copy-1',
+  extension: [{ url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Location/facility-1' } }],
+};
 
 // An invoice an earlier request left for the claim, linked to Stripe invoice in_old.
 const existingInvoice = (status: Invoice['status'], key: string, amountCents = 5000): Invoice =>
@@ -122,7 +137,9 @@ const makeOystehr = (
   const execute = vi.fn(async ({ id }: { id: string }) => ({
     output: id === PREPARE_BILLING_INVOICE_ZAMBDA_KEY ? visit : { message: 'ok' },
   }));
-  const search = vi.fn(async () => ({ unbundle: () => [claim] }));
+  const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
+    unbundle: () => [resourceType === 'Location' ? facilityCopy : claim],
+  }));
   return {
     oystehr: { fhir: { search, create, update }, zambda: { execute } } as unknown as Oystehr,
     invoices,
@@ -182,6 +199,8 @@ describe('create-billing-invoice', () => {
 
     expect(result).toEqual({ invoiceId: 'inv-1', stripeInvoiceId: 'in_new', smsSent: true });
     expect(invoices[0].status).toBe('issued');
+    expect(invoices[0].meta?.tag).toContainEqual({ system: INVOICE_FACILITY_TAG_SYSTEM, code: 'facility-1' });
+    expect(getHostedInvoiceUrl(invoices[0])).toBe('https://pay.test/in_new');
     expect(stripeInvoices.create).toHaveBeenCalledWith(
       expect.objectContaining({
         customer: 'cus_1',

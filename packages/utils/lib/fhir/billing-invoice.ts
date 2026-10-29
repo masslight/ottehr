@@ -3,7 +3,9 @@ import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT } from './constants';
 
 export const INVOICE_CLAIM_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-claim';
 export const INVOICE_CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-claim-id';
+export const INVOICE_FACILITY_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-facility-id';
 export const INVOICE_DUE_DATE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-due-date';
+export const INVOICE_HOSTED_URL_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-hosted-url';
 export const STRIPE_INVOICE_ID_SYSTEM = 'https://api.stripe.com/v1/invoices';
 
 export interface BillingInvoiceClaim {
@@ -22,6 +24,8 @@ export interface BuildBillingInvoiceInput {
   // Leave empty when the claims cover more than one patient.
   subject?: Reference;
   claims: BillingInvoiceClaim[];
+  // The service facility, so the Invoices screen can filter by it.
+  facilityId?: string;
 }
 
 export interface StripeInvoiceLink {
@@ -43,9 +47,11 @@ export function buildBillingInvoice(input: BuildBillingInvoiceInput): Invoice {
   if (invalid) throw new Error(`Claim ${invalid.claimId} amount must be a positive whole number of cents`);
 
   const totalCents = input.claims.reduce((sum, claim) => sum + claim.amountCents, 0);
+  const tags = input.claims.map((claim) => invoiceClaimTag(claim.claimId));
+  if (input.facilityId) tags.push({ system: INVOICE_FACILITY_TAG_SYSTEM, code: input.facilityId });
   return {
     resourceType: 'Invoice',
-    meta: { tag: input.claims.map((claim) => invoiceClaimTag(claim.claimId)) },
+    meta: { tag: tags },
     extension: [{ url: INVOICE_DUE_DATE_EXTENSION_URL, valueDate: input.dueDate }],
     status: input.status,
     date: input.date,
@@ -76,6 +82,14 @@ export function getBillingInvoiceClaims(invoice: Invoice): BillingInvoiceClaim[]
 
 export const getBillingInvoiceDueDate = (invoice: Invoice): string | undefined =>
   invoice.extension?.find((ext) => ext.url === INVOICE_DUE_DATE_EXTENSION_URL)?.valueDate;
+
+export function withHostedInvoiceUrl(invoice: Invoice, url: string): Invoice {
+  const others = (invoice.extension ?? []).filter((ext) => ext.url !== INVOICE_HOSTED_URL_EXTENSION_URL);
+  return { ...invoice, extension: [...others, { url: INVOICE_HOSTED_URL_EXTENSION_URL, valueUrl: url }] };
+}
+
+export const getHostedInvoiceUrl = (invoice: Invoice): string | undefined =>
+  invoice.extension?.find((ext) => ext.url === INVOICE_HOSTED_URL_EXTENSION_URL)?.valueUrl;
 
 // Same shape as the Stripe customer IDs on Account. Projects without connected accounts have no account extension.
 export function withStripeInvoiceLink(invoice: Invoice, link: StripeInvoiceLink): Invoice {
