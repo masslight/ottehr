@@ -85,19 +85,44 @@ describe('nextCounterValue', () => {
         operations: [
           {
             op: 'replace',
-            path: '/extension',
-            value: [
-              {
-                url: FHIR_COUNTER_LAST_ISSUED_EXTENSION_URL,
-                valueInteger: 42,
-              },
-            ],
+            path: '/extension/0/valueInteger',
+            value: 42,
           },
         ],
       },
       {
         optimisticLockingVersionId: '7',
       }
+    );
+  });
+
+  it('updates only the last issued extension, leaving other extensions in place', async () => {
+    const stored = counter(41, '7');
+    const oystehr = makeClient([
+      {
+        ...stored,
+        extension: [
+          {
+            url: 'https://example.com/other',
+            valueString: 'kept',
+          },
+          ...(stored.extension ?? []),
+        ],
+      },
+    ]);
+
+    expect(await nextCounterValue(oystehr, 'widget-number')).toBe(42);
+    expect(oystehr.fhir.patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operations: [
+          {
+            op: 'replace',
+            path: '/extension/1/valueInteger',
+            value: 42,
+          },
+        ],
+      }),
+      expect.anything()
     );
   });
 

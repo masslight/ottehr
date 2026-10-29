@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Basic, Extension } from 'fhir/r4b';
+import { Basic } from 'fhir/r4b';
 import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 
@@ -9,15 +9,17 @@ export const FHIR_COUNTER_LAST_ISSUED_EXTENSION_URL = ottehrExtensionUrl('counte
 // Callers racing for the same counter each lose at most once per number taken by another caller.
 const DEFAULT_MAX_ATTEMPTS = 10;
 
-const lastIssuedExtension = (value: number): Extension => ({
-  url: FHIR_COUNTER_LAST_ISSUED_EXTENSION_URL,
-  valueInteger: value,
-});
-
-function lastIssued(counter: Basic): number {
-  const value = counter.extension?.find((ext) => ext.url === FHIR_COUNTER_LAST_ISSUED_EXTENSION_URL)?.valueInteger;
+function lastIssued(counter: Basic): {
+  index: number;
+  value: number;
+} {
+  const index = counter.extension?.findIndex((ext) => ext.url === FHIR_COUNTER_LAST_ISSUED_EXTENSION_URL) ?? -1;
+  const value = counter.extension?.[index]?.valueInteger;
   if (value === undefined) throw new Error(`Counter Basic/${counter.id} has no last issued value`);
-  return value;
+  return {
+    index,
+    value,
+  };
 }
 
 async function findCounter(oystehr: Oystehr, key: string): Promise<Basic> {
@@ -61,9 +63,11 @@ export async function nextCounterValue(
           id: counterId,
         });
       }
-      const next = lastIssued(counter) + 1;
+      const { index, value } = lastIssued(counter);
+      const next = value + 1;
       const versionId = counter.meta?.versionId;
       if (!versionId) throw new Error(`Counter Basic/${counterId} has no version to guard the increment`);
+      // the version guard keeps the index pointing at the extension it was read from
       await oystehr.fhir.patch(
         {
           resourceType: 'Basic',
@@ -71,8 +75,8 @@ export async function nextCounterValue(
           operations: [
             {
               op: 'replace',
-              path: '/extension',
-              value: [lastIssuedExtension(next)],
+              path: `/extension/${index}/valueInteger`,
+              value: next,
             },
           ],
         },
