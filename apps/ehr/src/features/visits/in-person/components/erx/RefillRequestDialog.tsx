@@ -6,7 +6,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   MenuItem,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   ToggleButton,
@@ -17,20 +20,36 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactNode, useState } from 'react';
-import { getErxRequest, respondToRenewal } from 'src/api/api';
+import { getErxRequest, respondToChange, respondToRenewal } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useAuthToken } from 'src/hooks/useAuthToken';
 import { getPatientName } from 'src/shared/utils/getPatientName';
-import { RENEWAL_DENIAL_REASONS, RENEWAL_PENDING_REASONS, RenewalResponseInput } from 'utils/lib/types/api/erx.types';
+import {
+  CHANGE_DENIAL_REASONS,
+  CHANGE_REQUEST_KINDS,
+  ChangeResponseInput,
+  RENEWAL_DENIAL_REASONS,
+  RENEWAL_PENDING_REASONS,
+  RenewalResponseInput,
+} from 'utils/lib/types/api/erx.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
 import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
-import { refillLine, renewalApproval, requestRows } from './refillRequest';
+import {
+  changeApproval,
+  changeResponse,
+  refillLine,
+  renewalApproval,
+  requestRows,
+  suggestionText,
+} from './refillRequest';
 
 type Answer = 'approve' | 'change' | 'deny' | 'pending';
+
+const ANSWERS: Answer[] = ['approve', 'change', 'deny', 'pending'];
 
 const ANSWER_LABEL: Record<Answer, string> = {
   approve: 'Approve',
@@ -71,12 +90,12 @@ const Rows: FC<{ rows: { label: string; value?: ReactNode; highlight?: boolean }
 );
 
 interface RefillRequestDialogProps {
-  /** The refill request task on the Tasks page */
+  /** The refill or change request task on the Tasks page */
   taskId: string;
   onClose: () => void;
 }
 
-/** A refill request, the pharmacy's beside the original prescription, and the provider's answer. */
+/** A refill or change request, the pharmacy's beside the original prescription, and the provider's answer. */
 export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onClose }) => {
   const { oystehrZambda } = useApiClients();
   const token = useAuthToken();
@@ -87,41 +106,72 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     queryFn: () => getErxRequest(oystehrZambda!, { taskId }),
     enabled: !!oystehrZambda,
   });
-  const [answer, setAnswer] = useState<Answer>('approve');
+  const [chosen, setChosen] = useState<Answer>('approve');
   const [fills, setFills] = useState<string>();
+  const [suggestion, setSuggestion] = useState(0);
+  const [priorAuthorization, setPriorAuthorization] = useState('');
   const [note, setNote] = useState('');
   const [reason, setReason] = useState('');
   const [sent, setSent] = useState<string>();
   const respond = useMutation({
-    mutationFn: async (body: RenewalResponseInput) => {
+    mutationFn: async (body: RenewalResponseInput | ChangeResponseInput) => {
       if (!token) throw new Error('API client not available');
-      return respondToRenewal(token, body);
+      return change
+        ? respondToChange(token, body as ChangeResponseInput)
+        : respondToRenewal(token, body as RenewalResponseInput);
     },
   });
 
-  const request = data?.pharmacyRequest;
+  const refill = data?.pharmacyRequest;
+  const change = data?.pharmacyChangeRequest;
+  const request = refill ?? change;
+  const kindName = data?.kind === 'change' ? 'Change' : 'Refill';
+  // A prior authorization request is approved with the prior authorization, never with changes.
+  const priorAuth = change?.code === 'P';
+  const suggestions = change?.suggestions ?? [];
+  const selected = suggestions[suggestion];
+  // Approve sends what the pharmacy asked; a change request with no suggestion has nothing to approve as is.
+  const answers = priorAuth
+    ? ANSWERS.filter((item) => item !== 'change')
+    : change && !suggestions.length
+    ? ANSWERS.filter((item) => item !== 'approve')
+    : ANSWERS;
+  const answer = answers.includes(chosen) ? chosen : answers[0];
+  const answerLabel = (key: Answer): string =>
+    key === 'approve' && change && !priorAuth ? 'Approve selected' : ANSWER_LABEL[key];
   const prescription = data?.prescription;
   const pharmacyName = request?.pharmacy.name ?? 'the pharmacy';
   const contact = patientAddressAndPhone(data?.patient);
   const closed = !!request && (request.withdrawn || request.closed);
-  const fillsText = fills ?? request?.medication.requestedRefills?.toString() ?? '';
+  const fillsText = fills ?? refill?.medication.requestedRefills?.toString() ?? '';
   const fillsNumber = Number(fillsText);
   const fillsValid = Number.isInteger(fillsNumber) && fillsNumber >= 1 && fillsNumber <= 99;
-  const ready = answer === 'approve' ? fillsValid : reason !== '';
+  const ready =
+    answer !== 'approve' ? reason !== '' : change ? !priorAuth || priorAuthorization.trim() !== '' : fillsValid;
 
   const send = async (): Promise<void> => {
     if (!request) return;
     const trimmed = note.trim() || undefined;
+    if (answer === 'change') return;
     try {
-      await respond.mutateAsync({
-        taskId: request.renewalTaskId,
-        decision: answer,
-        ...(answer === 'approve'
-          ? { numberOfRefills: fillsNumber, note: trimmed }
-          : { reason, [answer === 'deny' ? 'denialReason' : 'note']: trimmed }),
-      } as RenewalResponseInput);
+      await respond.mutateAsync(
+        change
+          ? changeResponse(change.changeTaskId, answer, {
+              suggestion: selected ? suggestion : undefined,
+              priorAuthorization: priorAuth ? priorAuthorization.trim() : undefined,
+              reason,
+              note: trimmed,
+            })
+          : ({
+              taskId: refill!.renewalTaskId,
+              decision: answer,
+              ...(answer === 'approve'
+                ? { numberOfRefills: fillsNumber, note: trimmed }
+                : { reason, [answer === 'deny' ? 'denialReason' : 'note']: trimmed }),
+            } as RenewalResponseInput)
+      );
     } catch (sendError) {
-      console.error(`Error answering the refill request: ${sendError}`);
+      console.error(`Error answering the ${kindName.toLowerCase()} request: ${sendError}`);
       enqueueSnackbar(errorMessage(sendError), { variant: 'error' });
       return;
     }
@@ -129,13 +179,19 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     if (answer === 'pending') await queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false });
     else await completeTask({ taskId });
     setSent(
-      answer === 'approve'
-        ? `Approved: ${fillsNumber} ${fillsNumber === 1 ? 'fill' : 'fills'}. Sent to ${pharmacyName}.`
-        : `${ANSWER_LABEL[answer]}: ${reason}. Sent to ${pharmacyName}.`
+      answer !== 'approve'
+        ? `${ANSWER_LABEL[answer]}: ${reason}. Sent to ${pharmacyName}.`
+        : priorAuth
+        ? `Approved with prior authorization ${priorAuthorization.trim()}. Sent to ${pharmacyName}.`
+        : change
+        ? `Approved: ${selected?.description}. Sent to ${pharmacyName}.`
+        : `Approved: ${fillsNumber} ${fillsNumber === 1 ? 'fill' : 'fills'}. Sent to ${pharmacyName}.`
     );
   };
 
-  const reasons = answer === 'deny' ? RENEWAL_DENIAL_REASONS : RENEWAL_PENDING_REASONS;
+  const reasons = answer !== 'deny' ? RENEWAL_PENDING_REASONS : change ? CHANGE_DENIAL_REASONS : RENEWAL_DENIAL_REASONS;
+  // The pharmacy's medication the original is compared with: a refill request's, or the selected suggestion.
+  const compared = (change ? selected : refill?.medication) ?? {};
   const noteMax = answer === 'deny' ? 210 : 70;
 
   // A new prescription in the order form, saved to the original's visit: the pharmacy's request changed and approved
@@ -143,8 +199,10 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const showForm = !!data && !!prescription?.encounterId && !sent && (request ? answer === 'change' && !closed : true);
   const orderForm = showForm && (
     <OrderPrescriptionForm
+      // Picking another suggestion starts the form again from it.
+      key={suggestion}
       visit={{ patient: data.patient, encounterId: prescription.encounterId! }}
-      initialLine={refillLine(prescription, request?.medication)}
+      initialLine={refillLine(prescription, change ? selected : refill?.medication)}
       {...(request
         ? {
             pharmacy: {
@@ -155,7 +213,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               address: '',
             },
             onSend: async (line) => {
-              await respond.mutateAsync(renewalApproval(request.renewalTaskId, line));
+              await respond.mutateAsync(
+                change
+                  ? changeApproval(change.changeTaskId, selected ? suggestion : undefined, line)
+                  : renewalApproval(refill!.renewalTaskId, line)
+              );
             },
             sendLabel: `Send to ${pharmacyName}`,
           }
@@ -171,10 +233,10 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     <Dialog open onClose={respond.isPending ? undefined : onClose} fullWidth maxWidth={showForm ? 'lg' : 'md'}>
       <DialogTitle>
         {request
-          ? `Refill request from ${pharmacyName}`
+          ? `${kindName} request from ${pharmacyName}`
           : data
-          ? `Refill request from ${getPatientName(data.patient.name).firstLastName}`
-          : 'Refill request'}
+          ? `${kindName} request from ${getPatientName(data.patient.name).firstLastName}`
+          : 'Request'}
         {data && (
           <Typography variant="body2" color="text.secondary">
             {patientNameGenderBirthDate(data.patient)}
@@ -206,6 +268,13 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 answered.
               </Alert>
             )}
+            {change && (
+              <Typography>
+                <b>{CHANGE_REQUEST_KINDS[change.code] ?? change.code}.</b>
+                {change.reason && ` “${change.reason}”`}
+                {change.subCodes.length > 0 && ` (sub-codes ${change.subCodes.join(', ')})`}
+              </Typography>
+            )}
             {data.patientRequest?.note && <Typography>{data.patientRequest.note}</Typography>}
             {(contact.address || contact.phone) && (
               <Box>
@@ -219,11 +288,34 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               </Box>
             )}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.25fr 1fr' }, gap: 2 }}>
-              {request && (
+              {suggestions.length > 0 && (
+                <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                  <SectionHeading>Pharmacy’s suggestions</SectionHeading>
+                  <RadioGroup value={suggestion} onChange={(_e, value) => setSuggestion(Number(value))}>
+                    {suggestions.map((item, index) => (
+                      <FormControlLabel
+                        key={index}
+                        value={index}
+                        disabled={closed || !!sent}
+                        control={<Radio size="small" />}
+                        label={
+                          <Box>
+                            <Typography variant="body2">{item.description}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {suggestionText(item)}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    ))}
+                  </RadioGroup>
+                </Box>
+              )}
+              {refill && (
                 <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
                   <SectionHeading>Pharmacy’s request</SectionHeading>
                   <Rows
-                    rows={requestRows(request.medication, prescription).map((row) => ({
+                    rows={requestRows(refill.medication, prescription).map((row) => ({
                       label: row.label === 'Refills' ? 'Refills asked' : row.label,
                       value: row.request,
                       highlight: row.differs,
@@ -235,7 +327,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 <SectionHeading>Original prescription · {formatDateForDisplay(prescription.sent)}</SectionHeading>
                 <Rows
                   rows={[
-                    ...requestRows(request?.medication ?? {}, prescription).map((row) => ({
+                    ...requestRows(compared, prescription).map((row) => ({
                       label: row.label,
                       value: row.original,
                       highlight: row.differs,
@@ -267,19 +359,29 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                   disabled={closed}
                   onChange={(_e, next: Answer | null) => {
                     if (!next) return;
-                    setAnswer(next);
+                    setChosen(next);
                     setReason('');
                     setNote('');
                   }}
                 >
-                  {(Object.keys(ANSWER_LABEL) as Answer[]).map((key) => (
+                  {answers.map((key) => (
                     <ToggleButton key={key} value={key} sx={{ textTransform: 'none' }}>
-                      {ANSWER_LABEL[key]}
+                      {answerLabel(key)}
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
                 {orderForm}
-                {!closed && answer === 'approve' && (
+                {!closed && answer === 'approve' && priorAuth && (
+                  <TextField
+                    label="Prior authorization number"
+                    required
+                    value={priorAuthorization}
+                    onChange={(event) => setPriorAuthorization(event.target.value)}
+                    inputProps={{ maxLength: 35 }}
+                    sx={{ maxWidth: 320 }}
+                  />
+                )}
+                {!closed && answer === 'approve' && refill && (
                   <TextField
                     label="Fills to authorize"
                     value={fillsText}
@@ -318,9 +420,15 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     helperText={`Up to ${noteMax} characters`}
                   />
                 )}
-                {!closed && answer === 'approve' && (
+                {!closed && answer === 'approve' && refill && (
                   <Typography variant="body2" color="text.secondary">
                     Sent as “Approved”. If you change the number of fills, it’s sent as “Approved with changes”.
+                  </Typography>
+                )}
+                {!closed && answer === 'approve' && selected && (
+                  <Typography variant="body2" color="text.secondary">
+                    Sent as “Approved” with {selected.description} exactly as the pharmacy suggested. “Change and
+                    approve” opens the order form with it filled in.
                   </Typography>
                 )}
                 {!closed && answer === 'pending' && (

@@ -84,6 +84,7 @@ import {
   OpenEmployeeChatResponse,
 } from 'utils/lib/types/api/employee-chat.types';
 import {
+  ChangeResponseInput,
   CompleteErxTaskInput,
   GetErxRequestInput,
   GetErxRequestResponse,
@@ -698,13 +699,15 @@ export const searchPharmacyDirectory = async (
   return (body as { data: ErxDirectoryPharmacy[] }).data;
 };
 
-/** Answers a pharmacy's refill request: approve (with any changes), deny or pending. */
-export const respondToRenewal = async (
+/** Answers a pharmacy's refill or change request: approve (with any changes), deny or pending. */
+const respondToRequest = async (
   token: string,
-  parameters: RenewalResponseInput
+  path: 'renewal-response' | 'change-response',
+  parameters: RenewalResponseInput | ChangeResponseInput,
+  kind: 'refill' | 'change'
 ): Promise<RenewalResponseOutput> => {
   const projectId = import.meta.env.VITE_APP_PROJECT_ID;
-  const response = await fetch(`${ERX_API_URL}/v4/renewal-response`, {
+  const response = await fetch(`${ERX_API_URL}/v4/${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -714,10 +717,16 @@ export const respondToRenewal = async (
   });
   const body = await response.json().catch(() => undefined);
   if (!response.ok) {
-    throw new Error(body?.message ?? `Failed to answer the refill request (${response.status})`);
+    throw new Error(body?.message ?? `Failed to answer the ${kind} request (${response.status})`);
   }
   return body as RenewalResponseOutput;
 };
+
+export const respondToRenewal = (token: string, parameters: RenewalResponseInput): Promise<RenewalResponseOutput> =>
+  respondToRequest(token, 'renewal-response', parameters, 'refill');
+
+export const respondToChange = (token: string, parameters: ChangeResponseInput): Promise<RenewalResponseOutput> =>
+  respondToRequest(token, 'change-response', parameters, 'change');
 
 /** Completes an eRx task (a refill request answered in its dialog). */
 export const completeErxTask = async (oystehr: Oystehr, parameters: CompleteErxTaskInput): Promise<void> => {

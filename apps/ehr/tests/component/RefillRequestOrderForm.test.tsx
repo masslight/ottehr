@@ -17,6 +17,7 @@ const PHARMACY = {
 const mocks = vi.hoisted(() => ({
   getErxRequest: vi.fn(),
   respondToRenewal: vi.fn(),
+  respondToChange: vi.fn(),
   orderPrescription: vi.fn(),
   completeTask: vi.fn(),
   chartSectionOptions: [] as unknown[],
@@ -26,6 +27,7 @@ vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 vi.mock('src/api/api', () => ({
   getErxRequest: mocks.getErxRequest,
   respondToRenewal: mocks.respondToRenewal,
+  respondToChange: mocks.respondToChange,
   createPrescriptionQuickPick: vi.fn(),
 }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {}, oystehr: undefined }) }));
@@ -128,6 +130,26 @@ const PHARMACY_REQUEST: GetErxRequestResponse = {
   patient: PATIENT,
 };
 
+const CHANGE_REQUEST = (
+  code: string,
+  suggestions: NonNullable<GetErxRequestResponse['pharmacyChangeRequest']>['suggestions']
+): GetErxRequestResponse => ({
+  taskId: 'task-1',
+  kind: 'change',
+  pharmacyChangeRequest: {
+    changeTaskId: 'change-1',
+    pharmacy: { name: 'CVS Pharmacy #7741', ncpdpId: '0000001', npi: '1234567890', phone: '5125550142' },
+    code,
+    subCodes: [],
+    suggestions,
+    received: '2026-10-28T14:02:00.000Z',
+    withdrawn: false,
+    closed: false,
+  },
+  prescription: PRESCRIPTION,
+  patient: PATIENT,
+});
+
 const open = async (request: GetErxRequestResponse): Promise<ReturnType<typeof userEvent.setup>> => {
   mocks.getErxRequest.mockResolvedValue(request);
   render(
@@ -147,6 +169,12 @@ describe('Refill request dialog: the order form outside a visit', () => {
       taskId: 'renewal-1',
       messageId: 'm',
       responseType: 'Replace',
+      status: {},
+    });
+    mocks.respondToChange.mockResolvedValue({
+      taskId: 'change-1',
+      messageId: 'm',
+      responseType: 'Approved',
       status: {},
     });
     mocks.orderPrescription.mockResolvedValue({});
@@ -180,6 +208,56 @@ describe('Refill request dialog: the order form outside a visit', () => {
       },
     });
     expect(await screen.findByText('Approved with your changes. Sent to CVS Pharmacy #7741.')).toBeInTheDocument();
+  });
+
+  it('Change and approve of a change request starts from the selected suggestion and answers with it', async () => {
+    const user = await open(
+      CHANGE_REQUEST('T', [
+        { description: 'Enalapril 10 mg tablet', ndc: '00093002701', quantityValue: 30, quantityUnit: 'Tablet' },
+        {
+          description: 'Losartan 50 mg tablet',
+          ndc: '00093736598',
+          quantityValue: 90,
+          quantityUnit: 'Tablet',
+          numberOfRefills: 3,
+        },
+      ])
+    );
+    await user.click(screen.getByRole('radio', { name: /Losartan/ }));
+    await user.click(screen.getByRole('button', { name: 'Change and approve' }));
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    expect(mocks.orderPrescription).not.toHaveBeenCalled();
+    expect(mocks.respondToChange).toHaveBeenCalledWith('user-token', {
+      taskId: 'change-1',
+      decision: 'approve',
+      requestedMedicationIndex: 1,
+      changes: {
+        medicationDescription: 'Losartan 50 mg tablet',
+        ndc: '00093736598',
+        quantityValue: 90,
+        quantityUnit: 'Tablet',
+        // Left out by the pharmacy: the original's, which the eRx service doesn't count as changes.
+        daysSupply: 30,
+        substitutionAllowed: true,
+        patientInstructions: 'Take 1 tablet by mouth once daily',
+        numberOfRefills: 3,
+      },
+    });
+  });
+
+  it('a clarification, with no suggestion, offers no Approve and starts the order form from the original', async () => {
+    const user = await open(CHANGE_REQUEST('S', []));
+    expect(screen.getByText('Script clarification.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Approve/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change and approve' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.respondToChange).toHaveBeenCalled());
+    expect(mocks.respondToChange.mock.calls[0][1]).toMatchObject({
+      taskId: 'change-1',
+      requestedMedicationIndex: undefined,
+      changes: { ndc: '00093111101', quantityValue: 30, numberOfRefills: 1 },
+    });
   });
 
   it('shows a failed Change and approve like other send errors, and leaves the task open', async () => {

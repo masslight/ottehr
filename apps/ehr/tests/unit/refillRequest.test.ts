@@ -1,9 +1,12 @@
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import {
+  changeApproval,
+  changeResponse,
   refillLine,
   renewalApproval,
   requestRows,
+  suggestionText,
 } from '../../src/features/visits/in-person/components/erx/refillRequest';
 
 const ORIGINAL: PrescribedMedicationDTO = {
@@ -121,5 +124,97 @@ describe('refill request: the prescription the order form starts with', () => {
         noteToPharmacy: 'Call when ready',
       },
     });
+  });
+});
+
+const OMEPRAZOLE = {
+  description: 'Omeprazole 40 mg delayed-release capsule',
+  ndc: '00093521998',
+  quantityValue: 30,
+  quantityUnit: 'Capsule',
+  daysSupply: 30,
+  numberOfRefills: 2,
+  sig: 'Take 1 capsule by mouth once daily before breakfast',
+};
+
+describe('change request: the pharmacy’s suggestions', () => {
+  it('says only what the pharmacy sent, numbers in plain form (S.207)', () => {
+    expect(suggestionText(OMEPRAZOLE)).toBe(
+      '30 capsules · Take 1 capsule by mouth once daily before breakfast · 30 days · 2 refills'
+    );
+    expect(
+      suggestionText({ description: 'Pantoprazole 40 mg tablet', quantityValue: Number('.5'), daysSupply: 3 })
+    ).toBe('0.5 · 3 days');
+    expect(suggestionText({ description: 'Pantoprazole 40 mg tablet' })).toBe('');
+    expect(suggestionText({ description: 'Pantoprazole 40 mg tablet', numberOfRefills: 0 })).toBe('0 refills');
+  });
+
+  it('compares a suggestion’s refills with the original’s, and leaves out what it didn’t send', () => {
+    const rows = requestRows({ description: 'Pantoprazole 40 mg tablet', numberOfRefills: 2 }, ORIGINAL);
+    expect(row(rows, 'Refills')).toEqual({ label: 'Refills', request: '2', original: '1', differs: true });
+    expect(row(rows, 'Quantity').request).toBeUndefined();
+    expect(row(rows, 'Days supply').request).toBeUndefined();
+  });
+
+  it('fills the order form from the suggestion, never with the original’s product', () => {
+    const line = refillLine(ORIGINAL, { description: 'Pantoprazole 40 mg tablet', numberOfRefills: 0 });
+    expect(line.medication?.ndc).toBeUndefined();
+    expect(line.numberOfRefills).toBe('0');
+    expect(refillLine(ORIGINAL, OMEPRAZOLE).medication?.ndc).toBe('00093521998');
+  });
+});
+
+describe('change request: the answers', () => {
+  it('approves the selected suggestion as sent, by its position', () => {
+    expect(changeResponse('change-1', 'approve', { suggestion: 1, note: 'OK' })).toEqual({
+      taskId: 'change-1',
+      decision: 'approve',
+      requestedMedicationIndex: 1,
+      note: 'OK',
+    });
+  });
+
+  it('approves a prior authorization request with its number, never a suggestion or changes', () => {
+    expect(changeResponse('change-1', 'approve', { priorAuthorization: 'PA-88431207' })).toEqual({
+      taskId: 'change-1',
+      decision: 'approve',
+      priorAuthorization: { number: 'PA-88431207', status: 'approved' },
+    });
+  });
+
+  it('denies or answers pending with a reason and an optional note', () => {
+    expect(changeResponse('change-1', 'deny', { reason: 'Change not appropriate', note: 'Keep Dexilant' })).toEqual({
+      taskId: 'change-1',
+      decision: 'deny',
+      reason: 'Change not appropriate',
+      denialReason: 'Keep Dexilant',
+    });
+    expect(changeResponse('change-1', 'pending', { reason: 'Patient has labs/tests pending' })).toEqual({
+      taskId: 'change-1',
+      decision: 'pending',
+      reason: 'Patient has labs/tests pending',
+    });
+  });
+
+  it('“Change and approve” sends the whole prescription over the selected suggestion, refills as written', () => {
+    const line = refillLine(ORIGINAL, OMEPRAZOLE);
+    expect(changeApproval('change-1', 0, line)).toEqual({
+      taskId: 'change-1',
+      decision: 'approve',
+      requestedMedicationIndex: 0,
+      changes: {
+        medicationDescription: 'Omeprazole 40 mg delayed-release capsule',
+        ndc: '00093521998',
+        quantityValue: 30,
+        quantityUnit: 'Capsule',
+        daysSupply: 30,
+        substitutionAllowed: true,
+        patientInstructions: 'Take 1 capsule by mouth once daily before breakfast',
+        noteToPharmacy: 'Call when ready',
+        numberOfRefills: 2,
+      },
+    });
+    // No suggestions (a clarification): the changes are over the original.
+    expect(changeApproval('change-1', undefined, refillLine(ORIGINAL)).requestedMedicationIndex).toBeUndefined();
   });
 });

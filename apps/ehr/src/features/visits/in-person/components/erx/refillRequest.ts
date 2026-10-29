@@ -1,6 +1,6 @@
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { ErxPharmacyRefillRequest, RenewalResponseInput } from 'utils/lib/types/api/erx.types';
-import { COMPOUND_DOSAGE_FORMS } from 'utils/lib/types/api/order-prescription.types';
+import { ChangeResponseInput, ErxPharmacyRefillRequest, RenewalResponseInput } from 'utils/lib/types/api/erx.types';
+import { COMPOUND_DOSAGE_FORMS, OrderPrescriptionInput } from 'utils/lib/types/api/order-prescription.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import {
   applyPrescriptionQuickPick,
@@ -50,13 +50,16 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
     row('Directions', request.sig, prescription.instructions),
     row('Days supply', request.daysSupply?.toString(), order.daysSupply?.toString()),
     row('Substitution', allowedText(request.substitutionAllowed), allowedText(order.substitutionAllowed)),
-    // Fills asked for and refills written count differently, so they aren't compared.
-    {
-      label: 'Refills',
-      request: request.requestedRefills?.toString(),
-      original: order.numberOfRefills?.toString(),
-      differs: false,
-    },
+    // Fills asked for and refills written count differently, so a refill request's aren't compared; a change
+    // suggestion's refills are.
+    request.numberOfRefills !== undefined
+      ? row('Refills', request.numberOfRefills.toString(), order.numberOfRefills?.toString())
+      : {
+          label: 'Refills',
+          request: request.requestedRefills?.toString(),
+          original: order.numberOfRefills?.toString(),
+          differs: false,
+        },
     row('Last filled', request.lastFillDate && formatDateForDisplay(request.lastFillDate), undefined),
     row('Pharmacy note', request.noteToPharmacy, order.noteToPharmacy),
   ];
@@ -82,7 +85,8 @@ export const refillLine = (prescription: PrescribedMedicationDTO, request?: Requ
           },
         }
       : {
-          ndc: request?.ndc ?? order.ndc,
+          // A suggested medication is never the original's product.
+          ndc: request ? request.ndc : order.ndc,
           medicationDescription: request?.description ?? order.medicationDescription ?? prescription.name,
           substitutionAllowed: request?.substitutionAllowed ?? order.substitutionAllowed,
         }),
@@ -90,7 +94,8 @@ export const refillLine = (prescription: PrescribedMedicationDTO, request?: Requ
     quantityUnit: isQuantityUnit(unit) ? unit : undefined,
     daysSupply: request?.daysSupply ?? order.daysSupply,
     numberOfRefills:
-      request?.requestedRefills !== undefined ? Math.max(request.requestedRefills - 1, 0) : order.numberOfRefills,
+      request?.numberOfRefills ??
+      (request?.requestedRefills !== undefined ? Math.max(request.requestedRefills - 1, 0) : order.numberOfRefills),
     patientInstructions: request?.sig ?? prescription.instructions,
     noteToPharmacy: request?.noteToPharmacy ?? order.noteToPharmacy,
     diagnosis: order.diagnosisCode
@@ -106,28 +111,99 @@ export const renewalApproval = (
   renewalTaskId: string,
   line: PrescriptionLine
 ): Extract<RenewalResponseInput, { decision: 'approve' }> => {
-  if (line.compound) throw new Error('A compound can’t be sent in answer to a refill request.');
-  const order = prescriptionLineToOrder(line, {
+  const order = answerOrder(line);
+  if (order.numberOfRefills > 98) throw new Error('Refills must be 98 or fewer in answer to a refill request.');
+  return {
+    taskId: renewalTaskId,
+    decision: 'approve',
+    numberOfRefills: order.numberOfRefills + 1,
+    changes: orderChanges(order),
+  };
+};
+
+/** The prescription the order form holds, in answer to a pharmacy's request, which can't be a compound. */
+const answerOrder = (line: PrescriptionLine): OrderPrescriptionInput => {
+  if (line.compound) throw new Error('A compound can’t be sent in answer to a pharmacy’s request.');
+  return prescriptionLineToOrder(line, {
     patientId: '',
     practitionerId: '',
     encounterId: '',
     pharmacy: { ncpdpId: '', npi: '', name: '', phone: '', address: '' },
     writtenDate: '',
   });
-  if (order.numberOfRefills > 98) throw new Error('Refills must be 98 or fewer in answer to a refill request.');
+};
+
+/** The whole prescription as the changes: the eRx service sends only what differs from what was asked. */
+const orderChanges = (
+  order: OrderPrescriptionInput
+): NonNullable<Extract<RenewalResponseInput, { decision: 'approve' }>['changes']> => ({
+  medicationDescription: order.medicationDescription,
+  ndc: order.ndc,
+  quantityValue: order.quantityValue,
+  quantityUnit: order.quantityUnit,
+  daysSupply: order.daysSupply,
+  substitutionAllowed: order.substitutionAllowed,
+  patientInstructions: order.patientInstructions,
+  noteToPharmacy: order.noteToPharmacy,
+});
+
+/** "Change and approve" of a change request: the prescription the order form holds, over the selected suggestion
+ * (none when the pharmacy sent none). The eRx service picks Approved or ApprovedWithChanges. */
+export const changeApproval = (
+  changeTaskId: string,
+  suggestion: number | undefined,
+  line: PrescriptionLine
+): Extract<ChangeResponseInput, { decision: 'approve' }> => {
+  const order = answerOrder(line);
   return {
-    taskId: renewalTaskId,
+    taskId: changeTaskId,
     decision: 'approve',
-    numberOfRefills: order.numberOfRefills + 1,
-    changes: {
-      medicationDescription: order.medicationDescription,
-      ndc: order.ndc,
-      quantityValue: order.quantityValue,
-      quantityUnit: order.quantityUnit,
-      daysSupply: order.daysSupply,
-      substitutionAllowed: order.substitutionAllowed,
-      patientInstructions: order.patientInstructions,
-      noteToPharmacy: order.noteToPharmacy,
-    },
+    requestedMedicationIndex: suggestion,
+    changes: { ...orderChanges(order), numberOfRefills: order.numberOfRefills },
   };
 };
+
+/** A change request's answer given in the dialog: the selected suggestion approved as the pharmacy sent it, a prior
+ * authorization request approved with its number, or a denial or pending answer with its reason. */
+export const changeResponse = (
+  changeTaskId: string,
+  decision: 'approve' | 'deny' | 'pending',
+  { suggestion, priorAuthorization, reason, note }: ChangeAnswerDetails
+): ChangeResponseInput => {
+  if (decision === 'approve') {
+    return {
+      taskId: changeTaskId,
+      decision,
+      note,
+      ...(priorAuthorization
+        ? { priorAuthorization: { number: priorAuthorization, status: 'approved' } }
+        : { requestedMedicationIndex: suggestion }),
+    };
+  }
+  return {
+    taskId: changeTaskId,
+    decision,
+    reason,
+    [decision === 'deny' ? 'denialReason' : 'note']: note,
+  } as ChangeResponseInput;
+};
+
+interface ChangeAnswerDetails {
+  suggestion?: number;
+  /** A prior authorization request's number */
+  priorAuthorization?: string;
+  reason?: string;
+  note?: string;
+}
+
+/** A suggestion's line under its name, only what the pharmacy sent: "30 capsules · Take 1 … · 30 days · 2 refills". */
+export const suggestionText = (suggestion: RequestedMedication): string =>
+  [
+    quantityText(suggestion.quantityValue, suggestion.quantityUnit),
+    suggestion.sig,
+    suggestion.daysSupply !== undefined && `${suggestion.daysSupply} days`,
+    suggestion.numberOfRefills !== undefined &&
+      `${suggestion.numberOfRefills} ${suggestion.numberOfRefills === 1 ? 'refill' : 'refills'}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
