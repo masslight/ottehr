@@ -145,7 +145,6 @@ describe('WorkQueues', () => {
 
     const row = (await screen.findByText('Medicaid Claims')).closest('tr') as HTMLElement;
     const links = row.querySelectorAll('a');
-    // Every cell but the delete button's.
     expect(links).toHaveLength(4);
     links.forEach((link) => expect(link).toHaveAttribute('href', '/work-queues/q-1'));
     // One tab stop per row: the queue name's link.

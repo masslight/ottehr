@@ -7,17 +7,14 @@ import { useApiClients } from '../../hooks/useAppClients';
 import { ConfirmDialog } from '../ConfirmDialog';
 
 interface DeleteWorkQueueDialogProps {
-  // The queue to delete; the dialog is open while it's set.
   queue: Pick<WorkQueue, 'id' | 'name'> | null;
   onClose: () => void;
   onDeleted: () => void;
 }
 
-// Asks before deleting a work queue. Deleting the queue leaves its claims untouched.
 export function DeleteWorkQueueDialog({ queue, onClose, onDeleted }: DeleteWorkQueueDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [deleting, setDeleting] = useState(false);
-  // Keeps the name on screen while the dialog fades out after `queue` is cleared.
   const [shown, setShown] = useState(queue);
   if (queue && queue !== shown) setShown(queue);
 
