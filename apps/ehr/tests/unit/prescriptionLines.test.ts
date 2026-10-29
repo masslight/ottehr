@@ -1,6 +1,11 @@
+import { CompoundInput } from 'utils/lib/types/api/order-prescription.types';
 import { describe, expect, it } from 'vitest';
 import {
   applyPrescriptionQuickPick,
+  compoundCalculatorProduct,
+  compoundIngredientText,
+  compoundLineOf,
+  compoundToOrder,
   emptyPrescriptionLine,
   ingredientText,
   maximumWarnings,
@@ -11,8 +16,11 @@ import {
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   withCalculatorDosing,
+  withCompound,
+  withCompoundDose,
   withDirections,
   withDrug,
+  withoutCompound,
   withProduct,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -826,5 +834,134 @@ describe('maximumWarnings', () => {
     const typed = withCalculatorDosing(line, { dose: '10' }, 28.12);
     expect(typed.dosing).toBeUndefined();
     expect(typed.maximum).toEqual(line.maximum);
+  });
+});
+
+describe('compound helpers', () => {
+  // Test codes are made up.
+  const CREAM: CompoundInput = {
+    description: 'Ketoprofen cream',
+    ingredients: [
+      { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
+      { description: 'Omeprazole', typedNotControlled: true, strength: { value: 2.5, unit: 'mg/mL' } },
+      { description: 'Gabapentin Powder', ndc: '00000000002', amount: { value: 1, unit: 'Gram' } },
+      { description: 'Cream base', typedNotControlled: true, base: true },
+    ],
+  };
+
+  it('turns a saved or sent compound into the line’s rows and back unchanged', () => {
+    expect(compoundToOrder(compoundLineOf(CREAM))).toEqual(CREAM);
+  });
+
+  it('reads each ingredient with its strength, amount or base', () => {
+    expect(CREAM.ingredients.map(compoundIngredientText)).toEqual([
+      'Ketoprofen Powder 10%',
+      'Omeprazole 2.5 mg/mL',
+      'Gabapentin Powder 1 gram',
+      'Cream base base',
+    ]);
+    expect(compoundIngredientText({ description: 'Lidocaine' })).toBe('Lidocaine');
+  });
+
+  it('doses a compound as a liquid of its one mg/mL ingredient, and none with no or several', () => {
+    const line = compoundLineOf(CREAM);
+    expect(compoundCalculatorProduct(line)).toEqual({
+      ndc: '',
+      description: 'Ketoprofen cream',
+      doseForm: 'Oral Solution',
+      ingredients: [{ name: 'Omeprazole', amount: 2.5, unit: 'MG', per: 1, perUnit: 'ML' }],
+    });
+    expect(mgPerMeasure(compoundCalculatorProduct(line))).toBe(2.5);
+    const [first, mgPerMl] = line.ingredients;
+    expect(compoundCalculatorProduct({ ...line, ingredients: [first] })).toBeUndefined();
+    expect(compoundCalculatorProduct({ ...line, ingredients: [mgPerMl, { ...mgPerMl, key: -1 }] })).toBeUndefined();
+  });
+
+  it('puts the calculator’s sentence first in the directions, replacing its last one and keeping the rest', () => {
+    const line = { ...withCompound(emptyPrescriptionLine(), {}), compound: compoundLineOf(CREAM) };
+    const dosed = (sentence: string): PrescriptionLine => ({
+      ...line,
+      generated: { ...line.generated, patientInstructions: sentence },
+    });
+    const once = withCompoundDose({ ...line, patientInstructions: 'Shake well.' }, dosed('Take 5 mL twice daily.'));
+    expect(once.patientInstructions).toBe('Take 5 mL twice daily. Shake well.');
+    const twice = withCompoundDose(once, dosed('Take 4 mL twice daily.'));
+    expect(twice.patientInstructions).toBe('Take 4 mL twice daily. Shake well.');
+    expect(twice.compound).toBe(line.compound);
+  });
+
+  it('goes back to an empty prescription keeping the refills, note, diagnosis and urgent flag', () => {
+    const line = {
+      ...withCompound(emptyPrescriptionLine(), {}),
+      numberOfRefills: '3',
+      noteToPharmacy: 'Call',
+      urgent: true,
+      diagnosis: { code: 'M25.50', display: 'Pain in unspecified joint' },
+      patientInstructions: 'Apply.',
+    };
+    const back = withoutCompound(line);
+    expect(back.compound).toBeUndefined();
+    expect(back).toMatchObject({ key: line.key, numberOfRefills: '3', noteToPharmacy: 'Call', urgent: true });
+    expect(back.diagnosis).toEqual(line.diagnosis);
+    expect(back.patientInstructions).toBe('');
+  });
+});
+
+// Review #2: a line never holds both a product and a compound; the compound would be what's sent.
+describe('a product and a compound on one line', () => {
+  const COMPOUND_PICK = {
+    id: 'qp-cream',
+    name: 'Pain cream',
+    compound: {
+      description: 'Ketoprofen cream',
+      ingredients: [
+        { description: 'Ketoprofen Powder', ndc: '00000000001', strength: { value: 10, unit: '%' as const } },
+      ],
+    },
+    quantityValue: 60,
+    quantityUnit: 'Gram' as const,
+    patientInstructions: 'Apply twice daily.',
+  };
+
+  it('a compound quick pick applied while a drug waits for its strength clears the drug', () => {
+    const applied = applyPrescriptionQuickPick(withDrug(emptyPrescriptionLine(), AMOXICILLIN), COMPOUND_PICK);
+    expect(applied.drug).toBeNull();
+    expect(applied.medication).toBeNull();
+    expect(applied.compound?.name).toBe('Ketoprofen cream');
+  });
+
+  it('a product picked on a compound line ends the compound', () => {
+    const compoundLine = applyPrescriptionQuickPick(emptyPrescriptionLine(), COMPOUND_PICK);
+    const withStrength = withProduct(compoundLine, AMOXICILLIN, AMOXICILLIN.strengths[0]);
+    expect(withStrength.compound).toBeUndefined();
+    expect(withDrug(compoundLine, AMOXICILLIN).compound).toBeUndefined();
+    const order = prescriptionLineToOrder(
+      { ...withStrength, numberOfRefills: '0' },
+      {
+        patientId: 'patient-1',
+        practitionerId: 'practitioner-1',
+        encounterId: 'encounter-1',
+        pharmacy: PHARMACY,
+        writtenDate: '2026-10-28',
+      }
+    );
+    expect(order).toMatchObject({ ndc: '00093310701' });
+    expect(order).not.toHaveProperty('compound');
+  });
+});
+
+// Review #5: an empty or zero mg/mL concentration is nothing to dose by.
+describe('the compound calculator’s concentration', () => {
+  const withMgPerMl = (value: string): ReturnType<typeof compoundLineOf> => {
+    const line = compoundLineOf({
+      description: 'Omeprazole suspension',
+      ingredients: [{ description: 'Omeprazole', typedNotControlled: true, strength: { value: 2, unit: 'mg/mL' } }],
+    });
+    return { ...line, ingredients: [{ ...line.ingredients[0], value }] };
+  };
+
+  it('is offered only for a positive number', () => {
+    for (const value of ['', '0', '-1', 'abc']) expect(compoundCalculatorProduct(withMgPerMl(value))).toBeUndefined();
+    expect(compoundCalculatorProduct(withMgPerMl('2'))?.ingredients?.[0].amount).toBe(2);
   });
 });

@@ -208,8 +208,8 @@ describe('Prescription sets on the order form', () => {
       expect(screen.queryByText('Bronchitis')).not.toBeInTheDocument();
       expect(screen.queryByText('Type to search more')).not.toBeInTheDocument();
       expect(screen.getByText('Medications')).toBeInTheDocument();
-      expect(menuItems(medicationColumn())).toEqual([]);
-      expect(screen.getByText('Type to search medications')).toBeInTheDocument();
+      expect(menuItems(medicationColumn())).toEqual(['+ compound']);
+      expect(within(medicationColumn()).getByText(/^Type to search medications or/)).toBeInTheDocument();
       // The medications come first, on the left (and on top when the columns stack).
       expect(
         medicationColumn().compareDocumentPosition(quickPickColumn()) & Node.DOCUMENT_POSITION_FOLLOWING
@@ -245,7 +245,7 @@ describe('Prescription sets on the order form', () => {
       // "amox" matches the amoxicillin quick picks by name and both sets by one of theirs; not the ibuprofen.
       await user.type(field(), 'amox');
       expect(menuItems(quickPickColumn())).toEqual([...SETS_ROWS, ...AMOX_ROWS]);
-      expect(menuItems(await searchedColumn())).toEqual(['Amoxicillin']);
+      expect(menuItems(await searchedColumn())).toEqual(['Amoxicillin', '+ compound starting with Amoxicillin']);
       expect(screen.getByText('Amoxicillin')).not.toHaveStyle({ fontStyle: 'italic' });
       // By product, in any case: both sets hold the ibuprofen.
       await user.clear(field());
@@ -266,13 +266,13 @@ describe('Prescription sets on the order form', () => {
       await user.type(field(), 'zz');
       expect(menuItems(quickPickColumn())).toEqual([]);
       expect(screen.getByText('No quick picks match')).toBeInTheDocument();
-      expect(menuItems(await searchedColumn())).toEqual(['Amoxicillin']);
+      expect(menuItems(await searchedColumn())).toEqual(['Amoxicillin', '+ compound starting with Amoxicillin']);
       // One letter is too few for the medication search.
       await user.clear(field());
       await user.type(field(), 'w');
       expect(menuItems(quickPickColumn())).toEqual(['Amox as written']);
-      expect(menuItems(medicationColumn())).toEqual([]);
-      expect(screen.getByText('Type to search medications')).toBeInTheDocument();
+      expect(menuItems(medicationColumn())).toEqual(['+ compound']);
+      expect(within(medicationColumn()).getByText(/^Type to search medications or/)).toBeInTheDocument();
     });
 
     it('says "Searching medications…" from the first keystroke, through the debounce’s wait, until the search returns', async () => {
@@ -283,14 +283,14 @@ describe('Prescription sets on the order form', () => {
       // The search for "am" hasn't been sent yet: not the last search's answer, and not "nothing found".
       expect(screen.getByText('Searching medications…')).toBeInTheDocument();
       expect(menuItems(medicationColumn())).toEqual([]);
-      expect(screen.queryByText('Nothing found for this search criteria')).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Nothing found for this search criteria/)).not.toBeInTheDocument();
       expect(await within(medicationColumn()).findByRole('option', { name: 'Amoxicillin' })).toBeInTheDocument();
       expect(screen.queryByText('Searching medications…')).not.toBeInTheDocument();
       // A keystroke more searches again: the answer for "am" isn't shown as the one for "amo".
       await user.type(field(), 'o');
       expect(screen.getByText('Searching medications…')).toBeInTheDocument();
       expect(menuItems(medicationColumn())).toEqual([]);
-      expect(menuItems(await searchedColumn())).toEqual(['Amoxicillin']);
+      expect(menuItems(await searchedColumn())).toEqual(['Amoxicillin', '+ compound starting with Amoxicillin']);
     });
 
     it('says "Searching medications…" while the request runs, the quick picks already matching', async () => {
@@ -322,7 +322,7 @@ describe('Prescription sets on the order form', () => {
           await within(medicationColumn().parentElement!).findByText('Medication search is unavailable.')
         ).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Report an issue' })).toBeInTheDocument();
-        expect(screen.queryByText('Nothing found for this search criteria')).not.toBeInTheDocument();
+        expect(screen.queryByText(/^Nothing found for this search criteria/)).not.toBeInTheDocument();
       } finally {
         medicationSearch.failed = false;
       }
@@ -335,8 +335,9 @@ describe('Prescription sets on the order form', () => {
         render(<Form initial={[emptyPrescriptionLine()]} />);
         await openMenu(user);
         await user.type(field(), 'amox');
-        expect(screen.queryByText('Nothing found for this search criteria')).not.toBeInTheDocument();
-        expect(await screen.findByText('Nothing found for this search criteria')).toBeInTheDocument();
+        expect(screen.queryByText(/^Nothing found for this search criteria/)).not.toBeInTheDocument();
+        expect(await screen.findByText(/^Nothing found for this search criteria ·/)).toBeInTheDocument();
+        expect(menuItems(medicationColumn())).toEqual(['+ compound']);
       } finally {
         medicationSearch.empty = false;
       }
@@ -362,7 +363,7 @@ describe('Prescription sets on the order form', () => {
         await user.type(field(), 'am');
         expect(screen.getByText('Searching medications…')).toBeInTheDocument();
         expect(sizes()).toEqual(before);
-        expect(await screen.findByText('Nothing found for this search criteria')).toBeInTheDocument();
+        expect(await screen.findByText(/^Nothing found for this search criteria/)).toBeInTheDocument();
         expect(sizes()).toEqual(before);
         await user.type(field(), 'zz');
         expect(screen.getByText('No quick picks match')).toBeInTheDocument();
@@ -415,15 +416,19 @@ describe('Prescription sets on the order form', () => {
       await user.keyboard('{ArrowDown}');
       expect(highlighted()).toBe('Amoxicillin');
       expect(screen.getByRole('option', { selected: true })).toHaveTextContent('Amoxicillin');
-      // Down in a one-row column stays on it.
+      // "+ compound" is the column's last row; Down from it goes round to the top.
+      await user.keyboard('{ArrowDown}');
+      expect(highlighted()).toBe('+ compound starting with Amoxicillin');
       await user.keyboard('{ArrowDown}');
       expect(highlighted()).toBe('Amoxicillin');
       await user.keyboard('{ArrowRight}');
       expect(highlighted()).toBe(SETS_ROWS[0]);
       await user.keyboard('{ArrowDown}');
       expect(highlighted()).toBe(SETS_ROWS[1]);
-      // Back to the medications: the nearest row there, the only one.
+      // Back to the medications: the nearest row there, the last one.
       await user.keyboard('{ArrowLeft}');
+      expect(highlighted()).toBe('+ compound starting with Amoxicillin');
+      await user.keyboard('{ArrowUp}');
       expect(highlighted()).toBe('Amoxicillin');
       await user.keyboard('{ArrowRight}');
       expect(highlighted()).toBe(SETS_ROWS[0]);
@@ -443,6 +448,9 @@ describe('Prescription sets on the order form', () => {
       await user.click(field());
       await user.keyboard('{ArrowDown}');
       expect(highlighted()).toBe(SETS_ROWS[0]);
+      // "+ compound" is a Left away.
+      await user.keyboard('{ArrowLeft}');
+      expect(highlighted()).toBe('+ compound');
       // Typing clears the highlight.
       await user.type(field(), 'amox');
       expect(highlighted()).toBeUndefined();

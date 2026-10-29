@@ -285,3 +285,65 @@ describe.each([
     expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
   });
 });
+
+// A compound quick pick: no NDC, medication description, substitution or dosing.
+const COMPOUND_PICK: Omit<PrescriptionQuickPickData, 'id'> = {
+  name: 'Pain cream',
+  compound: {
+    description: 'Ketoprofen / gabapentin / lidocaine cream',
+    ingredients: [
+      { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
+      { description: 'Gabapentin Powder', ndc: '00000000002', amount: { value: 6, unit: 'Gram' } },
+      { description: 'Compounding cream', typedNotControlled: true, base: true },
+    ],
+  },
+  quantityValue: 60,
+  quantityUnit: 'Gram',
+  daysSupply: 30,
+  numberOfRefills: 1,
+  patientInstructions: 'Apply to the affected area three times daily.',
+};
+
+describe.each([
+  ['admin-create-quick-pick', validateCreate],
+  ['admin-update-quick-pick', validateUpdate],
+])('%s - prescription compound', (_endpoint, validate) => {
+  test('accepts a compound without an NDC', async () => {
+    await expect(validate(COMPOUND_PICK)).resolves.toBeUndefined();
+  });
+
+  const [ketoprofen, gabapentin, base] = COMPOUND_PICK.compound!.ingredients;
+  test.each([
+    ['an NDC as well', { ndc: '00093416173' }],
+    // Review #7: a compound has no calculator settings or substitution.
+    ['dosing', { dosing: AMOX_STREP.dosing }],
+    ['a substitution choice', { substitutionAllowed: true }],
+    ['no compound name', { compound: { ...COMPOUND_PICK.compound!, description: '' } }],
+    ['no ingredients', { compound: { ...COMPOUND_PICK.compound!, ingredients: [] } }],
+    [
+      'an ingredient without a measure',
+      { compound: { description: 'x', ingredients: [{ ...ketoprofen, strength: undefined }] } },
+    ],
+    [
+      'an ingredient with two measures',
+      { compound: { description: 'x', ingredients: [{ ...gabapentin, base: true }] } },
+    ],
+    [
+      'a typed ingredient not confirmed',
+      { compound: { description: 'x', ingredients: [{ description: 'Cream', base: true }] } },
+    ],
+    ['two bases', { compound: { description: 'x', ingredients: [ketoprofen, base, base] } }],
+  ])('rejects a compound quick pick with %s', async (_label, change) => {
+    const error = await rejection(validate({ ...COMPOUND_PICK, ...change }));
+    expect(error, 'expected the request to be rejected').toBeDefined();
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+  });
+
+  test('saves and loads a compound back unchanged', () => {
+    const ad = quickPickToActivityDefinition(COMPOUND_PICK, PRESCRIPTION_QUICK_PICK_CATEGORY);
+    expect(activityDefinitionToQuickPick({ ...ad, id: 'qp-9' }, PRESCRIPTION_QUICK_PICK_CATEGORY)).toEqual({
+      id: 'qp-9',
+      ...COMPOUND_PICK,
+    });
+  });
+});

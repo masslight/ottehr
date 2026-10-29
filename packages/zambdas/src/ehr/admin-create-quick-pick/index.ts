@@ -7,7 +7,7 @@ import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedur
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import { Secrets } from 'utils/lib/secrets';
-import { QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
+import { COMPOUND_STRENGTH_UNITS, QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
 import {
   PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX,
   PRESCRIPTION_SET_STATUSES,
@@ -133,6 +133,32 @@ const prescriptionIngredientSchema = z.object({
   perUnit: z.string().trim().min(1).max(20),
 });
 
+// One compound ingredient, as the order form sends it: a product or a typed name, with an amount, a strength or base.
+const compoundIngredientSchema = z
+  .object({
+    description: z.string().trim().min(1).max(105),
+    ndc: z
+      .string()
+      .regex(/^\d{11}$/, 'must be an 11-digit NDC')
+      .optional(),
+    rxcui: z.string().regex(/^\d+$/, 'must be digits').optional(),
+    typedNotControlled: z.literal(true).optional(),
+    amount: z.object({ value: z.number().positive(), unit: z.enum(QUANTITY_UNITS) }).optional(),
+    strength: z.object({ value: z.number().positive(), unit: z.enum(COMPOUND_STRENGTH_UNITS) }).optional(),
+    base: z.literal(true).optional(),
+  })
+  .refine((i) => [i.amount, i.strength, i.base].filter(Boolean).length === 1, 'needs one of amount, strength or base')
+  .refine((i) => i.ndc || i.typedNotControlled, 'needs an NDC or typedNotControlled');
+
+const compoundSchema = z.object({
+  description: z.string().trim().min(1).max(105),
+  ingredients: z
+    .array(compoundIngredientSchema)
+    .min(1)
+    .max(20)
+    .refine((list) => list.filter((i) => i.base).length <= 1, 'only one ingredient can be the base'),
+});
+
 // Same limits as the eRx order form, so a saved pick always fits the order endpoint.
 const prescriptionQuickPickSchema = z
   .object({
@@ -156,8 +182,23 @@ const prescriptionQuickPickSchema = z
     dosing: prescriptionDosingSchema.optional(),
     additionalInstructions: z.string().max(PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX).optional(),
     source: prescriptionSourceSchema.optional(),
+    compound: compoundSchema.optional(),
   })
-  .passthrough();
+  .passthrough()
+  // A quick pick orders either a product or a compound.
+  .superRefine((pick, ctx) => {
+    if (pick.compound) {
+      // A product's fields: its NDC and description, its calculator settings and substitution.
+      for (const field of ['ndc', 'medicationDescription', 'dosing', 'substitutionAllowed'] as const) {
+        if (pick[field] !== undefined)
+          ctx.addIssue({ code: 'custom', path: [field], message: 'is not for a compound quick pick' });
+      }
+      return;
+    }
+    for (const field of ['ndc', 'medicationDescription'] as const) {
+      if (!pick[field]) ctx.addIssue({ code: 'custom', path: [field], message: 'is required' });
+    }
+  });
 
 // A set is its prescription quick picks in order; their dosing stays on them.
 export const prescriptionSetQuickPickSchema = z
@@ -223,8 +264,8 @@ const CATEGORIES: CategoryConfig[] = [
   { category: PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY, requiredStringFields: ['name', 'text'] },
   {
     category: PRESCRIPTION_QUICK_PICK_CATEGORY,
-    // Every prescription quick pick orders a product, as written or dosed by the calculator.
-    requiredStringFields: ['name', 'ndc', 'medicationDescription'],
+    // A product's NDC and description, or a compound, are checked by the schema.
+    requiredStringFields: ['name'],
     validator: async (oystehr, quickPick, quickPickId) => {
       safeValidate(prescriptionQuickPickSchema, quickPick);
       await assertNameUnused(oystehr, PRESCRIPTION_QUICK_PICK_CATEGORY, quickPick, quickPickId, 'A quick pick');

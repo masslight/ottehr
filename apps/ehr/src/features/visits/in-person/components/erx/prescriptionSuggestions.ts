@@ -299,7 +299,7 @@ const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | u
     ),
     []
   );
-  return `Also adds: ${medicationDescription ?? quickPick.name}. ${
+  return `Also adds: ${medicationDescription ?? quickPick.compound?.description ?? quickPick.name}. ${
     /[.!?]$/.test(sentence) ? sentence : `${sentence}.`
   }`;
 };
@@ -369,8 +369,9 @@ export const withPrescriptionSet = (
   return { lines: [line, ...members.map(added)], missing };
 };
 
-/** No medication picked yet. */
-export const isEmptyPrescriptionLine = (line: PrescriptionLine): boolean => !line.drug && !line.medication;
+/** No medication or compound picked yet. */
+export const isEmptyPrescriptionLine = (line: PrescriptionLine): boolean =>
+  !line.drug && !line.medication && !line.compound;
 
 /** A quick pick chosen from the medication menu: one saved from the calculator is re-dosed for this patient's
  * weight exactly as its suggestion row is (no weight: the dose waits, the settings stay); one without, as saved. */

@@ -10,7 +10,15 @@ import {
   PrescriptionQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
 import { z } from 'zod';
-import { nameTaken, numberOrUndefined, productDetailsOf } from '../../../in-person/components/erx/prescriptionLines';
+import {
+  compoundErrors,
+  CompoundLine,
+  compoundLineOf,
+  compoundToOrder,
+  nameTaken,
+  numberOrUndefined,
+  productDetailsOf,
+} from '../../../in-person/components/erx/prescriptionLines';
 
 /** How the quick pick doses: its directions as written, or the dose calculator's settings, re-dosed per patient. */
 export type PrescriptionDoseMode = 'as-written' | 'dosing';
@@ -23,6 +31,8 @@ export interface PrescriptionQuickPickFormValues {
   /** The picked product's RxCUI, dose form and ingredients, saved with it; none on a quick pick saved before them
    * until its product is picked again. */
   productDetails: MedicationProductDetails;
+  /** A compound in place of the product, as the order form's compound rows hold it; dosed as written only. */
+  compound: CompoundLine | null;
   doseMode: PrescriptionDoseMode;
   patientInstructions: string;
   quantityValue: string;
@@ -60,6 +70,7 @@ export const emptyPrescriptionQuickPickForm = (): PrescriptionQuickPickFormValue
   ndc: '',
   medicationDescription: '',
   productDetails: {},
+  compound: null,
   doseMode: 'as-written',
   patientInstructions: '',
   quantityValue: '',
@@ -90,6 +101,7 @@ export const prescriptionQuickPickFormValues = (
     ndc: quickPick.ndc ?? '',
     medicationDescription: quickPick.medicationDescription ?? '',
     productDetails: productDetailsOf(quickPick),
+    compound: quickPick.compound ? compoundLineOf(quickPick.compound) : null,
     doseMode: dosing ? 'dosing' : 'as-written',
     patientInstructions: quickPick.patientInstructions ?? '',
     quantityValue: text(quickPick.quantityValue),
@@ -139,6 +151,7 @@ const FormSchema = z
     name: z.string().trim().min(1, 'Name is required'),
     medicationDescription: z.string().max(105, 'Medication name must be up to 105 characters'),
     ndc: z.string().refine((value) => blank(value) || /^\d{11}$/.test(value), 'Medication must have an 11-digit NDC'),
+    compound: z.custom<CompoundLine | null>(),
     doseMode: z.enum(['as-written', 'dosing']),
     patientInstructions: z.string().trim().max(1000, 'Directions must be up to 1000 characters'),
     quantityValue: positive('Quantity'),
@@ -174,8 +187,11 @@ const FormSchema = z
     const issue = (path: keyof PrescriptionQuickPickFormValues, message: string): void =>
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
     if (!blank(values.sourceUrl) && blank(values.sourceLabel)) issue('sourceLabel', 'Source is required with a link');
-    // Every quick pick orders a product, either way of dosing; one saved before this gets one when next edited.
-    if (blank(values.ndc)) issue('ndc', 'Pick a medication and strength');
+    // Every quick pick orders a product, either way of dosing (one saved before this gets one when next edited), or a
+    // compound that could be sent, as the order form checks it.
+    const compoundError = values.compound && compoundErrors(values.compound)[0];
+    if (compoundError) issue('compound', compoundError);
+    if (!values.compound && blank(values.ndc)) issue('ndc', 'Pick a medication and strength');
     if (values.doseMode !== 'dosing') return;
     if (blank(values.rate) || !(Number(values.rate) > 0)) issue('rate', 'Dose must be greater than 0');
     // Only a scheduled frequency gives the doses a day ("as needed" doesn't), as the backend checks.
@@ -232,9 +248,13 @@ export const prescriptionQuickPickFromForm = (
   return {
     quickPick: {
       name: v.name.trim(),
-      ndc: v.ndc,
-      medicationDescription: v.medicationDescription.trim(),
-      ...productDetailsOf(v.productDetails),
+      ...(v.compound
+        ? { compound: compoundToOrder(v.compound) }
+        : {
+            ndc: v.ndc,
+            medicationDescription: v.medicationDescription.trim(),
+            ...productDetailsOf(v.productDetails),
+          }),
       ...(v.doseMode === 'dosing'
         ? {
             dosing: {
@@ -254,7 +274,8 @@ export const prescriptionQuickPickFromForm = (
             ...(daysSupply !== undefined ? { daysSupply } : {}),
           }),
       numberOfRefills: Number(v.numberOfRefills),
-      substitutionAllowed: v.substitutionAllowed,
+      // A compound has no substitution.
+      ...(v.compound ? {} : { substitutionAllowed: v.substitutionAllowed }),
       ...(v.noteToPharmacy.trim() ? { noteToPharmacy: v.noteToPharmacy.trim() } : {}),
       ...(v.diagnosis ? { diagnosis: { code: v.diagnosis.code, display: v.diagnosis.display } } : {}),
       ...(v.sourceLabel.trim()

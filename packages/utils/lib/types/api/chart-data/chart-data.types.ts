@@ -19,6 +19,7 @@ import z from 'zod';
 import type { StructuredFacts } from '../../../procedure-coding/structured-fields';
 import { ObservationDTO } from '../../data/screening-questions/types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
+import type { CompoundIngredientInput } from '../order-prescription.types';
 import { RadiologyDTO } from '../radiology';
 import {
   AiObservationField,
@@ -186,6 +187,28 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   sent?: string;
   /** The eRx service's events for the prescription, oldest first */
   events?: ErxEventDTO[];
+  /** The order as the eRx service stored it, for sending it again to another pharmacy */
+  order?: PrescribedMedicationOrderDTO;
+}
+
+/** A prescription's structured order fields, read from its MedicationRequest; each is absent when not stored. */
+export interface PrescribedMedicationOrderDTO {
+  patientId?: string;
+  ndc?: string;
+  /** The NDC coding's display */
+  medicationDescription?: string;
+  quantityValue?: number;
+  /** As stored; not checked against the order endpoint's units */
+  quantityUnit?: string;
+  daysSupply?: number;
+  numberOfRefills?: number;
+  substitutionAllowed?: boolean;
+  noteToPharmacy?: string;
+  diagnosisCode?: string;
+  diagnosisDescription?: string;
+  /** A compound's name and ingredients, read from the prescription's contained Medication. An ingredient's amount,
+   * strength or base is absent when it couldn't be read; `typedNotControlled` is never stored. */
+  compound?: { description?: string; ingredients: CompoundIngredientInput[] };
 }
 
 export interface ErxEventDTO {
@@ -193,6 +216,8 @@ export interface ErxEventDTO {
   text?: string;
   recorded?: string;
   agent?: string;
+  /** The practitioner who did it, when the event names one by reference */
+  agentPractitionerId?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {

@@ -1,7 +1,7 @@
 import type { DoseBasis } from '../../helpers/medications/plain-dose';
 import type { StructuredFacts } from '../../procedure-coding/structured-fields';
 import type { MedicationProductDetails } from './erx-search.types';
-import type { QuantityUnit } from './order-prescription.types';
+import type { CompoundInput, QuantityUnit } from './order-prescription.types';
 // ── Generic CRUD types for all quick pick categories ──
 
 export interface QuickPickCreateInput<T> {
@@ -199,6 +199,8 @@ export interface PrescriptionQuickPickData extends MedicationProductDetails {
    * `PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX` characters so the whole sig fits the order's 1000. */
   additionalInstructions?: string;
   source?: PrescriptionQuickPickSource;
+  /** A compound in place of a product: no NDC, medication description, substitution or dosing. */
+  compound?: CompoundInput;
 }
 
 export type CreatePrescriptionQuickPickInput = QuickPickCreateInput<PrescriptionQuickPickData>;

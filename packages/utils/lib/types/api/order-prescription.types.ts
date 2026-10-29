@@ -40,17 +40,41 @@ export const QUANTITY_UNITS = [
 
 export type QuantityUnit = (typeof QUANTITY_UNITS)[number];
 
-export interface OrderPrescriptionInput {
+// The strengths a compound ingredient can have in the finished product
+export const COMPOUND_STRENGTH_UNITS = ['%', 'mg/mL', 'mg/g', 'mg each'] as const;
+
+export type CompoundStrengthUnit = (typeof COMPOUND_STRENGTH_UNITS)[number];
+
+/** One ingredient of a compound: a product picked from the medication search (with its NDC), or one typed in.
+ * Exactly one of amount, strength and base. */
+export interface CompoundIngredientInput {
+  description: string;
+  ndc?: string;
+  rxcui?: string;
+  /** Set on a typed-in ingredient (no NDC): the prescriber confirmed it is not a controlled substance. */
+  typedNotControlled?: true;
+  /** How much of it goes in: 6 Gram. */
+  amount?: { value: number; unit: QuantityUnit };
+  /** Its strength in the finished product: 10 %, 2 mg/mL, 75 mg each. */
+  strength?: { value: number; unit: CompoundStrengthUnit };
+  /** The base that fills the compound up to the dispensed quantity; at most one per compound. */
+  base?: true;
+}
+
+/** A compound the pharmacy mixes: its name (up to 105 characters) and its ingredients. */
+export interface CompoundInput {
+  description: string;
+  ingredients: CompoundIngredientInput[];
+}
+
+interface OrderPrescriptionCommonInput {
   patientId: string;
   practitionerId: string;
   encounterId: string;
-  ndc: string;
-  medicationDescription: string;
   quantityValue: number;
   quantityUnit: QuantityUnit;
   daysSupply?: number;
   writtenDate: string;
-  substitutionAllowed: boolean;
   numberOfRefills: number;
   patientInstructions: string;
   noteToPharmacy?: string;
@@ -61,6 +85,21 @@ export interface OrderPrescriptionInput {
   diagnosisCode?: string;
   diagnosisDescription?: string;
 }
+
+/** A prescription for one product. */
+export interface OrderProductPrescriptionInput extends OrderPrescriptionCommonInput {
+  ndc: string;
+  medicationDescription: string;
+  substitutionAllowed: boolean;
+  compound?: never;
+}
+
+/** A prescription for a compound: the quantity is the finished compound's, and there is no substitution. */
+export interface OrderCompoundPrescriptionInput extends OrderPrescriptionCommonInput {
+  compound: CompoundInput;
+}
+
+export type OrderPrescriptionInput = OrderProductPrescriptionInput | OrderCompoundPrescriptionInput;
 
 export interface OrderPrescriptionOutput {
   medicationRequestId: string;

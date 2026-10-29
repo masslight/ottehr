@@ -5,6 +5,8 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
+  FormControlLabel,
   FormHelperText,
   IconButton,
   Link,
@@ -13,7 +15,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { FC, KeyboardEvent, ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { FC, KeyboardEvent, MouseEvent, ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SentencePicks } from 'src/components/SuggestedSentences';
 import { useIcd10SearchInput } from 'src/features/admin/patient-education/useIcd10SearchInput';
@@ -30,25 +32,43 @@ import {
 } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { MedicationSearchDrug } from 'utils/lib/types/api/erx-search.types';
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
-import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
+import { COMPOUND_STRENGTH_UNITS, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { PrescriptionQuickPickData, PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useSearchMedications } from '../../../shared/hooks/useErxSearch';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
-import { BlankButton, PopoverBlank, SelectBlank, Sentence, TextBlank } from '../procedures/narrative/InlineBlanks';
+import {
+  BlankButton,
+  BlankOption,
+  PopoverBlank,
+  SelectBlank,
+  Sentence,
+  TextBlank,
+} from '../procedures/narrative/InlineBlanks';
 import { DoseCalculator } from './DoseCalculator';
 import { DoseInfoHover, DoseWarningBoxes, SourceText } from './DoseCalculatorCard';
 import { DoseCalculatorAsWritten } from './DoseCalculatorPopup';
 import { ErxSuggestionsBox } from './ErxSuggestionsBox';
 import {
+  COMPOUND_NAME_MAX,
+  compoundCalculatorProduct,
+  CompoundIngredientLine,
+  CompoundIngredientUnit,
+  CompoundLine,
   DoseNote,
+  emptyCompoundIngredient,
   emptyPrescriptionStep,
   maximumOriginText,
   maximumWarnings,
   pickedStrength,
   PrescriptionLine,
+  productOf,
+  unitLabel,
   withCalculatorDosing,
+  withCompound,
+  withCompoundDose,
   withDirections,
   withDrug,
+  withoutCompound,
   withProduct,
 } from './prescriptionLines';
 import {
@@ -58,17 +78,6 @@ import {
   prescriptionSuggestionsFor,
 } from './prescriptionSuggestions';
 import { VisitWeight } from './useVisitWeight';
-
-/** Units that read the same for any amount ("20 each", not "20 eachs"). */
-const UNCOUNTED_UNITS: readonly QuantityUnit[] = ['Each', 'Gum', 'Unspecified'];
-
-/** "Capsule" → "Capsules" unless the quantity is exactly 1. Display only: the order sends the NCPDP term as is. */
-const unitLabel = (unit: QuantityUnit, quantity: string): string =>
-  Number(quantity) === 1 || UNCOUNTED_UNITS.includes(unit)
-    ? unit
-    : /(s|x|ch|sh)$/.test(unit)
-    ? `${unit}es`
-    : `${unit}s`;
 
 const SUBSTITUTION_OPTIONS = [
   { value: 'allowed', label: 'allowed' },
@@ -128,29 +137,49 @@ const ReportSearchIssue: FC = () => {
   );
 };
 
-/** The drug search: also the quick pick admin's product search, at its dialog's width. */
-export const MedicationSearch: FC<{ onPick: (drug: MedicationSearchDrug) => void; width?: number | string }> = ({
-  onPick,
-  width = 360,
-}) => {
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+/** The search's offer to take what was typed as it is, when nothing matches. */
+interface TypedPick {
+  typed: string;
+}
+
+/** The drug search: also the quick pick admin's product search, at its dialog's width. A compound ingredient's
+ * search starts with `initialQuery` and, with `onTyped`, offers the text typed when nothing matches. */
+export const MedicationSearch: FC<{
+  onPick: (drug: MedicationSearchDrug) => void;
+  width?: number | string;
+  initialQuery?: string;
+  onTyped?: (text: string) => void;
+}> = ({ onPick, width = 360, initialQuery = '', onTyped }) => {
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
+  // The autocomplete empties its text on opening (it has no value): the initial query stays until something is typed.
+  const keepInitial = useRef(initialQuery !== '');
   const { debounce } = useDebounce(300);
   const { data: drugs = [], isFetching, isError } = useSearchMedications(debouncedQuery);
+  const typed = query.trim();
+  const offerTyped =
+    onTyped && typed.length >= 2 && !isFetching && !isError && debouncedQuery === query && drugs.length === 0;
   return (
     <Box sx={{ width, pt: 0.5 }}>
-      <Autocomplete<MedicationSearchDrug>
-        options={drugs}
+      <Autocomplete<MedicationSearchDrug | TypedPick>
+        options={offerTyped ? [{ typed }] : drugs}
         loading={isFetching}
         filterOptions={(options) => options}
-        getOptionLabel={(option) => option.name}
+        getOptionLabel={(option) => ('typed' in option ? `use '${option.typed}' as typed ingredient` : option.name)}
         inputValue={query}
-        onInputChange={(_event, value) => {
+        onInputChange={(_event, value, reason) => {
+          if (reason === 'reset' && keepInitial.current) return;
+          keepInitial.current = false;
           setQuery(value);
           debounce(() => setDebouncedQuery(value));
         }}
+        openOnFocus={initialQuery !== ''}
         value={null}
-        onChange={(_event, option) => option && onPick(option)}
+        onChange={(_event, option) => {
+          if (!option) return;
+          if ('typed' in option) onTyped?.(option.typed);
+          else onPick(option);
+        }}
         noOptionsText={
           query.trim().length < 2
             ? 'Type to search medications'
@@ -254,14 +283,19 @@ const DiagnosisSearch: FC<{
 type MedicationMenuPick =
   | { kind: 'set'; set: PrescriptionSetQuickPickData; members: PrescriptionQuickPickData[] }
   | { kind: 'quickPick'; quickPick: PrescriptionQuickPickData }
-  | { kind: 'drug'; drug: MedicationSearchDrug };
+  | { kind: 'drug'; drug: MedicationSearchDrug }
+  // Starts a compound: with the search's first drug when there are results, else with what's typed.
+  | { kind: 'compound'; drug?: MedicationSearchDrug };
+
+/** How a compound's first ingredient starts: a drug picked from the menu, or a search for the text typed. */
+type CompoundStart = { drug?: MedicationSearchDrug; search?: string };
 
 /** How many sets and how many quick picks the menu lists before anything is typed. */
 const MEDICATION_MENU_LIMIT = 10;
 
 /** The menu's quick picks column. Before anything is typed: the first sets and the first quick picks, `more` when there are
  * others. Typed: every set matching by name or by a quick pick's name or product, and every quick pick matching by
- * name or product. */
+ * name or product (a compound's name or an ingredient's). */
 const quickPickColumn = (
   typed: string,
   sets: PrescriptionSetQuickPickData[],
@@ -281,7 +315,12 @@ const quickPickColumn = (
       more: sets.length > MEDICATION_MENU_LIMIT || quickPicks.length > MEDICATION_MENU_LIMIT,
     };
   const matches = (quickPick: PrescriptionQuickPickData): boolean =>
-    [quickPick.name, quickPick.medicationDescription].some((text) => text?.toLowerCase().includes(query));
+    [
+      quickPick.name,
+      quickPick.medicationDescription,
+      quickPick.compound?.description,
+      ...(quickPick.compound?.ingredients.map((ingredient) => ingredient.description) ?? []),
+    ].some((text) => text?.toLowerCase().includes(query));
   return {
     sets: setPicks.filter(({ set, members }) => set.name.toLowerCase().includes(query) || members.some(matches)),
     quickPicks: quickPicks.filter(matches).map(toPick),
@@ -304,16 +343,17 @@ const MenuMessage: FC<{ children: ReactNode }> = ({ children }) => (
   </Typography>
 );
 
-/** The line's medication menu: the medication search's results in the left column, the practice's sets and quick
- * picks in the right, both following what's typed. Focus stays in the field: Up/Down move within a column,
- * Left/Right (once a row is highlighted) between them, Enter picks. */
+/** The line's medication menu: the medication search's results in the left column, then "+ compound"; the
+ * practice's sets and quick picks in the right, both following what's typed. Focus stays in the field: Up/Down move
+ * within a column, Left/Right (once a row is highlighted) between them, Enter picks. */
 const MedicationMenu: FC<{
   quickPicks: PrescriptionQuickPickData[];
   sets: PrescriptionSetQuickPickData[];
   onDrug: (drug: MedicationSearchDrug) => void;
   onQuickPick: (quickPick: PrescriptionQuickPickData) => void;
   onSet: (set: PrescriptionSetQuickPickData) => void;
-}> = ({ quickPicks, sets, onDrug, onQuickPick, onSet }) => {
+  onCompound: (start: CompoundStart) => void;
+}> = ({ quickPicks, sets, onDrug, onQuickPick, onSet, onCompound }) => {
   const id = useId();
   const theme = useTheme();
   const [query, setQuery] = useState('');
@@ -326,9 +366,14 @@ const MedicationMenu: FC<{
   const searching = searched && (isFetching || debouncedQuery !== query);
   const medicationPicks: MedicationMenuPick[] =
     searched && !searching ? (drugs ?? []).map((drug) => ({ kind: 'drug', drug })) : [];
+  // "+ compound" follows the results, or the message when there are none; not while searching or after a failure.
+  const compoundPick: MedicationMenuPick | undefined =
+    !searched || (!searching && !isError)
+      ? { kind: 'compound', drug: medicationPicks.length ? drugs?.[0] : undefined }
+      : undefined;
   const listed = quickPickColumn(query, sets, quickPicks);
   const quickPickPicks = [...listed.sets, ...listed.quickPicks];
-  const columns = [medicationPicks, quickPickPicks];
+  const columns = [[...medicationPicks, ...(compoundPick ? [compoundPick] : [])], quickPickPicks];
   const [active, setActive] = useState<{ column: number; row: number }>();
   // A highlight the lists no longer reach is none.
   const highlighted = active && columns[active.column][active.row] ? active : undefined;
@@ -351,6 +396,7 @@ const MedicationMenu: FC<{
   const choose = (pick: MedicationMenuPick): void => {
     if (pick.kind === 'set') onSet(pick.set);
     else if (pick.kind === 'quickPick') onQuickPick(pick.quickPick);
+    else if (pick.kind === 'compound') onCompound(pick.drug ? { drug: pick.drug } : { search: query.trim() });
     else onDrug(pick.drug);
   };
 
@@ -361,7 +407,8 @@ const MedicationMenu: FC<{
       setActive({ column, row });
     };
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      const column = highlighted?.column ?? (medicationPicks.length ? 0 : 1);
+      // Without results, the quick picks first: "+ compound" is a Left away.
+      const column = highlighted?.column ?? (medicationPicks.length || !quickPickPicks.length ? 0 : 1);
       const count = columns[column].length;
       const step = event.key === 'ArrowDown' ? 1 : -1;
       if (count) move(column, highlighted ? (highlighted.row + step + count) % count : step > 0 ? 0 : count - 1);
@@ -376,26 +423,38 @@ const MedicationMenu: FC<{
     }
   };
 
-  const option = (pick: MedicationMenuPick, column: number, row: number): ReactNode => {
+  /** A row of a column; "+ compound" after a message sits in its text as a link. */
+  const option = (pick: MedicationMenuPick, column: number, row: number, inText = false): ReactNode => {
     const isActive = highlighted?.column === column && highlighted.row === row;
     return (
       <Box
-        component="li"
+        component={inText ? 'span' : 'li'}
         key={optionId(column, row)}
         id={optionId(column, row)}
         role="option"
         aria-selected={isActive}
         // The field keeps focus.
-        onMouseDown={(event) => event.preventDefault()}
+        onMouseDown={(event: MouseEvent) => event.preventDefault()}
         onMouseMove={() => {
           keyboardMoved.current = false;
           if (!isActive) setActive({ column, row });
         }}
         onClick={() => choose(pick)}
-        sx={{ px: 2, py: 0.75, cursor: 'pointer', bgcolor: isActive ? 'action.hover' : undefined }}
+        sx={{
+          ...(inText ? {} : { px: 2, py: 0.75 }),
+          ...(pick.kind === 'compound' ? { color: 'primary.main', fontWeight: 500 } : {}),
+          cursor: 'pointer',
+          bgcolor: isActive ? 'action.hover' : undefined,
+        }}
       >
         {pick.kind === 'drug' ? (
           pick.drug.name
+        ) : pick.kind === 'compound' ? (
+          pick.drug ? (
+            `+ compound starting with ${pick.drug.name}`
+          ) : (
+            '+ compound'
+          )
         ) : (
           <>
             {pick.kind === 'set' && (
@@ -469,17 +528,28 @@ const MedicationMenu: FC<{
             sx={MENU_LIST_SX}
           >
             {medicationPicks.map((pick, row) => option(pick, 0, row))}
+            {compoundPick &&
+              (medicationPicks.length ? (
+                option(compoundPick, 0, medicationPicks.length)
+              ) : (
+                // In the listbox, so the link is one of its options.
+                <li role="presentation">
+                  <MenuMessage>
+                    {searched ? 'Nothing found for this search criteria · ' : 'Type to search medications or '}
+                    {option(compoundPick, 0, 0, true)}
+                  </MenuMessage>
+                </li>
+              ))}
           </Box>
-          {!searched ? (
-            <MenuMessage>Type to search medications</MenuMessage>
-          ) : searching ? (
+          {searching ? (
             <MenuMessage>Searching medications…</MenuMessage>
-          ) : isError ? (
-            <Box sx={{ px: 2 }}>
-              <ReportSearchIssue />
-            </Box>
           ) : (
-            medicationPicks.length === 0 && <MenuMessage>Nothing found for this search criteria</MenuMessage>
+            searched &&
+            isError && (
+              <Box sx={{ px: 2 }}>
+                <ReportSearchIssue />
+              </Box>
+            )
           )}
         </Box>
         <Box
@@ -509,6 +579,123 @@ const MEDICATION_MENU_PAPER_SX = {
   width: 'min(680px, calc(100vw - 32px))',
   maxWidth: 'min(680px, calc(100vw - 32px))',
   maxHeight: 'min(440px, calc(100dvh - 32px))',
+};
+
+/** A compound ingredient's units: an amount, a strength in the finished product, or the base (one per compound). */
+const compoundUnitOptions = (value: string, offerBase: boolean): BlankOption[] => [
+  // The short groups first, ahead of the long list of amounts.
+  ...COMPOUND_STRENGTH_UNITS.map((unit) => ({ value: unit, label: unit, group: 'Strength in the finished product' })),
+  ...(offerBase ? [{ value: 'base', label: 'base', secondary: 'Fills to the dispense amount', group: 'Other' }] : []),
+  ...QUANTITY_UNITS.map((unit) => ({ value: unit, label: unitLabel(unit, value), group: 'Amount' })),
+];
+
+/** One ingredient of a compound: the drug and its strength from the search (or text typed in), then a number and
+ * its unit. The base has no number. */
+const CompoundIngredientSentence: FC<{
+  ingredient: CompoundIngredientLine;
+  n: number;
+  /** No other ingredient is the base. */
+  offerBase: boolean;
+  onChange: (next: CompoundIngredientLine) => void;
+  onRemove: () => void;
+  readOnly: boolean;
+}> = ({ ingredient, n, offerBase, onChange, onRemove, readOnly }) => {
+  const update = (patch: Partial<CompoundIngredientLine>): void => onChange({ ...ingredient, ...patch });
+  const { drug } = ingredient;
+  const strength = drug?.strengths.find((option) => option.ndcs[0] === ingredient.product?.ndc);
+  return (
+    <Sentence onRemove={readOnly ? undefined : onRemove} removeLabel={`Remove ingredient ${n}`}>
+      <Box component="span" sx={{ color: 'text.disabled' }}>
+        {n}
+      </Box>{' '}
+      <PopoverBlank
+        label={`ingredient ${n}`}
+        title="Ingredient"
+        // The search's own field says "Medication".
+        hideTitle
+        // A quick pick's ingredient has its product without the search hit.
+        value={drug?.name ?? ingredient.product?.description ?? ingredient.typed}
+        need
+        readOnly={readOnly}
+      >
+        {(close) => (
+          <MedicationSearch
+            initialQuery={ingredient.search}
+            onPick={(next) => {
+              update({ drug: next, product: null, typed: undefined, notControlled: false });
+              close();
+            }}
+            onTyped={(typed) => {
+              update({ drug: null, product: null, typed, notControlled: false });
+              close();
+            }}
+          />
+        )}
+      </PopoverBlank>{' '}
+      {drug && (
+        <>
+          <SelectBlank
+            label={`ingredient ${n} strength`}
+            title="Strength"
+            verbatim
+            options={drug.strengths.map((option) => option.strength)}
+            value={strength?.strength}
+            onChange={(value) => {
+              const next = drug.strengths.find((option) => option.strength === value);
+              if (next) update({ product: productOf(drug, next) });
+            }}
+            readOnly={readOnly}
+            need
+          />{' '}
+        </>
+      )}
+      {ingredient.unit !== 'base' && (
+        <>
+          <TextBlank
+            label={`ingredient ${n} amount`}
+            kind="number"
+            value={ingredient.value}
+            onChange={(value) => update({ value })}
+            readOnly={readOnly}
+            need
+            min={0}
+            step={0.001}
+          />{' '}
+        </>
+      )}
+      <SelectBlank
+        label={`ingredient ${n} unit`}
+        title="Unit"
+        options={compoundUnitOptions(ingredient.value, offerBase)}
+        value={ingredient.unit || undefined}
+        onChange={(value) =>
+          update({
+            unit: (value as CompoundIngredientUnit | undefined) ?? '',
+            ...(value === 'base' ? { value: '' } : {}),
+          })
+        }
+        readOnly={readOnly}
+        need
+      />
+      {ingredient.typed !== undefined && (
+        <>
+          {' '}
+          <FormControlLabel
+            control={
+              <Checkbox
+                size="small"
+                checked={ingredient.notControlled}
+                onChange={(event) => update({ notControlled: event.target.checked })}
+              />
+            }
+            label="This is not a controlled substance"
+            disabled={readOnly}
+            sx={{ mx: 0, '& .MuiFormControlLabel-label': { fontSize: 'inherit' } }}
+          />
+        </>
+      )}
+    </Sentence>
+  );
 };
 
 interface PrescriptionSentencesProps {
@@ -542,6 +729,39 @@ interface PrescriptionSentencesProps {
   readOnly: boolean;
 }
 
+/** A compound's ingredient sentences and "+ ingredient", as the order form and the quick picks admin show them. */
+export const CompoundIngredientSentences: FC<{
+  compound: CompoundLine;
+  onChange: (patch: Partial<CompoundLine>) => void;
+  readOnly: boolean;
+}> = ({ compound, onChange, readOnly }) => (
+  <>
+    {compound.ingredients.map((ingredient, i) => (
+      <CompoundIngredientSentence
+        key={ingredient.key}
+        ingredient={ingredient}
+        n={i + 1}
+        offerBase={!compound.ingredients.some((other, j) => j !== i && other.unit === 'base')}
+        onChange={(next) =>
+          onChange({ ingredients: compound.ingredients.map((other) => (other.key === next.key ? next : other)) })
+        }
+        onRemove={() => onChange({ ingredients: compound.ingredients.filter((other) => other.key !== ingredient.key) })}
+        readOnly={readOnly}
+      />
+    ))}
+    {!readOnly && (
+      <Sentence>
+        <BlankButton
+          label="+ ingredient"
+          ghost
+          readOnly={readOnly}
+          onClick={() => onChange({ ingredients: [...compound.ingredients, emptyCompoundIngredient()] })}
+        />
+      </Sentence>
+    )}
+  </>
+);
+
 /** One prescription as sentences: what, for what, how to take it, how much, and whether it may be substituted. */
 export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   line,
@@ -563,6 +783,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   readOnly,
 }) => {
   const update = (patch: Partial<PrescriptionLine>): void => onChange({ ...line, ...patch });
+  const { compound } = line;
+  const updateCompound = (patch: Partial<CompoundLine>): void => {
+    if (compound) update({ compound: { ...compound, ...patch } });
+  };
   const description = line.medication?.description;
   const { medication } = line;
   const activeSets = useMemo(() => sets?.filter((set) => set.status === 'Active') ?? [], [sets]);
@@ -582,7 +806,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     line.steps.length > 0 ||
     [line.dose, line.frequency, line.durationDays, line.patientInstructions].some((value) => value.trim() !== '');
   if (!picked && (readOnly || (hasDirections && !awaitingPick))) setPicked(true);
-  const revealed = picked || (line.medication !== null && suggestions.length === 0);
+  // A compound has no suggestions: its blanks show straight away.
+  const revealed = picked || compound !== undefined || (line.medication !== null && suggestions.length === 0);
   // The suggestions fold to their title once one is used (or "Other"); another medication, or a line waiting for a
   // pick again (a new strength), opens them again.
   const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(false);
@@ -794,6 +1019,41 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     </>
   );
 
+  // A compound with one ingredient in mg/mL doses as a liquid of that concentration: "Use this dose" writes the
+  // calculator's sentence into its directions.
+  const calculatorProduct = compound && compoundCalculatorProduct(compound);
+  const directionsSentence = (
+    <Sentence>
+      {calculatorProduct && !readOnly && (
+        <DoseCalculator
+          line={{ ...line, medication: calculatorProduct }}
+          weight={weight}
+          weightText={weightText}
+          onWeightText={onWeightText}
+          onChange={(dosed) => onChange(withCompoundDose(line, dosed))}
+        />
+      )}
+      Directions:{' '}
+      <TextBlank
+        label="directions"
+        width="480px"
+        multiline
+        value={line.patientInstructions}
+        onChange={(patientInstructions) => update({ patientInstructions })}
+        readOnly={readOnly}
+        need
+      />
+    </Sentence>
+  );
+
+  // A compound's ingredients, then its directions, typed: the dose blanks go by a product.
+  const compoundSentences = compound && (
+    <>
+      <CompoundIngredientSentences compound={compound} onChange={updateCompound} readOnly={readOnly} />
+      {directionsSentence}
+    </>
+  );
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {/* The suggestions sit above the line's first sentence once a medication with any is picked; "Other" is last. */}
@@ -855,41 +1115,74 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       <Box sx={{ display: 'flex', flexDirection: 'column', borderLeft: 3, borderColor: 'primary.main', pl: 1.5 }}>
         {/* The line starts with its medication: the bar marks where each prescription starts, so it isn't numbered. */}
         <Sentence onRemove={onRemove} removeLabel={`Remove prescription ${index + 1}`}>
-          {/* The drug and its strength read a little larger than the rest of the line. */}
+          {/* The drug and its strength (or the compound's name) read a little larger than the rest of the line. */}
           <Box component="span" sx={{ fontSize: '1.125em' }}>
-            <PopoverBlank
-              label="medication"
-              title="Medication"
-              // The menu's own field says "Medication".
-              hideTitle
-              paperSx={MEDICATION_MENU_PAPER_SX}
-              value={line.drug?.name ?? description}
-              need
-              readOnly={readOnly}
-            >
-              {(close) => (
-                <MedicationMenu
-                  quickPicks={quickPicks}
-                  sets={activeSets}
-                  onDrug={(drug) => {
-                    changeProduct(withDrug(line, drug));
-                    close();
-                  }}
-                  onQuickPick={(quickPick) => {
-                    // A quick pick's directions are picked ones: they show.
-                    setAwaitingPick(false);
-                    onQuickPick(quickPick);
-                    close();
-                  }}
-                  onSet={(set) => {
-                    // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
-                    if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
-                    onSet?.(set);
-                    close();
-                  }}
+            {compound ? (
+              <>
+                Compound:{' '}
+                <TextBlank
+                  label="compound name"
+                  value={compound.name}
+                  onChange={(name) => updateCompound({ name })}
+                  readOnly={readOnly}
+                  need
                 />
-              )}
-            </PopoverBlank>{' '}
+                {!readOnly && (
+                  <>
+                    <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.75em', ml: 0.5 }}>
+                      {compound.name.length}/{COMPOUND_NAME_MAX}
+                    </Box>
+                    <RemoveButton
+                      label="Remove compound"
+                      onClick={() => {
+                        // Back to an empty line: its medication is picked afresh, with its suggestions.
+                        setPicked(false);
+                        onChange(withoutCompound(line));
+                      }}
+                    />
+                  </>
+                )}
+              </>
+            ) : (
+              <PopoverBlank
+                label="medication"
+                title="Medication"
+                // The menu's own field says "Medication".
+                hideTitle
+                paperSx={MEDICATION_MENU_PAPER_SX}
+                value={line.drug?.name ?? description}
+                need
+                readOnly={readOnly}
+              >
+                {(close) => (
+                  <MedicationMenu
+                    quickPicks={quickPicks}
+                    sets={activeSets}
+                    onDrug={(drug) => {
+                      changeProduct(withDrug(line, drug));
+                      close();
+                    }}
+                    onQuickPick={(quickPick) => {
+                      // A quick pick's directions are picked ones: they show.
+                      setAwaitingPick(false);
+                      onQuickPick(quickPick);
+                      close();
+                    }}
+                    onSet={(set) => {
+                      // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
+                      if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
+                      onSet?.(set);
+                      close();
+                    }}
+                    onCompound={(start) => {
+                      setAwaitingPick(false);
+                      onChange(withCompound(line, start));
+                      close();
+                    }}
+                  />
+                )}
+              </PopoverBlank>
+            )}{' '}
             {line.drug && (
               <>
                 <SelectBlank
@@ -938,43 +1231,47 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           A taper adds "then" steps, each a sentence of its own; the route on the first applies to all. */}
         {revealed && (
           <>
-            <Sentence>
-              {/* The calculator works out the first step's dose, so it and the dose's ⓘ start the sentence; a course's
-                steps come from its look once there is data. */}
-              {!readOnly && (
-                <DoseCalculator
-                  line={line}
-                  // The rule the line holds (a suggestion's or "Use this dose"'s), as a suggestion row's is.
-                  initial={line.dosing}
-                  weight={weight}
-                  weightText={weightText}
-                  onWeightText={onWeightText}
-                  onChange={onChange}
-                />
-              )}
-              {doseInfo(line, '', line.doseNotes?.[0])}
-              {prescriptionVerb(line.route)}{' '}
-              {stepBlanks(
-                line,
-                '',
-                (patch) => onChange(withDirections(withCalculatorDosing(line, patch, weightKg), patch)),
-                line.doseNotes?.[0],
-                <>
-                  <SelectBlank
-                    label="route"
-                    title="Route"
-                    options={PRESCRIPTION_ROUTES}
-                    value={line.route || undefined}
-                    onChange={(value) =>
-                      onChange(withDirections(line, { route: (value as PrescriptionRoute | undefined) ?? '' }))
-                    }
-                    readOnly={readOnly}
-                    need
-                  />{' '}
-                </>
-              )}
-              {line.steps.length === 0 ? courseEnd : '.'}
-            </Sentence>
+            {compound ? (
+              compoundSentences
+            ) : (
+              <Sentence>
+                {/* The calculator works out the first step's dose, so it and the dose's ⓘ start the sentence; a course's
+                  steps come from its look once there is data. */}
+                {!readOnly && (
+                  <DoseCalculator
+                    line={line}
+                    // The rule the line holds (a suggestion's or "Use this dose"'s), as a suggestion row's is.
+                    initial={line.dosing}
+                    weight={weight}
+                    weightText={weightText}
+                    onWeightText={onWeightText}
+                    onChange={onChange}
+                  />
+                )}
+                {doseInfo(line, '', line.doseNotes?.[0])}
+                {prescriptionVerb(line.route)}{' '}
+                {stepBlanks(
+                  line,
+                  '',
+                  (patch) => onChange(withDirections(withCalculatorDosing(line, patch, weightKg), patch)),
+                  line.doseNotes?.[0],
+                  <>
+                    <SelectBlank
+                      label="route"
+                      title="Route"
+                      options={PRESCRIPTION_ROUTES}
+                      value={line.route || undefined}
+                      onChange={(value) =>
+                        onChange(withDirections(line, { route: (value as PrescriptionRoute | undefined) ?? '' }))
+                      }
+                      readOnly={readOnly}
+                      need
+                    />{' '}
+                  </>
+                )}
+                {line.steps.length === 0 ? courseEnd : '.'}
+              </Sentence>
+            )}
             <DoseWarningBoxes warnings={warnings.map((warning) => warning.text)} info={warningInfo} />
             {line.steps.map((step, i) => (
               <Sentence
@@ -1036,18 +1333,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               refills.
             </Sentence>
 
-            <Sentence>
-              Directions:{' '}
-              <TextBlank
-                label="directions"
-                width="480px"
-                multiline
-                value={line.patientInstructions}
-                onChange={(patientInstructions) => update({ patientInstructions })}
-                readOnly={readOnly}
-                need
-              />
-            </Sentence>
+            {!compound && directionsSentence}
 
             <Sentence>
               Note to pharmacy:{' '}
@@ -1061,35 +1347,42 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               />
             </Sentence>
 
-            <Sentence>
-              Substitution{' '}
-              <SelectBlank
-                label="substitution"
-                title="Substitution"
-                options={SUBSTITUTION_OPTIONS}
-                value={line.substitutionAllowed ? 'allowed' : 'not allowed'}
-                onChange={(value) => value && update({ substitutionAllowed: value === 'allowed' })}
-                readOnly={readOnly}
-              />
-              .{/* Urgent is offered only when wanted: a grey link until clicked. */}
-              {line.urgent ? (
-                <>
-                  {' '}
-                  Urgent:{' '}
-                  <Box component="span" sx={{ fontWeight: 700 }}>
-                    yes
-                  </Box>
-                  {!readOnly && <RemoveButton label="Remove urgent" onClick={() => update({ urgent: false })} />}
-                </>
-              ) : (
-                !readOnly && (
+            {!compound && (
+              <Sentence>
+                Substitution{' '}
+                <SelectBlank
+                  label="substitution"
+                  title="Substitution"
+                  options={SUBSTITUTION_OPTIONS}
+                  value={line.substitutionAllowed ? 'allowed' : 'not allowed'}
+                  onChange={(value) => value && update({ substitutionAllowed: value === 'allowed' })}
+                  readOnly={readOnly}
+                />
+                .{/* Urgent is offered only when wanted: a grey link until clicked. */}
+                {line.urgent ? (
                   <>
                     {' '}
-                    <BlankButton label="+ urgent" ghost readOnly={readOnly} onClick={() => update({ urgent: true })} />
+                    Urgent:{' '}
+                    <Box component="span" sx={{ fontWeight: 700 }}>
+                      yes
+                    </Box>
+                    {!readOnly && <RemoveButton label="Remove urgent" onClick={() => update({ urgent: false })} />}
                   </>
-                )
-              )}
-            </Sentence>
+                ) : (
+                  !readOnly && (
+                    <>
+                      {' '}
+                      <BlankButton
+                        label="+ urgent"
+                        ghost
+                        readOnly={readOnly}
+                        onClick={() => update({ urgent: true })}
+                      />
+                    </>
+                  )
+                )}
+              </Sentence>
+            )}
           </>
         )}
 

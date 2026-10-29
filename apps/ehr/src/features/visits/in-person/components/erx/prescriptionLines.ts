@@ -29,7 +29,15 @@ import {
   MedicationStrength,
   PharmacySearchResult,
 } from 'utils/lib/types/api/erx-search.types';
-import { OrderPrescriptionInput, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
+import {
+  COMPOUND_STRENGTH_UNITS,
+  CompoundIngredientInput,
+  CompoundInput,
+  CompoundStrengthUnit,
+  OrderPrescriptionInput,
+  QUANTITY_UNITS,
+  QuantityUnit,
+} from 'utils/lib/types/api/order-prescription.types';
 import {
   PrescriptionQuickPickData,
   PrescriptionQuickPickDosing,
@@ -84,7 +92,138 @@ export interface PrescriptionLine extends PrescriptionDirections {
   /** A dosed quick pick's text written after the blanks' sentence ("Shake well. Take with food."), which the line
    * shows to edit or remove. It outlives re-dosing and a new strength; goes with the drug or another quick pick. */
   additionalInstructions?: string;
+  /** Set on a compound: its name and ingredients stand in for the medication, and it has no substitution. */
+  compound?: CompoundLine;
 }
+
+/** An ingredient's unit: an amount, a strength in the finished product, or the base that fills it up. */
+export type CompoundIngredientUnit = QuantityUnit | CompoundStrengthUnit | 'base';
+
+/** One ingredient row of a compound, as the sentences hold it. */
+export interface CompoundIngredientLine {
+  key: number;
+  /** The search hit picked, whose strengths the product is picked from. */
+  drug: MedicationSearchDrug | null;
+  product: MedicationSearchResult | null;
+  /** An ingredient typed in when the search has no match; it needs `notControlled` to be sent. */
+  typed?: string;
+  notControlled: boolean;
+  /** What the ingredient's search starts with: the text typed before "+ compound". */
+  search: string;
+  value: string;
+  unit: CompoundIngredientUnit | '';
+}
+
+export interface CompoundLine {
+  name: string;
+  ingredients: CompoundIngredientLine[];
+}
+
+/** Surescripts' limit on a compound's name (R.306). */
+export const COMPOUND_NAME_MAX = 105;
+
+export const emptyCompoundIngredient = (
+  start: { drug?: MedicationSearchDrug; search?: string } = {}
+): CompoundIngredientLine => ({
+  key: nextKey++,
+  drug: start.drug ?? null,
+  product: null,
+  notControlled: false,
+  search: start.search ?? '',
+  value: '',
+  unit: '',
+});
+
+const isStrengthUnit = (unit: string): unit is CompoundStrengthUnit =>
+  (COMPOUND_STRENGTH_UNITS as readonly string[]).includes(unit);
+
+/** Units that read the same for any amount ("20 each", not "20 eachs"). */
+const UNCOUNTED_UNITS: readonly QuantityUnit[] = ['Each', 'Gum', 'Unspecified'];
+
+/** "Capsule" → "Capsules" unless the quantity is exactly 1. Display only: the order sends the NCPDP term as is. */
+export const unitLabel = (unit: QuantityUnit, quantity: string): string =>
+  Number(quantity) === 1 || UNCOUNTED_UNITS.includes(unit)
+    ? unit
+    : /(s|x|ch|sh)$/.test(unit)
+    ? `${unit}es`
+    : `${unit}s`;
+
+/** An ingredient as the line reads it: "Ketoprofen Powder 10%", "Gabapentin Powder 6 grams", "Cream base". */
+export const compoundIngredientText = ({ description, amount, strength, base }: CompoundIngredientInput): string =>
+  [
+    description,
+    base
+      ? 'base'
+      : strength
+      ? `${strength.value}${strength.unit === '%' ? '' : ' '}${strength.unit}`
+      : amount
+      ? `${amount.value} ${unitLabel(amount.unit, String(amount.value)).toLowerCase()}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+/** The compound's rows for one sent or saved: a product ingredient as picked (without its search hit), a typed one
+ * as typed. */
+export const compoundLineOf = ({ description, ingredients }: CompoundInput): CompoundLine => ({
+  name: description,
+  ingredients: ingredients.map((ingredient) => ({
+    ...emptyCompoundIngredient(),
+    ...(ingredient.ndc
+      ? {
+          product: {
+            ndc: ingredient.ndc,
+            description: ingredient.description,
+            ...(ingredient.rxcui ? { rxcui: ingredient.rxcui } : {}),
+          },
+        }
+      : { typed: ingredient.description, notControlled: ingredient.typedNotControlled === true }),
+    value: String(ingredient.strength?.value ?? ingredient.amount?.value ?? ''),
+    unit: ingredient.base ? 'base' : ingredient.strength?.unit ?? ingredient.amount?.unit ?? '',
+  })),
+});
+
+/** The product the dose calculator doses a compound as: its one ingredient in mg/mL, as a liquid of that
+ * concentration. None when no ingredient, or more than one, is in mg/mL. The dose form only makes the calculator
+ * measure in mL: the line has no route, so the sentence names none. */
+export const compoundCalculatorProduct = (compound: CompoundLine): MedicationSearchResult | undefined => {
+  const inMgPerMl = compound.ingredients.filter((ingredient) => ingredient.unit === 'mg/mL');
+  if (inMgPerMl.length !== 1) return undefined;
+  const [ingredient] = inMgPerMl;
+  // Nothing to dose by until its concentration is a positive number.
+  const mgPerMl = Number(ingredient.value);
+  if (!(ingredient.value.trim() !== '' && mgPerMl > 0)) return undefined;
+  return {
+    ndc: '',
+    description: compound.name,
+    doseForm: 'Oral Solution',
+    ingredients: [
+      {
+        name: ingredient.product?.description ?? ingredient.typed ?? '',
+        amount: mgPerMl,
+        unit: 'MG',
+        per: 1,
+        perUnit: 'ML',
+      },
+    ],
+  };
+};
+
+/** The compound line with the calculator's "Use this dose": its sentence starts the directions, as it would a
+ * product's, and whatever else was typed there follows it (an earlier calculator sentence is replaced). */
+export const withCompoundDose = (line: PrescriptionLine, dosed: PrescriptionLine): PrescriptionLine => {
+  const sentence = dosed.generated.patientInstructions;
+  const previous = line.generated.patientInstructions;
+  const typed =
+    previous && line.patientInstructions.startsWith(previous)
+      ? line.patientInstructions.slice(previous.length)
+      : line.patientInstructions;
+  return {
+    ...line,
+    patientInstructions: withAdditionalInstructions(sentence, typed),
+    generated: { ...NOTHING_GENERATED, patientInstructions: sentence },
+  };
+};
 
 /** The blanks' directions sentence with the additional instructions after it. */
 export const withAdditionalInstructions = (directions: string, additional: string | undefined): string => {
@@ -402,6 +541,8 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
       ...line,
       drug,
       medication: null,
+      // A line orders a product or a compound, never both.
+      compound: undefined,
       ...NO_DIRECTIONS,
       route: '',
       quantityValue: '',
@@ -415,6 +556,41 @@ export const withDrug = (line: PrescriptionLine, drug: MedicationSearchDrug): Pr
     },
     {}
   );
+
+/** The line as a compound whose first ingredient starts with the drug picked, or a search for the text typed. Like a
+ * new drug, nothing written for the product before carries over; the refills, note and diagnosis stay. */
+export const withCompound = (
+  line: PrescriptionLine,
+  start: { drug?: MedicationSearchDrug; search?: string }
+): PrescriptionLine => ({
+  ...line,
+  drug: null,
+  medication: null,
+  ...NO_DIRECTIONS,
+  route: '',
+  quantityValue: '',
+  quantityUnit: '',
+  daysSupply: '',
+  patientInstructions: '',
+  generated: NOTHING_GENERATED,
+  ...withoutQuickPick(line),
+  ...NO_DOSING,
+  doseNotes: undefined,
+  additionalInstructions: undefined,
+  awaitingPick: false,
+  compound: { name: '', ingredients: [emptyCompoundIngredient(start)] },
+});
+
+/** The compound line back as an empty prescription; as with a new compound, the refills, note, diagnosis and urgent
+ * flag stay. */
+export const withoutCompound = (line: PrescriptionLine): PrescriptionLine => ({
+  ...emptyPrescriptionLine(),
+  key: line.key,
+  urgent: line.urgent,
+  numberOfRefills: line.numberOfRefills,
+  noteToPharmacy: line.noteToPharmacy,
+  diagnosis: line.diagnosis,
+});
 
 /** The product one strength of a drug is, as the order sends it: its first NDC and "Amoxicillin 250 mg Cap", with
  * the strength's RxCUI, dose form and ingredients when the search has them. */
@@ -452,6 +628,7 @@ export const withProduct = (
     ...line,
     drug,
     medication,
+    compound: undefined,
     quantityUnit: prescriptionQuantityUnit(medication) ?? line.quantityUnit,
     route: prescriptionRoute(medication) ?? line.route,
     ...(otherDrug ? { ...NO_DIRECTIONS, additionalInstructions: undefined } : {}),
@@ -500,14 +677,7 @@ const isWholeNumberInRange = (value: string, min: number, max: number): boolean 
 };
 
 // The order endpoint's limits, checked per line before anything is sent.
-const PrescriptionLineSchema = z.object({
-  medication: z.object(
-    {
-      ndc: z.string().regex(/^\d{11}$/, 'Medication must have an 11-digit NDC'),
-      description: z.string().trim().min(1).max(105, 'Medication name must be up to 105 characters'),
-    },
-    { invalid_type_error: 'Pick a medication' }
-  ),
+const PrescriptionDetailsSchema = z.object({
   quantityValue: z.string().refine((value) => Number(value) > 0, 'Quantity must be greater than 0'),
   quantityUnit: z.enum(QUANTITY_UNITS, { errorMap: () => ({ message: 'Pick a unit' }) }),
   daysSupply: z
@@ -528,8 +698,61 @@ const PrescriptionLineSchema = z.object({
   diagnosis: z.object({ code: z.string().min(1), display: z.string() }).nullable(),
 });
 
+// The medication first, as the line reads.
+const PrescriptionLineSchema = z
+  .object({
+    medication: z.object(
+      {
+        ndc: z.string().regex(/^\d{11}$/, 'Medication must have an 11-digit NDC'),
+        description: z.string().trim().min(1).max(105, 'Medication name must be up to 105 characters'),
+      },
+      { invalid_type_error: 'Pick a medication' }
+    ),
+  })
+  .merge(PrescriptionDetailsSchema);
+
+/** Every problem with one compound ingredient, numbered as the line shows it. */
+const compoundIngredientErrors = (ingredient: CompoundIngredientLine, n: number): string[] => {
+  const typed = ingredient.typed?.trim();
+  return [
+    ...(ingredient.drug && !ingredient.product
+      ? [`Pick a strength for ingredient ${n}`]
+      : !ingredient.product && !typed
+      ? [`Pick ingredient ${n}`]
+      : []),
+    ...(typed && typed.length > 105 ? [`Ingredient ${n} name must be up to 105 characters`] : []),
+    ...(typed && !ingredient.notControlled ? [`Confirm ingredient ${n} is not a controlled substance`] : []),
+    ...(!ingredient.unit
+      ? [`Pick a unit for ingredient ${n}`]
+      : ingredient.unit !== 'base' && !(Number(ingredient.value) > 0)
+      ? [`Ingredient ${n} amount must be greater than 0`]
+      : []),
+  ];
+};
+
+/** Every problem with the compound's name and ingredients. */
+export const compoundErrors = (compound: CompoundLine): string[] => {
+  const name = compound.name.trim();
+  return [
+    ...(!name ? ['Enter the compound name'] : []),
+    ...(name.length > COMPOUND_NAME_MAX ? [`Compound name must be up to ${COMPOUND_NAME_MAX} characters`] : []),
+    ...(compound.ingredients.length === 0 ? ['Add an ingredient'] : []),
+    ...compound.ingredients.flatMap((ingredient, i) => compoundIngredientErrors(ingredient, i + 1)),
+    ...(compound.ingredients.filter((ingredient) => ingredient.unit === 'base').length > 1
+      ? ['Only one ingredient can be the base']
+      : []),
+  ];
+};
+
 /** Every problem with the line, in sentence order; empty when it can be sent. */
 export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
+  if (line.compound) {
+    const details = PrescriptionDetailsSchema.safeParse(line);
+    return [
+      ...compoundErrors(line.compound),
+      ...(details.success ? [] : new Set(details.error.issues.map((issue) => issue.message))),
+    ];
+  }
   const result = PrescriptionLineSchema.safeParse(line);
   // A drug with no strength yet is asked for its strength, before any pick among suggestions it can't have yet.
   const noStrength = line.drug !== null && line.medication === null;
@@ -563,27 +786,23 @@ const asciiFractions = (text: string): string =>
 /** The order input for a line that passed `prescriptionLineErrors`. The route, dose, frequency, duration and
  * urgent flag stay on the line: the order service has no fields for them yet, and the directions carry them. */
 export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderContext): OrderPrescriptionInput => {
-  if (!line.medication || !line.quantityUnit) {
-    throw new Error('Prescription line is incomplete');
-  }
-  return {
+  const { medication, compound } = line;
+  if (!line.quantityUnit) throw new Error('Prescription line is incomplete');
+  const common = {
     patientId: context.patientId,
     practitionerId: context.practitionerId,
     encounterId: context.encounterId,
-    ndc: line.medication.ndc,
-    medicationDescription: line.medication.description.trim(),
     quantityValue: Number(line.quantityValue),
     quantityUnit: line.quantityUnit,
     ...(line.daysSupply ? { daysSupply: Number(line.daysSupply) } : {}),
     writtenDate: context.writtenDate,
-    substitutionAllowed: line.substitutionAllowed,
     numberOfRefills: Number(line.numberOfRefills),
     // Directions go with ASCII fractions ("1/2 tablet"): the blanks' written so, typed or quick-pick
-    // ones converted; the screen keeps "½".
-    patientInstructions: (line.patientInstructions === line.generated.patientInstructions
+    // ones converted; the screen keeps "½". A compound's are typed.
+    patientInstructions: (medication && line.patientInstructions === line.generated.patientInstructions
       ? asciiFractions(
           withAdditionalInstructions(
-            prescriptionDirectionsText(line.medication, line, { ascii: true }),
+            prescriptionDirectionsText(medication, line, { ascii: true }),
             line.additionalInstructions
           )
         )
@@ -597,6 +816,45 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     ...(line.diagnosis
       ? { diagnosisCode: line.diagnosis.code.trim(), diagnosisDescription: line.diagnosis.display.trim() }
       : {}),
+  };
+  if (compound) {
+    return {
+      ...common,
+      compound: compoundToOrder(compound),
+    };
+  }
+  if (!medication) throw new Error('Prescription line is incomplete');
+  return {
+    ...common,
+    ndc: medication.ndc,
+    medicationDescription: medication.description.trim(),
+    substitutionAllowed: line.substitutionAllowed,
+  };
+};
+
+/** The compound as the order sends it (and a quick pick saves it), for one that passed `compoundErrors`. */
+export const compoundToOrder = (compound: CompoundLine): CompoundInput => ({
+  description: compound.name.trim(),
+  ingredients: compound.ingredients.map(compoundIngredientToOrder),
+});
+
+/** An ingredient as the order sends it, for one that passed `prescriptionLineErrors`. */
+const compoundIngredientToOrder = (ingredient: CompoundIngredientLine): CompoundIngredientInput => {
+  const { product, unit } = ingredient;
+  const value = Number(ingredient.value);
+  return {
+    ...(product
+      ? {
+          description: product.description.trim(),
+          ndc: product.ndc,
+          ...(product.rxcui ? { rxcui: product.rxcui } : {}),
+        }
+      : { description: ingredient.typed?.trim() ?? '', typedNotControlled: true as const }),
+    ...(unit === 'base'
+      ? { base: true as const }
+      : isStrengthUnit(unit)
+      ? { strength: { value, unit } }
+      : { amount: { value, unit: unit as QuantityUnit } }),
   };
 };
 
@@ -613,11 +871,15 @@ export const applyPrescriptionQuickPick = (
   line: PrescriptionLine,
   quickPick: PrescriptionQuickPickData
 ): PrescriptionLine => {
-  const medication = quickPickProduct(quickPick) ?? line.medication;
+  // A compound quick pick sets the whole compound; a product's ends one.
+  const compound = quickPick.compound && compoundLineOf(quickPick.compound);
+  const medication = compound ? null : quickPickProduct(quickPick) ?? line.medication;
   const applied: PrescriptionLine = {
     ...line,
-    drug: medication === line.medication ? line.drug : null,
+    // A compound ends any drug the line had, even one still waiting for its strength.
+    drug: !compound && medication === line.medication ? line.drug : null,
     medication,
+    compound,
     route: prescriptionRoute(medication) ?? '',
     ...NO_DIRECTIONS,
     quantityValue: quickPick.quantityValue === undefined ? '' : String(quickPick.quantityValue),
@@ -646,10 +908,24 @@ export const applyPrescriptionQuickPick = (
   };
 };
 
-export const prescriptionLineToQuickPick = (
+/** A compound's quick pick: it has no product, substitution or calculator settings to save. */
+const compoundLineToQuickPick = (
   line: PrescriptionLine,
+  compound: CompoundLine,
   name: string
 ): Omit<PrescriptionQuickPickData, 'id'> => ({
+  name: name.trim(),
+  compound: compoundToOrder(compound),
+  quantityValue: numberOrUndefined(line.quantityValue),
+  quantityUnit: line.quantityUnit || undefined,
+  daysSupply: numberOrUndefined(line.daysSupply),
+  numberOfRefills: numberOrUndefined(line.numberOfRefills),
+  patientInstructions: line.patientInstructions.trim() || undefined,
+  noteToPharmacy: line.noteToPharmacy.trim() || undefined,
+  ...(line.diagnosis ? { diagnosis: line.diagnosis } : {}),
+});
+
+const productLineToQuickPick = (line: PrescriptionLine, name: string): Omit<PrescriptionQuickPickData, 'id'> => ({
   name: name.trim(),
   ndc: line.medication?.ndc,
   medicationDescription: line.medication?.description,
@@ -678,6 +954,12 @@ export const prescriptionLineToQuickPick = (
       }
     : {}),
 });
+
+export const prescriptionLineToQuickPick = (
+  line: PrescriptionLine,
+  name: string
+): Omit<PrescriptionQuickPickData, 'id'> =>
+  line.compound ? compoundLineToQuickPick(line, line.compound, name) : productLineToQuickPick(line, name);
 
 const mgText = (mg: number): string => `${roundNumberToDecimalPlaces(mg, 2)} mg`;
 
@@ -718,7 +1000,7 @@ export const suggestedQuickPickName = (line: PrescriptionLine): string => {
   // As prescriptionLineToQuickPick saves it: a course's later steps aren't the calculator's.
   const savedDosing = line.dosing && line.steps.length === 0 ? line.dosing : undefined;
   const name = [
-    line.medication?.description,
+    line.medication?.description ?? line.compound?.name.trim(),
     savedDosing
       ? dosingRuleText(savedDosing)
       : amount !== undefined
@@ -754,6 +1036,11 @@ export const quickPickNameInUse = (
     ? `A quick pick named '${name.trim()}' already exists. Edit it in Admin → Quick Picks, or choose another name.`
     : undefined;
 
-/** Why the order form's "Save as Quick Pick" can't save the line: every quick pick orders a product. */
-export const quickPickProductMissing = (line: Pick<PrescriptionLine, 'medication'>): string | undefined =>
-  line.medication ? undefined : 'Pick a medication and strength before saving a quick pick';
+/** Why the order form's "Save as Quick Pick" can't save the line: every quick pick orders a product, or a compound
+ * that could be sent. */
+export const quickPickProductMissing = (line: Pick<PrescriptionLine, 'medication' | 'compound'>): string | undefined =>
+  line.compound
+    ? compoundErrors(line.compound)[0]
+    : line.medication
+    ? undefined
+    : 'Pick a medication and strength before saving a quick pick';

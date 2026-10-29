@@ -34,11 +34,17 @@ import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { PrimaryDiagnosisInput } from 'src/features/admin/patient-education/IcdDiagnosisInputs';
 import {
+  COMPOUND_NAME_MAX,
+  compoundIngredientText,
+  emptyCompoundIngredient,
   productDetailsOf,
   productOf,
   quickPickDosingSummary,
 } from 'src/features/visits/in-person/components/erx/prescriptionLines';
-import { MedicationSearch } from 'src/features/visits/in-person/components/erx/PrescriptionSentences';
+import {
+  CompoundIngredientSentences,
+  MedicationSearch,
+} from 'src/features/visits/in-person/components/erx/PrescriptionSentences';
 import { DOSE_BASES, DoseBasis } from 'utils/lib/helpers/medications/plain-dose';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { MedicationSearchDrug } from 'utils/lib/types/api/erx-search.types';
@@ -100,6 +106,7 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
   };
 
   const set = (patch: Partial<PrescriptionQuickPickFormValues>): void => setValues((prev) => ({ ...prev, ...patch }));
+  const { compound } = values;
 
   const handleSave = (): void => {
     const result = prescriptionQuickPickFromForm(values, quickPicks, editingItem?.id);
@@ -196,7 +203,18 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
               {quickPicks.map((item, index) => (
                 <TableRow key={item.id ?? `item-${index}`} hover>
                   <TableCell>{item.name}</TableCell>
-                  <TableCell>{item.medicationDescription || '-'}</TableCell>
+                  <TableCell>
+                    {item.compound ? (
+                      <>
+                        Compound: {item.compound.description}
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                          {item.compound.ingredients.map(compoundIngredientText).join(' · ')}
+                        </Typography>
+                      </>
+                    ) : (
+                      item.medicationDescription || '-'
+                    )}
+                  </TableCell>
                   <TableCell>{prescriptionQuickPickDoseText(item) || '-'}</TableCell>
                   <TableCell>{item.diagnosis ? `${item.diagnosis.display} ${item.diagnosis.code}` : '-'}</TableCell>
                   <TableCell>
@@ -271,58 +289,101 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
           <Stack spacing={2} sx={{ mt: 1 }}>
             {field('name', 'Name', { required: true, autoFocus: true })}
 
-            <Box>
-              <Typography variant="body2" color={errors.ndc ? 'error' : 'text.secondary'}>
-                Product: {values.medicationDescription || 'none'}
-              </Typography>
-              <MedicationSearch
-                width="100%"
-                onPick={(picked) => {
-                  setDrug(picked);
-                  set({ ndc: '', medicationDescription: '', productDetails: {} });
-                }}
-              />
-              {drug && (
-                <TextField
-                  select
-                  label="Strength"
-                  value={drug.strengths.find((option) => option.ndcs[0] === values.ndc)?.strength ?? ''}
-                  onChange={(e) => {
-                    const strength = drug.strengths.find((option) => option.strength === e.target.value);
-                    if (!strength) return;
-                    const product = productOf(drug, strength);
-                    set({
-                      ndc: product.ndc,
-                      medicationDescription: product.description,
-                      productDetails: productDetailsOf(product),
-                    });
-                  }}
-                  fullWidth
-                  size="small"
-                  sx={{ mt: 1 }}
-                >
-                  {drug.strengths.map((option) => (
-                    <MenuItem key={option.strength} value={option.strength}>
-                      {option.strength}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-              {(errors.ndc || errors.medicationDescription) && (
-                <Typography variant="caption" color="error">
-                  {errors.ndc ?? errors.medicationDescription}
-                </Typography>
-              )}
-            </Box>
-
             <RadioGroup
               row
-              value={values.doseMode}
-              onChange={(e) => set({ doseMode: e.target.value as PrescriptionDoseMode })}
+              value={compound ? 'compound' : 'product'}
+              onChange={(e) =>
+                // A compound is dosed as written: the calculator's settings go by a product.
+                set(
+                  e.target.value === 'compound'
+                    ? { compound: { name: '', ingredients: [emptyCompoundIngredient()] }, doseMode: 'as-written' }
+                    : { compound: null }
+                )
+              }
             >
-              <FormControlLabel value="as-written" control={<Radio />} label="As written" />
-              <FormControlLabel value="dosing" control={<Radio />} label="By weight or fixed dose" />
+              <FormControlLabel value="product" control={<Radio />} label="Product" />
+              <FormControlLabel value="compound" control={<Radio />} label="Compound" />
             </RadioGroup>
+
+            {compound ? (
+              <Box>
+                <TextField
+                  fullWidth
+                  label="Compound name"
+                  value={compound.name}
+                  onChange={(e) => set({ compound: { ...compound, name: e.target.value } })}
+                  helperText={`${compound.name.length} / ${COMPOUND_NAME_MAX}`}
+                />
+                {/* The order form's ingredient rows. */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', mt: 1 }}>
+                  <CompoundIngredientSentences
+                    compound={compound}
+                    onChange={(patch) => set({ compound: { ...compound, ...patch } })}
+                    readOnly={false}
+                  />
+                </Box>
+                {errors.compound && (
+                  <Typography variant="caption" color="error">
+                    {errors.compound}
+                  </Typography>
+                )}
+              </Box>
+            ) : (
+              <Box>
+                <Typography variant="body2" color={errors.ndc ? 'error' : 'text.secondary'}>
+                  Product: {values.medicationDescription || 'none'}
+                </Typography>
+                <MedicationSearch
+                  width="100%"
+                  onPick={(picked) => {
+                    setDrug(picked);
+                    set({ ndc: '', medicationDescription: '', productDetails: {} });
+                  }}
+                />
+                {drug && (
+                  <TextField
+                    select
+                    label="Strength"
+                    value={drug.strengths.find((option) => option.ndcs[0] === values.ndc)?.strength ?? ''}
+                    onChange={(e) => {
+                      const strength = drug.strengths.find((option) => option.strength === e.target.value);
+                      if (!strength) return;
+                      const product = productOf(drug, strength);
+                      set({
+                        ndc: product.ndc,
+                        medicationDescription: product.description,
+                        productDetails: productDetailsOf(product),
+                      });
+                    }}
+                    fullWidth
+                    size="small"
+                    sx={{ mt: 1 }}
+                  >
+                    {drug.strengths.map((option) => (
+                      <MenuItem key={option.strength} value={option.strength}>
+                        {option.strength}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+                {(errors.ndc || errors.medicationDescription) && (
+                  <Typography variant="caption" color="error">
+                    {errors.ndc ?? errors.medicationDescription}
+                  </Typography>
+                )}
+              </Box>
+            )}
+
+            {!compound && (
+              <RadioGroup
+                row
+                value={values.doseMode}
+                onChange={(e) => set({ doseMode: e.target.value as PrescriptionDoseMode })}
+              >
+                <FormControlLabel value="as-written" control={<Radio />} label="As written" />
+                <FormControlLabel value="dosing" control={<Radio />} label="By weight or fixed dose" />
+              </RadioGroup>
+            )}
 
             {values.doseMode === 'as-written' ? (
               <>
@@ -402,16 +463,18 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
 
             <Stack direction="row" spacing={2}>
               {field('numberOfRefills', 'Refills', { type: 'number' })}
-              <TextField
-                select
-                label="Substitution"
-                value={values.substitutionAllowed ? 'allowed' : 'not allowed'}
-                onChange={(e) => set({ substitutionAllowed: e.target.value === 'allowed' })}
-                fullWidth
-              >
-                <MenuItem value="allowed">Allowed</MenuItem>
-                <MenuItem value="not allowed">Not allowed (dispense as written)</MenuItem>
-              </TextField>
+              {!compound && (
+                <TextField
+                  select
+                  label="Substitution"
+                  value={values.substitutionAllowed ? 'allowed' : 'not allowed'}
+                  onChange={(e) => set({ substitutionAllowed: e.target.value === 'allowed' })}
+                  fullWidth
+                >
+                  <MenuItem value="allowed">Allowed</MenuItem>
+                  <MenuItem value="not allowed">Not allowed (dispense as written)</MenuItem>
+                </TextField>
+              )}
             </Stack>
             {field('noteToPharmacy', 'Note to pharmacy', {
               multiline: true,

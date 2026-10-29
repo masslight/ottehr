@@ -59,12 +59,19 @@ describe('makePrescribedMedicationDTO events and sent time', () => {
 
   it('lists only its own eRx events, oldest first', () => {
     expect(makePrescribedMedicationDTO(makeMedicationRequest(), provenances).events).toEqual([
-      { code: 'ordered', text: 'Prescription ordered', recorded: '2026-10-27T15:00:30.000Z', agent: undefined },
+      {
+        code: 'ordered',
+        text: 'Prescription ordered',
+        recorded: '2026-10-27T15:00:30.000Z',
+        agent: undefined,
+        agentPractitionerId: 'practitioner-1',
+      },
       {
         code: 'accepted',
         text: 'Prescription accepted by Surescripts',
         recorded: '2026-10-27T15:01:00.000Z',
         agent: 'Surescripts',
+        agentPractitionerId: undefined,
       },
     ]);
   });
@@ -74,6 +81,23 @@ describe('makePrescribedMedicationDTO events and sent time', () => {
     expect(makePrescribedMedicationDTO(authored, provenances).sent).toBe('2026-10-27T15:00:30.000Z');
     expect(makePrescribedMedicationDTO(authored).sent).toBe('2026-10-27');
     expect(makePrescribedMedicationDTO(makeMedicationRequest()).sent).toBe('2026-10-27T15:00:00.000Z');
+  });
+});
+
+// Review #6: a Provenance may target its prescription by a versioned or an absolute reference.
+describe('makePrescribedMedicationDTO events: the target reference', () => {
+  it('matches the prescription by a relative, versioned or absolute reference, and no other', () => {
+    const codes = (target: string): string[] =>
+      makePrescribedMedicationDTO(makeMedicationRequest(), [
+        makeProvenance('ordered', '2026-10-27T15:00:30.000Z', 'x', target),
+      ]).events!.map((event) => event.code);
+    expect(codes('MedicationRequest/med-request-1')).toEqual(['ordered']);
+    expect(codes('MedicationRequest/med-request-1/_history/3')).toEqual(['ordered']);
+    expect(codes('https://fhir-api.zapehr.com/r4/MedicationRequest/med-request-1')).toEqual(['ordered']);
+    expect(codes('https://fhir-api.zapehr.com/r4/MedicationRequest/med-request-1/_history/2')).toEqual(['ordered']);
+    expect(codes('MedicationRequest/med-request-10')).toEqual([]);
+    expect(codes('https://fhir-api.zapehr.com/r4/MedicationRequest/other')).toEqual([]);
+    expect(codes('Task/med-request-1')).toEqual([]);
   });
 });
 
@@ -106,5 +130,156 @@ describe('eRx events reach the prescription table', () => {
     expect(plan.prescribedMedications).toHaveLength(1);
     expect(plan.prescribedMedications[0].sent).toBe('2026-10-27T15:00:30.000Z');
     expect(plan.prescribedMedications[0].events?.map((event) => event.code)).toEqual(['ordered']);
+  });
+});
+
+describe('makePrescribedMedicationDTO order fields', () => {
+  // As the eRx service stores an order
+  const stored = makeMedicationRequest({
+    medicationCodeableConcept: {
+      coding: [{ system: 'http://hl7.org/fhir/sid/ndc', code: '00093416173', display: 'Amoxicillin 400 mg/5ml Susp' }],
+    },
+    reasonCode: [
+      {
+        coding: [
+          {
+            system: 'http://hl7.org/fhir/sid/icd-10-cm',
+            code: 'H66.93',
+            display: 'Otitis media, unspecified, bilateral',
+          },
+        ],
+      },
+    ],
+    dosageInstruction: [{ patientInstruction: 'Take 12.5 mL by mouth twice daily for 10 days.' }],
+    note: [{ text: 'Shake well' }],
+    dispenseRequest: {
+      quantity: { value: 250, unit: 'Milliliter', system: 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl' },
+      numberOfRepeatsAllowed: 0,
+      expectedSupplyDuration: { value: 10, unit: 'days', system: 'http://unitsofmeasure.org', code: 'd' },
+    },
+    substitution: { allowedBoolean: false },
+  });
+
+  it('reads the order as stored', () => {
+    expect(makePrescribedMedicationDTO(stored).order).toEqual({
+      patientId: 'patient-1',
+      ndc: '00093416173',
+      medicationDescription: 'Amoxicillin 400 mg/5ml Susp',
+      quantityValue: 250,
+      quantityUnit: 'Milliliter',
+      daysSupply: 10,
+      numberOfRefills: 0,
+      substitutionAllowed: false,
+      noteToPharmacy: 'Shake well',
+      diagnosisCode: 'H66.93',
+      diagnosisDescription: 'Otitis media, unspecified, bilateral',
+    });
+  });
+
+  it('leaves out what was never stored, without defaults', () => {
+    const order = makePrescribedMedicationDTO(makeMedicationRequest({ subject: { reference: 'Group/g' } })).order;
+    expect(Object.values(order ?? {}).filter((value) => value !== undefined)).toEqual([]);
+  });
+
+  it('leaves the rest of the row as it was', () => {
+    const { order: _order, ...rest } = makePrescribedMedicationDTO(stored);
+    expect(rest).toEqual({
+      resourceId: 'med-request-1',
+      name: 'Amoxicillin 400 mg/5ml Susp',
+      instructions: 'Take 12.5 mL by mouth twice daily for 10 days.',
+      added: '2026-10-27T15:00:00.000Z',
+      provider: undefined,
+      status: 'active',
+      prescriptionId: undefined,
+      encounterId: 'encounter-1',
+      isRenewal: undefined,
+      pharmacyId: undefined,
+      pharmacyName: undefined,
+      sent: '2026-10-27T15:00:00.000Z',
+      events: [],
+    });
+  });
+});
+
+describe('makePrescribedMedicationDTO compound', () => {
+  const NDC = 'http://hl7.org/fhir/sid/ndc';
+  const RXNORM = 'http://www.nlm.nih.gov/research/umls/rxnorm';
+  // The shape we ask the eRx service to store a compound in (see makePrescribedCompound). Test codes are made up.
+  const compoundRequest = makeMedicationRequest({
+    contained: [
+      {
+        resourceType: 'Medication',
+        id: 'compound',
+        code: { text: 'Ketoprofen / gabapentin / lidocaine cream' },
+        ingredient: [
+          {
+            itemCodeableConcept: {
+              text: 'Ketoprofen Powder',
+              coding: [
+                { system: NDC, code: '00000000001', display: 'Ketoprofen Powder' },
+                { system: RXNORM, code: '1001' },
+              ],
+            },
+            isActive: true,
+            strength: { numerator: { value: 10, unit: '%' }, denominator: { value: 1 } },
+          },
+          {
+            itemCodeableConcept: { coding: [{ system: NDC, code: '00000000002', display: 'Gabapentin Powder' }] },
+            isActive: true,
+            strength: { numerator: { value: 3.6, unit: 'Gram' } },
+          },
+          {
+            itemCodeableConcept: { text: 'Omeprazole suspension' },
+            isActive: true,
+            strength: { numerator: { value: 2, unit: 'mg' }, denominator: { value: 1, unit: 'mL' } },
+          },
+          {
+            itemCodeableConcept: { text: 'Progesterone' },
+            strength: { numerator: { value: 75, unit: 'mg' }, denominator: { value: 1, unit: 'each' } },
+          },
+          { itemCodeableConcept: { text: 'Cream base' }, isActive: false },
+          { itemCodeableConcept: { text: 'Unknown unit' }, strength: { numerator: { value: 1, unit: 'tbsp' } } },
+        ],
+      },
+    ],
+    medicationReference: { reference: '#compound', display: 'Ketoprofen / gabapentin / lidocaine cream' },
+  });
+
+  it('is named by its contained Medication, with every ingredient read', () => {
+    const dto = makePrescribedMedicationDTO(compoundRequest);
+    expect(dto.name).toBe('Ketoprofen / gabapentin / lidocaine cream');
+    expect(dto.order?.compound).toEqual({
+      description: 'Ketoprofen / gabapentin / lidocaine cream',
+      ingredients: [
+        { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
+        { description: 'Gabapentin Powder', ndc: '00000000002', amount: { value: 3.6, unit: 'Gram' } },
+        { description: 'Omeprazole suspension', strength: { value: 2, unit: 'mg/mL' } },
+        { description: 'Progesterone', strength: { value: 75, unit: 'mg each' } },
+        { description: 'Cream base', base: true },
+        // Read without its amount: the order can't be rebuilt from it.
+        { description: 'Unknown unit' },
+      ],
+    });
+  });
+
+  it('falls back to the medication text without a contained Medication', () => {
+    const dto = makePrescribedMedicationDTO(
+      makeMedicationRequest({ medicationCodeableConcept: { text: 'Magic mouthwash' } })
+    );
+    expect(dto.name).toBe('Magic mouthwash');
+    expect(dto.order?.compound).toBeUndefined();
+  });
+
+  it('leaves a product’s name and order as they were', () => {
+    const dto = makePrescribedMedicationDTO(
+      makeMedicationRequest({
+        medicationCodeableConcept: {
+          text: 'ignored',
+          coding: [{ system: NDC, code: '00093416173', display: 'Amoxicillin 400 mg/5ml Susp' }],
+        },
+      })
+    );
+    expect(dto.name).toBe('Amoxicillin 400 mg/5ml Susp');
+    expect(dto.order).not.toHaveProperty('compound');
   });
 });

@@ -346,6 +346,120 @@ describe('Prescription quick picks admin', () => {
   });
 });
 
+// Test compound: the NDCs are made up.
+const RINSE: PrescriptionQuickPickData = {
+  id: 'qp-rinse',
+  name: 'Mouth rinse',
+  compound: {
+    description: 'Amoxicillin rinse',
+    ingredients: [
+      { description: 'Amoxicillin 400 mg/5ml Susp', ndc: '00093416173', strength: { value: 80, unit: 'mg/mL' } },
+      { description: 'Amoxicillin 250 mg Cap', ndc: '00093310701', base: true },
+    ],
+  },
+  quantityValue: 100,
+  quantityUnit: 'Milliliter',
+  numberOfRefills: 0,
+  patientInstructions: 'Swish and spit 5 mL four times daily.',
+};
+
+describe('Prescription quick picks admin: compounds', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    api.getPrescriptionQuickPicks.mockResolvedValue({ quickPicks: [AS_WRITTEN, RINSE] });
+    api.getPrescriptionSetQuickPicks.mockResolvedValue({ quickPicks: [] });
+    api.createPrescriptionQuickPick.mockResolvedValue({ quickPick: { id: 'new' } });
+    api.updatePrescriptionQuickPick.mockResolvedValue({ quickPick: { id: 'qp-rinse' } });
+  });
+
+  it('lists a compound as its name with its ingredients underneath', async () => {
+    renderPage();
+    const row = (await screen.findByText('Mouth rinse')).closest('tr') as HTMLElement;
+    expect(within(row).getByText('Compound: Amoxicillin rinse')).toBeInTheDocument();
+    expect(
+      within(row).getByText('Amoxicillin 400 mg/5ml Susp 80 mg/mL · Amoxicillin 250 mg Cap base')
+    ).toBeInTheDocument();
+  });
+
+  it('adds a compound with the order form’s ingredient rows, as written and without substitution', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Add' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Rinse');
+    await user.click(within(dialog).getByLabelText('Compound'));
+    expect(within(dialog).queryByLabelText('By weight or fixed dose')).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText('Substitution')).not.toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText('Compound name'), 'Amoxicillin rinse');
+
+    await user.click(within(dialog).getByRole('button', { name: 'ingredient 1 (empty)' }));
+    await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
+    await user.click(await screen.findByRole('option', { name: 'Amoxicillin' }));
+    await user.click(within(dialog).getByRole('button', { name: 'ingredient 1 strength (empty)' }));
+    await user.click(screen.getByRole('option', { name: '400 mg/5ml Susp' }));
+    await user.type(within(dialog).getByRole('spinbutton', { name: 'ingredient 1 amount' }), '80');
+    await user.click(within(dialog).getByRole('button', { name: 'ingredient 1 unit (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'mg/mL' }));
+    await user.click(within(dialog).getByRole('button', { name: '+ ingredient (empty)' }));
+    await user.click(within(dialog).getByRole('button', { name: 'ingredient 2 (empty)' }));
+    await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
+    await user.click(await screen.findByRole('option', { name: 'Amoxicillin' }));
+    await user.click(within(dialog).getByRole('button', { name: 'ingredient 2 strength (empty)' }));
+    await user.click(screen.getByRole('option', { name: '250 mg Cap' }));
+    await user.click(within(dialog).getByRole('button', { name: 'ingredient 2 unit (empty)' }));
+    await user.click(screen.getByRole('option', { name: /^base/ }));
+
+    await user.type(within(dialog).getByLabelText('Patient instructions'), 'Swish and spit 5 mL four times daily.');
+    await user.type(within(dialog).getByLabelText('Quantity'), '100');
+    await chooseOption(user, 'Unit', 'Milliliter');
+    await user.click(within(dialog).getByRole('button', { name: 'Add' }));
+
+    await waitFor(() => expect(api.createPrescriptionQuickPick).toHaveBeenCalledTimes(1));
+    const { id: _id, ...expected } = RINSE;
+    expect(api.createPrescriptionQuickPick.mock.calls[0][1]).toEqual({
+      quickPick: {
+        ...expected,
+        name: 'Rinse',
+        compound: {
+          ...RINSE.compound,
+          // With the picked strengths' RxCUIs.
+          ingredients: [
+            { ...RINSE.compound!.ingredients[0], rxcui: ERX_PRODUCT_DETAILS['00093416173'].rxcui },
+            { ...RINSE.compound!.ingredients[1], rxcui: ERX_PRODUCT_DETAILS['00093310701'].rxcui },
+          ],
+        },
+      },
+    });
+  });
+
+  it('edits a compound, keeping its ingredients, and says what an unfinished one needs', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Mouth rinse')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    const name = within(dialog).getByLabelText('Compound name');
+    expect(name).toHaveValue('Amoxicillin rinse');
+    expect(
+      within(dialog).getByRole('button', { name: 'ingredient 1: Amoxicillin 400 mg/5ml Susp' })
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'ingredient 2 unit: base' })).toBeInTheDocument();
+
+    await user.clear(name);
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(within(dialog).getByText('Enter the compound name')).toBeInTheDocument();
+    expect(api.updatePrescriptionQuickPick).not.toHaveBeenCalled();
+
+    await user.type(name, 'Amoxicillin oral rinse');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.updatePrescriptionQuickPick).toHaveBeenCalledTimes(1));
+    const [, id, quickPick] = api.updatePrescriptionQuickPick.mock.calls[0];
+    expect(id).toBe('qp-rinse');
+    const { id: _id, ...saved } = RINSE;
+    expect(quickPick).toEqual({ ...saved, compound: { ...RINSE.compound, description: 'Amoxicillin oral rinse' } });
+  });
+});
+
 describe('setsRemovalText', () => {
   it('words one set, two and more', () => {
     expect(setsRemovalText(['Ear infection'])).toBe(

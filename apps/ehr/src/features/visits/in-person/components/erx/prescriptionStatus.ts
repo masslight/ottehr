@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon';
 import { ErxEventDTO, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
+import { OrderPrescriptionInput, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 
 export type PrescriptionChip = 'Sending' | 'Sent' | 'Error' | 'Cancel requested' | 'Cancelled';
 
@@ -62,3 +64,142 @@ export const prescriptionStatusView = (
 /** The eRx service cancels only an active prescription, and only once: never after any earlier request. */
 export const isPrescriptionCancellable = (prescription: PrescribedMedicationDTO): boolean =>
   prescription.status === 'active' && !prescription.events?.some((event) => event.code === 'cancelrequested');
+
+/** Sending to another pharmacy cancels a sent prescription (so only a cancellable one) and resends an errored one. */
+const canSendToAnotherPharmacyByStatus = (prescription: PrescribedMedicationDTO): boolean =>
+  isPrescriptionCancellable(prescription) || prescription.status === 'stopped';
+
+const isQuantityUnit = (unit: string | undefined): unit is QuantityUnit =>
+  QUANTITY_UNITS.includes(unit as QuantityUnit);
+
+/** The order fields the new prescription needs that the stored one lacks. */
+const missingOrderFields = (prescription: PrescribedMedicationDTO): string[] => {
+  const order = prescription.order;
+  const compound = order?.compound;
+  // A compound is its name and each ingredient's name and amount, strength or base, in place of a product.
+  const product: [string, unknown][] = compound
+    ? [
+        ['compound name', compound.description],
+        ...compound.ingredients.flatMap((ingredient, i): [string, unknown][] => [
+          [`ingredient ${i + 1} name`, ingredient.description],
+          [`ingredient ${i + 1} amount or strength`, ingredient.amount ?? ingredient.strength ?? ingredient.base],
+        ]),
+      ]
+    : [
+        ['NDC', order?.ndc],
+        ['medication description', order?.medicationDescription],
+      ];
+  const required: [string, unknown][] = [
+    ['patient', order?.patientId],
+    ['encounter', prescription.encounterId],
+    ...product,
+    ['quantity', order?.quantityValue],
+    ['quantity unit', isQuantityUnit(order?.quantityUnit) ? order?.quantityUnit : undefined],
+    ['refills', order?.numberOfRefills],
+    ...(compound ? [] : [['substitution', order?.substitutionAllowed] as [string, unknown]]),
+    ['patient instructions', prescription.instructions],
+  ];
+  return required.filter(([, value]) => value === undefined || value === '').map(([label]) => label);
+};
+
+export type PrescriptionAction = 'cancel' | 'sendToAnotherPharmacy';
+
+export const PRESCRIPTION_ACTION_NAMES: Record<PrescriptionAction, string> = {
+  cancel: 'Cancel',
+  sendToAnotherPharmacy: 'Send to another pharmacy',
+};
+
+/** Whether an action's status rule covers the prescription. */
+const prescriptionActionAppliesByStatus = (
+  action: PrescriptionAction,
+  prescription: PrescribedMedicationDTO
+): boolean =>
+  action === 'cancel' ? isPrescriptionCancellable(prescription) : canSendToAnotherPharmacyByStatus(prescription);
+
+/** Why an action can't be taken on the prescription: its status, or the order fields it lacks. */
+export const prescriptionActionBlocker = (
+  action: PrescriptionAction,
+  prescription: PrescribedMedicationDTO
+): { status: string } | { missing: string[] } | undefined => {
+  if (!prescriptionActionAppliesByStatus(action, prescription)) {
+    const { chip } = prescriptionStatusView(prescription);
+    // A sent prescription whose cancellation was refused can't be cancelled again.
+    return { status: chip === 'Sent' ? 'Cancel denied' : chip ?? prescription.status ?? 'unknown' };
+  }
+  if (action === 'sendToAnotherPharmacy') {
+    const missing = missingOrderFields(prescription);
+    if (missing.length) return { missing };
+  }
+  return undefined;
+};
+
+export const isPrescriptionActionAvailable = (
+  action: PrescriptionAction,
+  prescription: PrescribedMedicationDTO
+): boolean => !prescriptionActionBlocker(action, prescription);
+
+/** Why an action can't be taken on every one of the prescriptions, naming the statuses and missing fields. */
+export const prescriptionActionUnavailableText = (
+  action: PrescriptionAction,
+  prescriptions: PrescribedMedicationDTO[]
+): string | undefined => {
+  const name = PRESCRIPTION_ACTION_NAMES[action];
+  const statuses = new Set<string>();
+  const missing: string[] = [];
+  for (const prescription of prescriptions) {
+    const blocker = prescriptionActionBlocker(action, prescription);
+    if (blocker && 'status' in blocker) statuses.add(blocker.status);
+    if (blocker && 'missing' in blocker) missing.push(`${prescription.name}: missing ${blocker.missing.join(', ')}`);
+  }
+  const parts = [
+    statuses.size > 0 && `${name} isn't available for prescriptions with status ${[...statuses].join(', ')}.`,
+    missing.length > 0 && `${name} isn't available for ${missing.join('; ')}.`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' ') : undefined;
+};
+
+/** The same prescription again, for another pharmacy, from its stored order; undefined when a field is missing. */
+export const prescriptionToOrderForPharmacy = (
+  prescription: PrescribedMedicationDTO,
+  context: { practitionerId: string; writtenDate: string; pharmacy: PharmacySearchResult }
+): OrderPrescriptionInput | undefined => {
+  const order = prescription.order;
+  if (!order || missingOrderFields(prescription).length) return undefined;
+  const common = {
+    patientId: order.patientId!,
+    practitionerId: context.practitionerId,
+    encounterId: prescription.encounterId!,
+    quantityValue: order.quantityValue!,
+    quantityUnit: order.quantityUnit as QuantityUnit,
+    ...(order.daysSupply !== undefined ? { daysSupply: order.daysSupply } : {}),
+    writtenDate: context.writtenDate,
+    numberOfRefills: order.numberOfRefills!,
+    patientInstructions: prescription.instructions!,
+    ...(order.noteToPharmacy ? { noteToPharmacy: order.noteToPharmacy } : {}),
+    pharmacyId: context.pharmacy.ncpdpId,
+    pharmacyNpi: context.pharmacy.npi,
+    pharmacyName: context.pharmacy.name.trim(),
+    pharmacyPhone: context.pharmacy.phone,
+    ...(order.diagnosisCode ? { diagnosisCode: order.diagnosisCode } : {}),
+    ...(order.diagnosisDescription ? { diagnosisDescription: order.diagnosisDescription } : {}),
+  };
+  const { compound } = order;
+  if (compound) {
+    return {
+      ...common,
+      compound: {
+        description: compound.description!,
+        // An ingredient without an NDC was typed in, and confirmed not controlled when it was first sent.
+        ingredients: compound.ingredients.map((ingredient) =>
+          ingredient.ndc ? ingredient : { ...ingredient, typedNotControlled: true as const }
+        ),
+      },
+    };
+  }
+  return {
+    ...common,
+    ndc: order.ndc!,
+    medicationDescription: order.medicationDescription!,
+    substitutionAllowed: order.substitutionAllowed!,
+  };
+};

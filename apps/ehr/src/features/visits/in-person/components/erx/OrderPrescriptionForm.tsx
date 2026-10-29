@@ -1,15 +1,5 @@
 import { Add } from '@mui/icons-material';
-import {
-  Autocomplete,
-  Box,
-  Button,
-  Divider,
-  FormHelperText,
-  Stack,
-  TextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Button, Divider, FormHelperText, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
@@ -35,6 +25,7 @@ import { useAppointmentData, useSaveChartData } from '../../../shared/stores/app
 import { PopoverBlank, Sentence } from '../procedures/narrative/InlineBlanks';
 import { ProcedureQuickPickDialogs } from '../procedures/ProcedureQuickPickDialogs';
 import { calculatorWeightKg, previousVisitWeightNote } from './DoseCalculator';
+import { PharmacySearch } from './PharmacySearch';
 import {
   emptyPrescriptionLine,
   PrescriptionLine,
@@ -71,27 +62,6 @@ const usePreferredPharmacy = (preferred: PharmacyDTO[] | undefined): PharmacySea
         result.name.trim().toLowerCase() === primary.name.trim().toLowerCase() &&
         (!digits(primary.phone) || digits(result.phone).endsWith(digits(primary.phone).slice(-10)))
     ) ?? null
-  );
-};
-
-const PharmacySearch: FC<{ onPick: (pharmacy: PharmacySearchResult) => void }> = ({ onPick }) => {
-  const [query, setQuery] = useState('');
-  const { data: pharmacies = [], isFetching } = useSearchPharmacies(query);
-  return (
-    <Box sx={{ width: 360, pt: 0.5 }}>
-      <Autocomplete<PharmacySearchResult>
-        options={pharmacies}
-        loading={isFetching}
-        filterOptions={(options) => options}
-        getOptionLabel={(option) => `${option.name} - ${option.address}`}
-        inputValue={query}
-        onInputChange={(_event, value) => setQuery(value)}
-        value={null}
-        onChange={(_event, option) => option && onPick(option)}
-        noOptionsText={query.trim().length < 2 ? 'Type to search pharmacies' : 'Nothing found for this search criteria'}
-        renderInput={(params) => <TextField {...params} size="small" label="Pharmacy" />}
-      />
-    </Box>
   );
 };
 
@@ -219,7 +189,7 @@ export const OrderPrescriptionForm: FC = () => {
     }
   };
 
-  // Only adds: existing quick picks are edited in Admin → Quick Picks. Every quick pick orders a product.
+  // Only adds: existing quick picks are edited in Admin → Quick Picks. Every quick pick orders a product or a compound.
   const openQuickPickDialog = (line: PrescriptionLine): void => {
     const noProduct = quickPickProductMissing(line);
     if (noProduct) {

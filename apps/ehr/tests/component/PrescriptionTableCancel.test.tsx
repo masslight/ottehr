@@ -137,13 +137,11 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('offers to cancel only a cancellable prescription from its menu', async () => {
+  it('offers to cancel only a cancellable prescription from its row', async () => {
     const user = renderTable();
-    await user.click(within(row(PRED.name!)).getByRole('button', { name: 'More actions' }));
-    expect(screen.getByRole('menuitem', { name: 'Cancel prescription…' })).toHaveAttribute('aria-disabled', 'true');
-    await user.keyboard('{Escape}');
-    await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'More actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Cancel prescription…' }));
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+    expect(within(row(PRED.name!)).getByRole('button', { name: 'Cancel prescription' })).toBeDisabled();
+    await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'Cancel prescription' }));
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('Cancel prescription')).toBeInTheDocument();
     expect(within(dialog).getByText(AMOX.name!)).toBeInTheDocument();
@@ -192,10 +190,9 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     expect(screen.getByText('1 selected')).toBeInTheDocument();
   });
 
-  it('does not select from the menu, nor a row that cannot be cancelled', async () => {
+  it('does not select from a row’s action, nor a row that cannot be cancelled', async () => {
     const user = renderTable();
-    await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'More actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Cancel prescription…' }));
+    await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'Cancel prescription' }));
     await user.click(screen.getByRole('button', { name: 'Keep prescription' }));
     expect(checkbox(AMOX.name!)).not.toBeChecked();
     expect(row(PRED.name!)).not.toHaveClass('selectable');
@@ -242,5 +239,25 @@ describe('Prescription table: cancel eRx prescriptions', () => {
       `1 of 2 cancellations sent. ${AMOX.name}: Cancellation already requested`,
       { variant: 'error' }
     );
+  });
+
+  // Review #3: closing mid-send, or reopening before the refetch lands, could send the cancellations twice.
+  it('can’t be closed while its cancellations are in flight, and stays until the refetch lands', async () => {
+    let finishCancel: (value: Response) => void = () => undefined;
+    mocks.fetch.mockImplementationOnce(() => new Promise<Response>((resolve) => (finishCancel = resolve)));
+    let finishRefetch: (value: unknown) => void = () => undefined;
+    mocks.refetch.mockImplementationOnce(() => new Promise((resolve) => (finishRefetch = resolve)));
+    const user = renderTable();
+    await cancelBothWithReason(user);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    finishCancel(response(200, { messageId: 'm' }));
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    // Sent, but the rows still read as they were until the refetch lands: the dialog stays, so nothing reopens it.
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    finishRefetch({});
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
   });
 });

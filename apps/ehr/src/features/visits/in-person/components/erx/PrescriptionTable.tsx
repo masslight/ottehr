@@ -1,16 +1,6 @@
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  IconButton,
-  Menu,
-  MenuItem,
-  Paper,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import BlockIcon from '@mui/icons-material/Block';
+import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
+import { Alert, Box, Button, CircularProgress, IconButton, Paper, Tooltip, Typography } from '@mui/material';
 import { Stack } from '@mui/system';
 import { DataGridPro, GridColDef, GridRowSelectionModel } from '@mui/x-data-grid-pro';
 import { Practitioner } from 'fhir/r4b';
@@ -23,7 +13,15 @@ import { medicationStatusMapper } from '../../../shared/components/plan-tab/ERxC
 import { useChartSection } from '../../../shared/hooks/useChartSection';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { CancelPrescriptionsDialog } from './CancelPrescriptionsDialog';
-import { isPrescriptionCancellable, prescriptionStatusView } from './prescriptionStatus';
+import { PrescriptionHistoryButton } from './PrescriptionHistory';
+import { compoundIngredientText } from './prescriptionLines';
+import {
+  isPrescriptionActionAvailable,
+  PrescriptionAction,
+  prescriptionActionUnavailableText,
+  prescriptionStatusView,
+} from './prescriptionStatus';
+import { SendToAnotherPharmacyDialog } from './SendToAnotherPharmacyDialog';
 
 // The chips reuse the medication status colors.
 const prescriptionChipMapper = {
@@ -34,30 +32,35 @@ const prescriptionChipMapper = {
   Cancelled: medicationStatusMapper.cancelled,
 };
 
-const PrescriptionActions: FC<{ prescription: PrescribedMedicationDTO; onCancel: () => void }> = ({
-  prescription,
-  onCancel,
-}) => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  return (
-    <>
-      <IconButton aria-label="More actions" onClick={(event) => setAnchorEl(event.currentTarget)}>
-        <MoreVertIcon fontSize="small" />
-      </IconButton>
-      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
-        <MenuItem
-          disabled={!isPrescriptionCancellable(prescription)}
-          onClick={() => {
-            setAnchorEl(null);
-            onCancel();
-          }}
-        >
-          Cancel prescription…
-        </MenuItem>
-      </Menu>
-    </>
-  );
-};
+const ROW_ACTIONS: { action: PrescriptionAction; label: string; icon: JSX.Element }[] = [
+  { action: 'sendToAnotherPharmacy', label: 'Send to another pharmacy', icon: <LocalPharmacyIcon fontSize="small" /> },
+  { action: 'cancel', label: 'Cancel prescription', icon: <BlockIcon fontSize="small" /> },
+];
+
+/** A row's action buttons; one that doesn't apply to the row is disabled and says why. */
+const PrescriptionActionButtons: FC<{
+  prescription: PrescribedMedicationDTO;
+  onAction: (action: PrescriptionAction) => void;
+}> = ({ prescription, onAction }) => (
+  <>
+    {ROW_ACTIONS.map(({ action, label, icon }) => {
+      const unavailable = prescriptionActionUnavailableText(action, [prescription]);
+      return (
+        <Tooltip key={action} title={unavailable ?? label}>
+          <span>
+            <IconButton aria-label={label} size="small" disabled={!!unavailable} onClick={() => onAction(action)}>
+              {icon}
+            </IconButton>
+          </span>
+        </Tooltip>
+      );
+    })}
+  </>
+);
+
+const isRowSelectable = (prescription: PrescribedMedicationDTO): boolean =>
+  isPrescriptionActionAvailable('cancel', prescription) ||
+  isPrescriptionActionAvailable('sendToAnotherPharmacy', prescription);
 
 const getPractitionerName = (practitioner?: Practitioner): string | undefined => {
   if (!practitioner) {
@@ -83,14 +86,38 @@ export const PrescriptionTable: FC = () => {
   );
   const [selectedIds, setSelectedIds] = useState<GridRowSelectionModel>([]);
   const [toCancel, setToCancel] = useState<PrescribedMedicationDTO[]>([]);
-  // A row that stops being cancellable on a refetch leaves the selection.
+  const [toSendElsewhere, setToSendElsewhere] = useState<PrescribedMedicationDTO[]>([]);
+  // A row that stops qualifying for any action on a refetch leaves the selection.
   const selected = prescriptions.filter(
-    (prescription) => isPrescriptionCancellable(prescription) && selectedIds.includes(prescription.resourceId!)
+    (prescription) => isRowSelectable(prescription) && selectedIds.includes(prescription.resourceId!)
   );
+  // An action applies to a selection only if it applies to every ticked row; otherwise it says why not.
+  const unavailable = (action: PrescriptionAction): string | undefined =>
+    selected.length ? prescriptionActionUnavailableText(action, selected) : undefined;
+  const cancelUnavailable = unavailable('cancel');
+  const sendElsewhereUnavailable = unavailable('sendToAnotherPharmacy');
 
   const columns = useMemo(
     (): GridColDef<PrescribedMedicationDTO>[] => [
-      { sortable: false, field: 'name', headerName: 'Medication', flex: 1, minWidth: 200 },
+      {
+        sortable: false,
+        field: 'name',
+        headerName: 'Medication',
+        flex: 1,
+        minWidth: 200,
+        // A compound reads as its name with its ingredients underneath.
+        renderCell: ({ row }) =>
+          row.order?.compound ? (
+            <Box sx={{ py: 1, whiteSpace: 'normal' }}>
+              Compound: {row.name}
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                {row.order.compound.ingredients.map(compoundIngredientText).join(' · ')}
+              </Typography>
+            </Box>
+          ) : (
+            row.name
+          ),
+      },
       {
         sortable: false,
         field: 'visit',
@@ -138,12 +165,21 @@ export const PrescriptionTable: FC = () => {
       {
         sortable: false,
         field: 'actions',
-        headerName: '',
-        width: 60,
-        // The menu (portalled, but still a React child) doesn't change the selection.
+        headerName: 'Actions',
+        width: 130,
+        // The buttons and the history dialog (portalled, but still a React child) don't change the selection.
         renderCell: ({ row }) => (
           <Box onClick={(event) => event.stopPropagation()}>
-            <PrescriptionActions prescription={row} onCancel={() => setToCancel([row])} />
+            <PrescriptionHistoryButton
+              prescription={row}
+              practitionerName={getPractitionerName}
+              practitioners={chartFields?.prescribedMedicationsRequesterPractitioners}
+              visitDate={appointmentStart?.date}
+            />
+            <PrescriptionActionButtons
+              prescription={row}
+              onAction={(action) => (action === 'cancel' ? setToCancel : setToSendElsewhere)([row])}
+            />
           </Box>
         ),
       },
@@ -168,15 +204,33 @@ export const PrescriptionTable: FC = () => {
           {/* Always there, so the table doesn't move when rows are selected. */}
           <Stack direction="row" gap={2} alignItems="center" sx={{ minHeight: 32 }}>
             {selected.length > 0 && <Typography variant="body2">{selected.length} selected</Typography>}
-            <Button
-              size="small"
-              variant="outlined"
-              color="error"
-              disabled={selected.length === 0}
-              onClick={() => setToCancel(selected)}
-            >
-              Cancel prescriptions…
-            </Button>
+            <Tooltip title={cancelUnavailable ?? ''}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<BlockIcon />}
+                  disabled={selected.length === 0 || !!cancelUnavailable}
+                  onClick={() => setToCancel(selected)}
+                >
+                  Cancel prescriptions…
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title={sendElsewhereUnavailable ?? ''}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<LocalPharmacyIcon />}
+                  disabled={selected.length === 0 || !!sendElsewhereUnavailable}
+                  onClick={() => setToSendElsewhere(selected)}
+                >
+                  Send to another pharmacy…
+                </Button>
+              </span>
+            </Tooltip>
             {selected.length > 0 && (
               <Button size="small" onClick={() => setSelectedIds([])}>
                 Clear
@@ -188,6 +242,8 @@ export const PrescriptionTable: FC = () => {
               rows={prescriptions}
               columns={columns}
               getRowId={(row) => row.resourceId!}
+              // A compound's ingredients line makes its row taller.
+              getRowHeight={({ model }) => (model.order?.compound ? 'auto' : undefined)}
               initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
               autoHeight
               pagination
@@ -195,9 +251,9 @@ export const PrescriptionTable: FC = () => {
               disableColumnMenu
               pageSizeOptions={[10]}
               checkboxSelection
-              isRowSelectable={({ row }) => isPrescriptionCancellable(row)}
+              isRowSelectable={({ row }) => isRowSelectable(row)}
               // A click anywhere on a selectable row selects it.
-              getRowClassName={({ row }) => (isPrescriptionCancellable(row) ? 'selectable' : '')}
+              getRowClassName={({ row }) => (isRowSelectable(row) ? 'selectable' : '')}
               rowSelectionModel={selected.map((prescription) => prescription.resourceId!)}
               onRowSelectionModelChange={setSelectedIds}
               sx={{
@@ -215,6 +271,16 @@ export const PrescriptionTable: FC = () => {
         <CancelPrescriptionsDialog
           prescriptions={toCancel}
           onClose={() => setToCancel([])}
+          onSent={async () => {
+            setSelectedIds([]);
+            await refetch();
+          }}
+        />
+      )}
+      {toSendElsewhere.length > 0 && (
+        <SendToAnotherPharmacyDialog
+          prescriptions={toSendElsewhere}
+          onClose={() => setToSendElsewhere([])}
           onSent={async () => {
             setSelectedIds([]);
             await refetch();
