@@ -786,6 +786,8 @@ interface OrderContext {
   encounterId: string;
   pharmacy: PharmacySearchResult;
   writtenDate: string;
+  patientHeight?: OrderPrescriptionInput['patientHeight'];
+  patientWeight?: OrderPrescriptionInput['patientWeight'];
 }
 
 const ASCII_FRACTIONS: Record<string, string> = { '¼': '1/4', '½': '1/2', '¾': '3/4' };
@@ -830,6 +832,8 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     ...(line.diagnosis
       ? { diagnosisCode: line.diagnosis.code.trim(), diagnosisDescription: line.diagnosis.display.trim() }
       : {}),
+    ...(context.patientHeight ? { patientHeight: context.patientHeight } : {}),
+    ...(context.patientWeight ? { patientWeight: context.patientWeight } : {}),
   };
   if (compound) {
     const entered = compoundToOrder(compound);

@@ -160,6 +160,9 @@ interface OrderPrescriptionCommonInput {
   pharmacyPhone: string;
   diagnosisCode?: string;
   diagnosisDescription?: string;
+  // Requested from the eRx service: the patient's height and weight, each with the date measured (YYYY-MM-DD)
+  patientHeight?: { cm: number; measuredDate: string };
+  patientWeight?: { kg: number; measuredDate: string };
 }
 
 /** A prescription for one product. */

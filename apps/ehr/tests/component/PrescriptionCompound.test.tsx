@@ -84,6 +84,7 @@ vi.mock('../../src/features/visits/shared/components/review-tab/components/Medic
 }));
 vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
   useVisitWeight: () => undefined,
+  useVisitHeight: () => undefined,
 }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),

@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DateTime } from 'luxon';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrderPrescriptionForm } from '../../src/features/visits/in-person/components/erx/OrderPrescriptionForm';
@@ -31,6 +32,8 @@ const mocks = vi.hoisted(() => ({
   saveChartData: vi.fn(),
   setPartialChartData: vi.fn(),
   chartDiagnoses: [] as { code: string; display: string; isPrimary?: boolean }[],
+  weight: undefined as { kg: number; takenAt?: string; thisVisit: boolean } | undefined,
+  height: undefined as { cm: number; takenAt?: string } | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -82,19 +85,23 @@ vi.mock('../../src/features/visits/shared/components/review-tab/components/Medic
   MedicationsContainer: () => null,
 }));
 vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
-  useVisitWeight: () => undefined,
+  useVisitWeight: () => mocks.weight,
+  useVisitHeight: () => mocks.height,
 }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),
 }));
 
-const sendQuickPick = async (): Promise<void> => {
+const sendQuickPick = async (
+  beforeSend?: (user: ReturnType<typeof userEvent.setup>) => Promise<void>
+): Promise<void> => {
   const user = userEvent.setup();
   render(<OrderPrescriptionForm />);
   await user.click(screen.getByRole('button', { name: /^medication/ }));
   await user.click(
     within(screen.getByRole('listbox', { name: 'Prescription sets and quick picks' })).getByText('Amox strep')
   );
+  await beforeSend?.(user);
   await user.click(screen.getByRole('button', { name: 'Send Prescription' }));
   await waitFor(() => expect(mocks.orderPrescription).toHaveBeenCalledTimes(1));
 };
@@ -103,6 +110,8 @@ describe('Order prescription form: a quick pick’s diagnosis', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.chartDiagnoses = [];
+    mocks.weight = undefined;
+    mocks.height = undefined;
     mocks.orderPrescription.mockResolvedValue({});
     mocks.saveChartData.mockResolvedValue({ chartData: { diagnosis: [] } });
   });
@@ -129,5 +138,47 @@ describe('Order prescription form: a quick pick’s diagnosis', () => {
     await sendQuickPick();
     await waitFor(() => expect(mocks.orderPrescription).toHaveBeenCalledTimes(1));
     expect(mocks.saveChartData).not.toHaveBeenCalled();
+  });
+});
+
+describe('Order prescription form: height and weight', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.chartDiagnoses = [STREP];
+    mocks.weight = { kg: 28.12, takenAt: '2026-10-08T14:00:00Z', thisVisit: false };
+    mocks.height = { cm: 131.5, takenAt: '2026-10-08T14:00:00Z' };
+    mocks.orderPrescription.mockResolvedValue({});
+  });
+
+  it('go with the order from the vitals, each with the date measured', async () => {
+    await sendQuickPick();
+    expect(mocks.orderPrescription.mock.calls[0][0]).toMatchObject({
+      patientHeight: { cm: 131.5, measuredDate: '2026-10-08' },
+      patientWeight: { kg: 28.12, measuredDate: '2026-10-08' },
+    });
+  });
+
+  it('send a weight typed in the dose calculator, as today’s, in place of the vitals’', async () => {
+    await sendQuickPick(async (user) => {
+      await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
+      const weight = within(screen.getByRole('dialog', { name: 'Dose calculator' })).getByRole('spinbutton', {
+        name: 'weight',
+      });
+      await user.clear(weight);
+      await user.type(weight, '30');
+      await user.keyboard('{Escape}');
+    });
+    expect(mocks.orderPrescription.mock.calls[0][0]).toMatchObject({
+      patientHeight: { cm: 131.5, measuredDate: '2026-10-08' },
+      patientWeight: { kg: 30, measuredDate: DateTime.local().toISODate() },
+    });
+  });
+
+  it('are left out when the vitals have none', async () => {
+    mocks.weight = undefined;
+    mocks.height = undefined;
+    await sendQuickPick();
+    expect(mocks.orderPrescription.mock.calls[0][0]).not.toHaveProperty('patientHeight');
+    expect(mocks.orderPrescription.mock.calls[0][0]).not.toHaveProperty('patientWeight');
   });
 });

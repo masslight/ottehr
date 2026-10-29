@@ -42,7 +42,7 @@ import {
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
-import { useVisitWeight } from './useVisitWeight';
+import { useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 // Layout from the procedure page: the side column sits beside the form once the page is wide enough.
 const SIDE_COLUMN_WIDTH = 340;
@@ -59,6 +59,7 @@ export const OrderPrescriptionForm: FC = () => {
   // A weight typed in any line's dose calculator stands in for the vitals' everywhere on the page.
   const [weightText, setWeightText] = useState<string>();
   const weightKg = calculatorWeightKg(weightText, weight);
+  const height = useVisitHeight();
   const user = useEvolveUser();
   const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
   const { isAppointmentReadOnly: readOnly } = useGetAppointmentAccessibility();
@@ -146,13 +147,22 @@ export const OrderPrescriptionForm: FC = () => {
       });
       return;
     }
+    // The written date isn't shown: a prescription is always written today.
+    const writtenDate = DateTime.local().toISODate() ?? '';
+    const measuredDate = (takenAt?: string): string =>
+      (takenAt && DateTime.fromISO(takenAt).toLocal().toISODate()) || writtenDate;
     const context = {
       patientId: patient.id,
       practitionerId,
       encounterId: encounter.id,
       pharmacy,
-      // The written date isn't shown: a prescription is always written today.
-      writtenDate: DateTime.local().toISODate() ?? '',
+      writtenDate,
+      patientHeight: height && { cm: height.cm, measuredDate: measuredDate(height.takenAt) },
+      // A weight typed in the dose calculator is today's, in place of the vitals'.
+      patientWeight:
+        weightKg === undefined
+          ? undefined
+          : { kg: weightKg, measuredDate: weightText === undefined ? measuredDate(weight?.takenAt) : writtenDate },
     };
     setSending(true);
     const sent: PrescriptionLine[] = [];
