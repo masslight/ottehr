@@ -1,7 +1,13 @@
 import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
-import type { EraClaimStatusCode, EraSource, EraStatus, X12AdjustmentGroupCode } from './billing.constants';
+import type {
+  BillingInvoiceListStatus,
+  EraClaimStatusCode,
+  EraSource,
+  EraStatus,
+  X12AdjustmentGroupCode,
+} from './billing.constants';
 import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
@@ -1159,6 +1165,23 @@ export interface CreateBillingInvoiceResponse {
   // True when this request's SMS was accepted, which does not confirm delivery. False when it failed.
   // Missing when this request sent no SMS, such as a retry of an invoice that was already sent or paid.
   smsSent?: boolean;
+}
+
+export interface BillingInvoiceListItem {
+  id: string;
+  status: BillingInvoiceListStatus;
+  // FHIR Invoice.date as an ISO timestamp.
+  issueDate: string;
+  dueDate: string;
+  amount: number;
+  patientName: string;
+  claimId?: string;
+  serviceDate: string;
+  hostedInvoiceUrl?: string;
+}
+
+export interface SearchBillingInvoicesResponse extends Paginated {
+  invoices: BillingInvoiceListItem[];
 }
 
 export interface RecordBillingRefundResponse {

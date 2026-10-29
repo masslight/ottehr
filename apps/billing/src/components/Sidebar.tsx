@@ -12,6 +12,7 @@ import {
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
   Receipt as ReceiptIcon,
+  RequestQuoteOutlined as RequestQuoteIcon,
   Rule as RuleIcon,
   SettingsOutlined as SettingsIcon,
   ViewList as ViewListIcon,
@@ -29,6 +30,7 @@ const DRAWER_WIDTH = 220;
 const navItems = [
   // { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Invoices', path: '/invoices', icon: <RequestQuoteIcon sx={{ fontSize: 18 }} />, invoicing: true },
   { label: 'Work Queues', path: '/work-queues', icon: <ViewListIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claim Creation Queue', path: '/claim-creation-queue', icon: <ListIcon sx={{ fontSize: 18 }} /> },
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
@@ -144,7 +146,7 @@ export const Sidebar: FC = () => {
       </Box>
 
       <List sx={{ px: 1.25, flex: 1, overflow: 'auto', minHeight: 0 }}>
-        {navItems.map(renderNavItem)}
+        {navItems.filter((item) => !item.invoicing || invoicingInBillingApp).map(renderNavItem)}
         <Divider sx={{ my: 1 }} />
         {rulesNavItems.map(renderNavItem)}
         {invoicingInBillingApp && (

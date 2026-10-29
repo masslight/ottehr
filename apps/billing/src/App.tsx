@@ -26,6 +26,7 @@ import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
 import InvoiceReport from './pages/InvoiceReport';
+import InvoicesList from './pages/InvoicesList';
 import InvoicingConfiguration from './pages/InvoicingConfiguration';
 import ManualRemit from './pages/ManualRemit';
 import NetCollectionsReport from './pages/NetCollectionsReport';
@@ -93,6 +94,7 @@ export default function App(): ReactElement {
               <Route path="/work-queues/:id" element={<WorkQueueDetail />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
+              {invoicingInBillingApp && <Route path="/invoices" element={<InvoicesList />} />}
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
