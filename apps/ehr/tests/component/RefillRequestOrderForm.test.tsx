@@ -39,7 +39,7 @@ vi.mock('src/hooks/useMergedQuickPicks', () => ({
 }));
 vi.mock('../../src/features/visits/in-person/hooks/useTasks', () => ({
   GET_TASKS_KEY: 'get-tasks',
-  useCompleteTask: () => ({ mutateAsync: mocks.completeTask }),
+  useCompleteErxTask: () => ({ mutateAsync: mocks.completeTask }),
 }));
 vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ chartData: { diagnosis: [] }, setPartialChartData: vi.fn() }),

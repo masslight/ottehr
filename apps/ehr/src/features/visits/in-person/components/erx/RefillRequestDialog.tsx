@@ -25,7 +25,7 @@ import { getPatientName } from 'src/shared/utils/getPatientName';
 import { RENEWAL_DENIAL_REASONS, RENEWAL_PENDING_REASONS, RenewalResponseInput } from 'utils/lib/types/api/erx.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
-import { GET_TASKS_KEY, useCompleteTask } from '../../hooks/useTasks';
+import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
 import { refillLine, renewalApproval, requestRows } from './refillRequest';
@@ -81,7 +81,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const { oystehrZambda } = useApiClients();
   const token = useAuthToken();
   const queryClient = useQueryClient();
-  const { mutateAsync: completeTask } = useCompleteTask();
+  const { mutateAsync: completeTask } = useCompleteErxTask();
   const { data, isLoading, error } = useQuery({
     queryKey: ['erx-request', taskId],
     queryFn: () => getErxRequest(oystehrZambda!, { taskId }),

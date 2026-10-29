@@ -108,3 +108,7 @@ export interface GetErxRequestResponse {
   prescriberName?: string;
   patient: Patient;
 }
+
+export const CompleteErxTaskInputSchema = z.object({ taskId: z.string().uuid() });
+
+export type CompleteErxTaskInput = z.infer<typeof CompleteErxTaskInputSchema>;

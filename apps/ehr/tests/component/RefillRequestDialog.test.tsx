@@ -19,7 +19,7 @@ vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambd
 vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
 vi.mock('../../src/features/visits/in-person/hooks/useTasks', () => ({
   GET_TASKS_KEY: 'get-tasks',
-  useCompleteTask: () => ({ mutateAsync: mocks.completeTask }),
+  useCompleteErxTask: () => ({ mutateAsync: mocks.completeTask }),
 }));
 
 const RECEIVED = '2026-10-27T16:12:00.000Z';

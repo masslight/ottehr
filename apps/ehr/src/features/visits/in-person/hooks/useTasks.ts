@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { completeErxTask } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -441,6 +442,19 @@ export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRe
         exact: false,
       });
     },
+  });
+};
+
+/** Completes an eRx task through its zambda (the refill request dialog). */
+export const useCompleteErxTask = (): UseMutationResult<void, Error, { taskId: string }> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId }) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      await completeErxTask(oystehrZambda, { taskId });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
   });
 };
 

@@ -84,6 +84,7 @@ import {
   OpenEmployeeChatResponse,
 } from 'utils/lib/types/api/employee-chat.types';
 import {
+  CompleteErxTaskInput,
   GetErxRequestInput,
   GetErxRequestResponse,
   RenewalResponseInput,
@@ -716,6 +717,11 @@ export const respondToRenewal = async (
     throw new Error(body?.message ?? `Failed to answer the refill request (${response.status})`);
   }
   return body as RenewalResponseOutput;
+};
+
+/** Completes an eRx task (a refill request answered in its dialog). */
+export const completeErxTask = async (oystehr: Oystehr, parameters: CompleteErxTaskInput): Promise<void> => {
+  await oystehr.zambda.execute({ id: 'complete-erx-task', ...parameters });
 };
 
 /** The request a refill request task is about: the pharmacy's or the patient's, with its prescription and patient. */
