@@ -855,9 +855,9 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   // The instructions blank is offered as a link, like "+ urgent", and stays once opened or written in.
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const instructionsShown = instructionsOpen || line.instructions !== '';
-  // On its own row under the line's last sentence; not while the line is hidden awaiting a pick: it would save
-  // directions no one has seen.
-  const saveButton = onSaveQuickPick && !readOnly && !(awaitingPick && !revealed) && (
+  // On its own row under the line's last sentence, once the line has a medication or compound; not while the line is
+  // hidden awaiting a pick: it would save directions no one has seen.
+  const saveButton = onSaveQuickPick && !readOnly && !isEmptyPrescriptionLine(line) && !(awaitingPick && !revealed) && (
     <Button size="small" startIcon={<SaveOutlined />} onClick={onSaveQuickPick} sx={{ alignSelf: 'flex-start' }}>
       {SAVE_QUICK_PICK_LABEL}
     </Button>
@@ -1062,7 +1062,11 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
           rows={suggestions}
           weightNote={weightNote}
           collapsed={suggestionsCollapsed}
-          onCollapsedChange={setSuggestionsCollapsed}
+          // Collapsing them is "Other": the rest of the line shows. Opening them again leaves it as it is.
+          onCollapsedChange={(collapsed) => {
+            if (collapsed) reveal();
+            setSuggestionsCollapsed(collapsed);
+          }}
           isAdded={matches}
           renderPicker={(row, blank, pick) =>
             // A row's dose blank is typed in.

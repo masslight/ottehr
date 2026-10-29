@@ -6,6 +6,7 @@ import {
   emptyPrescriptionLine,
   PrescriptionLine,
   prescriptionLineErrors,
+  withCompound,
   withProduct,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -29,7 +30,8 @@ const AMOXICILLIN_DRUG = {
 
 // The suggestions come from the provider seam, empty in the app; a test sets `rows` to see the rows' behaviour.
 const suggestions = vi.hoisted(() => ({ rows: [] as unknown[] }));
-vi.mock('../../src/features/visits/in-person/components/erx/prescriptionSuggestions', () => ({
+vi.mock('../../src/features/visits/in-person/components/erx/prescriptionSuggestions', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   prescriptionSuggestionsFor: () => suggestions.rows,
 }));
 // The searches behind the medication and diagnosis popovers are network calls; the medication one answers with the
@@ -332,7 +334,7 @@ describe('PrescriptionSentences', () => {
     expect(screen.getByRole('button', { name: '+ urgent (empty)' })).toBeInTheDocument();
   });
 
-  it('puts "Save as quick pick" on its own row under the line’s last sentence, for admins only: the first until the rest shows', async () => {
+  it('puts "Save as quick pick" on its own row under the line’s last sentence, for admins only, once it has a medication', async () => {
     const user = userEvent.setup();
     const onSaveQuickPick = vi.fn();
     const { unmount } = render(<Harness initial={emptyPrescriptionLine()} onSaveQuickPick={onSaveQuickPick} />);
@@ -344,14 +346,14 @@ describe('PrescriptionSentences', () => {
       const all = sentences();
       expect(all[all.length - 1].compareDocumentPosition(save()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     };
-    underLastSentence();
-    expect(sentences()[sentences().length - 1]).toContainElement(screen.getByRole('button', { name: /^medication/ }));
-    await user.click(save());
-    expect(onSaveQuickPick).toHaveBeenCalledTimes(1);
+    // Nothing on the line yet: nothing to save.
+    expect(screen.queryByRole('button', { name: SAVE_QUICK_PICK_LABEL })).not.toBeInTheDocument();
 
     await pickAmoxicillin(user);
     underLastSentence();
     expect(sentences()[sentences().length - 1]).toHaveTextContent(/^Substitution/);
+    await user.click(save());
+    expect(onSaveQuickPick).toHaveBeenCalledTimes(1);
     expect(save()).toHaveClass('MuiButton-sizeSmall', 'MuiButton-text');
     expect(within(save()).getByTestId('SaveOutlinedIcon')).toBeInTheDocument();
     unmount();
@@ -685,4 +687,35 @@ describe('PrescriptionSentences: the dose', () => {
     await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '2');
     expect(screen.queryByRole('img', { name: 'dose re-measured' })).not.toBeInTheDocument();
   });
+});
+
+describe('PrescriptionSentences: dabrams’s testing round', () => {
+  it('offers "Save as quick pick" only once something is on the line, a product or a compound', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Harness initial={emptyPrescriptionLine()} onSaveQuickPick={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: SAVE_QUICK_PICK_LABEL })).not.toBeInTheDocument();
+    await pickAmoxicillin(user);
+    expect(screen.getByRole('button', { name: SAVE_QUICK_PICK_LABEL })).toBeInTheDocument();
+    unmount();
+    render(<Harness initial={withCompound(emptyPrescriptionLine(), {})} onSaveQuickPick={vi.fn()} />);
+    expect(screen.getByRole('button', { name: SAVE_QUICK_PICK_LABEL })).toBeInTheDocument();
+  });
+
+  it(
+    'shows the whole order once the suggestions are collapsed, as "Other" does, and leaves it as is when they open again',
+    withRows([DOSED_ROW], async () => {
+      const user = userEvent.setup();
+      render(<Harness initial={lineFor(LIQUIDS)} />);
+      expect(directionsShown()).toBe(false);
+      await user.click(screen.getByRole('button', { name: 'Hide suggestions' }));
+      expect(directionsShown()).toBe(true);
+      expect(screen.getByRole('spinbutton', { name: 'quantity' })).toBeInTheDocument();
+      await user.click(screen.getByRole('textbox', { name: 'directions' }));
+      await user.paste('Take as directed.');
+      await showSuggestions(user);
+      // Opening the suggestions again changes nothing already entered.
+      expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take as directed.');
+      expect(screen.getByRole('button', { name: 'Write my own' })).toBeInTheDocument();
+    })
+  );
 });
