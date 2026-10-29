@@ -137,9 +137,7 @@ describe('Change request dialog', () => {
       note: undefined,
     });
     expect(mocks.respondToRenewal).not.toHaveBeenCalled();
-    expect(
-      await screen.findByText('Approved: Pantoprazole 40 mg delayed-release tablet. Sent to CVS Pharmacy #7741.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
   });
 
   it('denies a change request with a change denial reason', async () => {
@@ -174,8 +172,6 @@ describe('Change request dialog', () => {
       note: undefined,
       priorAuthorization: { number: 'PA-88431207', status: 'approved' },
     });
-    expect(
-      await screen.findByText('Approved with prior authorization PA-88431207. Sent to CVS Pharmacy #7741.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
   });
 });

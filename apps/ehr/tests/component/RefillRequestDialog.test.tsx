@@ -136,7 +136,7 @@ describe('Refill request dialog', () => {
       numberOfRefills: 3,
       note: 'BP check soon',
     });
-    expect(await screen.findByText('Approved: 3 fills. Sent to CVS Pharmacy #7741.')).toBeInTheDocument();
+    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
   });
 
   it('denies only with a reason', async () => {
@@ -161,9 +161,7 @@ describe('Refill request dialog', () => {
     await user.click(screen.getByRole('combobox', { name: /Reason/ }));
     await user.click(screen.getByRole('option', { name: 'Patient has labs/tests pending' }));
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
-    expect(
-      await screen.findByText('Pending: Patient has labs/tests pending. Sent to CVS Pharmacy #7741.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
     expect(mocks.respondToRenewal.mock.calls[0][1]).toMatchObject({ decision: 'pending' });
     expect(mocks.completeTask).not.toHaveBeenCalled();
   });

@@ -211,7 +211,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
         patientInstructions: 'Take 1 tablet by mouth once daily',
       },
     });
-    expect(await screen.findByText('Approved with your changes. Sent to CVS Pharmacy #7741.')).toBeInTheDocument();
+    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
   });
 
   it('Change and approve of a change request starts from the selected suggestion and answers with it', async () => {
@@ -301,7 +301,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
       })
     );
     expect(mocks.respondToRenewal).not.toHaveBeenCalled();
-    expect(await screen.findByText('New prescription sent.')).toBeInTheDocument();
+    expect(await screen.findByText('Sent to Sample Pharmacy One')).toBeInTheDocument();
   });
 
   const PATIENT_CHANGE: GetErxRequestResponse = {
@@ -330,7 +330,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
       expect.objectContaining({ patientId: 'patient-1', encounterId: 'encounter-9', ndc: '00093111101' })
     );
     expect(order).toEqual(['cancel', 'order']);
-    expect(await screen.findByText('New prescription sent. Cancellation of the original sent.')).toBeInTheDocument();
+    expect(await screen.findByText('Sent to Sample Pharmacy One')).toBeInTheDocument();
   });
 
   it('sends nothing when the original’s cancellation fails, and leaves the task open', async () => {

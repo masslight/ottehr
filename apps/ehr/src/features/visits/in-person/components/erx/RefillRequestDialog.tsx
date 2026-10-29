@@ -184,15 +184,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     // A pending answer keeps the task open, to answer again later.
     if (answer === 'pending') await queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false });
     else await completeTask({ taskId });
-    setSent(
-      answer !== 'approve'
-        ? `${ANSWER_LABEL[answer]}: ${reason}. Sent to ${pharmacyName}.`
-        : priorAuth
-        ? `Approved with prior authorization ${priorAuthorization.trim()}. Sent to ${pharmacyName}.`
-        : change
-        ? `Approved: ${selected?.description}. Sent to ${pharmacyName}.`
-        : `Approved: ${fillsNumber} ${fillsNumber === 1 ? 'fill' : 'fills'}. Sent to ${pharmacyName}.`
-    );
+    setSent(`Sent to ${pharmacyName}`);
   };
 
   const reasons = answer !== 'deny' ? RENEWAL_PENDING_REASONS : change ? CHANGE_DENIAL_REASONS : RENEWAL_DENIAL_REASONS;
@@ -245,15 +237,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             },
           }
         : { sendLabel: 'Send prescription' })}
-      onSent={() => {
+      onSent={(sentTo) => {
         void completeTask({ taskId });
-        setSent(
-          request
-            ? `Approved with your changes. Sent to ${pharmacyName}.`
-            : data.kind === 'change' && isPrescriptionCancellable(prescription)
-            ? 'New prescription sent. Cancellation of the original sent.'
-            : 'New prescription sent.'
-        );
+        setSent(`Sent to ${sentTo.name}`);
       }}
     />
   );

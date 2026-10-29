@@ -65,8 +65,8 @@ interface OrderPrescriptionFormProps {
   /** Sends the prescription in place of ordering it (the answer to a pharmacy's request). */
   onSend?: (line: PrescriptionLine, order: OrderPrescriptionInput) => Promise<void>;
   sendLabel?: string;
-  /** After every prescription went. */
-  onSent?: () => void;
+  /** After every prescription went, with the pharmacy it went to. */
+  onSent?: (pharmacy: PharmacySearchResult) => void;
 }
 
 export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
@@ -207,7 +207,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
       });
       setLines([emptyPrescriptionLine()]);
       setSendAttempted(false);
-      onSent?.();
+      onSent?.(pharmacy);
     } catch (error) {
       console.error(`Error ordering prescription: ${error}`);
       const message =
