@@ -39,6 +39,7 @@ export const VIEW_FAX = 'View';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
+const GO_TO_PRESCRIPTION = 'Go to Prescription';
 
 export const TASKS_PAGE_SIZE = 20;
 
@@ -442,7 +443,7 @@ export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRe
   });
 };
 
-function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>): Task {
+export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>): Task {
   const category = task.groupIdentifier?.value ?? '';
   let action: any = undefined;
   let title = '';
@@ -671,10 +672,23 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     }
   }
   if (category === ERX_TASK.category) {
-    const providerName = getInputString(ERX_TASK.input.providerName, task);
-    title = `Provider ${providerName} has notifications in DoseSpot`;
+    const code = getCoding(task.code, ERX_TASK.system)?.code;
     completable = true;
-    action = { name: OPEN_DOSESPOT, link: '' };
+    if (code === ERX_TASK.code.prescriptionError || code === ERX_TASK.code.prescriptionUnconfirmed) {
+      // The eRx task subscription and cron write the whole sentence into the description.
+      title = task.description ?? '';
+      const appointmentId = encounter?.appointment?.[0]?.reference?.split('/')?.[1];
+      if (appointmentId) {
+        action = {
+          name: GO_TO_PRESCRIPTION,
+          link: addEncounterIdToLink(`/in-person/${appointmentId}/erx-surescripts`),
+        };
+      }
+    } else {
+      const providerName = getInputString(ERX_TASK.input.providerName, task);
+      title = `Provider ${providerName} has notifications in DoseSpot`;
+      action = { name: OPEN_DOSESPOT, link: '' };
+    }
   }
   if (category === FAX_TASK.category) {
     const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';
