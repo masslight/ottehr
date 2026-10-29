@@ -3,7 +3,7 @@ import { createContext, FC, HTMLAttributes, ReactNode, useContext, useState } fr
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { directoryPharmacyToResult } from 'utils/lib/helpers/erx-pharmacy-match';
 import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
+import { ErxDirectoryQuery, PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
 import {
   useCheckPlace,
   usePharmaciesByNcpdpId,
@@ -25,8 +25,9 @@ const COLORS = {
   warnText: '#5F2B00',
 };
 
-/** A row in the list: a directory pharmacy (with whether it can e-prescribe, before anything is typed) or a Google
- * suggestion, checked against the directory when picked. */
+/** A row in the list: a directory pharmacy (with whether it can e-prescribe, before anything is typed), a Google
+ * suggestion, checked against the directory when picked, or the row that swaps Google's results for the directory's
+ * and back. */
 type PharmacyOption =
   | {
       kind: 'pharmacy';
@@ -39,9 +40,19 @@ type PharmacyOption =
       /** The eRx chip: shown once known. */
       erx?: boolean;
     }
-  | { kind: 'place'; key: string; name: string; address: string; placesId: string };
+  | { kind: 'place'; key: string; name: string; address: string; placesId: string }
+  | { kind: 'switch'; key: 'directory' | 'google'; name: string; address: '' };
 
 const SEARCHING = 'Searching…';
+
+/** What's typed as a directory search: a zip, an NCPDP ID, a phone number (punctuation ignored), else a name. */
+const directoryQuery = (text: string): ErxDirectoryQuery => {
+  if (/^\d{5}$/.test(text)) return { zipCode: text };
+  if (/^\d{7}$/.test(text)) return { ncpdpId: text };
+  const digits = text.replace(/\D/g, '');
+  if (digits.length === 10 && /^[\d\s().+-]+$/.test(text)) return { phone: digits };
+  return { name: text };
+};
 
 /** Warning shown between the field and the list. */
 const NoticeContext = createContext<ReactNode>(null);
@@ -111,6 +122,9 @@ export const PharmacySearch: FC<{
   // A picked place that can't be picked: why, and its zip for the list of those that can.
   const [notice, setNotice] = useState<{ text: string; zipCode?: string }>();
   const sameZip = usePharmacyDirectory(notice?.zipCode ? { zipCode: notice.zipCode } : undefined);
+  // What was typed when the directory was searched for it; typing again goes back to Google.
+  const [directory, setDirectory] = useState<string>();
+  const directoryResults = usePharmacyDirectory(directory ? directoryQuery(directory) : undefined);
   const sent = usePharmaciesByNcpdpId(
     sentBefore.map(({ ncpdpId }) => ncpdpId).filter((ncpdpId) => ncpdpId !== onFile?.pharmacy?.ncpdpId)
   );
@@ -157,16 +171,54 @@ export const PharmacySearch: FC<{
     ? []
     : !typed
     ? beforeTyping
-    : (places.data ?? []).map((place) => ({
-        kind: 'place',
-        key: place.placesId,
-        name: place.name,
-        address: place.address,
-        placesId: place.placesId,
-      }));
+    : directory
+    ? [
+        ...(directoryResults.data ?? []).map((pharmacy) => ({
+          kind: 'pharmacy' as const,
+          key: pharmacy.ncpdpId,
+          group: 'Compounding, mail-order and other pharmacies',
+          name: pharmacy.name,
+          address: pharmacy.address,
+          pharmacy,
+          erx: true,
+        })),
+        { kind: 'switch', key: 'google', name: 'Back to Google results', address: '' },
+      ]
+    : [
+        ...(places.data ?? []).map((place) => ({
+          kind: 'place' as const,
+          key: place.placesId,
+          name: place.name,
+          address: place.address,
+          placesId: place.placesId,
+        })),
+        {
+          kind: 'switch',
+          key: 'directory',
+          name: `Search compounding, mail-order and other pharmacies for "${typed}"`,
+          address: '',
+        },
+      ];
   const whyNot = (option: PharmacyOption): string | undefined =>
     option.kind === 'pharmacy' ? (option.pharmacy ? unavailable?.(option.pharmacy) : "Can't e-prescribe") : undefined;
-  const error = checkError ?? (notice ? sameZip.error?.message : places.error?.message);
+  const error = checkError ?? (notice ? sameZip.error : directory ? directoryResults.error : places.error)?.message;
+  // Why the list is empty; while typing it shows above the row that switches between Google and the directory.
+  const status = error ? (
+    <Box component="span" sx={{ color: 'error.main' }}>
+      {error}
+    </Box>
+  ) : notice ? (
+    notice.zipCode ? (
+      `No pharmacies in ${notice.zipCode} can receive e-prescriptions`
+    ) : null
+  ) : !directory && typed.length < 3 ? (
+    'Type to search pharmacies'
+  ) : (directory ? directoryResults.isFetching : debouncedQuery !== query || places.isFetching) ? (
+    SEARCHING
+  ) : (
+    'Nothing found for this search criteria'
+  );
+  const onlySwitch = options.length === 1 && options[0].kind === 'switch';
 
   const pickPlace = async (option: Extract<PharmacyOption, { kind: 'place' }>): Promise<void> => {
     if (!checkPlace) return;
@@ -188,7 +240,7 @@ export const PharmacySearch: FC<{
   return (
     <NoticeContext.Provider
       value={
-        notice && (
+        notice ? (
           <Box
             sx={{
               borderRadius: '4px',
@@ -201,6 +253,8 @@ export const PharmacySearch: FC<{
           >
             {notice.text}
           </Box>
+        ) : (
+          onlySwitch && <Box sx={{ color: 'text.secondary', padding: '8px 12px' }}>{status}</Box>
         )
       }
     >
@@ -244,6 +298,15 @@ export const PharmacySearch: FC<{
             </li>
           )}
           renderOption={(props, option) => {
+            if (option.kind === 'switch') {
+              return (
+                <li {...props} key={option.key}>
+                  <Box component="span" sx={{ color: 'primary.main', fontWeight: 500 }}>
+                    {option.name}
+                  </Box>
+                </li>
+              );
+            }
             const why = option.kind === 'pharmacy' && option.pharmacy ? unavailable?.(option.pharmacy) : undefined;
             const item = (
               <li {...props} key={option.key} style={why ? { pointerEvents: 'auto' } : undefined}>
@@ -290,6 +353,7 @@ export const PharmacySearch: FC<{
             // A pick keeps what was typed.
             if (reason === 'reset') return;
             setQuery(value);
+            setDirectory(undefined);
             setNotice(undefined);
             setCheckError(undefined);
             debounce(() => setDebouncedQuery(value));
@@ -297,26 +361,11 @@ export const PharmacySearch: FC<{
           value={null}
           onChange={(_event, option) => {
             if (!option || whyNot(option)) return;
-            if (option.kind === 'place') void pickPlace(option);
+            if (option.kind === 'switch') setDirectory(option.key === 'directory' ? typed : undefined);
+            else if (option.kind === 'place') void pickPlace(option);
             else if (option.pharmacy) onPick(option.pharmacy);
           }}
-          noOptionsText={
-            error ? (
-              <Box component="span" sx={{ color: 'error.main' }}>
-                {error}
-              </Box>
-            ) : notice ? (
-              notice.zipCode ? (
-                `No pharmacies in ${notice.zipCode} can receive e-prescriptions`
-              ) : null
-            ) : typed.length < 3 ? (
-              'Type to search pharmacies'
-            ) : debouncedQuery !== query ? (
-              SEARCHING
-            ) : (
-              'Nothing found for this search criteria'
-            )
-          }
+          noOptionsText={status}
           renderInput={(params) => (
             <TextField
               {...params}

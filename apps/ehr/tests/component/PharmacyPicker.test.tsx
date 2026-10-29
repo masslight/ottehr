@@ -65,7 +65,9 @@ const searchDirectory = async (_token: string, query: ErxDirectoryQuery): Promis
       (!query.city || row.city.toLowerCase().includes(query.city.toLowerCase())) &&
       (!query.state || row.state === query.state) &&
       (!query.zipCode || row.zipCode.includes(query.zipCode)) &&
-      (!query.ncpdpId || row.ncpdpId === query.ncpdpId)
+      (!query.ncpdpId || row.ncpdpId === query.ncpdpId) &&
+      (!query.name || row.name.toLowerCase().includes(query.name.toLowerCase())) &&
+      (!query.phone || row.phone === query.phone)
   );
 
 const searchPlaces = async ({
@@ -186,6 +188,46 @@ describe('eRx pharmacy picker', () => {
     expect(onPick).not.toHaveBeenCalled();
     await user.click(screen.getByRole('option', { name: /HEB PHARMACY #612/ }));
     expect(onPick).toHaveBeenCalledWith(result(HEB));
+  });
+
+  it('searches the directory for what’s typed on request, and goes back to Google', async () => {
+    const user = userEvent.setup();
+    const onPick = renderPicker();
+    const field = screen.getByRole('combobox', { name: 'Pharmacy' });
+    await user.type(field, 'heb');
+    // Google finds nothing, so the row is all there is.
+    await user.click(
+      await screen.findByRole('option', { name: 'Search compounding, mail-order and other pharmacies for "heb"' })
+    );
+    expect(await screen.findByText('Compounding, mail-order and other pharmacies')).toBeInTheDocument();
+    expect(mocks.searchPharmacyDirectory).toHaveBeenCalledWith('user-token', { name: 'heb' });
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'HEB PHARMACY #612eRx ✓2400 S CONGRESS AVE, AUSTIN, TX 78704',
+      'Back to Google results',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'Back to Google results' }));
+    expect(screen.queryByText('Compounding, mail-order and other pharmacies')).not.toBeInTheDocument();
+    // With the keyboard, as any other row.
+    await user.keyboard('{ArrowUp}{Enter}');
+    await screen.findByText('Compounding, mail-order and other pharmacies');
+    await user.click(await screen.findByRole('option', { name: /HEB PHARMACY #612/ }));
+    expect(onPick).toHaveBeenCalledWith(result(HEB));
+    // Typing again returns to Google.
+    await user.type(field, ' x');
+    expect(screen.queryByText('Compounding, mail-order and other pharmacies')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['78704', { zipCode: '78704' }],
+    ['4400002', { ncpdpId: '4400002' }],
+    ['(512) 555-0142', { phone: '5125550142' }],
+    ['12345678', { name: '12345678' }],
+  ])('searches the directory for "%s" as %o', async (typed, query) => {
+    const user = userEvent.setup();
+    renderPicker();
+    await user.type(screen.getByRole('combobox', { name: 'Pharmacy' }), typed);
+    await user.click(screen.getByRole('option', { name: /^Search compounding/ }));
+    await waitFor(() => expect(mocks.searchPharmacyDirectory).toHaveBeenCalledWith('user-token', query));
   });
 
   it('shows the error when Google can’t be searched', async () => {
