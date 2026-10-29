@@ -1,4 +1,4 @@
-import { Stack } from '@mui/material';
+import { Alert, Stack } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { getLocationLabel, LocationSelectInput } from 'src/components/input/Loca
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
+import { COMPOUND_CANCEL_UNSUPPORTED } from 'src/features/visits/in-person/components/erx/prescriptionStatus';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -120,7 +121,9 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId, refreshKey);
   const { proceduresLoading, proceduresOptions } = useProceduresOptions(encounterId);
   const { inHouseMedicationsLoading, inHouseMedicationsOptions } = useInHouseMedicationsOptions(encounterId);
-  const { prescriptionsLoading, prescriptionsOptions } = usePrescriptionsOptions(encounterId);
+  const { prescriptionsLoading, prescriptionsOptions, compoundPrescriptionIds } = usePrescriptionsOptions(encounterId);
+  // The eRx service can't cancel a compound yet.
+  const compoundChangeBlocked = changeRequest && compoundPrescriptionIds.includes(formValue.order);
 
   const ordersLoading =
     formValue.category === MANUAL_TASK.category.inHouseLab
@@ -244,7 +247,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
       open={open}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
-      disabled={!formValue.category || !formValue.taskTitle || !formValue.location}
+      disabled={!formValue.category || !formValue.taskTitle || !formValue.location || compoundChangeBlocked}
       description={''}
       title={'New Task'}
       confirmText={'Create new task'}
@@ -284,6 +287,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
                 disabled={!formValue.appointment || !formValue.category}
               />
             )}
+            {compoundChangeBlocked && <Alert severity="warning">{COMPOUND_CANCEL_UNSUPPORTED}</Alert>}
             <TextInput name="taskTitle" label="Title" required />
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>

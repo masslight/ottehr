@@ -112,7 +112,7 @@ const canSendToAnotherPharmacyByStatus = (prescription: PrescribedMedicationDTO)
 const isCompoundDosageForm = (form: string | undefined): form is CompoundDosageForm =>
   COMPOUND_DOSAGE_FORMS.includes(form as CompoundDosageForm);
 
-/** The eRx service can't cancel a compound yet. */
+/** The eRx service can't cancel a compound yet: Cancel, Send to another pharmacy and a patient's change request. */
 export const COMPOUND_CANCEL_UNSUPPORTED = "Canceling compounds isn't supported yet";
 
 /** Whether the action would cancel a compound: Cancel, or sending a sent one to another pharmacy (which cancels it

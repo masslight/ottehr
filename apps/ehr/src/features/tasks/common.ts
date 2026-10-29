@@ -176,10 +176,15 @@ export function useInHouseMedicationsOptions(encounterId: string): {
 export function usePrescriptionsOptions(encounterId: string): {
   prescriptionsLoading: boolean;
   prescriptionsOptions: Order[];
+  compoundPrescriptionIds: string[];
 } {
   const { data, isLoading } = useChartSection('plan', { encounterId });
   return {
     prescriptionsLoading: isLoading,
+    // The eRx service can't cancel a compound yet, so a patient's change request (which cancels it) can't be on one.
+    compoundPrescriptionIds: (data?.prescribedMedications ?? [])
+      .filter((prescription) => prescription.order?.compound)
+      .map((prescription) => prescription.resourceId ?? ''),
     prescriptionsOptions: (data?.prescribedMedications ?? []).map((prescription) => ({
       id: prescription.resourceId ?? '',
       label: [prescription.name, prescription.sent && DateTime.fromISO(prescription.sent).toFormat('M/d/yyyy')]
