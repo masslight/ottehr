@@ -190,6 +190,14 @@ describe('eRx pharmacy picker', () => {
     expect(onPick).toHaveBeenCalledWith(result(HEB));
   });
 
+  it('offers the directory search from 3 characters, as Google', async () => {
+    const user = userEvent.setup();
+    renderPicker();
+    await user.type(screen.getByRole('combobox', { name: 'Pharmacy' }), 'he');
+    expect(screen.getByText('Type to search pharmacies')).toBeInTheDocument();
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
+  });
+
   it('searches the directory for what’s typed on request, and goes back to Google', async () => {
     const user = userEvent.setup();
     const onPick = renderPicker();
@@ -202,8 +210,8 @@ describe('eRx pharmacy picker', () => {
     expect(await screen.findByText('Compounding, mail-order and other pharmacies')).toBeInTheDocument();
     expect(mocks.searchPharmacyDirectory).toHaveBeenCalledWith('user-token', { name: 'heb' });
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'HEB PHARMACY #6122400 S CONGRESS AVE, AUSTIN, TX 78704',
       'Back to Google results',
+      'HEB PHARMACY #6122400 S CONGRESS AVE, AUSTIN, TX 78704',
     ]);
     await user.click(screen.getByRole('option', { name: 'Back to Google results' }));
     expect(screen.queryByText('Compounding, mail-order and other pharmacies')).not.toBeInTheDocument();

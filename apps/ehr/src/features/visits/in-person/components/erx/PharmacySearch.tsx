@@ -57,18 +57,25 @@ const directoryQuery = (text: string): ErxDirectoryQuery => {
 /** Warning shown between the field and the list. */
 const NoticeContext = createContext<ReactNode>(null);
 
-/** The list sits in the popover under the field, as in the mockup, rather than floating. */
-const InlineList: FC<PopperProps> = ({ open, children, className }) =>
-  open ? (
-    <Box className={className} sx={{ mt: '6px' }}>
-      {children as ReactNode}
-    </Box>
-  ) : null;
+/** The list sits in the popover under the field, as in the mockup, rather than floating: so not in MUI's popper
+ * class, which positions it absolutely. */
+const InlineList: FC<PopperProps> = ({ open, children }) =>
+  open ? <Box sx={{ mt: '6px' }}>{children as ReactNode}</Box> : null;
 
 const ListPaper: FC<HTMLAttributes<HTMLElement>> = ({ children, className }) => {
   const notice = useContext(NoticeContext);
   return (
-    <Box className={className} sx={{ fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <Box
+      className={className}
+      sx={{
+        fontSize: '14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        // As the notice's status above the row that switches between Google and the directory.
+        '& .MuiAutocomplete-noOptions, & .MuiAutocomplete-loading': { padding: '8px 12px' },
+      }}
+    >
       {notice}
       <div>{children}</div>
     </Box>
@@ -173,6 +180,8 @@ export const PharmacySearch: FC<{
     ? beforeTyping
     : directory
     ? [
+        // First, so it's reachable without scrolling through the directory's results.
+        { kind: 'switch', key: 'google', name: 'Back to Google results', address: '' },
         ...(directoryResults.data ?? []).map((pharmacy) => ({
           kind: 'pharmacy' as const,
           key: pharmacy.ncpdpId,
@@ -181,8 +190,9 @@ export const PharmacySearch: FC<{
           address: pharmacy.address,
           pharmacy,
         })),
-        { kind: 'switch', key: 'google', name: 'Back to Google results', address: '' },
       ]
+    : typed.length < 3
+    ? []
     : [
         ...(places.data ?? []).map((place) => ({
           kind: 'place' as const,
@@ -286,6 +296,10 @@ export const PharmacySearch: FC<{
                     letterSpacing: '.03em',
                     textTransform: 'uppercase',
                     padding: '4px 12px',
+                    // Stays at the top while its rows scroll, as MUI's.
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 1,
                   }}
                 >
                   {params.group}
