@@ -56,13 +56,13 @@ const operatorLabel = (
   return valueType === 'date' && metadata.dateLabel ? metadata.dateLabel : metadata.label;
 };
 
-// Allowed-values phrase for a def with options: the docs note when present (states and POS codes
-// would be unreadable enumerated in a table cell), otherwise the enumerated option list.
 const formatOptions = (options: RuleFieldOption[]): string =>
   options
     .map((option) => (option.label === option.value ? `\`${option.value}\`` : `\`${option.value}\` (${option.label})`))
     .join(', ');
 
+// Allowed-values phrase for a def with options: the docs note when present (states and POS codes
+// would be unreadable enumerated in a table cell), otherwise the enumerated option list.
 const allowedValues = (field: Pick<RuleFieldDef, 'options' | 'optionsDocNote'>): string => {
   if (field.optionsDocNote) return field.optionsDocNote;
   if (!field.options) return '';
