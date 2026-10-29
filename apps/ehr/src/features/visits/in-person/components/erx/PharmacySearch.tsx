@@ -180,7 +180,6 @@ export const PharmacySearch: FC<{
           name: pharmacy.name,
           address: pharmacy.address,
           pharmacy,
-          erx: true,
         })),
         { kind: 'switch', key: 'google', name: 'Back to Google results', address: '' },
       ]

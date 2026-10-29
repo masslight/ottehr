@@ -202,7 +202,7 @@ describe('eRx pharmacy picker', () => {
     expect(await screen.findByText('Compounding, mail-order and other pharmacies')).toBeInTheDocument();
     expect(mocks.searchPharmacyDirectory).toHaveBeenCalledWith('user-token', { name: 'heb' });
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'HEB PHARMACY #612eRx ✓2400 S CONGRESS AVE, AUSTIN, TX 78704',
+      'HEB PHARMACY #6122400 S CONGRESS AVE, AUSTIN, TX 78704',
       'Back to Google results',
     ]);
     await user.click(screen.getByRole('option', { name: 'Back to Google results' }));
