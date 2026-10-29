@@ -327,9 +327,22 @@ describe('Refill request dialog: the order form outside a visit', () => {
     taskId: 'task-1',
     kind: 'change',
     patientRequest: { note: 'Asks for a 90-day supply.', takenBy: 'Kim Front', taken: '2026-10-28T10:00:00.000Z' },
-    prescription: { ...PRESCRIPTION, status: 'active' },
+    prescription: { ...PRESCRIPTION, status: 'active', order: { ...PRESCRIPTION.order, patientId: 'patient-1' } },
     patient: PATIENT,
   };
+
+  it('sends nothing for a patient’s change when the original can’t be cancelled, and says why', async () => {
+    await open({
+      ...PATIENT_CHANGE,
+      prescription: { ...PATIENT_CHANGE.prescription, events: [{ code: 'cancelrequested' }] },
+    });
+    expect(
+      screen.getByText("Send to another pharmacy isn't available for prescriptions with status Cancel requested.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send prescription' })).not.toBeInTheDocument();
+    expect(mocks.cancelPrescription).not.toHaveBeenCalled();
+    expect(mocks.orderPrescription).not.toHaveBeenCalled();
+  });
 
   it('answers a patient’s change request with a new prescription, cancelling the original first', async () => {
     const order: string[] = [];

@@ -40,7 +40,7 @@ import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription
 import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
-import { isPrescriptionCancellable } from './prescriptionStatus';
+import { isPrescriptionCancellable, prescriptionActionUnavailableText } from './prescriptionStatus';
 import {
   changeApproval,
   changeResponse,
@@ -211,9 +211,15 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const compared = (change ? selected : refill?.medication) ?? {};
   const noteMax = answer === 'deny' ? 210 : 70;
 
+  // A patient's change replaces the original as Send to another pharmacy does, so what blocks that blocks it.
+  const changeBlocked =
+    !request && data?.kind === 'change' && prescription && !originalCancelled
+      ? prescriptionActionUnavailableText('sendToAnotherPharmacy', [prescription])
+      : undefined;
   // A new prescription in the order form, saved to the original's visit: the pharmacy's request changed and approved
   // (sent to the pharmacy that asked), or a patient's request (sent as a new prescription, to any pharmacy).
-  const showForm = !!data && !!prescription?.encounterId && !sent && (request ? answer === 'change' && !closed : true);
+  const showForm =
+    !!data && !!prescription?.encounterId && !sent && (request ? answer === 'change' && !closed : !changeBlocked);
   const orderForm = showForm && (
     <OrderPrescriptionForm
       // Picking another suggestion starts the form again from it.
@@ -384,6 +390,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               </Box>
             </Box>
             {sent && <Alert severity="success">{sent}</Alert>}
+            {!sent && changeBlocked && <Alert severity="warning">{changeBlocked}</Alert>}
             {!request && orderForm}
             {request && !sent && (
               <Stack spacing={2}>
