@@ -966,9 +966,19 @@ export const compoundOrderIngredients = (
     }
   }
   if (errors.length) return { errors };
+  // Under 1 g goes in mg, so a small amount keeps its 3 decimals; one that still rounds to 0 can't be sent.
+  const sent = amounts.map((amount) => {
+    const { value, unit } = amount!;
+    return unit === 'Gram' && value < 1
+      ? { value: roundAmount(value * 1000), unit: 'Milligram' as const }
+      : { value: roundAmount(value), unit };
+  });
+  sent.forEach((amount, i) => {
+    if (amount.value <= 0) errors.push(`Ingredient ${i + 1}'s amount is too small to send — enter a larger amount`);
+  });
+  if (errors.length) return { errors };
   return {
     ingredients: compound.ingredients.map((ingredient, i) => {
-      const amount = amounts[i]!;
       const strengthUnit = ingredient.strength && ORDER_STRENGTH_UNITS[ingredient.strength.unit];
       return {
         description: ingredient.description,
@@ -976,8 +986,8 @@ export const compoundOrderIngredients = (
         ...(ingredient.strength && strengthUnit
           ? { strength: { value: String(ingredient.strength.value), unit: strengthUnit } }
           : {}),
-        quantityValue: roundAmount(amount.value),
-        quantityUnit: amount.unit,
+        quantityValue: sent[i].value,
+        quantityUnit: sent[i].unit,
       };
     }),
   };

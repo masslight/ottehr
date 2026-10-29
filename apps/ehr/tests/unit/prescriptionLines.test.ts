@@ -1102,13 +1102,13 @@ describe('compoundOrderIngredients: each ingredient as the amount that goes in',
         )
       )
     ).toEqual([
-      [0.03, 'Gram'],
+      [30, 'Milligram'],
       [2.1, 'Gram'],
       [27.87, 'Gram'],
     ]);
   });
 
-  it('works out amounts to 3 decimal places, so what is shown is what is sent', () => {
+  it('works out amounts to 3 decimal places, a small one in milligrams', () => {
     expect(
       amounts(
         convert(
@@ -1121,9 +1121,33 @@ describe('compoundOrderIngredients: each ingredient as the amount that goes in',
         )
       )
     ).toEqual([
-      [0.001, 'Gram'],
+      [1.25, 'Milligram'],
       [9.999, 'Gram'],
     ]);
+  });
+
+  it('sends an amount under 1 g in milligrams, so a small % isn’t rounded away', () => {
+    expect(
+      amounts(
+        convert(
+          [
+            { description: 'A', strength: { value: 0.001, unit: '%' } },
+            { description: 'B', amount: { value: 0.5, unit: 'Gram' } },
+          ],
+          30,
+          'Gram'
+        )
+      )
+    ).toEqual([
+      [0.3, 'Milligram'],
+      [500, 'Milligram'],
+    ]);
+  });
+
+  it('refuses an amount that still rounds to 0', () => {
+    expect(convert([{ description: 'A', strength: { value: 0.000001, unit: '%' } }], 30, 'Gram')).toEqual({
+      errors: ["Ingredient 1's amount is too small to send — enter a larger amount"],
+    });
   });
 
   it.each([
