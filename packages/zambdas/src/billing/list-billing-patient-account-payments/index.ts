@@ -21,6 +21,7 @@ import { getStripeClient } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { fetchResourcesGrouped } from '../claim-amounts';
+import { getClaimServiceDate } from '../claim-search';
 import { getPaymentsForEncounter } from '../patient-payment-dtos';
 import { fetchEncounterPaymentNotices, invoiceIdForPaymentNotice } from '../patient-payments';
 import { createBillingClient, fetchById, resolveClinicalPatientIds } from '../shared';
@@ -113,7 +114,7 @@ export const listAccountPayments = async (params: {
             appointmentId: appointment?.id,
             visitDateISO: appointment?.start ?? encounter.period?.start,
             claimId: claim?.id,
-            claimServiceDate: claim ? claim.item?.[0]?.servicedPeriod?.start ?? claim.created : undefined,
+            claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
           })
         );
       })
