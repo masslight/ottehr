@@ -162,6 +162,18 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const ready =
     answer !== 'approve' ? reason !== '' : change ? !priorAuth || priorAuthorization.trim() !== '' : fillsValid;
 
+  // What went out stays sent when the task can't be completed: it's closed from the Tasks page instead.
+  const completeAfterSending = async (sentText: string): Promise<void> => {
+    try {
+      await completeTask({ taskId });
+    } catch (taskError) {
+      console.error(`Error completing the task: ${taskError}`);
+      enqueueSnackbar(`${sentText}, but the task couldn’t be closed. Close it from the Tasks page.`, {
+        variant: 'warning',
+      });
+    }
+  };
+
   const send = async (): Promise<void> => {
     if (!request) return;
     const trimmed = note.trim() || undefined;
@@ -190,7 +202,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     }
     // A pending answer keeps the task open, to answer again later.
     if (answer === 'pending') await queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false });
-    else await completeTask({ taskId });
+    else await completeAfterSending(`Sent to ${pharmacyName}`);
     setSent(`Sent to ${pharmacyName}`);
   };
 
@@ -245,8 +257,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
           }
         : { sendLabel: 'Send prescription' })}
       onSent={(sentTo) => {
-        void completeTask({ taskId });
         setSent(`Sent to ${sentTo.name}`);
+        void completeAfterSending('Prescription sent');
       }}
     />
   );

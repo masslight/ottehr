@@ -153,6 +153,17 @@ describe('Refill request dialog', () => {
     expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
   });
 
+  it('stays sent when the task can’t be completed, with a warning to close it from the Tasks page', async () => {
+    mocks.completeTask.mockRejectedValue(new Error('Task update failed'));
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
+    expect(enqueueSnackbar).toHaveBeenCalledWith(
+      'Sent to CVS Pharmacy #7741, but the task couldn’t be closed. Close it from the Tasks page.',
+      { variant: 'warning' }
+    );
+  });
+
   it('denies only with a reason', async () => {
     const user = await open();
     await user.click(screen.getByRole('button', { name: 'Deny' }));

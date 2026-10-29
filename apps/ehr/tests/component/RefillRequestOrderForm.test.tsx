@@ -304,6 +304,25 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(await screen.findByText('Sent to Sample Pharmacy One')).toBeInTheDocument();
   });
 
+  it('stays sent when the task can’t be completed, with a warning to close it from the Tasks page', async () => {
+    mocks.completeTask.mockRejectedValue(new Error('Task update failed'));
+    const user = await open({
+      taskId: 'task-1',
+      kind: 'refill',
+      patientRequest: { takenBy: 'Kim Front', taken: '2026-10-28T10:00:00.000Z' },
+      prescription: PRESCRIPTION,
+      patient: PATIENT,
+    });
+    await user.click(screen.getByRole('button', { name: 'Send prescription' }));
+    expect(await screen.findByText('Sent to Sample Pharmacy One')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith(
+        'Prescription sent, but the task couldn’t be closed. Close it from the Tasks page.',
+        { variant: 'warning' }
+      )
+    );
+  });
+
   const PATIENT_CHANGE: GetErxRequestResponse = {
     taskId: 'task-1',
     kind: 'change',
