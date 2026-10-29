@@ -1,5 +1,6 @@
 import { Add } from '@mui/icons-material';
 import { Box, Button, Divider, FormHelperText, Stack, Typography, useTheme } from '@mui/material';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
@@ -51,28 +52,55 @@ const FORM_COLUMN_MIN_WIDTH = 420;
 const COLUMN_GAP_PX = 16;
 const SIDE_COLUMN_QUERY = `@container (min-width: ${FORM_COLUMN_MIN_WIDTH + COLUMN_GAP_PX + SIDE_COLUMN_MIN_WIDTH}px)`;
 
-export const OrderPrescriptionForm: FC = () => {
+interface OrderPrescriptionFormProps {
+  /** Outside a visit (a refill request): the patient, and the visit the prescription is saved to and its vitals,
+   * charted diagnoses, allergies and medications are read from, in place of the page's. The signed-visit lock and the
+   * chart's diagnoses being added to don't apply. */
+  visit?: { patient: Patient; encounterId: string };
+  /** The one prescription the form starts with; "Add another" is then hidden. */
+  initialLine?: PrescriptionLine;
+  /** The pharmacy that asked, which can't be changed. */
+  pharmacy?: PharmacySearchResult;
+  /** Sends the prescription in place of ordering it (the answer to a pharmacy's request). */
+  onSend?: (line: PrescriptionLine) => Promise<void>;
+  sendLabel?: string;
+  /** After every prescription went. */
+  onSent?: () => void;
+}
+
+export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
+  visit,
+  initialLine,
+  pharmacy: fixedPharmacy,
+  onSend,
+  sendLabel,
+  onSent,
+}) => {
   const theme = useTheme();
-  const { patient, encounter } = useAppointmentData();
+  const appointmentData = useAppointmentData();
+  const patient = visit?.patient ?? appointmentData.patient;
+  const encounterId = visit?.encounterId ?? appointmentData.encounter?.id;
   const patientContact = patientAddressAndPhone(patient);
-  const weight = useVisitWeight();
+  const weight = useVisitWeight(visit?.encounterId);
   // A weight typed in any line's dose calculator stands in for the vitals' everywhere on the page.
   const [weightText, setWeightText] = useState<string>();
   const weightKg = calculatorWeightKg(weightText, weight);
-  const height = useVisitHeight();
+  const height = useVisitHeight(visit?.encounterId);
   const user = useEvolveUser();
   const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
-  const { isAppointmentReadOnly: readOnly } = useGetAppointmentAccessibility();
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  const readOnly = !visit && isAppointmentReadOnly;
   const { oystehrZambda } = useApiClients();
   const { mutateAsync: orderPrescription } = useOrderPrescription();
-  const { data: plan, refetch: refetchPrescriptions } = useChartSection('plan');
-  const { chartData, setPartialChartData } = useChartData();
+  const chartVisit = visit ? { encounterId: visit.encounterId } : {};
+  const { data: plan, refetch: refetchPrescriptions } = useChartSection('plan', chartVisit);
+  const { chartData, setPartialChartData } = useChartData(chartVisit);
   const { mutateAsync: saveChartData } = useSaveChartData();
   const visitDiagnoses = chartData?.diagnosis ?? [];
   const { quickPicks, refetch: refetchQuickPicks } = useMergedPrescriptionQuickPicks();
   const { quickPicks: sets } = useMergedPrescriptionSetQuickPicks();
 
-  const [lines, setLines] = useState<PrescriptionLine[]>(() => [emptyPrescriptionLine()]);
+  const [lines, setLines] = useState<PrescriptionLine[]>(() => [initialLine ?? emptyPrescriptionLine()]);
   const [sendAttempted, setSendAttempted] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -80,7 +108,7 @@ export const OrderPrescriptionForm: FC = () => {
   const savedPharmacy = plan?.preferredPharmacies?.find((item) => item.primary) ?? plan?.preferredPharmacies?.[0];
   const { data: preferredPharmacy } = usePreferredPharmacy(patient?.id, savedPharmacy);
   const [pickedPharmacy, setPickedPharmacy] = useState<PharmacySearchResult | null>(null);
-  const pharmacy = pickedPharmacy ?? preferredPharmacy ?? null;
+  const pharmacy = fixedPharmacy ?? pickedPharmacy ?? preferredPharmacy ?? null;
   // The pharmacies this patient's prescriptions went to, once each.
   const sentBefore = (plan?.prescribedMedications ?? []).flatMap((item, i, all) =>
     item.pharmacyId && all.findIndex((other) => other.pharmacyId === item.pharmacyId) === i
@@ -121,7 +149,7 @@ export const OrderPrescriptionForm: FC = () => {
         diagnoses.findIndex((other) => other.code === diagnosis.code) === i &&
         !existing.some((item) => item.code === diagnosis.code)
     );
-    if (!fresh.length) return;
+    if (!fresh.length || visit) return;
     const hasPrimary = existing.some((item) => item.isPrimary);
     const prepared = fresh.map((diagnosis, i) => ({ ...diagnosis, isPrimary: !hasPrimary && i === 0 }));
     try {
@@ -141,7 +169,7 @@ export const OrderPrescriptionForm: FC = () => {
     setSendAttempted(true);
     if (!pharmacy || lines.some((line) => prescriptionLineErrors(line).length > 0)) return;
     const practitionerId = user?.profileResource?.id;
-    if (!patient?.id || !encounter?.id || !practitionerId) {
+    if (!patient?.id || !encounterId || !practitionerId) {
       enqueueSnackbar('The patient, encounter or provider could not be determined. Please reload and try again.', {
         variant: 'error',
       });
@@ -154,7 +182,7 @@ export const OrderPrescriptionForm: FC = () => {
     const context = {
       patientId: patient.id,
       practitionerId,
-      encounterId: encounter.id,
+      encounterId,
       pharmacy,
       writtenDate,
       patientHeight: height && { cm: height.cm, measuredDate: measuredDate(height.takenAt) },
@@ -168,7 +196,8 @@ export const OrderPrescriptionForm: FC = () => {
     const sent: PrescriptionLine[] = [];
     try {
       for (const line of lines) {
-        await orderPrescription(prescriptionLineToOrder(line, context));
+        if (onSend) await onSend(line);
+        else await orderPrescription(prescriptionLineToOrder(line, context));
         sent.push(line);
         setLines((current) => current.filter((item) => item.key !== line.key));
       }
@@ -177,6 +206,7 @@ export const OrderPrescriptionForm: FC = () => {
       });
       setLines([emptyPrescriptionLine()]);
       setSendAttempted(false);
+      onSent?.();
     } catch (error) {
       console.error(`Error ordering prescription: ${error}`);
       const message =
@@ -275,7 +305,7 @@ export const OrderPrescriptionForm: FC = () => {
                   hideTitle
                   value={pharmacy?.name}
                   need
-                  readOnly={readOnly}
+                  readOnly={readOnly || !!fixedPharmacy}
                 >
                   {(close) => (
                     <PharmacySearch
@@ -298,7 +328,7 @@ export const OrderPrescriptionForm: FC = () => {
                   <>
                     {isPreferred && ' (preferred)'},{' '}
                     <Box component="span" sx={{ color: 'text.secondary' }}>
-                      {pharmacy.address} · {formatPhoneNumberDisplay(pharmacy.phone)}
+                      {[pharmacy.address, formatPhoneNumberDisplay(pharmacy.phone)].filter(Boolean).join(' · ')}
                     </Box>
                   </>
                 )}
@@ -349,7 +379,7 @@ export const OrderPrescriptionForm: FC = () => {
                   />
                 ))}
               </Box>
-              {!readOnly && (
+              {!readOnly && !initialLine && (
                 <Button
                   size="small"
                   startIcon={<Add />}
@@ -373,7 +403,7 @@ export const OrderPrescriptionForm: FC = () => {
                   loading={sending}
                   onClick={() => void send()}
                 >
-                  {lines.length === 1 ? 'Send Prescription' : `Send ${lines.length} Prescriptions`}
+                  {sendLabel ?? (lines.length === 1 ? 'Send Prescription' : `Send ${lines.length} Prescriptions`)}
                 </RoundedButton>
               </Box>
             </Stack>
@@ -404,8 +434,8 @@ export const OrderPrescriptionForm: FC = () => {
                     )}
                   </Box>
                 )}
-                <AllergiesContainer />
-                <MedicationsContainer />
+                <AllergiesContainer encounterId={visit?.encounterId} />
+                <MedicationsContainer encounterId={visit?.encounterId} />
               </Stack>
             </AccordionCard>
           </Box>

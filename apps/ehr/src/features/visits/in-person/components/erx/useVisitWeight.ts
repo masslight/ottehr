@@ -24,24 +24,28 @@ const latestVital = (observations: { value?: number; lastUpdated?: string }[] | 
 };
 
 /** This visit's latest value of a vital, else the latest from an earlier visit, as the vitals endpoints the Vitals
- * page and the eRx readiness check already read (the same query keys, so nothing is fetched twice). */
-const useVisitVital = (field: VitalFieldNames.VitalWeight | VitalFieldNames.VitalHeight): LatestVital | undefined => {
+ * page and the eRx readiness check already read (the same query keys, so nothing is fetched twice). The visit is the
+ * page's, unless another one is given. */
+const useVisitVital = (
+  field: VitalFieldNames.VitalWeight | VitalFieldNames.VitalHeight,
+  encounterId?: string
+): LatestVital | undefined => {
   const { encounter } = useAppointmentData();
-  const { data: current } = useGetVitals(encounter?.id);
-  const { data: historical } = useGetHistoricalVitals(encounter?.id);
+  const { data: current } = useGetVitals(encounterId ?? encounter?.id);
+  const { data: historical } = useGetHistoricalVitals(encounterId ?? encounter?.id);
   const own = latestVital(current?.[field]);
   if (own) return own;
   const previous = latestVital(historical?.[field]);
   return previous && { ...previous, thisVisit: false };
 };
 
-export const useVisitWeight = (): VisitWeight | undefined => {
-  const vital = useVisitVital(VitalFieldNames.VitalWeight);
+export const useVisitWeight = (encounterId?: string): VisitWeight | undefined => {
+  const vital = useVisitVital(VitalFieldNames.VitalWeight, encounterId);
   return vital && { kg: vital.value, takenAt: vital.takenAt, thisVisit: vital.thisVisit };
 };
 
 /** The height sent with an order, in cm as the vitals keep it. */
-export const useVisitHeight = (): { cm: number; takenAt?: string } | undefined => {
-  const vital = useVisitVital(VitalFieldNames.VitalHeight);
+export const useVisitHeight = (encounterId?: string): { cm: number; takenAt?: string } | undefined => {
+  const vital = useVisitVital(VitalFieldNames.VitalHeight, encounterId);
   return vital && { cm: vital.value, takenAt: vital.takenAt };
 };

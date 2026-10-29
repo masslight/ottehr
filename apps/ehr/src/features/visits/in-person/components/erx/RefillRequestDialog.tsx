@@ -27,12 +27,18 @@ import { RENEWAL_DENIAL_REASONS, RENEWAL_PENDING_REASONS, RenewalResponseInput }
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
 import { GET_TASKS_KEY, useCompleteTask } from '../../hooks/useTasks';
+import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone } from './prescriptionDialogs';
-import { plainNumber, requestRows } from './refillRequest';
+import { plainNumber, refillLine, renewalApproval, requestRows } from './refillRequest';
 
-type Answer = 'approve' | 'deny' | 'pending';
+type Answer = 'approve' | 'change' | 'deny' | 'pending';
 
-const ANSWER_LABEL: Record<Answer, string> = { approve: 'Approve', deny: 'Deny', pending: 'Pending' };
+const ANSWER_LABEL: Record<Answer, string> = {
+  approve: 'Approve',
+  change: 'Change and approve',
+  deny: 'Deny',
+  pending: 'Pending',
+};
 
 const dateTime = (iso: string | undefined): string | undefined =>
   iso ? DateTime.fromISO(iso).toLocal().toFormat('M/d/yyyy h:mm a') : undefined;
@@ -142,8 +148,37 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
 
   const reasons = answer === 'deny' ? RENEWAL_DENIAL_REASONS : RENEWAL_PENDING_REASONS;
 
+  // A new prescription in the order form, saved to the original's visit: the pharmacy's request changed and approved
+  // (sent to the pharmacy that asked), or a patient's request (sent as a new prescription, to any pharmacy).
+  const showForm = !!data && !!prescription?.encounterId && !sent && (request ? answer === 'change' && !closed : true);
+  const orderForm = showForm && (
+    <OrderPrescriptionForm
+      visit={{ patient: data.patient, encounterId: prescription.encounterId! }}
+      initialLine={refillLine(prescription, request?.medication)}
+      {...(request
+        ? {
+            pharmacy: {
+              ncpdpId: request.pharmacy.ncpdpId ?? '',
+              npi: request.pharmacy.npi ?? '',
+              name: pharmacyName,
+              phone: request.pharmacy.phone ?? '',
+              address: '',
+            },
+            onSend: async (line) => {
+              await respond.mutateAsync(renewalApproval(request.renewalTaskId, line));
+            },
+            sendLabel: `Send to ${pharmacyName}`,
+          }
+        : { sendLabel: 'Send prescription' })}
+      onSent={() => {
+        void completeTask({ taskId });
+        setSent(request ? `Approved with your changes. Sent to ${pharmacyName}.` : 'New prescription sent.');
+      }}
+    />
+  );
+
   return (
-    <Dialog open onClose={respond.isPending ? undefined : onClose} fullWidth maxWidth="md">
+    <Dialog open onClose={respond.isPending ? undefined : onClose} fullWidth maxWidth={showForm ? 'lg' : 'md'}>
       <DialogTitle>
         {request
           ? `Refill request from ${pharmacyName}`
@@ -238,6 +273,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               </Box>
             </Box>
             {sent && <Alert severity="success">{sent}</Alert>}
+            {!request && orderForm}
             {request && !sent && (
               <Stack spacing={2}>
                 <SectionHeading>Your answer</SectionHeading>
@@ -260,6 +296,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
+                {orderForm}
                 {!closed && answer === 'approve' && (
                   <TextField
                     label="Fills to authorize"
@@ -275,7 +312,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     sx={{ maxWidth: 240 }}
                   />
                 )}
-                {!closed && answer !== 'approve' && (
+                {!closed && (answer === 'deny' || answer === 'pending') && (
                   <TextField
                     select
                     label="Reason"
@@ -290,7 +327,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     ))}
                   </TextField>
                 )}
-                {!closed && (
+                {!closed && answer !== 'change' && (
                   <TextField
                     label="Note to pharmacy (optional)"
                     value={note}
@@ -318,7 +355,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
         <RoundedButton onClick={onClose} disabled={respond.isPending}>
           {sent || closed ? 'Close' : 'Cancel'}
         </RoundedButton>
-        {request && !closed && !sent && (
+        {request && !closed && !sent && answer !== 'change' && (
           <RoundedButton variant="contained" disabled={!ready} loading={respond.isPending} onClick={() => void send()}>
             {answer === 'deny' ? 'Send denial' : `Send to ${pharmacyName}`}
           </RoundedButton>
