@@ -10,7 +10,7 @@ const { mockClinicalClient } = vi.hoisted(() => ({
 
 vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  FEATURE_FLAGS_CONFIG: { ottehrBillingInvoicingEnabled: true, invoicingInBillingApp: true },
+  FEATURE_FLAGS_CONFIG: { ottehrBillingInvoicingEnabled: true },
 }));
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -32,7 +32,7 @@ const runHandler = (): Promise<APIGatewayProxyResult> =>
   handler({
     headers: null,
     body: JSON.stringify({ encounterId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', message: 'Pay your invoice' }),
-    secrets: { BILLING_INTEGRATION: 'ottehr', ENVIRONMENT: 'local' },
+    secrets: { BILLING_INTEGRATION: 'ottehr', INVOICING_IN_BILLING_APP: 'true', ENVIRONMENT: 'local' },
   });
 
 describe('send-billing-invoice-sms', () => {

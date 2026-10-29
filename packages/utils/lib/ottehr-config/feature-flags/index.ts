@@ -17,8 +17,6 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   skipSendingVisitNoteToPatientPortalEnabled: false,
   sendgridEnabled: false,
   ottehrBillingInvoicingEnabled: true,
-  // OFF until billing app invoicing is complete. Turn it on locally to work on it.
-  invoicingInBillingApp: false,
   // ON in core for testing + demoing the full FHIR-managed catalog flow.
   // Per-customer configs under local/secrets/<customer>/... omit this field
   // and land at undefined (falsy → FHIR categories suppressed) — customers

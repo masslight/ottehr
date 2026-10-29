@@ -16,7 +16,7 @@ import { index as sendBillingInvoiceSms } from '../../../src/ehr/send-billing-in
 import type { ZambdaInput } from '../../../src/shared/types/common';
 
 const { mockFlags, mockApplyClaimStatusField, mockClinicalClient } = vi.hoisted(() => ({
-  mockFlags: { ottehrBillingInvoicingEnabled: true, invoicingInBillingApp: true },
+  mockFlags: { ottehrBillingInvoicingEnabled: true },
   mockApplyClaimStatusField: vi.fn(),
   mockClinicalClient: { fhir: { search: vi.fn() }, transactionalSMS: { send: vi.fn() } },
 }));
@@ -61,7 +61,7 @@ const params = (overrides: Partial<Params> = {}): Params => ({
   smsMessage: 'Pay here {{invoice-link}}',
   memo: 'Visit on {{visit-date}}',
   idempotencyKey: 'key-1',
-  secrets: { BILLING_INTEGRATION: 'ottehr', ENVIRONMENT: 'local' },
+  secrets: { BILLING_INTEGRATION: 'ottehr', INVOICING_IN_BILLING_APP: 'true', ENVIRONMENT: 'local' },
   ...overrides,
 });
 
@@ -162,11 +162,9 @@ const smsCalls = (execute: ReturnType<typeof vi.fn>): unknown[] =>
 describe('create-billing-invoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFlags.invoicingInBillingApp = true;
   });
 
   it('rejects when invoicing does not run in the billing app', async () => {
-    mockFlags.invoicingInBillingApp = false;
     const { secrets: _secrets, ...body } = params();
     const handler = index as unknown as (input: ZambdaInput) => Promise<unknown>;
 

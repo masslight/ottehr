@@ -14,7 +14,7 @@ const { mockClinicalClient, mockStripe, mockResolveTemplatePlaceholders } = vi.h
 
 vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  FEATURE_FLAGS_CONFIG: { ottehrBillingInvoicingEnabled: true, invoicingInBillingApp: true },
+  FEATURE_FLAGS_CONFIG: { ottehrBillingInvoicingEnabled: true },
 }));
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -66,7 +66,11 @@ let ehrInvoiceTasks: Task[];
 let handler!: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 const runHandler = (): Promise<APIGatewayProxyResult> =>
-  handler({ headers: null, body: JSON.stringify({ encounterId: ENC_1 }), secrets: { BILLING_INTEGRATION: 'ottehr' } });
+  handler({
+    headers: null,
+    body: JSON.stringify({ encounterId: ENC_1 }),
+    secrets: { BILLING_INTEGRATION: 'ottehr', INVOICING_IN_BILLING_APP: 'true' },
+  });
 
 describe('prepare-billing-invoice', () => {
   beforeEach(async () => {

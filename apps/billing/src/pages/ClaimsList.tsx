@@ -91,8 +91,8 @@ import { SendInvoiceDialog } from '../components/SendInvoiceDialog';
 import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
-import { INVOICING_IN_BILLING_APP } from '../constants/invoicing';
 import { useApiClients } from '../hooks/useAppClients';
+import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatFacilityAddress, valueToText } from '../utils/format';
@@ -456,6 +456,7 @@ export function ClaimsListView({
 }: ClaimsListViewProps): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
+  const invoicingInBillingApp = useInvoicingInBillingApp();
   const apiRef = useGridApiRef();
 
   const [claims, setClaims] = useState<BillingClaimItem[]>([]);
@@ -922,7 +923,7 @@ export function ClaimsListView({
                 >
                   Set Service Facility
                 </MenuItem>
-                {INVOICING_IN_BILLING_APP && (
+                {invoicingInBillingApp && (
                   <MenuItem
                     disabled={!selectedInvoiceableClaim}
                     onClick={() => {

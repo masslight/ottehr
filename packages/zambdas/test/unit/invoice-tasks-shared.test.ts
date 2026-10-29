@@ -112,21 +112,20 @@ describe('producer gates', () => {
     }
   });
 
-  it('moves Ottehr billing invoicing from the EHR to the billing app when invoicingInBillingApp is on', () => {
-    const inBillingApp = { ottehrBillingInvoicingEnabled: true, invoicingInBillingApp: true };
-    const inEhr = { ottehrBillingInvoicingEnabled: true, invoicingInBillingApp: false };
+  it('moves Ottehr billing invoicing from the EHR to the billing app when the INVOICING_IN_BILLING_APP secret is on', () => {
+    const flags = { ottehrBillingInvoicingEnabled: true };
+    const switched = (billingIntegration: string, value = 'true'): Secrets => ({
+      ...secretsWith(billingIntegration),
+      INVOICING_IN_BILLING_APP: value,
+    });
     for (const envIntegration of ['ottehr', 'all']) {
-      expect(isOttehrBillingInvoicingInEhr(secretsWith(envIntegration), inBillingApp)).toBe(false);
-      expect(isOttehrBillingInvoicingInBillingApp(secretsWith(envIntegration), inBillingApp)).toBe(true);
-      expect(isOttehrBillingInvoicingInBillingApp(secretsWith(envIntegration), inEhr)).toBe(false);
+      expect(isOttehrBillingInvoicingInEhr(switched(envIntegration), flags)).toBe(false);
+      expect(isOttehrBillingInvoicingInBillingApp(switched(envIntegration), flags)).toBe(true);
+      expect(isOttehrBillingInvoicingInBillingApp(switched(envIntegration, 'false'), flags)).toBe(false);
+      expect(isOttehrBillingInvoicingInBillingApp(secretsWith(envIntegration), flags)).toBe(false);
     }
-    expect(
-      isOttehrBillingInvoicingInBillingApp(secretsWith('all'), {
-        ottehrBillingInvoicingEnabled: false,
-        invoicingInBillingApp: true,
-      })
-    ).toBe(false);
-    expect(isOttehrBillingInvoicingInBillingApp(secretsWith('candid'), inBillingApp)).toBe(false);
+    expect(isOttehrBillingInvoicingInBillingApp(switched('all'), { ottehrBillingInvoicingEnabled: false })).toBe(false);
+    expect(isOttehrBillingInvoicingInBillingApp(switched('candid'), flags)).toBe(false);
   });
 });
 

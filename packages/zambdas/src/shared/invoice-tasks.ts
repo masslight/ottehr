@@ -19,7 +19,6 @@ import { shouldUseCandid, shouldUseOttehrBilling } from './candid';
 
 interface InvoicingFlags {
   ottehrBillingInvoicingEnabled?: boolean;
-  invoicingInBillingApp?: boolean;
 }
 
 export function isCandidInvoicingEnabled(secrets: Secrets): boolean {
@@ -30,15 +29,20 @@ function isOttehrBillingInvoicingEnabled(secrets: Secrets, flags: InvoicingFlags
   return shouldUseOttehrBilling(secrets) && (flags.ottehrBillingInvoicingEnabled ?? false);
 }
 
+// A secret rather than a feature flag, so a project can switch without a deploy. Unset keeps invoicing in the EHR.
+function isInvoicingInBillingAppSecretOn(secrets: Secrets): boolean {
+  return secrets.INVOICING_IN_BILLING_APP === 'true';
+}
+
 export function isOttehrBillingInvoicingInEhr(secrets: Secrets, flags: InvoicingFlags = FEATURE_FLAGS_CONFIG): boolean {
-  return isOttehrBillingInvoicingEnabled(secrets, flags) && !flags.invoicingInBillingApp;
+  return isOttehrBillingInvoicingEnabled(secrets, flags) && !isInvoicingInBillingAppSecretOn(secrets);
 }
 
 export function isOttehrBillingInvoicingInBillingApp(
   secrets: Secrets,
   flags: InvoicingFlags = FEATURE_FLAGS_CONFIG
 ): boolean {
-  return isOttehrBillingInvoicingEnabled(secrets, flags) && (flags.invoicingInBillingApp ?? false);
+  return isOttehrBillingInvoicingEnabled(secrets, flags) && isInvoicingInBillingAppSecretOn(secrets);
 }
 
 export interface BuildInvoiceTaskParams {

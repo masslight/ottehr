@@ -18,6 +18,7 @@ import {
 import { FC, Fragment, ReactElement, ReactNode, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
+import { useOttehrBillingInvoicingInEhr } from 'src/rcm/state/invoice-config/invoice-config.queries';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { ArrowIcon } from '../visits/shared/components/Sidebar';
 import { resolveAccessibleAdminNavGroups } from './adminNav';
@@ -40,7 +41,11 @@ export const AdminSidebar: FC<AdminSidebarProps> = ({ children }) => {
   const [open, setOpen] = useState(true);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const user = useEvolveUser();
-  const navGroups = useMemo(() => (user ? resolveAccessibleAdminNavGroups(user.hasRole) : []), [user]);
+  const ottehrBillingInvoicingInEhr = useOttehrBillingInvoicingInEhr();
+  const navGroups = useMemo(
+    () => (user ? resolveAccessibleAdminNavGroups(user.hasRole, ottehrBillingInvoicingInEhr) : []),
+    [user, ottehrBillingInvoicingInEhr]
+  );
 
   const drawerWidth = open ? OPEN_DRAWER_WIDTH : CLOSED_DRAWER_WIDTH;
   const sidebarToggleLabel = `${open ? 'Collapse' : 'Expand'} sidebar`;

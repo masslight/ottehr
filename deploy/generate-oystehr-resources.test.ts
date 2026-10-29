@@ -9,7 +9,6 @@ vi.mock('node:fs/promises');
 const featureFlags = vi.hoisted(() => ({
   customOrganizationsEnabled: false,
   ottehrBillingInvoicingEnabled: false,
-  invoicingInBillingApp: false,
 }));
 
 vi.mock('utils/lib/ottehr-config/branding', () => ({ BRANDING_CONFIG: { projectName: 'test-project' } }));
@@ -590,31 +589,29 @@ describe('generate-oystehr-resources', () => {
 
       beforeEach(() => {
         featureFlags.ottehrBillingInvoicingEnabled = true;
-        featureFlags.invoicingInBillingApp = true;
       });
 
       afterEach(() => {
         featureFlags.ottehrBillingInvoicingEnabled = false;
-        featureFlags.invoicingInBillingApp = false;
       });
 
       it.each(['ottehr', 'all'])('accepts BILLING_INTEGRATION=%s', async (value) => {
-        setupMocks({ BILLING_INTEGRATION: value });
+        setupMocks({ BILLING_INTEGRATION: value, INVOICING_IN_BILLING_APP: 'true' });
 
         await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();
       });
 
       it.each([['candid'], [undefined]])('rejects BILLING_INTEGRATION=%s', async (value) => {
-        setupMocks(value ? { BILLING_INTEGRATION: value } : {});
+        setupMocks({ ...(value ? { BILLING_INTEGRATION: value } : {}), INVOICING_IN_BILLING_APP: 'true' });
 
         await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
           'Billing app invoicing needs Ottehr billing claims'
         );
       });
 
-      it('rejects invoicingInBillingApp without ottehrBillingInvoicingEnabled', async () => {
+      it('rejects INVOICING_IN_BILLING_APP without ottehrBillingInvoicingEnabled', async () => {
         featureFlags.ottehrBillingInvoicingEnabled = false;
-        setupMocks({ BILLING_INTEGRATION: 'all' });
+        setupMocks({ BILLING_INTEGRATION: 'all', INVOICING_IN_BILLING_APP: 'true' });
 
         await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
           'ottehrBillingInvoicingEnabled is off'

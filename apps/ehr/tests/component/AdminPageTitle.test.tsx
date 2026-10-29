@@ -9,6 +9,10 @@ vi.mock('src/hooks/useEvolveUser', () => ({
   default: () => ({ hasRole: () => true }),
 }));
 
+vi.mock('src/rcm/state/invoice-config/invoice-config.queries', () => ({
+  useOttehrBillingInvoicingInEhr: () => false,
+}));
+
 vi.mock('src/features/admin/adminNav', () => {
   const items = [
     { path: '/admin/locations', label: 'Locations', render: () => null },

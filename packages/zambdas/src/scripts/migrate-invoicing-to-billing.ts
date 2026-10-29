@@ -29,9 +29,9 @@ import { performEffectWithEnvFile } from './helpers';
  * If the billing config was already saved from the billing app, the preview says so and applying
  * replaces it with the EHR values.
  *
- * Once invoicingInBillingApp is on, it also hands over the EHR invoice tasks made from billing claims,
- * so run it after the deploy that turns the flag on. Tasks that were never sent are cancelled, and the
- * billing app invoices those visits. For sent ones the claim moves from Ready to invoice to Invoiced, and
+ * Once INVOICING_IN_BILLING_APP is on in config/.env/<env>.json, it also hands over the EHR invoice tasks
+ * made from billing claims, so run it after turning the secret on. Tasks that were never sent are cancelled,
+ * and the billing app invoices those visits. For sent ones the claim moves from Ready to invoice to Invoiced, and
  * the task stays so the billing app won't invoice the visit again. Candid invoice tasks are left alone.
  *
  * Preview by default. Pass `--apply` to make the changes:

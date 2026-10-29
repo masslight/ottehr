@@ -64,7 +64,7 @@ vi.mock('../../src/components/BillingDataGrid', () => ({
   dataGridSx: {},
 }));
 
-vi.mock('../../src/constants/invoicing', () => ({ INVOICING_IN_BILLING_APP: true }));
+vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({ useInvoicingInBillingApp: () => true }));
 
 vi.mock('../../src/components/SendInvoiceDialog', () => ({
   SendInvoiceDialog: ({ claim, onSent }: { claim: BillingClaimItem; onSent: () => void }) => (

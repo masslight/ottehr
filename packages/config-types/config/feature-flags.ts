@@ -19,9 +19,6 @@ export const FeatureFlagsConfigSchema = z.object({
   sendgridEnabled: z.boolean(),
   hideRegisterAnotherPatient: z.boolean().optional(),
   ottehrBillingInvoicingEnabled: z.boolean().optional(),
-  // Where Ottehr billing invoicing runs while it moves from the EHR to the billing app. Off keeps it in
-  // the EHR. Each deployment switches on its own schedule, and the two never invoice at the same time.
-  invoicingInBillingApp: z.boolean().optional(),
   // When false, the patient-facing booking flow only sees BOOKING_CONFIG
   // categories — FHIR-managed (admin-registered) HealthcareService categories
   // are suppressed. Lets a customer experiment with adding a service category
