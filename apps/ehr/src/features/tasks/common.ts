@@ -10,6 +10,7 @@ import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHou
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
 import { useChartData } from '../visits/shared/hooks/useChartData';
+import { useChartSection } from '../visits/shared/hooks/useChartSection';
 import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
 
 export const TASK_CATEGORY_LABEL: Record<string, string> = {
@@ -168,6 +169,23 @@ export function useInHouseMedicationsOptions(encounterId: string): {
         label: order.medicationName,
       };
     }),
+  };
+}
+
+/** A visit's eRx prescriptions, for a patient's refill request (a manual eRx task on one of them). */
+export function usePrescriptionsOptions(encounterId: string): {
+  prescriptionsLoading: boolean;
+  prescriptionsOptions: Order[];
+} {
+  const { data, isLoading } = useChartSection('plan', { encounterId });
+  return {
+    prescriptionsLoading: isLoading,
+    prescriptionsOptions: (data?.prescribedMedications ?? []).map((prescription) => ({
+      id: prescription.resourceId ?? '',
+      label: [prescription.name, prescription.sent && DateTime.fromISO(prescription.sent).toFormat('M/d/yyyy')]
+        .filter(Boolean)
+        .join(' · '),
+    })),
   };
 }
 

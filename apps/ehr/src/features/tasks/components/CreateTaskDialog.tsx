@@ -21,6 +21,7 @@ import {
   useInHouseLabOrdersOptions,
   useInHouseMedicationsOptions,
   useNursingOrdersOptions,
+  usePrescriptionsOptions,
   useProceduresOptions,
   useRadiologyOrdersOptions,
 } from '../common';
@@ -110,6 +111,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId, refreshKey);
   const { proceduresLoading, proceduresOptions } = useProceduresOptions(encounterId);
   const { inHouseMedicationsLoading, inHouseMedicationsOptions } = useInHouseMedicationsOptions(encounterId);
+  const { prescriptionsLoading, prescriptionsOptions } = usePrescriptionsOptions(encounterId);
 
   const ordersLoading =
     formValue.category === MANUAL_TASK.category.inHouseLab
@@ -124,6 +126,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? proceduresLoading
       : formValue.category === MANUAL_TASK.category.inHouseMedications
       ? inHouseMedicationsLoading
+      : formValue.category === MANUAL_TASK.category.erx
+      ? prescriptionsLoading
       : false;
 
   const orderOptions =
@@ -139,6 +143,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? proceduresOptions
       : formValue.category === MANUAL_TASK.category.inHouseMedications
       ? inHouseMedicationsOptions
+      : formValue.category === MANUAL_TASK.category.erx
+      ? prescriptionsOptions
       : [];
 
   useEffect(() => {
@@ -255,7 +261,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
             />
             <SelectInput
               name="order"
-              label="Order"
+              // An eRx task on a prescription is a patient's refill request.
+              label={formValue.category === MANUAL_TASK.category.erx ? 'Prescription' : 'Order'}
               options={orderOptions.map((order) => order.id)}
               getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
               loading={ordersLoading}
