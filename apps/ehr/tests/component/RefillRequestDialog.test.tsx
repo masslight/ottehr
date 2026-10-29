@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -112,6 +112,20 @@ describe('Refill request dialog', () => {
     expect(within(original).getByText('Essential hypertension (I10)')).toBeInTheDocument();
     expect(within(section('Patient')).getByText('(512) 555-0187')).toBeInTheDocument();
     expect(screen.queryByText(/asked again/)).not.toBeInTheDocument();
+  });
+
+  it('says how many fills the pharmacy asks for, "fill" for one', async () => {
+    await open();
+    expect(within(section('Pharmacy’s request')).getByText('Pharmacy asks for 3 fills')).toBeInTheDocument();
+    cleanup();
+    await open({
+      ...REQUEST,
+      pharmacyRequest: {
+        ...REQUEST.pharmacyRequest!,
+        medication: { ...REQUEST.pharmacyRequest!.medication, requestedRefills: 1 },
+      },
+    });
+    expect(within(section('Pharmacy’s request')).getByText('Pharmacy asks for 1 fill')).toBeInTheDocument();
   });
 
   it('says the pharmacy asked again, with both dates', async () => {

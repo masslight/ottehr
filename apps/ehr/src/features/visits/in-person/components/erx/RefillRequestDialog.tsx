@@ -155,7 +155,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const pharmacyName = request?.pharmacy.name ?? 'the pharmacy';
   const contact = patientAddressAndPhone(data?.patient);
   const closed = !!request && (request.withdrawn || request.closed);
-  const fillsText = fills ?? refill?.medication.requestedRefills?.toString() ?? '';
+  const asked = refill?.medication.requestedRefills;
+  const fillsText = fills ?? asked?.toString() ?? '';
   const fillsNumber = Number(fillsText);
   const fillsValid = Number.isInteger(fillsNumber) && fillsNumber >= 1 && fillsNumber <= 99;
   const ready =
@@ -337,8 +338,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                   <SectionHeading>Pharmacy’s request</SectionHeading>
                   <Rows
                     rows={requestRows(refill.medication, prescription).map((row) => ({
-                      label: row.label === 'Refills' ? 'Refills asked' : row.label,
-                      value: row.request,
+                      label: row.label,
+                      value:
+                        row.label === 'Refills' && asked !== undefined
+                          ? `Pharmacy asks for ${asked} ${asked === 1 ? 'fill' : 'fills'}`
+                          : row.request,
                       highlight: row.differs,
                     }))}
                   />
