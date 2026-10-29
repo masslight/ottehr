@@ -72,7 +72,8 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
  */
 export const refillLine = (prescription: PrescribedMedicationDTO, request?: RequestedMedication): PrescriptionLine => {
   const order = prescription.order ?? {};
-  const unit = request?.quantityUnit ?? order.quantityUnit;
+  // The unit goes with the quantity it came with: a request's own, else empty for the provider, never the original's.
+  const unit = request ? request.quantityUnit : order.quantityUnit;
   const compound = request ? undefined : order.compound;
   const line = applyPrescriptionQuickPick(emptyPrescriptionLine(), {
     name: '',

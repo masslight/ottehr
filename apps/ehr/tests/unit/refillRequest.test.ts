@@ -100,6 +100,14 @@ describe('refill request: the prescription the order form starts with', () => {
     expect(line.diagnosis).toEqual({ code: 'I10', display: 'Essential hypertension' });
   });
 
+  it('takes the quantity unit only from the request, else leaves it empty', () => {
+    expect(refillLine(ORIGINAL, { quantityValue: 0.27, quantityUnit: 'Milliliter' }).quantityUnit).toBe('Milliliter');
+    const line = refillLine(ORIGINAL, { description: 'Lisinopril 20 mg tablet', quantityValue: 90 });
+    expect(line.quantityValue).toBe('90');
+    expect(line.quantityUnit).toBe('');
+    expect(refillLine(ORIGINAL).quantityUnit).toBe('Tablet');
+  });
+
   it('is the original prescription for a patient’s request', () => {
     const line = refillLine(ORIGINAL);
     expect(line.medication?.ndc).toBe('00093111101');
