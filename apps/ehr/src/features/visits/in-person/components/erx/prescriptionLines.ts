@@ -175,6 +175,16 @@ export const compoundIngredientText = ({ description, amount, strength, base }: 
     .filter(Boolean)
     .join(' ');
 
+/** A sent compound's dosage form and each ingredient's amount: "Cream · Ketoprofen Powder 6 grams · Lidocaine 600
+ * milligrams". */
+export const compoundDetailsText = ({
+  dosageForm,
+  ingredients,
+}: {
+  dosageForm?: string;
+  ingredients: CompoundIngredientInput[];
+}): string => [dosageForm, ...ingredients.map(compoundIngredientText)].filter(Boolean).join(' · ');
+
 /** The compound's rows for one sent or saved: a product ingredient as picked (without its search hit), a typed one
  * as typed. */
 export const compoundLineOf = ({ description, dosageForm, ingredients }: CompoundInput): CompoundLine => ({

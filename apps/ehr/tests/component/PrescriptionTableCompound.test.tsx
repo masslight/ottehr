@@ -13,6 +13,7 @@ const CREAM: PrescribedMedicationDTO = {
   resourceId: 'mr-cream',
   name: 'Pain cream',
   status: 'active',
+  provider: 'practitioner-1',
   instructions: 'Apply to the affected area three times daily.',
   pharmacyName: 'Apex Discount Drugs',
   encounterId: 'encounter-1',
@@ -140,6 +141,17 @@ describe('Prescription table: compounds', () => {
       'Compound: Pain creamCream · Ketoprofen Powder 6 grams · Lidocaine 600 milligrams · Compounding cream 53.4 grams'
     );
     expect(within(cell).getByText(/^Cream · Ketoprofen Powder/)).toHaveClass('MuiTypography-caption');
+  });
+
+  it('shows a compound’s details with its ingredients, and the prescriber', async () => {
+    const user = renderTable();
+    await user.click(within(row('Compound: Pain cream')).getByRole('button', { name: 'Details' }));
+    const details = screen.getByRole('dialog').querySelector('dl')!;
+    expect(details).toHaveTextContent(
+      'MedicationCompound: Pain cream · Cream · Ketoprofen Powder 6 grams · Lidocaine 600 milligrams · Compounding cream 53.4 grams'
+    );
+    expect(details).toHaveTextContent('Quantity60 gramsDays supply30Refills0Pharmacy');
+    expect(details).toHaveTextContent('PrescriberAbrams, Dana');
   });
 
   it('disables Cancel on a sent compound, and sending it elsewhere (which cancels it first)', async () => {

@@ -13,8 +13,8 @@ import { medicationStatusMapper } from '../../../shared/components/plan-tab/ERxC
 import { useChartSection } from '../../../shared/hooks/useChartSection';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { CancelPrescriptionsDialog } from './CancelPrescriptionsDialog';
-import { PrescriptionHistoryButton } from './PrescriptionHistory';
-import { compoundIngredientText } from './prescriptionLines';
+import { PrescriptionDetailsButton, PrescriptionHistoryButton } from './PrescriptionHistory';
+import { compoundDetailsText } from './prescriptionLines';
 import {
   isPrescriptionActionAvailable,
   PrescriptionAction,
@@ -112,9 +112,7 @@ export const PrescriptionTable: FC = () => {
             <Box sx={{ py: 1, whiteSpace: 'normal' }}>
               Compound: {row.name}
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                {[row.order.compound.dosageForm, ...row.order.compound.ingredients.map(compoundIngredientText)]
-                  .filter(Boolean)
-                  .join(' · ')}
+                {compoundDetailsText(row.order.compound)}
               </Typography>
             </Box>
           ) : (
@@ -169,10 +167,16 @@ export const PrescriptionTable: FC = () => {
         sortable: false,
         field: 'actions',
         headerName: 'Actions',
-        width: 130,
-        // The buttons and the history dialog (portalled, but still a React child) don't change the selection.
+        width: 160,
+        // The buttons and the details and history dialogs (portalled, but still React children) don't change the
+        // selection.
         renderCell: ({ row }) => (
           <Box onClick={(event) => event.stopPropagation()}>
+            <PrescriptionDetailsButton
+              prescription={row}
+              practitionerName={getPractitionerName}
+              practitioners={chartFields?.prescribedMedicationsRequesterPractitioners}
+            />
             <PrescriptionHistoryButton
               prescription={row}
               practitionerName={getPractitionerName}

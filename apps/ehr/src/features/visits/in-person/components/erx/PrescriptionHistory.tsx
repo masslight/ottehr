@@ -1,9 +1,12 @@
 import HistoryIcon from '@mui/icons-material/History';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Button, Dialog, IconButton, Tooltip } from '@mui/material';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FC, useState } from 'react';
+import { FC, Fragment, useState } from 'react';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { compoundDetailsText, quantityText } from './prescriptionLines';
 import { erxEventText } from './prescriptionStatus';
 
 // From the approved order history mockup (erx-order-history.html)
@@ -100,20 +103,21 @@ export const PrescriptionTimeline: FC<PrescriptionTimelineProps> = ({
   );
 };
 
-/** Hovering shows the timeline; a click opens it in a dialog with the pharmacy and visit. */
-export const PrescriptionHistoryButton: FC<PrescriptionTimelineProps & { visitDate?: string }> = ({
-  visitDate,
-  ...props
-}) => {
+/** An action icon: hovering shows `content` in a card; a click opens it in a dialog titled "`label` · name". */
+const PanelButton: FC<{
+  label: string;
+  icon: JSX.Element;
+  prescription: PrescribedMedicationDTO;
+  subtitle?: string;
+  content: JSX.Element;
+}> = ({ label, icon, prescription, subtitle, content }) => {
   const [open, setOpen] = useState(false);
+  const titleId = `prescription-${label.toLowerCase()}-title`;
   return (
     <>
-      <Tooltip
-        title={<PrescriptionTimeline {...props} />}
-        componentsProps={{ tooltip: { sx: { ...PANEL_SX, maxWidth: 560 } } }}
-      >
-        <IconButton aria-label="History" size="small" onClick={() => setOpen(true)}>
-          <HistoryIcon fontSize="small" />
+      <Tooltip title={content} componentsProps={{ tooltip: { sx: { ...PANEL_SX, maxWidth: 560 } } }}>
+        <IconButton aria-label={label} size="small" onClick={() => setOpen(true)}>
+          {icon}
         </IconButton>
       </Tooltip>
       {open && (
@@ -122,16 +126,14 @@ export const PrescriptionHistoryButton: FC<PrescriptionTimelineProps & { visitDa
           onClose={() => setOpen(false)}
           fullWidth
           maxWidth="sm"
-          aria-labelledby="prescription-history-title"
+          aria-labelledby={titleId}
           PaperProps={{ sx: { ...PANEL_SX, display: 'flex', flexDirection: 'column', gap: '10px' } }}
         >
-          <Box id="prescription-history-title" sx={{ fontSize: '18px', fontWeight: 600, color: '#0A2143' }}>
-            History · {props.prescription.name}
+          <Box id={titleId} sx={{ fontSize: '18px', fontWeight: 600, color: '#0A2143' }}>
+            {label} · {prescription.name}
           </Box>
-          <Box sx={{ fontSize: '13px', color: MUTED, lineHeight: 1.5 }}>
-            {[props.prescription.pharmacyName, visitDate && `visit ${visitDate}`].filter(Boolean).join(' · ')}
-          </Box>
-          <PrescriptionTimeline {...props} />
+          {subtitle && <Box sx={{ fontSize: '13px', color: MUTED, lineHeight: 1.5 }}>{subtitle}</Box>}
+          {content}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
             <Button
               variant="outlined"
@@ -153,3 +155,78 @@ export const PrescriptionHistoryButton: FC<PrescriptionTimelineProps & { visitDa
     </>
   );
 };
+
+/** Hovering shows the timeline; a click opens it in a dialog with the pharmacy and visit. */
+export const PrescriptionHistoryButton: FC<PrescriptionTimelineProps & { visitDate?: string }> = ({
+  visitDate,
+  ...props
+}) => (
+  <PanelButton
+    label="History"
+    icon={<HistoryIcon fontSize="small" />}
+    prescription={props.prescription}
+    subtitle={[props.prescription.pharmacyName, visitDate && `visit ${visitDate}`].filter(Boolean).join(' · ')}
+    content={<PrescriptionTimeline {...props} />}
+  />
+);
+
+/** The order as sent, one labelled line per field it has. */
+const PrescriptionDetails: FC<PrescriptionTimelineProps> = ({ prescription, practitionerName, practitioners }) => {
+  const order = prescription.order ?? {};
+  const sent = formatDateToMDYWithTime(prescription.sent, DateTime.local().zoneName);
+  const rows: [string, string | undefined][] = [
+    [
+      'Medication',
+      order.compound ? `Compound: ${prescription.name} · ${compoundDetailsText(order.compound)}` : prescription.name,
+    ],
+    ['Directions', prescription.instructions],
+    ['Quantity', quantityText(order.quantityValue, order.quantityUnit)],
+    ['Days supply', order.daysSupply?.toString()],
+    ['Refills', order.numberOfRefills?.toString()],
+    [
+      'Substitution',
+      order.substitutionAllowed === undefined ? undefined : order.substitutionAllowed ? 'Allowed' : 'Not allowed',
+    ],
+    ['Note to pharmacy', order.noteToPharmacy],
+    ['Diagnosis', [order.diagnosisCode, order.diagnosisDescription].filter(Boolean).join(' ') || undefined],
+    ['Pharmacy', prescription.pharmacyName],
+    ['Sent', sent && `${sent.date} ${sent.time}`],
+    ['Prescriber', practitionerName(practitioners?.find((practitioner) => practitioner.id === prescription.provider))],
+  ];
+  return (
+    <Box
+      component="dl"
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: '128px minmax(0,1fr)',
+        gap: '4px 10px',
+        m: 0,
+        fontSize: '13.5px',
+        color: 'rgba(0,0,0,.87)',
+      }}
+    >
+      {rows
+        .filter(([, value]) => value)
+        .map(([label, value]) => (
+          <Fragment key={label}>
+            <Box component="dt" sx={{ color: MUTED }}>
+              {label}
+            </Box>
+            <Box component="dd" sx={{ m: 0 }}>
+              {value}
+            </Box>
+          </Fragment>
+        ))}
+    </Box>
+  );
+};
+
+/** Hovering shows the order's details; a click opens them in a dialog. */
+export const PrescriptionDetailsButton: FC<PrescriptionTimelineProps> = (props) => (
+  <PanelButton
+    label="Details"
+    icon={<InfoOutlinedIcon fontSize="small" />}
+    prescription={props.prescription}
+    content={<PrescriptionDetails {...props} />}
+  />
+);

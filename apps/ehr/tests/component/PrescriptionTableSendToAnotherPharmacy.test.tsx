@@ -286,6 +286,37 @@ describe('Prescription table: send to another pharmacy', () => {
     expect(await screen.findByText('No history yet')).toBeInTheDocument();
   });
 
+  it('shows a prescription’s order details on hover and in a dialog on click, leaving out empty fields', async () => {
+    const user = renderTable();
+    const sent = formatDateToMDYWithTime(ERR.sent, DateTime.local().zoneName)!;
+    // Label | value; ERR has no note to pharmacy or days supply, and no prescriber on file.
+    const lines = [
+      ['Medication', ERR.name],
+      ['Directions', ERR.instructions],
+      ['Quantity', '250 milliliters'],
+      ['Refills', '1'],
+      ['Substitution', 'Not allowed'],
+      ['Diagnosis', 'H66.93 Otitis media, unspecified, bilateral'],
+      ['Pharmacy', 'Apex Discount Drugs'],
+      ['Sent', `${sent.date} ${sent.time}`],
+    ].flat();
+    const details = within(row(ERR.name!)).getByRole('button', { name: 'Details' });
+    // Taken now: the button gets its focus back from the dialog, and its card repeats the name.
+    const rowCheckbox = checkbox(ERR.name!);
+    await user.hover(details);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(lines.join(''), { normalizeWhitespace: false });
+    await user.unhover(details);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    await user.click(details);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAccessibleName(`Details · ${ERR.name}`);
+    expect(dialog.querySelector('dl')).toHaveTextContent(lines.join(''), { normalizeWhitespace: false });
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // Opening the details doesn't select the row.
+    expect(rowCheckbox).not.toBeChecked();
+  });
+
   it('cancels a sent prescription (duplicate order, different pharmacy) and sends it to the new pharmacy', async () => {
     const user = renderTable();
     await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'Send to another pharmacy' }));
