@@ -225,7 +225,8 @@ describe('tracking board search plan', () => {
 
     const dmeUrl = byType('DeviceRequest')[0];
     expect(dmeUrl).toContain(`_tag=${DME_ORDER_SEARCH_TAG}`);
-    expect(dmeUrl).toContain('status=active');
+    // deleted orders are dropped after the search, by the same rule the note PDFs use
+    expect(dmeUrl).not.toContain('status=');
     expect(dmeUrl).toContain('_include=DeviceRequest:requester');
   });
 
@@ -372,7 +373,7 @@ describe('buildOrdersForTrackingBoard', () => {
     expect(table.dmeOrdersByEncounterId).toEqual({});
   });
 
-  test('shows only in-house DME orders still waiting to be dispensed', () => {
+  test('shows every DME order except deleted ones', () => {
     const requesterId = '6c3d2e1a-7b8f-4c5d-9e0a-1b2c3d4e5f60';
     const requester: Practitioner = {
       resourceType: 'Practitioner',
@@ -413,12 +414,15 @@ describe('buildOrdersForTrackingBoard', () => {
     });
 
     expect(Object.keys(table.dmeOrdersByEncounterId)).toEqual(['enc-1']);
-    const [order] = table.dmeOrdersByEncounterId['enc-1'];
-    expect(table.dmeOrdersByEncounterId['enc-1']).toHaveLength(1);
-    expect(order.id).toBe('dme-pending');
-    expect(order.itemName).toBe('Item dme-pending');
-    expect(order.status).toBe(DmeOrderStatus.pending);
-    expect(order.orderedBy).toEqual({ practitionerId: requesterId, name: 'Dana Doc' });
+    const orders = table.dmeOrdersByEncounterId['enc-1'];
+    expect(Object.fromEntries(orders.map((order) => [order.id, order.status]))).toEqual({
+      'dme-pending': DmeOrderStatus.pending,
+      'dme-external': DmeOrderStatus.ordered,
+      'dme-dispensed': DmeOrderStatus.dispensed,
+    });
+    const pending = orders.find((order) => order.id === 'dme-pending');
+    expect(pending?.itemName).toBe('Item dme-pending');
+    expect(pending?.orderedBy).toEqual({ practitionerId: requesterId, name: 'Dana Doc' });
   });
 });
 
