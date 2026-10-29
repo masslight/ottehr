@@ -7,7 +7,8 @@ import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-da
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrescriptionTable } from '../../src/features/visits/in-person/components/erx/PrescriptionTable';
 
-// A compound as the prescriptions DTO reads it from the MedicationRequest's contained Medication.
+// A compound as the prescriptions DTO reads it from the MedicationRequest's contained Medication: each ingredient as
+// the amount that went in.
 const CREAM: PrescribedMedicationDTO = {
   resourceId: 'mr-cream',
   name: 'Pain cream',
@@ -28,19 +29,30 @@ const CREAM: PrescribedMedicationDTO = {
     numberOfRefills: 0,
     compound: {
       description: 'Pain cream',
+      dosageForm: 'Cream',
       ingredients: [
-        { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
-        { description: 'Gabapentin Powder', ndc: '00000000002', amount: { value: 6, unit: 'Gram' } },
-        { description: 'Compounding cream', base: true },
+        { description: 'Ketoprofen Powder', ndc: '00000000001', amount: { value: 6, unit: 'Gram' } },
+        { description: 'Lidocaine', amount: { value: 600, unit: 'Milligram' } },
+        { description: 'Compounding cream', amount: { value: 53.4, unit: 'Gram' } },
       ],
     },
   },
 };
-// One ingredient's measure couldn't be read.
-const CREAM_UNREADABLE: PrescribedMedicationDTO = {
+// The same compound, but Surescripts errored: sending it again cancels nothing.
+const CREAM_ERRORED: PrescribedMedicationDTO = {
   ...CREAM,
-  resourceId: 'mr-cream-2',
+  resourceId: 'mr-cream-errored',
+  name: 'Errored cream',
+  status: 'stopped',
+  events: [{ code: 'ordered', recorded: '2026-10-28T11:00:00.000Z' }],
+  order: { ...CREAM.order, compound: { ...CREAM.order!.compound!, description: 'Errored cream' } },
+};
+// An errored compound whose second ingredient's amount and dosage form couldn't be read.
+const RINSE_UNREADABLE: PrescribedMedicationDTO = {
+  ...CREAM_ERRORED,
+  resourceId: 'mr-rinse',
   name: 'Mouth rinse',
+  sent: '2026-10-28T10:00:00.000Z',
   order: {
     ...CREAM.order,
     compound: {
@@ -61,6 +73,15 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
   };
 });
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
+// Google and the Surescripts directory find the sample pharmacies.
+vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', async () => {
+  const { searchSamplePlaces } = await import('./helpers/samplePharmacies');
+  return { useOystehrAPIClient: () => ({ searchPlaces: searchSamplePlaces }) };
+});
+vi.mock('src/api/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('src/api/api')>()),
+  searchPharmacyDirectory: (await import('./helpers/samplePharmacies')).searchSampleDirectory,
+}));
 vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
 vi.mock('src/hooks/useEvolveUser', () => ({ default: () => ({ profileResource: { id: 'practitioner-1' } }) }));
 vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
@@ -68,7 +89,7 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
     isLoading: false,
     isFetching: false,
     data: {
-      prescribedMedications: [CREAM, CREAM_UNREADABLE],
+      prescribedMedications: [CREAM, CREAM_ERRORED, RINSE_UNREADABLE],
       prescribedMedicationsRequesterPractitioners: [
         { resourceType: 'Practitioner', id: 'practitioner-1', name: [{ given: ['Dana'], family: 'Abrams' }] },
       ],
@@ -99,7 +120,7 @@ const pickPharmacyAndSend = async (user: ReturnType<typeof userEvent.setup>): Pr
   expect(within(dialog).getByRole('button', { name: 'Send to pharmacy' })).toBeDisabled();
   await user.type(within(dialog).getByRole('combobox', { name: 'Pharmacy' }), 'Two');
   await user.click(await screen.findByRole('option', { name: /Sample Pharmacy Two/ }));
-  expect(within(dialog).getByText(/Send to Sample Pharmacy Two/)).toBeInTheDocument();
+  expect(await within(dialog).findByText(/Send to Sample Pharmacy Two/)).toBeInTheDocument();
   await user.click(within(dialog).getByRole('button', { name: 'Send to pharmacy' }));
 };
 
@@ -112,20 +133,35 @@ describe('Prescription table: compounds', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('shows a compound as its name with its ingredients underneath', () => {
+  it('shows a compound as its name with its dosage form and ingredient amounts underneath', () => {
     renderTable();
     const cell = screen.getByText('Compound: Pain cream');
     expect(cell).toHaveTextContent(
-      'Compound: Pain creamKetoprofen Powder 10% · Gabapentin Powder 6 grams · Compounding cream base'
+      'Compound: Pain creamCream · Ketoprofen Powder 6 grams · Lidocaine 600 milligrams · Compounding cream 53.4 grams'
     );
-    expect(within(cell).getByText(/^Ketoprofen Powder 10%/)).toHaveClass('MuiTypography-caption');
+    expect(within(cell).getByText(/^Cream · Ketoprofen Powder/)).toHaveClass('MuiTypography-caption');
   });
 
-  it('sends a compound to another pharmacy as the same compound order', async () => {
+  it('disables Cancel on a sent compound, and sending it elsewhere (which cancels it first)', async () => {
     const user = renderTable();
-    await user.click(within(row('Compound: Pain cream')).getByRole('button', { name: 'Send to another pharmacy' }));
+    for (const label of ['Cancel prescription', 'Send to another pharmacy']) {
+      const button = within(row('Compound: Pain cream')).getByRole('button', { name: label });
+      expect(button).toBeDisabled();
+      await user.hover(button.parentElement!);
+      expect((await screen.findByRole('tooltip')).textContent).toBe("Canceling compounds isn't supported yet");
+      await user.unhover(button.parentElement!);
+      await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    }
+    // With no action left, it can't be selected for the bar's buttons either.
+    expect(within(row('Compound: Pain cream')).getByRole('checkbox')).toBeDisabled();
+  });
+
+  it('sends an errored compound to another pharmacy again, every ingredient as its amount', async () => {
+    const user = renderTable();
+    await user.click(within(row('Compound: Errored cream')).getByRole('button', { name: 'Send to another pharmacy' }));
     await pickPharmacyAndSend(user);
     await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    expect(calls('/v4/cancel-prescription')).toEqual([]);
     expect(calls('/v4/order-prescription')).toEqual([
       {
         patientId: 'patient-1',
@@ -141,13 +177,14 @@ describe('Prescription table: compounds', () => {
         pharmacyNpi: '1245319599',
         pharmacyName: 'Sample Pharmacy Two',
         pharmacyPhone: '5125550123',
+        medicationDescription: 'Errored cream',
+        substitutionAllowed: false,
         compound: {
-          description: 'Pain cream',
+          dosageForm: 'Cream',
           ingredients: [
-            CREAM.order!.compound!.ingredients[0],
-            CREAM.order!.compound!.ingredients[1],
-            // Typed in when first sent, and confirmed not controlled then.
-            { description: 'Compounding cream', base: true, typedNotControlled: true },
+            { description: 'Ketoprofen Powder', ndc: '00000000001', quantityValue: 6, quantityUnit: 'Gram' },
+            { description: 'Lidocaine', quantityValue: 600, quantityUnit: 'Milligram' },
+            { description: 'Compounding cream', quantityValue: 53.4, quantityUnit: 'Gram' },
           ],
         },
       },
@@ -160,7 +197,7 @@ describe('Prescription table: compounds', () => {
     expect(send).toBeDisabled();
     await user.hover(send.parentElement!);
     expect((await screen.findByRole('tooltip')).textContent).toBe(
-      "Send to another pharmacy isn't available for Mouth rinse: missing ingredient 2 amount or strength."
+      "Send to another pharmacy isn't available for Mouth rinse: missing dosage form, ingredient 2 amount."
     );
   });
 });

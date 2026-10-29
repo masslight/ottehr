@@ -352,6 +352,7 @@ const RINSE: PrescriptionQuickPickData = {
   name: 'Mouth rinse',
   compound: {
     description: 'Amoxicillin rinse',
+    dosageForm: 'Mouthwash',
     ingredients: [
       { description: 'Amoxicillin 400 mg/5ml Susp', ndc: '00093416173', strength: { value: 80, unit: 'mg/mL' } },
       { description: 'Amoxicillin 250 mg Cap', ndc: '00093310701', base: true },
@@ -391,6 +392,7 @@ describe('Prescription quick picks admin: compounds', () => {
     expect(within(dialog).queryByLabelText('By weight or fixed dose')).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText('Substitution')).not.toBeInTheDocument();
     await user.type(within(dialog).getByLabelText('Compound name'), 'Amoxicillin rinse');
+    await chooseOption(user, 'Dosage form', 'Mouthwash');
 
     await user.click(within(dialog).getByRole('button', { name: 'ingredient 1 (empty)' }));
     await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'amox');
@@ -440,6 +442,7 @@ describe('Prescription quick picks admin: compounds', () => {
     const dialog = await screen.findByRole('dialog');
     const name = within(dialog).getByLabelText('Compound name');
     expect(name).toHaveValue('Amoxicillin rinse');
+    expect(within(dialog).getByRole('combobox', { name: 'Dosage form' })).toHaveTextContent('Mouthwash');
     expect(
       within(dialog).getByRole('button', { name: 'ingredient 1: Amoxicillin 400 mg/5ml Susp' })
     ).toBeInTheDocument();
@@ -457,6 +460,25 @@ describe('Prescription quick picks admin: compounds', () => {
     expect(id).toBe('qp-rinse');
     const { id: _id, ...saved } = RINSE;
     expect(quickPick).toEqual({ ...saved, compound: { ...RINSE.compound, description: 'Amoxicillin oral rinse' } });
+  });
+
+  it('asks for the dosage form of a compound saved before it was asked for', async () => {
+    api.getPrescriptionQuickPicks.mockResolvedValue({
+      quickPicks: [{ ...RINSE, compound: { ...RINSE.compound!, dosageForm: undefined } }],
+    });
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Mouth rinse')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(within(dialog).getByText('Pick the dosage form')).toBeInTheDocument();
+    expect(api.updatePrescriptionQuickPick).not.toHaveBeenCalled();
+
+    await chooseOption(user, 'Dosage form', 'Mouthwash');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.updatePrescriptionQuickPick).toHaveBeenCalledTimes(1));
+    expect(api.updatePrescriptionQuickPick.mock.calls[0][2].compound.dosageForm).toBe('Mouthwash');
   });
 });
 

@@ -115,13 +115,7 @@ import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-field
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SNOMEDCodeConceptInterface } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
-import {
-  COMPOUND_STRENGTH_UNITS,
-  CompoundIngredientInput,
-  CompoundStrengthUnit,
-  QUANTITY_UNITS,
-  QuantityUnit,
-} from 'utils/lib/types/api/order-prescription.types';
+import { CompoundIngredientInput, QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
 import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.constants';
 import { TaskCoding } from 'utils/lib/types/common';
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
@@ -406,68 +400,45 @@ const makeErxEvents = (medRequest: MedicationRequest, provenances: Provenance[])
     })
     .sort((a, b) => (a.recorded ?? '').localeCompare(b.recorded ?? ''));
 
-const CODE_SYSTEM_RXNORM = 'http://www.nlm.nih.gov/research/umls/rxnorm';
-
-/** A compound's strength unit from its Ratio's numerator and denominator units: % over 1, or mg over mL, g or each. */
-const compoundStrengthUnit = (numerator?: string, denominator?: string): CompoundStrengthUnit | undefined => {
-  const unit =
-    numerator === '%' ? '%' : numerator === 'mg' && denominator === 'each' ? 'mg each' : `${numerator}/${denominator}`;
-  return (COMPOUND_STRENGTH_UNITS as readonly string[]).includes(unit) ? (unit as CompoundStrengthUnit) : undefined;
-};
-
-/** One ingredient of a contained compound Medication; its amount, strength or base is left out when unreadable. */
+/** One ingredient of a contained compound Medication: the amount that went in is its strength's numerator, left
+ * out when its unit isn't an order quantity unit. */
 const makeCompoundIngredient = (ingredient: NonNullable<Medication['ingredient']>[number]): CompoundIngredientInput => {
   const concept = ingredient.itemCodeableConcept;
   const ndc = concept?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC);
-  const rxcui = concept?.coding?.find((coding) => coding.system === CODE_SYSTEM_RXNORM)?.code;
-  const { numerator, denominator } = ingredient.strength ?? {};
-  const value = numerator?.value;
-  const strengthUnit = denominator && compoundStrengthUnit(numerator?.unit, denominator.unit);
-  const amountUnit =
-    !denominator && QUANTITY_UNITS.includes(numerator?.unit as QuantityUnit) ? numerator?.unit : undefined;
+  const numerator = ingredient.strength?.numerator;
+  const unit = QUANTITY_UNITS.find((quantityUnit) => quantityUnit === numerator?.unit);
   return {
     description: concept?.text ?? ndc?.display ?? '',
     ...(ndc?.code ? { ndc: ndc.code } : {}),
-    ...(rxcui ? { rxcui } : {}),
-    ...(!ingredient.strength && ingredient.isActive === false
-      ? { base: true as const }
-      : value !== undefined && strengthUnit
-      ? { strength: { value, unit: strengthUnit } }
-      : value !== undefined && amountUnit
-      ? { amount: { value, unit: amountUnit as QuantityUnit } }
-      : {}),
+    ...(numerator?.value !== undefined && unit ? { amount: { value: numerator.value, unit } } : {}),
   };
 };
 
 /**
- * A compound prescription, as we ask the eRx service to store it: the MedicationRequest refers to a contained
- * Medication named by its code's text, one ingredient per compound ingredient.
+ * A compound prescription, as the eRx service stores it: the MedicationRequest refers to a contained Medication
+ * named by its code's text, with its dosage form and one ingredient per compound ingredient.
  *
  *   "contained": [{
  *     "resourceType": "Medication", "id": "compound",
- *     "code": { "text": "Ketoprofen / gabapentin / lidocaine cream" },
+ *     "code": { "text": "Ketoprofen 10% cream" },
+ *     "form": { "coding": [{ "system": "http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl", "code": "C28944",
+ *       "display": "Cream" }], "text": "Cream" },
  *     "ingredient": [
  *       { "itemCodeableConcept": { "text": "Ketoprofen Powder", "coding": [
- *           { "system": "http://hl7.org/fhir/sid/ndc", "code": "<11-digit NDC>", "display": "Ketoprofen Powder" },
- *           { "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "<RxCUI>" } ] },
- *         "isActive": true,
- *         "strength": { "numerator": { "value": 10, "unit": "%" }, "denominator": { "value": 1 } } },
- *       { "itemCodeableConcept": { "text": "Gabapentin Powder", "coding": [...] },
- *         "isActive": true,
- *         "strength": { "numerator": { "value": 6, "unit": "Gram" } } },
- *       { "itemCodeableConcept": { "text": "Lidocaine 4% Cream", "coding": [...] }, "isActive": false }
+ *           { "system": "http://hl7.org/fhir/sid/ndc", "code": "<11-digit NDC>", "display": "Ketoprofen Powder" } ] },
+ *         "strength": {
+ *           "numerator": { "value": 3, "unit": "Gram", "system": "<NCI Thesaurus>", "code": "C48155" },
+ *           "denominator": { "value": 30, "unit": "Gram", "system": "<NCI Thesaurus>", "code": "C48155" } } },
+ *       { "itemCodeableConcept": { "text": "Cream base" },
+ *         "strength": { "numerator": { "value": 27, "unit": "Gram", ... }, "denominator": { "value": 30, ... } } }
  *     ]
  *   }],
- *   "medicationReference": { "reference": "#compound", "display": "Ketoprofen / gabapentin / lidocaine cream" }
+ *   "medicationReference": { "reference": "#compound", "display": "Ketoprofen 10% cream" }
  *
- * A strength in the finished product has a denominator: 10 % is { 10 "%" } over { 1 }; 2 mg/mL, 6 mg/g and 75 mg each
- * are { value "mg" } over { 1 "mL" | "g" | "each" }. An amount put in has a numerator only, its unit one of the order's
- * quantity units ("Gram", "Milliliter"). The base has no strength and `isActive: false`. A typed-in ingredient has
- * text and no NDC coding.
+ * Each ingredient's strength is the amount that went in (numerator) over the finished compound's quantity
+ * (denominator); a strength the provider entered isn't stored. A typed-in ingredient has text and no NDC coding.
  */
-const makePrescribedCompound = (
-  medRequest: MedicationRequest
-): { description?: string; ingredients: CompoundIngredientInput[] } | undefined => {
+const makePrescribedCompound = (medRequest: MedicationRequest): PrescribedMedicationOrderDTO['compound'] => {
   const reference = medRequest.medicationReference?.reference;
   const medication = reference?.startsWith('#')
     ? medRequest.contained?.find(
@@ -478,6 +449,7 @@ const makePrescribedCompound = (
   if (!medication) return undefined;
   return {
     description: medication.code?.text ?? medRequest.medicationReference?.display,
+    ...(medication.form?.text ? { dosageForm: medication.form.text } : {}),
     ingredients: (medication.ingredient ?? []).map(makeCompoundIngredient),
   };
 };

@@ -7,7 +7,11 @@ import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedur
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import { Secrets } from 'utils/lib/secrets';
-import { COMPOUND_STRENGTH_UNITS, QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
+import {
+  COMPOUND_DOSAGE_FORMS,
+  COMPOUND_STRENGTH_UNITS,
+  QUANTITY_UNITS,
+} from 'utils/lib/types/api/order-prescription.types';
 import {
   PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX,
   PRESCRIPTION_SET_STATUSES,
@@ -152,6 +156,8 @@ const compoundIngredientSchema = z
 
 const compoundSchema = z.object({
   description: z.string().trim().min(1).max(105),
+  // Absent only on a compound quick pick saved before the dosage form was asked for.
+  dosageForm: z.enum(COMPOUND_DOSAGE_FORMS).optional(),
   ingredients: z
     .array(compoundIngredientSchema)
     .min(1)

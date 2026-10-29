@@ -32,7 +32,13 @@ import {
 } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { MedicationSearchDrug } from 'utils/lib/types/api/erx-search.types';
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
-import { COMPOUND_STRENGTH_UNITS, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
+import {
+  COMPOUND_DOSAGE_FORMS,
+  COMPOUND_STRENGTH_UNITS,
+  CompoundDosageForm,
+  QUANTITY_UNITS,
+  QuantityUnit,
+} from 'utils/lib/types/api/order-prescription.types';
 import { PrescriptionQuickPickData, PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useSearchMedications } from '../../../shared/hooks/useErxSearch';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
@@ -1132,10 +1138,22 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                   need
                 />
                 {!readOnly && (
+                  <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.75em', ml: 0.5 }}>
+                    {compound.name.length}/{COMPOUND_NAME_MAX}
+                  </Box>
+                )}{' '}
+                as{' '}
+                <SelectBlank
+                  label="form"
+                  title="Dosage form"
+                  options={COMPOUND_DOSAGE_FORMS}
+                  value={compound.dosageForm || undefined}
+                  onChange={(value) => updateCompound({ dosageForm: (value as CompoundDosageForm | undefined) ?? '' })}
+                  readOnly={readOnly}
+                  need
+                />
+                {!readOnly && (
                   <>
-                    <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.75em', ml: 0.5 }}>
-                      {compound.name.length}/{COMPOUND_NAME_MAX}
-                    </Box>
                     <RemoveButton
                       label="Remove compound"
                       onClick={() => {

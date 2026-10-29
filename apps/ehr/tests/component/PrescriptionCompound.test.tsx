@@ -46,9 +46,12 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
     refetch: vi.fn(),
   }),
 }));
+// The saved pharmacy matches the directory.
+vi.mock('../../src/features/visits/shared/hooks/useErxPharmacies', () => ({
+  usePreferredPharmacy: () => ({ data: PHARMACY }),
+}));
 // The medication search answers with the test drugs whose name starts with what's typed.
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
-  useSearchPharmacies: () => ({ data: [PHARMACY], isFetching: false }),
   useSearchMedications: (query: string) => ({
     data:
       query.trim().length < 2
@@ -130,6 +133,14 @@ describe('Compound prescriptions: starting one from the medication menu', () => 
     await user.click(within(medicationsListbox()).getByRole('option', { name: '+ compound' }));
     expect(screen.getByRole('textbox', { name: 'compound name' })).toBeInTheDocument();
     expect(screen.getByText('0/105')).toBeInTheDocument();
+    // The dosage form is a required blank, as the unit menu's are.
+    const form = screen.getByRole('button', { name: 'form (empty)' });
+    expect(form).toHaveAttribute('data-needed', 'true');
+    await user.click(form);
+    const forms = screen.getByRole('listbox', { name: 'Dosage form' });
+    expect(within(forms).getAllByRole('option')).toHaveLength(49);
+    await user.click(within(forms).getByRole('option', { name: 'Nasal Spray' }));
+    expect(screen.getByRole('button', { name: 'form: nasal spray' })).not.toHaveAttribute('data-needed');
     expect(screen.getByRole('button', { name: 'ingredient 1 (empty)' })).toBeInTheDocument();
     // No substitution for a compound.
     expect(screen.queryByRole('button', { name: /^substitution/ })).not.toBeInTheDocument();
@@ -229,7 +240,7 @@ describe('Compound prescriptions: what must be filled before Send', () => {
     const line = withCompound(emptyPrescriptionLine(), {});
     return {
       ...line,
-      compound: { name, ingredients },
+      compound: { name, dosageForm: 'Cream', ingredients },
       patientInstructions: 'Apply a thin layer.',
       quantityValue: '60',
       quantityUnit: 'Gram',
@@ -247,6 +258,19 @@ describe('Compound prescriptions: what must be filled before Send', () => {
     ]);
     expect(prescriptionLineErrors(compoundLine('x'.repeat(105), [ketoprofen()]))).toEqual([]);
     expect(prescriptionLineErrors(compoundLine('Cream', []))).toEqual(['Add an ingredient']);
+  });
+
+  it('needs a dosage form', () => {
+    const line = compoundLine('Ketoprofen cream', [ketoprofen()]);
+    expect(prescriptionLineErrors({ ...line, compound: { ...line.compound!, dosageForm: '' } })).toEqual([
+      'Pick the dosage form',
+    ]);
+  });
+
+  it('needs every ingredient worked out as an amount from the total', () => {
+    expect(
+      prescriptionLineErrors({ ...compoundLine('Ketoprofen gel', [ketoprofen()]), quantityUnit: 'Milliliter' })
+    ).toEqual(["Enter an amount for ingredient 1 — a % can't be worked out from a total in mL"]);
   });
 
   it('needs each ingredient’s drug and strength, a number and unit, and a typed one confirmed', () => {
@@ -271,7 +295,7 @@ describe('Compound prescriptions: what must be filled before Send', () => {
 
   it('allows one base, and the normal prescription’s requirements still apply', () => {
     const base = (): CompoundIngredientLine => ketoprofen({ unit: 'base', value: '' });
-    expect(prescriptionLineErrors(compoundLine('Cream', [base()]))).toEqual([]);
+    expect(prescriptionLineErrors(compoundLine('Cream', [ketoprofen(), base()]))).toEqual([]);
     expect(prescriptionLineErrors(compoundLine('Cream', [base(), base()]))).toEqual([
       'Only one ingredient can be the base',
     ]);
@@ -300,6 +324,8 @@ describe('Compound prescriptions: the order sent', () => {
       'Ketoprofen / gabapentin / lidocaine cream'
     );
     expect(screen.getByText('41/105')).toBeInTheDocument();
+    await pickUnit(user, 'form', 'Cream');
+    expect(screen.getByRole('button', { name: 'form: cream' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'ingredient 1 strength (empty)' }));
     await user.click(screen.getByRole('option', { name: 'Powder' }));
@@ -340,23 +366,39 @@ describe('Compound prescriptions: the order sent', () => {
       pharmacyNpi: PHARMACY.npi,
       pharmacyName: PHARMACY.name,
       pharmacyPhone: PHARMACY.phone,
+      // Jon's eRx v4 body: the name, no substitution, and every ingredient as the amount that goes in.
+      medicationDescription: 'Ketoprofen / gabapentin / lidocaine cream',
+      substitutionAllowed: false,
       compound: {
-        description: 'Ketoprofen / gabapentin / lidocaine cream',
+        dosageForm: 'Cream',
         ingredients: [
-          { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
-          { description: 'Gabapentin Powder', ndc: '00000000002', strength: { value: 6, unit: '%' } },
-          { description: 'Lidocaine 4% Cream', ndc: '00000000003', rxcui: '1003', base: true },
+          {
+            description: 'Ketoprofen Powder',
+            ndc: '00000000001',
+            strength: { value: '10', unit: 'Percentage' },
+            quantityValue: 6,
+            quantityUnit: 'Gram',
+          },
+          {
+            description: 'Gabapentin Powder',
+            ndc: '00000000002',
+            strength: { value: '6', unit: 'Percentage' },
+            quantityValue: 3.6,
+            quantityUnit: 'Gram',
+          },
+          { description: 'Lidocaine 4% Cream', ndc: '00000000003', quantityValue: 50.4, quantityUnit: 'Gram' },
         ],
       },
     });
   });
 
-  it('sends a typed-in ingredient by its text, marked as confirmed not controlled', async () => {
+  it('sends a typed-in ingredient by its text, without the not-controlled confirmation or an RxCUI', async () => {
     const user = userEvent.setup();
     render(<OrderPrescriptionForm />);
     await openMenu(user);
     await user.click(within(medicationsListbox()).getByRole('option', { name: '+ compound' }));
     await paste(user, screen.getByRole('textbox', { name: 'compound name' }), 'Progesterone capsules');
+    await pickUnit(user, 'form', 'Capsule');
     await user.click(screen.getByRole('button', { name: 'ingredient 1 (empty)' }));
     await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'zzprog');
     await user.click(await screen.findByRole('option', { name: "use 'zzprog' as typed ingredient" }));
@@ -371,11 +413,18 @@ describe('Compound prescriptions: the order sent', () => {
     await waitFor(() => expect(mocks.orderPrescription).toHaveBeenCalledTimes(1));
     const sent = mocks.orderPrescription.mock.calls[0][0];
     expect(sent.compound).toEqual({
-      description: 'Progesterone capsules',
-      ingredients: [{ description: 'zzprog', typedNotControlled: true, strength: { value: 75, unit: 'mg each' } }],
+      dosageForm: 'Capsule',
+      ingredients: [
+        {
+          description: 'zzprog',
+          strength: { value: '75', unit: 'Milligram' },
+          quantityValue: 2250,
+          quantityUnit: 'Milligram',
+        },
+      ],
     });
+    expect(sent.medicationDescription).toBe('Progesterone capsules');
+    expect(sent.substitutionAllowed).toBe(false);
     expect(sent).not.toHaveProperty('ndc');
-    expect(sent).not.toHaveProperty('medicationDescription');
-    expect(sent).not.toHaveProperty('substitutionAllowed');
   });
 });

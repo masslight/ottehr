@@ -1,7 +1,14 @@
 import { DateTime } from 'luxon';
 import { ErxEventDTO, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
-import { OrderPrescriptionInput, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
+import {
+  COMPOUND_DOSAGE_FORMS,
+  CompoundDosageForm,
+  OrderPrescriptionInput,
+  QUANTITY_UNITS,
+  QuantityUnit,
+} from 'utils/lib/types/api/order-prescription.types';
+import { compoundOrderIngredients } from './prescriptionLines';
 
 export type PrescriptionChip = 'Sending' | 'Sent' | 'Error' | 'Cancel requested' | 'Cancelled';
 
@@ -72,17 +79,29 @@ const canSendToAnotherPharmacyByStatus = (prescription: PrescribedMedicationDTO)
 const isQuantityUnit = (unit: string | undefined): unit is QuantityUnit =>
   QUANTITY_UNITS.includes(unit as QuantityUnit);
 
+const isCompoundDosageForm = (form: string | undefined): form is CompoundDosageForm =>
+  COMPOUND_DOSAGE_FORMS.includes(form as CompoundDosageForm);
+
+/** The eRx service can't cancel a compound yet. */
+export const COMPOUND_CANCEL_UNSUPPORTED = "Canceling compounds isn't supported yet";
+
+/** Whether the action would cancel a compound: Cancel, or sending a sent one to another pharmacy (which cancels it
+ * first); an errored one is only sent again. */
+const cancelsCompound = (action: PrescriptionAction, prescription: PrescribedMedicationDTO): boolean =>
+  !!prescription.order?.compound && (action === 'cancel' || isPrescriptionCancellable(prescription));
+
 /** The order fields the new prescription needs that the stored one lacks. */
 const missingOrderFields = (prescription: PrescribedMedicationDTO): string[] => {
   const order = prescription.order;
   const compound = order?.compound;
-  // A compound is its name and each ingredient's name and amount, strength or base, in place of a product.
+  // A compound is its name, dosage form and each ingredient's name and amount, in place of a product.
   const product: [string, unknown][] = compound
     ? [
         ['compound name', compound.description],
+        ['dosage form', isCompoundDosageForm(compound.dosageForm) ? compound.dosageForm : undefined],
         ...compound.ingredients.flatMap((ingredient, i): [string, unknown][] => [
           [`ingredient ${i + 1} name`, ingredient.description],
-          [`ingredient ${i + 1} amount or strength`, ingredient.amount ?? ingredient.strength ?? ingredient.base],
+          [`ingredient ${i + 1} amount`, ingredient.amount],
         ]),
       ]
     : [
@@ -120,12 +139,13 @@ const prescriptionActionAppliesByStatus = (
 export const prescriptionActionBlocker = (
   action: PrescriptionAction,
   prescription: PrescribedMedicationDTO
-): { status: string } | { missing: string[] } | undefined => {
+): { status: string } | { missing: string[] } | { unsupported: string } | undefined => {
   if (!prescriptionActionAppliesByStatus(action, prescription)) {
     const { chip } = prescriptionStatusView(prescription);
     // A sent prescription whose cancellation was refused can't be cancelled again.
     return { status: chip === 'Sent' ? 'Cancel denied' : chip ?? prescription.status ?? 'unknown' };
   }
+  if (cancelsCompound(action, prescription)) return { unsupported: COMPOUND_CANCEL_UNSUPPORTED };
   if (action === 'sendToAnotherPharmacy') {
     const missing = missingOrderFields(prescription);
     if (missing.length) return { missing };
@@ -146,14 +166,17 @@ export const prescriptionActionUnavailableText = (
   const name = PRESCRIPTION_ACTION_NAMES[action];
   const statuses = new Set<string>();
   const missing: string[] = [];
+  const unsupported = new Set<string>();
   for (const prescription of prescriptions) {
     const blocker = prescriptionActionBlocker(action, prescription);
     if (blocker && 'status' in blocker) statuses.add(blocker.status);
     if (blocker && 'missing' in blocker) missing.push(`${prescription.name}: missing ${blocker.missing.join(', ')}`);
+    if (blocker && 'unsupported' in blocker) unsupported.add(blocker.unsupported);
   }
   const parts = [
     statuses.size > 0 && `${name} isn't available for prescriptions with status ${[...statuses].join(', ')}.`,
     missing.length > 0 && `${name} isn't available for ${missing.join('; ')}.`,
+    ...unsupported,
   ].filter(Boolean);
   return parts.length ? parts.join(' ') : undefined;
 };
@@ -185,15 +208,17 @@ export const prescriptionToOrderForPharmacy = (
   };
   const { compound } = order;
   if (compound) {
+    // Every stored ingredient is the amount that went in, so each goes again as is.
+    const converted = compoundOrderIngredients(
+      { description: compound.description!, ingredients: compound.ingredients },
+      { value: common.quantityValue, unit: common.quantityUnit }
+    );
+    if (!isCompoundDosageForm(compound.dosageForm) || 'errors' in converted) return undefined;
     return {
       ...common,
-      compound: {
-        description: compound.description!,
-        // An ingredient without an NDC was typed in, and confirmed not controlled when it was first sent.
-        ingredients: compound.ingredients.map((ingredient) =>
-          ingredient.ndc ? ingredient : { ...ingredient, typedNotControlled: true as const }
-        ),
-      },
+      medicationDescription: compound.description!,
+      substitutionAllowed: false,
+      compound: { dosageForm: compound.dosageForm, ingredients: converted.ingredients },
     };
   }
   return {

@@ -33,6 +33,7 @@ vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => 
 // Test compounds: the NDCs and RxCUIs are made up.
 const PAIN_CREAM: CompoundInput = {
   description: 'Ketoprofen / gabapentin cream',
+  dosageForm: 'Cream',
   ingredients: [
     { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
     { description: 'Gabapentin Powder', ndc: '00000000002', amount: { value: 6, unit: 'Gram' } },
@@ -52,6 +53,7 @@ const PAIN_CREAM_PICK: PrescriptionQuickPickData = {
 };
 const OMEPRAZOLE: CompoundInput = {
   description: 'Omeprazole suspension',
+  dosageForm: 'Suspension',
   ingredients: [
     { description: 'Omeprazole', typedNotControlled: true, strength: { value: 2, unit: 'mg/mL' } },
     { description: 'Sodium bicarbonate 8.4%', typedNotControlled: true, base: true },
@@ -126,6 +128,7 @@ describe('Compound quick picks', () => {
     await user.click(screen.getByRole('button', { name: /^medication/ }));
     await user.click(screen.getByRole('option', { name: 'Pain cream' }));
     expect(screen.getByRole('textbox', { name: 'compound name' })).toHaveValue('Ketoprofen / gabapentin cream');
+    expect(screen.getByRole('button', { name: 'form: cream' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'ingredient 1: Ketoprofen Powder' })).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'ingredient 1 amount' })).toHaveValue(10);
     expect(screen.getByRole('button', { name: 'ingredient 1 unit: %' })).toBeInTheDocument();
@@ -139,7 +142,22 @@ describe('Compound quick picks', () => {
     expect(latest).toMatchObject({ quantityValue: '60', quantityUnit: 'Gram', daysSupply: '30', numberOfRefills: '1' });
 
     const order = prescriptionLineToOrder(latest!, CONTEXT);
-    expect(order.compound).toEqual(PAIN_CREAM);
+    // Worked out from the 60 g total: 10% is 6 g, and the base fills the rest.
+    expect(order).toMatchObject({ medicationDescription: PAIN_CREAM.description, substitutionAllowed: false });
+    expect(order.compound).toEqual({
+      dosageForm: 'Cream',
+      ingredients: [
+        {
+          description: 'Ketoprofen Powder',
+          ndc: '00000000001',
+          strength: { value: '10', unit: 'Percentage' },
+          quantityValue: 6,
+          quantityUnit: 'Gram',
+        },
+        { description: 'Gabapentin Powder', ndc: '00000000002', quantityValue: 6, quantityUnit: 'Gram' },
+        { description: 'Compounding cream', quantityValue: 48, quantityUnit: 'Gram' },
+      ],
+    });
     expect(order).toMatchObject({ noteToPharmacy: 'Dispense in a pump', pharmacyId: '0002026' });
     expect(order).not.toHaveProperty('ndc');
   });
@@ -170,6 +188,9 @@ describe('Compound quick picks', () => {
     // One that couldn't be sent says why.
     expect(quickPickProductMissing({ ...line, compound: { ...line.compound!, name: '' } })).toBe(
       'Enter the compound name'
+    );
+    expect(quickPickProductMissing({ ...line, compound: { ...line.compound!, dosageForm: '' } })).toBe(
+      'Pick the dosage form'
     );
   });
 });

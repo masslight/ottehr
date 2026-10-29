@@ -203,63 +203,69 @@ describe('makePrescribedMedicationDTO order fields', () => {
 
 describe('makePrescribedMedicationDTO compound', () => {
   const NDC = 'http://hl7.org/fhir/sid/ndc';
-  const RXNORM = 'http://www.nlm.nih.gov/research/umls/rxnorm';
-  // The shape we ask the eRx service to store a compound in (see makePrescribedCompound). Test codes are made up.
+  const NCI = 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl';
+  const gram = (value: number): { value: number; unit: string; system: string; code: string } => ({
+    value,
+    unit: 'Gram',
+    system: NCI,
+    code: 'C48155',
+  });
+  // As the eRx service stores a compound (buildCompoundMedication). Test codes are made up.
   const compoundRequest = makeMedicationRequest({
     contained: [
       {
         resourceType: 'Medication',
         id: 'compound',
-        code: { text: 'Ketoprofen / gabapentin / lidocaine cream' },
+        code: { text: 'Ketoprofen 10% cream' },
+        form: { coding: [{ system: NCI, code: 'C28944', display: 'Cream' }], text: 'Cream' },
         ingredient: [
           {
             itemCodeableConcept: {
+              coding: [{ system: NDC, code: '00000000001', display: 'Ketoprofen Powder' }],
               text: 'Ketoprofen Powder',
-              coding: [
-                { system: NDC, code: '00000000001', display: 'Ketoprofen Powder' },
-                { system: RXNORM, code: '1001' },
-              ],
             },
-            isActive: true,
-            strength: { numerator: { value: 10, unit: '%' }, denominator: { value: 1 } },
+            strength: { numerator: gram(3), denominator: gram(30) },
           },
           {
-            itemCodeableConcept: { coding: [{ system: NDC, code: '00000000002', display: 'Gabapentin Powder' }] },
-            isActive: true,
-            strength: { numerator: { value: 3.6, unit: 'Gram' } },
+            itemCodeableConcept: { text: 'Lidocaine' },
+            strength: {
+              numerator: { value: 300, unit: 'Milligram', system: NCI, code: 'C28253' },
+              denominator: gram(30),
+            },
           },
-          {
-            itemCodeableConcept: { text: 'Omeprazole suspension' },
-            isActive: true,
-            strength: { numerator: { value: 2, unit: 'mg' }, denominator: { value: 1, unit: 'mL' } },
-          },
-          {
-            itemCodeableConcept: { text: 'Progesterone' },
-            strength: { numerator: { value: 75, unit: 'mg' }, denominator: { value: 1, unit: 'each' } },
-          },
-          { itemCodeableConcept: { text: 'Cream base' }, isActive: false },
+          { itemCodeableConcept: { text: 'Cream base' }, strength: { numerator: gram(26.7), denominator: gram(30) } },
           { itemCodeableConcept: { text: 'Unknown unit' }, strength: { numerator: { value: 1, unit: 'tbsp' } } },
         ],
       },
     ],
-    medicationReference: { reference: '#compound', display: 'Ketoprofen / gabapentin / lidocaine cream' },
+    medicationReference: { reference: '#compound', display: 'Ketoprofen 10% cream' },
   });
 
-  it('is named by its contained Medication, with every ingredient read', () => {
+  it('is named by its contained Medication, with its form and every ingredient as the amount that went in', () => {
     const dto = makePrescribedMedicationDTO(compoundRequest);
-    expect(dto.name).toBe('Ketoprofen / gabapentin / lidocaine cream');
+    expect(dto.name).toBe('Ketoprofen 10% cream');
     expect(dto.order?.compound).toEqual({
-      description: 'Ketoprofen / gabapentin / lidocaine cream',
+      description: 'Ketoprofen 10% cream',
+      dosageForm: 'Cream',
       ingredients: [
-        { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
-        { description: 'Gabapentin Powder', ndc: '00000000002', amount: { value: 3.6, unit: 'Gram' } },
-        { description: 'Omeprazole suspension', strength: { value: 2, unit: 'mg/mL' } },
-        { description: 'Progesterone', strength: { value: 75, unit: 'mg each' } },
-        { description: 'Cream base', base: true },
+        { description: 'Ketoprofen Powder', ndc: '00000000001', amount: { value: 3, unit: 'Gram' } },
+        { description: 'Lidocaine', amount: { value: 300, unit: 'Milligram' } },
+        { description: 'Cream base', amount: { value: 26.7, unit: 'Gram' } },
         // Read without its amount: the order can't be rebuilt from it.
         { description: 'Unknown unit' },
       ],
     });
+  });
+
+  it('falls back to the reference display for its name', () => {
+    const [medication] = compoundRequest.contained!;
+    const dto = makePrescribedMedicationDTO({
+      ...compoundRequest,
+      contained: [{ ...medication, code: undefined, form: undefined } as typeof medication],
+    });
+    expect(dto.name).toBe('Ketoprofen 10% cream');
+    expect(dto.order?.compound?.description).toBe('Ketoprofen 10% cream');
+    expect(dto.order?.compound).not.toHaveProperty('dosageForm');
   });
 
   it('falls back to the medication text without a contained Medication', () => {

@@ -105,13 +105,15 @@ export const PrescriptionTable: FC = () => {
         headerName: 'Medication',
         flex: 1,
         minWidth: 200,
-        // A compound reads as its name with its ingredients underneath.
+        // A compound reads as its name with its dosage form and the amount of each ingredient underneath.
         renderCell: ({ row }) =>
           row.order?.compound ? (
             <Box sx={{ py: 1, whiteSpace: 'normal' }}>
               Compound: {row.name}
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                {row.order.compound.ingredients.map(compoundIngredientText).join(' · ')}
+                {[row.order.compound.dosageForm, ...row.order.compound.ingredients.map(compoundIngredientText)]
+                  .filter(Boolean)
+                  .join(' · ')}
               </Typography>
             </Box>
           ) : (

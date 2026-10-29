@@ -9,8 +9,9 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedPrescriptionQuickPicks, useMergedPrescriptionSetQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { getFirstName } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
 import { PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -18,7 +19,7 @@ import { AllergiesContainer } from '../../../shared/components/review-tab/compon
 import { MedicationsContainer } from '../../../shared/components/review-tab/components/MedicationsContainer';
 import { useChartData } from '../../../shared/hooks/useChartData';
 import { useChartSection } from '../../../shared/hooks/useChartSection';
-import { useSearchPharmacies } from '../../../shared/hooks/useErxSearch';
+import { usePreferredPharmacy } from '../../../shared/hooks/useErxPharmacies';
 import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
 import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
 import { useAppointmentData, useSaveChartData } from '../../../shared/stores/appointment/appointment.store';
@@ -48,23 +49,6 @@ const FORM_COLUMN_MIN_WIDTH = 420;
 const COLUMN_GAP_PX = 16;
 const SIDE_COLUMN_QUERY = `@container (min-width: ${FORM_COLUMN_MIN_WIDTH + COLUMN_GAP_PX + SIDE_COLUMN_MIN_WIDTH}px)`;
 
-const digits = (value: string | undefined): string => value?.replace(/\D/g, '') ?? '';
-
-/** The patient's preferred pharmacy as a Surescripts directory entry. The chart keeps only its name, address and
- * phone, so it is looked up by name; a phone on file must match too. */
-const usePreferredPharmacy = (preferred: PharmacyDTO[] | undefined): PharmacySearchResult | null => {
-  const primary = preferred?.find((pharmacy) => pharmacy.primary) ?? preferred?.[0];
-  const { data: results = [] } = useSearchPharmacies(primary?.name ?? '');
-  if (!primary) return null;
-  return (
-    results.find(
-      (result) =>
-        result.name.trim().toLowerCase() === primary.name.trim().toLowerCase() &&
-        (!digits(primary.phone) || digits(result.phone).endsWith(digits(primary.phone).slice(-10)))
-    ) ?? null
-  );
-};
-
 export const OrderPrescriptionForm: FC = () => {
   const theme = useTheme();
   const { patient, encounter } = useAppointmentData();
@@ -88,10 +72,17 @@ export const OrderPrescriptionForm: FC = () => {
   const [sendAttempted, setSendAttempted] = useState(false);
   const [sending, setSending] = useState(false);
 
-  // Until a pharmacy is picked (or after Clear Form), the line reads the preferred one.
-  const preferredPharmacy = usePreferredPharmacy(plan?.preferredPharmacies);
+  // Until a pharmacy is picked (or after Clear Form), the line reads the saved one, when it matches the directory.
+  const savedPharmacy = plan?.preferredPharmacies?.find((item) => item.primary) ?? plan?.preferredPharmacies?.[0];
+  const { data: preferredPharmacy } = usePreferredPharmacy(patient?.id, savedPharmacy);
   const [pickedPharmacy, setPickedPharmacy] = useState<PharmacySearchResult | null>(null);
-  const pharmacy = pickedPharmacy ?? preferredPharmacy;
+  const pharmacy = pickedPharmacy ?? preferredPharmacy ?? null;
+  // The pharmacies this patient's prescriptions went to, once each.
+  const sentBefore = (plan?.prescribedMedications ?? []).flatMap((item, i, all) =>
+    item.pharmacyId && all.findIndex((other) => other.pharmacyId === item.pharmacyId) === i
+      ? [{ ncpdpId: item.pharmacyId, name: item.pharmacyName }]
+      : []
+  );
 
   const [quickPickLineKey, setQuickPickLineKey] = useState<number | null>(null);
   const [quickPickName, setQuickPickName] = useState('');
@@ -279,6 +270,14 @@ export const OrderPrescriptionForm: FC = () => {
                         setPickedPharmacy(next);
                         close();
                       }}
+                      onFile={
+                        savedPharmacy && {
+                          firstName: patient && getFirstName(patient),
+                          saved: savedPharmacy,
+                          pharmacy: preferredPharmacy,
+                        }
+                      }
+                      sentBefore={sentBefore}
                     />
                   )}
                 </PopoverBlank>
@@ -286,7 +285,7 @@ export const OrderPrescriptionForm: FC = () => {
                   <>
                     {isPreferred && ' (preferred)'},{' '}
                     <Box component="span" sx={{ color: 'text.secondary' }}>
-                      {pharmacy.address} · {pharmacy.phone}
+                      {pharmacy.address} · {formatPhoneNumberDisplay(pharmacy.phone)}
                     </Box>
                   </>
                 )}

@@ -48,3 +48,35 @@ export interface PharmacySearchResult {
   phone: string;
   address: string;
 }
+
+/** One pharmacy in the Surescripts directory, as the eRx service's pharmacy search returns it: only pharmacies
+ * that take new prescriptions. */
+export interface ErxDirectoryPharmacy {
+  ncpdpId: string;
+  npi?: string;
+  name: string;
+  storeNumber?: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  phone?: string;
+  fax?: string;
+  specialties: string[];
+}
+
+/** The directory search's filters: name, address (line 1) and city match as "contains", ignoring case; the rest exactly. */
+export interface ErxDirectoryQuery {
+  name?: string;
+  address?: string;
+  city?: string;
+  /** Two letters */
+  state?: string;
+  /** Five digits */
+  zipCode?: string;
+  /** Ten digits */
+  phone?: string;
+  ncpdpId?: string;
+  npi?: string;
+}

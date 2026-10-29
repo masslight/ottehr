@@ -1,10 +1,11 @@
-import { CompoundInput } from 'utils/lib/types/api/order-prescription.types';
+import { CompoundIngredientInput, CompoundInput, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { describe, expect, it } from 'vitest';
 import {
   applyPrescriptionQuickPick,
   compoundCalculatorProduct,
   compoundIngredientText,
   compoundLineOf,
+  compoundOrderIngredients,
   compoundToOrder,
   emptyPrescriptionLine,
   ingredientText,
@@ -963,5 +964,225 @@ describe('the compound calculator’s concentration', () => {
   it('is offered only for a positive number', () => {
     for (const value of ['', '0', '-1', 'abc']) expect(compoundCalculatorProduct(withMgPerMl(value))).toBeUndefined();
     expect(compoundCalculatorProduct(withMgPerMl('2'))?.ingredients?.[0].amount).toBe(2);
+  });
+});
+
+describe('compoundOrderIngredients: each ingredient as the amount that goes in', () => {
+  const compound = (...ingredients: CompoundIngredientInput[]): CompoundInput => ({
+    description: 'Test compound',
+    dosageForm: 'Cream',
+    ingredients,
+  });
+  const convert = (
+    ingredients: CompoundIngredientInput[],
+    value: number,
+    unit: QuantityUnit
+  ): ReturnType<typeof compoundOrderIngredients> => compoundOrderIngredients(compound(...ingredients), { value, unit });
+  const amounts = (result: ReturnType<typeof compoundOrderIngredients>): [number, QuantityUnit][] =>
+    'ingredients' in result
+      ? result.ingredients.map((ingredient) => [ingredient.quantityValue, ingredient.quantityUnit])
+      : [];
+
+  it('sends an amount as is, with its NDC, and never an RxCUI or the not-controlled confirmation', () => {
+    expect(
+      convert(
+        [
+          { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', amount: { value: 6, unit: 'Gram' } },
+          { description: 'Typed', typedNotControlled: true, amount: { value: 2, unit: 'Capsule' } },
+        ],
+        30,
+        'Gram'
+      )
+    ).toEqual({
+      ingredients: [
+        { description: 'Ketoprofen Powder', ndc: '00000000001', quantityValue: 6, quantityUnit: 'Gram' },
+        { description: 'Typed', quantityValue: 2, quantityUnit: 'Capsule' },
+      ],
+    });
+  });
+
+  it('works out a % of a total in grams, in grams, sending the strength as a Percentage', () => {
+    expect(convert([{ description: 'K', strength: { value: 10, unit: '%' } }], 30, 'Gram')).toEqual({
+      ingredients: [
+        { description: 'K', strength: { value: '10', unit: 'Percentage' }, quantityValue: 3, quantityUnit: 'Gram' },
+      ],
+    });
+  });
+
+  it('works out mg/mL of a total in mL, in milligrams, sending the strength as mg/ml', () => {
+    expect(convert([{ description: 'O', strength: { value: 2, unit: 'mg/mL' } }], 150, 'Milliliter')).toEqual({
+      ingredients: [
+        { description: 'O', strength: { value: '2', unit: 'mg/ml' }, quantityValue: 300, quantityUnit: 'Milligram' },
+      ],
+    });
+  });
+
+  it('works out mg/g of a total in grams, in milligrams, sending no strength', () => {
+    expect(convert([{ description: 'L', strength: { value: 50, unit: 'mg/g' } }], 30, 'Gram')).toEqual({
+      ingredients: [{ description: 'L', quantityValue: 1500, quantityUnit: 'Milligram' }],
+    });
+  });
+
+  it.each(['Capsule', 'Tablet', 'Troche', 'Suppository', 'Lozenge', 'Each'] as const)(
+    'works out mg each of a count in %s, in milligrams, sending the strength in Milligram',
+    (unit) => {
+      expect(convert([{ description: 'P', strength: { value: 75, unit: 'mg each' } }], 30, unit)).toEqual({
+        ingredients: [
+          {
+            description: 'P',
+            strength: { value: '75', unit: 'Milligram' },
+            quantityValue: 2250,
+            quantityUnit: 'Milligram',
+          },
+        ],
+      });
+    }
+  );
+
+  it('works out the base as the total in grams less the others, counting milligrams as thousandths', () => {
+    const result = convert(
+      [
+        { description: 'K', strength: { value: 10, unit: '%' } },
+        { description: 'L', strength: { value: 50, unit: 'mg/g' } },
+        { description: 'G', amount: { value: 600, unit: 'Milligram' } },
+        { description: 'Base', base: true },
+      ],
+      30,
+      'Gram'
+    );
+    expect(amounts(result)).toEqual([
+      [3, 'Gram'],
+      [1500, 'Milligram'],
+      [600, 'Milligram'],
+      [24.9, 'Gram'],
+    ]);
+    expect('ingredients' in result && result.ingredients[3]).toEqual({
+      description: 'Base',
+      quantityValue: 24.9,
+      quantityUnit: 'Gram',
+    });
+  });
+
+  it('works out the base as the total in mL less the others in mL', () => {
+    expect(
+      amounts(
+        convert(
+          [
+            { description: 'A', amount: { value: 12.5, unit: 'Milliliter' } },
+            { description: 'Base', base: true },
+          ],
+          100,
+          'Milliliter'
+        )
+      )
+    ).toEqual([
+      [12.5, 'Milliliter'],
+      [87.5, 'Milliliter'],
+    ]);
+  });
+
+  it('rounds away float noise', () => {
+    expect(
+      amounts(
+        convert(
+          [
+            { description: 'A', strength: { value: 0.1, unit: '%' } },
+            { description: 'B', strength: { value: 7, unit: '%' } },
+            { description: 'Base', base: true },
+          ],
+          30,
+          'Gram'
+        )
+      )
+    ).toEqual([
+      [0.03, 'Gram'],
+      [2.1, 'Gram'],
+      [27.87, 'Gram'],
+    ]);
+  });
+
+  it.each([
+    ['%', 'Milliliter', "Enter an amount for ingredient 1 — a % can't be worked out from a total in mL"],
+    ['mg/mL', 'Gram', "Enter an amount for ingredient 1 — mg/mL can't be worked out from a total in g"],
+    ['mg/g', 'Milliliter', "Enter an amount for ingredient 1 — mg/g can't be worked out from a total in mL"],
+    ['mg each', 'Gram', "Enter an amount for ingredient 1 — mg each can't be worked out from a total in g"],
+    ['%', 'Capsule', "Enter an amount for ingredient 1 — a % can't be worked out from a total in capsules"],
+  ] as const)('refuses a strength in %s of a total in %s', (unit, totalUnit, error) => {
+    expect(convert([{ description: 'X', strength: { value: 2, unit } }], 30, totalUnit)).toEqual({ errors: [error] });
+  });
+
+  it('refuses the base of a total that isn’t in grams or mL', () => {
+    expect(
+      convert(
+        [
+          { description: 'P', strength: { value: 75, unit: 'mg each' } },
+          { description: 'Base', base: true },
+        ],
+        30,
+        'Capsule'
+      )
+    ).toEqual({
+      errors: ["Enter an amount for ingredient 2 — the base can't be worked out from a total in capsules"],
+    });
+  });
+
+  it('refuses the base when another ingredient isn’t in the total’s unit', () => {
+    const error = "Enter an amount for ingredient 1 — the base can't be worked out when another ingredient isn't in mL";
+    // Milligrams count toward grams only; mL only with mL.
+    for (const amount of [
+      { value: 5, unit: 'Gram' },
+      { value: 5, unit: 'Milligram' },
+    ] as const) {
+      expect(
+        convert(
+          [
+            { description: 'Base', base: true },
+            { description: 'A', amount },
+          ],
+          100,
+          'Milliliter'
+        )
+      ).toEqual({ errors: [error] });
+    }
+    expect(
+      convert(
+        [
+          { description: 'A', amount: { value: 1, unit: 'Capsule' } },
+          { description: 'Base', base: true },
+        ],
+        30,
+        'Gram'
+      )
+    ).toEqual({
+      errors: ["Enter an amount for ingredient 2 — the base can't be worked out when another ingredient isn't in g"],
+    });
+  });
+
+  it('names only the ingredient that can’t be worked out, not the base it leaves unknown', () => {
+    expect(
+      convert(
+        [
+          { description: 'K', strength: { value: 10, unit: '%' } },
+          { description: 'Base', base: true },
+        ],
+        100,
+        'Milliliter'
+      )
+    ).toEqual({ errors: ["Enter an amount for ingredient 1 — a % can't be worked out from a total in mL"] });
+  });
+
+  it('refuses a base the other ingredients leave nothing for', () => {
+    for (const value of [30, 31]) {
+      expect(
+        convert(
+          [
+            { description: 'A', amount: { value, unit: 'Gram' } },
+            { description: 'Base', base: true },
+          ],
+          30,
+          'Gram'
+        )
+      ).toEqual({ errors: ['Ingredient 2 is the base, but the other ingredients already make up the total'] });
+    }
   });
 });

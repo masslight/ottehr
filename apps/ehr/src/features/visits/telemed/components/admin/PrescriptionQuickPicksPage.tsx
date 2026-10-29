@@ -48,7 +48,12 @@ import {
 import { DOSE_BASES, DoseBasis } from 'utils/lib/helpers/medications/plain-dose';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { MedicationSearchDrug } from 'utils/lib/types/api/erx-search.types';
-import { QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
+import {
+  COMPOUND_DOSAGE_FORMS,
+  CompoundDosageForm,
+  QUANTITY_UNITS,
+  QuantityUnit,
+} from 'utils/lib/types/api/order-prescription.types';
 import {
   PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX,
   PrescriptionQuickPickData,
@@ -296,7 +301,10 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                 // A compound is dosed as written: the calculator's settings go by a product.
                 set(
                   e.target.value === 'compound'
-                    ? { compound: { name: '', ingredients: [emptyCompoundIngredient()] }, doseMode: 'as-written' }
+                    ? {
+                        compound: { name: '', dosageForm: '', ingredients: [emptyCompoundIngredient()] },
+                        doseMode: 'as-written',
+                      }
                     : { compound: null }
                 )
               }
@@ -314,6 +322,22 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                   onChange={(e) => set({ compound: { ...compound, name: e.target.value } })}
                   helperText={`${compound.name.length} / ${COMPOUND_NAME_MAX}`}
                 />
+                <TextField
+                  select
+                  label="Dosage form"
+                  value={compound.dosageForm}
+                  onChange={(e) =>
+                    set({ compound: { ...compound, dosageForm: e.target.value as CompoundDosageForm | '' } })
+                  }
+                  fullWidth
+                  sx={{ mt: 1 }}
+                >
+                  {COMPOUND_DOSAGE_FORMS.map((form) => (
+                    <MenuItem key={form} value={form}>
+                      {form}
+                    </MenuItem>
+                  ))}
+                </TextField>
                 {/* The order form's ingredient rows. */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', mt: 1 }}>
                   <CompoundIngredientSentences

@@ -84,6 +84,16 @@ const ERR_INCOMPLETE = {
 
 const mocks = vi.hoisted(() => ({ refetch: vi.fn(), fetch: vi.fn() }));
 
+// Google and the Surescripts directory find the sample pharmacies.
+vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', async () => {
+  const { searchSamplePlaces } = await import('./helpers/samplePharmacies');
+  return { useOystehrAPIClient: () => ({ searchPlaces: searchSamplePlaces }) };
+});
+vi.mock('src/api/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('src/api/api')>()),
+  searchPharmacyDirectory: (await import('./helpers/samplePharmacies')).searchSampleDirectory,
+}));
+
 // jsdom measures nothing, so the grid's virtualization would render no rows.
 vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@mui/x-data-grid-pro')>();
@@ -139,7 +149,7 @@ const pickPharmacyAndSend = async (user: ReturnType<typeof userEvent.setup>): Pr
   expect(within(dialog).getByRole('button', { name: 'Send to pharmacy' })).toBeDisabled();
   await user.type(within(dialog).getByRole('combobox', { name: 'Pharmacy' }), 'Two');
   await user.click(await screen.findByRole('option', { name: /Sample Pharmacy Two/ }));
-  expect(within(dialog).getByText(/Send to Sample Pharmacy Two/)).toBeInTheDocument();
+  expect(await within(dialog).findByText(/Send to Sample Pharmacy Two/)).toBeInTheDocument();
   await user.click(within(dialog).getByRole('button', { name: 'Send to pharmacy' }));
 };
 
@@ -378,11 +388,10 @@ describe('Prescription table: send to another pharmacy', () => {
     const user = renderTable();
     await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'Send to another pharmacy' }));
     await user.type(within(screen.getByRole('dialog')).getByRole('combobox', { name: 'Pharmacy' }), 'Sample');
-    const current = await screen.findByRole('option', { name: /Sample Pharmacy One/ });
-    expect(current).toHaveAttribute('aria-disabled', 'true');
-    await user.hover(current);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Already sent to this pharmacy');
-    await user.click(current);
+    await user.click(await screen.findByRole('option', { name: /Sample Pharmacy One/ }));
+    expect(
+      await screen.findByText('Sample Pharmacy One: Already sent to this pharmacy. Pick another pharmacy.')
+    ).toBeInTheDocument();
     expect(within(screen.getByRole('dialog')).queryByText(/Send to Sample Pharmacy One/)).not.toBeInTheDocument();
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Send to pharmacy' })).toBeDisabled();
   });
@@ -395,7 +404,9 @@ describe('Prescription table: send to another pharmacy', () => {
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByRole('combobox', { name: 'Pharmacy' }), 'One');
     await user.click(await screen.findByRole('option', { name: /Sample Pharmacy One/ }));
-    expect(within(dialog).getByText(`Already sent to this pharmacy, so left as is: ${AMOX.name}`)).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText(`Already sent to this pharmacy, so left as is: ${AMOX.name}`)
+    ).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Send to pharmacy' }));
     await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
     expect(calls('/v4/cancel-prescription')).toEqual([]);

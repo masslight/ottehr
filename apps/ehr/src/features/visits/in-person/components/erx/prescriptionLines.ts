@@ -31,8 +31,10 @@ import {
 } from 'utils/lib/types/api/erx-search.types';
 import {
   COMPOUND_STRENGTH_UNITS,
+  CompoundDosageForm,
   CompoundIngredientInput,
   CompoundInput,
+  CompoundOrderIngredient,
   CompoundStrengthUnit,
   OrderPrescriptionInput,
   QUANTITY_UNITS,
@@ -116,6 +118,7 @@ export interface CompoundIngredientLine {
 
 export interface CompoundLine {
   name: string;
+  dosageForm: CompoundDosageForm | '';
   ingredients: CompoundIngredientLine[];
 }
 
@@ -165,8 +168,9 @@ export const compoundIngredientText = ({ description, amount, strength, base }: 
 
 /** The compound's rows for one sent or saved: a product ingredient as picked (without its search hit), a typed one
  * as typed. */
-export const compoundLineOf = ({ description, ingredients }: CompoundInput): CompoundLine => ({
+export const compoundLineOf = ({ description, dosageForm, ingredients }: CompoundInput): CompoundLine => ({
   name: description,
+  dosageForm: dosageForm ?? '',
   ingredients: ingredients.map((ingredient) => ({
     ...emptyCompoundIngredient(),
     ...(ingredient.ndc
@@ -578,7 +582,7 @@ export const withCompound = (
   doseNotes: undefined,
   additionalInstructions: undefined,
   awaitingPick: false,
-  compound: { name: '', ingredients: [emptyCompoundIngredient(start)] },
+  compound: { name: '', dosageForm: '', ingredients: [emptyCompoundIngredient(start)] },
 });
 
 /** The compound line back as an empty prescription; as with a new compound, the refills, note, diagnosis and urgent
@@ -736,6 +740,7 @@ export const compoundErrors = (compound: CompoundLine): string[] => {
   return [
     ...(!name ? ['Enter the compound name'] : []),
     ...(name.length > COMPOUND_NAME_MAX ? [`Compound name must be up to ${COMPOUND_NAME_MAX} characters`] : []),
+    ...(!compound.dosageForm ? ['Pick the dosage form'] : []),
     ...(compound.ingredients.length === 0 ? ['Add an ingredient'] : []),
     ...compound.ingredients.flatMap((ingredient, i) => compoundIngredientErrors(ingredient, i + 1)),
     ...(compound.ingredients.filter((ingredient) => ingredient.unit === 'base').length > 1
@@ -748,8 +753,16 @@ export const compoundErrors = (compound: CompoundLine): string[] => {
 export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
   if (line.compound) {
     const details = PrescriptionDetailsSchema.safeParse(line);
+    const errors = compoundErrors(line.compound);
+    // Each ingredient goes as an amount worked out from the total, once the compound and the total are complete.
+    const total = Number(line.quantityValue);
+    const conversion =
+      errors.length === 0 && line.quantityUnit && total > 0
+        ? compoundOrderIngredients(compoundToOrder(line.compound), { value: total, unit: line.quantityUnit })
+        : undefined;
     return [
-      ...compoundErrors(line.compound),
+      ...errors,
+      ...(conversion && 'errors' in conversion ? conversion.errors : []),
       ...(details.success ? [] : new Set(details.error.issues.map((issue) => issue.message))),
     ];
   }
@@ -818,9 +831,14 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
       : {}),
   };
   if (compound) {
+    const entered = compoundToOrder(compound);
+    const converted = compoundOrderIngredients(entered, { value: common.quantityValue, unit: common.quantityUnit });
+    if (!entered.dosageForm || 'errors' in converted) throw new Error('Prescription line is incomplete');
     return {
       ...common,
-      compound: compoundToOrder(compound),
+      medicationDescription: entered.description,
+      substitutionAllowed: false,
+      compound: { dosageForm: entered.dosageForm, ingredients: converted.ingredients },
     };
   }
   if (!medication) throw new Error('Prescription line is incomplete');
@@ -832,13 +850,115 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
   };
 };
 
-/** The compound as the order sends it (and a quick pick saves it), for one that passed `compoundErrors`. */
+/** The compound as entered (as a quick pick saves it, and as the order converts it), for one that passed
+ * `compoundErrors`. */
 export const compoundToOrder = (compound: CompoundLine): CompoundInput => ({
   description: compound.name.trim(),
+  ...(compound.dosageForm ? { dosageForm: compound.dosageForm } : {}),
   ingredients: compound.ingredients.map(compoundIngredientToOrder),
 });
 
-/** An ingredient as the order sends it, for one that passed `prescriptionLineErrors`. */
+/** The strength units the order endpoint takes (NCPDP terms); a strength in mg/g goes as its amount only. */
+const ORDER_STRENGTH_UNITS: Record<CompoundStrengthUnit, string | undefined> = {
+  '%': 'Percentage',
+  'mg/mL': 'mg/ml',
+  'mg/g': undefined,
+  'mg each': 'Milligram',
+};
+
+/** The totals an ingredient's "mg each" multiplies by: a count of units. */
+const COUNT_UNITS: readonly QuantityUnit[] = ['Capsule', 'Tablet', 'Troche', 'Suppository', 'Lozenge', 'Each'];
+
+/** Rounds away float noise: 0.1 × 30 is 3, not 3.0000000000000004. */
+const roundAmount = (value: number): number => Math.round(value * 1e6) / 1e6;
+
+/** "mL", "g", or the unit as the line reads it ("capsules"), for the errors. */
+const totalUnitText = (unit: QuantityUnit): string =>
+  unit === 'Milliliter' ? 'mL' : unit === 'Gram' ? 'g' : unitLabel(unit, '2').toLowerCase();
+
+/** A strength's amount in the finished compound: % of a total in g, mg/mL of one in mL, mg/g of one in g, or mg each
+ * of a count. Undefined when the total's unit doesn't fit the strength. */
+const strengthAmount = (
+  strength: NonNullable<CompoundIngredientInput['strength']>,
+  total: { value: number; unit: QuantityUnit }
+): { value: number; unit: QuantityUnit } | undefined => {
+  const { value, unit } = strength;
+  if (unit === '%' && total.unit === 'Gram') return { value: (value / 100) * total.value, unit: 'Gram' };
+  if (unit === 'mg/mL' && total.unit === 'Milliliter') return { value: value * total.value, unit: 'Milligram' };
+  if (unit === 'mg/g' && total.unit === 'Gram') return { value: value * total.value, unit: 'Milligram' };
+  if (unit === 'mg each' && COUNT_UNITS.includes(total.unit)) return { value: value * total.value, unit: 'Milligram' };
+  return undefined;
+};
+
+/** An amount in the total's unit, for working out the base: mg and g convert by 1000; mL only from mL. */
+const inTotalUnit = (amount: { value: number; unit: QuantityUnit }, totalUnit: QuantityUnit): number | undefined => {
+  if (amount.unit === totalUnit) return amount.value;
+  if (totalUnit === 'Gram' && amount.unit === 'Milligram') return amount.value / 1000;
+  return undefined;
+};
+
+/**
+ * The ingredients as the order endpoint takes them: each as the amount that goes into the finished compound (the
+ * order's total quantity), with its strength when one was entered. An amount goes as is; a strength is worked out from
+ * the total (% and mg/g of grams, mg/mL of mL, mg each of a count); the base is the total less the others, when the
+ * total is in g or mL and every other ingredient comes to that unit. Anything else is an error on that ingredient.
+ */
+export const compoundOrderIngredients = (
+  compound: CompoundInput,
+  total: { value: number; unit: QuantityUnit }
+): { ingredients: CompoundOrderIngredient[] } | { errors: string[] } => {
+  const totalText = totalUnitText(total.unit);
+  const errors: string[] = [];
+  const amounts = compound.ingredients.map((ingredient, i) => {
+    if (ingredient.amount) return ingredient.amount;
+    if (!ingredient.strength) {
+      if (!ingredient.base) errors.push(`Enter an amount for ingredient ${i + 1}`);
+      return undefined;
+    }
+    const amount = strengthAmount(ingredient.strength, total);
+    if (!amount) {
+      const what = ingredient.strength.unit === '%' ? 'a %' : ingredient.strength.unit;
+      errors.push(`Enter an amount for ingredient ${i + 1} — ${what} can't be worked out from a total in ${totalText}`);
+    }
+    return amount;
+  });
+  const baseAt = compound.ingredients.findIndex((ingredient) => ingredient.base);
+  if (baseAt >= 0) {
+    const n = baseAt + 1;
+    const others = amounts.filter((_, i) => i !== baseAt);
+    const inUnit = others.map((amount) => amount && inTotalUnit(amount, total.unit));
+    if (total.unit !== 'Gram' && total.unit !== 'Milliliter') {
+      errors.push(`Enter an amount for ingredient ${n} — the base can't be worked out from a total in ${totalText}`);
+    } else if (others.every((amount) => amount !== undefined) && inUnit.some((value) => value === undefined)) {
+      // An ingredient that couldn't be worked out has its own error already.
+      errors.push(
+        `Enter an amount for ingredient ${n} — the base can't be worked out when another ingredient isn't in ${totalText}`
+      );
+    } else if (inUnit.every((value) => value !== undefined)) {
+      const value = roundAmount(total.value - inUnit.reduce((sum: number, other) => sum + (other ?? 0), 0));
+      if (value > 0) amounts[baseAt] = { value, unit: total.unit };
+      else errors.push(`Ingredient ${n} is the base, but the other ingredients already make up the total`);
+    }
+  }
+  if (errors.length) return { errors };
+  return {
+    ingredients: compound.ingredients.map((ingredient, i) => {
+      const amount = amounts[i]!;
+      const strengthUnit = ingredient.strength && ORDER_STRENGTH_UNITS[ingredient.strength.unit];
+      return {
+        description: ingredient.description,
+        ...(ingredient.ndc ? { ndc: ingredient.ndc } : {}),
+        ...(ingredient.strength && strengthUnit
+          ? { strength: { value: String(ingredient.strength.value), unit: strengthUnit } }
+          : {}),
+        quantityValue: roundAmount(amount.value),
+        quantityUnit: amount.unit,
+      };
+    }),
+  };
+};
+
+/** An ingredient as entered, for one that passed `prescriptionLineErrors`. */
 const compoundIngredientToOrder = (ingredient: CompoundIngredientLine): CompoundIngredientInput => {
   const { product, unit } = ingredient;
   const value = Number(ingredient.value);

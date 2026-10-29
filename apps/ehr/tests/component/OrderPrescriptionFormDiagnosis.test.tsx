@@ -55,8 +55,11 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
     refetch: vi.fn(),
   }),
 }));
+// The saved pharmacy matches the directory.
+vi.mock('../../src/features/visits/shared/hooks/useErxPharmacies', () => ({
+  usePreferredPharmacy: () => ({ data: PHARMACY }),
+}));
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
-  useSearchPharmacies: () => ({ data: [PHARMACY], isFetching: false }),
   useSearchMedications: () => ({ data: [], isFetching: false, isError: false }),
 }));
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({

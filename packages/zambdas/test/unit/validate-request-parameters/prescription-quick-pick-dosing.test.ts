@@ -291,6 +291,7 @@ const COMPOUND_PICK: Omit<PrescriptionQuickPickData, 'id'> = {
   name: 'Pain cream',
   compound: {
     description: 'Ketoprofen / gabapentin / lidocaine cream',
+    dosageForm: 'Cream',
     ingredients: [
       { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
       { description: 'Gabapentin Powder', ndc: '00000000002', amount: { value: 6, unit: 'Gram' } },
@@ -312,6 +313,12 @@ describe.each([
     await expect(validate(COMPOUND_PICK)).resolves.toBeUndefined();
   });
 
+  test('accepts one saved before the dosage form was asked for', async () => {
+    await expect(
+      validate({ ...COMPOUND_PICK, compound: { ...COMPOUND_PICK.compound!, dosageForm: undefined } })
+    ).resolves.toBeUndefined();
+  });
+
   const [ketoprofen, gabapentin, base] = COMPOUND_PICK.compound!.ingredients;
   test.each([
     ['an NDC as well', { ndc: '00093416173' }],
@@ -320,6 +327,7 @@ describe.each([
     ['a substitution choice', { substitutionAllowed: true }],
     ['no compound name', { compound: { ...COMPOUND_PICK.compound!, description: '' } }],
     ['no ingredients', { compound: { ...COMPOUND_PICK.compound!, ingredients: [] } }],
+    ['an unknown dosage form', { compound: { ...COMPOUND_PICK.compound!, dosageForm: 'Goo' } }],
     [
       'an ingredient without a measure',
       { compound: { description: 'x', ingredients: [{ ...ketoprofen, strength: undefined }] } },

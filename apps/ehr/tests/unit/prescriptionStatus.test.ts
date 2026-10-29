@@ -2,7 +2,9 @@ import { DateTime } from 'luxon';
 import { ErxEventDTO, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import {
+  isPrescriptionActionAvailable,
   isPrescriptionCancellable,
+  prescriptionActionUnavailableText,
   prescriptionStatusView,
 } from '../../src/features/visits/in-person/components/erx/prescriptionStatus';
 
@@ -87,5 +89,39 @@ describe('a prescription can be cancelled', () => {
     expect(isPrescriptionCancellable(rx('draft'))).toBe(false);
     expect(isPrescriptionCancellable(rx('stopped'))).toBe(false);
     expect(isPrescriptionCancellable(rx('cancelled'))).toBe(false);
+  });
+});
+
+describe('a compound can’t be cancelled yet', () => {
+  const compound = (status: PrescribedMedicationDTO['status']): PrescribedMedicationDTO => ({
+    ...rx(status, accepted),
+    name: 'Pain cream',
+    order: { compound: { description: 'Pain cream', ingredients: [] } },
+  });
+
+  it('blocks Cancel on a sent compound, alone or in a selection with a product', () => {
+    expect(isPrescriptionActionAvailable('cancel', rx('active', accepted))).toBe(true);
+    expect(isPrescriptionActionAvailable('cancel', compound('active'))).toBe(false);
+    expect(prescriptionActionUnavailableText('cancel', [compound('active')])).toBe(
+      "Canceling compounds isn't supported yet"
+    );
+    expect(prescriptionActionUnavailableText('cancel', [rx('active', accepted), compound('active')])).toBe(
+      "Canceling compounds isn't supported yet"
+    );
+  });
+
+  it('blocks sending a sent compound to another pharmacy, which cancels it first, but not resending an errored one', () => {
+    expect(prescriptionActionUnavailableText('sendToAnotherPharmacy', [compound('active')])).toBe(
+      "Canceling compounds isn't supported yet"
+    );
+    expect(prescriptionActionUnavailableText('sendToAnotherPharmacy', [compound('stopped')])).not.toContain(
+      'Canceling compounds'
+    );
+  });
+
+  it('names the status first for a compound no action applies to', () => {
+    expect(prescriptionActionUnavailableText('cancel', [compound('cancelled')])).toBe(
+      "Cancel isn't available for prescriptions with status Cancelled."
+    );
   });
 });

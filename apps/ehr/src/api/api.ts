@@ -84,9 +84,10 @@ import {
   OpenEmployeeChatResponse,
 } from 'utils/lib/types/api/employee-chat.types';
 import {
+  ErxDirectoryPharmacy,
+  ErxDirectoryQuery,
   MedicationSearchDrug,
   MedicationSearchResponse,
-  PharmacySearchResult,
 } from 'utils/lib/types/api/erx-search.types';
 import { ExtractCardInput, ExtractCardResponse } from 'utils/lib/types/api/extract-card.types';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
@@ -668,29 +669,27 @@ export const enrollPractitioner = async (
   return body as CheckPractitionerEnrollmentOutput;
 };
 
-const SAMPLE_PHARMACIES: PharmacySearchResult[] = [
-  {
-    ncpdpId: '0002026',
-    npi: '1234567893',
-    name: 'Sample Pharmacy One',
-    phone: '5125559999',
-    address: '123 Main St, Washington, DC 20001',
-  },
-  {
-    ncpdpId: '0000031',
-    npi: '1245319599',
-    name: 'Sample Pharmacy Two',
-    phone: '5125550123',
-    address: '123 Example St, Washington, DC 20001',
-  },
-  {
-    ncpdpId: '0000042',
-    npi: '1316099070',
-    name: 'Sample Pharmacy Three',
-    phone: '2145550188',
-    address: '123 Example St, Washington, DC 20001',
-  },
-];
+/** The Surescripts directory's pharmacies that take new prescriptions, by the query's filters (at most 50, by name). */
+export const searchPharmacyDirectory = async (
+  token: string,
+  query: ErxDirectoryQuery
+): Promise<ErxDirectoryPharmacy[]> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const params = new URLSearchParams(
+    Object.entries(query).filter((entry): entry is [string, string] => Boolean(entry[1]))
+  );
+  const response = await fetch(`${ERX_API_URL}/v4/pharmacy?${params}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to search pharmacies (${response.status})`);
+  }
+  return (body as { data: ErxDirectoryPharmacy[] }).data;
+};
 
 const TERMINOLOGY_API_URL = import.meta.env.VITE_APP_TERMINOLOGY_API_URL ?? 'https://terminology-api.zapehr.com/v1';
 
@@ -710,14 +709,6 @@ export const searchMedications = async (token: string, query: string): Promise<M
   return (body as MedicationSearchResponse).medications
     .map(({ name, strengths }) => ({ name, strengths: strengths.filter(({ ndcs }) => ndcs.length > 0) }))
     .filter(({ strengths }) => strengths.length > 0);
-};
-
-export const searchPharmacies = async (query: string): Promise<PharmacySearchResult[]> => {
-  const normalizedQuery = query.trim().toLowerCase();
-  return SAMPLE_PHARMACIES.filter(
-    (pharmacy) =>
-      pharmacy.name.toLowerCase().includes(normalizedQuery) || pharmacy.address.toLowerCase().includes(normalizedQuery)
-  );
 };
 
 if (!VITE_APP_IS_LOCAL) {

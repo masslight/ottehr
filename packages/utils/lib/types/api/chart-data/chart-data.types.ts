@@ -206,9 +206,9 @@ export interface PrescribedMedicationOrderDTO {
   noteToPharmacy?: string;
   diagnosisCode?: string;
   diagnosisDescription?: string;
-  /** A compound's name and ingredients, read from the prescription's contained Medication. An ingredient's amount,
-   * strength or base is absent when it couldn't be read; `typedNotControlled` is never stored. */
-  compound?: { description?: string; ingredients: CompoundIngredientInput[] };
+  /** A compound's name, dosage form and ingredients, read from the prescription's contained Medication. Each
+   * ingredient has the amount that went in (never a strength or base); it's absent when it couldn't be read. */
+  compound?: { description?: string; dosageForm?: string; ingredients: CompoundIngredientInput[] };
 }
 
 export interface ErxEventDTO {
@@ -524,6 +524,8 @@ export interface PharmacyDTO {
   address: string;
   phone?: string;
   primary?: true;
+  /** The Google place ID, when it was picked with the Google search */
+  placesId?: string;
 }
 
 export interface PdfBulletPointItem {
