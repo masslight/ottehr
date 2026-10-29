@@ -840,8 +840,7 @@ const isoMonth = z
   .string()
   .regex(/^\d{4}-\d{2}$/, 'Expected an ISO month (YYYY-MM)')
   .refine(isCalendarDate, 'Not a valid calendar month');
-const dateWindowIsOrdered = (data: { dateFrom?: string; dateTo?: string }): boolean =>
-  !data.dateFrom || !data.dateTo || data.dateFrom <= data.dateTo;
+const dateWindowIsOrdered = (from?: string, to?: string): boolean => !from || !to || from <= to;
 const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path: ['dateFrom'] };
 
 export const GetBillingReportInputSchema = z.object({
@@ -862,7 +861,7 @@ export const ReportDateWindowParamsSchema = z
     dateFrom: isoDate.optional(),
     dateTo: isoDate.optional(),
   })
-  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+  .refine((data) => dateWindowIsOrdered(data.dateFrom, data.dateTo), DATE_WINDOW_MESSAGE);
 
 export const EmptyReportParamsSchema = z.object({});
 
@@ -877,7 +876,7 @@ export const GetBillingPaymentsReportDrilldownInputSchema = z
     serviceMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
     checkMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
   })
-  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+  .refine((data) => dateWindowIsOrdered(data.dateFrom, data.dateTo), DATE_WINDOW_MESSAGE);
 
 // patient-payments drilldown row filter (the date window travels in the report params)
 export const PatientPaymentsDrilldownParamsSchema = z.object({
@@ -986,18 +985,20 @@ export const VoidBillingPatientPaymentInputSchema = z.object({
   notes: blankableText,
 });
 
-// dateFrom and dateTo bound the issue date
 export const SearchBillingInvoicesInputSchema = z
   .object({
     kind: z.enum(BILLING_INVOICE_KINDS).optional(),
     status: oneOrMany(z.enum(BILLING_INVOICE_STATUSES)).optional(),
     recipientId: nonEmptyString.uuid().optional(),
-    dateFrom: z.string().date().optional(),
-    dateTo: z.string().date().optional(),
+    issuedFrom: z.string().date().optional(),
+    issuedTo: z.string().date().optional(),
     offset: nonNegativeInt.optional(),
     pageSize: nonNegativeInt.optional(),
   })
-  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+  .refine((data) => dateWindowIsOrdered(data.issuedFrom, data.issuedTo), {
+    message: 'issuedFrom must not be after issuedTo',
+    path: ['issuedFrom'],
+  });
 
 export const GetBillingInvoiceInputSchema = z.object({
   invoiceId: nonEmptyString.uuid(),

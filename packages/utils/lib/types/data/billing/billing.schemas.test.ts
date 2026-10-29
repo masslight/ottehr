@@ -86,8 +86,8 @@ describe('SearchBillingInvoicesInputSchema', () => {
     const result = SearchBillingInvoicesInputSchema.safeParse({
       kind: 'nio',
       status: 'issued',
-      dateFrom: '2026-10-01',
-      dateTo: '2026-10-31',
+      issuedFrom: '2026-10-01',
+      issuedTo: '2026-10-31',
     });
     expect(result.data?.status).toEqual(['issued']);
   });
@@ -95,8 +95,8 @@ describe('SearchBillingInvoicesInputSchema', () => {
   it('takes a single-day window', () => {
     expect(
       SearchBillingInvoicesInputSchema.safeParse({
-        dateFrom: '2026-10-01',
-        dateTo: '2026-10-01',
+        issuedFrom: '2026-10-01',
+        issuedTo: '2026-10-01',
       }).success
     ).toBe(true);
   });
@@ -104,12 +104,12 @@ describe('SearchBillingInvoicesInputSchema', () => {
   it.each([
     ['an unknown kind', { kind: 'employer' }],
     ['entered-in-error', { status: 'entered-in-error' }],
-    ['a date time', { dateFrom: '2026-10-01T00:00:00Z' }],
+    ['a date time', { issuedFrom: '2026-10-01T00:00:00Z' }],
     [
       'a window that ends before it starts',
       {
-        dateFrom: '2026-10-31',
-        dateTo: '2026-10-01',
+        issuedFrom: '2026-10-31',
+        issuedTo: '2026-10-01',
       },
     ],
     ['a recipient that is not an id', { recipientId: 'fedex' }],
