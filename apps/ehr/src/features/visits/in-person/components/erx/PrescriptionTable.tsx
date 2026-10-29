@@ -26,6 +26,7 @@ import { SendToAnotherPharmacyDialog } from './SendToAnotherPharmacyDialog';
 // The chips reuse the medication status colors.
 const prescriptionChipMapper = {
   Sent: medicationStatusMapper.completed,
+  'Sent by fax': medicationStatusMapper.completed,
   Sending: medicationStatusMapper.active,
   'Cancel requested': medicationStatusMapper['entered-in-error'],
   Error: medicationStatusMapper.stopped,

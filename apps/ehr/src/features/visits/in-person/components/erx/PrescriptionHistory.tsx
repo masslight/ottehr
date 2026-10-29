@@ -4,6 +4,7 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { erxEventText } from './prescriptionStatus';
 
 // From the approved order history mockup (erx-order-history.html)
 const EDGE = '#DFE5E9';
@@ -89,7 +90,7 @@ export const PrescriptionTimeline: FC<PrescriptionTimelineProps> = ({
             </span>
             <span className="rail" />
             <span className="what">
-              {event.text}
+              {erxEventText(event)}
               {who && <span className="who">{who}</span>}
             </span>
           </Box>
