@@ -1,6 +1,5 @@
 import { Alert, Box, capitalize, Link, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
-import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
@@ -10,6 +9,7 @@ import { BillingPatientAccountPayment, BillingPatientPaymentMethod } from 'utils
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { listBillingPatientAccountPayments } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
+import { formatDate } from '../utils/format';
 import { dataGridSlots, dataGridSx } from './BillingDataGrid';
 
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
@@ -38,11 +38,6 @@ const PAGE_SIZE = 25;
 const EMPTY_CELL = '—';
 
 type PaymentRow = BillingPatientAccountPayment & { id: string };
-
-const formatLocalDate = (iso: string | undefined): string => {
-  if (!iso) return '';
-  return DateTime.fromISO(iso).toISODate() ?? iso;
-};
 
 function AmountCell({ payment }: { payment: BillingPatientAccountPayment }): ReactElement {
   const refundState = getRefundState(payment);
@@ -84,7 +79,7 @@ const columns: GridColDef<PaymentRow>[] = [
     field: 'dateISO',
     headerName: 'Payment Date',
     width: 150,
-    valueFormatter: (params: { value: string }) => formatLocalDate(params.value),
+    valueFormatter: (params: { value: string }) => formatDate(params.value),
   },
   {
     field: 'amountInCents',
@@ -99,7 +94,7 @@ const columns: GridColDef<PaymentRow>[] = [
     headerName: 'Encounter',
     width: 150,
     renderCell: ({ row }) => {
-      const visitDate = formatLocalDate(row.visitDateISO);
+      const visitDate = formatDate(row.visitDateISO);
       if (!EHR_URL || !row.appointmentId) return visitDate || EMPTY_CELL;
       return (
         <Link href={`${EHR_URL}/visit/${row.appointmentId}`} target="_blank" rel="noopener noreferrer">
@@ -115,7 +110,7 @@ const columns: GridColDef<PaymentRow>[] = [
     renderCell: ({ row }) =>
       row.claimId ? (
         <Link component={RouterLink} to={`/claims/${row.claimId}`}>
-          {row.claimServiceDate || 'Open claim'}
+          {formatDate(row.claimServiceDate) || 'Open claim'}
         </Link>
       ) : (
         EMPTY_CELL
