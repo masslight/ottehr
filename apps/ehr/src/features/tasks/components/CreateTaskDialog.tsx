@@ -247,7 +247,14 @@ export const CreateTaskDialog: React.FC<Props> = ({
       open={open}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
-      disabled={!formValue.category || !formValue.taskTitle || !formValue.location || compoundChangeBlocked}
+      disabled={
+        !formValue.category ||
+        !formValue.taskTitle ||
+        !formValue.location ||
+        compoundChangeBlocked ||
+        // A refill or change request is on a prescription.
+        ((refillRequest || changeRequest) && !formValue.order)
+      }
       description={''}
       title={'New Task'}
       confirmText={'Create new task'}
@@ -285,6 +292,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
                 getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
                 loading={ordersLoading}
                 disabled={!formValue.appointment || !formValue.category}
+                required={refillRequest || changeRequest}
               />
             )}
             {compoundChangeBlocked && <Alert severity="warning">{COMPOUND_CANCEL_UNSUPPORTED}</Alert>}

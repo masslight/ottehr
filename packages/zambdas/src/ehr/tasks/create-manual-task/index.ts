@@ -151,6 +151,9 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
   if (refillRequest === true && changeRequest === true) {
     throw INVALID_INPUT_ERROR('A task is a refill request or a change request, not both');
   }
+  if ((refillRequest === true || changeRequest === true) && !orderId) {
+    throw INVALID_INPUT_ERROR('A refill or change request needs a prescription');
+  }
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
