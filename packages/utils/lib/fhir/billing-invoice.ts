@@ -103,17 +103,17 @@ export const getBillingInvoiceDueDate = (invoice: Invoice): string | undefined =
 export const BILLING_INVOICE_STATUSES = ['draft', 'issued', 'balanced', 'cancelled'] as const;
 export type BillingInvoiceStatus = (typeof BILLING_INVOICE_STATUSES)[number];
 
-const INVOICE_STATUS_BY_STRIPE_STATUS: Partial<Record<Stripe.Invoice.Status, BillingInvoiceStatus>> = {
+const INVOICE_STATUS_BY_STRIPE_STATUS: Record<Stripe.Invoice.Status, BillingInvoiceStatus> = {
   draft: 'draft',
   open: 'issued',
   paid: 'balanced',
   void: 'cancelled',
+  // FHIR has no written-off status, and the balance is still owed
+  uncollectible: 'issued',
 };
 
 export function invoiceStatusFromStripe(stripeStatus: Stripe.Invoice.Status): BillingInvoiceStatus {
-  const status = INVOICE_STATUS_BY_STRIPE_STATUS[stripeStatus];
-  if (!status) throw new Error(`Stripe invoice status ${stripeStatus} has no FHIR invoice status`);
-  return status;
+  return INVOICE_STATUS_BY_STRIPE_STATUS[stripeStatus];
 }
 
 // Past due is derived rather than stored because FHIR has no such status. today is YYYY-MM-DD.

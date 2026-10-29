@@ -114,12 +114,9 @@ describe('invoiceStatusFromStripe', () => {
     ['open', 'issued'],
     ['paid', 'balanced'],
     ['void', 'cancelled'],
+    ['uncollectible', 'issued'],
   ] as const)('maps %s to %s', (stripeStatus, status) => {
     expect(invoiceStatusFromStripe(stripeStatus)).toBe(status);
-  });
-
-  it('rejects uncollectible', () => {
-    expect(() => invoiceStatusFromStripe('uncollectible')).toThrow();
   });
 });
 
