@@ -1238,6 +1238,12 @@ export const ERX_EVENT_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeS
 // Requested from the eRx service: a cancel reply event's Provenance carries the reply's details in this extension,
 // with `note`, `denialReason` (valueString), `denialReasonCode` (valueCoding) and `priorDispensing` (valueBoolean)
 export const ERX_CANCEL_RESPONSE_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-cancel-response';
+// The eRx service's Task for a pharmacy's renewal (refill) request: its code, the codes of its inputs (what the pharmacy
+// sent), and its identifier, the Surescripts message id of the newest request
+export const ERX_REQUEST_TASK_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/erx-task';
+export const ERX_RENEWAL_REQUEST_TASK_CODE = 'rx-renewal';
+export const ERX_REQUEST_TASK_INPUT_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/erx-task-input';
+export const SURESCRIPTS_MESSAGE_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/surescripts-message-id';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 

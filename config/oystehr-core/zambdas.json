@@ -2539,6 +2539,13 @@
       "src": "src/subscriptions/provenance/erx-prescription-error/index",
       "zip": ".dist/zips/erx-prescription-error.zip"
     },
+    "ERX-REFILL-REQUEST": {
+      "name": "erx-refill-request-subscription",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/erx-refill-request/index",
+      "zip": ".dist/zips/erx-refill-request.zip"
+    },
     "GET-LABEL-PRINTING-CONFIG": {
       "name": "get-label-printing-config",
       "type": "http_auth",
@@ -3399,6 +3406,28 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "create"
+          }
+        ]
+      }
+    },
+    "ERX_REFILL_REQUEST_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "eRx refill request task",
+        "criteria": "Task?code=https://terminology.fhir.oystehr.com/CodeSystem/erx-task|rx-renewal",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX-REFILL-REQUEST/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
           }
         ]
       }

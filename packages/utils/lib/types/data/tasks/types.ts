@@ -125,6 +125,8 @@ export const ERX_TASK = {
     prescriptionError: 'prescription-error',
     // A prescription still Sending 24 hours after it was sent: call the pharmacy
     prescriptionUnconfirmed: 'prescription-unconfirmed',
+    // A pharmacy's refill (renewal) request, basedOn the eRx service's Task
+    refillRequest: 'refill-request',
   },
   input: {
     providerName: 'provider-name',
