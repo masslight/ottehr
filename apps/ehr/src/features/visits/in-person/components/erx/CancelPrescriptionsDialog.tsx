@@ -4,6 +4,7 @@ import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { CANCEL_PRESCRIPTION_REASONS, CancelPrescriptionReason } from 'utils/lib/types/api/order-prescription.types';
 import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescription';
+import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
 
 interface CancelPrescriptionsDialogProps {
@@ -14,6 +15,7 @@ interface CancelPrescriptionsDialogProps {
 
 export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ prescriptions, onClose, onSent }) => {
   const { mutateAsync: cancelPrescription } = useCancelPrescription();
+  const { patient } = useAppointmentData();
   const [reason, setReason] = useState<CancelPrescriptionReason | ''>('');
   const { sending, close, run } = useSendEach({ prescriptions, onClose, onSent });
   const several = prescriptions.length > 1;
@@ -45,7 +47,7 @@ export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ 
       title={several ? `Cancel ${prescriptions.length} prescriptions` : 'Cancel prescription'}
       description={
         <Stack spacing={2} sx={{ pt: 1 }}>
-          <PrescriptionSummaryList prescriptions={prescriptions} />
+          <PrescriptionSummaryList prescriptions={prescriptions} patient={patient} />
           <TextField
             select
             required

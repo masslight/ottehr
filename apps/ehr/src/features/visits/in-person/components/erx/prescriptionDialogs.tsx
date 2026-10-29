@@ -1,14 +1,18 @@
-import { Stack, Typography } from '@mui/material';
+import { capitalize, Stack, Typography } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getPatientName } from 'src/shared/utils/getPatientName';
 import { getAddressString } from 'utils/lib/fhir/helpers';
 import { getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { unitLabel } from './prescriptionLines';
 
 export const errorMessage = (error: unknown): string =>
   error instanceof Error && error.message ? error.message : 'An error occurred.';
@@ -22,25 +26,59 @@ export const patientAddressAndPhone = (patient: Patient | undefined): { address?
   };
 };
 
-/** The prescriptions a dialog acts on: each one's name, directions, pharmacy and when it was sent. */
-export const PrescriptionSummaryList: FC<{ prescriptions: PrescribedMedicationDTO[] }> = ({ prescriptions }) => {
+/** The prescriptions a dialog acts on: each one's name, directions, pharmacy and when it was sent. Given the
+ * patient (the cancel dialog), each also shows its quantity, refills and note, and a line names the patient. */
+export const PrescriptionSummaryList: FC<{ prescriptions: PrescribedMedicationDTO[]; patient?: Patient }> = ({
+  prescriptions,
+  patient,
+}) => {
   const userTimezone = DateTime.local().zoneName;
+  const { address, phone } = patientAddressAndPhone(patient);
   return (
     <>
       {prescriptions.map((prescription) => {
         const sent = formatDateToMDYWithTime(prescription.sent, userTimezone);
+        const { quantityValue, quantityUnit, numberOfRefills, noteToPharmacy } = prescription.order ?? {};
         return (
           <Stack key={prescription.resourceId}>
             <Typography variant="body1" fontWeight={500}>
               {prescription.name}
             </Typography>
             <Typography variant="body2">{prescription.instructions}</Typography>
+            {patient && (
+              <Typography variant="body2">
+                {[
+                  quantityValue !== undefined &&
+                    `${quantityValue} ${
+                      quantityUnit ? unitLabel(quantityUnit as QuantityUnit, String(quantityValue)).toLowerCase() : ''
+                    }`.trim(),
+                  numberOfRefills !== undefined && `${numberOfRefills} ${numberOfRefills === 1 ? 'refill' : 'refills'}`,
+                  `Note: ${noteToPharmacy || 'none'}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Typography>
+            )}
             <Typography variant="body2" color="text.secondary">
               {[prescription.pharmacyName, sent && `Sent ${sent.date} ${sent.time}`].filter(Boolean).join(' · ')}
             </Typography>
           </Stack>
         );
       })}
+      {patient && (
+        <Typography variant="body2" color="text.secondary">
+          For{' '}
+          {[
+            getPatientName(patient.name).firstLastName,
+            patient.gender && capitalize(patient.gender),
+            patient.birthDate && formatDateForDisplay(patient.birthDate),
+            address,
+            phone,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </Typography>
+      )}
     </>
   );
 };
