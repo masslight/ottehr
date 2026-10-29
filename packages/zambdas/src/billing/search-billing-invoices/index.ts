@@ -4,15 +4,10 @@ import { Claim, Invoice, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getBillingInvoiceClaims,
-  getBillingInvoiceDueDate,
-  getHostedInvoiceUrl,
   INVOICE_CLAIM_TAG_SYSTEM,
   INVOICE_FACILITY_TAG_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
-import {
-  BILLING_INVOICE_LIST_STATUSES,
-  BillingInvoiceListStatus,
-} from 'utils/lib/types/data/billing/billing.constants';
+import { BILLING_INVOICE_LIST_STATUSES } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchBillingInvoicesInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingInvoiceListItem, SearchBillingInvoicesResponse } from 'utils/lib/types/data/billing/billing.types';
 import { MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
@@ -23,6 +18,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { getClaimServiceDate } from '../claim-search';
+import { toBillingInvoiceSummary } from '../invoices';
 import { createBillingClient, fhirName } from '../shared';
 
 const ZAMBDA_NAME = 'search-billing-invoices';
@@ -119,14 +115,9 @@ function toListItem(
   const claim = line && claimsById.get(line.claimId);
   const serviceDate = claim && getClaimServiceDate(claim);
   return {
-    id: invoice.id!,
-    status: invoice.status as BillingInvoiceListStatus,
-    issueDate: invoice.date ?? '',
-    dueDate: getBillingInvoiceDueDate(invoice) ?? '',
-    amount: invoice.totalGross?.value ?? 0,
+    ...toBillingInvoiceSummary(invoice),
     patientName: fhirName(patientsByRef.get(invoice.subject?.reference ?? '')),
     claimId: line?.claimId,
     serviceDate: serviceDate ? DateTime.fromISO(serviceDate, { setZone: true }).toISODate() ?? '' : '',
-    hostedInvoiceUrl: getHostedInvoiceUrl(invoice),
   };
 }

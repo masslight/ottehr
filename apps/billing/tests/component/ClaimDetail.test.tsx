@@ -66,6 +66,7 @@ vi.mock('../../src/hooks/useAppClients', () => ({
     oystehrZambda: oystehrZambdaStub,
   }),
 }));
+vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({ useInvoicingInBillingApp: () => false }));
 
 const { enqueueSnackbarMock } = vi.hoisted(() => ({ enqueueSnackbarMock: vi.fn() }));
 
@@ -156,6 +157,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePayments: [],
   patientPayments: [],
   writeOffs: [],
+  invoices: [],
   otherClaims: [],
   tags: [],
   pcn: '',

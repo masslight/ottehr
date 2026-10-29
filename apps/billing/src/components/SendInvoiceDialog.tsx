@@ -45,7 +45,7 @@ const PREVIEW_FALLBACKS: Record<string, string> = {
 };
 
 interface SendInvoiceDialogProps {
-  claim: BillingClaimItem;
+  claim: Pick<BillingClaimItem, 'id' | 'claimBalance'>;
   onClose: () => void;
   onSent: () => void;
 }

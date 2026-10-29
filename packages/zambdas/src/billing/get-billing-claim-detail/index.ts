@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { Claim, Invoice, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
@@ -31,6 +31,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
@@ -47,6 +48,7 @@ import {
   toClaimPatientPayment,
 } from '../claim-amounts';
 import { buildEraRemitServiceLines } from '../era-remits';
+import { fetchClaimInvoices, toBillingInvoiceSummary } from '../invoices';
 import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
@@ -137,6 +139,7 @@ export async function performEffect(
     paymentsByEncounter,
     nonInsurancePayer,
     writeOffResources,
+    invoices,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
     fetchClaimResponsesByClaimIds(oystehr, [claimId]),
@@ -146,6 +149,9 @@ export async function performEffect(
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
     resolveNonInsurancePayerDetail(oystehr, claim),
     fetchWriteOffs(oystehr, claimId),
+    isOttehrBillingInvoicingInBillingApp(params.secrets)
+      ? fetchClaimInvoices(oystehr, claimId)
+      : Promise.resolve<Invoice[]>([]),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
@@ -395,6 +401,7 @@ export async function performEffect(
     insurancePayments,
     patientPayments,
     writeOffs,
+    invoices: invoices.map(toBillingInvoiceSummary),
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

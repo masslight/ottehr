@@ -38,6 +38,18 @@ const STATUS_CHIPS: Record<BillingInvoiceListStatus, { label: string; color: Chi
   cancelled: { label: 'Void', color: 'default' },
 };
 
+export function InvoiceStatusChip({ status }: { status: BillingInvoiceListStatus }): ReactElement {
+  return (
+    <Chip
+      label={STATUS_CHIPS[status].label}
+      color={STATUS_CHIPS[status].color}
+      variant="outlined"
+      size="small"
+      sx={{ borderRadius: '4px', fontSize: 12 }}
+    />
+  );
+}
+
 // Disable local sorting because only one page is loaded.
 const columns = (
   [
@@ -62,15 +74,7 @@ const columns = (
       field: 'status',
       headerName: 'Status',
       width: 110,
-      renderCell: ({ row }) => (
-        <Chip
-          label={STATUS_CHIPS[row.status].label}
-          color={STATUS_CHIPS[row.status].color}
-          variant="outlined"
-          size="small"
-          sx={{ borderRadius: '4px', fontSize: 12 }}
-        />
-      ),
+      renderCell: ({ row }) => <InvoiceStatusChip status={row.status} />,
     },
     {
       field: 'hostedInvoiceUrl',

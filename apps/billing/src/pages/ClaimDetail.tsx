@@ -122,6 +122,7 @@ import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
+import { ClaimInvoicesSection } from '../components/ClaimInvoicesSection';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
@@ -762,6 +763,7 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+            <ClaimInvoicesSection claim={claim} refetchClaim={fetchDetail} />
             <PatientPaymentsSection payments={claim.patientPayments} />
             <WriteOffsSection
               claimId={claim.id}
