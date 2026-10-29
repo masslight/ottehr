@@ -38,6 +38,7 @@ import {
   BODY_SITE_SYSTEM,
   CPT_BILLABLE_UNITS_EXTENSION_URL,
   CPT_CODE_SYSTEM,
+  ERX_CANCEL_RESPONSE_EXTENSION_URL,
   ERX_EVENT_CODE_SYSTEM,
   ERX_MEDICATION_META_TAG_CODE,
   FHIR_EXTENSION,
@@ -88,6 +89,7 @@ import {
   DispositionDTO,
   DispositionFollowUpType,
   DispositionType,
+  ErxCancelResponseDTO,
   ErxEventDTO,
   EXAM_OBSERVATION_META_SYSTEM,
   ExamObservationDTO,
@@ -377,6 +379,20 @@ const getPharmacyId = (medRequest: MedicationRequest): string | undefined => {
 const medicationRequestIdFromReference = (reference: string | undefined): string | undefined =>
   reference?.match(/(?:^|\/)MedicationRequest\/([^/]+)(?:\/_history\/[^/]+)?$/)?.[1];
 
+/** A cancel reply event's details, from its Provenance extension. */
+const makeCancelResponse = (provenance: Provenance): ErxCancelResponseDTO | undefined => {
+  const parts = provenance.extension?.find((e) => e.url === ERX_CANCEL_RESPONSE_EXTENSION_URL)?.extension;
+  if (!parts) return undefined;
+  const part = (url: string): Extension | undefined => parts.find((e) => e.url === url);
+  const coding = part('denialReasonCode')?.valueCoding;
+  return {
+    note: part('note')?.valueString,
+    denialReasonCode: coding?.code ? { code: coding.code, display: coding.display ?? coding.code } : undefined,
+    denialReason: part('denialReason')?.valueString,
+    priorDispensing: part('priorDispensing')?.valueBoolean,
+  };
+};
+
 // The eRx service records each event of a prescription as a Provenance targeting it.
 const makeErxEvents = (medRequest: MedicationRequest, provenances: Provenance[]): ErxEventDTO[] =>
   provenances
@@ -395,6 +411,7 @@ const makeErxEvents = (medRequest: MedicationRequest, provenances: Provenance[])
           agentPractitionerId: provenance.agent?.[0]?.who?.reference?.startsWith('Practitioner/')
             ? provenance.agent[0].who.reference.split('/')[1]
             : undefined,
+          cancelResponse: makeCancelResponse(provenance),
         },
       ];
     })

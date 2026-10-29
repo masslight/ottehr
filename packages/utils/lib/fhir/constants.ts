@@ -1235,6 +1235,9 @@ export const PRESCRIPTION_ERX_PHARMACY_ID_URL = 'https://extensions.fhir.oystehr
 export const PRESCRIPTION_ERX_PHARMACY_NAME_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-name';
 // The code system of the eRx service's prescription events (Provenance.activity)
 export const ERX_EVENT_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/erx-event';
+// Requested from the eRx service: a cancel reply event's Provenance carries the reply's details in this extension,
+// with `note`, `denialReason` (valueString), `denialReasonCode` (valueCoding) and `priorDispensing` (valueBoolean)
+export const ERX_CANCEL_RESPONSE_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-cancel-response';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 

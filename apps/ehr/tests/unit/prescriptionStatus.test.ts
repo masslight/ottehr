@@ -19,6 +19,18 @@ const event = (code: string, text?: string, recorded = '2026-10-27T17:00:00.000Z
 });
 const faxed = event('faxed', 'Surescripts faxed the prescription: Receiver unable to process');
 const cancelRequested = event('cancelrequested', 'Cancellation requested with reason: Sent in error');
+const cancelledWith = (cancelResponse: ErxEventDTO['cancelResponse']): ErxEventDTO => ({
+  ...event('cancelled', 'Cancellation confirmed by pharmacy'),
+  cancelResponse,
+});
+const deniedWith: ErxEventDTO = {
+  ...event('canceldenied', 'Cancellation denied by pharmacy: Picked up yesterday'),
+  cancelResponse: {
+    denialReasonCode: { code: 'XX', display: 'Reason code description' },
+    denialReason: 'Picked up yesterday',
+    priorDispensing: true,
+  },
+};
 const rx = (status: PrescribedMedicationDTO['status'], ...events: ErxEventDTO[]): PrescribedMedicationDTO => ({
   resourceId: 'rx-1',
   status,
@@ -76,6 +88,19 @@ describe('prescription status chip and latest event', () => {
       rx('active', accepted, event('changerequested')),
       { chip: 'Sent', detail: 'Change requested by the pharmacy' },
     ],
+    [
+      'cancelled, with the pharmacy’s note',
+      rx('cancelled', accepted, cancelRequested, cancelledWith({ note: 'Patient told', priorDispensing: true })),
+      { chip: 'Cancelled', detail: 'Confirmed by the pharmacy · pharmacy note: Patient told · Already dispensed' },
+    ],
+    [
+      'cancel denied, with the reason code’s description, the reason and prior dispensing',
+      rx('active', accepted, cancelRequested, deniedWith),
+      {
+        chip: 'Sent',
+        detail: 'Cancel denied: Reason code description; Picked up yesterday; Already dispensed',
+      },
+    ],
     ['sent by fax', rx('draft', faxed), { chip: 'Sent by fax' }],
     [
       'sent by fax, then dispensed',
@@ -92,6 +117,18 @@ describe('the history’s words for an event', () => {
   it('describes a fax after an electronic failure, and keeps the service’s text otherwise', () => {
     expect(erxEventText(faxed)).toBe('Sent by fax after an electronic failure');
     expect(erxEventText(cancelRequested)).toBe('Cancellation requested with reason: Sent in error');
+  });
+
+  it('gives the pharmacy’s whole cancel reply', () => {
+    expect(erxEventText(deniedWith)).toBe(
+      'Cancellation denied by pharmacy: Reason code description; Picked up yesterday; Already dispensed'
+    );
+    expect(erxEventText(cancelledWith({ note: 'Patient told' }))).toBe(
+      'Cancellation confirmed by pharmacy · pharmacy note: Patient told'
+    );
+    expect(erxEventText(event('canceldenied', 'Cancellation denied by pharmacy: Already picked up'))).toBe(
+      'Cancellation denied by pharmacy: Already picked up'
+    );
   });
 });
 

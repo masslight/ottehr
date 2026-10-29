@@ -1,6 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { MedicationRequest, Provenance } from 'fhir/r4b';
-import { ERX_EVENT_CODE_SYSTEM, PRESCRIPTION_ERX_PHARMACY_ID_URL } from 'utils/lib/fhir/constants';
+import {
+  ERX_CANCEL_RESPONSE_EXTENSION_URL,
+  ERX_EVENT_CODE_SYSTEM,
+  PRESCRIPTION_ERX_PHARMACY_ID_URL,
+} from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { getErxOrders } from '../../src/ehr/get-erx-orders';
 import { makePrescribedMedicationDTO } from '../../src/shared/chart-data';
@@ -81,6 +85,33 @@ describe('makePrescribedMedicationDTO events and sent time', () => {
     expect(makePrescribedMedicationDTO(authored, provenances).sent).toBe('2026-10-27T15:00:30.000Z');
     expect(makePrescribedMedicationDTO(authored).sent).toBe('2026-10-27');
     expect(makePrescribedMedicationDTO(makeMedicationRequest()).sent).toBe('2026-10-27T15:00:00.000Z');
+  });
+});
+
+describe('makePrescribedMedicationDTO events: the pharmacy’s cancel reply', () => {
+  it('reads the reply’s details from its extension, and none without it', () => {
+    const denied: Provenance = {
+      ...makeProvenance('canceldenied', '2026-10-27T17:00:00.000Z', 'Cancellation denied by pharmacy: Picked up'),
+      extension: [
+        {
+          url: ERX_CANCEL_RESPONSE_EXTENSION_URL,
+          extension: [
+            { url: 'denialReasonCode', valueCoding: { code: 'XX', display: 'Reason code description' } },
+            { url: 'denialReason', valueString: 'Picked up' },
+            { url: 'priorDispensing', valueBoolean: true },
+          ],
+        },
+      ],
+    };
+    const accepted = makeProvenance('accepted', '2026-10-27T15:01:00.000Z', 'Prescription accepted by Surescripts');
+    const events = makePrescribedMedicationDTO(makeMedicationRequest(), [accepted, denied]).events!;
+    expect(events[0].cancelResponse).toBeUndefined();
+    expect(events[1].cancelResponse).toEqual({
+      note: undefined,
+      denialReasonCode: { code: 'XX', display: 'Reason code description' },
+      denialReason: 'Picked up',
+      priorDispensing: true,
+    });
   });
 });
 

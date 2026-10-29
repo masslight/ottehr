@@ -218,6 +218,20 @@ export interface ErxEventDTO {
   agent?: string;
   /** The practitioner who did it, when the event names one by reference */
   agentPractitionerId?: string;
+  /** The pharmacy's cancel reply, on a `cancelled` or `canceldenied` event */
+  cancelResponse?: ErxCancelResponseDTO;
+}
+
+// Requested from the eRx service: the CancelRxResponse details beyond approved or denied (R.302)
+export interface ErxCancelResponseDTO {
+  /** Approved/Note */
+  note?: string;
+  /** Denied/ReasonCode, with its NCPDP description */
+  denialReasonCode?: { code: string; display: string };
+  /** Denied/DenialReason, free text */
+  denialReason?: string;
+  /** Prior Dispensing: the pharmacy already dispensed it */
+  priorDispensing?: boolean;
 }
 
 export interface AllergyDTO extends SaveableDTO {

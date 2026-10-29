@@ -27,10 +27,6 @@ const FILL_EVENT_TEXT: Record<string, (event: ErxEventDTO) => string> = {
   changerequested: () => 'Change requested by the pharmacy',
 };
 
-/** The history's words for an event, where the service's own text isn't the one shown. */
-export const erxEventText = (event: ErxEventDTO): string | undefined =>
-  event.code === 'faxed' ? 'Sent by fax after an electronic failure' : event.text;
-
 // Surescripts couldn't deliver it electronically and faxed it instead.
 const sentChip = (prescription: PrescribedMedicationDTO): PrescriptionChip =>
   prescription.events?.some((event) => event.code === 'faxed') ? 'Sent by fax' : 'Sent';
@@ -44,6 +40,28 @@ const latestEvent = (
 const textAfter = (text: string | undefined, prefix: string): string | undefined =>
   text?.startsWith(prefix) ? text.slice(prefix.length).trim() || undefined : undefined;
 
+const CANCEL_DENIED_PREFIX = 'Cancellation denied by pharmacy:';
+
+/** The pharmacy's cancel reply in plain words: why it refused, its note, and whether it already dispensed. */
+const cancelReplyDetails = (event: ErxEventDTO): string[] => {
+  const reply = event.cancelResponse;
+  return [
+    reply?.denialReasonCode?.display,
+    reply?.denialReason ?? textAfter(event.text, CANCEL_DENIED_PREFIX),
+    reply?.note && `pharmacy note: ${reply.note}`,
+    reply?.priorDispensing && 'Already dispensed',
+  ].filter((detail): detail is string => !!detail);
+};
+
+/** The history's words for an event, where the service's own text isn't the one shown. */
+export const erxEventText = (event: ErxEventDTO): string | undefined => {
+  if (event.code === 'faxed') return 'Sent by fax after an electronic failure';
+  const details = cancelReplyDetails(event);
+  if (event.code === 'canceldenied' && details.length) return `Cancellation denied by pharmacy: ${details.join('; ')}`;
+  if (event.code === 'cancelled') return [event.text, ...details].filter(Boolean).join(' · ');
+  return event.text;
+};
+
 /** The status chip and the latest event under it; no chip for a status the eRx service doesn't set. */
 export const prescriptionStatusView = (
   prescription: PrescribedMedicationDTO
@@ -55,8 +73,11 @@ export const prescriptionStatusView = (
         : { chip: 'Sending', detail: 'Waiting for Surescripts' };
     case 'stopped':
       return { chip: 'Error', detail: latestEvent(prescription, (event) => event.code.startsWith('error'))?.text };
-    case 'cancelled':
-      return { chip: 'Cancelled', detail: 'Confirmed by the pharmacy' };
+    case 'cancelled': {
+      const cancelled = latestEvent(prescription, (event) => event.code === 'cancelled');
+      const details = cancelled ? cancelReplyDetails(cancelled) : [];
+      return { chip: 'Cancelled', detail: ['Confirmed by the pharmacy', ...details].join(' · ') };
+    }
     case 'active': {
       const cancelEvent = latestEvent(prescription, (event) => CANCEL_EVENT_CODES.includes(event.code));
       if (cancelEvent?.code === 'cancelrequested') {
@@ -67,8 +88,11 @@ export const prescriptionStatusView = (
         };
       }
       if (cancelEvent?.code === 'canceldenied') {
-        const reason = textAfter(cancelEvent.text, 'Cancellation denied by pharmacy:');
-        return { chip: sentChip(prescription), detail: reason ? `Cancel denied: ${reason}` : 'Cancel denied' };
+        const details = cancelReplyDetails(cancelEvent);
+        return {
+          chip: sentChip(prescription),
+          detail: details.length ? `Cancel denied: ${details.join('; ')}` : 'Cancel denied',
+        };
       }
       const fillEvent = latestEvent(prescription, (event) => event.code in FILL_EVENT_TEXT);
       return { chip: sentChip(prescription), detail: fillEvent && FILL_EVENT_TEXT[fillEvent.code](fillEvent) };
