@@ -7,6 +7,7 @@ import {
   AddClaimNoteInputSchema,
   AddClaimWriteOffInputSchema,
   AddEraAttachmentInputSchema,
+  BillingInvoiceStatementInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
@@ -96,6 +97,7 @@ import {
   GetBillingCoverageResponse,
   GetBillingInvoiceRecipientResponse,
   GetBillingInvoiceReportResponse,
+  GetBillingInvoiceStatementResponse,
   GetBillingNetCollectionsDrilldownResponse,
   GetBillingNetCollectionsReportResponse,
   GetBillingPatientBalanceResponse,
@@ -199,6 +201,17 @@ export const searchBillingInvoices = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingInvoicesInputSchema>
 ): Promise<SearchBillingInvoicesResponse> => executeBillingZambda(oystehr, 'search-billing-invoices', parameters);
+
+export const getBillingInvoiceStatement = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BillingInvoiceStatementInputSchema>
+): Promise<GetBillingInvoiceStatementResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-invoice-statement', parameters);
+
+export const createBillingInvoiceStatement = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BillingInvoiceStatementInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'create-billing-invoice-statement', parameters);
 
 // --- Rules engines ---
 

@@ -931,6 +931,10 @@ export const SearchBillingInvoicesInputSchema = z.object({
   pageSize: nonNegativeInt.optional(),
 });
 
+export const BillingInvoiceStatementInputSchema = z.object({
+  invoiceId: nonEmptyString,
+});
+
 // Billing-side companions to the EHR patient-payments refund/void zambdas. Input is only the
 // clinical notice id: the zambdas derive all billing writes from the authoritative clinical
 // PaymentNotice, so an unauthorized caller can only trigger an idempotent re-sync.

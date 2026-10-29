@@ -358,6 +358,20 @@
       "src": "src/billing/search-billing-invoices/index",
       "zip": ".dist/zips/search-billing-invoices.zip"
     },
+    "GET-BILLING-INVOICE-STATEMENT": {
+      "name": "get-billing-invoice-statement",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-invoice-statement/index",
+      "zip": ".dist/zips/get-billing-invoice-statement.zip"
+    },
+    "CREATE-BILLING-INVOICE-STATEMENT": {
+      "name": "create-billing-invoice-statement",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-invoice-statement/index",
+      "zip": ".dist/zips/create-billing-invoice-statement.zip"
+    },
     "GET-BILLING-REPORT": {
       "name": "get-billing-report",
       "type": "http_auth",

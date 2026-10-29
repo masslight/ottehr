@@ -1,8 +1,13 @@
 import Oystehr from '@oystehr/sdk';
+import { Task } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resolveStatementAmountsSource } from '../../../src/shared/statements/get-statement-details';
+import {
+  BILLING_APP_INVOICE_STATEMENT_INPUT,
+  isBillingAppInvoiceStatement,
+  resolveStatementAmountsSource,
+} from '../../../src/shared/statements/get-statement-details';
 
 const getOrCreateCandidApiClient = vi.hoisted(() => vi.fn());
 
@@ -49,6 +54,23 @@ describe('resolveStatementAmountsSource', () => {
     if (amountsSource.source !== 'ottehr-billing') throw new Error('expected the ottehr billing source');
     expect(amountsSource.billingOystehr.config.workspaceTag).toEqual(BILLING_RESOURCE_TAG);
     expect(amountsSource.eraReadOystehr.config.workspaceTag).toBeUndefined();
+  });
+
+  it('reads ottehr billing amounts for a billing app invoice even when PATIENT_BALANCE_SOURCE is candid', async () => {
+    const amountsSource = await resolveStatementAmountsSource({
+      secrets: secretsWith('candid'),
+      oystehr,
+      m2mToken: 'token',
+      billingAppInvoice: true,
+    });
+
+    expect(amountsSource.source).toBe('ottehr-billing');
+    expect(getOrCreateCandidApiClient).not.toHaveBeenCalled();
+  });
+
+  it('recognizes generate statement tasks the billing app asked for', () => {
+    expect(isBillingAppInvoiceStatement({ input: [BILLING_APP_INVOICE_STATEMENT_INPUT] } as Task)).toBe(true);
+    expect(isBillingAppInvoiceStatement({} as Task)).toBe(false);
   });
 
   it.each([['candid'], [undefined], ['#{var/PATIENT_BALANCE_SOURCE}']])(

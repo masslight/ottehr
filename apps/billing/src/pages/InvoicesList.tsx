@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -29,6 +29,7 @@ import { searchBillingInvoices } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
 import { FacilitySelect } from '../components/FacilitySelect';
+import { InvoiceStatementDialog } from '../components/InvoiceStatementDialog';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -120,7 +121,33 @@ export default function InvoicesList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [statementInvoice, setStatementInvoice] = useState<BillingInvoiceListItem | null>(null);
   const latestRequest = useRef(0);
+
+  const columnsWithStatement = useMemo<GridColDef<BillingInvoiceListItem>[]>(
+    () => [
+      ...columns,
+      {
+        field: 'actions',
+        headerName: '',
+        width: 120,
+        sortable: false,
+        renderCell: ({ row }) => (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={(event) => {
+              event.stopPropagation();
+              setStatementInvoice(row);
+            }}
+          >
+            Statement
+          </Button>
+        ),
+      },
+    ],
+    []
+  );
 
   const fetchInvoices = useCallback(
     async (next: Filters, pagination: GridPaginationModel): Promise<void> => {
@@ -240,7 +267,7 @@ export default function InvoicesList(): ReactElement {
 
       <DataGridPro
         rows={invoices}
-        columns={columns}
+        columns={columnsWithStatement}
         loading={loading}
         rowCount={total}
         paginationMode="server"
@@ -257,6 +284,9 @@ export default function InvoicesList(): ReactElement {
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 330px)' }}
       />
+      {statementInvoice && (
+        <InvoiceStatementDialog invoice={statementInvoice} onClose={() => setStatementInvoice(null)} />
+      )}
     </Box>
   );
 }
