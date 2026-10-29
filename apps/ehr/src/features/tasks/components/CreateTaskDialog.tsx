@@ -1,6 +1,6 @@
 import { Stack } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
@@ -48,7 +48,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
   appointmentId: appointmentIdProp,
   initialPatient,
 }) => {
-  const methods = useForm();
+  // A checkbox starts unchecked rather than without a value, so it is controlled from the start.
+  const methods = useForm<FieldValues>({ defaultValues: { refillRequest: false } });
   const formValue = methods.watch();
 
   const [refreshKey, setRefreshKey] = useState(0);
