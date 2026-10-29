@@ -26,15 +26,24 @@ const OPEN_TASK_STATUSES: Task['status'][] = ['requested', 'received', 'accepted
 
 const isOpen = (task: Task): boolean => OPEN_TASK_STATUSES.includes(task.status);
 
+// The request's Surescripts message id; on an Ottehr task, the request it was made for.
+const messageId = (task: Task): string | undefined =>
+  task.identifier?.find((identifier) => identifier.system === SURESCRIPTS_MESSAGE_ID_SYSTEM)?.value;
+
 /** One of what the pharmacy sent, from the eRx service's renewal or change Task. */
 export const renewalInput = (renewalTask: Task, code: string): NonNullable<Task['input']>[number] | undefined =>
   renewalTask.input?.find((input) => getCoding(input.type, ERX_REQUEST_TASK_INPUT_SYSTEM)?.code === code);
 
 /** What a change of the renewal or change Task means for its Ottehr task: one is made while the request is open, and it is
- * completed once the eRx service closes the request (answered, withdrawn or expired). */
+ * completed once the eRx service closes the request (answered, withdrawn or expired). When the pharmacy asks again
+ * after its task was closed unanswered, a new one is made for the newest request. */
 export const refillRequestTaskAction = (renewalTask: Task, ottehrTasks: Task[]): 'create' | 'complete' | undefined => {
-  if (!ottehrTasks.length) return isOpen(renewalTask) ? 'create' : undefined;
-  return !isOpen(renewalTask) && ottehrTasks.some(isOpen) ? 'complete' : undefined;
+  if (!isOpen(renewalTask)) return ottehrTasks.some(isOpen) ? 'complete' : undefined;
+  if (!ottehrTasks.length) return 'create';
+  const newest = messageId(renewalTask);
+  return newest && !ottehrTasks.some(isOpen) && !ottehrTasks.some((task) => messageId(task) === newest)
+    ? 'create'
+    : undefined;
 };
 
 export const refillRequestTitle = (renewalTask: Task, patientName: string): string => {
@@ -79,6 +88,8 @@ export const makeErxRequestTask = (
     encounterId: requestTask.encounter?.reference?.split('/')[1],
     basedOn: [`Task/${requestTask.id}`],
   });
+  const requestMessageId = messageId(requestTask);
+  if (requestMessageId) task.identifier = [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: requestMessageId }];
   if (prescriber?.id) {
     task.status = 'in-progress';
     task.owner = createOwnerReference(prescriber.id, getFullName(prescriber));
@@ -126,11 +137,20 @@ export const syncErxRequestTask = async (oystehr: Oystehr, requestTask: Task): P
         })
       : undefined,
   ]);
-  return [await oystehr.fhir.create(makeErxRequestTask(requestTask, patient, prescriber, original))];
+  const task = makeErxRequestTask(requestTask, patient, prescriber, original);
+  // Conditional, so deliveries racing each other make one task per request.
+  const requestMessageId = messageId(task);
+  return [
+    await oystehr.fhir.create(task, {
+      ifNoneExist: [
+        { name: 'based-on', value: `Task/${requestTask.id}` },
+        requestMessageId
+          ? { name: 'identifier', value: `${SURESCRIPTS_MESSAGE_ID_SYSTEM}|${requestMessageId}` }
+          : { name: 'code', value: `${ERX_TASK.system}|${code}` },
+      ],
+    }),
+  ];
 };
-
-const messageId = (task: Task): string | undefined =>
-  task.identifier?.find((identifier) => identifier.system === SURESCRIPTS_MESSAGE_ID_SYSTEM)?.value;
 
 /**
  * What every pharmacy request has, from every version of its renewal or change Task, oldest first. When the pharmacy

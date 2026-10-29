@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import {
   ERX_CHANGE_REQUEST_TASK_CODE,
@@ -6,13 +7,14 @@ import {
   SURESCRIPTS_MESSAGE_ID_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   makeErxRequestTask,
   readPharmacyChangeRequest,
   readPharmacyRefillRequest,
   refillRequestTaskAction,
   refillRequestTitle,
+  syncErxRequestTask,
 } from '../src/shared/erx-refill-requests';
 
 const input = (code: string, valueString: string): NonNullable<Task['input']>[number] => ({
@@ -45,6 +47,46 @@ describe('eRx refill request tasks', () => {
     expect(refillRequestTaskAction(renewal('requested'), [ottehrTask('in-progress')])).toBeUndefined();
     // One already completed isn't made again.
     expect(refillRequestTaskAction(renewal('requested'), [ottehrTask('completed')])).toBeUndefined();
+  });
+
+  it('makes a new task when the pharmacy asks again after its task was closed unanswered', () => {
+    const asked = (status: Task['status'], id: string): Task => ({
+      ...renewal(status),
+      identifier: [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: id }],
+    });
+    const closedFor = (id: string): Task => ({
+      ...ottehrTask('completed'),
+      identifier: asked('requested', id).identifier,
+    });
+    expect(refillRequestTaskAction(asked('requested', 'm2'), [closedFor('m1')])).toBe('create');
+    // The same request: closed by whoever answered or dismissed it.
+    expect(refillRequestTaskAction(asked('in-progress', 'm1'), [closedFor('m1')])).toBeUndefined();
+    expect(refillRequestTaskAction(asked('requested', 'm2'), [closedFor('m1'), closedFor('m2')])).toBeUndefined();
+    expect(
+      refillRequestTaskAction(asked('requested', 'm2'), [closedFor('m1'), ottehrTask('in-progress')])
+    ).toBeUndefined();
+    // Each task names the request it was made for.
+    expect(makeErxRequestTask(asked('requested', 'm2'), undefined, undefined).identifier).toEqual([
+      { system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: 'm2' },
+    ]);
+  });
+
+  it('makes the task conditionally on its request, so racing deliveries make one', async () => {
+    const create = vi.fn(async (task: Task, _options: unknown) => ({ ...task, id: 'task-1' }));
+    const oystehr = {
+      fhir: { search: async () => ({ unbundle: () => [] }), get: async () => undefined, create },
+    } as unknown as Oystehr;
+    const request: Task = {
+      ...renewal('requested'),
+      identifier: [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: 'm1' }],
+    };
+    await syncErxRequestTask(oystehr, request);
+    expect(create.mock.calls[0][1]).toEqual({
+      ifNoneExist: [
+        { name: 'based-on', value: 'Task/renewal-1' },
+        { name: 'identifier', value: `${SURESCRIPTS_MESSAGE_ID_SYSTEM}|m1` },
+      ],
+    });
   });
 
   it('completes the task once the request is withdrawn or answered', () => {
