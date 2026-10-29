@@ -1,5 +1,14 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { Appointment, Coding, DeviceRequest, Encounter, FhirResource, Patient, Procedure } from 'fhir/r4b';
+import {
+  Appointment,
+  Coding,
+  DeviceRequest,
+  Encounter,
+  FhirResource,
+  Patient,
+  Procedure,
+  RelatedPerson,
+} from 'fhir/r4b';
 import { DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
 import { describe, expect, it } from 'vitest';
 import { performMerge } from '../../src/ehr/merge-patients/perform';
@@ -179,8 +188,8 @@ const seed = (): FhirResource[] => {
   ];
 };
 
-const runMerge = async (): Promise<ReturnType<typeof createFakeFhir>> => {
-  const fake = createFakeFhir(seed());
+const runMerge = async (extraSeed: FhirResource[] = []): Promise<ReturnType<typeof createFakeFhir>> => {
+  const fake = createFakeFhir([...seed(), ...extraSeed]);
   await performMerge(
     {
       mainPatientId: MAIN_ID,
@@ -228,5 +237,57 @@ describe('performMerge — DME orders', () => {
     expect(urls.filter((url) => url.startsWith('/DeviceRequest/main-order') || url.includes('main-billing'))).toEqual(
       []
     );
+  });
+});
+
+const relatedPerson = (id: string, patientId: string, coding: Coding): RelatedPerson => ({
+  resourceType: 'RelatedPerson',
+  id,
+  patient: { reference: `Patient/${patientId}` },
+  relationship: [{ coding: [coding] }],
+});
+const emergencyContactCoding: Coding = {
+  system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+  code: 'EP',
+  display: 'Spouse',
+};
+const attorneyCoding: Coding = { code: 'OTHER', display: 'MVA Attorney' };
+
+describe('performMerge — related persons', () => {
+  const otherRelatedPersons = (): RelatedPerson[] => [
+    relatedPerson('other-emergency-contact', OTHER_ID, emergencyContactCoding),
+    relatedPerson('other-attorney', OTHER_ID, attorneyCoding),
+    relatedPerson('other-contact', OTHER_ID, {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+      code: 'C',
+      display: 'Emergency Contact',
+    }),
+  ];
+  const mainRelatedPersonIds = (store: Map<string, AnyResource>): (string | undefined)[] =>
+    [...store.values()]
+      .filter((r) => r.resourceType === 'RelatedPerson' && patientRefs(r).includes(MAIN_REF))
+      .map((r) => r.id)
+      .sort();
+
+  it("keeps the surviving patient's own emergency contact and attorney", async () => {
+    const { store } = await runMerge([
+      relatedPerson('main-emergency-contact', MAIN_ID, emergencyContactCoding),
+      relatedPerson('main-attorney', MAIN_ID, attorneyCoding),
+      ...otherRelatedPersons(),
+    ]);
+
+    expect(mainRelatedPersonIds(store)).toEqual(['main-attorney', 'main-emergency-contact', 'other-contact']);
+    expect(store.get('RelatedPerson/other-emergency-contact')?.patient.reference).toBe(OTHER_REF);
+    expect(store.get('RelatedPerson/other-attorney')?.patient.reference).toBe(OTHER_REF);
+  });
+
+  it("moves the other patient's emergency contact and attorney when the surviving patient has none", async () => {
+    const { store } = await runMerge([
+      ...otherRelatedPersons(),
+      relatedPerson('other-emergency-contact-2', OTHER_ID, emergencyContactCoding),
+    ]);
+
+    expect(mainRelatedPersonIds(store)).toEqual(['other-attorney', 'other-contact', 'other-emergency-contact']);
+    expect(store.get('RelatedPerson/other-emergency-contact-2')?.patient.reference).toBe(OTHER_REF);
   });
 });
