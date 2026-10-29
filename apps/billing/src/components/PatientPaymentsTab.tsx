@@ -179,7 +179,7 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
         pageSizeOptions={[PAGE_SIZE, 50]}
         initialState={{ pagination: { paginationModel: { pageSize: PAGE_SIZE } } }}
         slots={dataGridSlots()}
-        sx={{ ...dataGridSx, '& .MuiDataGrid-cell': { alignItems: 'center', display: 'flex' } }}
+        sx={dataGridSx}
       />
     </Box>
   );
