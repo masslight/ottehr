@@ -1,7 +1,6 @@
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import {
-  plainNumber,
   refillLine,
   renewalApproval,
   requestRows,
@@ -31,11 +30,13 @@ const row = (rows: ReturnType<typeof requestRows>, label: string): ReturnType<ty
 
 describe('refill request: what the pharmacy sent', () => {
   it('shows numbers in plain form', () => {
-    expect(plainNumber(0.27)).toBe('0.27');
-    expect(plainNumber(Number('.27'))).toBe('0.27');
-    expect(plainNumber(Number('3.00'))).toBe('3');
-    expect(plainNumber(0)).toBe('0');
-    expect(plainNumber(undefined)).toBeUndefined();
+    const rows = requestRows(
+      { quantityValue: Number('.27'), quantityUnit: 'Milliliter', daysSupply: Number('3.00'), requestedRefills: 0 },
+      ORIGINAL
+    );
+    expect(row(rows, 'Quantity').request).toBe('0.27 milliliters');
+    expect(row(rows, 'Days supply').request).toBe('3');
+    expect(row(rows, 'Refills').request).toBe('0');
   });
 
   it('leaves a field the pharmacy left out empty: never 0, never the original’s (S.207)', () => {

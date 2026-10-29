@@ -1,30 +1,17 @@
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ErxPharmacyRefillRequest, RenewalResponseInput } from 'utils/lib/types/api/erx.types';
-import { COMPOUND_DOSAGE_FORMS, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
+import { COMPOUND_DOSAGE_FORMS } from 'utils/lib/types/api/order-prescription.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import {
   applyPrescriptionQuickPick,
   emptyPrescriptionLine,
+  isQuantityUnit,
   PrescriptionLine,
   prescriptionLineToOrder,
-  unitLabel,
+  quantityText,
 } from './prescriptionLines';
 
 type RequestedMedication = ErxPharmacyRefillRequest['medication'];
-
-const isQuantityUnit = (unit: string | undefined): unit is QuantityUnit =>
-  (QUANTITY_UNITS as readonly string[]).includes(unit ?? '');
-
-/** A number as the pharmacy sent it, in plain form: "0.27" (never ".27"), "3" (never "3.00"). */
-export const plainNumber = (value: number | undefined): string | undefined =>
-  value === undefined ? undefined : String(value);
-
-const quantityText = (value: number | undefined, unit: string | undefined): string | undefined =>
-  value === undefined
-    ? undefined
-    : `${plainNumber(value)} ${
-        isQuantityUnit(unit) ? unitLabel(unit, String(value)).toLowerCase() : unit ?? ''
-      }`.trim();
 
 const allowedText = (allowed: boolean | undefined): string | undefined =>
   allowed === undefined ? undefined : allowed ? 'Allowed' : 'Not allowed';
@@ -61,13 +48,13 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
       quantityText(order.quantityValue, order.quantityUnit)
     ),
     row('Directions', request.sig, prescription.instructions),
-    row('Days supply', plainNumber(request.daysSupply), plainNumber(order.daysSupply)),
+    row('Days supply', request.daysSupply?.toString(), order.daysSupply?.toString()),
     row('Substitution', allowedText(request.substitutionAllowed), allowedText(order.substitutionAllowed)),
     // Fills asked for and refills written count differently, so they aren't compared.
     {
       label: 'Refills',
-      request: plainNumber(request.requestedRefills),
-      original: plainNumber(order.numberOfRefills),
+      request: request.requestedRefills?.toString(),
+      original: order.numberOfRefills?.toString(),
       differs: false,
     },
     row('Last filled', request.lastFillDate && formatDateForDisplay(request.lastFillDate), undefined),

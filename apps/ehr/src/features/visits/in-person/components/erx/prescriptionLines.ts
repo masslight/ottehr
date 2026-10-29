@@ -151,6 +151,15 @@ export const unitLabel = (unit: QuantityUnit, quantity: string): string =>
     ? `${unit}es`
     : `${unit}s`;
 
+export const isQuantityUnit = (unit: string | undefined): unit is QuantityUnit =>
+  QUANTITY_UNITS.includes(unit as QuantityUnit);
+
+/** "30 tablets", "0.27 milliliters"; a unit that isn't an NCPDP term as it came. */
+export const quantityText = (value: number | undefined, unit: string | undefined): string | undefined =>
+  value === undefined
+    ? undefined
+    : `${value} ${isQuantityUnit(unit) ? unitLabel(unit, String(value)).toLowerCase() : unit ?? ''}`.trim();
+
 /** An ingredient as the line reads it: "Ketoprofen Powder 10%", "Gabapentin Powder 6 grams", "Cream base". */
 export const compoundIngredientText = ({ description, amount, strength, base }: CompoundIngredientInput): string =>
   [

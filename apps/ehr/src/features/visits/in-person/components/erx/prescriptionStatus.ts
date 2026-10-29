@@ -5,10 +5,9 @@ import {
   COMPOUND_DOSAGE_FORMS,
   CompoundDosageForm,
   OrderPrescriptionInput,
-  QUANTITY_UNITS,
   QuantityUnit,
 } from 'utils/lib/types/api/order-prescription.types';
-import { compoundOrderIngredients } from './prescriptionLines';
+import { compoundOrderIngredients, isQuantityUnit } from './prescriptionLines';
 
 export type PrescriptionChip = 'Sending' | 'Sent' | 'Sent by fax' | 'Error' | 'Cancel requested' | 'Cancelled';
 
@@ -109,9 +108,6 @@ export const isPrescriptionCancellable = (prescription: PrescribedMedicationDTO)
 /** Sending to another pharmacy cancels a sent prescription (so only a cancellable one) and resends an errored one. */
 const canSendToAnotherPharmacyByStatus = (prescription: PrescribedMedicationDTO): boolean =>
   isPrescriptionCancellable(prescription) || prescription.status === 'stopped';
-
-const isQuantityUnit = (unit: string | undefined): unit is QuantityUnit =>
-  QUANTITY_UNITS.includes(unit as QuantityUnit);
 
 const isCompoundDosageForm = (form: string | undefined): form is CompoundDosageForm =>
   COMPOUND_DOSAGE_FORMS.includes(form as CompoundDosageForm);

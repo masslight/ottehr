@@ -145,9 +145,8 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
   let pharmacyRequest: ErxPharmacyRefillRequest | undefined;
   let medicationRequestId: string | undefined;
   if (getCoding(task.code, ERX_TASK.system)?.code === ERX_TASK.code.refillRequest && renewalTaskId) {
-    const history = await oystehr.fhir.history<Task>({ resourceType: 'Task', id: renewalTaskId });
-    const versions = (history.entry ?? [])
-      .flatMap((entry) => (entry.resource ? [entry.resource] : []))
+    const versions = (await oystehr.fhir.history<Task>({ resourceType: 'Task', id: renewalTaskId }))
+      .unbundle()
       .sort((a, b) => (a.meta?.lastUpdated ?? '').localeCompare(b.meta?.lastUpdated ?? ''));
     if (!versions.length) throw FHIR_RESOURCE_NOT_FOUND('Task');
     pharmacyRequest = readPharmacyRefillRequest(versions);

@@ -1,7 +1,6 @@
 import {
   Alert,
   Box,
-  capitalize,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -28,8 +27,8 @@ import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
 import { GET_TASKS_KEY, useCompleteTask } from '../../hooks/useTasks';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
-import { errorMessage, patientAddressAndPhone } from './prescriptionDialogs';
-import { plainNumber, refillLine, renewalApproval, requestRows } from './refillRequest';
+import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
+import { refillLine, renewalApproval, requestRows } from './refillRequest';
 
 type Answer = 'approve' | 'change' | 'deny' | 'pending';
 
@@ -105,7 +104,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const pharmacyName = request?.pharmacy.name ?? 'the pharmacy';
   const contact = patientAddressAndPhone(data?.patient);
   const closed = !!request && (request.withdrawn || request.closed);
-  const fillsText = fills ?? plainNumber(request?.medication.requestedRefills) ?? '';
+  const fillsText = fills ?? request?.medication.requestedRefills?.toString() ?? '';
   const fillsNumber = Number(fillsText);
   const fillsValid = Number.isInteger(fillsNumber) && fillsNumber >= 1 && fillsNumber <= 99;
   const ready = answer === 'approve' ? fillsValid : reason !== '';
@@ -113,24 +112,14 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const send = async (): Promise<void> => {
     if (!request) return;
     const trimmed = note.trim() || undefined;
-    const body: RenewalResponseInput =
-      answer === 'approve'
-        ? { taskId: request.renewalTaskId, decision: 'approve', numberOfRefills: fillsNumber, note: trimmed }
-        : answer === 'deny'
-        ? {
-            taskId: request.renewalTaskId,
-            decision: 'deny',
-            reason: reason as (typeof RENEWAL_DENIAL_REASONS)[number],
-            denialReason: trimmed,
-          }
-        : {
-            taskId: request.renewalTaskId,
-            decision: 'pending',
-            reason: reason as (typeof RENEWAL_PENDING_REASONS)[number],
-            note: trimmed,
-          };
     try {
-      await respond.mutateAsync(body);
+      await respond.mutateAsync({
+        taskId: request.renewalTaskId,
+        decision: answer,
+        ...(answer === 'approve'
+          ? { numberOfRefills: fillsNumber, note: trimmed }
+          : { reason, [answer === 'deny' ? 'denialReason' : 'note']: trimmed }),
+      } as RenewalResponseInput);
     } catch (sendError) {
       console.error(`Error answering the refill request: ${sendError}`);
       enqueueSnackbar(errorMessage(sendError), { variant: 'error' });
@@ -147,6 +136,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   };
 
   const reasons = answer === 'deny' ? RENEWAL_DENIAL_REASONS : RENEWAL_PENDING_REASONS;
+  const noteMax = answer === 'deny' ? 210 : 70;
 
   // A new prescription in the order form, saved to the original's visit: the pharmacy's request changed and approved
   // (sent to the pharmacy that asked), or a patient's request (sent as a new prescription, to any pharmacy).
@@ -187,13 +177,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
           : 'Refill request'}
         {data && (
           <Typography variant="body2" color="text.secondary">
-            {[
-              getPatientName(data.patient.name).firstLastName,
-              data.patient.gender && capitalize(data.patient.gender),
-              data.patient.birthDate && formatDateForDisplay(data.patient.birthDate),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+            {patientNameGenderBirthDate(data.patient)}
             {' · '}
             {request
               ? [
@@ -216,11 +200,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 The pharmacy asked again. You’re answering the newest request ({dateTime(request.askedAgain)}).
               </Alert>
             )}
-            {request?.withdrawn && (
-              <Alert severity="warning">{pharmacyName} withdrew this request. It can’t be answered.</Alert>
-            )}
-            {request && !request.withdrawn && request.closed && (
-              <Alert severity="info">This request is closed. It can’t be answered.</Alert>
+            {closed && (
+              <Alert severity={request.withdrawn ? 'warning' : 'info'}>
+                {request.withdrawn ? `${pharmacyName} withdrew this request.` : 'This request is closed.'} It can’t be
+                answered.
+              </Alert>
             )}
             {data.patientRequest?.note && <Typography>{data.patientRequest.note}</Typography>}
             {(contact.address || contact.phone) && (
@@ -228,9 +212,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 <SectionHeading>Patient</SectionHeading>
                 <Rows
                   rows={[
-                    ...(contact.address ? [{ label: 'Address', value: contact.address }] : []),
-                    ...(contact.phone ? [{ label: 'Phone', value: contact.phone }] : []),
-                  ]}
+                    { label: 'Address', value: contact.address },
+                    { label: 'Phone', value: contact.phone },
+                  ].filter((row) => row.value)}
                 />
               </Box>
             )}
@@ -251,24 +235,22 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 <SectionHeading>Original prescription · {formatDateForDisplay(prescription.sent)}</SectionHeading>
                 <Rows
                   rows={[
-                    ...requestRows(request?.medication ?? {}, prescription)
-                      .filter((row) => row.original !== undefined)
-                      .map((row) => ({ label: row.label, value: row.original, highlight: row.differs })),
-                    ...(prescription.order?.diagnosisCode
-                      ? [
-                          {
-                            label: 'Diagnosis',
-                            value: `${prescription.order.diagnosisDescription ?? ''} (${
-                              prescription.order.diagnosisCode
-                            })`,
-                          },
-                        ]
-                      : []),
+                    ...requestRows(request?.medication ?? {}, prescription).map((row) => ({
+                      label: row.label,
+                      value: row.original,
+                      highlight: row.differs,
+                    })),
+                    {
+                      label: 'Diagnosis',
+                      value: prescription.order?.diagnosisCode
+                        ? `${prescription.order.diagnosisDescription ?? ''} (${prescription.order.diagnosisCode})`
+                        : undefined,
+                    },
                     {
                       label: 'Prescribed',
                       value: [formatDateForDisplay(prescription.sent), data.prescriberName].filter(Boolean).join(' · '),
                     },
-                  ]}
+                  ].filter((row) => row.value !== undefined)}
                 />
               </Box>
             </Box>
@@ -332,8 +314,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     label="Note to pharmacy (optional)"
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
-                    inputProps={{ maxLength: answer === 'deny' ? 210 : 70 }}
-                    helperText={`Up to ${answer === 'deny' ? 210 : 70} characters`}
+                    inputProps={{ maxLength: noteMax }}
+                    helperText={`Up to ${noteMax} characters`}
                   />
                 )}
                 {!closed && answer === 'approve' && (
