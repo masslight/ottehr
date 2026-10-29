@@ -48,8 +48,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
   appointmentId: appointmentIdProp,
   initialPatient,
 }) => {
-  // A checkbox starts unchecked rather than without a value, so it is controlled from the start.
-  const methods = useForm<FieldValues>({ defaultValues: { refillRequest: false } });
+  // Checkboxes start unchecked rather than without a value, so they are controlled from the start.
+  const methods = useForm<FieldValues>({ defaultValues: { refillRequest: false, changeRequest: false } });
   const formValue = methods.watch();
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -74,17 +74,19 @@ export const CreateTaskDialog: React.FC<Props> = ({
     setRefreshKey(Date.now());
   }, [open, methods]);
 
-  // An eRx task is a patient's refill request, on a prescription, only when chosen as one.
+  // An eRx task is a patient's refill or change request, on a prescription, only when chosen as one.
   const isErx = formValue.category === MANUAL_TASK.category.erx;
   const refillRequest = isErx && !!formValue.refillRequest;
+  const changeRequest = isErx && !!formValue.changeRequest;
 
   const { mutateAsync: createManualTask } = useCreateManualTask();
   const handleConfirm = async (): Promise<void> => {
     await createManualTask({
       category: formValue.category,
       appointmentId: formValue.appointment,
-      orderId: isErx && !refillRequest ? undefined : formValue.order,
+      orderId: isErx && !refillRequest && !changeRequest ? undefined : formValue.order,
       refillRequest,
+      changeRequest,
       encounterId: encounterId || undefined,
       taskTitle: formValue.taskTitle,
       taskDetails: formValue.taskDetails,
@@ -266,8 +268,13 @@ export const CreateTaskDialog: React.FC<Props> = ({
               getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
               required
             />
-            {isErx && <CheckboxInput name="refillRequest" label="Refill request" />}
-            {(!isErx || refillRequest) && (
+            {isErx && (
+              <Stack direction="row">
+                <CheckboxInput name="refillRequest" label="Refill request" disabled={changeRequest} />
+                <CheckboxInput name="changeRequest" label="Change request" disabled={refillRequest} />
+              </Stack>
+            )}
+            {(!isErx || refillRequest || changeRequest) && (
               <SelectInput
                 name="order"
                 label={isErx ? 'Prescription' : 'Order'}

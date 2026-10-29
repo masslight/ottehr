@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   respondToRenewal: vi.fn(),
   respondToChange: vi.fn(),
   orderPrescription: vi.fn(),
+  cancelPrescription: vi.fn(),
   completeTask: vi.fn(),
   chartSectionOptions: [] as unknown[],
 }));
@@ -61,6 +62,9 @@ vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
 // The original visit is signed: the lock doesn't apply to a refill request.
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: true }),
+}));
+vi.mock('../../src/features/visits/shared/hooks/useCancelPrescription', () => ({
+  useCancelPrescription: () => ({ mutateAsync: mocks.cancelPrescription }),
 }));
 vi.mock('../../src/features/visits/shared/hooks/useOrderPrescription', () => ({
   useOrderPrescription: () => ({ mutateAsync: mocks.orderPrescription }),
@@ -298,5 +302,45 @@ describe('Refill request dialog: the order form outside a visit', () => {
     );
     expect(mocks.respondToRenewal).not.toHaveBeenCalled();
     expect(await screen.findByText('New prescription sent.')).toBeInTheDocument();
+  });
+
+  const PATIENT_CHANGE: GetErxRequestResponse = {
+    taskId: 'task-1',
+    kind: 'change',
+    patientRequest: { note: 'Asks for a 90-day supply.', takenBy: 'Kim Front', taken: '2026-10-28T10:00:00.000Z' },
+    prescription: { ...PRESCRIPTION, status: 'active' },
+    patient: PATIENT,
+  };
+
+  it('answers a patient’s change request with a new prescription, cancelling the original first', async () => {
+    const order: string[] = [];
+    mocks.cancelPrescription.mockImplementation(async () => order.push('cancel'));
+    mocks.orderPrescription.mockImplementation(async () => order.push('order'));
+    const user = await open(PATIENT_CHANGE);
+    expect(screen.getByText('Change request from Maria Lopez')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Deny' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send prescription' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    expect(mocks.cancelPrescription).toHaveBeenCalledWith({
+      medicationRequestId: 'rx-1',
+      practitionerId: 'practitioner-1',
+      reason: 'Prescription/Therapy change',
+    });
+    expect(mocks.orderPrescription).toHaveBeenCalledWith(
+      expect.objectContaining({ patientId: 'patient-1', encounterId: 'encounter-9', ndc: '00093111101' })
+    );
+    expect(order).toEqual(['cancel', 'order']);
+    expect(await screen.findByText('New prescription sent. Cancellation of the original sent.')).toBeInTheDocument();
+  });
+
+  it('sends nothing when the original’s cancellation fails, and leaves the task open', async () => {
+    mocks.cancelPrescription.mockRejectedValue(new Error('The prescription was already filled'));
+    const user = await open(PATIENT_CHANGE);
+    await user.click(screen.getByRole('button', { name: 'Send prescription' }));
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('The prescription was already filled', { variant: 'error' })
+    );
+    expect(mocks.orderPrescription).not.toHaveBeenCalled();
+    expect(mocks.completeTask).not.toHaveBeenCalled();
   });
 });

@@ -26,6 +26,8 @@ export interface CreateManualTaskRequest {
   orderId?: string;
   // An eRx task on a prescription (orderId) that is a patient's refill request
   refillRequest?: boolean;
+  // An eRx task on a prescription (orderId) that is a patient's change request
+  changeRequest?: boolean;
   encounterId?: string;
   taskTitle: string;
   taskDetails?: string;

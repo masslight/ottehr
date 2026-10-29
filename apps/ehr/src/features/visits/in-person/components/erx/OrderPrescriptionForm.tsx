@@ -14,6 +14,7 @@ import { getFirstName } from 'utils/lib/fhir/patient';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
+import { OrderPrescriptionInput } from 'utils/lib/types/api/order-prescription.types';
 import { PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
@@ -62,7 +63,7 @@ interface OrderPrescriptionFormProps {
   /** The pharmacy that asked, which can't be changed. */
   pharmacy?: PharmacySearchResult;
   /** Sends the prescription in place of ordering it (the answer to a pharmacy's request). */
-  onSend?: (line: PrescriptionLine) => Promise<void>;
+  onSend?: (line: PrescriptionLine, order: OrderPrescriptionInput) => Promise<void>;
   sendLabel?: string;
   /** After every prescription went. */
   onSent?: () => void;
@@ -196,7 +197,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
     const sent: PrescriptionLine[] = [];
     try {
       for (const line of lines) {
-        if (onSend) await onSend(line);
+        if (onSend) await onSend(line, prescriptionLineToOrder(line, context));
         else await orderPrescription(prescriptionLineToOrder(line, context));
         sent.push(line);
         setLines((current) => current.filter((item) => item.key !== line.key));

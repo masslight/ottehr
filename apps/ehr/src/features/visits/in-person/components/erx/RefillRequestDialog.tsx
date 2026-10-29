@@ -35,9 +35,12 @@ import {
 } from 'utils/lib/types/api/erx.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
+import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescription';
+import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
 import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
+import { isPrescriptionCancellable } from './prescriptionStatus';
 import {
   changeApproval,
   changeResponse,
@@ -101,6 +104,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const token = useAuthToken();
   const queryClient = useQueryClient();
   const { mutateAsync: completeTask } = useCompleteErxTask();
+  const { mutateAsync: cancelPrescription } = useCancelPrescription();
+  const { mutateAsync: orderPrescription } = useOrderPrescription();
+  const [originalCancelled, setOriginalCancelled] = useState(false);
   const { data, isLoading, error } = useQuery({
     queryKey: ['erx-request', taskId],
     queryFn: () => getErxRequest(oystehrZambda!, { taskId }),
@@ -221,10 +227,33 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             },
             sendLabel: `Send to ${pharmacyName}`,
           }
+        : data.kind === 'change'
+        ? {
+            sendLabel: 'Send prescription',
+            // A patient's change: the original is cancelled first, as Send to another pharmacy does, so a
+            // cancellation that fails sends nothing and the patient never has two.
+            onSend: async (_line, order) => {
+              if (!originalCancelled && isPrescriptionCancellable(prescription)) {
+                await cancelPrescription({
+                  medicationRequestId: prescription.resourceId!,
+                  practitionerId: order.practitionerId,
+                  reason: 'Prescription/Therapy change',
+                });
+                setOriginalCancelled(true);
+              }
+              await orderPrescription(order);
+            },
+          }
         : { sendLabel: 'Send prescription' })}
       onSent={() => {
         void completeTask({ taskId });
-        setSent(request ? `Approved with your changes. Sent to ${pharmacyName}.` : 'New prescription sent.');
+        setSent(
+          request
+            ? `Approved with your changes. Sent to ${pharmacyName}.`
+            : data.kind === 'change' && isPrescriptionCancellable(prescription)
+            ? 'New prescription sent. Cancellation of the original sent.'
+            : 'New prescription sent.'
+        );
       }}
     />
   );

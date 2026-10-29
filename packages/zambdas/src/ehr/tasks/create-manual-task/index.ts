@@ -43,8 +43,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     category: params.category,
     title: params.taskTitle,
     code:
-      params.refillRequest && params.category === MANUAL_TASK.category.erx
+      params.category !== MANUAL_TASK.category.erx
+        ? undefined
+        : params.refillRequest
         ? { system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }
+        : params.changeRequest
+        ? { system: ERX_TASK.system, code: ERX_TASK.code.changeRequest }
         : undefined,
     encounterId: params.encounterId,
     location: {
@@ -117,6 +121,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     appointmentId,
     orderId,
     refillRequest,
+    changeRequest,
     encounterId,
     taskTitle,
     taskDetails,
@@ -143,6 +148,9 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     if (!patient.name) missingFields.push('patient.name');
   }
   if (createdBy !== undefined && typeof createdBy !== 'string') throw INVALID_INPUT_ERROR('createdBy must be a string');
+  if (refillRequest === true && changeRequest === true) {
+    throw INVALID_INPUT_ERROR('A task is a refill request or a change request, not both');
+  }
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
@@ -150,6 +158,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     appointmentId,
     orderId,
     refillRequest: refillRequest === true,
+    changeRequest: changeRequest === true,
     encounterId,
     taskTitle,
     taskDetails,
