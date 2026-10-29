@@ -986,15 +986,18 @@ export const VoidBillingPatientPaymentInputSchema = z.object({
   notes: blankableText,
 });
 
-export const SearchBillingInvoicesInputSchema = z.object({
-  kind: z.enum(BILLING_INVOICE_KINDS).optional(),
-  status: oneOrMany(z.enum(BILLING_INVOICE_STATUSES)).optional(),
-  recipientId: nonEmptyString.uuid().optional(),
-  issuedFrom: z.string().date().optional(),
-  issuedTo: z.string().date().optional(),
-  offset: nonNegativeInt.optional(),
-  pageSize: nonNegativeInt.optional(),
-});
+// dateFrom and dateTo bound the issue date
+export const SearchBillingInvoicesInputSchema = z
+  .object({
+    kind: z.enum(BILLING_INVOICE_KINDS).optional(),
+    status: oneOrMany(z.enum(BILLING_INVOICE_STATUSES)).optional(),
+    recipientId: nonEmptyString.uuid().optional(),
+    dateFrom: z.string().date().optional(),
+    dateTo: z.string().date().optional(),
+    offset: nonNegativeInt.optional(),
+    pageSize: nonNegativeInt.optional(),
+  })
+  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
 
 export const GetBillingInvoiceInputSchema = z.object({
   invoiceId: nonEmptyString.uuid(),
