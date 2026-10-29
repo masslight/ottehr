@@ -697,7 +697,8 @@ const PrescriptionDetailsSchema = z.object({
     .string()
     .trim()
     .min(1, 'Enter the directions')
-    .max(1000, 'Directions must be up to 1000 characters'),
+    .max(1000, 'Directions must be up to 1000 characters')
+    .refine((value) => value.length !== 1, 'Directions must be at least 2 characters'),
   noteToPharmacy: z.string().trim().max(210, 'Note to pharmacy must be up to 210 characters'),
   diagnosis: z.object({ code: z.string().min(1), display: z.string() }).nullable(),
 });
@@ -869,8 +870,9 @@ const ORDER_STRENGTH_UNITS: Record<CompoundStrengthUnit, string | undefined> = {
 /** The totals an ingredient's "mg each" multiplies by: a count of units. */
 const COUNT_UNITS: readonly QuantityUnit[] = ['Capsule', 'Tablet', 'Troche', 'Suppository', 'Lozenge', 'Each'];
 
-/** Rounds away float noise: 0.1 × 30 is 3, not 3.0000000000000004. */
-const roundAmount = (value: number): number => Math.round(value * 1e6) / 1e6;
+/** Rounds to the 3 decimal places the pharmacy takes, which also rounds away float noise: 0.1 × 30 is 3, not
+ * 3.0000000000000004. */
+const roundAmount = (value: number): number => Math.round(value * 1e3) / 1e3;
 
 /** "mL", "g", or the unit as the line reads it ("capsules"), for the errors. */
 const totalUnitText = (unit: QuantityUnit): string =>

@@ -621,6 +621,8 @@ interface TextBlankProps {
   need?: boolean;
   min?: number;
   step?: number;
+  /** A number with more decimal places than this isn't taken: typing the extra digit does nothing. */
+  maxDecimals?: number;
   width?: string;
   /** Free text that wraps onto more lines and grows as it's typed, like the HPI box (text only). */
   multiline?: boolean;
@@ -640,6 +642,7 @@ export const TextBlank: FC<TextBlankProps> = ({
   need,
   min,
   step,
+  maxDecimals,
   width,
   multiline,
   dataTestId,
@@ -655,7 +658,10 @@ export const TextBlank: FC<TextBlankProps> = ({
       multiline={grows}
       value={text}
       placeholder={placeholder}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={(event) => {
+        const decimals = event.target.value.split('.')[1]?.length ?? 0;
+        if (maxDecimals === undefined || decimals <= maxDecimals) onChange(event.target.value);
+      }}
       inputProps={{
         'aria-label': label,
         'data-testid': dataTestId,

@@ -111,6 +111,13 @@ describe('prescriptionLineErrors', () => {
       'Refills must be a whole number from 0 to 99',
     ]);
   });
+
+  it('needs at least 2 characters of directions', () => {
+    expect(prescriptionLineErrors({ ...complete(), patientInstructions: ' x ' })).toEqual([
+      'Directions must be at least 2 characters',
+    ]);
+    expect(prescriptionLineErrors({ ...complete(), patientInstructions: 'ud' })).toEqual([]);
+  });
 });
 
 describe('withDrug', () => {
@@ -1098,6 +1105,24 @@ describe('compoundOrderIngredients: each ingredient as the amount that goes in',
       [0.03, 'Gram'],
       [2.1, 'Gram'],
       [27.87, 'Gram'],
+    ]);
+  });
+
+  it('works out amounts to 3 decimal places, so what is shown is what is sent', () => {
+    expect(
+      amounts(
+        convert(
+          [
+            { description: 'A', strength: { value: 0.0125, unit: '%' } },
+            { description: 'Base', base: true },
+          ],
+          10,
+          'Gram'
+        )
+      )
+    ).toEqual([
+      [0.001, 'Gram'],
+      [9.999, 'Gram'],
     ]);
   });
 

@@ -666,6 +666,7 @@ const CompoundIngredientSentence: FC<{
             need
             min={0}
             step={0.001}
+            maxDecimals={3}
           />{' '}
         </>
       )}
@@ -1322,6 +1323,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 need
                 min={0}
                 step={0.001}
+                maxDecimals={3}
               />{' '}
               <SelectBlank
                 label="unit"
