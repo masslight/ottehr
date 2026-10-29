@@ -84,6 +84,28 @@
         "name"
       ]
     },
+    "INVOICE_NUMBER_COUNTER": {
+      "resource": {
+        "resourceType": "Basic",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/counter",
+              "code": "invoice-number"
+            }
+          ]
+        },
+        "extension": [
+          {
+            "url": "https://fhir.ottehr.com/Extension/counter-last-issued",
+            "valueInteger": 0
+          }
+        ]
+      },
+      "managedFields": [
+        "code"
+      ]
+    },
     "DEFAULT_BILLING_RESOURCE": {
       "resource": {
         "resourceType": "Organization",

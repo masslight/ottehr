@@ -40,7 +40,6 @@ function makeClient(found: Basic[]): Oystehr {
       search: vi.fn().mockResolvedValue({
         unbundle: () => found,
       }),
-      create: vi.fn().mockResolvedValue(counter(0, '1')),
       get: vi.fn(),
       patch: vi.fn(),
     },
@@ -48,54 +47,31 @@ function makeClient(found: Basic[]): Oystehr {
 }
 
 describe('nextCounterValue', () => {
-  it('creates the counter when none exists for the key', async () => {
-    const oystehr = makeClient([]);
+  it('looks up the counter by its key', async () => {
+    const oystehr = makeClient([counter(0, '1')]);
 
     expect(await nextCounterValue(oystehr, 'widget-number')).toBe(1);
-    expect(oystehr.fhir.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        resourceType: 'Basic',
-      }),
-      {
-        ifNoneExist: [
-          {
-            name: 'code',
-            value: `${FHIR_COUNTER_CODE_SYSTEM}|widget-number`,
-          },
-        ],
-      }
-    );
+    expect(oystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'Basic',
+      params: [
+        {
+          name: 'code',
+          value: `${FHIR_COUNTER_CODE_SYSTEM}|widget-number`,
+        },
+      ],
+    });
   });
 
-  it('uses the existing counter without creating one', async () => {
-    const oystehr = makeClient([counter(41, '7')]);
+  it.each([
+    ['no counter', []],
+    ['several counters', [counter(3, '4', 'counter-a'), counter(5, '6', 'counter-b')]],
+  ])('rejects %s for the key without writing', async (_label, found) => {
+    const oystehr = makeClient(found);
 
-    expect(await nextCounterValue(oystehr, 'widget-number')).toBe(42);
-    expect(oystehr.fhir.create).not.toHaveBeenCalled();
-  });
-
-  it('keeps counting from the furthest counter when racing callers created several', async () => {
-    const oystehr = makeClient([counter(3, '4', 'counter-a'), counter(5, '6', 'counter-b')]);
-
-    expect(await nextCounterValue(oystehr, 'widget-number')).toBe(6);
-    expect(oystehr.fhir.patch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'counter-b',
-      }),
-      expect.anything()
+    await expect(nextCounterValue(oystehr, 'widget-number')).rejects.toThrow(
+      `Expected exactly one counter for widget-number, found ${found.length}`
     );
-  });
-
-  it('settles on the lowest id among counters that are equally far along', async () => {
-    const oystehr = makeClient([counter(0, '1', 'counter-b'), counter(0, '1', 'counter-a')]);
-
-    await nextCounterValue(oystehr, 'widget-number');
-    expect(oystehr.fhir.patch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'counter-a',
-      }),
-      expect.anything()
-    );
+    expect(oystehr.fhir.patch).not.toHaveBeenCalled();
   });
 
   it('takes the value after the last issued one, guarded by the counter version', async () => {
