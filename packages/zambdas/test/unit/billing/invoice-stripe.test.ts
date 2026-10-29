@@ -79,28 +79,54 @@ describe('getStripeAccountForInvoiceIssuer', () => {
     ],
   };
 
-  it("prefers the issuer organization's account, then the facility's", () => {
+  it("sends a facility invoice to the facility's account, then the issuer organization's", () => {
     expect(
       getStripeAccountForInvoiceIssuer({
+        source: 'service-facility',
+        issuerOrganization: stampedOrganization,
+        facility,
+      })
+    ).toBe('acct_facility');
+    expect(
+      getStripeAccountForInvoiceIssuer({
+        source: 'service-facility',
+        issuerOrganization: stampedOrganization,
+        facility: {
+          ...facility,
+          extension: undefined,
+        },
+      })
+    ).toBe('acct_provider');
+  });
+
+  it("sends a billing provider invoice to the provider's account, never the facility's", () => {
+    expect(
+      getStripeAccountForInvoiceIssuer({
+        source: 'billing-provider',
         issuerOrganization: stampedOrganization,
         facility,
       })
     ).toBe('acct_provider');
     expect(
       getStripeAccountForInvoiceIssuer({
+        source: 'billing-provider',
         issuerOrganization: organization,
         facility,
       })
-    ).toBe('acct_facility');
-  });
-
-  it('is the platform account when neither has one', () => {
-    expect(
-      getStripeAccountForInvoiceIssuer({
-        issuerOrganization: organization,
-      })
     ).toBeUndefined();
   });
+
+  it.each(['service-facility', 'billing-provider'] as const)(
+    'is the platform account for %s when neither has one',
+    (source) => {
+      expect(
+        getStripeAccountForInvoiceIssuer({
+          source,
+          issuerOrganization: organization,
+        })
+      ).toBeUndefined();
+    }
+  );
 });
 
 describe('ensureOrganizationStripeCustomerId', () => {
