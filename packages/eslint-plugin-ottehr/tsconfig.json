@@ -5,5 +5,7 @@
     "allowJs": true,
     "checkJs": true
   },
-  "include": ["index.js", "rules", "test", "./*.ts"]
+  "include": ["index.js", "rules", "test", "./*.mts"],
+  // The rule tests' own TypeScript project.
+  "exclude": ["test/fixtures"]
 }

@@ -27,7 +27,6 @@ let m2mToken: string;
 
 async function eraReadClientFor(secrets: Secrets): Promise<UnscopedOystehr> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the untagged E/M code ValueSet, and actor names span users' Practitioners and billing Devices
   return createEraReadClient(m2mToken, secrets);
 }
 
@@ -139,6 +138,7 @@ export const index = wrapTaskHandler(
     );
 
     const { json, rowCount } = await stage('build data', taskId, startedAt, async () =>
+      // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the untagged E/M code ValueSet, and actor names span users' Practitioners and billing Devices
       buildOutputJson(oystehr, await eraReadClientFor(secrets), params)
     );
 

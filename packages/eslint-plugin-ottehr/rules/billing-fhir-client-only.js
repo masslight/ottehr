@@ -1,179 +1,308 @@
 // @ts-check
 'use strict';
 
+const path = require('node:path');
+const ts = require('typescript');
+const { ESLintUtils } = require('@typescript-eslint/utils');
+
 /**
- * Billing zambdas read and write only billing-tagged resources, through createBillingClient
- * (packages/zambdas/src/billing/shared.ts). That scoping is client-side SDK config over one M2M token,
- * so nothing server-side backs it up: a clinical or unscoped client in billing code silently sees, and
+ * Billing zambdas read and write only billing-tagged resources, through the client createBillingClient
+ * makes (packages/zambdas/src/billing/shared.ts). That scoping is client-side SDK config over one M2M
+ * token, so nothing server-side backs it up: any other client in billing code silently sees, and
  * writes, the wrong resources.
  *
- * This rule reports each place billing code gets any other FHIR client, so a justified exception is
- * disabled where the client is made, one call at a time:
+ * So what a client can see is part of its type. createBillingClient returns the branded BillingOystehr,
+ * and the other clients billing code may need are branded too (ClinicalOystehr, UnscopedOystehr), each
+ * by the one function that makes it. This rule uses TypeScript's types to check every SDK client billing
+ * code touches, however it was made:
+ * - the billing client is used freely;
+ * - getting another branded client takes a justified exception, on the call that returns it (or, where
+ *   a function returns the client as its own, on the calls to that function). The client's type carries
+ *   the exception from there, so using it or handing it on takes none:
  *
- *   // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the clinical encounter
- *   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
+ *     // eslint-disable-next-line ottehr/billing-fhir-client-only -- checks the clinical encounter exists
+ *     const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
  *
- * It reports every use of a non-billing client factory (a call, or passing it on), however the factory
- * was imported (named, aliased, through a namespace) or declared; every `new` of the SDK client; and
- * every wrapTaskHandler call that doesn't choose its client, since it defaults to the clinical one.
+ * - a client whose type doesn't say what it can see (`new Oystehr`, a plain Oystehr from any helper, a
+ *   value typed any) is reported wherever it is used for FHIR or handed to other code;
+ * - asserting a branded type, and passing a value typed any where a client is expected, are reported,
+ *   since either lets any client pass as a branded one;
+ * - wrapTaskHandler marks the Task through the client createClient makes (the clinical one by default)
+ *   and hands it to the handler, so it is checked like a call that returns that client.
  */
 
 /**
  * @typedef {import('@typescript-eslint/utils').TSESTree.Node} Node
+ * @typedef {import('@typescript-eslint/utils').TSESTree.CallExpression} CallExpression
+ * @typedef {import('@typescript-eslint/utils').TSESTree.NewExpression} NewExpression
  * @typedef {import('@typescript-eslint/utils').TSESTree.MemberExpression} MemberExpression
- * @typedef {import('@typescript-eslint/utils').TSESTree.CallExpressionArgument} CallExpressionArgument
- * @typedef {import('@typescript-eslint/utils').TSESLint.Scope.Variable} Variable
- * @typedef {'clinicalClient' | 'unscopedClient' | 'sdkClient' | 'taskHandlerClient'} MessageId
+ * @typedef {import('@typescript-eslint/utils').TSESTree.Property} Property
+ * @typedef {'fhirUse' | 'untypedFhirUse' | 'clientHandOff' | 'untypedClient' | 'clientAcquired' | 'forgedClient' | 'taskHandlerClient'} MessageId
+ * @typedef {{ type: string; file: string }} ClientType a branded client type, and the absolute path of the module that declares it
+ * @typedef {[{ billingClient: ClientType; otherScopedClients?: ClientType[] }]} Options
+ * @typedef {'billing' | 'branded' | 'unbranded' | 'any'} ClientScope
  */
 
-/** @type {ReadonlyMap<string, MessageId>} the factories that build a client not scoped to billing */
-const NON_BILLING_FACTORIES = new Map([
-  ['createClinicalOystehrClient', 'clinicalClient'],
-  ['createOystehrClient', 'clinicalClient'],
-  ['createEraReadClient', 'unscopedClient'],
-]);
-const SDK_MODULE = '@oystehr/sdk';
+// The SDK's client, recognised by its own `fhir` property so subclasses and intersections count too.
+const SDK_PACKAGE_PATH = `${path.sep}@oystehr${path.sep}sdk${path.sep}`;
 const TASK_HANDLER = 'wrapTaskHandler';
-const TASK_HANDLER_CLIENT_OPTION = 'createClient';
 
-/** @type {import('@typescript-eslint/utils').TSESLint.RuleModule<MessageId>} */
+/** @type {ClientScope[]} */
+const LEAST_SCOPED_FIRST = ['unbranded', 'any', 'branded', 'billing'];
+
+const CLIENT_TYPE_SCHEMA = {
+  type: 'object',
+  properties: { type: { type: 'string' }, file: { type: 'string' } },
+  required: ['type', 'file'],
+  additionalProperties: false,
+};
+
+/** @type {import('@typescript-eslint/utils').TSESLint.RuleModule<MessageId, Options>} */
 module.exports = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Billing zambdas get FHIR clients only from createBillingClient',
+      description:
+        'Billing zambdas use FHIR only through the billing client, or a branded one got under a justified exception',
     },
-    schema: [],
+    schema: [
+      {
+        type: 'object',
+        properties: {
+          billingClient: CLIENT_TYPE_SCHEMA,
+          // The other branded clients billing code may get under a justified exception.
+          otherScopedClients: { type: 'array', items: CLIENT_TYPE_SCHEMA },
+        },
+        required: ['billingClient'],
+        additionalProperties: false,
+      },
+    ],
     messages: {
-      clinicalClient:
-        '{{name}} creates a clinical client: it reads and writes only untagged resources. Billing zambdas use createBillingClient (src/billing/shared.ts). If this really needs clinical data, disable this line and say why.',
-      unscopedClient:
-        '{{name}} creates an unscoped client: it reads untagged and billing resources alike and writes untagged ones. Only code that must see resources before they are tagged needs it; otherwise use createBillingClient (src/billing/shared.ts). If it is really needed here, disable this line and say why.',
-      sdkClient:
-        'Billing zambdas get FHIR clients from createBillingClient (src/billing/shared.ts), not new {{name}}. If this really needs its own client, disable this line and say why.',
-      taskHandlerClient: 'wrapTaskHandler defaults to the clinical client: pass { createClient: createBillingClient }.',
+      fhirUse: "FHIR through a client whose type doesn't say what it can see ({{client}}). {{remedy}}",
+      untypedFhirUse: "FHIR through a client typed any, which can't be shown to be billing-scoped. {{remedy}}",
+      clientHandOff:
+        "This hands a client whose type doesn't say what it can see ({{client}}) to code that can read and write through it. {{remedy}}",
+      untypedClient:
+        "A value typed any where a client is expected ({{client}}) can't be shown to be that client: get it from the function that makes it.",
+      clientAcquired:
+        "This gets a client that isn't billing-scoped ({{client}}). If billing code really needs it, disable this line and say why; using the client from there takes no further exception.",
+      forgedClient:
+        'Only the function that makes a {{client}} gives that type: asserting it would let any client pass as one.',
+      taskHandlerClient:
+        "wrapTaskHandler marks the Task through, and hands the handler, a client that isn't billing-scoped ({{client}}). Pass { createClient: createBillingClient }, or if the handler really needs this client, disable this line and say why.",
     },
   },
-  defaultOptions: [],
+  defaultOptions: [{ billingClient: { type: 'BillingOystehr', file: '' }, otherScopedClients: [] }],
   create(context) {
-    const { sourceCode } = context;
+    const [{ billingClient, otherScopedClients = [] }] = context.options;
+    const services = ESLintUtils.getParserServices(context);
+    const checker = services.program.getTypeChecker();
+    /** @type {{ type: string; file: string; scope: ClientScope }[]} */
+    const brands = [
+      { type: billingClient.type, file: path.resolve(billingClient.file), scope: 'billing' },
+      ...otherScopedClients.map(({ type, file }) => ({
+        type,
+        file: path.resolve(file),
+        scope: /** @type {ClientScope} */ ('branded'),
+      })),
+    ];
+    const otherTypes = otherScopedClients.map((client) => client.type).join(' or ');
+    const remedy = otherTypes
+      ? `Use the billing client, typed ${billingClient.type}; if this really needs another, get one typed ${otherTypes} from the function that makes it, and justify that.`
+      : `Use the billing client, typed ${billingClient.type}.`;
+
+    /**
+     * Whether a value of this type is an SDK client and, if so, what its type says it can see. Undefined
+     * for anything else; a union counts as its least scoped member.
+     * @param {import('typescript').Type} type
+     * @returns {ClientScope | undefined}
+     */
+    function clientScope(type) {
+      if (type.flags & ts.TypeFlags.Any) return 'any';
+      // Flag checks rather than isTypeParameter()/isUnion(), whose type guards narrow Type to never.
+      if (type.flags & ts.TypeFlags.TypeParameter) {
+        const constraint = checker.getBaseConstraintOfType(type);
+        return constraint ? clientScope(constraint) : undefined;
+      }
+      if (type.flags & ts.TypeFlags.Union) {
+        const scopes = /** @type {import('typescript').UnionType} */ (type).types.map(clientScope);
+        return LEAST_SCOPED_FIRST.find((scope) => scopes.includes(scope));
+      }
+      const fhir = type.getProperty('fhir');
+      if (!fhir?.declarations?.some((d) => d.getSourceFile().fileName.includes(SDK_PACKAGE_PATH))) return undefined;
+      return brandOf(type)?.scope ?? 'unbranded';
+    }
+
+    /**
+     * The brand a client type carries: one of the configured types, declared in its configured module.
+     * @param {import('typescript').Type} type
+     */
+    function brandOf(type) {
+      for (const part of type.isIntersection() ? type.types : [type]) {
+        const symbol = part.getSymbol();
+        const brand =
+          symbol &&
+          brands.find(
+            ({ type: name, file }) =>
+              symbol.getName() === name &&
+              !!symbol.declarations?.some((d) => path.resolve(d.getSourceFile().fileName) === file)
+          );
+        if (brand) return brand;
+      }
+      return undefined;
+    }
+
+    /**
+     * @param {Node} node where the FHIR use starts
+     * @param {Node} client the expression or pattern holding the client
+     */
+    function checkFhirUse(node, client) {
+      const type = services.getTypeAtLocation(client);
+      const scope = clientScope(type);
+      if (scope === 'unbranded') {
+        context.report({ node, messageId: 'fhirUse', data: { client: checker.typeToString(type), remedy } });
+      } else if (scope === 'any') {
+        context.report({ node, messageId: 'untypedFhirUse', data: { remedy } });
+      }
+    }
+
+    /** @param {Node | null | undefined} node an expression whose value goes to other code */
+    function checkHandOff(node) {
+      if (!node || node.type === 'SpreadElement') return;
+      const type = services.getTypeAtLocation(node);
+      const scope = clientScope(type);
+      if (scope === 'unbranded') {
+        context.report({ node, messageId: 'clientHandOff', data: { client: checker.typeToString(type), remedy } });
+      } else if (scope === 'any') {
+        checkUntypedClient(node);
+      }
+    }
+
+    /** @param {Node} node an expression typed any */
+    function checkUntypedClient(node) {
+      const tsNode = /** @type {import('typescript').Expression} */ (services.esTreeNodeToTSNodeMap.get(node));
+      const expected = checker.getContextualType(tsNode);
+      const scope = expected && clientScope(expected);
+      if (expected && scope && scope !== 'any') {
+        context.report({ node, messageId: 'untypedClient', data: { client: checker.typeToString(expected) } });
+      }
+    }
+
+    /** @param {CallExpression | NewExpression} node */
+    function checkAcquired(node) {
+      if (returnedToCaller(node)) return;
+      const type = services.getTypeAtLocation(node);
+      const client = checker.getAwaitedType(type) ?? type;
+      if (clientScope(client) === 'branded') {
+        context.report({ node, messageId: 'clientAcquired', data: { client: checker.typeToString(client) } });
+      }
+    }
+
+    /** @param {CallExpression} call */
+    function checkTaskHandler(call) {
+      const client = taskHandlerClient(call);
+      if (!client || clientScope(client) !== 'billing') {
+        context.report({
+          node: call.callee,
+          messageId: 'taskHandlerClient',
+          data: { client: client ? checker.typeToString(client) : 'of a type the rule cannot tell' },
+        });
+      }
+    }
+
+    /**
+     * The client wrapTaskHandler hands this call's handler: its handler parameter's second parameter, in
+     * the overload the call resolves to.
+     * @param {CallExpression} call
+     */
+    function taskHandlerClient(call) {
+      const signature = checker.getResolvedSignature(services.esTreeNodeToTSNodeMap.get(call));
+      const handler = signature?.getParameters()[1];
+      const client = handler && checker.getTypeOfSymbol(handler).getCallSignatures()[0]?.getParameters()[1];
+      return client && checker.getTypeOfSymbol(client);
+    }
+
+    /** @param {CallExpression} call */
+    function callsTaskHandler(call) {
+      let symbol = services.getSymbolAtLocation(call.callee);
+      if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+      return symbol?.getName() === TASK_HANDLER;
+    }
 
     /**
      * @param {Node} node
-     * @param {string} name the factory's own name, which an alias or namespace access may not show
+     * @param {import('typescript').Type} asserted
+     * @param {import('typescript').Type} [operand] the asserted value's own type; none for a type predicate
      */
-    function reportFactoryUse(node, name) {
-      const messageId = NON_BILLING_FACTORIES.get(name);
-      if (messageId) context.report({ node, messageId, data: { name } });
-    }
-
-    /**
-     * @param {Variable} variable a binding to a non-billing client factory
-     * @param {string} name the factory's own name
-     */
-    function checkFactoryBinding(variable, name) {
-      for (const { identifier } of variable.references) {
-        if (isTypeQuery(identifier) || identifier.parent?.type === 'ExportSpecifier') continue;
-        reportFactoryUse(identifier, name);
+    function checkAssertion(node, asserted, operand) {
+      const scope = clientScope(asserted);
+      if (scope !== 'billing' && scope !== 'branded') return;
+      if (!operand || operand.flags & ts.TypeFlags.Any || !checker.isTypeAssignableTo(operand, asserted)) {
+        context.report({ node, messageId: 'forgedClient', data: { client: checker.typeToString(asserted) } });
       }
-    }
-
-    /** @param {Variable} variable a binding to the SDK client class */
-    function checkSdkBinding(variable) {
-      for (const { identifier } of variable.references) {
-        const { parent } = identifier;
-        if (parent?.type === 'NewExpression' && parent.callee === identifier) {
-          context.report({ node: parent, messageId: 'sdkClient', data: { name: identifier.name } });
-        }
-      }
-    }
-
-    /** @param {Node} callee a reference to wrapTaskHandler */
-    function checkTaskHandlerCall(callee) {
-      const { parent } = callee;
-      if (parent?.type !== 'CallExpression' || parent.callee !== callee) return;
-      if (!choosesClient(parent.arguments[2])) context.report({ node: callee, messageId: 'taskHandlerClient' });
-    }
-
-    /** @param {Variable} variable a binding to a module namespace (`import * as helpers`) */
-    function checkNamespaceBinding(variable) {
-      for (const { identifier } of variable.references) {
-        const member = identifier.parent;
-        if (member?.type !== 'MemberExpression' || member.object !== identifier) continue;
-        const name = staticPropertyName(member);
-        if (name === TASK_HANDLER) checkTaskHandlerCall(member);
-        else if (name) reportFactoryUse(member, name);
-      }
-    }
-
-    /** @param {Node} node */
-    function declaredVariable(node) {
-      return sourceCode.getDeclaredVariables(node)[0];
     }
 
     return {
-      ImportDeclaration(node) {
-        if (node.importKind === 'type') return;
-        for (const specifier of node.specifiers) {
-          if (specifier.type === 'ImportSpecifier' && specifier.importKind === 'type') continue;
-          const variable = declaredVariable(specifier);
-          if (!variable) continue;
-
-          if (specifier.type === 'ImportNamespaceSpecifier') {
-            checkNamespaceBinding(variable);
-            continue;
-          }
-          const importedName =
-            specifier.type === 'ImportDefaultSpecifier'
-              ? 'default'
-              : specifier.imported.type === 'Identifier'
-              ? specifier.imported.name
-              : specifier.imported.value;
-          if (node.source.value === SDK_MODULE && importedName === 'default') {
-            checkSdkBinding(variable);
-          } else if (importedName === TASK_HANDLER) {
-            for (const { identifier } of variable.references) checkTaskHandlerCall(identifier);
-          } else if (NON_BILLING_FACTORIES.has(importedName)) {
-            checkFactoryBinding(variable, importedName);
-          }
+      MemberExpression(node) {
+        if (memberName(node) === 'fhir') checkFhirUse(node, node.object);
+      },
+      ObjectPattern(node) {
+        if (node.properties.some((property) => property.type === 'Property' && keyName(property) === 'fhir')) {
+          checkFhirUse(node, node);
         }
       },
-
-      // The module that declares a factory: a call there makes the client just the same.
-      FunctionDeclaration(node) {
-        if (node.id && NON_BILLING_FACTORIES.has(node.id.name)) {
-          const variable = sourceCode.getDeclaredVariables(node).find((v) => v.name === node.id?.name);
-          if (variable) checkFactoryBinding(variable, variable.name);
-        }
+      CallExpression(node) {
+        node.arguments.forEach(checkHandOff);
+        if (callsTaskHandler(node)) checkTaskHandler(node);
+        else checkAcquired(node);
+      },
+      NewExpression(node) {
+        node.arguments.forEach(checkHandOff);
+        checkAcquired(node);
+      },
+      'ObjectExpression > Property'(/** @type {Property} */ node) {
+        checkHandOff(node.value);
+      },
+      ArrayExpression(node) {
+        node.elements.forEach(checkHandOff);
+      },
+      ReturnStatement(node) {
+        checkHandOff(node.argument);
+      },
+      ArrowFunctionExpression(node) {
+        if (node.expression) checkHandOff(node.body);
+      },
+      AssignmentExpression(node) {
+        checkHandOff(node.right);
       },
       VariableDeclarator(node) {
-        if (node.id.type === 'Identifier' && NON_BILLING_FACTORIES.has(node.id.name)) {
-          const variable = declaredVariable(node);
-          if (variable) checkFactoryBinding(variable, variable.name);
-        }
+        if (node.init && clientScope(services.getTypeAtLocation(node.init)) === 'any') checkUntypedClient(node.init);
+      },
+      'TSAsExpression, TSTypeAssertion'(
+        /** @type {import('@typescript-eslint/utils').TSESTree.TSAsExpression} */ node
+      ) {
+        checkAssertion(node, services.getTypeAtLocation(node), services.getTypeAtLocation(node.expression));
+      },
+      TSTypePredicate(node) {
+        if (node.typeAnnotation) checkAssertion(node, services.getTypeAtLocation(node.typeAnnotation.typeAnnotation));
       },
     };
   },
 };
 
 /**
- * Whether wrapTaskHandler's options name a createClient, so the call chooses its client.
- * @param {CallExpressionArgument | undefined} options
+ * Whether the enclosing function returns this value as its own, so its callers are the ones who get it.
+ * @param {Node} node
  */
-function choosesClient(options) {
-  return (
-    options?.type === 'ObjectExpression' &&
-    options.properties.some(
-      (property) =>
-        property.type === 'Property' &&
-        !property.computed &&
-        (property.key.type === 'Identifier' ? property.key.name : property.key.value) === TASK_HANDLER_CLIENT_OPTION
-    )
-  );
+function returnedToCaller(node) {
+  let value = node;
+  while (value.parent?.type === 'AwaitExpression') value = value.parent;
+  const { parent } = value;
+  return parent?.type === 'ReturnStatement' || (parent?.type === 'ArrowFunctionExpression' && parent.body === value);
 }
 
 /** @param {MemberExpression} member */
-function staticPropertyName(member) {
+function memberName(member) {
   if (!member.computed && member.property.type === 'Identifier') return member.property.name;
   if (member.computed && member.property.type === 'Literal' && typeof member.property.value === 'string') {
     return member.property.value;
@@ -181,13 +310,9 @@ function staticPropertyName(member) {
   return undefined;
 }
 
-/**
- * `typeof createEraReadClient` in a type names the factory without making a client.
- * @param {Node} identifier
- */
-function isTypeQuery(identifier) {
-  /** @type {Node | undefined} */
-  let node = identifier.parent;
-  while (node?.type === 'TSQualifiedName') node = node.parent;
-  return node?.type === 'TSTypeQuery';
+/** @param {Property} property */
+function keyName(property) {
+  if (!property.computed && property.key.type === 'Identifier') return property.key.name;
+  if (property.key.type === 'Literal' && typeof property.key.value === 'string') return property.key.value;
+  return undefined;
 }
