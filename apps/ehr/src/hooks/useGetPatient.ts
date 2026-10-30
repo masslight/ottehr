@@ -28,6 +28,8 @@ export const useGetPatient = (
   otherPatientsWithSameName: boolean;
   setOtherPatientsWithSameName: (value: boolean) => void;
   duplicatePatients: Patient[];
+  /** The duplicate-name check could not run, so an empty `duplicatePatients` proves nothing. */
+  duplicateSearchFailed: boolean;
   patient?: Patient;
   setPatient: (patient: Patient) => void;
   relatedPerson?: RelatedPerson;
@@ -137,11 +139,18 @@ export const useGetPatient = (
     });
   }, [id, oystehr, patientResources, otherPatientsWithSameNameResources, isDuplicateSearchError]);
 
+  useEffect(() => {
+    if (isDuplicateSearchError) {
+      enqueueSnackbar('Could not check this patient for duplicate records.', { variant: 'warning' });
+    }
+  }, [isDuplicateSearchError]);
+
   return {
     loading,
     otherPatientsWithSameName,
     setOtherPatientsWithSameName,
     duplicatePatients,
+    duplicateSearchFailed: isDuplicateSearchError,
     patient,
     relatedPerson,
     person,

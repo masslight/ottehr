@@ -5,19 +5,18 @@ import { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFhirSearch = vi.fn<(...args: any[]) => Promise<any>>();
+const mockEnqueueSnackbar = vi.fn();
+// One instance per test file: a new client on every render would re-run the hook's effects forever.
+const mockClients = {
+  oystehr: { fhir: { search: (...args: any[]) => mockFhirSearch(...args) } } as any,
+  oystehrZambda: {} as any,
+};
 
-vi.mock('src/hooks/useAppClients', () => ({
-  useApiClients: () => ({
-    oystehr: { fhir: { search: (...args: any[]) => mockFhirSearch(...args) } } as any,
-    oystehrZambda: {} as any,
-  }),
-}));
-
-vi.mock('../../src/hooks/useAppClients', () => ({
-  useApiClients: () => ({
-    oystehr: { fhir: { search: (...args: any[]) => mockFhirSearch(...args) } } as any,
-    oystehrZambda: {} as any,
-  }),
+vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => mockClients }));
+vi.mock('../../src/hooks/useAppClients', () => ({ useApiClients: () => mockClients }));
+vi.mock('notistack', async (importOriginal) => ({
+  ...((await importOriginal()) as object),
+  enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
 
 import { useGetPatient } from '../../src/hooks/useGetPatient';
@@ -39,6 +38,7 @@ const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
 describe('useGetPatient', () => {
   beforeEach(() => {
     mockFhirSearch.mockReset();
+    mockEnqueueSnackbar.mockReset();
   });
 
   it('still returns the patient when the duplicate-name search fails', async () => {
@@ -52,5 +52,7 @@ describe('useGetPatient', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.patient?.id).toBe(PATIENT_ID);
     expect(result.current.duplicatePatients).toEqual([]);
+    expect(result.current.duplicateSearchFailed).toBe(true);
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('duplicate'), { variant: 'warning' });
   });
 });
