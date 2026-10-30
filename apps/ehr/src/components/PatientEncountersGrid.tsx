@@ -134,7 +134,7 @@ const VisitActions: FC<{ visitDetailsUrl?: string; progressNoteUrl?: string }> =
   visitDetailsUrl,
   progressNoteUrl,
 }) => {
-  if (!visitDetailsUrl && !progressNoteUrl) return <>-</>;
+  if (!visitDetailsUrl && !progressNoteUrl) return null;
   return (
     <Stack direction="row" spacing={1} alignItems="center">
       {visitDetailsUrl && (
