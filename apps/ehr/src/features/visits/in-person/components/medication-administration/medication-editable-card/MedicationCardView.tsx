@@ -11,6 +11,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { CptCodesInput as MedicationCptCodes } from 'src/components/input/CptCodesInput';
 import { computeBillableUnits, makeMedicationOrderUpdateRequestInput } from 'utils/lib/fhir/medication-administration';
 import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
+import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
 import {
   ExtendedMedicationDataForResponse,
@@ -27,7 +28,7 @@ import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { ButtonRounded } from '../../RoundedButton';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
 import { getFieldLabel, MedicationFieldType, MedicationOrderType, XsVariants } from './fieldsConfig';
-import { MedicationCardField } from './MedicationCardField';
+import { InventoryLotSuggestions, MedicationCardField } from './MedicationCardField';
 import { InHouseMedicationFieldType, isLikelyMedicationCode } from './utils';
 
 export interface InteractionsMessage {
@@ -77,6 +78,8 @@ type MedicationCardViewProps = {
   showQuickPickAddOption?: boolean;
   isAdmin?: boolean;
   onQuickPickAddOrUpdate?: () => void;
+  inventoryLots?: InventoryLotSuggestions;
+  onInventoryLotPick?: (lot: InventoryLot) => void;
 };
 
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
@@ -110,6 +113,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   showQuickPickAddOption,
   isAdmin,
   onQuickPickAddOrUpdate,
+  inventoryLots,
+  onInventoryLotPick,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -461,6 +466,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                 required={config!.isRequired}
                 showError={showErrors || fieldErrors[field]}
                 selectsOptions={selectsOptions}
+                {...(field === 'lotNumber' ? { inventoryLots, onInventoryLotPick } : {})}
               />
             </Grid>
           );

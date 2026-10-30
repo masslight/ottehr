@@ -344,3 +344,131 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
 /** On hand = the sum of the lot's entries' signed values. The ledger is the source of truth; the lot caches this. */
 export const sumStockEntries = (entries: Observation[]): number =>
   entries.reduce((total, entry) => total + (entry.valueQuantity?.value ?? 0), 0);
+
+// ─── What an administration takes off a lot ───────────────────────────────────
+//
+// Stock stays in counted-as items for every drug. A single-use dose takes whole items (rounded up) and the
+// leftover is waste; a multi-use dose takes nothing until the next count.
+
+const ROUND_PLACES = 10_000;
+const round = (value: number): number => Math.round(value * ROUND_PLACES) / ROUND_PLACES;
+
+/** Dose units that can be converted into each other: mass (mg, g) and volume (ml, cc). */
+const UNIT_FACTORS: Partial<Record<string, { dimension: 'mass' | 'volume'; factor: number }>> = {
+  mg: { dimension: 'mass', factor: 1 },
+  g: { dimension: 'mass', factor: 1000 },
+  ml: { dimension: 'volume', factor: 1 },
+  cc: { dimension: 'volume', factor: 1 },
+};
+
+const convertAmount = (amount: number, from: string, to: string): number | undefined => {
+  if (from === to) return amount;
+  const fromUnit = UNIT_FACTORS[from];
+  const toUnit = UNIT_FACTORS[to];
+  if (!fromUnit || !toUnit || fromUnit.dimension !== toUnit.dimension) return undefined;
+  return (amount * fromUnit.factor) / toUnit.factor;
+};
+
+/** What one counted item contains, in the dose's unit; undefined when the units can't be related. */
+export const containerAmountInDoseUnit = (
+  inventory: Pick<InHouseMedicationInventory, 'eachContains'>,
+  doseUnit: string
+): number | undefined => {
+  const { eachContains } = inventory;
+  return (
+    convertAmount(eachContains.amount, eachContains.unit, doseUnit) ??
+    (eachContains.in ? convertAmount(eachContains.in.amount, eachContains.in.unit, doseUnit) : undefined)
+  );
+};
+
+export interface AdministrationStockTake {
+  /** Counted-as items taken off the lot. */
+  items: number;
+  /** Single-use only: the part of the last item not given, in the dose's unit. */
+  waste?: { amount: number; unit: string };
+}
+
+/** What a dose takes off a lot of this drug, or undefined when nothing comes off (multi-use). */
+export const stockTakenForDose = (
+  inventory: Pick<InHouseMedicationInventory, 'eachContains' | 'use'>,
+  dose: number,
+  doseUnit: string
+): AdministrationStockTake | undefined => {
+  if (!Number.isFinite(dose) || dose <= 0 || inventory.use === 'multi-use') return undefined;
+  const containerAmount = containerAmountInDoseUnit(inventory, doseUnit);
+  // Single-use: a dose whose unit can't be related to the container still opens one item.
+  if (!containerAmount) return { items: 1 };
+  const items = Math.max(1, Math.ceil(round(dose / containerAmount)));
+  const wasteAmount = round(items * containerAmount - dose);
+  return { items, ...(wasteAmount > 0 ? { waste: { amount: wasteAmount, unit: doseUnit } } : {}) };
+};
+
+export interface AdministrationStockTarget extends AdministrationStockTake {
+  lotId: string;
+}
+
+export interface AdministrationStockChange {
+  lotId: string;
+  type: Extract<InventoryEntryType, 'administered' | 'administration-reversed'>;
+  /** Signed, in counted-as items: negative takes off the lot, positive puts back. */
+  quantity: number;
+  /** Signed change to the waste recorded for this administration on this lot. */
+  waste?: { amount: number; unit: string };
+  reversesEntryId?: string;
+}
+
+const sumWaste = (entries: InventoryStockEntry[]): number =>
+  entries.reduce(
+    (total, entry) =>
+      total + (entry.components ?? []).reduce((sum, c) => sum + (c.code === 'waste-amount' ? c.value : 0), 0),
+    0
+  );
+
+/**
+ * One rule for every save and delete of an administration: what it should have taken off now (`target`,
+ * undefined when nothing should be off) minus what the ledger already took off for it (`existing`, its
+ * entries oldest first) is the entry to write per lot. Covers delete, lot change, dose change and status
+ * change; a put-back reverses the lot's latest "administered" entry.
+ */
+export const planAdministrationStockChanges = (
+  target: AdministrationStockTarget | undefined,
+  existing: InventoryStockEntry[]
+): AdministrationStockChange[] => {
+  const lotIds = [...new Set([...existing.map((entry) => entry.lotId), ...(target ? [target.lotId] : [])])];
+  return lotIds.flatMap((lotId) => {
+    const own = existing.filter((entry) => entry.lotId === lotId);
+    const taken = -own.reduce((total, entry) => total + entry.quantity, 0);
+    const wasted = sumWaste(own);
+    const wanted = target?.lotId === lotId ? target : undefined;
+    const itemsDelta = round((wanted?.items ?? 0) - taken);
+    const wasteDelta = round((wanted?.waste?.amount ?? 0) - wasted);
+    if (itemsDelta === 0 && wasteDelta === 0) return [];
+    const reversing = itemsDelta < 0 || (itemsDelta === 0 && wasteDelta < 0);
+    const wasteUnit =
+      wanted?.waste?.unit ??
+      own.flatMap((entry) => entry.components ?? []).find((c) => c.code === 'waste-amount')?.unit;
+    const latestAdministered = [...own].reverse().find((entry) => entry.type === 'administered');
+    return [
+      {
+        lotId,
+        type: reversing ? 'administration-reversed' : 'administered',
+        quantity: itemsDelta === 0 ? 0 : -itemsDelta,
+        ...(wasteDelta !== 0 && wasteUnit ? { waste: { amount: wasteDelta, unit: wasteUnit } } : {}),
+        ...(reversing && latestAdministered ? { reversesEntryId: latestAdministered.id } : {}),
+      },
+    ];
+  });
+};
+
+/** Lots for the MAR Lot field: unexpired first, each group soonest expiration first; expired lots last. */
+export const sortInventoryLotsForPicking = <T extends Pick<InventoryLot, 'expirationDate'>>(
+  lots: T[],
+  today: string
+): { lot: T; expired: boolean }[] => {
+  const byExpiration = (a: T, b: T): number => a.expirationDate.localeCompare(b.expirationDate);
+  const isExpired = (lot: T): boolean => Boolean(lot.expirationDate) && lot.expirationDate < today;
+  return [
+    ...lots.filter((lot) => !isExpired(lot)).sort(byExpiration),
+    ...lots.filter(isExpired).sort(byExpiration),
+  ].map((lot) => ({ lot, expired: isExpired(lot) }));
+};

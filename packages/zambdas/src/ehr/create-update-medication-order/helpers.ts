@@ -1,4 +1,5 @@
 import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import {
@@ -20,6 +21,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.types';
 import { CPTCodeOption } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { reconcileAdministrationStock } from '../../shared/medication-inventory';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -170,6 +172,24 @@ export async function getCptHcpcsCodesToAddToChartData(
   });
 
   return codesOptionsToAdd;
+}
+
+/**
+ * Keeps the stock ledger in step with the order after it was written (requirements 4 and 5). Best-effort by
+ * design: administration is never blocked by inventory, so a failure here is logged and reported, never
+ * thrown, mirroring manageAdditionalCptCodesForOrder.
+ */
+export async function syncInventoryForOrder(oystehr: Oystehr, orderId: string, practitionerId: string): Promise<void> {
+  try {
+    const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      id: orderId,
+    });
+    await reconcileAdministrationStock(oystehr, medicationAdministration, `Practitioner/${practitionerId}`);
+  } catch (e) {
+    console.log('Error in syncInventoryForOrder: ', e, JSON.stringify(e));
+    captureException(e);
+  }
 }
 
 export function getEncounterIdFromMA(medicationAdministration: MedicationAdministration): string | undefined {

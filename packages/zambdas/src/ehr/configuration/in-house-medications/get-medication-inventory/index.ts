@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { parseInventoryLot } from 'utils/lib/fhir/medication-inventory';
+import { Medication } from 'fhir/r4b';
+import { getMedicationInventoryConfig, parseInventoryLot } from 'utils/lib/fhir/medication-inventory';
 import {
   GetMedicationInventoryInput,
   GetMedicationInventoryResponse,
@@ -9,14 +10,17 @@ import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { callerHasRole, checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { getLastReceivedLot } from '../../../../shared/medication-inventory';
+import { getInventoryLotsOnHand, getLastReceivedLot } from '../../../../shared/medication-inventory';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-/** What the drug admin page needs to know about a drug's stock. For now: the last lot received, for prefill. */
+/**
+ * What a screen needs to know about a drug's stock: with a clinic, the lots on hand there (the MAR Lot
+ * field); without one, the last lot received (the receive dialog's prefill).
+ */
 export const index = wrapHandler(
   'admin-get-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -40,8 +44,15 @@ export const index = wrapHandler(
 
 export const performEffect = async (
   oystehr: Oystehr,
-  { medicationId }: GetMedicationInventoryInput
+  { medicationId, locationId: clinicId }: GetMedicationInventoryInput
 ): Promise<GetMedicationInventoryResponse> => {
+  if (clinicId) {
+    const catalog = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: medicationId });
+    if (!getMedicationInventoryConfig(catalog)) return {};
+    return {
+      lots: await getInventoryLotsOnHand(oystehr, { catalogMedicationId: medicationId, locationId: clinicId }),
+    };
+  }
   const lastLot = await getLastReceivedLot(oystehr, medicationId);
   const parsed = lastLot ? parseInventoryLot(lastLot) : undefined;
   if (!parsed) return {};

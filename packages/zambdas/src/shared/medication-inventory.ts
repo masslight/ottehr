@@ -1,20 +1,37 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Medication, Observation } from 'fhir/r4b';
+import { Encounter, Medication, MedicationAdministration, Observation } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import {
+  getDosageUnitsAndRouteOfMedication,
+  getMedicationFromMA,
+  getMedicationName,
+  mapFhirToOrderStatus,
+} from 'utils/lib/fhir/medication-administration';
+import {
+  AdministrationStockTarget,
+  getMedicationInventoryConfig,
   INVENTORY_ENTRY_TYPE_SYSTEM,
   INVENTORY_LOT_CLINIC_TAG_SYSTEM,
   INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
   INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM,
   INVENTORY_STOCK_ENTRY_CODE,
   InventoryStockEntryInput,
+  isCatalogMedication,
   isInventoryLot,
   makeInventoryStockEntry,
+  parseInventoryLot,
+  parseInventoryStockEntry,
+  planAdministrationStockChanges,
+  stockTakenForDose,
   sumStockEntries,
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
+import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
+import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
 
 // Writes to the stock ledger. The FHIR shapes (and why they are Medication + Observation) live in
 // utils/lib/fhir/medication-inventory.ts; this module owns the searches and the one-transaction write rule:
@@ -47,14 +64,29 @@ export async function findInventoryLotsByNumber(
   return lots.filter((lot) => isInventoryLot(lot) && lot.batch?.lotNumber === lotNumber);
 }
 
-/** The lot of `catalogMedicationId` at `locationId` with this lot number and expiration date, if one exists. */
-export async function findInventoryLot(
+/** Lots of `catalogMedicationId` with stock on hand at `locationId`, soonest expiration first (the MAR Lot field). */
+export async function getInventoryLotsOnHand(
   oystehr: Oystehr,
-  key: InventoryLotKey & { expirationDate: string }
-): Promise<Medication | undefined> {
-  return (await findInventoryLotsByNumber(oystehr, key)).find(
-    (lot) => lot.batch?.expirationDate === key.expirationDate
-  );
+  { catalogMedicationId, locationId }: { catalogMedicationId: string; locationId: string }
+): Promise<InventoryLot[]> {
+  const lots = (
+    await oystehr.fhir.search<Medication>({
+      resourceType: 'Medication',
+      params: [
+        { name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${catalogMedicationId}` },
+        { name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|${locationId}` },
+        { name: 'status', value: 'active' },
+        { name: '_sort', value: 'expiration-date' },
+      ],
+    })
+  ).unbundle();
+  return lots
+    .filter(isInventoryLot)
+    .flatMap((lot) => {
+      const parsed = parseInventoryLot(lot);
+      return parsed && parsed.onHand > 0 ? [parsed] : [];
+    })
+    .sort((a, b) => a.expirationDate.localeCompare(b.expirationDate));
 }
 
 /** Every ledger entry of a lot, oldest first. */
@@ -141,6 +173,126 @@ export async function writeInventoryStockEntry(
         console.log(`Medication/${lotId} changed while writing a stock entry, retrying (attempt ${attempt})`),
     }
   );
+}
+
+/** What the ledger already took off for an administration, oldest first. */
+async function getAdministrationStockEntries(
+  oystehr: Oystehr,
+  medicationAdministrationId: string
+): Promise<Observation[]> {
+  return getAllFhirSearchPages<Observation>(
+    {
+      resourceType: 'Observation',
+      params: [
+        { name: 'part-of', value: `MedicationAdministration/${medicationAdministrationId}` },
+        { name: 'category', value: INVENTORY_CATEGORY_PARAM },
+        { name: '_sort', value: 'date' },
+      ],
+    },
+    oystehr
+  );
+}
+
+/**
+ * The catalog drug an order's contained Medication copy was made from. The copy keeps the catalog's name
+ * identifier but not its id, and an existing order's `medicationId` is the contained sentinel.
+ */
+async function findCatalogMedicationByName(oystehr: Oystehr, name: string): Promise<Medication | undefined> {
+  const medications = (
+    await oystehr.fhir.search<Medication>({
+      resourceType: 'Medication',
+      params: [{ name: 'identifier', value: `${MEDICATION_IDENTIFIER_NAME_SYSTEM}|${name}` }],
+    })
+  ).unbundle();
+  return medications.find(isCatalogMedication);
+}
+
+/**
+ * What an administration should have off the shelf right now: the lot of its drug at the visit's clinic
+ * with the lot number on the order, and what the dose takes from it. Undefined when nothing should be off:
+ * the order isn't administered, the drug isn't tracked, the lot was typed (not in inventory), or the drug
+ * is multi-use.
+ */
+async function resolveAdministrationStockTarget(
+  oystehr: Oystehr,
+  medicationAdministration: MedicationAdministration
+): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
+  const status = mapFhirToOrderStatus(medicationAdministration);
+  if (status !== 'administered' && status !== 'administered-partly') return undefined;
+
+  const contained = getMedicationFromMA(medicationAdministration);
+  const lotNumber = contained?.batch?.lotNumber?.trim();
+  const name = getMedicationName(contained);
+  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
+  const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+  if (!lotNumber || !name || dose === undefined || !units || !encounterId) return undefined;
+
+  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+  const locationId = getEncounterLocationId(encounter);
+  if (!locationId) return undefined;
+
+  const catalog = await findCatalogMedicationByName(oystehr, name);
+  const inventory = catalog ? getMedicationInventoryConfig(catalog) : undefined;
+  if (!catalog?.id || !inventory) return undefined;
+
+  // The same number can be on hand with two expiration dates; the order's date (a date or date-time) picks one.
+  const sameNumber = await findInventoryLotsByNumber(oystehr, {
+    catalogMedicationId: catalog.id,
+    locationId,
+    lotNumber,
+  });
+  const expirationDate = contained?.batch?.expirationDate?.slice(0, 10);
+  const lot =
+    sameNumber.length === 1
+      ? sameNumber[0]
+      : sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
+  const taken = stockTakenForDose(inventory, dose, units);
+  if (!lot?.id || !taken) return undefined;
+  return { lotId: lot.id, lot, ...taken };
+}
+
+/**
+ * Brings the stock ledger in line with an administration (requirements 4 and 5): writes the difference
+ * between what the order should have taken off and what its entries already took off, per lot. Call after
+ * every save and delete of an order; a no-op for untracked drugs, typed lots and orders not administered.
+ */
+export async function reconcileAdministrationStock(
+  oystehr: Oystehr,
+  medicationAdministration: MedicationAdministration,
+  performerReference: string
+): Promise<void> {
+  const medicationAdministrationId = medicationAdministration.id;
+  if (!medicationAdministrationId) return;
+  const [existing, target] = await Promise.all([
+    getAdministrationStockEntries(oystehr, medicationAdministrationId),
+    resolveAdministrationStockTarget(oystehr, medicationAdministration),
+  ]);
+  const changes = planAdministrationStockChanges(
+    target,
+    existing.flatMap((entry) => parseInventoryStockEntry(entry) ?? [])
+  );
+  for (const change of changes) {
+    const lot =
+      change.lotId === target?.lotId
+        ? target.lot
+        : await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: change.lotId });
+    const parsedLot = parseInventoryLot(lot);
+    if (!parsedLot) throw new Error(`Medication/${change.lotId} is not an inventory lot`);
+    await writeInventoryStockEntry(oystehr, lot, {
+      locationId: parsedLot.locationId,
+      type: change.type,
+      ...(change.waste ? { reason: 'partial-dose-waste' } : {}),
+      quantity: change.quantity,
+      unit: parsedLot.unit,
+      performerReference,
+      effectiveDateTime: DateTime.now().toUTC().toISO(),
+      medicationAdministrationId,
+      reversesEntryId: change.reversesEntryId,
+      ...(change.waste
+        ? { components: [{ code: 'waste-amount', value: change.waste.amount, unit: change.waste.unit }] }
+        : {}),
+    });
+  }
 }
 
 /** The lot of a drug (any clinic) whose "received" entry is newest, for prefilling the next receipt. */

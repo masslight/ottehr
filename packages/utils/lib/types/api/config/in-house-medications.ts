@@ -220,12 +220,18 @@ export interface LookupNdcResponse {
   comparedBy?: 'rxcui' | 'name';
 }
 
-export const GetMedicationInventoryInputSchema = z.object({ medicationId: z.string().min(1) });
+export const GetMedicationInventoryInputSchema = z.object({
+  medicationId: z.string().min(1),
+  /** With a clinic: the drug's lots on hand there (for the MAR Lot field) instead of the last lot received. */
+  locationId: z.string().min(1).optional(),
+});
 export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryInputSchema>;
 
 export interface GetMedicationInventoryResponse {
   /** The lot of this drug (any clinic) with the newest "received" entry; prefills the receive dialog. */
   lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
+  /** With `locationId`: lots with stock on hand at that clinic, soonest expiration first. Absent for an untracked drug. */
+  lots?: InventoryLot[];
 }
 
 // ─── Inventory screen, adjustments and counts (requirements 6 and 7) ──────────

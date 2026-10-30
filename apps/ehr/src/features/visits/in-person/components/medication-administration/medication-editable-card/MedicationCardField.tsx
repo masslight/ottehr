@@ -1,12 +1,17 @@
 import {
   Autocomplete,
+  Box,
+  Chip,
   FormControl,
   FormHelperText,
   InputLabel,
   MenuItem,
+  Paper,
+  PaperProps,
   Select,
   Skeleton,
   TextField,
+  Typography,
   useTheme,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -17,6 +22,12 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { LOCATION_OPTIONS } from 'src/shared/utils/options';
+import { sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
+import {
+  InventoryLot,
+  MEDICATION_COUNTED_AS_LABELS,
+  MedicationCountedAs,
+} from 'utils/lib/types/api/config/in-house-medications';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { MedicationData } from 'utils/lib/types/api/medication-administration.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
@@ -30,6 +41,37 @@ type MedicationLocation = NonNullable<MedicationData['location']>;
 const POPULAR_SEPARATOR = 'popular-separator';
 const OTHER_SEPARATOR = 'other-separator';
 
+/** Lots of the order's drug on hand at the visit's clinic (requirement 3); only for drugs set up for inventory. */
+export interface InventoryLotSuggestions {
+  lots: InventoryLot[];
+  clinicName?: string;
+}
+
+type LotOption = { lot: InventoryLot; expired: boolean };
+
+const LOT_FOOTER_TEXT = "Or type a lot that isn't listed. It's saved as typed and doesn't change stock.";
+
+const LotSuggestionsPaper = ({ children, ...props }: PaperProps): React.ReactElement => (
+  <Paper {...props}>
+    {children}
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ px: 2, pt: 1, pb: 0.5, borderTop: 1, borderColor: 'divider' }}
+      // The footer is informational; without this, pressing it blurs the input and closes the list.
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      {LOT_FOOTER_TEXT}
+    </Typography>
+  </Paper>
+);
+
+const lotOnHandLabel = (lot: InventoryLot): string => {
+  const labels = MEDICATION_COUNTED_AS_LABELS[lot.unit as MedicationCountedAs];
+  const unit = labels ? (lot.onHand === 1 ? labels.singular.toLowerCase() : labels.plural) : lot.unit;
+  return [`${lot.onHand} ${unit}`, lot.manufacturer].filter(Boolean).join(' · ');
+};
+
 interface MedicationCardFieldProps {
   field: MedicationFieldType;
   label: string;
@@ -41,6 +83,9 @@ interface MedicationCardFieldProps {
   isEditable?: boolean;
   selectsOptions: OrderFieldsSelectsOptions;
   renderValue?: string;
+  inventoryLots?: InventoryLotSuggestions;
+  /** A lot was picked from the suggestions (or typed exactly); fills expiration, NDC and manufacturer too. */
+  onInventoryLotPick?: (lot: InventoryLot) => void;
 }
 
 const StyledTextField = styled(TextField)({
@@ -72,6 +117,8 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   isEditable = true,
   selectsOptions = emptySelectsOptions,
   renderValue,
+  inventoryLots,
+  onInventoryLotPick,
 }) => {
   const theme = useTheme();
   const handleChange = (newValue: string | number | undefined): void => {
@@ -79,6 +126,75 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   };
 
   const isInstruction = field === 'instructions';
+
+  if (field === 'lotNumber' && inventoryLots && inventoryLots.lots.length > 0 && onInventoryLotPick) {
+    const { lots, clinicName } = inventoryLots;
+    const options = sortInventoryLotsForPicking(lots, DateTime.now().toISODate());
+    const text = typeof rawValue === 'string' ? rawValue : '';
+    const findLot = (lotNumber: string): InventoryLot | undefined =>
+      lots.find((lot) => lot.lotNumber === lotNumber.trim());
+    const hasError = showError && required && !text;
+    return (
+      <StyledFormControl data-testid={dataTestIds.orderMedicationPage.inputField(field)} disabled={!isEditable}>
+        <Autocomplete<LotOption, false, false, true>
+          freeSolo
+          openOnFocus
+          disabled={!isEditable}
+          options={options}
+          value={null}
+          inputValue={text}
+          getOptionLabel={(option) => (typeof option === 'string' ? option : option.lot.lotNumber)}
+          getOptionKey={(option) => (typeof option === 'string' ? option : option.lot.id)}
+          // Show every lot until the typed text narrows it; a typed listed lot keeps the whole list visible.
+          filterOptions={(all, { inputValue }) => {
+            const search = inputValue.trim().toLowerCase();
+            if (!search || findLot(inputValue)) return all;
+            return all.filter((option) => option.lot.lotNumber.toLowerCase().includes(search));
+          }}
+          groupBy={() => `On hand at ${clinicName ?? 'this clinic'}`}
+          PaperComponent={LotSuggestionsPaper}
+          onChange={(_e, option) => {
+            if (option && typeof option !== 'string') onInventoryLotPick(option.lot);
+          }}
+          onInputChange={(_e, newText, reason) => {
+            if (reason !== 'input') return;
+            const typedLot = findLot(newText);
+            if (typedLot) onInventoryLotPick(typedLot);
+            else handleChange(newText);
+          }}
+          renderOption={(props, { lot, expired }) => (
+            <li {...props} key={lot.id}>
+              <Box
+                sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, width: '100%' }}
+                color={expired ? 'text.secondary' : undefined}
+              >
+                <span>
+                  <Typography component="span" fontWeight={500}>
+                    {lot.lotNumber}
+                  </Typography>
+                  {' · exp '}
+                  {lot.expirationDate ? DateTime.fromISO(lot.expirationDate).toFormat('MM/dd/yyyy') : '—'}
+                  {expired && <Chip label="expired" size="small" color="error" variant="outlined" sx={{ ml: 1 }} />}
+                </span>
+                <Typography component="span" color="text.secondary">
+                  {lotOnHandLabel(lot)}
+                </Typography>
+              </Box>
+            </li>
+          )}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={label}
+              required={required}
+              error={hasError}
+              helperText={hasError ? REQUIRED_FIELD_ERROR_MESSAGE : ''}
+            />
+          )}
+        />
+      </StyledFormControl>
+    );
+  }
 
   if (field === 'location') {
     // getMedicationFieldValue coerces unset fields to '' — treat anything non-object as no selection.

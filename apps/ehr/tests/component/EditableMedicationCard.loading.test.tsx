@@ -51,6 +51,14 @@ vi.mock('../../src/features/visits/shared/components/Loader', () => ({
   Loader: () => <div />,
 }));
 
+// Lot suggestions come through react-query, which would demand a QueryClient here.
+vi.mock(
+  '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/useInventoryLotsOnHand',
+  () => ({
+    useInventoryLotsOnHand: () => ({ data: undefined }),
+  })
+);
+
 vi.mock('../../src/components/dialogs/DeleteDialog', () => ({
   default: () => <div />,
 }));
