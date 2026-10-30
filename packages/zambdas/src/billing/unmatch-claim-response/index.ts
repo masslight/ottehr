@@ -17,7 +17,7 @@ import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, matchFieldsPatchOperations, UNMATCH_FIELDS } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient } from '../shared';
+import { createBillingClient, createEraReadClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {
   display: 'Unknown',
@@ -32,7 +32,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, {
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const response = await performEffect(oystehr, eraReadClient, {
     ...params,
     agent,
   });
@@ -45,13 +46,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect(
   oystehr: Oystehr,
+  eraReadClient: Oystehr,
   params: Params & { agent: ProvenanceAgent }
 ): Promise<ClaimResponse> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
-  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
+  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
   const containedClaim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
   const containedPatient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
   const unmatched: ClaimResponse = {
