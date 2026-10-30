@@ -220,6 +220,7 @@ async function updateOrder(
       administeredProviderId: newStatus !== undefined ? practitionerIdCalledZambda : undefined,
       orderedByProviderId: orderData.providerId,
       medicationResource: newMedicationCopy,
+      newStatus,
     });
   }
 

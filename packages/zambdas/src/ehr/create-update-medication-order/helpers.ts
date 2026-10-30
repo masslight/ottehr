@@ -93,8 +93,12 @@ export function updateMedicationAdministrationData(data: {
   administeredProviderId?: string;
   orderedByProviderId?: string;
   medicationResource: Medication;
+  newStatus?: MedicationOrderStatusesType;
 }): MedicationAdministration {
-  const { orderResources, orderData, administeredProviderId, orderedByProviderId, medicationResource } = data;
+  const { orderResources, administeredProviderId, orderedByProviderId, medicationResource, newStatus } = data;
+  // a not/partly-administered reason doesn't apply once the order is administered
+  const orderData: MedicationData =
+    newStatus === 'administered' ? { ...data.orderData, reason: undefined, otherReason: undefined } : data.orderData;
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
