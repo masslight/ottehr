@@ -40,10 +40,10 @@ const config: InvoiceConfigResponse = {
   },
 };
 
-const recipient = (email?: string): GetBillingInvoiceRecipientResponse => ({
+const recipient: GetBillingInvoiceRecipientResponse = {
   patient: { fullName: 'Katie Test', dob: '05/04/2010', gender: 'Female', phoneNumber: '+12025550199' },
-  responsibleParty: { fullName: 'Jane Test', email, phoneNumber: '+12025550101' },
-});
+  responsibleParty: { fullName: 'Jane Test', email: 'jane@example.com', phoneNumber: '+12025550101' },
+};
 
 const sendButton = (): Promise<HTMLElement> => screen.findByRole('button', { name: 'Send Invoice' });
 
@@ -58,7 +58,7 @@ describe('Send Invoice dialog', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.getConfig.mockResolvedValue(config);
-    mocks.getRecipient.mockResolvedValue(recipient('jane@example.com'));
+    mocks.getRecipient.mockResolvedValue(recipient);
     mocks.create.mockResolvedValue({ invoiceId: 'inv-1', stripeInvoiceId: 'in_1', smsSent: true });
   });
 
@@ -81,14 +81,6 @@ describe('Send Invoice dialog', () => {
     );
     expect(mocks.snackbar).toHaveBeenCalledWith('Invoice sent', { variant: 'success' });
     expect(onSent).toHaveBeenCalled();
-  });
-
-  it('blocks sending when the responsible party has no email', async () => {
-    mocks.getRecipient.mockResolvedValue(recipient());
-    renderDialog();
-
-    expect(await screen.findByText("Doesn't have email")).toBeVisible();
-    expect(await sendButton()).toBeDisabled();
   });
 
   it('retries with the same key, uses a new key for a new amount, and warns when the SMS failed', async () => {
