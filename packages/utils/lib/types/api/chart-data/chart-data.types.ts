@@ -29,6 +29,7 @@ import {
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
   VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
   VitalTemperatureObservationMethod,
 } from './chart-data.constants';
 import { GetChartDataResponse } from './get-chart-data.types';
@@ -318,9 +319,16 @@ export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   dotVisionScreening?: VitalsDotVisionScreening;
 }
 
+export interface VitalsSupplementalO2Details {
+  flowRate?: number;
+  deliveryType?: VitalsSupplementalO2DeliveryType;
+  deliveryTypeOther?: string;
+}
+
 export interface VitalsOxygenSatObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-oxygen-sat'>;
   observationMethod?: VitalsOxygenSatObservationMethod;
+  supplementalO2?: VitalsSupplementalO2Details;
 }
 
 export interface VitalsRespirationRateObservationDTO extends VitalsNumericValueObservationDTO {

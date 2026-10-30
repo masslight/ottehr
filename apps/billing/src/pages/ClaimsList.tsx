@@ -77,7 +77,6 @@ import {
   searchBillingClaims,
   searchBillingNonInsuranceOrgs,
   searchBillingPatients,
-  searchBillingServices,
   searchBillingTags,
   tagBillingClaim,
   updateBillingResource,
@@ -92,6 +91,7 @@ import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
+import { useBillingServices } from '../hooks/useBillingServices';
 import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
@@ -472,7 +472,6 @@ export function ClaimsListView({
   const [sort, setSort] = useState<ClaimSort | undefined>(initialLayout?.sort);
   // fetchClaims reads the sort from here, so a sort change can search before its state settles.
   const sortRef = useRef(sort);
-  const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
   const [runRulesModalOpen, setRunRulesModalOpen] = useState(false);
@@ -489,6 +488,7 @@ export function ClaimsListView({
   const [invoiceClaim, setInvoiceClaim] = useState<BillingClaimItem | null>(null);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
+  const { services: serviceOptions, load: loadServices } = useBillingServices();
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -516,7 +516,6 @@ export function ClaimsListView({
   );
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nioDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -525,7 +524,6 @@ export function ClaimsListView({
   useEffect(() => {
     return (): void => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      if (serviceDebounce.current) clearTimeout(serviceDebounce.current);
       if (patientDebounce.current) clearTimeout(patientDebounce.current);
     };
   }, []);
@@ -559,19 +557,6 @@ export function ClaimsListView({
     },
     [oystehrZambda]
   );
-
-  const searchServices = useCallback(
-    (query: string): void => {
-      if (!oystehrZambda) return;
-      if (serviceDebounce.current) clearTimeout(serviceDebounce.current);
-      serviceDebounce.current = setTimeout(async () => {
-        const res = await searchBillingServices(oystehrZambda, query ? { name: query } : {});
-        setServiceOptions(res.services ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-  useEffect(() => searchServices(''), [searchServices]);
 
   useEffect(() => searchPayers(''), [searchPayers]);
 
@@ -1014,11 +999,7 @@ export function ClaimsListView({
           size="small"
           options={serviceOptions}
           getOptionLabel={(o) => `${formatAntCaseString(o.name)}`}
-          onInputChange={(_, value, reason) => {
-            if (reason === 'input') searchServices(value);
-          }}
-          onOpen={() => searchServices('')}
-          filterOptions={(x) => x}
+          onOpen={loadServices}
           value={selectedServices}
           onChange={(_, v) => {
             setSelectedServices(v);

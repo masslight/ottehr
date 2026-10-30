@@ -426,6 +426,7 @@ interface MultiBlankProps {
   values: readonly string[] | undefined;
   onChange: (values: string[]) => void;
   readOnly: boolean;
+  need?: boolean;
   dataTestId?: string;
   ghost?: boolean;
 }
@@ -438,6 +439,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   values = [],
   onChange,
   readOnly,
+  need,
   dataTestId,
   otherValue,
   onOtherChange,
@@ -458,6 +460,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
       title={title ?? label}
       value={display || undefined}
       ghost={ghost}
+      need={need}
       readOnly={readOnly}
       dataTestId={dataTestId}
     >

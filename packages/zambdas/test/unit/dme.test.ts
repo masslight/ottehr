@@ -312,8 +312,12 @@ describe('makeDmeBillingProcedures', () => {
       deviceRequestReference: 'DeviceRequest/dr-1',
     });
 
-  it('bills nothing for external orders', () => {
-    expect(procedures(fields({ external: true, laterality: 'BI', modifier: 'NU' }))).toEqual([]);
+  it('bills external orders the same as in-house ones', () => {
+    const external = procedures(fields({ external: true, laterality: 'BI', modifier: 'NU', quantity: 3 }));
+    const inHouse = procedures(fields({ laterality: 'BI', modifier: 'NU', quantity: 3 }));
+
+    expect(external.map(makeCPTCodeDTO)).toEqual(inHouse.map(makeCPTCodeDTO));
+    expect(external.map((p) => p.code?.coding?.[0]?.code)).toEqual(ANKLE_BRACE_CODES.map((c) => c.code));
   });
 
   it('creates one procedure per HCPCS code with LT+RT for bilateral, the modifier and quantity as units', () => {

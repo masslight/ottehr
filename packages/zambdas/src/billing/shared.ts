@@ -32,7 +32,6 @@ import {
   Location,
   Organization,
   Patient,
-  PaymentNotice,
   PaymentReconciliation,
   Period,
   Person,
@@ -903,7 +902,6 @@ export function createBillingClient(
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
 ): Oystehr {
-  // eslint-disable-next-line no-restricted-syntax -- the billing client factory
   return new Oystehr({
     accessToken: token,
     services: {
@@ -917,7 +915,6 @@ export function createBillingClient(
 
 // ERA resources are untagged by Oystehr
 export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
-  // eslint-disable-next-line no-restricted-syntax -- the unscoped client factory; its importers are restricted instead
   return new Oystehr({
     accessToken: token,
     services: {
@@ -1492,9 +1489,20 @@ export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_
   }
 }
 
+export function isInstitutionalClaim(claim: Claim): boolean {
+  return getClaimType(claim) === CODE_SYSTEM_CLAIM_TYPE_CODES.institutional;
+}
+
 export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES): Coding {
   // Currently all claims start as professional claims
   return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };
+}
+
+// The 4-digit bill type, rebuilt from the facility type and frequency extensions.
+export function getClaimBillType(claim: Claim): string {
+  const facilityTypeCode = getExtensionValue(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE, 'valueString');
+  const frequencyCode = getExtensionValue(claim, EXTENSION_CLAIM_FREQUENCY_CODE, 'valueString') || '1';
+  return facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '';
 }
 
 export function getClaimService(claim: Claim): string | undefined {
@@ -1503,6 +1511,21 @@ export function getClaimService(claim: Claim): string | undefined {
     return undefined;
   }
   return code;
+}
+
+// The codes of the services on claims created from visits: one Basic per service, created with the
+// first such claim (create-billing-claim-from-encounter). Read in full by the services list
+// (search-billing-services) and by rule saving, which checks the service a rule sets is one of them.
+export async function searchBillingServiceCodes(oystehr: Oystehr): Promise<string[]> {
+  const basics = await getAllFhirSearchPages<Basic>(
+    { resourceType: 'Basic', params: [{ name: 'code', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|` }] },
+    oystehr
+  );
+  return basics
+    .map(
+      (basic) => basic.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM)?.code
+    )
+    .filter((serviceCode): serviceCode is string => !!serviceCode);
 }
 
 // --- Coverage / insurance helpers ---
@@ -1537,7 +1560,12 @@ export function buildSubscriberRelatedPerson(
 }
 
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
-export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
+export function setCoveragePayer(
+  coverage: Coverage,
+  payerOrg: Organization,
+  memberId: string,
+  groupNumber?: string
+): void {
   // A UUID-backed org (RCM payer with a real FHIR resource, or a custom insurance organization)
   // references itself directly and doesn't need an RCM payer id; only a pure RCM payer (no backing
   // resource) requires one, since buildPayorReference falls back to an RCM payer URL for it.
@@ -1548,7 +1576,7 @@ export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, mem
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: payerId ?? '',
+      value: groupNumber || payerId!,
       name: payerOrg.name ?? '',
     },
   ];
@@ -1559,6 +1587,7 @@ export function buildBillingCoverage(params: {
   patientId: string;
   payerOrg: Organization;
   memberId: string;
+  groupNumber?: string;
   status: Coverage['status'];
   planType?: string;
   relationship: BillingSubscriberRelationship;
@@ -1573,7 +1602,7 @@ export function buildBillingCoverage(params: {
     subscriberId: params.memberId,
     payor: [],
   };
-  setCoveragePayer(coverage, params.payerOrg, params.memberId);
+  setCoveragePayer(coverage, params.payerOrg, params.memberId, params.groupNumber);
   setCoverageRelationship(coverage, params.relationship);
   if (params.planType) {
     coverage = setCoveragePlanType(coverage, params.planType);
@@ -1931,38 +1960,6 @@ export async function tagEraResources({
   return untagged.size;
 }
 
-// Links notices the stripe webhook stored before the claim existed.
-export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
-  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
-  const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
-  if (!claim.id || !encounterId) return;
-
-  const notices = (
-    await oystehr.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [{ name: 'request:identifier', value: `${encounterIdSystem}|${encounterId}` }],
-    })
-  ).unbundle();
-
-  const unlinked = notices.filter((n) => n.id && !n.request?.reference);
-  if (unlinked.length === 0) return;
-
-  const result = await oystehr.fhir.batch({
-    requests: unlinked.map((n) =>
-      getPatchBinary({
-        resourceType: 'PaymentNotice',
-        resourceId: n.id!,
-        patchOperations: [{ op: 'add', path: '/request/reference', value: `Claim/${claim.id}` }],
-      })
-    ),
-  });
-  const failed = (result.entry ?? []).filter((e) => e.response?.outcome?.id !== 'ok');
-  if (failed.length > 0) {
-    console.warn(`reconcilePaymentNoticesForClaim: ${failed.length} of ${unlinked.length} patches failed`);
-  }
-  console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
-}
-
 export async function resolveLinkedPatientIds({
   oystehr,
   patientId,
@@ -2120,4 +2117,27 @@ export function removeClaimSupportingInfo(
       }),
     ];
   }
+}
+
+export async function getGroupNumber(
+  oystehr: Oystehr,
+  coverage: Coverage,
+  payersByRefParam: Awaited<ReturnType<typeof resolvePayersByRef>>
+): Promise<string | undefined> {
+  if (!coverage) return undefined;
+  const payersByRef =
+    payersByRefParam ??
+    (await resolvePayersByRef(
+      oystehr,
+      [coverage].map((coverage) => coverage.payor?.[0]?.reference)
+    ));
+
+  const payorRef = coverage.payor?.[0]?.reference;
+  const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+
+  // EHR stores payer ID in the same place and we recently stopped copying it in billing app
+  let groupNumber = coverage.class?.[0]?.value;
+  if (groupNumber === payorOrg?.id) groupNumber = undefined;
+
+  return groupNumber;
 }

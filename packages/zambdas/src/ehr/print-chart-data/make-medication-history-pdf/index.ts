@@ -101,10 +101,11 @@ const formatData = ({
     medications: {
       medications: medicationHistory.map((med) => {
         const lastFilledDate = med.intakeInfo?.lastFilledDate;
+        const lastFilledFallback = med.type === 'prescribed-medication' ? 'Not filled yet' : 'No date available';
         const additionalInfo = [
           med.intakeInfo?.dose,
           med.intakeInfo?.patientCouldNotConfirmDosage ? 'Patient could not confirm dosage' : null,
-          `Last filled: ${lastFilledDate ? formatLastFilledDate(lastFilledDate, timezone) : 'No date available'}`,
+          `Last filled: ${lastFilledDate ? formatLastFilledDate(lastFilledDate, timezone) : lastFilledFallback}`,
           `Refills: ${med.intakeInfo?.refills ?? 'Unknown'}`,
         ]
           .filter(Boolean)

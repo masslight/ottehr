@@ -11,24 +11,18 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { codeableConcept, createReference } from 'utils/lib/fhir/helpers';
+import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getMedicationName,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
 } from 'utils/lib/fhir/medication-administration';
 import { getFullName } from 'utils/lib/fhir/patient';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
-  CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
-  MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
-  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
 import {
@@ -48,6 +42,8 @@ import {
   CONTAINED_MEDICATION_ID,
   getContainedMedication,
   updateOrderDetails,
+  updateVaccineMedicationDetails,
+  validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
 
@@ -139,48 +135,7 @@ async function administerImmunizationOrder(
     throw new Error('Contained Medication is missing');
   }
 
-  if (administrationDetails.lot || administrationDetails.expDate) {
-    medication.batch = {
-      lotNumber: administrationDetails.lot,
-      expirationDate: administrationDetails.expDate,
-    };
-  }
-
-  // Clear existing administration extensions before re-adding to support edits
-  medication.extension = (medication.extension ?? []).filter(
-    (ext) =>
-      ext.url !== VACCINE_ADMINISTRATION_CODES_EXTENSION_URL &&
-      ext.url !== VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
-  );
-
-  medication.extension.push({
-    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(administrationDetails.mvx, MVX_CODE_SYSTEM_URL),
-  });
-  medication.extension?.push({
-    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(administrationDetails.cvx, CVX_CODE_SYSTEM_URL),
-  });
-  medication.extension?.push({
-    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(administrationDetails.ndc, CODE_SYSTEM_NDC),
-  });
-  if (administrationDetails.cptCodes && administrationDetails.cptCodes.length > 0) {
-    for (const cptCode of administrationDetails.cptCodes) {
-      medication.extension?.push({
-        url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-        valueCodeableConcept: {
-          coding: [{ code: cptCode.code, system: CODE_SYSTEM_CPT, display: cptCode.display }],
-        },
-      });
-    }
-  }
-  if (administrationDetails.visGivenDate) {
-    medication.extension?.push({
-      url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
-      valueDate: administrationDetails.visGivenDate,
-    });
-  }
+  updateVaccineMedicationDetails(medication, administrationDetails);
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [
     {
@@ -314,29 +269,7 @@ export function validateRequestParameters(
     }
   }
 
-  function validateDate(value: string, input: string): void {
-    const dt = DateTime.fromISO(value);
-    if (!dt.isValid || dt.year < 1900) {
-      throw INVALID_INPUT_ERROR(`Invalid ${input}, "${value}" is not a valid date`);
-    }
-  }
-
-  if (administrationDetails?.expDate) {
-    validateDate(administrationDetails.expDate, 'expiration date');
-  }
-  if (administrationDetails?.administeredDateTime) {
-    validateDate(administrationDetails.administeredDateTime, 'administered date');
-  }
-  if (administrationDetails?.visGivenDate) {
-    validateDate(administrationDetails.visGivenDate, 'VIS given date');
-  }
-
-  if (administrationDetails) {
-    if (administrationDetails.mvx) administrationDetails.mvx = administrationDetails.mvx.trim();
-    if (administrationDetails.cvx) administrationDetails.cvx = administrationDetails.cvx.trim();
-    if (administrationDetails.ndc) administrationDetails.ndc = administrationDetails.ndc.trim();
-    if (administrationDetails.cpt) administrationDetails.cpt = administrationDetails.cpt.trim();
-  }
+  validateAdministrationDetailsValues(administrationDetails);
 
   return {
     orderId,

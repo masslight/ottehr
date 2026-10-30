@@ -12,6 +12,7 @@ import {
   Sentence,
   TextBlank,
 } from '../../src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
+import { sentenceValue } from '../../src/features/visits/in-person/components/procedures/narrative/sentenceValue';
 
 function Select({ readOnly = false, initial }: { readOnly?: boolean; initial?: string }): ReactElement {
   const [value, setValue] = useState<string | undefined>(initial);
@@ -29,6 +30,19 @@ function Select({ readOnly = false, initial }: { readOnly?: boolean; initial?: s
     />
   );
 }
+
+describe('sentence value', () => {
+  it.each([
+    ['Tolerated Well', 'tolerated well'],
+    ['Left elbow', 'left elbow'],
+    ['Return if worsening', 'return if worsening'],
+    ['second-degree AV block, Mobitz I', 'second-degree AV block, Mobitz I'],
+    ['IV Kit', 'IV kit'],
+    ['McBurney point', 'McBurney point'],
+  ])('reads %s as "%s" inside a sentence', (stored, shown) => {
+    expect(sentenceValue(stored)).toBe(shown);
+  });
+});
 
 describe('inline blanks', () => {
   it.each(['click', 'Enter'])('does not change an already-selected Other option via %s', async (action) => {

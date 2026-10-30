@@ -1,5 +1,6 @@
-import Oystehr from '@oystehr/sdk';
-import { Account, Identifier, Patient, PaymentNotice, RelatedPerson } from 'fhir/r4b';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
+import { Account, FhirResource, Identifier, Patient, PaymentNotice, RelatedPerson } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { PAYMENT_VOID_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
@@ -117,8 +118,34 @@ export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
   reason: refund.metadata?.reason ?? refund.reason ?? undefined,
   notes: refund.metadata?.notes ?? undefined,
   refundedBy: refund.metadata?.refundedBy ?? undefined,
+  refundedByReference: refund.metadata?.refundedByReference ?? undefined,
   operationKey: refund.metadata?.operationKey ?? undefined,
 });
+
+// A record written in the same transaction as a notice change, like the billing app's claim history
+// entry; null when the change needs none.
+export type PaymentNoticeChangeRecorder = (
+  before: PaymentNotice,
+  after: PaymentNotice
+) => BatchInputRequest<FhirResource> | null;
+
+const patchPaymentNotice = async (
+  oystehr: Oystehr,
+  change: { id: string; before: PaymentNotice; after: PaymentNotice; operations: Operation[] },
+  recordChange?: PaymentNoticeChangeRecorder
+): Promise<void> => {
+  const record = recordChange?.(change.before, change.after);
+  await oystehr.fhir.transaction<FhirResource>({
+    requests: [
+      {
+        method: 'PATCH',
+        url: `/PaymentNotice/${change.id}`,
+        operations: change.operations,
+      },
+      ...(record ? [record] : []),
+    ],
+  });
+};
 
 // Stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe.
 // Locally recorded (manual/external) refunds already stamped on the notice always survive the re-stamp,
@@ -127,7 +154,8 @@ export const applyRefundsToPaymentNotice = async (
   oystehr: Oystehr,
   notice: PaymentNotice,
   refunds: PaymentRefundDTO[],
-  removeIds?: string[]
+  removeIds?: string[],
+  recordChange?: PaymentNoticeChangeRecorder
 ): Promise<void> => {
   if (!notice.id) return;
   const existing = parsePaymentRefundsFromNotice(notice);
@@ -138,51 +166,69 @@ export const applyRefundsToPaymentNotice = async (
   if (existing && canonical(existing) === canonical(merged)) return;
 
   const updatedExtensions = upsertPaymentRefundsExtension(notice.extension, merged);
-  await oystehr.fhir.patch<PaymentNotice>({
-    resourceType: 'PaymentNotice',
-    id: notice.id,
-    operations: [
-      // optimistic lock: fail if the notice changed since it was read, so a stale
-      // concurrent write can't silently drop another request's refund entry
-      ...(notice.meta?.versionId
-        ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
-        : []),
-      // FHIR forbids empty arrays, so an emptied extension list must be removed, not replaced
-      updatedExtensions.length === 0
-        ? { op: 'remove' as const, path: '/extension' }
-        : {
-            op: notice.extension !== undefined ? ('replace' as const) : ('add' as const),
-            path: '/extension',
-            value: updatedExtensions,
-          },
-    ],
-  });
+  await patchPaymentNotice(
+    oystehr,
+    {
+      id: notice.id,
+      before: notice,
+      after: {
+        ...notice,
+        extension: updatedExtensions.length > 0 ? updatedExtensions : undefined,
+      },
+      operations: [
+        // optimistic lock: fail if the notice changed since it was read, so a stale
+        // concurrent write can't silently drop another request's refund entry
+        ...(notice.meta?.versionId
+          ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
+          : []),
+        // FHIR forbids empty arrays, so an emptied extension list must be removed, not replaced
+        updatedExtensions.length === 0
+          ? { op: 'remove' as const, path: '/extension' }
+          : {
+              op: notice.extension !== undefined ? ('replace' as const) : ('add' as const),
+              path: '/extension',
+              value: updatedExtensions,
+            },
+      ],
+    },
+    recordChange
+  );
 };
 
 // Cancels a PaymentNotice and stamps the void extension; no-op when already cancelled.
 export const voidPaymentNotice = async (
   oystehr: Oystehr,
   notice: PaymentNotice,
-  voidInfo: PaymentVoidInfo
+  voidInfo: PaymentVoidInfo,
+  recordChange?: PaymentNoticeChangeRecorder
 ): Promise<void> => {
   if (!notice.id || notice.status === 'cancelled') return;
   const extension = [
     ...(notice.extension ?? []).filter((ext) => ext.url !== PAYMENT_VOID_EXTENSION_URL),
     buildPaymentVoidExtension(voidInfo),
   ];
-  await oystehr.fhir.patch<PaymentNotice>({
-    resourceType: 'PaymentNotice',
-    id: notice.id,
-    operations: [
-      // optimistic lock: the extension array is rebuilt from this snapshot, so a concurrent
-      // refund stamp must fail this patch instead of being silently overwritten
-      ...(notice.meta?.versionId
-        ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
-        : []),
-      { op: 'replace', path: '/status', value: 'cancelled' },
-      { op: notice.extension !== undefined ? 'replace' : 'add', path: '/extension', value: extension },
-    ],
-  });
+  await patchPaymentNotice(
+    oystehr,
+    {
+      id: notice.id,
+      before: notice,
+      after: {
+        ...notice,
+        status: 'cancelled',
+        extension,
+      },
+      operations: [
+        // optimistic lock: the extension array is rebuilt from this snapshot, so a concurrent
+        // refund stamp must fail this patch instead of being silently overwritten
+        ...(notice.meta?.versionId
+          ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
+          : []),
+        { op: 'replace', path: '/status', value: 'cancelled' },
+        { op: notice.extension !== undefined ? 'replace' : 'add', path: '/extension', value: extension },
+      ],
+    },
+    recordChange
+  );
 };
 
 // For reconciliation flows (webhook re-stamps) where losing the write to an unrelated concurrent
@@ -192,6 +238,7 @@ export const applyRefundsToPaymentNoticeWithRetry = async (
   notice: PaymentNotice,
   refunds: PaymentRefundDTO[],
   removeIds?: string[],
+  recordChange?: PaymentNoticeChangeRecorder,
   attempts = 3
 ): Promise<void> => {
   let current = notice;
@@ -199,7 +246,7 @@ export const applyRefundsToPaymentNoticeWithRetry = async (
   const removed = new Set(removeIds ?? []);
   for (let attempt = 1; ; attempt++) {
     try {
-      await applyRefundsToPaymentNotice(oystehr, current, pending, removeIds);
+      await applyRefundsToPaymentNotice(oystehr, current, pending, removeIds, recordChange);
       return;
     } catch (error) {
       if (attempt >= attempts || !current.id) throw error;

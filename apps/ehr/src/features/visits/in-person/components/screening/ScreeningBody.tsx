@@ -1,6 +1,7 @@
 import { Stack } from '@mui/material';
 import { FC } from 'react';
 import { Loader } from '../../../shared/components/Loader';
+import { PatientFormResponses } from '../../../shared/components/patient-forms/PatientFormResponses';
 import { useChartSection } from '../../../shared/hooks/useChartSection';
 import AskThePatient from './AskThePatient';
 import { ASQ } from './ASQ';
@@ -17,6 +18,7 @@ export const ScreeningBody: FC = () => {
       <Questions />
       <AskThePatient />
       <ASQ />
+      <PatientFormResponses placement="screening" scope="this-visit" />
       <ScreeningNotes />
     </Stack>
   );

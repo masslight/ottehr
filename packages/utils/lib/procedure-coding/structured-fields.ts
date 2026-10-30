@@ -4,7 +4,7 @@ export type StructuredValue = string | number | boolean | undefined;
 export type StructuredRow = Record<string, StructuredValue>;
 
 export interface StructuredFacts {
-  [key: string]: StructuredValue | StructuredRow[];
+  [key: string]: StructuredValue | StructuredRow[] | string[];
 }
 
 interface CodingFieldBase {
@@ -42,6 +42,15 @@ export interface TextCodingField extends CodingFieldBase {
 
 export type ScalarCodingField = SelectCodingField | NumberCodingField | CheckboxCodingField | TextCodingField;
 
+export interface MultiCodingField extends CodingFieldBase {
+  kind: 'multi';
+  options: readonly string[];
+  exclusive?: string;
+  defaultValue?: never;
+}
+
+export type FlatCodingField = ScalarCodingField | MultiCodingField;
+
 export interface RowsCodingField extends CodingFieldBase {
   kind: 'rows';
   /** Singular name of one row: the group header says "Wounds", a row says "Wound 1". */
@@ -51,7 +60,7 @@ export interface RowsCodingField extends CodingFieldBase {
 }
 
 /** Form metadata only. The kind determines the allowed defaults and children; billing stays in TS functions. */
-export type CodingField = ScalarCodingField | RowsCodingField;
+export type CodingField = FlatCodingField | RowsCodingField;
 
 /** Read only explicit answers. Never inspect procedureDetails, display names or CPT descriptions. */
 export function getStructuredFieldsData(input: ProcedureFactsInput, fields: readonly CodingField[]): StructuredFacts {
@@ -61,9 +70,17 @@ export function getStructuredFieldsData(input: ProcedureFactsInput, fields: read
   for (const field of fields) {
     const value = stored[field.key];
 
+    const chosen = field.kind === 'multi' ? readStrings(stored, field.key) : [];
+
     facts[field.key] =
       field.kind === 'rows' && Array.isArray(value)
-        ? value.map((row) => getStructuredFieldsData({ structuredFacts: row }, field.fields ?? []) as StructuredRow)
+        ? readRows(stored, field.key).map(
+            (row) => getStructuredFieldsData({ structuredFacts: row }, field.fields ?? []) as StructuredRow
+          )
+        : field.kind === 'multi'
+        ? chosen.length
+          ? chosen
+          : undefined
         : value === undefined || value === ''
         ? field.defaultValue
         : value;
@@ -86,10 +103,22 @@ export function invalidStructuredFields(fields: readonly CodingField[], facts: S
 
     if (field.kind === 'rows')
       return Array.isArray(value)
-        ? value.flatMap((row, i) =>
+        ? readRows(facts, field.key).flatMap((row, i) =>
             invalidStructuredFields(field.fields ?? [], row).map((label) => `${field.label} ${i + 1}: ${label}`)
           )
         : [field.label];
+
+    if (field.kind === 'multi') {
+      const chosen = readStrings(facts, field.key);
+      const exclusiveWithOthers =
+        field.exclusive !== undefined && chosen.length > 1 && chosen.includes(field.exclusive);
+      return Array.isArray(value) &&
+        chosen.length === value.length &&
+        chosen.every((item) => field.options.includes(item)) &&
+        !exclusiveWithOthers
+        ? []
+        : [field.label];
+    }
 
     if (field.kind === 'checkbox') return typeof value === 'boolean' ? [] : [field.label];
 
@@ -110,7 +139,12 @@ export function readNumber(facts: StructuredFacts | StructuredRow, key: string):
 
 export function readRows(facts: StructuredFacts, key: string): StructuredRow[] {
   const rows = facts[key];
-  return Array.isArray(rows) ? rows : [];
+  return Array.isArray(rows) ? rows.filter((row): row is StructuredRow => typeof row === 'object') : [];
+}
+
+export function readStrings(facts: StructuredFacts, key: string): string[] {
+  const values = facts[key];
+  return Array.isArray(values) ? values.filter((item): item is string => typeof item === 'string') : [];
 }
 
 /** Shape validation protects API/FHIR boundaries; missing answers are intentionally saveable. */
@@ -126,9 +160,11 @@ export function isStructuredFacts(value: unknown): value is StructuredFacts {
       (v) =>
         scalar(v) ||
         (Array.isArray(v) &&
-          v.every(
-            (row) => row !== null && typeof row === 'object' && !Array.isArray(row) && Object.values(row).every(scalar)
-          ))
+          (v.every((item) => typeof item === 'string') ||
+            v.every(
+              (row) =>
+                row !== null && typeof row === 'object' && !Array.isArray(row) && Object.values(row).every(scalar)
+            )))
     )
   );
 }

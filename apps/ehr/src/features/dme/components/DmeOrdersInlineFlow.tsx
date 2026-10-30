@@ -23,7 +23,7 @@ export const DmeOrdersInlineFlow: FC = () => {
   const { id: appointmentId } = useParams();
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  // In-house orders add billing codes, so the Assessment summary needs a re-read too.
+  // Orders add billing codes, so the Assessment summary needs a re-read too.
   const refreshSummaries = useRefreshNoteSummaries({ extraQueryKeys: [[DME_ORDERS_QUERY_KEY]] });
 
   const goToList = useCallback((): void => {

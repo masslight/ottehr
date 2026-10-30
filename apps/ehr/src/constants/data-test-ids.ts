@@ -626,6 +626,9 @@ export const dataTestIds = {
     downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
     medicalRecordExportProgress: 'medical-record-export-progress',
     faxMedicalRecordMenuItem: 'fax-medical-record-menu-item',
+    addFreeFormButton: 'add-free-form-button',
+    freeFormRow: 'free-form-row',
+    freeFormNoteInput: 'free-form-note-input',
   },
   patientDocsPage: {
     faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,
@@ -701,6 +704,11 @@ export const dataTestIds = {
     procedureDate: 'procedure-date',
     procedureTime: 'procedure-time',
     addDiagnosis: 'add-diagnosis',
+    ekgTiles: 'ekg-tiles',
+    ekgTile: (key: string) => `ekg-tile-${key}`,
+    ekgQtcMethod: 'ekg-qtc-method',
+    ekgSuggestions: 'ekg-suggestions',
+    ekgReminders: 'ekg-reminders',
   },
   proceduresPage: {
     title: 'procedures-title',
