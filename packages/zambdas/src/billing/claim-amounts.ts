@@ -11,6 +11,7 @@ import {
 import { DateTime } from 'luxon';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
 import {
@@ -21,12 +22,7 @@ import {
 import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
-import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
-import {
-  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
-  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
-  MANUAL_REFUND_ID_SYSTEM,
-} from './payments';
+import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from './payments';
 import { ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
@@ -266,6 +262,10 @@ export function isMatchedToClaim(claimResponse: ClaimResponse): boolean {
   return claimResponse.request?.reference?.startsWith('Claim/') ?? false;
 }
 
+export function matchedClaimId(claimResponse: ClaimResponse): string | undefined {
+  return getIdFromReference(claimResponse.request?.reference, 'Claim');
+}
+
 export interface EraClaimCounts {
   total: number;
   matched: number;
@@ -391,7 +391,7 @@ export async function fetchPatientPaymentsByEncounterIds(
       },
       {
         name: 'identifier',
-        value: `${MANUAL_REFUND_ID_SYSTEM}|,${STRIPE_PAYMENT_ID_SYSTEM}|,${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|,${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|`,
+        value: PATIENT_PAYMENT_IDENTIFIER_FILTER,
       },
     ],
     groupKeyOf: (notice) => notice.request?.identifier?.value,

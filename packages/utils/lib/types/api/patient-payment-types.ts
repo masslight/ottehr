@@ -6,6 +6,7 @@ export interface PaymentRefundDTO {
   reason?: string;
   notes?: string;
   refundedBy?: string; // display name of the logged-in user who issued the refund
+  refundedByReference?: string; // that user's Practitioner reference for claim history
   medium?: PaymentRefundMedium; // how the money was returned when the refund happened outside Stripe
   operationKey?: string; // EHR operation key stamped in Stripe refund metadata; ties refunds to reservations
 }
@@ -71,7 +72,12 @@ export interface CardPaymentDTO {
 }
 
 export interface CashPaymentDTO {
-  paymentMethod: 'cash' | 'check' | 'card-reader' | 'external-card-reader'; // terminal fallback external card reader payments are treated like cash/check because we have no direct processor link in this flow
+  // terminal fallback external card reader payments are treated like cash/check because we have no direct processor link in this flow;
+  // 'other' is collected somewhere the billing app cannot name (a manual billing payment, a Stripe invoice paid out of band)
+  paymentMethod: 'cash' | 'check' | 'card-reader' | 'external-card-reader' | 'other';
+  // card-reader only: the Stripe PaymentIntent the payment was taken through, which refunds go through;
+  // absent for a terminal payment Stripe recorded as a bare charge, which cannot be refunded here
+  stripePaymentId?: string;
   amountInCents: number;
   dateISO: string;
   fhirPaymentNotificationId?: string;
@@ -89,9 +95,11 @@ export interface CashPaymentDTO {
 
 export type PatientPaymentDTO = CardPaymentDTO | CashPaymentDTO;
 
+// Payments are listed per encounter: billing notices are keyed by encounter and so is the Stripe
+// account they were taken on.
 export interface ListPatientPaymentInput {
   patientId: string;
-  encounterId?: string;
+  encounterId: string;
 }
 
 export interface ListPatientPaymentResponse {
@@ -182,7 +190,9 @@ interface CardPayment {
 }
 
 interface CashPayment {
-  paymentMethod: 'cash' | 'check' | 'card-reader' | 'external-card-reader'; // terminal fallback external card reader payments are treated like cash/check because we have no direct processor link in this flow
+  // terminal fallback external card reader payments are treated like cash/check because we have no direct processor link in this flow;
+  // 'other' payments are read-only here (see CashPaymentDTO): the EHR cannot record one
+  paymentMethod: 'cash' | 'check' | 'card-reader' | 'external-card-reader';
   amountInCents: number;
   description?: string;
   // See CardPayment.idempotencyKey.

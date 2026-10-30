@@ -40,6 +40,7 @@ import {
   serviceLineSetValueProblem,
   ServiceLineValueType,
   setFieldValueProblem,
+  settableOptions,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   DateValue,
@@ -72,6 +73,7 @@ import { NioSelect } from '../NioSelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 import { ProviderSelect } from '../ProviderSelect';
+import { ServiceSelect } from '../ServiceSelect';
 import { TagSelect } from '../TagSelect';
 
 // ---------------------------------------------------------------------------
@@ -322,7 +324,7 @@ function TypedValueInput({
 }
 
 // Field-aware value input, dispatched on the catalog's valueType/format so new typed fields
-// (dropdowns with options, date pickers, numbers, tag/CPT/payer pickers) only need a catalog entry —
+// (dropdowns with options, date pickers, numbers, tag/CPT/payer/service pickers) only need a catalog entry —
 // and, for a genuinely new type, a branch here or in TypedValueInput.
 function FieldValueInput({
   fieldId,
@@ -336,11 +338,14 @@ function FieldValueInput({
   helperText,
   inputRef,
   allowEmptyOption,
+  forSetField,
 }: {
   fieldId: string;
   multiple: boolean;
   // The regex operators take a pattern: a plain text input replaces the field's usual picker.
   isRegex?: boolean;
+  // A setField value: offer only the field's settable options.
+  forSetField?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
@@ -417,6 +422,20 @@ function FieldValueInput({
       />
     );
   }
+  if (def?.format === 'service') {
+    return (
+      <ServiceSelect
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        label={label}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
   if (def?.format === 'tag' && !multiple) {
     return (
       <TagSelect
@@ -447,7 +466,7 @@ function FieldValueInput({
   return (
     <TypedValueInput
       valueType={def?.valueType}
-      options={def?.options}
+      options={forSetField && def?.options ? settableOptions(def.options) : def?.options}
       multiple={multiple}
       value={value}
       onChange={onChange}
@@ -1220,6 +1239,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
                 }
                 inputRef={ref}
                 allowEmptyOption={!!setFieldDef && !setFieldDef.requiredOnSet}
+                forSetField
               />
             )}
           />

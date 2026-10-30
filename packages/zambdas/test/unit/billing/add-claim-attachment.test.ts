@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
+import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { Mock, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/add-claim-attachment';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM, fetchById } from '../../../src/billing/shared';
+import { claimHistoryRequest, historyChanges, TEST_AGENT } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -61,6 +63,7 @@ describe('add-claim-attachment', () => {
         name: 'My Title',
         fileName: 'File.new.pdf',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
+        agent: TEST_AGENT,
       })
     ).resolves.toEqual({ documentReferenceId: 'new-document-reference-id', uploadUrl: 'some-presigned-url' });
     expect(oystehr.fhir.transaction).toBeCalledTimes(1);
@@ -121,6 +124,11 @@ describe('add-claim-attachment', () => {
             },
           ],
         },
+        claimHistoryRequest({
+          target: 'urn:uuid:doc-ref',
+          claimId: 'claim-id',
+          activity: CLAIM_PROVENANCE_ACTIVITY.create,
+        }),
       ],
     });
     expect(oystehr.z3.getPresignedUrl).toBeCalledTimes(1);
@@ -160,6 +168,7 @@ describe('add-claim-attachment', () => {
         fileName: 'File.new.pdf',
         reportTypeCode: 'RR',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
+        agent: TEST_AGENT,
       })
     ).resolves.toEqual({ documentReferenceId: 'new-document-reference-id', uploadUrl: 'some-presigned-url' });
     expect(oystehr.fhir.transaction).toBeCalledTimes(1);
@@ -220,6 +229,11 @@ describe('add-claim-attachment', () => {
             },
           ],
         },
+        claimHistoryRequest({
+          target: 'urn:uuid:doc-ref',
+          claimId: 'claim-id',
+          activity: CLAIM_PROVENANCE_ACTIVITY.create,
+        }),
       ],
     });
     expect(oystehr.z3.getPresignedUrl).toBeCalledTimes(1);
@@ -263,6 +277,7 @@ describe('add-claim-attachment', () => {
         PROJECT_API: 'https://project-api.zapehr.com/v1',
         PROJECT_ID: 'project-id',
       },
+      agent: TEST_AGENT,
     });
 
     const { 'objectPath+': objectPath } = (oystehr.z3.getPresignedUrl as Mock).mock.calls[0][0];
@@ -305,13 +320,20 @@ describe('add-claim-attachment', () => {
       fileName: 'op-note.png',
       mimeType: 'image/png',
       secrets,
+      agent: TEST_AGENT,
     });
     expect(attachmentOf(reported).contentType).toBe('image/png');
 
     // the title has no extension; the file name still says what the file is
     (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce(claim);
     const guessed = makeClient();
-    await performEffect(guessed, { claimId: 'claim-id', name: 'Scan', fileName: 'scan.jpeg', secrets });
+    await performEffect(guessed, {
+      claimId: 'claim-id',
+      name: 'Scan',
+      fileName: 'scan.jpeg',
+      secrets,
+      agent: TEST_AGENT,
+    });
     expect(attachmentOf(guessed).contentType).toBe('image/jpeg');
   });
 
@@ -338,6 +360,7 @@ describe('add-claim-attachment', () => {
         name: 'Op note',
         fileName: 'op-note.pdf',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
+        agent: TEST_AGENT,
       })
     ).rejects.toThrow('The claim attachment was created without an id');
   });
@@ -363,8 +386,54 @@ describe('add-claim-attachment', () => {
         name: 'Op note',
         fileName: 'op-note.pdf',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
+        agent: TEST_AGENT,
       })
     ).rejects.toThrow('z3 unavailable');
     expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('records the attachment name in the claim history', async () => {
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
+      resourceType: 'Claim',
+      id: 'claim-id',
+      status: 'active',
+      type: {
+        coding: [],
+      },
+      created: DateTime.now().toISO(),
+      insurance: [],
+      patient: {
+        reference: 'patient-id',
+      },
+      priority: {
+        coding: [],
+      },
+      provider: {
+        reference: 'organization-id',
+      },
+      use: 'claim',
+    });
+    const oystehr = makeClient();
+
+    await performEffect(oystehr, {
+      claimId: 'claim-id',
+      name: 'Op note',
+      fileName: 'op-note.pdf',
+      secrets: {
+        PROJECT_API: 'https://project-api.zapehr.com/v1',
+        PROJECT_ID: 'project-id',
+      },
+      agent: TEST_AGENT,
+    });
+
+    const [{ requests }] = (oystehr.fhir.transaction as Mock).mock.calls[0];
+    expect(historyChanges(requests)).toEqual([
+      {
+        field: 'name',
+        label: 'Name',
+        previousValue: null,
+        newValue: 'Op note',
+      },
+    ]);
   });
 });

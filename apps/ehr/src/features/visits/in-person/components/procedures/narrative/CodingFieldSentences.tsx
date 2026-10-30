@@ -5,9 +5,11 @@ import { LACERATION_CLOSURE, lacerationFamily } from 'utils/lib/procedure-coding
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import {
   CodingField,
+  FlatCodingField,
   getStructuredFieldsData,
+  MultiCodingField,
+  readRows,
   RowsCodingField,
-  ScalarCodingField,
   StructuredFacts,
   StructuredRow,
   StructuredValue,
@@ -25,17 +27,32 @@ interface FieldBlankOptions {
   placeholder?: string;
   /** Wording for the blank and its popover when the field's own label reads wrong in the sentence. */
   label?: string;
+  ordered?: boolean;
 }
 
 function fieldBlank(
-  field: ScalarCodingField,
-  current: StructuredValue,
-  change: (next: StructuredValue) => void,
+  field: FlatCodingField,
+  current: StructuredValue | string[],
+  change: (next: StructuredValue | string[]) => void,
   readOnly: boolean,
   options: FieldBlankOptions = {}
 ): ReactNode {
   const need = options.need ?? field.neededForCoding === true;
   const label = options.label ?? field.label;
+  if (field.kind === 'multi') {
+    const values = Array.isArray(current) ? current : [];
+    return (
+      <MultiBlank
+        label={label.toLowerCase()}
+        title={label}
+        options={field.options}
+        values={values}
+        onChange={(next) => change(withExclusiveOption(field, values, next))}
+        readOnly={readOnly}
+        need={need}
+      />
+    );
+  }
   if (field.kind === 'checkbox')
     return (
       <SelectBlank
@@ -54,7 +71,7 @@ function fieldBlank(
       <SelectBlank
         label={label.toLowerCase()}
         title={label}
-        options={[...field.options].sort((a, b) => a.localeCompare(b))}
+        options={options.ordered ? field.options : [...field.options].sort((a, b) => a.localeCompare(b))}
         value={typeof current === 'string' ? current : undefined}
         onChange={change}
         readOnly={readOnly}
@@ -88,7 +105,13 @@ function fieldBlank(
   );
 }
 
-const codingNeed = (field: ScalarCodingField, answers: StructuredFacts | StructuredRow): boolean =>
+const withExclusiveOption = (field: MultiCodingField, previous: readonly string[], next: string[]): string[] => {
+  const added = next.find((value) => !previous.includes(value));
+  if (field.exclusive === undefined || added === undefined) return next;
+  return added === field.exclusive ? [added] : next.filter((value) => value !== field.exclusive);
+};
+
+const codingNeed = (field: FlatCodingField, answers: StructuredFacts | StructuredRow): boolean =>
   typeof field.neededForCoding === 'function' ? field.neededForCoding(answers) : field.neededForCoding === true;
 
 interface RowRenderArgs {
@@ -101,12 +124,21 @@ interface RowRenderArgs {
   details: (placedKeys?: readonly string[]) => ReactNode;
 }
 
+interface MainRenderArgs {
+  answers: StructuredFacts;
+  readOnly: boolean;
+  pieces: (keys: readonly string[], options?: FieldBlankOptions) => ReactNode;
+  details: (placedKeys?: readonly string[]) => ReactNode;
+  update: (next: StructuredFacts) => void;
+}
+
 interface Props {
   family: ProcedureFamilyModel;
   value: StructuredFacts;
   onChange: (value: StructuredFacts) => void;
   readOnly: boolean;
   medicationUsed?: string;
+  renderMain?: (args: MainRenderArgs) => ReactNode;
   /** Hand-written sentence for a repeating group; the generic "label: [blank]" wording is the default. */
   renderRow?: (args: RowRenderArgs) => ReactNode;
   /** Laceration details use a compact optional picker; other families spell out each answer. */
@@ -115,19 +147,21 @@ interface Props {
 
 /** Turns a coding family's field definitions into sentences with inline blanks. The visibility, defaults and
  * answer normalisation are the same calls the old structured form made, so the engine sees identical facts. */
-const CodingFieldSentences: FC<Props> = ({
+export const CodingFieldSentences: FC<Props> = ({
   family,
   value,
   onChange,
   readOnly,
   medicationUsed,
+  renderMain,
   renderRow,
   compactDetails = false,
 }) => {
   const pieces = (
-    fields: readonly ScalarCodingField[],
+    fields: readonly FlatCodingField[],
     answers: StructuredFacts | StructuredRow,
-    update: (next: StructuredFacts | StructuredRow) => void
+    update: (next: StructuredFacts | StructuredRow) => void,
+    options?: FieldBlankOptions
   ): ReactNode =>
     fields.map((field, index) => (
       <Fragment key={field.key}>
@@ -135,16 +169,16 @@ const CodingFieldSentences: FC<Props> = ({
         {field.label}:{' '}
         {fieldBlank(
           field,
-          answers[field.key] as StructuredValue,
+          answers[field.key] as StructuredValue | string[],
           (next) => update({ ...answers, [field.key]: next }),
           readOnly,
-          { need: codingNeed(field, answers) }
+          { need: codingNeed(field, answers), ...options }
         )}
       </Fragment>
     ));
 
   const detailsPieces = (
-    fields: readonly ScalarCodingField[],
+    fields: readonly FlatCodingField[],
     answers: StructuredFacts | StructuredRow,
     update: (next: StructuredFacts | StructuredRow) => void
   ): ReactNode => {
@@ -188,20 +222,35 @@ const CodingFieldSentences: FC<Props> = ({
   ): ReactNode => {
     const displayed = getStructuredFieldsData({ structuredFacts: answers }, fields);
     const visible = fields.filter((field) => !field.visible || field.visible(displayed));
-    const scalars = visible.filter((field): field is ScalarCodingField => field.kind !== 'rows');
+    const flat = visible.filter((field): field is FlatCodingField => field.kind !== 'rows');
     const rows = visible.filter((field): field is RowsCodingField => field.kind === 'rows');
-    const main = scalars.filter((field) => !field.details);
-    const details = scalars.filter((field) => field.details);
+    const main = flat.filter((field) => !field.details);
+    const details = flat.filter((field) => field.details);
     const scalarUpdate = (next: StructuredFacts | StructuredRow): void => update(next as StructuredFacts);
+    const byKey = (keys: readonly string[]): FlatCodingField[] =>
+      keys.flatMap((key) => flat.filter((field) => field.key === key));
     return (
       <>
-        {(main.length > 0 || details.length > 0) && (
-          <Sentence>
-            {pieces(main, displayed, scalarUpdate)}
-            {main.length > 0 && '. '}
-            {detailsPieces(details, displayed, scalarUpdate)}
-          </Sentence>
-        )}
+        {renderMain
+          ? renderMain({
+              answers: displayed,
+              readOnly,
+              pieces: (keys, options) => pieces(byKey(keys), displayed, scalarUpdate, options),
+              details: (placedKeys = []) =>
+                detailsPieces(
+                  details.filter((field) => !placedKeys.includes(field.key)),
+                  displayed,
+                  scalarUpdate
+                ),
+              update,
+            })
+          : (main.length > 0 || details.length > 0) && (
+              <Sentence>
+                {pieces(main, displayed, scalarUpdate)}
+                {main.length > 0 && '. '}
+                {detailsPieces(details, displayed, scalarUpdate)}
+              </Sentence>
+            )}
         {rows.map((field) => renderRows(field, displayed, update))}
       </>
     );
@@ -212,11 +261,10 @@ const CodingFieldSentences: FC<Props> = ({
     answers: StructuredFacts,
     update: (next: StructuredFacts) => void
   ): ReactNode => {
-    const current = answers[field.key];
     // The page feeds this component through resolveFamilyFacts, and every family that has a
     // repeating group opens with one row ready to fill, so the ordinary visit needs no "Add" click.
     // This fallback is only for a value that arrives without rows.
-    const rows = Array.isArray(current) ? current : [];
+    const rows = readRows(answers, field.key);
     const change = (next: StructuredRow[]): void => update({ ...answers, [field.key]: next });
     return (
       <Box key={field.key} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

@@ -47,6 +47,7 @@ import {
   sumPatientPayments,
   toClaimPatientPayment,
 } from '../claim-amounts';
+import { getClaimServiceDate } from '../claim-search';
 import { buildEraRemitServiceLines } from '../era-remits';
 import { fetchClaimInvoices, toBillingInvoiceSummary } from '../invoices';
 import { getCLIA } from '../service-facility.helpers';
@@ -57,24 +58,23 @@ import {
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
-  // eslint-disable-next-line no-restricted-imports -- submission ClaimResponses are never billing-tagged
   createEraReadClient,
   ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
-  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
-  EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchClaimGraph,
   fhirName,
   formatAddress,
+  getClaimBillType,
   getClaimPcn,
   getClaimService,
   getClaimStatus,
   getClaimSupportingInfo,
   getClaimType,
   getEraCheckNumber,
+  getGroupNumber,
   getTaxonomy,
   readClaimItemDrug,
   readClaimItemOrderingProvider,
@@ -94,17 +94,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const untaggedClient = createEraReadClient(m2mToken, params.secrets);
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, untaggedClient, params);
+  const response = await performEffect(oystehr, eraReadClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// untaggedClient reads only the claim's submission ClaimResponses, which never get the billing tag; its
-// ERA remits are tagged by sub-tag-era-resources, so they come through the billing client.
 export async function performEffect(
   oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  eraReadClient: Oystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -142,8 +140,8 @@ export async function performEffect(
     invoices,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
-    fetchClaimFirstSubmittedDate(untaggedClient, claimId),
+    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
+    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
@@ -155,7 +153,7 @@ export async function performEffect(
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
-    oystehr,
+    eraReadClient,
     claimResponses
   );
   const paymentReconciliationById = new Map(
@@ -277,9 +275,8 @@ export async function performEffect(
       };
     });
   const status = getClaimStatus(claim);
+  const dos = DateTime.fromISO(getClaimServiceDate(claim)).toFormat('yyyy-MM-dd');
   const patientAddr = patient?.address?.[0];
-  const facilityTypeCode = getExtension(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
-  const frequencyCode = getExtension(claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
   const attachments = documentReferences.flatMap<ClaimAttachment>((dr) => {
     const si = claim.supportingInfo?.find(
       (si) => si.valueReference?.reference?.replace('DocumentReference/', '') === dr.id
@@ -306,6 +303,7 @@ export async function performEffect(
     status,
     statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
+    dos,
     service: getClaimService(claim),
     patientName: fhirName(patient),
     patientDob: patient?.birthDate ?? '',
@@ -320,6 +318,7 @@ export async function performEffect(
     payerId: resolvedPayerId(insurer) ?? '',
     payerClaimControlNumber,
     memberId: coverage?.subscriberId ?? '',
+    groupNumber: await getGroupNumber(oystehr, coverage, payersByRef),
     subscriberId: coverage?.subscriberId ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
     relationship: (coverage?.relationship?.coding?.[0]?.display as SubscriberRelationship) ?? '',
@@ -329,16 +328,19 @@ export async function performEffect(
     secondaryPayerName: secondaryInsurer?.name ?? '',
     secondaryPayerId: resolvedPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
+    secondaryGroupNumber: await getGroupNumber(oystehr, secondaryCoverage, payersByRef),
     secondaryPayerClaimControlNumber,
     tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
     tertiaryPayerName: tertiaryInsurer?.name ?? '',
     tertiaryPayerId: resolvedPayerId(tertiaryInsurer) ?? '',
     tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
+    tertiaryGroupNumber: await getGroupNumber(oystehr, tertiaryCoverage, payersByRef),
     tertiaryPayerClaimControlNumber,
     quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
     quaternaryPayerName: quaternaryInsurer?.name ?? '',
     quaternaryPayerId: resolvedPayerId(quaternaryInsurer) ?? '',
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
+    quaternaryGroupNumber: await getGroupNumber(oystehr, quaternaryCoverage, payersByRef),
     quaternaryPayerClaimControlNumber,
     nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
     nonInsurancePayerName: nonInsurancePayer.name,
@@ -408,7 +410,7 @@ export async function performEffect(
       .map((t) => t.code ?? '')
       .filter(Boolean),
     pcn: getClaimPcn(claim),
-    billType: facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '',
+    billType: getClaimBillType(claim),
     patientDischargeStatusCode: getExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
     admissionType: getExtension(claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
     admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',

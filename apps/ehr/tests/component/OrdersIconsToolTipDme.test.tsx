@@ -65,7 +65,21 @@ describe('OrdersIconsToolTip DME orders', () => {
     expect(screen.getByRole('link')).toHaveAttribute('href', '/in-person/appt-1/dme?encounterId=enc-1');
   });
 
-  it('shows nothing for DME when there are no pending orders', () => {
+  it('flags the icon only while an order awaits dispense', () => {
+    const dispensed = { ...pendingDmeOrder, id: 'dr-2', status: DmeOrderStatus.dispensed };
+    const ordered = { ...pendingDmeOrder, id: 'dr-3', external: true, status: DmeOrderStatus.ordered };
+    const { container, rerender } = renderTooltip(rowWith([dispensed, ordered]));
+    expect(container.querySelector('.MuiBadge-badge:not(.MuiBadge-invisible)')).toBeNull();
+
+    rerender(
+      <MemoryRouter>
+        <OrdersIconsToolTip appointment={appointment} orders={rowWith([dispensed, pendingDmeOrder])} />
+      </MemoryRouter>
+    );
+    expect(container.querySelector('.MuiBadge-badge:not(.MuiBadge-invisible)')).not.toBeNull();
+  });
+
+  it('shows nothing for DME when there are no orders', () => {
     const { container } = renderTooltip(rowWith(undefined));
     expect(container).toBeEmptyDOMElement();
   });

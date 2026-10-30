@@ -141,7 +141,6 @@ export function computeBillingStatementAmounts(params: {
   );
   const patientPaidByLine = applyPaymentToLines(patientPaidCents, owedByLine);
   const writeOffsByLine = applyPaymentToLines(writeOffsCents, owedByLine);
-  console.log('colin', writeOffsByLine);
 
   return {
     lines: items.map((_, index) => ({

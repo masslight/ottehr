@@ -4,7 +4,6 @@ import { Encounter, Task } from 'fhir/r4b';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
 import { CreateBillingClaimTaskInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- checks the clinical encounter exists
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';

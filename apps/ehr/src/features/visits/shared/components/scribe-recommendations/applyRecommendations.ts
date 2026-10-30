@@ -1,6 +1,6 @@
 import { ExecutionMode, StepOutcome } from 'src/features/easy-chart/executor/types';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { useScribeRecommendationsStore } from './scribeRecommendations.store';
+import { commitOpenEditor, useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { ScribeRecommendation } from './types';
 
 const APPLY_ORDER: Record<Exclude<ScribeRecommendation['kind'], 'action'>, number> = {
@@ -80,6 +80,7 @@ export const applyRecommendations = async (
   run: RecommendationRunner,
   options: { mode?: ExecutionMode; reconcile?: () => Promise<void> } = {}
 ): Promise<ApplyRunResult> => {
+  commitOpenEditor();
   const store = useScribeRecommendationsStore.getState();
   const wanted = new Set(ids);
   const toApply = sortForApply(

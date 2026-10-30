@@ -161,7 +161,7 @@ function PaymentActionDialog({
     mutationFn: async () => {
       if (!oystehrZambda) throw new Error('Oystehr client is not available');
       await oystehrZambda.zambda.execute({
-        id: isRefund ? 'patient-payments-refund' : 'patient-payments-void',
+        id: isRefund ? 'refund-billing-patient-payment' : 'void-billing-patient-payment',
         encounterId,
         paymentNoticeId: payment.fhirPaymentNotificationId,
         reason,
@@ -330,6 +330,8 @@ export default function PaymentDetailsDialog({
 
   const refundApplies =
     REFUNDABLE_METHODS.includes(payment.paymentMethod) &&
+    // a card or terminal payment Stripe recorded without a PaymentIntent cannot be refunded from here
+    (!STRIPE_LINKED_METHODS.includes(payment.paymentMethod) || !!payment.stripePaymentId) &&
     !payment.voided &&
     netCents > 0 &&
     !!payment.fhirPaymentNotificationId;

@@ -1307,10 +1307,18 @@ export async function fetchAdHocEncounterRows(
         methodOf(latestDto(VitalFieldNames.VitalBloodPressure))
       );
 
+      const oxygenSatDto = latestDto(VitalFieldNames.VitalOxygenSaturation);
+
       row.oxygenSaturationMethod = knownValueOrNull(
         Object.values(VitalsOxygenSatObservationMethod),
-        methodOf(latestDto(VitalFieldNames.VitalOxygenSaturation))
+        methodOf(oxygenSatDto)
       );
+
+      const supplementalO2 =
+        oxygenSatDto?.field === VitalFieldNames.VitalOxygenSaturation ? oxygenSatDto.supplementalO2 : undefined;
+      row.oxygenSaturationFlowRate = supplementalO2?.flowRate ?? null;
+      row.oxygenSaturationDeliveryType = supplementalO2?.deliveryType ?? null;
+      row.oxygenSaturationDeliveryTypeOther = supplementalO2?.deliveryTypeOther ?? '';
 
       const weightDto = latestDto(VitalFieldNames.VitalWeight);
 

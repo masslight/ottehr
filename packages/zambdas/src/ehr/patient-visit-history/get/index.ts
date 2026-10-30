@@ -10,6 +10,7 @@ import {
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS, FollowupSubtype } from 'utils/lib/fhir/encounter';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
@@ -44,6 +45,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { getFreeFormEncounterSearchParams, toFreeFormEncounterRows } from '../../shared/free-form-encounters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -138,12 +140,18 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     params.push({ name: 'date', value: `le${to}` });
   }
 
-  const allResources = (
-    await oystehr.fhir.search<Appointment | Encounter | Practitioner | Location | Slot | Task>({
-      resourceType: 'Appointment',
-      params,
-    })
-  ).unbundle();
+  const [allResources, freeFormEncounterResources] = await Promise.all([
+    oystehr.fhir
+      .search<Appointment | Encounter | Practitioner | Location | Slot | Task>({
+        resourceType: 'Appointment',
+        params,
+      })
+      .then((bundle) => bundle.unbundle()),
+    getAllFhirSearchPages<Encounter>(
+      { resourceType: 'Encounter', params: getFreeFormEncounterSearchParams({ patientId, from, to }) },
+      oystehr
+    ),
+  ]);
 
   const appointments: Appointment[] = [];
   const encounters: Encounter[] = [];
@@ -301,7 +309,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     return typeMatch && statusMatch && serviceModeMatch;
   });
 
-  return { visits, metadata: { totalCount: visitRows.length, sortDirection } };
+  return {
+    visits,
+    freeFormEncounters: toFreeFormEncounterRows(freeFormEncounterResources, { from, to }),
+    metadata: { totalCount: visitRows.length, sortDirection },
+  };
 };
 
 const complexValidation = async (

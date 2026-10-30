@@ -62,4 +62,17 @@ describe('create-slot integration — happy path', () => {
     expect(slot.resourceType).toBe('Slot');
     createdSlotId = slot.id;
   });
+
+  it('rejects a past start time for a non-EHR caller', async () => {
+    const startISO = DateTime.now().minus({ days: 1 }).startOf('hour').toISO()!;
+    await expect(
+      oystehrPatient.zambda.executePublic({
+        id: 'create-slot',
+        scheduleId,
+        startISO,
+        lengthInMinutes: 15,
+        serviceModality: ServiceMode['in-person'],
+      })
+    ).rejects.toThrow();
+  });
 });

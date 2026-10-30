@@ -8,6 +8,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
+import { PAYMENT_REFUND_MEDIUMS, PAYMENT_REFUND_VOID_REASONS } from '../../api/patient-payment-types';
 import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
 import {
@@ -33,6 +34,7 @@ import {
   ClaimStatusFieldKey,
   isValidClaimStatusValue,
 } from './claim-status';
+import { RULES_ENGINE_SUBMISSION_INSURANCES, RULES_ENGINE_SUBMISSION_TYPES } from './rules-engine.constants';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -71,6 +73,9 @@ export const AddClaimNoteInputSchema = z.object({
 
 export const ExportClaimX12InputSchema = z.object({
   claimId: z.string().uuid(),
+  submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES).optional(),
+  submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES).optional(),
+  payerClaimControlNumber: z.string().min(1).optional(),
 });
 
 export const GetClaimCms1500InputSchema = z.object({
@@ -253,9 +258,7 @@ export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
 });
 
-export const SearchBillingServicesInputSchema = z.object({
-  name: nonEmptyString.optional(),
-});
+export const SearchBillingServicesInputSchema = z.object({});
 
 export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
@@ -532,6 +535,7 @@ export const CreateBillingCoverageInputSchema = z
     patientId: nonEmptyString,
     payerId: nonEmptyString,
     memberId: nonEmptyString,
+    groupNumber: z.string().optional(),
     insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
@@ -553,6 +557,7 @@ export const UpdateBillingCoverageInputSchema = z
     claimId: historyClaimId,
     payerId: nonEmptyString.optional(),
     memberId: nonEmptyString.optional(),
+    groupNumber: z.string().optional(),
     insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema.optional(),
@@ -935,15 +940,83 @@ export const BillingInvoiceStatementInputSchema = z.object({
   invoiceId: nonEmptyString,
 });
 
-// Billing-side companions to the EHR patient-payments refund/void zambdas. Input is only the
-// clinical notice id: the zambdas derive all billing writes from the authoritative clinical
-// PaymentNotice, so an unauthorized caller can only trigger an idempotent re-sync.
-export const RecordBillingRefundInputSchema = z.object({
-  clinicalPaymentNoticeId: nonEmptyString.uuid(),
+// EHR-facing patient payment endpoints owned by the billing app.
+export const ListBillingPatientPaymentsInputSchema = z.object({
+  patientId: nonEmptyString.uuid(),
+  encounterId: nonEmptyString.uuid(),
 });
 
-export const RecordBillingVoidInputSchema = z.object({
-  clinicalPaymentNoticeId: nonEmptyString.uuid(),
+// client key, stable across retries of one logical payment; embedded in a FHIR token search
+// (`system|value`), so no `|` or whitespace
+const patientPaymentIdempotencyKey = z
+  .string()
+  .max(128)
+  .regex(/^[A-Za-z0-9._-]+$/)
+  .optional();
+// blank free text is treated as absent
+const blankableText = z
+  .string()
+  .optional()
+  .transform((value) => value || undefined);
+
+export const PostBillingPatientPaymentInputSchema = z.object({
+  patientId: nonEmptyString.uuid(),
+  encounterId: nonEmptyString.uuid(),
+  paymentDetails: z.discriminatedUnion('paymentMethod', [
+    z.object({
+      paymentMethod: z.literal('card'),
+      amountInCents: z.number().int().positive(),
+      paymentMethodId: nonEmptyString,
+      description: blankableText,
+      idempotencyKey: patientPaymentIdempotencyKey,
+    }),
+    z.object({
+      // terminal fallback external card reader payments have no processor link, like cash/check
+      paymentMethod: z.enum(['cash', 'check', 'card-reader', 'external-card-reader']),
+      amountInCents: z.number().int().positive(),
+      description: blankableText,
+      idempotencyKey: patientPaymentIdempotencyKey,
+    }),
+  ]),
+});
+
+export const RefundBillingPatientPaymentInputSchema = z
+  .object({
+    encounterId: nonEmptyString.uuid(),
+    paymentNoticeId: nonEmptyString.uuid(),
+    reason: z.enum(PAYMENT_REFUND_VOID_REASONS),
+    notes: blankableText,
+    // defaults to the full remaining (un-refunded) amount
+    amountInCents: z.number().int().positive().optional(),
+    external: z
+      .boolean()
+      .optional()
+      .transform((value) => value || undefined),
+    medium: z.enum(PAYMENT_REFUND_MEDIUMS).optional(),
+    idempotencyKey: z.string().uuid().optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.external && !input.medium) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['medium'],
+        message: 'medium is required for external refunds',
+      });
+    }
+    if (!input.external && input.medium) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['medium'],
+        message: 'medium only applies to external refunds',
+      });
+    }
+  });
+
+export const VoidBillingPatientPaymentInputSchema = z.object({
+  encounterId: nonEmptyString.uuid(),
+  paymentNoticeId: nonEmptyString.uuid(),
+  reason: z.enum(PAYMENT_REFUND_VOID_REASONS),
+  notes: blankableText,
 });
 
 export const AddClaimWriteOffInputSchema = z
@@ -1197,8 +1270,6 @@ export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderIn
 export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
-export type RecordBillingRefundInput = z.output<typeof RecordBillingRefundInputSchema>;
-export type RecordBillingVoidInput = z.output<typeof RecordBillingVoidInputSchema>;
 export type UpdateBillingClaimTaskInput = z.output<typeof UpdateBillingClaimTaskInputSchema>;
 export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
