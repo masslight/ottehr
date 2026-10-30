@@ -94,6 +94,11 @@ export async function fetchNdcProduct(candidates: string[]): Promise<NdcProduct 
   return result ? toProduct(result, candidates) : undefined;
 }
 
+// TODO(OTR-3339): catalog drugs have no RxNorm code yet, so compareNdcProduct falls back to matching names and
+// product NDCs. Once in-house medications are added through the terminology drug search (the eRx order form's
+// `searchMedications`, which returns each strength's RxCUI and NDC list), store the RxCUI on the catalog drug,
+// then remove ingredientWords, the name/product-NDC fallback below, `comparedBy: 'name'`, and the three
+// "compareNdcProduct" tests that cover it in test/unit/lookup-ndc.test.ts.
 const ingredientWords = (product: NdcProduct): string[] =>
   (product.genericName ?? '')
     .split(/,| and /i)

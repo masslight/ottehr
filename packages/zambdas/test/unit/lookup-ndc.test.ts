@@ -146,6 +146,7 @@ describe('compareNdcProduct', () => {
     rxcuis: result.openfda?.rxcui ?? [],
   });
 
+  // The next three tests cover the name fallback; remove them with it (see the TODO in lookup-ndc/helpers.ts).
   it('compares by name when the catalog drug has no RxCUI', () => {
     expect(compareNdcProduct(product(ondansetronResult), catalog)).toEqual({ status: 'match', comparedBy: 'name' });
     expect(compareNdcProduct(product(morphineResult), catalog)).toEqual({ status: 'mismatch', comparedBy: 'name' });
