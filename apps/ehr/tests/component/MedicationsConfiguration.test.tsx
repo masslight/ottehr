@@ -56,6 +56,19 @@ const nonAdminUser = {
   hasRole: () => false,
 } as any;
 
+const selectStatus = (label: 'All statuses' | 'Active' | 'Inactive'): void => {
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Status' }));
+  fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: label }));
+};
+
+const dataRowNames = (): string[] => {
+  const table = screen.getByRole('table', { name: 'medicationsTable' });
+  return within(table)
+    .getAllByRole('row')
+    .slice(1)
+    .map((row) => within(row).getByRole('link').textContent ?? '');
+};
+
 describe('MedicationsConfigurationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,6 +88,7 @@ describe('MedicationsConfigurationPage', () => {
     render(<MedicationsConfigurationPage />, { wrapper: createWrapper() });
 
     await waitFor(() => expect(screen.getByText('Acetaminophen')).toBeInTheDocument());
+    selectStatus('All statuses');
 
     // Get all table rows (skip header row)
     const table = screen.getByRole('table', { name: 'medicationsTable' });
@@ -118,8 +132,10 @@ describe('MedicationsConfigurationPage', () => {
     render(<MedicationsConfigurationPage />, { wrapper: createWrapper() });
 
     await waitFor(() => expect(screen.getByText('ActiveMed')).toBeInTheDocument());
-    expect(screen.getByText('Active')).toBeInTheDocument();
-    expect(screen.getByText('Inactive')).toBeInTheDocument();
+    selectStatus('All statuses');
+    const table = screen.getByRole('table', { name: 'medicationsTable' });
+    expect(within(table).getByText('Active')).toBeInTheDocument();
+    expect(within(table).getByText('Inactive')).toBeInTheDocument();
   });
 
   it('calls updateInHouseMedication to deactivate when clicking deactivate button on active med', async () => {
@@ -150,6 +166,8 @@ describe('MedicationsConfigurationPage', () => {
 
     render(<MedicationsConfigurationPage />, { wrapper: createWrapper() });
 
+    await waitFor(() => expect(getInHouseMedications).toHaveBeenCalled());
+    selectStatus('Inactive');
     await waitFor(() => expect(screen.getByText('InactiveMed')).toBeInTheDocument());
 
     const activateButton = screen.getByRole('button', { name: 'Activate' });
@@ -197,5 +215,50 @@ describe('MedicationsConfigurationPage', () => {
 
     expect(screen.getByText('Acetaminophen')).toBeInTheDocument();
     expect(screen.queryByText('Ibuprofen')).not.toBeInTheDocument();
+  });
+
+  it('filters medications by status, showing only active ones by default', async () => {
+    vi.mocked(getInHouseMedications).mockResolvedValue([
+      makeMed('1', 'Zoloft', 'inactive'),
+      makeMed('2', 'Acetaminophen', 'active'),
+      makeMed('3', 'Ibuprofen', undefined),
+      makeMed('4', 'Aspirin', 'inactive'),
+    ]);
+
+    render(<MedicationsConfigurationPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(screen.getByText('Acetaminophen')).toBeInTheDocument());
+    expect(dataRowNames()).toEqual(['Acetaminophen', 'Ibuprofen']);
+
+    selectStatus('Inactive');
+    expect(dataRowNames()).toEqual(['Aspirin', 'Zoloft']);
+
+    selectStatus('All statuses');
+    expect(dataRowNames()).toEqual(['Acetaminophen', 'Ibuprofen', 'Aspirin', 'Zoloft']);
+
+    fireEvent.change(screen.getByLabelText('Search by name'), { target: { value: 'z' } });
+    selectStatus('Active');
+    expect(screen.queryByText('Zoloft')).not.toBeInTheDocument();
+    selectStatus('Inactive');
+    expect(dataRowNames()).toEqual(['Zoloft']);
+  });
+
+  it('moves back a page when deactivating the only medication on the last page of the active view', async () => {
+    const meds = Array.from({ length: 11 }, (_, i) => makeMed(`m${i}`, `Med ${String(i).padStart(2, '0')}`, 'active'));
+    vi.mocked(getInHouseMedications)
+      .mockResolvedValueOnce(meds)
+      .mockResolvedValueOnce([...meds.slice(0, 10), makeMed('m10', 'Med 10', 'inactive')]);
+    vi.mocked(updateInHouseMedication).mockResolvedValue({} as any);
+
+    render(<MedicationsConfigurationPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(screen.getByText('Med 00')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next page' }));
+    expect(dataRowNames()).toEqual(['Med 10']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
+
+    await waitFor(() => expect(dataRowNames()).toHaveLength(10));
+    expect(screen.queryByText('Med 10')).not.toBeInTheDocument();
   });
 });

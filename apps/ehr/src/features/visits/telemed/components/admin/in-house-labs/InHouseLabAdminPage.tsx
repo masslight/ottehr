@@ -3,6 +3,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
+  MenuItem,
   Skeleton,
   Table,
   TableBody,
@@ -25,15 +26,22 @@ import { InHouseLabsAdminListItem } from 'utils/lib/types/data/in-house/in-house
 
 const DEFAULT_ROWS_PER_PAGE = 10;
 
+type StatusFilter = 'all' | 'active' | 'inactive';
+
 export default function InHouseLabAdminPage(): ReactElement {
   const theme = useTheme();
   const { data, isPending, isError } = useAdminListInHouseLabs();
   const [labFilter, setLabFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [pageNumber, setPageNumber] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);
 
   const filteredLabs: InHouseLabsAdminListItem[] =
-    data?.labs?.filter((lab) => lab.name.toLowerCase().includes(labFilter.toLowerCase())) ?? [];
+    data?.labs?.filter((lab) => {
+      if (statusFilter === 'active' && lab.status !== 'active') return false;
+      if (statusFilter === 'inactive' && lab.status === 'active') return false;
+      return lab.name.toLowerCase().includes(labFilter.toLowerCase());
+    }) ?? [];
 
   const currentPageLabs = filteredLabs.slice(pageNumber * rowsPerPage, (pageNumber + 1) * rowsPerPage);
 
@@ -86,16 +94,34 @@ export default function InHouseLabAdminPage(): ReactElement {
         </Button>
       </AdminHeaderActionSlot>
       <TableContainer sx={{ overflowX: 'auto' }}>
-        <TextField
-          fullWidth
-          id="lab-search-field"
-          label="In-House Lab"
-          onChange={(e) => {
-            setLabFilter(e.target.value);
-          }}
-          InputProps={{ endAdornment: <SearchIcon /> }}
-          margin="dense"
-        ></TextField>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <TextField
+            fullWidth
+            id="lab-search-field"
+            label="In-House Lab"
+            onChange={(e) => {
+              setLabFilter(e.target.value);
+              setPageNumber(0);
+            }}
+            InputProps={{ endAdornment: <SearchIcon /> }}
+            margin="dense"
+          ></TextField>
+          <TextField
+            select
+            label="Status"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as StatusFilter);
+              setPageNumber(0);
+            }}
+            margin="dense"
+            sx={{ width: 200, flexShrink: 0 }}
+          >
+            <MenuItem value="all">All statuses</MenuItem>
+            <MenuItem value="active">Active</MenuItem>
+            <MenuItem value="inactive">Inactive</MenuItem>
+          </TextField>
+        </Box>
 
         <Table sx={{ minWidth: 650 }}>
           <TableHead>
