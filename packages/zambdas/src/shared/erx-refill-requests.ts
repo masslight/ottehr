@@ -301,6 +301,7 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
       pharmacyRequest || pharmacyChangeRequest
         ? undefined
         : {
+            title: getTaskInputValue(task, MANUAL_TASK.input.title),
             note: getTaskInputValue(task, MANUAL_TASK.input.details),
             takenBy: getTaskInputValue(task, MANUAL_TASK.input.providerName),
             taken: task.authoredOn,

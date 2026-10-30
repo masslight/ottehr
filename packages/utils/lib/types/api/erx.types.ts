@@ -163,7 +163,8 @@ export interface GetErxRequestResponse {
   kind: 'refill' | 'change';
   pharmacyRequest?: ErxPharmacyRefillRequest;
   pharmacyChangeRequest?: ErxPharmacyChangeRequest;
-  patientRequest?: { note?: string; takenBy?: string; taken?: string };
+  /** What staff wrote down: the task's title and details */
+  patientRequest?: { title?: string; note?: string; takenBy?: string; taken?: string };
   prescription: PrescribedMedicationDTO;
   prescriberName?: string;
   patient: Patient;

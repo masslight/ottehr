@@ -6,9 +6,10 @@ import {
   ERX_REQUEST_TASK_INPUT_SYSTEM,
   SURESCRIPTS_MESSAGE_ID_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
+import { ERX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  getErxRequest,
   makeErxRequestTask,
   readPharmacyChangeRequest,
   readPharmacyRefillRequest,
@@ -245,5 +246,52 @@ describe('a pharmacy change request, as the dialog reads it', () => {
     const request = readPharmacyChangeRequest([change('requested', [input('change-code', 'P')])]);
     expect(request).toMatchObject({ code: 'P', subCodes: [], suggestions: [] });
     expect(request.reason).toBeUndefined();
+  });
+});
+
+describe('a patient’s request that staff wrote down, as the dialog reads it', () => {
+  it('reads the task’s title and details, who took it and when', async () => {
+    const manual = (code: string, valueString: string): NonNullable<Task['input']>[number] => ({
+      type: { coding: [{ code }] },
+      valueString,
+    });
+    const task: Task = {
+      resourceType: 'Task',
+      id: 'task-1',
+      status: 'requested',
+      intent: 'order',
+      code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }] },
+      groupIdentifier: { value: MANUAL_TASK.category.erx },
+      authoredOn: '2026-10-28T10:00:00.000Z',
+      input: [
+        manual(MANUAL_TASK.input.title, 'Mom called for albuterol refill'),
+        manual(MANUAL_TASK.input.details, 'Out in 2 days'),
+        manual(MANUAL_TASK.input.providerName, 'Kim Front'),
+        manual(MANUAL_TASK.input.orderId, 'rx-1'),
+      ],
+    };
+    const oystehr = {
+      fhir: {
+        get: vi.fn().mockResolvedValue(task),
+        search: vi.fn().mockResolvedValue({
+          unbundle: () => [
+            {
+              resourceType: 'MedicationRequest',
+              id: 'rx-1',
+              status: 'active',
+              intent: 'order',
+              subject: { reference: 'Patient/patient-1' },
+            },
+            { resourceType: 'Patient', id: 'patient-1' },
+          ],
+        }),
+      },
+    } as unknown as Oystehr;
+    expect((await getErxRequest(oystehr, 'task-1')).patientRequest).toEqual({
+      title: 'Mom called for albuterol refill',
+      note: 'Out in 2 days',
+      takenBy: 'Kim Front',
+      taken: '2026-10-28T10:00:00.000Z',
+    });
   });
 });
