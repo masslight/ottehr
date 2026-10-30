@@ -1,18 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { updatePatientNote } from 'src/api/api';
-import { PatientNoteItem } from 'src/features/patient-notes/components/PatientNoteItem';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { updateNote } from 'src/api/api';
+import { NoteItem } from 'src/features/patient-notes/components/NoteItem';
+import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('src/api/api', () => ({ updatePatientNote: vi.fn(), deletePatientNote: vi.fn() }));
+vi.mock('src/api/api', () => ({ updateNote: vi.fn(), deleteNote: vi.fn() }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 
 const PATIENT_ID = 'patient-1';
 
-const note = (overrides: Partial<PatientNoteDTO> = {}): PatientNoteDTO => ({
+const note = (overrides: Partial<NoteDTO> = {}): NoteDTO => ({
   resourceId: 'note-1',
   patientId: PATIENT_ID,
   text: 'Prefers morning calls',
@@ -25,15 +25,15 @@ const note = (overrides: Partial<PatientNoteDTO> = {}): PatientNoteDTO => ({
   ...overrides,
 });
 
-const renderNote = (dto: PatientNoteDTO): void => {
+const renderNote = (dto: NoteDTO): void => {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <PatientNoteItem note={dto} target={{ patientId: PATIENT_ID }} />
+      <NoteItem note={dto} target={{ patientId: PATIENT_ID }} />
     </QueryClientProvider>
   );
 };
 
-describe('PatientNoteItem', () => {
+describe('NoteItem', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -53,7 +53,7 @@ describe('PatientNoteItem', () => {
   });
 
   it("won't save an edit that leaves the text as it was", async () => {
-    vi.mocked(updatePatientNote).mockResolvedValue({ note: note({ text: 'Prefers evening calls' }) });
+    vi.mocked(updateNote).mockResolvedValue({ note: note({ text: 'Prefers evening calls' }) });
     renderNote(note());
 
     await userEvent.click(screen.getByRole('button', { name: 'edit note' }));
@@ -68,7 +68,7 @@ describe('PatientNoteItem', () => {
     await userEvent.type(field, 'Prefers evening calls');
     await userEvent.click(save);
 
-    expect(updatePatientNote).toHaveBeenCalledWith(expect.anything(), {
+    expect(updateNote).toHaveBeenCalledWith(expect.anything(), {
       note: { resourceId: 'note-1', patientId: PATIENT_ID, text: 'Prefers evening calls' },
     });
   });

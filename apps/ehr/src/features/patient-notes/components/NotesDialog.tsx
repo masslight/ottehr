@@ -2,18 +2,18 @@ import CloseIcon from '@mui/icons-material/Close';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton, Typography } from '@mui/material';
 import React from 'react';
-import { noteKind, NoteTarget } from '../hooks/usePatientNotes';
-import { AddPatientNote } from './AddPatientNote';
-import { PatientNotesList } from './PatientNotesList';
+import { noteKind, NoteTarget } from '../hooks/useNotes';
+import { AddNote } from './AddNote';
+import { NotesList } from './NotesList';
 
-interface PatientNotesDialogProps {
+interface NotesDialogProps {
   target: NoteTarget;
   open: boolean;
   onClose: () => void;
   onNoteCreated?: (text: string) => void;
 }
 
-export const PatientNotesDialog: React.FC<PatientNotesDialogProps> = ({ target, open, onClose, onNoteCreated }) => {
+export const NotesDialog: React.FC<NotesDialogProps> = ({ target, open, onClose, onNoteCreated }) => {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>
@@ -33,8 +33,8 @@ export const PatientNotesDialog: React.FC<PatientNotesDialogProps> = ({ target, 
         </Box>
       </DialogTitle>
       <DialogContent sx={{ px: 0 }}>
-        <AddPatientNote target={target} onCreated={onNoteCreated} />
-        <PatientNotesList target={target} />
+        <AddNote target={target} onCreated={onNoteCreated} />
+        <NotesList target={target} />
       </DialogContent>
     </Dialog>
   );

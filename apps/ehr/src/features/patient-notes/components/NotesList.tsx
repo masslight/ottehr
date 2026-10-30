@@ -1,14 +1,14 @@
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import React from 'react';
-import { noteKind, NoteTarget, usePatientNotes } from '../hooks/usePatientNotes';
-import { PatientNoteItem } from './PatientNoteItem';
+import { noteKind, NoteTarget, useNotes } from '../hooks/useNotes';
+import { NoteItem } from './NoteItem';
 
-interface PatientNotesListProps {
+interface NotesListProps {
   target: NoteTarget;
 }
 
-export const PatientNotesList: React.FC<PatientNotesListProps> = ({ target }) => {
-  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = usePatientNotes(target);
+export const NotesList: React.FC<NotesListProps> = ({ target }) => {
+  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useNotes(target);
 
   if (isLoading) {
     return (
@@ -39,7 +39,7 @@ export const PatientNotesList: React.FC<PatientNotesListProps> = ({ target }) =>
   return (
     <>
       {notes.map((note, i) => (
-        <PatientNoteItem key={note.resourceId ?? i} note={note} target={target} />
+        <NoteItem key={note.resourceId ?? i} note={note} target={target} />
       ))}
       {hasNextPage && (
         <Box sx={{ px: 3, py: 1 }}>

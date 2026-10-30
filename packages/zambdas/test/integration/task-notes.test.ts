@@ -3,7 +3,7 @@ import { Communication, FhirResource, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
-import { GetPatientNotesOutput, SavePatientNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { GetNotesOutput, SaveNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { TASK_NOTE_NOTIFIED_TAG_CODE, TASK_NOTE_NOTIFIED_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -25,9 +25,8 @@ describe('task notes integration', () => {
 
   const tagged = <T extends FhirResource>(resource: T, processId: string): T =>
     addProcessIdMetaTagToResource(resource, processId) as T;
-  const getNotes = async (): Promise<GetPatientNotesOutput> =>
-    (await oystehrZambdas.zambda.execute({ id: 'get-patient-notes', taskIds: [task.id] }))
-      .output as GetPatientNotesOutput;
+  const getNotes = async (): Promise<GetNotesOutput> =>
+    (await oystehrZambdas.zambda.execute({ id: 'get-patient-notes', taskIds: [task.id] })).output as GetNotesOutput;
   const readNote = (id: string): Promise<Communication> =>
     oystehrAdmin.fhir.get<Communication>({ resourceType: 'Communication', id });
 
@@ -80,7 +79,7 @@ describe('task notes integration', () => {
       id: 'create-patient-note',
       note: { taskId: task.id, text: 'Payer called back' },
     });
-    callerNoteId = (created.output as SavePatientNoteOutput).note.resourceId;
+    callerNoteId = (created.output as SaveNoteOutput).note.resourceId;
 
     const { notes } = await getNotes();
 

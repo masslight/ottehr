@@ -18,7 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const resource = await oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: resourceId });
 
-  if (!isPatientOrTaskNote(resource)) throw FHIR_RESOURCE_VALIDATION_ERROR('Resource is not a patient note');
+  if (!isPatientOrTaskNote(resource)) throw FHIR_RESOURCE_VALIDATION_ERROR('Resource is not a note');
 
   await oystehr.fhir.update<Communication>({ ...resource, id: resourceId, status: 'entered-in-error' });
 

@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Communication, Extension, Practitioner } from 'fhir/r4b';
 import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
-import { SavePatientNoteOutput, UpdatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { SaveNoteOutput, UpdateNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FHIR_RESOURCE_NOT_FOUND, FHIR_RESOURCE_VALIDATION_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -22,8 +22,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 const ZAMBDA_NAME = 'update-patient-note';
 let m2mToken: string;
 
-const assertNoteEditable = (resource: Communication, note: UpdatePatientNoteRequest): void => {
-  if (!isPatientOrTaskNote(resource)) throw FHIR_RESOURCE_VALIDATION_ERROR('Resource is not a patient note');
+const assertNoteEditable = (resource: Communication, note: UpdateNoteRequest): void => {
+  if (!isPatientOrTaskNote(resource)) throw FHIR_RESOURCE_VALIDATION_ERROR('Resource is not a note');
 
   const belongs = note.taskId
     ? isTaskNote(resource) && getNoteTaskId(resource) === note.taskId
@@ -83,7 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   });
 
-  const output: SavePatientNoteOutput = { note: toNoteDto(saved, callerId) };
+  const output: SaveNoteOutput = { note: toNoteDto(saved, callerId) };
 
   return {
     body: JSON.stringify(output),

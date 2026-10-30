@@ -7,23 +7,19 @@ import {
   useQueryClient,
   UseQueryResult,
 } from '@tanstack/react-query';
-import {
-  GetPatientNotesOutput,
-  MarkTaskNotesReadInput,
-  PatientNoteDTO,
-} from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { getPatientNotes, markTaskNotesRead } from '../../../api/api';
+import { GetNotesOutput, MarkTaskNotesReadInput, NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { getNotes, markTaskNotesRead } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
 const TASK_BOARD_NOTES_KEY = ['patient-notes', 'tasks'];
 
-export const useTaskNotes = (taskIds: string[]): UseQueryResult<PatientNoteDTO[], Error> => {
+export const useTaskNotes = (taskIds: string[]): UseQueryResult<NoteDTO[], Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery({
     queryKey: [...TASK_BOARD_NOTES_KEY, taskIds],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('API client not available');
-      return (await getPatientNotes(oystehrZambda, { taskIds })).notes;
+      return (await getNotes(oystehrZambda, { taskIds })).notes;
     },
     enabled: taskIds.length > 0 && Boolean(oystehrZambda),
     refetchInterval: 30000,
@@ -47,7 +43,7 @@ export const useMarkTaskNotesRead = (): UseMutationResult<void, Error, MarkTaskN
     },
     onSuccess: (_result, { taskId, noteIds }) => {
       const readIds = new Set(noteIds);
-      queryClient.setQueryData<InfiniteData<GetPatientNotesOutput>>(['patient-notes', { taskId }], (data) =>
+      queryClient.setQueryData<InfiniteData<GetNotesOutput>>(['patient-notes', { taskId }], (data) =>
         data
           ? {
               ...data,

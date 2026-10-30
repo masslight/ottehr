@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { PatientNotesDialog } from 'src/features/patient-notes/components/PatientNotesDialog';
-import { usePatientNotes } from 'src/features/patient-notes/hooks/usePatientNotes';
+import { NotesDialog } from 'src/features/patient-notes/components/NotesDialog';
+import { useNotes } from 'src/features/patient-notes/hooks/useNotes';
 import { useMarkTaskNotesRead } from 'src/features/patient-notes/hooks/useTaskNotes';
 
 interface TaskNotesDialogProps {
@@ -10,7 +10,7 @@ interface TaskNotesDialogProps {
 }
 
 export const TaskNotesDialog: React.FC<TaskNotesDialogProps> = ({ taskId, onClose, onNoteCreated }) => {
-  const { data, isSuccess, isFetchedAfterMount } = usePatientNotes({ taskId });
+  const { data, isSuccess, isFetchedAfterMount } = useNotes({ taskId });
   const { mutateAsync: markRead } = useMarkTaskNotesRead();
   const pendingReadIds = useRef(new Set<string>());
   const unreadNoteIds = useMemo(
@@ -32,5 +32,5 @@ export const TaskNotesDialog: React.FC<TaskNotesDialogProps> = ({ taskId, onClos
       .finally(() => noteIds.forEach((id) => pendingReadIds.current.delete(id)));
   }, [unreadNoteIds, markRead, taskId]);
 
-  return <PatientNotesDialog target={{ taskId }} open onClose={onClose} onNoteCreated={onNoteCreated} />;
+  return <NotesDialog target={{ taskId }} open onClose={onClose} onNoteCreated={onNoteCreated} />;
 };

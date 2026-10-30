@@ -12,25 +12,25 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { TextFieldStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/TextFieldStyled';
-import { PatientNoteDTO, UpdatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { noteKind, NoteTarget } from '../hooks/usePatientNotes';
-import { useUpdatePatientNote } from '../hooks/useUpdatePatientNote';
+import { NoteDTO, UpdateNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { noteKind, NoteTarget } from '../hooks/useNotes';
+import { useUpdateNote } from '../hooks/useUpdateNote';
 
-interface EditPatientNoteModalProps {
-  note: PatientNoteDTO;
+interface EditNoteModalProps {
+  note: NoteDTO;
   target: NoteTarget;
   onClose: () => void;
 }
 
-export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note, target, onClose }) => {
+export const EditNoteModal: React.FC<EditNoteModalProps> = ({ note, target, onClose }) => {
   const theme = useTheme();
   const [text, setText] = useState(note.text);
-  const { mutateAsync: save, isPending } = useUpdatePatientNote(target);
+  const { mutateAsync: save, isPending } = useUpdateNote(target);
   const label = noteKind(target) === 'task' ? 'Task Note' : 'Patient Note';
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim() || !note.resourceId) return;
-    const payload: UpdatePatientNoteRequest = {
+    const payload: UpdateNoteRequest = {
       resourceId: note.resourceId,
       ...target,
       text: text.trim(),

@@ -6,7 +6,7 @@ import { TASK_NOTE_NOTIFIED_TAG_CODE, TASK_NOTE_NOTIFIED_TAG_SYSTEM } from 'util
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters as validateCreate } from '../src/ehr/patient-notes/create/validateRequestParameters';
-import { GetPatientNotesSchema } from '../src/ehr/patient-notes/get/index';
+import { GetNotesSchema } from '../src/ehr/patient-notes/get/index';
 import { MarkTaskNotesReadSchema } from '../src/ehr/patient-notes/mark-read/index';
 import {
   NOTE_EDITOR_EXTENSION_URL,
@@ -113,9 +113,9 @@ describe('task note validation', () => {
   });
 
   it('accepts taskIds for get, and not together with patientId', () => {
-    expect(validateWithSchema(GetPatientNotesSchema, makeInput({ taskIds: [TASK_ID] })).taskIds).toEqual([TASK_ID]);
+    expect(validateWithSchema(GetNotesSchema, makeInput({ taskIds: [TASK_ID] })).taskIds).toEqual([TASK_ID]);
     expect(() =>
-      validateWithSchema(GetPatientNotesSchema, makeInput({ taskIds: [TASK_ID], patientId: PATIENT_ID }))
+      validateWithSchema(GetNotesSchema, makeInput({ taskIds: [TASK_ID], patientId: PATIENT_ID }))
     ).toThrow();
   });
 

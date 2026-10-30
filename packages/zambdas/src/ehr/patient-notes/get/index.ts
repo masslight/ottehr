@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { GetPatientNotesOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { GetNotesOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken, getUserToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -11,7 +11,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 
-export const GetPatientNotesSchema = z
+export const GetNotesSchema = z
   .object({
     patientId: z.string().uuid().optional(),
     taskIds: z.array(z.string().uuid()).min(1).max(100).optional(),
@@ -26,7 +26,7 @@ const ZAMBDA_NAME = 'get-patient-notes';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { patientId, taskIds, offset, pageSize, secrets } = validateWithSchema(GetPatientNotesSchema, input);
+  const { patientId, taskIds, offset, pageSize, secrets } = validateWithSchema(GetNotesSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
@@ -44,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
       oystehr
     );
-    const output: GetPatientNotesOutput = { notes: resources.map((note) => toNoteDto(note, callerId)), hasMore: false };
+    const output: GetNotesOutput = { notes: resources.map((note) => toNoteDto(note, callerId)), hasMore: false };
     return { body: JSON.stringify(output), statusCode: 200 };
   }
 
@@ -63,7 +63,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const resources = bundle.unbundle();
   const hasMore = bundle.link?.some((link) => link.relation === 'next') ?? false;
 
-  const output: GetPatientNotesOutput = { notes: resources.map((resource) => toNoteDto(resource)), hasMore };
+  const output: GetNotesOutput = { notes: resources.map((resource) => toNoteDto(resource)), hasMore };
 
   return {
     body: JSON.stringify(output),

@@ -135,14 +135,14 @@ import {
   UpdatePatientLoginPhoneNumbersInput,
 } from 'utils/lib/types/api/patient-login-phone-numbers.types';
 import {
-  CreatePatientNoteInput,
-  DeletePatientNoteInput,
+  CreateNoteInput,
+  DeleteNoteInput,
+  GetNotesInput,
+  GetNotesOutput,
   GetPatientNotesCountOutput,
-  GetPatientNotesInput,
-  GetPatientNotesOutput,
   MarkTaskNotesReadInput,
-  SavePatientNoteOutput,
-  UpdatePatientNoteInput,
+  SaveNoteOutput,
+  UpdateNoteInput,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import {
   PracticeKpisReportZambdaInput,
@@ -4064,10 +4064,7 @@ export const deleteInboundFax = async (oystehr: Oystehr, parameters: DeleteInbou
   }
 };
 
-export const getPatientNotes = async (
-  oystehr: Oystehr,
-  parameters: GetPatientNotesInput
-): Promise<GetPatientNotesOutput> => {
+export const getNotes = async (oystehr: Oystehr, parameters: GetNotesInput): Promise<GetNotesOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'get-patient-notes', ...parameters });
     return chooseJson(response);
@@ -4090,10 +4087,7 @@ export const getPatientNotesCount = async (
   }
 };
 
-export const createPatientNote = async (
-  oystehr: Oystehr,
-  parameters: CreatePatientNoteInput
-): Promise<SavePatientNoteOutput> => {
+export const createNote = async (oystehr: Oystehr, parameters: CreateNoteInput): Promise<SaveNoteOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'create-patient-note', ...parameters });
     return chooseJson(response);
@@ -4103,10 +4097,7 @@ export const createPatientNote = async (
   }
 };
 
-export const updatePatientNote = async (
-  oystehr: Oystehr,
-  parameters: UpdatePatientNoteInput
-): Promise<SavePatientNoteOutput> => {
+export const updateNote = async (oystehr: Oystehr, parameters: UpdateNoteInput): Promise<SaveNoteOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'update-patient-note', ...parameters });
     return chooseJson(response);
@@ -4116,7 +4107,7 @@ export const updatePatientNote = async (
   }
 };
 
-export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePatientNoteInput): Promise<void> => {
+export const deleteNote = async (oystehr: Oystehr, parameters: DeleteNoteInput): Promise<void> => {
   try {
     await oystehr.zambda.execute({ id: 'delete-patient-note', ...parameters });
   } catch (error: unknown) {

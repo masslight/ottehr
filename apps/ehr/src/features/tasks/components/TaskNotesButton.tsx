@@ -3,12 +3,12 @@ import { Badge, useTheme } from '@mui/material';
 import React from 'react';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { Task } from 'utils/lib/types/data/tasks/types';
 
 interface TaskNotesButtonProps {
   task: Task;
-  notes: PatientNoteDTO[];
+  notes: NoteDTO[];
   currentUserId: string | undefined;
   onOpenNotes: () => void;
 }

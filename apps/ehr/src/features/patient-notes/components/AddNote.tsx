@@ -2,17 +2,17 @@ import { Box, CircularProgress, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { useCreatePatientNote } from '../hooks/useCreatePatientNote';
-import { noteKind, NoteTarget } from '../hooks/usePatientNotes';
+import { useCreateNote } from '../hooks/useCreateNote';
+import { noteKind, NoteTarget } from '../hooks/useNotes';
 
-interface AddPatientNoteProps {
+interface AddNoteProps {
   target: NoteTarget;
   onCreated?: (text: string) => void;
 }
 
-export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ target, onCreated }) => {
+export const AddNote: React.FC<AddNoteProps> = ({ target, onCreated }) => {
   const [text, setText] = useState('');
-  const { mutateAsync: save, isPending } = useCreatePatientNote(target);
+  const { mutateAsync: save, isPending } = useCreateNote(target);
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim()) return;

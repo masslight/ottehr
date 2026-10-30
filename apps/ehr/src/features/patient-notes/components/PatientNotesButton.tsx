@@ -2,7 +2,7 @@ import { Button, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { GenericToolTip } from '../../../components/GenericToolTip';
 import { usePatientNotesCount } from '../hooks/usePatientNotesCount';
-import { PatientNotesDialog } from './PatientNotesDialog';
+import { NotesDialog } from './NotesDialog';
 
 interface PatientNotesButtonProps {
   patientId?: string;
@@ -60,7 +60,7 @@ export const PatientNotesButton: React.FC<PatientNotesButtonProps> = ({ patientI
         </Button>
       </GenericToolTip>
 
-      <PatientNotesDialog target={{ patientId }} open={open} onClose={() => setOpen(false)} />
+      <NotesDialog target={{ patientId }} open={open} onClose={() => setOpen(false)} />
     </>
   );
 };

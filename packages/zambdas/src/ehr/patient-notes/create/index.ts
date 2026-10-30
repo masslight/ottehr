@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, Practitioner } from 'fhir/r4b';
-import { SavePatientNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { SaveNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
 import { getPractitionerName, toNoteDto } from '../../../shared/notes';
@@ -33,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const saved = await oystehr.fhir.create<Communication>(resource);
 
-  const output: SavePatientNoteOutput = { note: toNoteDto(saved, callerId) };
+  const output: SaveNoteOutput = { note: toNoteDto(saved, callerId) };
 
   return {
     body: JSON.stringify(output),

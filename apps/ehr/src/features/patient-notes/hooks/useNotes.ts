@@ -1,6 +1,6 @@
 import { InfiniteData, QueryClient, useInfiniteQuery, UseInfiniteQueryResult } from '@tanstack/react-query';
-import { GetPatientNotesOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { getPatientNotes } from '../../../api/api';
+import { GetNotesOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { getNotes } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { invalidateTaskBoardNotes } from './useTaskNotes';
 
@@ -16,9 +16,7 @@ export const invalidateNotes = (queryClient: QueryClient, target: NoteTarget): v
   else void queryClient.invalidateQueries({ queryKey: ['patient-notes-count', { patientId: target.patientId }] });
 };
 
-export const usePatientNotes = (
-  target: NoteTarget
-): UseInfiniteQueryResult<InfiniteData<GetPatientNotesOutput>, Error> => {
+export const useNotes = (target: NoteTarget): UseInfiniteQueryResult<InfiniteData<GetNotesOutput>, Error> => {
   const { oystehrZambda } = useApiClients();
   const { patientId, taskId } = target;
 
@@ -26,8 +24,8 @@ export const usePatientNotes = (
     queryKey: ['patient-notes', target],
     queryFn: async ({ pageParam }) => {
       if (!oystehrZambda || !(patientId || taskId)) throw new Error('Missing client or note target');
-      if (taskId) return getPatientNotes(oystehrZambda, { taskIds: [taskId] });
-      return getPatientNotes(oystehrZambda, { patientId, offset: pageParam, pageSize: PAGE_SIZE });
+      if (taskId) return getNotes(oystehrZambda, { taskIds: [taskId] });
+      return getNotes(oystehrZambda, { patientId, offset: pageParam, pageSize: PAGE_SIZE });
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {

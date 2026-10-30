@@ -4,30 +4,30 @@ import { DateTime } from 'luxon';
 import React, { useState } from 'react';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { BoxStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/BoxStyled';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { useDeletePatientNote } from '../hooks/useDeletePatientNote';
-import { noteKind, NoteTarget } from '../hooks/usePatientNotes';
-import { EditPatientNoteModal } from './EditPatientNoteModal';
+import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { useDeleteNote } from '../hooks/useDeleteNote';
+import { noteKind, NoteTarget } from '../hooks/useNotes';
+import { EditNoteModal } from './EditNoteModal';
 
-interface PatientNoteItemProps {
-  note: PatientNoteDTO;
+interface NoteItemProps {
+  note: NoteDTO;
   target: NoteTarget;
 }
 
-export const formatNoteByline = (note: PatientNoteDTO): string => {
+export const formatNoteByline = (note: NoteDTO): string => {
   const written = note.sent ?? note.lastUpdated;
   const date = written ? DateTime.fromISO(written).toFormat('MM/dd/yyyy hh:mm a') : '';
   const editors = note.editorNames?.length ? `, edited by ${note.editorNames.join(', ')}` : '';
   return `${date} by ${note.authorName || note.authorId}${editors || (note.edited ? ' (edited)' : '')}`;
 };
 
-export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note, target }) => {
+export const NoteItem: React.FC<NoteItemProps> = ({ note, target }) => {
   const theme = useTheme();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const { mutateAsync: deleteNote, isPending: isDeleting } = useDeletePatientNote(target);
+  const { mutateAsync: deleteNote, isPending: isDeleting } = useDeleteNote(target);
 
-  const handleDelete = async (entity: PatientNoteDTO): Promise<void> => {
+  const handleDelete = async (entity: NoteDTO): Promise<void> => {
     if (!entity.resourceId) return;
     await deleteNote(entity.resourceId);
   };
@@ -65,7 +65,7 @@ export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note, target }
         </Box>
       </BoxStyled>
 
-      {isEditOpen && <EditPatientNoteModal note={note} target={target} onClose={() => setIsEditOpen(false)} />}
+      {isEditOpen && <EditNoteModal note={note} target={target} onClose={() => setIsEditOpen(false)} />}
 
       <InPersonModal
         open={isDeleteOpen}

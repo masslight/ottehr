@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GetPatientNotesCountSchema } from '../src/ehr/patient-notes/count/index';
 import { validateRequestParameters as validateCreate } from '../src/ehr/patient-notes/create/validateRequestParameters';
 import { validateRequestParameters as validateDelete } from '../src/ehr/patient-notes/delete/validateRequestParameters';
-import { GetPatientNotesSchema } from '../src/ehr/patient-notes/get/index';
+import { GetNotesSchema } from '../src/ehr/patient-notes/get/index';
 import { validateRequestParameters as validateUpdate } from '../src/ehr/patient-notes/update/validateRequestParameters';
 import { NOTE_EDITOR_EXTENSION_URL } from '../src/shared/notes';
 import { getMyPractitionerId } from '../src/shared/practitioners';
@@ -127,7 +127,7 @@ function fakeNote(overrides: Partial<Communication> = {}): Communication {
 
 describe('get-patient-notes validateRequestParameters', () => {
   it('parses a valid patientId with defaults for offset and pageSize', () => {
-    const result = validateWithSchema(GetPatientNotesSchema, makeInput({ patientId: VALID_PATIENT_ID }));
+    const result = validateWithSchema(GetNotesSchema, makeInput({ patientId: VALID_PATIENT_ID }));
     expect(result.patientId).toBe(VALID_PATIENT_ID);
     expect(result.offset).toBe(0);
     expect(result.pageSize).toBe(20);
@@ -135,7 +135,7 @@ describe('get-patient-notes validateRequestParameters', () => {
 
   it('parses explicit offset and pageSize', () => {
     const result = validateWithSchema(
-      GetPatientNotesSchema,
+      GetNotesSchema,
       makeInput({ patientId: VALID_PATIENT_ID, offset: 40, pageSize: 10 })
     );
     expect(result.offset).toBe(40);
@@ -143,20 +143,20 @@ describe('get-patient-notes validateRequestParameters', () => {
   });
 
   it('throws when body is missing', () => {
-    expect(() => validateWithSchema(GetPatientNotesSchema, makeInput(null))).toThrow();
+    expect(() => validateWithSchema(GetNotesSchema, makeInput(null))).toThrow();
   });
 
   it('throws when patientId is not a UUID', () => {
-    expect(() => validateWithSchema(GetPatientNotesSchema, makeInput({ patientId: 'not-a-uuid' }))).toThrow(/uuid/i);
+    expect(() => validateWithSchema(GetNotesSchema, makeInput({ patientId: 'not-a-uuid' }))).toThrow(/uuid/i);
   });
 
   it('throws when patientId is absent', () => {
-    expect(() => validateWithSchema(GetPatientNotesSchema, makeInput({}))).toThrow();
+    expect(() => validateWithSchema(GetNotesSchema, makeInput({}))).toThrow();
   });
 
   it('throws when pageSize exceeds 100', () => {
     expect(() =>
-      validateWithSchema(GetPatientNotesSchema, makeInput({ patientId: VALID_PATIENT_ID, pageSize: 101 }))
+      validateWithSchema(GetNotesSchema, makeInput({ patientId: VALID_PATIENT_ID, pageSize: 101 }))
     ).toThrow();
   });
 });
@@ -599,7 +599,7 @@ describe('update-patient-note handler', () => {
 
     await expect(
       updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, 'user-token'))
-    ).rejects.toMatchObject({ code: 4103, message: expect.stringMatching(/not a patient note/i) });
+    ).rejects.toMatchObject({ code: 4103, message: expect.stringMatching(/not a note/i) });
 
     expect(mockFhirClient.fhir.patch).not.toHaveBeenCalled();
   });
@@ -720,7 +720,7 @@ describe('delete-patient-note handler', () => {
 
     await expect(deleteHandler(makeInput({ resourceId: VALID_NOTE_ID }, 'user-token'))).rejects.toMatchObject({
       code: 4103,
-      message: expect.stringMatching(/not a patient note/i),
+      message: expect.stringMatching(/not a note/i),
     });
 
     expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();

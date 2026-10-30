@@ -1,13 +1,13 @@
 import { Box, Link, Typography } from '@mui/material';
 import React from 'react';
 import { GenericToolTip } from 'src/components/GenericToolTip';
-import { formatNoteByline } from 'src/features/patient-notes/components/PatientNoteItem';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { formatNoteByline } from 'src/features/patient-notes/components/NoteItem';
+import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { Task } from 'utils/lib/types/data/tasks/types';
 
 interface TaskTitleProps {
   task: Task;
-  notes: PatientNoteDTO[];
+  notes: NoteDTO[];
   onOpenNotes: () => void;
 }
 

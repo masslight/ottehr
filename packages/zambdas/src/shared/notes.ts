@@ -1,7 +1,7 @@
 import { Communication, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 
 export const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 export const TASK_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/task|task-note`;
@@ -27,7 +27,7 @@ export const isTaskNoteUnreadBy = (resource: Communication, practitionerId: stri
 export const getPractitionerName = (practitioner: Practitioner): string =>
   [practitioner.name?.[0]?.given?.join(' '), practitioner.name?.[0]?.family].filter(Boolean).join(' ');
 
-export const toNoteDto = (resource: Communication, callerId?: string): PatientNoteDTO => {
+export const toNoteDto = (resource: Communication, callerId?: string): NoteDTO => {
   const authorId = resource.sender?.reference?.split('/')[1] ?? '';
   const editors = (resource.extension ?? []).filter((ext) => ext.url === NOTE_EDITOR_EXTENSION_URL);
   return {

@@ -3,14 +3,14 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { MemoryRouter } from 'react-router-dom';
-import { createPatientNote, getPatientNotes, markTaskNotesRead } from 'src/api/api';
-import { invalidateNotes } from 'src/features/patient-notes/hooks/usePatientNotes';
+import { createNote, getNotes, markTaskNotesRead } from 'src/api/api';
+import { invalidateNotes } from 'src/features/patient-notes/hooks/useNotes';
 import { Tasks } from 'src/features/tasks/pages/Tasks';
 import {
-  GetPatientNotesInput,
+  GetNotesInput,
   MarkTaskNotesReadInput,
-  PatientNoteDTO,
-  SavePatientNoteOutput,
+  NoteDTO,
+  SaveNoteOutput,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { Task } from 'utils/lib/types/data/tasks/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,14 +19,14 @@ const ME = 'practitioner-me';
 const OTHER = 'practitioner-other';
 
 let tasks: Task[] = [];
-let notes: PatientNoteDTO[] = [];
+let notes: NoteDTO[] = [];
 
 vi.mock('src/api/api', () => ({
-  getPatientNotes: vi.fn(async (_client: unknown, { taskIds }: GetPatientNotesInput) => ({
+  getNotes: vi.fn(async (_client: unknown, { taskIds }: GetNotesInput) => ({
     notes: notes.filter((note) => note.taskId && taskIds?.includes(note.taskId)),
     hasMore: false,
   })),
-  createPatientNote: vi.fn(),
+  createNote: vi.fn(),
   markTaskNotesRead: vi.fn(async (_client: unknown, { taskId, noteIds }: MarkTaskNotesReadInput) => {
     notes = notes.map((note) =>
       note.taskId === taskId && note.resourceId && noteIds.includes(note.resourceId)
@@ -34,8 +34,8 @@ vi.mock('src/api/api', () => ({
         : note
     );
   }),
-  updatePatientNote: vi.fn(),
-  deletePatientNote: vi.fn(),
+  updateNote: vi.fn(),
+  deleteNote: vi.fn(),
 }));
 
 vi.mock('src/features/visits/in-person/hooks/useTasks', () => ({
@@ -70,7 +70,7 @@ const task = (id: string, overrides: Partial<Task> = {}): Task => ({
 
 const assignedTo = (id: string): Task['assignee'] => ({ id, name: id, date: '2026-10-01T10:00:00.000Z' });
 
-const note = (taskId: string, overrides: Partial<PatientNoteDTO> = {}): PatientNoteDTO => ({
+const note = (taskId: string, overrides: Partial<NoteDTO> = {}): NoteDTO => ({
   resourceId: `${taskId}-note`,
   patientId: '',
   taskId,
@@ -195,9 +195,9 @@ describe('Tasks board: task notes', () => {
   it('marks the notes read when they are opened before the board has loaded them', async () => {
     tasks = [task('open', { assignee: assignedTo(ME) }), task('other')];
     notes = [note('open')];
-    vi.mocked(getPatientNotes).mockImplementationOnce(() => new Promise(() => undefined));
+    vi.mocked(getNotes).mockImplementationOnce(() => new Promise(() => undefined));
     renderBoard();
-    expect(getPatientNotes).toHaveBeenCalledWith(expect.anything(), { taskIds: ['open', 'other'] });
+    expect(getNotes).toHaveBeenCalledWith(expect.anything(), { taskIds: ['open', 'other'] });
 
     await userEvent.click(title('open'));
 
@@ -305,9 +305,9 @@ describe('Tasks board: task notes', () => {
     await waitFor(() => expect(hasUnreadDot('open')).toBe(false));
     expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
 
-    const requestsBefore = vi.mocked(getPatientNotes).mock.calls.length;
+    const requestsBefore = vi.mocked(getNotes).mock.calls.length;
     await userEvent.click(title('open'));
-    await waitFor(() => expect(getPatientNotes).toHaveBeenCalledTimes(requestsBefore + 1));
+    await waitFor(() => expect(getNotes).toHaveBeenCalledTimes(requestsBefore + 1));
     await within(await screen.findByRole('dialog')).findByText('About open');
     expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
   });
@@ -334,9 +334,9 @@ describe('Tasks board: task notes', () => {
 
   it('closes the dialog and confirms with the text once a note is added', async () => {
     tasks = [task('open', { assignee: assignedTo(ME) })];
-    vi.mocked(createPatientNote).mockResolvedValue({ note: note('open', { authorId: ME, isUnread: false }) });
+    vi.mocked(createNote).mockResolvedValue({ note: note('open', { authorId: ME, isUnread: false }) });
     renderBoard();
-    await waitFor(() => expect(getPatientNotes).toHaveBeenCalled());
+    await waitFor(() => expect(getNotes).toHaveBeenCalled());
 
     await userEvent.click(title('open'));
     const dialog = await screen.findByRole('dialog');
@@ -344,7 +344,7 @@ describe('Tasks board: task notes', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add Note' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(createPatientNote).toHaveBeenCalledWith(expect.anything(), {
+    expect(createNote).toHaveBeenCalledWith(expect.anything(), {
       note: { taskId: 'open', text: 'Called the payer' },
     });
     expect(enqueueSnackbar).toHaveBeenCalledWith('Note created: Called the payer', { variant: 'success' });
@@ -352,10 +352,10 @@ describe('Tasks board: task notes', () => {
 
   it("leaves another task's notes open when an earlier save finishes after the user moved on", async () => {
     tasks = [task('first', { assignee: assignedTo(ME) }), task('second', { assignee: assignedTo(ME) })];
-    let finishSave: (output: SavePatientNoteOutput) => void = () => undefined;
-    vi.mocked(createPatientNote).mockReturnValue(new Promise((resolve) => (finishSave = resolve)));
+    let finishSave: (output: SaveNoteOutput) => void = () => undefined;
+    vi.mocked(createNote).mockReturnValue(new Promise((resolve) => (finishSave = resolve)));
     renderBoard();
-    await waitFor(() => expect(getPatientNotes).toHaveBeenCalled());
+    await waitFor(() => expect(getNotes).toHaveBeenCalled());
 
     await userEvent.click(title('first'));
     const firstDialog = await screen.findByRole('dialog');

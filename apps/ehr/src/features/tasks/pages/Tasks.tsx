@@ -37,7 +37,7 @@ import {
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FAX_TASK, Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
@@ -243,7 +243,7 @@ export const Tasks: React.FC = () => {
 
   const { data: taskNotes } = useTaskNotes((tasksData?.tasks ?? []).map((task) => task.id));
   const notesByTaskId = useMemo(() => {
-    const grouped = new Map<string, PatientNoteDTO[]>();
+    const grouped = new Map<string, NoteDTO[]>();
     for (const note of taskNotes ?? []) {
       if (!note.taskId) continue;
       const notes = grouped.get(note.taskId);
