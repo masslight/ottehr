@@ -3,6 +3,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Medication } from 'fhir/r4b';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
+import {
+  getMedicationInventoryConfig,
+  makeMedicationInventoryExtension,
+  MEDICATION_INVENTORY_EXTENSION_URL,
+} from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { UpdateInHouseMedicationInput } from 'utils/lib/types/api/config/in-house-medications';
 import {
@@ -21,7 +26,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-update-in-house-medication',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, secrets } =
+    const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, inventory, secrets } =
       validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
@@ -34,6 +39,7 @@ export const index = wrapHandler(
       ndc,
       medispanID,
       medispanIDForInteractions,
+      inventory,
       status,
     });
     return {
@@ -47,7 +53,7 @@ export const performEffect = async (
   oystehr: Oystehr,
   updateDetail: UpdateInHouseMedicationInput
 ): Promise<Medication> => {
-  const { medicationID, name, ndc, medispanID, medispanIDForInteractions, status } = updateDetail;
+  const { medicationID, name, ndc, medispanID, medispanIDForInteractions, inventory, status } = updateDetail;
   const medication = await oystehr.fhir.get<Medication>({
     resourceType: 'Medication',
     id: medicationID,
@@ -123,6 +129,26 @@ export const performEffect = async (
       patchOperations.push({ op: 'replace', path: '/code/coding', value: newCoding });
     } else {
       patchOperations.push({ op: 'remove', path: '/code/coding' });
+    }
+  }
+
+  // Rebuild /extension as a single op for the same reason as /code/coding above.
+  if (inventory !== undefined) {
+    const existingInventory = getMedicationInventoryConfig(medication);
+    const existingInventoryExtension = existingInventory ? makeMedicationInventoryExtension(existingInventory) : null;
+    const inventoryExtension = inventory ? makeMedicationInventoryExtension(inventory) : null;
+    if (JSON.stringify(existingInventoryExtension) !== JSON.stringify(inventoryExtension)) {
+      const otherExtensions = (medication.extension ?? []).filter(
+        (extension) => extension.url !== MEDICATION_INVENTORY_EXTENSION_URL
+      );
+      const newExtensions = inventoryExtension ? [...otherExtensions, inventoryExtension] : otherExtensions;
+      if (medication.extension === undefined) {
+        patchOperations.push({ op: 'add', path: '/extension', value: newExtensions });
+      } else if (newExtensions.length > 0) {
+        patchOperations.push({ op: 'replace', path: '/extension', value: newExtensions });
+      } else {
+        patchOperations.push({ op: 'remove', path: '/extension' });
+      }
     }
   }
 

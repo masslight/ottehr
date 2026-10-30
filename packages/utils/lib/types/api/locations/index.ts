@@ -58,6 +58,11 @@ export interface GetLocationResponse {
   schedules: LocationScheduleSummary[];
 }
 
+export interface ListActiveLocationsInput {
+  /** `true` keeps only Locations that appear in in-person contexts (clinics); virtual-only ones drop out. */
+  inPersonOnly?: boolean;
+}
+
 /**
  * Every active Location reduced to what a picker needs. Deliberately not `Location[]`: callers that
  * only populate a select shouldn't receive — or need read access to — the whole resource.

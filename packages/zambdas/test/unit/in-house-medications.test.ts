@@ -1,6 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication } from 'fhir/r4b';
+import {
+  getMedicationInventoryConfig,
+  makeMedicationInventoryExtension,
+  MEDICATION_INVENTORY_EXTENSION_URL,
+} from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_HL7_HCPCS, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { InHouseMedicationInventory } from 'utils/lib/types/api/config/in-house-medications';
 import {
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -308,5 +314,128 @@ describe('update-in-house-medication - performEffect', () => {
         { system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'new-medispan' },
       ],
     });
+  });
+});
+
+// ─── update-in-house-medication: inventory setup ──────────────────────────────
+
+const inventory: InHouseMedicationInventory = {
+  countedAs: 'vial',
+  eachContains: { amount: 4, unit: 'mg', in: { amount: 2, unit: 'ml' } },
+  use: 'single-use',
+  reorderLevels: [
+    { locationId: 'loc-main', level: 10 },
+    { locationId: 'loc-north', level: 6 },
+  ],
+};
+
+describe('update-in-house-medication - inventory validation', () => {
+  it('accepts a full inventory setup and defaults reorderLevels', () => {
+    const { countedAs, eachContains, use } = inventory;
+    const withoutLevels = { countedAs, eachContains, use };
+    const result = validateRequestParameters(
+      createInput({ medicationID: 'med-123', name: 'Drug', inventory: withoutLevels })
+    );
+    expect(result.inventory).toEqual({ ...withoutLevels, reorderLevels: [] });
+  });
+
+  it('passes null through so the setup can be cleared', () => {
+    const result = validateRequestParameters(createInput({ medicationID: 'med-123', name: 'Drug', inventory: null }));
+    expect(result.inventory).toBeNull();
+  });
+
+  it('leaves inventory undefined when not sent', () => {
+    const result = validateRequestParameters(createInput({ medicationID: 'med-123', name: 'Drug' }));
+    expect(result.inventory).toBeUndefined();
+  });
+
+  it.each([
+    ['unknown counted-as', { ...inventory, countedAs: 'box' }],
+    ['unknown dose unit', { ...inventory, eachContains: { amount: 4, unit: 'oz' } }],
+    ['zero amount', { ...inventory, eachContains: { amount: 0, unit: 'mg' } }],
+    ['missing use', { ...inventory, use: undefined }],
+    ['negative reorder level', { ...inventory, reorderLevels: [{ locationId: 'loc-main', level: -1 }] }],
+    ['fractional reorder level', { ...inventory, reorderLevels: [{ locationId: 'loc-main', level: 1.5 }] }],
+  ])('rejects %s', (_label, bad) => {
+    expect(() =>
+      validateRequestParameters(createInput({ medicationID: 'med-123', name: 'Drug', inventory: bad }))
+    ).toThrow();
+  });
+});
+
+describe('update-in-house-medication - inventory persistence', () => {
+  const makeMockOystehr = (existing: Medication): Oystehr => {
+    const mockGet = vi.fn().mockResolvedValue(existing);
+    const mockPatch = vi.fn().mockResolvedValue(existing);
+    return { fhir: { get: mockGet, patch: mockPatch } } as unknown as Oystehr;
+  };
+  const otherExtension = { url: 'https://example.com/other', valueString: 'keep me' };
+  const trackedMedication: Medication = {
+    ...existingMedication,
+    extension: [otherExtension, makeMedicationInventoryExtension(inventory)],
+  };
+
+  it('round-trips the setup through the Medication extension', () => {
+    expect(getMedicationInventoryConfig(trackedMedication)).toEqual(inventory);
+    expect(getMedicationInventoryConfig(existingMedication)).toBeUndefined();
+  });
+
+  it('writes one extension per reorder level with a Location reference', () => {
+    const extension = makeMedicationInventoryExtension(inventory);
+    expect(extension.url).toBe(MEDICATION_INVENTORY_EXTENSION_URL);
+    expect(extension.extension).toContainEqual({ url: 'counted-as', valueCode: 'vial' });
+    expect(extension.extension).toContainEqual({
+      url: 'reorder-level',
+      extension: [
+        { url: 'clinic', valueReference: { reference: 'Location/loc-main' } },
+        { url: 'level', valueInteger: 10 },
+      ],
+    });
+  });
+
+  it('adds /extension when the medication has none', async () => {
+    const oystehr = makeMockOystehr(existingMedication);
+    await updatePerformEffect(oystehr, { medicationID: 'med-123', inventory });
+
+    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
+    expect(operations).toEqual([
+      { op: 'add', path: '/extension', value: [makeMedicationInventoryExtension(inventory)] },
+    ]);
+  });
+
+  it('replaces the setup and keeps unrelated extensions', async () => {
+    const oystehr = makeMockOystehr(trackedMedication);
+    const changed: InHouseMedicationInventory = { ...inventory, use: 'multi-use', reorderLevels: [] };
+    await updatePerformEffect(oystehr, { medicationID: 'med-123', inventory: changed });
+
+    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
+    expect(operations).toEqual([
+      { op: 'replace', path: '/extension', value: [otherExtension, makeMedicationInventoryExtension(changed)] },
+    ]);
+  });
+
+  it('clears the setup with null, removing /extension when nothing else is left', async () => {
+    const oystehr = makeMockOystehr({
+      ...existingMedication,
+      extension: [makeMedicationInventoryExtension(inventory)],
+    });
+    await updatePerformEffect(oystehr, { medicationID: 'med-123', inventory: null });
+
+    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
+    expect(operations).toEqual([{ op: 'remove', path: '/extension' }]);
+  });
+
+  it('does not patch when the setup is unchanged or left undefined', async () => {
+    const unchanged = makeMockOystehr(trackedMedication);
+    await updatePerformEffect(unchanged, { medicationID: 'med-123', inventory });
+    expect(unchanged.fhir.patch).not.toHaveBeenCalled();
+
+    const untouched = makeMockOystehr(trackedMedication);
+    await updatePerformEffect(untouched, { medicationID: 'med-123', name: 'Ibuprofen 200mg' });
+    expect(untouched.fhir.patch).not.toHaveBeenCalled();
+
+    const neverTracked = makeMockOystehr(existingMedication);
+    await updatePerformEffect(neverTracked, { medicationID: 'med-123', inventory: null });
+    expect(neverTracked.fhir.patch).not.toHaveBeenCalled();
   });
 });

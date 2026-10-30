@@ -121,6 +121,7 @@ import {
   DeleteLocationResponse,
   GetLocationParams,
   GetLocationResponse,
+  ListActiveLocationsInput,
   ListActiveLocationsOutput,
   ToggleLocationActiveParams,
   UpdateLocationParams,
@@ -1410,8 +1411,11 @@ export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): 
   return chooseJson(response);
 };
 
-export const listActiveLocations = async (oystehr: Oystehr): Promise<ListActiveLocationsOutput> => {
-  const response = await oystehr.zambda.execute({ id: LIST_ACTIVE_LOCATIONS_ZAMBDA_ID });
+export const listActiveLocations = async (
+  oystehr: Oystehr,
+  parameters: ListActiveLocationsInput = {}
+): Promise<ListActiveLocationsOutput> => {
+  const response = await oystehr.zambda.execute({ id: LIST_ACTIVE_LOCATIONS_ZAMBDA_ID, ...parameters });
   return chooseJson(response);
 };
 

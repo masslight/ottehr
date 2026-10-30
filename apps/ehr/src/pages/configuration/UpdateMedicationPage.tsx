@@ -1,5 +1,22 @@
 import { LoadingButton } from '@mui/lab';
-import { Alert, Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
+import {
+  Alert,
+  Autocomplete,
+  debounce,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  Grid,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Radio,
+  RadioGroup,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { Medication } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,6 +25,7 @@ import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import Loading from 'src/components/Loading';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
 import {
   MEDICATION_DATABASE_FORBIDDEN_MESSAGE,
   useGetMedicationDetails,
@@ -16,8 +34,22 @@ import {
 import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
-import { getMedicationName } from 'utils/lib/fhir/medication-administration';
+import {
+  getMedicationName,
+  IN_HOUSE_MEDICATION_UNIT_OPTIONS,
+  MedicationUnitOptions,
+} from 'utils/lib/fhir/medication-administration';
+import { getMedicationInventoryConfig } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import {
+  InHouseMedicationInventory,
+  MEDICATION_COUNTED_AS_LABELS,
+  MEDICATION_COUNTED_AS_OPTIONS,
+  MEDICATION_USE_LABELS,
+  MEDICATION_USE_OPTIONS,
+  MedicationCountedAs,
+  MedicationUse,
+} from 'utils/lib/types/api/config/in-house-medications';
 import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
@@ -40,6 +72,62 @@ interface MedicationOption {
   isObsolete: boolean;
 }
 
+// Inventory fields as typed; numbers stay strings so a cleared input is "blank", not 0.
+interface InventoryFormState {
+  countedAs: MedicationCountedAs | '';
+  eachContainsAmount: string;
+  eachContainsUnit: MedicationUnitOptions | '';
+  inAmount: string;
+  inUnit: MedicationUnitOptions | '';
+  use: MedicationUse;
+  reorderLevels: Record<string, string>;
+}
+
+const EMPTY_INVENTORY_FORM: InventoryFormState = {
+  countedAs: '',
+  eachContainsAmount: '',
+  eachContainsUnit: '',
+  inAmount: '',
+  inUnit: '',
+  use: 'single-use',
+  reorderLevels: {},
+};
+
+function toInventoryFormState(medication: Medication): InventoryFormState {
+  const inventory = getMedicationInventoryConfig(medication);
+  if (!inventory) return EMPTY_INVENTORY_FORM;
+  return {
+    countedAs: inventory.countedAs,
+    eachContainsAmount: String(inventory.eachContains.amount),
+    eachContainsUnit: inventory.eachContains.unit,
+    inAmount: inventory.eachContains.in ? String(inventory.eachContains.in.amount) : '',
+    inUnit: inventory.eachContains.in?.unit ?? '',
+    use: inventory.use,
+    reorderLevels: Object.fromEntries(
+      inventory.reorderLevels.map(({ locationId, level }) => [locationId, String(level)])
+    ),
+  };
+}
+
+// Blank counted-as means "not tracked" (null clears any saved setup). Otherwise the form's required fields
+// cover what the zambda's schema needs, but `type="number"` inputs can't require a positive value, so the
+// caller checks that first.
+function toInventoryInput(form: InventoryFormState, locationIds: string[]): InHouseMedicationInventory | null {
+  if (!form.countedAs || !form.eachContainsUnit) return null;
+  return {
+    countedAs: form.countedAs,
+    eachContains: {
+      amount: Number(form.eachContainsAmount),
+      unit: form.eachContainsUnit,
+      ...(form.inUnit ? { in: { amount: Number(form.inAmount), unit: form.inUnit } } : {}),
+    },
+    use: form.use,
+    reorderLevels: locationIds
+      .filter((locationId) => form.reorderLevels[locationId]?.trim())
+      .map((locationId) => ({ locationId, level: Number(form.reorderLevels[locationId]) })),
+  };
+}
+
 export default function UpdateMedicationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
   const medicationId = useParams()['medication-id'];
@@ -48,6 +136,10 @@ export default function UpdateMedicationPage(): ReactElement {
   const [selectedMedicationForPrecheck, setSelectedMedicationForPrecheck] = useState<MedicationOption | null>(null);
   const [status, setStatus] = useState<string>('');
   const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
+  const [inventoryForm, setInventoryForm] = useState<InventoryFormState>(EMPTY_INVENTORY_FORM);
+  const { data: clinics = [] } = useGetAllLocations({ inPersonOnly: true });
+  const setInventoryField = <K extends keyof InventoryFormState>(field: K, value: InventoryFormState[K]): void =>
+    setInventoryForm((prev) => ({ ...prev, [field]: value }));
 
   const medispanId = getMedispanId(medication);
   const {
@@ -101,6 +193,7 @@ export default function UpdateMedicationPage(): ReactElement {
       const medicationTemp = medicationsTemp.find((temp) => temp.id === medicationId);
       setMedication(medicationTemp ?? null);
       setStatus(medicationTemp?.status ? medicationTemp.status : 'active');
+      setInventoryForm(medicationTemp ? toInventoryFormState(medicationTemp) : EMPTY_INVENTORY_FORM);
     }
     fetchMedication().catch((error) => console.log('Error fetching medications', error));
   }, [medicationId, oystehrZambda]);
@@ -108,6 +201,14 @@ export default function UpdateMedicationPage(): ReactElement {
   async function update(event: any): Promise<void> {
     event.preventDefault();
     if (!oystehrZambda || !medicationId) {
+      return;
+    }
+    if (
+      inventoryForm.countedAs &&
+      (!(Number(inventoryForm.eachContainsAmount) > 0) ||
+        (inventoryForm.inUnit && !(Number(inventoryForm.inAmount) > 0)))
+    ) {
+      enqueueSnackbar('Each contains must be more than 0 to track inventory', { variant: 'error' });
       return;
     }
     setLoading(true);
@@ -124,6 +225,10 @@ export default function UpdateMedicationPage(): ReactElement {
         ndc,
         medispanID,
         medispanIDForInteractions,
+        inventory: toInventoryInput(
+          inventoryForm,
+          clinics.map((clinic) => clinic.id)
+        ),
       });
       enqueueSnackbar('Medication updated successfully', { variant: 'success' });
     } catch (error) {
@@ -263,6 +368,147 @@ export default function UpdateMedicationPage(): ReactElement {
               ) : (
                 <></>
               )}
+              <Grid item xs={12}>
+                <Typography variant="h6" color="primary.dark">
+                  Inventory
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Leave blank to not track stock for this medication. Its medication card then works as today.
+                </Typography>
+              </Grid>
+              <Grid item xs={3}>
+                <FormControl fullWidth>
+                  <InputLabel id="inventory-counted-as-label">Counted as</InputLabel>
+                  <Select
+                    labelId="inventory-counted-as-label"
+                    label="Counted as"
+                    value={inventoryForm.countedAs}
+                    onChange={(e) => setInventoryField('countedAs', e.target.value as MedicationCountedAs | '')}
+                  >
+                    <MenuItem value="">
+                      <em>Not tracked</em>
+                    </MenuItem>
+                    {MEDICATION_COUNTED_AS_OPTIONS.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {MEDICATION_COUNTED_AS_LABELS[option].singular}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={3} sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  label="Each contains"
+                  type="number"
+                  inputProps={{ min: 0, step: 'any' }}
+                  required={Boolean(inventoryForm.countedAs)}
+                  disabled={!inventoryForm.countedAs}
+                  value={inventoryForm.eachContainsAmount}
+                  onChange={(e) => setInventoryField('eachContainsAmount', e.target.value)}
+                  sx={{ flex: 1 }}
+                />
+                <FormControl sx={{ flex: 1 }} required={Boolean(inventoryForm.countedAs)}>
+                  <InputLabel id="inventory-each-contains-unit-label">Unit</InputLabel>
+                  <Select
+                    labelId="inventory-each-contains-unit-label"
+                    label="Unit"
+                    required={Boolean(inventoryForm.countedAs)}
+                    disabled={!inventoryForm.countedAs}
+                    value={inventoryForm.eachContainsUnit}
+                    onChange={(e) => setInventoryField('eachContainsUnit', e.target.value as MedicationUnitOptions)}
+                  >
+                    {IN_HOUSE_MEDICATION_UNIT_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={3} sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  label="In (optional)"
+                  type="number"
+                  inputProps={{ min: 0, step: 'any' }}
+                  required={Boolean(inventoryForm.inUnit)}
+                  disabled={!inventoryForm.countedAs}
+                  value={inventoryForm.inAmount}
+                  onChange={(e) => setInventoryField('inAmount', e.target.value)}
+                  sx={{ flex: 1 }}
+                />
+                <FormControl sx={{ flex: 1 }} required={Boolean(inventoryForm.inAmount)}>
+                  <InputLabel id="inventory-in-unit-label">Unit</InputLabel>
+                  <Select
+                    labelId="inventory-in-unit-label"
+                    label="Unit"
+                    required={Boolean(inventoryForm.inAmount)}
+                    disabled={!inventoryForm.countedAs}
+                    value={inventoryForm.inUnit}
+                    onChange={(e) => setInventoryField('inUnit', e.target.value as MedicationUnitOptions | '')}
+                  >
+                    <MenuItem value="">
+                      <em>None</em>
+                    </MenuItem>
+                    {IN_HOUSE_MEDICATION_UNIT_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={3}>
+                <FormControl disabled={!inventoryForm.countedAs}>
+                  <FormLabel id="inventory-use-label">Use</FormLabel>
+                  <RadioGroup
+                    aria-labelledby="inventory-use-label"
+                    value={inventoryForm.use}
+                    onChange={(e) => setInventoryField('use', e.target.value as MedicationUse)}
+                  >
+                    {MEDICATION_USE_OPTIONS.map((option) => (
+                      <FormControlLabel
+                        key={option}
+                        value={option}
+                        control={<Radio size="small" />}
+                        label={MEDICATION_USE_LABELS[option]}
+                      />
+                    ))}
+                  </RadioGroup>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="primary.dark">
+                  Reorder level per clinic
+                </Typography>
+              </Grid>
+              {clinics.map((clinic) => (
+                <Grid item xs={4} key={clinic.id}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={clinic.name}
+                    placeholder="none"
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    disabled={!inventoryForm.countedAs}
+                    value={inventoryForm.reorderLevels[clinic.id] ?? ''}
+                    onChange={(e) =>
+                      setInventoryField('reorderLevels', {
+                        ...inventoryForm.reorderLevels,
+                        [clinic.id]: e.target.value,
+                      })
+                    }
+                    InputLabelProps={{ shrink: true }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {inventoryForm.countedAs ? MEDICATION_COUNTED_AS_LABELS[inventoryForm.countedAs].plural : ''}
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+              ))}
               <Grid item xs={12}>
                 <LoadingButton
                   type="submit"
