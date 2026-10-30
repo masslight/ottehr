@@ -73,7 +73,6 @@ async function performEffect(
     })
   ).unbundle();
   if (ehrInvoiceTasks.length > 0) throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
-  await markInvoicedFromBillingApp(oystehr, encounterId);
 
   const { patient, account, appointment, location, schedule, stripeAccountId } = await getInvoiceVisitResources(
     oystehr,
@@ -86,6 +85,9 @@ async function performEffect(
     account,
     stripeAccountId,
   });
+  // Marked only once the visit can be invoiced, so a patient without an email does not lock the visit
+  // away from the EHR.
+  await markInvoicedFromBillingApp(oystehr, encounterId);
 
   const timezone = resolveTimezone(schedule, location);
   const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
