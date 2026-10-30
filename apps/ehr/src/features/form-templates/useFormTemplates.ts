@@ -102,6 +102,7 @@ export const useReturnCompletedForm = (): MutationWithReadiness<ReturnResult, Re
       if (result.status !== 'verified' && result.status !== 'unstamped') return;
       void queryClient.invalidateQueries({ queryKey: [PATIENT_DOCS_QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS] });
       void queryClient.invalidateQueries({ queryKey: [PATIENT_DOCS_QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] });
+      void queryClient.invalidateQueries({ queryKey: [PATIENT_DOCS_QUERY_KEYS.GET_LISTABLE_DOCUMENT_IDS] });
       void queryClient.invalidateQueries({ queryKey: [COMPLETED_FORMS_QUERY_KEY] });
     },
   });
