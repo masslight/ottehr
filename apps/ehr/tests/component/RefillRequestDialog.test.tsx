@@ -110,7 +110,7 @@ describe('Refill request dialog', () => {
     const original = section(/^Original prescription/);
     expect(within(original).getByText('30 tablets')).toHaveAttribute('data-differs', 'true');
     expect(within(original).getByText('Essential hypertension (I10)')).toBeInTheDocument();
-    expect(within(section('Contact Info')).getByText('(512) 555-0187')).toBeInTheDocument();
+    expect(within(section('Patient Info')).getByText('(512) 555-0187')).toBeInTheDocument();
     expect(screen.queryByText(/asked again/)).not.toBeInTheDocument();
   });
 
