@@ -1,0 +1,137 @@
+import { capitalize, Stack, Typography } from '@mui/material';
+import { Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useState } from 'react';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getPatientName } from 'src/shared/utils/getPatientName';
+import { getAddressString } from 'utils/lib/fhir/helpers';
+import { getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { quantityText } from './prescriptionLines';
+
+export const errorMessage = (error: unknown): string =>
+  error instanceof Error && error.message ? error.message : 'An error occurred.';
+
+/** The patient's address on one line and phone, as the eRx screens show them; each is undefined when missing. */
+export const patientAddressAndPhone = (patient: Patient | undefined): { address?: string; phone?: string } => {
+  const phone = patient && getPhoneNumberForIndividual(patient);
+  return {
+    address: getAddressString(patient?.address?.[0]) || undefined,
+    phone: phone ? formatPhoneNumberDisplay(phone) : undefined,
+  };
+};
+
+/** "Maria Lopez · Female · 03/12/1968", as the eRx dialogs name the patient. */
+export const patientNameGenderBirthDate = (patient: Patient): string =>
+  [
+    getPatientName(patient.name).firstLastName,
+    patient.gender && capitalize(patient.gender),
+    patient.birthDate && formatDateForDisplay(patient.birthDate),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+/** The prescriptions a dialog acts on: each one's name, directions, pharmacy and when it was sent. Given the
+ * patient (the cancel dialog), each also shows its quantity, refills and note, and a line names the patient. */
+export const PrescriptionSummaryList: FC<{ prescriptions: PrescribedMedicationDTO[]; patient?: Patient }> = ({
+  prescriptions,
+  patient,
+}) => {
+  const userTimezone = DateTime.local().zoneName;
+  const { address, phone } = patientAddressAndPhone(patient);
+  return (
+    <>
+      {prescriptions.map((prescription) => {
+        const sent = formatDateToMDYWithTime(prescription.sent, userTimezone);
+        const { quantityValue, quantityUnit, numberOfRefills, noteToPharmacy } = prescription.order ?? {};
+        return (
+          <Stack key={prescription.resourceId}>
+            <Typography variant="body1" fontWeight={500}>
+              {prescription.name}
+            </Typography>
+            <Typography variant="body2">{prescription.instructions}</Typography>
+            {patient && (
+              <Typography variant="body2">
+                {[
+                  quantityText(quantityValue, quantityUnit),
+                  numberOfRefills !== undefined && `${numberOfRefills} ${numberOfRefills === 1 ? 'refill' : 'refills'}`,
+                  `Note: ${noteToPharmacy || 'none'}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Typography>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              {[prescription.pharmacyName, sent && `Sent ${sent.date} ${sent.time}`].filter(Boolean).join(' · ')}
+            </Typography>
+          </Stack>
+        );
+      })}
+      {patient && (
+        <Typography variant="body2" color="text.secondary">
+          For {[patientNameGenderBirthDate(patient), address, phone].filter(Boolean).join(' · ')}
+        </Typography>
+      )}
+    </>
+  );
+};
+
+interface SendEachProps {
+  prescriptions: PrescribedMedicationDTO[];
+  onClose: () => void;
+  onSent: () => Promise<unknown>;
+}
+
+/** A dialog that sends something for each prescription in turn. `run` checks there's a provider, sends each (one
+ * that fails doesn't stop the others) and says how it went. The dialog can't be closed while sending, and stays,
+ * still sending, until `onSent`'s refetch lands: until then the rows still read as they were, and could be sent
+ * again. */
+export const useSendEach = ({
+  prescriptions,
+  onClose,
+  onSent,
+}: SendEachProps): {
+  sending: boolean;
+  close: () => void;
+  run: (
+    // Undefined when it went, else what went wrong, naming the prescription.
+    sendOne: (prescription: PrescribedMedicationDTO, practitionerId: string) => Promise<string | undefined>,
+    say: { done: (sent: number) => string; partly: (sent: number, total: number) => string }
+  ) => Promise<void>;
+} => {
+  const user = useEvolveUser();
+  const [sending, setSending] = useState(false);
+  const run: ReturnType<typeof useSendEach>['run'] = async (sendOne, say) => {
+    const practitionerId = user?.profileResource?.id;
+    if (!practitionerId) {
+      enqueueSnackbar('The provider could not be determined. Please reload and try again.', { variant: 'error' });
+      return;
+    }
+    setSending(true);
+    const failures: string[] = [];
+    for (const prescription of prescriptions) {
+      const failure = await sendOne(prescription, practitionerId);
+      if (failure) failures.push(failure);
+    }
+    const sent = prescriptions.length - failures.length;
+    if (failures.length === 0) {
+      enqueueSnackbar(say.done(sent), { variant: 'success' });
+    } else {
+      enqueueSnackbar(
+        `${prescriptions.length > 1 ? `${say.partly(sent, prescriptions.length)} ` : ''}${failures.join('; ')}`,
+        { variant: 'error' }
+      );
+    }
+    try {
+      await onSent();
+    } finally {
+      setSending(false);
+      onClose();
+    }
+  };
+  return { sending, close: sending ? () => undefined : onClose, run };
+};

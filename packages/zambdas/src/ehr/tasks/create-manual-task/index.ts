@@ -3,7 +3,7 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getFullName } from 'utils/lib/fhir/patient';
-import { CreateManualTaskRequest, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { CreateManualTaskRequest, ERX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getM2MClientId, isM2MClient } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
@@ -42,6 +42,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const taskToCreate = createTask({
     category: params.category,
     title: params.taskTitle,
+    code:
+      params.category !== MANUAL_TASK.category.erx
+        ? undefined
+        : params.refillRequest
+        ? { system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }
+        : params.changeRequest
+        ? { system: ERX_TASK.system, code: ERX_TASK.code.changeRequest }
+        : undefined,
     encounterId: params.encounterId,
     location: {
       id: params.location.id,
@@ -112,6 +120,8 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     category,
     appointmentId,
     orderId,
+    refillRequest,
+    changeRequest,
     encounterId,
     taskTitle,
     taskDetails,
@@ -138,12 +148,20 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     if (!patient.name) missingFields.push('patient.name');
   }
   if (createdBy !== undefined && typeof createdBy !== 'string') throw INVALID_INPUT_ERROR('createdBy must be a string');
+  if (refillRequest === true && changeRequest === true) {
+    throw INVALID_INPUT_ERROR('A task is a refill request or a change request, not both');
+  }
+  if ((refillRequest === true || changeRequest === true) && !orderId) {
+    throw INVALID_INPUT_ERROR('A refill or change request needs a prescription');
+  }
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
     category,
     appointmentId,
     orderId,
+    refillRequest: refillRequest === true,
+    changeRequest: changeRequest === true,
     encounterId,
     taskTitle,
     taskDetails,

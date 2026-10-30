@@ -17,11 +17,13 @@ import {
   Extension,
   FhirResource,
   List,
+  Medication,
   MedicationRequest,
   MedicationStatement,
   Meta,
   Observation,
   Procedure,
+  Provenance,
   Reference,
   Resource,
   ServiceRequest,
@@ -36,10 +38,13 @@ import {
   BODY_SITE_SYSTEM,
   CPT_BILLABLE_UNITS_EXTENSION_URL,
   CPT_CODE_SYSTEM,
+  ERX_CANCEL_RESPONSE_EXTENSION_URL,
+  ERX_EVENT_CODE_SYSTEM,
   ERX_MEDICATION_META_TAG_CODE,
   FHIR_EXTENSION,
   PERFORMER_TYPE_SYSTEM,
   PRESCRIPTION_ERX_PHARMACY_ID_URL,
+  PRESCRIPTION_ERX_PHARMACY_NAME_URL,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
@@ -84,6 +89,8 @@ import {
   DispositionDTO,
   DispositionFollowUpType,
   DispositionType,
+  ErxCancelResponseDTO,
+  ErxEventDTO,
   EXAM_OBSERVATION_META_SYSTEM,
   ExamObservationDTO,
   FreeTextNoteDTO,
@@ -98,6 +105,7 @@ import {
   ObservationBooleanFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
   PrescribedMedicationDTO,
+  PrescribedMedicationOrderDTO,
   ProcedureDTO,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_ID,
@@ -109,6 +117,7 @@ import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-field
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SNOMEDCodeConceptInterface } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
+import { CompoundIngredientInput, QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
 import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.constants';
 import { TaskCoding } from 'utils/lib/types/common';
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
@@ -359,14 +368,151 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
   };
 }
 
-export function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedMedicationDTO {
+// The eRx service writes the pharmacy id as a string; an integer is still read as a fallback.
+const getPharmacyId = (medRequest: MedicationRequest): string | undefined => {
+  const extension = medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL);
+  return extension?.valueString ?? extension?.valueInteger?.toString();
+};
+
+/** The MedicationRequest id a reference points at, relative ("MedicationRequest/<id>") or absolute, and with or
+ * without a version ("…/_history/<n>"); as `patientIdFromReference` reads a Patient's. */
+const medicationRequestIdFromReference = (reference: string | undefined): string | undefined =>
+  reference?.match(/(?:^|\/)MedicationRequest\/([^/]+)(?:\/_history\/[^/]+)?$/)?.[1];
+
+/** A cancel reply event's details, from its Provenance extension. */
+const makeCancelResponse = (provenance: Provenance): ErxCancelResponseDTO | undefined => {
+  const parts = provenance.extension?.find((e) => e.url === ERX_CANCEL_RESPONSE_EXTENSION_URL)?.extension;
+  if (!parts) return undefined;
+  const part = (url: string): Extension | undefined => parts.find((e) => e.url === url);
+  const coding = part('denialReasonCode')?.valueCoding;
+  return {
+    note: part('note')?.valueString,
+    denialReasonCode: coding?.code ? { code: coding.code, display: coding.display ?? coding.code } : undefined,
+    denialReason: part('denialReason')?.valueString,
+    priorDispensing: part('priorDispensing')?.valueBoolean,
+  };
+};
+
+// The eRx service records each event of a prescription as a Provenance targeting it.
+const makeErxEvents = (medRequest: MedicationRequest, provenances: Provenance[]): ErxEventDTO[] =>
+  provenances
+    .filter((provenance) =>
+      provenance.target.some((target) => medicationRequestIdFromReference(target.reference) === medRequest.id)
+    )
+    .flatMap((provenance) => {
+      const code = provenance.activity?.coding?.find((coding) => coding.system === ERX_EVENT_CODE_SYSTEM)?.code;
+      if (!code) return [];
+      return [
+        {
+          code,
+          text: provenance.activity?.text,
+          recorded: provenance.recorded,
+          agent: provenance.agent?.[0]?.who?.display,
+          agentPractitionerId: provenance.agent?.[0]?.who?.reference?.startsWith('Practitioner/')
+            ? provenance.agent[0].who.reference.split('/')[1]
+            : undefined,
+          cancelResponse: makeCancelResponse(provenance),
+        },
+      ];
+    })
+    .sort((a, b) => (a.recorded ?? '').localeCompare(b.recorded ?? ''));
+
+/** One ingredient of a contained compound Medication: the amount that went in is its strength's numerator, left
+ * out when its unit isn't an order quantity unit. */
+const makeCompoundIngredient = (ingredient: NonNullable<Medication['ingredient']>[number]): CompoundIngredientInput => {
+  const concept = ingredient.itemCodeableConcept;
+  const ndc = concept?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC);
+  const numerator = ingredient.strength?.numerator;
+  const unit = QUANTITY_UNITS.find((quantityUnit) => quantityUnit === numerator?.unit);
+  return {
+    description: concept?.text ?? ndc?.display ?? '',
+    ...(ndc?.code ? { ndc: ndc.code } : {}),
+    ...(numerator?.value !== undefined && unit ? { amount: { value: numerator.value, unit } } : {}),
+  };
+};
+
+/**
+ * A compound prescription, as the eRx service stores it: the MedicationRequest refers to a contained Medication
+ * named by its code's text, with its dosage form and one ingredient per compound ingredient.
+ *
+ *   "contained": [{
+ *     "resourceType": "Medication", "id": "compound",
+ *     "code": { "text": "Ketoprofen 10% cream" },
+ *     "form": { "coding": [{ "system": "http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl", "code": "C28944",
+ *       "display": "Cream" }], "text": "Cream" },
+ *     "ingredient": [
+ *       { "itemCodeableConcept": { "text": "Ketoprofen Powder", "coding": [
+ *           { "system": "http://hl7.org/fhir/sid/ndc", "code": "<11-digit NDC>", "display": "Ketoprofen Powder" } ] },
+ *         "strength": {
+ *           "numerator": { "value": 3, "unit": "Gram", "system": "<NCI Thesaurus>", "code": "C48155" },
+ *           "denominator": { "value": 30, "unit": "Gram", "system": "<NCI Thesaurus>", "code": "C48155" } } },
+ *       { "itemCodeableConcept": { "text": "Cream base" },
+ *         "strength": { "numerator": { "value": 27, "unit": "Gram", ... }, "denominator": { "value": 30, ... } } }
+ *     ]
+ *   }],
+ *   "medicationReference": { "reference": "#compound", "display": "Ketoprofen 10% cream" }
+ *
+ * Each ingredient's strength is the amount that went in (numerator) over the finished compound's quantity
+ * (denominator); a strength the provider entered isn't stored. A typed-in ingredient has text and no NDC coding.
+ */
+const makePrescribedCompound = (medRequest: MedicationRequest): PrescribedMedicationOrderDTO['compound'] => {
+  const reference = medRequest.medicationReference?.reference;
+  const medication = reference?.startsWith('#')
+    ? medRequest.contained?.find(
+        (resource): resource is Medication =>
+          resource.resourceType === 'Medication' && resource.id === reference.slice(1)
+      )
+    : undefined;
+  if (!medication) return undefined;
+  return {
+    description: medication.code?.text ?? medRequest.medicationReference?.display,
+    ...(medication.form?.text ? { dosageForm: medication.form.text } : {}),
+    ingredients: (medication.ingredient ?? []).map(makeCompoundIngredient),
+  };
+};
+
+// The order fields the eRx service stores on a prescription, as it was sent.
+const makePrescribedMedicationOrder = (medRequest: MedicationRequest): PrescribedMedicationOrderDTO => {
+  const ndc = medRequest.medicationCodeableConcept?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC);
+  const diagnosis = medRequest.reasonCode
+    ?.flatMap((reason) => reason.coding ?? [])
+    .find((coding) => coding.system === CODE_SYSTEM_ICD_10);
+  const dispense = medRequest.dispenseRequest;
+  const subject = medRequest.subject?.reference;
+  const compound = makePrescribedCompound(medRequest);
+  return {
+    patientId: subject?.startsWith('Patient/') ? subject.split('/')[1] : undefined,
+    ndc: ndc?.code,
+    medicationDescription: ndc?.display,
+    quantityValue: dispense?.quantity?.value,
+    quantityUnit: dispense?.quantity?.unit,
+    daysSupply: dispense?.expectedSupplyDuration?.value,
+    numberOfRefills: dispense?.numberOfRepeatsAllowed,
+    substitutionAllowed: medRequest.substitution?.allowedBoolean,
+    noteToPharmacy: medRequest.note?.[0]?.text,
+    diagnosisCode: diagnosis?.code,
+    diagnosisDescription: diagnosis?.display,
+    ...(compound ? { compound } : {}),
+  };
+};
+
+export function makePrescribedMedicationDTO(
+  medRequest: MedicationRequest,
+  provenances: Provenance[] = []
+): PrescribedMedicationDTO {
+  const events = makeErxEvents(medRequest, provenances);
+  const order = makePrescribedMedicationOrder(medRequest);
   return {
     resourceId: medRequest.id,
-    name: (
-      medRequest.medicationCodeableConcept?.coding?.find(
-        (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
-      ) ?? medRequest.medicationCodeableConcept?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC)
-    )?.display,
+    // A compound goes by its name, or the medication's text where the service stores no contained Medication.
+    name:
+      (
+        medRequest.medicationCodeableConcept?.coding?.find(
+          (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
+        ) ?? medRequest.medicationCodeableConcept?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC)
+      )?.display ??
+      order.compound?.description ??
+      medRequest.medicationCodeableConcept?.text,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
     added: medRequest.meta?.lastUpdated,
     provider: medRequest.requester?.reference?.split('/')?.[1],
@@ -376,7 +522,14 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
     isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
-    pharmacyId: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL)?.valueInteger?.toString(),
+    pharmacyId: getPharmacyId(medRequest),
+    pharmacyName: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_NAME_URL)?.valueString,
+    sent:
+      events.find((event) => event.code === 'ordered')?.recorded ??
+      medRequest.authoredOn ??
+      medRequest.meta?.lastUpdated,
+    events,
+    order,
   };
 }
 

@@ -1,4 +1,5 @@
 import { Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { PREFERRED_PHARMACY_PLACES_ID_URL } from 'utils/lib/fhir/constants';
 import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 /**
@@ -11,11 +12,15 @@ export function makePreferredPharmacies(
 ): PharmacyDTO[] {
   const pharmacies: PharmacyDTO[] = (patient?.contained ?? [])
     .filter((r) => r.resourceType === 'Organization')
-    .map((org) => ({
-      name: org.name || '',
-      address: org.address?.[0]?.text || '',
-      phone: org.telecom?.find((t) => t.system === 'phone')?.value,
-    }));
+    .map((org) => {
+      const placesId = org.extension?.find((e) => e.url === PREFERRED_PHARMACY_PLACES_ID_URL)?.valueString;
+      return {
+        name: org.name || '',
+        address: org.address?.[0]?.text || '',
+        phone: org.telecom?.find((t) => t.system === 'phone')?.value,
+        ...(placesId ? { placesId } : {}),
+      };
+    });
 
   if (questionnaireResponse) {
     const getAnswer = (linkId: string): string | undefined =>

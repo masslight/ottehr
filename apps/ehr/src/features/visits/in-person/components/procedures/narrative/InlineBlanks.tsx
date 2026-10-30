@@ -11,6 +11,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  ListSubheader,
   Paper,
   Popper,
   SxProps,
@@ -46,6 +47,10 @@ import { sentenceValue } from './sentenceValue';
 export interface BlankOption {
   value: string;
   label: string;
+  /** A second line under the label. */
+  secondary?: string;
+  /** Options with a group are listed under its heading, as the Autocomplete's groupBy does. */
+  group?: string;
 }
 
 const SEARCH_THRESHOLD = 8;
@@ -72,6 +77,9 @@ const emptySx = (theme: Theme, need: boolean): Record<string, unknown> => ({
   backgroundColor: 'transparent',
 });
 
+/** The orange outline of a blank a warning points at (an eRx dose over its maximum). */
+const warnSx = (theme: Theme): Record<string, unknown> => ({ outline: `2px solid ${theme.palette.warning.main}` });
+
 const ghostSx = (theme: Theme): Record<string, unknown> => ({
   color: theme.palette.text.secondary,
   // "+ details" and friends never break between the "+" and the word.
@@ -97,6 +105,8 @@ interface BlankButtonProps {
   hint?: string;
   expanded?: boolean;
   popupId?: string;
+  /** Outlined in orange while a warning points at it. */
+  warn?: boolean;
 }
 
 /** The clickable value inside a sentence. Read-only surfaces get the same words as plain text. */
@@ -111,6 +121,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
   hint,
   expanded,
   popupId,
+  warn,
 }) => {
   if (readOnly) return <ReadOnlyBlank label={label} value={value} />;
   // An inline span rather than <button>: a long value then wraps across lines like the surrounding text.
@@ -126,6 +137,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
       aria-label={`${label}${value ? `: ${value}` : ' (empty)'}`}
       data-testid={dataTestId}
       data-needed={!value && need ? true : undefined}
+      data-warn={warn || undefined}
       onClick={(event: MouseEvent<HTMLElement>) => onClick(event.currentTarget)}
       onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -143,6 +155,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
         boxDecorationBreak: 'clone',
         WebkitBoxDecorationBreak: 'clone',
         ...(value ? filledSx(theme) : ghost ? ghostSx(theme) : emptySx(theme, need ?? false)),
+        ...(warn ? warnSx(theme) : {}),
         '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
       })}
     >
@@ -154,6 +167,10 @@ export const BlankButton: FC<BlankButtonProps> = ({
 interface PopoverBlankProps extends Omit<BlankButtonProps, 'onClick'> {
   /** Popover heading; defaults to the blank's label. */
   title?: string;
+  /** Hides the heading, for content with a labelled field of its own; the title still names the dialog. */
+  hideTitle?: boolean;
+  /** For content that needs more room than the usual popover. */
+  paperSx?: SxProps<Theme>;
   children: (close: () => void) => ReactNode;
   onClose?: () => void;
 }
@@ -194,11 +211,25 @@ const navigateChoices = (event: KeyboardEvent<HTMLElement>): void => {
 
 const POPOVER_MODIFIERS = [{ name: 'preventOverflow', options: { padding: 8 } }];
 
-/** Non-modal on purpose: a modal popover's backdrop swallowed the first click on Save / Clear Form /
- * another blank. Here the click away closes the popover and still reaches its target. */
-export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
-  const popupId = useId();
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+/** The open popovers, innermost last: Escape closes only the innermost. */
+const openPoppers: object[] = [];
+
+interface BlankPopperProps {
+  anchor: HTMLElement;
+  id: string;
+  title: string;
+  /** Escape (focus back on the anchor) or a click away (focus stays where it went). */
+  onClose: (restoreFocus?: boolean) => void;
+  /** Hides the small heading; the title still names the dialog. */
+  hideTitle?: boolean;
+  paperSx?: SxProps<Theme>;
+  children: ReactNode;
+}
+
+/** The popover under a blank (or any anchor in a sentence). Non-modal on purpose: a modal popover's backdrop
+ * swallowed the first click on Save / Clear Form / another blank. Here the click away closes the popover and still
+ * reaches its target. */
+export const BlankPopper: FC<BlankPopperProps> = ({ anchor, id, title, onClose, hideTitle, paperSx, children }) => {
   // Focus moves into the paper only after Popper has placed it: focusing earlier opens an autocomplete
   // list (openOnFocus) while the paper still sits at the top-left corner, and that list stays there.
   const paperEl = useRef<HTMLDivElement | null>(null);
@@ -210,6 +241,73 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
   const popperOptions = useMemo(() => ({ onFirstUpdate: onPlaced }), [onPlaced]);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  useEffect(() => {
+    // Document-level, capture phase (as MUI's modal did): one Escape closes the popover wherever focus
+    // is, even when an autocomplete list inside it is open; only the innermost one when they nest (a pick-list
+    // inside the dose calculator).
+    const token = {};
+    openPoppers.push(token);
+    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape' && openPoppers[openPoppers.length - 1] === token) {
+        event.stopPropagation();
+        onCloseRef.current();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      openPoppers.splice(openPoppers.indexOf(token), 1);
+    };
+  }, []);
+  return (
+    <Popper
+      open
+      anchorEl={anchor}
+      placement="bottom-start"
+      sx={{ zIndex: (theme) => theme.zIndex.modal }}
+      modifiers={POPOVER_MODIFIERS}
+      popperOptions={popperOptions}
+    >
+      <ClickAwayListener
+        mouseEvent="onMouseDown"
+        touchEvent="onTouchStart"
+        onClickAway={(event) => {
+          if (!anchor.contains(event.target as Node)) onClose(false);
+        }}
+      >
+        <Paper
+          ref={paperEl}
+          id={id}
+          role="dialog"
+          aria-label={title}
+          onKeyDown={navigateChoices}
+          elevation={8}
+          data-testid={dataTestIds.documentProcedurePage.blankPopover}
+          sx={[
+            {
+              width: 'max-content',
+              minWidth: 'min(280px, calc(100vw - 32px))',
+              maxWidth: 'min(400px, calc(100vw - 32px))',
+              maxHeight: 'min(360px, calc(100dvh - 32px))',
+              overflow: 'auto',
+              p: 1,
+            },
+            ...(Array.isArray(paperSx) ? paperSx : [paperSx]),
+          ]}
+        >
+          {!hideTitle && <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{title}</Typography>}
+          {children}
+        </Paper>
+      </ClickAwayListener>
+    </Popper>
+  );
+};
+
+export const PopoverBlank: FC<PopoverBlankProps> = ({ title, hideTitle, paperSx, children, onClose, ...blank }) => {
+  const popupId = useId();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const close = useCallback(
     (restoreFocus = true): void => {
       if (restoreFocus) anchor?.focus();
@@ -218,19 +316,6 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
     },
     [anchor]
   );
-  useEffect(() => {
-    if (!anchor) return;
-    // Document-level, capture phase (as MUI's modal did): one Escape closes the popover wherever focus
-    // is, even when an autocomplete list inside it is open.
-    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        close();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [anchor, close]);
   return (
     <>
       <BlankButton
@@ -240,43 +325,16 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
         popupId={popupId}
       />
       {anchor && (
-        <Popper
-          open
-          anchorEl={anchor}
-          placement="bottom-start"
-          sx={{ zIndex: (theme) => theme.zIndex.modal }}
-          modifiers={POPOVER_MODIFIERS}
-          popperOptions={popperOptions}
+        <BlankPopper
+          anchor={anchor}
+          id={popupId}
+          title={title ?? blank.label}
+          onClose={close}
+          hideTitle={hideTitle}
+          paperSx={paperSx}
         >
-          <ClickAwayListener
-            mouseEvent="onMouseDown"
-            touchEvent="onTouchStart"
-            onClickAway={(event) => {
-              if (!anchor.contains(event.target as Node)) close(false);
-            }}
-          >
-            <Paper
-              ref={paperEl}
-              id={popupId}
-              role="dialog"
-              aria-label={title ?? blank.label}
-              onKeyDown={navigateChoices}
-              elevation={8}
-              data-testid={dataTestIds.documentProcedurePage.blankPopover}
-              sx={{
-                width: 'max-content',
-                minWidth: 'min(280px, calc(100vw - 32px))',
-                maxWidth: 'min(400px, calc(100vw - 32px))',
-                maxHeight: 'min(360px, calc(100dvh - 32px))',
-                overflow: 'auto',
-                p: 1,
-              }}
-            >
-              <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{title ?? blank.label}</Typography>
-              {children(close)}
-            </Paper>
-          </ClickAwayListener>
-        </Popper>
+          {children(close)}
+        </BlankPopper>
       )}
     </>
   );
@@ -325,6 +383,9 @@ interface SelectBlankProps {
   emptyText?: string;
   dataTestId?: string;
   helperText?: string;
+  /** Shows the picked option as the list does, not lower-cased for running prose (a field of its own, not a sentence). */
+  verbatim?: boolean;
+  warn?: boolean;
 }
 
 export const SelectBlank: FC<SelectBlankProps> = ({
@@ -341,6 +402,8 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   helperText,
   otherValue,
   onOtherChange,
+  verbatim,
+  warn,
 }) => {
   const [filter, setFilter] = useState('');
   const all = withSavedValues(options, value === undefined ? [] : [value]);
@@ -354,8 +417,8 @@ export const SelectBlank: FC<SelectBlankProps> = ({
       value={
         value === OTHER && onOtherChange
           ? otherValue?.trim() || display
-          : display === undefined
-          ? undefined
+          : display === undefined || verbatim
+          ? display
           : sentenceValue(display)
       }
       need={need}
@@ -363,6 +426,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
       dataTestId={dataTestId}
       onClose={() => setFilter('')}
       hint={helperText}
+      warn={warn}
     >
       {(close) => (
         <>
@@ -389,19 +453,25 @@ export const SelectBlank: FC<SelectBlankProps> = ({
                 {emptyText}
               </Typography>
             )}
-            {shown.map((option) => (
-              <ListItemButton
-                key={option.value}
-                role="option"
-                selected={option.value === value}
-                aria-selected={option.value === value}
-                onClick={() => {
-                  if (option.value !== value) onChange(option.value);
-                  if (option.value !== OTHER || !onOtherChange) close();
-                }}
-              >
-                <ListItemText primary={option.label} />
-              </ListItemButton>
+            {shown.map((option, i) => (
+              <Fragment key={option.value}>
+                {option.group && option.group !== shown[i - 1]?.group && (
+                  <ListSubheader disableSticky sx={{ lineHeight: '32px', fontWeight: 700, color: 'text.primary' }}>
+                    {option.group}
+                  </ListSubheader>
+                )}
+                <ListItemButton
+                  role="option"
+                  selected={option.value === value}
+                  aria-selected={option.value === value}
+                  onClick={() => {
+                    if (option.value !== value) onChange(option.value);
+                    if (option.value !== OTHER || !onOtherChange) close();
+                  }}
+                >
+                  <ListItemText primary={option.label} secondary={option.secondary} />
+                </ListItemButton>
+              </Fragment>
             ))}
             {clearable && value !== undefined && (
               <ListItemButton
@@ -551,8 +621,14 @@ interface TextBlankProps {
   need?: boolean;
   min?: number;
   step?: number;
+  /** A number with more decimal places than this isn't taken: typing the extra digit does nothing. */
+  maxDecimals?: number;
   width?: string;
+  /** Free text that wraps onto more lines and grows as it's typed, like the HPI box (text only). */
+  multiline?: boolean;
   dataTestId?: string;
+  /** Outlined in orange while a warning points at it. */
+  warn?: boolean;
 }
 
 /** Borderless input that sits in the sentence: numbers, clock times and short free text. */
@@ -566,22 +642,31 @@ export const TextBlank: FC<TextBlankProps> = ({
   need,
   min,
   step,
+  maxDecimals,
   width,
+  multiline,
   dataTestId,
+  warn,
 }) => {
   const text = value === undefined ? '' : String(value);
+  const grows = multiline && kind === 'text';
   if (readOnly) return <ReadOnlyBlank label={label} value={text} />;
   const placeholder = placeholderProp ?? label;
   return (
     <InputBase
-      type={kind}
+      type={grows ? undefined : kind}
+      multiline={grows}
       value={text}
       placeholder={placeholder}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={(event) => {
+        const decimals = event.target.value.split('.')[1]?.length ?? 0;
+        if (maxDecimals === undefined || decimals <= maxDecimals) onChange(event.target.value);
+      }}
       inputProps={{
         'aria-label': label,
         'data-testid': dataTestId,
         'data-needed': !text && need ? true : undefined,
+        'data-warn': warn || undefined,
         title: placeholder === label ? undefined : label,
         // Chrome's form-history dropdown would look like an app popover inside a sentence.
         autoComplete: 'off',
@@ -596,7 +681,18 @@ export const TextBlank: FC<TextBlankProps> = ({
             ...(inline['& input'] as Record<string, unknown>),
             ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
             ...(kind === 'number' ? numberInputSx : {}),
+            ...(warn ? warnSx(theme) : {}),
           },
+          // A growing blank renders a textarea; it takes the same look and starts level with the sentence.
+          ...(grows
+            ? {
+                '& textarea': {
+                  ...(inline['& input'] as Record<string, unknown>),
+                  ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
+                },
+                verticalAlign: 'top',
+              }
+            : {}),
           maxWidth: '100%',
           // The box hugs its content: the placeholder at first, then whatever is typed.
           width: kind === 'time' ? 'auto' : width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,
@@ -670,6 +766,8 @@ interface SentenceProps {
   onRemove?: () => void;
   removeLabel?: string;
   dataTestId?: string;
+  /** A sentence worked out from the ones above it (the eRx dispense line): smaller and gray, blanks still editable. */
+  muted?: boolean;
 }
 
 /** U+2060 WORD JOINER: no line break on either side, and it takes no space. */
@@ -743,9 +841,18 @@ function attachPunctuation(children: ReactNode): ReactNode[] {
   );
 }
 
-export const Sentence: FC<SentenceProps> = ({ children, onRemove, removeLabel, dataTestId }) => (
+export const Sentence: FC<SentenceProps> = ({ children, onRemove, removeLabel, dataTestId, muted }) => (
   <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }} data-testid={dataTestId}>
-    <Typography component="div" sx={{ ...SENTENCE_SX, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+    <Typography
+      component="div"
+      sx={{
+        ...SENTENCE_SX,
+        flex: 1,
+        minWidth: 0,
+        overflowWrap: 'anywhere',
+        ...(muted && { color: 'text.secondary', fontSize: '0.9em' }),
+      }}
+    >
       {attachPunctuation(children)}
     </Typography>
     {onRemove && (

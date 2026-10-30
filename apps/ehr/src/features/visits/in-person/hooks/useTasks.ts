@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { completeErxTask } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -35,12 +36,17 @@ export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
 // Read-only action label for fax tasks that have already been actioned (filed/deleted).
 export const VIEW_FAX = 'View';
+// Opens a refill or change request's dialog on the Tasks page.
+export const GO_TO_REQUEST = 'Go to request';
 
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
 
 export const TASKS_PAGE_SIZE = 20;
+
+const isErxRequestCode = (code: string | undefined): boolean =>
+  code === ERX_TASK.code.refillRequest || code === ERX_TASK.code.changeRequest;
 
 const TASK_CODES_TO_EXCLUDE = [
   LAB_ORDER_TASK.code.preSubmission,
@@ -442,7 +448,20 @@ export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRe
   });
 };
 
-function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>): Task {
+/** Completes an eRx task through its zambda (the refill request dialog). */
+export const useCompleteErxTask = (): UseMutationResult<void, Error, { taskId: string }> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId }) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      await completeErxTask(oystehrZambda, { taskId });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
+  });
+};
+
+export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>): Task {
   const category = task.groupIdentifier?.value ?? '';
   let action: any = undefined;
   let title = '';
@@ -634,6 +653,10 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
           link: addEncounterIdToLink(`/in-person/${appointmentId}/procedures/${orderId}`),
         };
       }
+      // A patient's refill or change request: the order is the prescription.
+      if (category === MANUAL_TASK.category.erx && isErxRequestCode(getCoding(task.code, ERX_TASK.system)?.code)) {
+        action = { name: GO_TO_REQUEST, link: '' };
+      }
     } else if (appointmentId) {
       action = {
         name: GO_TO_TASK,
@@ -671,10 +694,17 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     }
   }
   if (category === ERX_TASK.category) {
-    const providerName = getInputString(ERX_TASK.input.providerName, task);
-    title = `Provider ${providerName} has notifications in DoseSpot`;
+    const code = getCoding(task.code, ERX_TASK.system)?.code;
     completable = true;
-    action = { name: OPEN_DOSESPOT, link: '' };
+    if (isErxRequestCode(code)) {
+      // The refill and change request subscription writes the whole sentence into the description.
+      title = task.description ?? '';
+      action = { name: GO_TO_REQUEST, link: '' };
+    } else {
+      const providerName = getInputString(ERX_TASK.input.providerName, task);
+      title = `Provider ${providerName} has notifications in DoseSpot`;
+      action = { name: OPEN_DOSESPOT, link: '' };
+    }
   }
   if (category === FAX_TASK.category) {
     const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';

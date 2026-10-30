@@ -1,0 +1,67 @@
+import { Calculate } from '@mui/icons-material';
+import { Box, IconButton, Tooltip } from '@mui/material';
+import { FC, ReactNode, useId, useState } from 'react';
+import { BlankPopper } from '../procedures/narrative/InlineBlanks';
+
+// The live icon and the disabled one sit alike, so the rows' sentences line up.
+const ICON_SX = { p: '2px', mx: '2px', verticalAlign: '-3px' };
+
+/** The calculator icon after a dose blank: a click opens the dose calculator under the line, and Escape, a click
+ * away or `close` (from "Use this dose") shuts it. It never opens by itself. `label` names the icon where there are
+ * several (a suggestion row's). `onOpen` runs on each opening. */
+export const DoseCalculatorPopup: FC<{
+  children: (close: () => void) => ReactNode;
+  label?: string;
+  onOpen?: () => void;
+}> = ({ children, label = 'Dose calculator', onOpen }) => {
+  const popupId = useId();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const close = (restoreFocus = true): void => {
+    if (restoreFocus) anchor?.focus();
+    setAnchor(null);
+  };
+  return (
+    <>
+      <IconButton
+        size="small"
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={Boolean(anchor)}
+        aria-controls={anchor ? popupId : undefined}
+        onClick={(event) => {
+          if (anchor) return close();
+          onOpen?.();
+          setAnchor(event.currentTarget);
+        }}
+        color="primary"
+        sx={{ ...ICON_SX, ...(anchor && { backgroundColor: 'action.selected' }) }}
+      >
+        <Calculate sx={{ fontSize: 18 }} />
+      </IconButton>
+      {anchor && (
+        <BlankPopper
+          anchor={anchor}
+          id={popupId}
+          title="Dose calculator"
+          onClose={close}
+          hideTitle
+          paperSx={{ p: 0, minWidth: 0, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100dvh - 32px)' }}
+        >
+          {children(() => close())}
+        </BlankPopper>
+      )}
+    </>
+  );
+};
+
+/** Where a row's quick pick is saved as written: the calculator icon, disabled, so the rows' sentences line up, and a
+ * hover saying why. A disabled button gets no hover, so a span around it takes the tooltip. */
+export const DoseCalculatorAsWritten: FC<{ quickPickName: string; label: string }> = ({ quickPickName, label }) => (
+  <Tooltip title={`${quickPickName} is dispensed as-written, not calculated.`}>
+    <Box component="span">
+      <IconButton size="small" aria-label={label} disabled sx={ICON_SX}>
+        <Calculate sx={{ fontSize: 18 }} />
+      </IconButton>
+    </Box>
+  </Tooltip>
+);

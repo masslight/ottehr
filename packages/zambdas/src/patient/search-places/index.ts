@@ -197,6 +197,7 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
     address: placesAddress ?? '',
     phone: reconcilePharmacyPhone(placesPhone, erxPharmacyMatch?.phone),
     erxPharmacyId: erxPharmacyMatch?.id.toString(),
+    addressComponents: addressParsed,
   };
 
   console.log('returning this formatted pharmacy info', JSON.stringify(formattedPlace));

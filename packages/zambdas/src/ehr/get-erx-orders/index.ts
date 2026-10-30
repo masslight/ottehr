@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MedicationRequest } from 'fhir/r4b';
+import { MedicationRequest, Provenance } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
 import { GetErxOrdersInput, GetErxOrdersInputSchema, GetErxOrdersResponse } from 'utils/lib/types/api/erx.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -40,10 +40,19 @@ export async function getErxOrders(
         name: '_tag',
         value: ERX_MEDICATION_META_TAG_CODE,
       },
+      // The eRx service's events for each prescription
+      {
+        name: '_revinclude',
+        value: 'Provenance:target',
+      },
     ],
   });
+  const resources = bundle.unbundle() as (MedicationRequest | Provenance)[];
+  const provenances = resources.filter((r): r is Provenance => r.resourceType === 'Provenance');
   return {
-    orders: (bundle.unbundle() as MedicationRequest[]).map(makePrescribedMedicationDTO),
+    orders: resources
+      .filter((r): r is MedicationRequest => r.resourceType === 'MedicationRequest')
+      .map((medicationRequest) => makePrescribedMedicationDTO(medicationRequest, provenances)),
   };
 }
 

@@ -1872,6 +1872,20 @@
       "src": "src/ehr/get-erx-orders/index",
       "zip": ".dist/zips/get-erx-orders.zip"
     },
+    "COMPLETE-ERX-TASK": {
+      "name": "complete-erx-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/complete-erx-task/index",
+      "zip": ".dist/zips/complete-erx-task.zip"
+    },
+    "GET-ERX-REQUEST": {
+      "name": "get-erx-request",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-erx-request/index",
+      "zip": ".dist/zips/get-erx-request.zip"
+    },
     "GET-INVOICES-TASKS": {
       "name": "get-invoices-tasks",
       "type": "http_auth",
@@ -2521,6 +2535,13 @@
         "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
         "reason": "Create Task for eRX notification"
       }
+    },
+    "ERX-REFILL-REQUEST": {
+      "name": "erx-refill-request-subscription",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/erx-refill-request/index",
+      "zip": ".dist/zips/erx-refill-request.zip"
     },
     "GET-LABEL-PRINTING-CONFIG": {
       "name": "get-label-printing-config",
@@ -3364,6 +3385,50 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "create"
+          }
+        ]
+      }
+    },
+    "ERX_REFILL_REQUEST_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "eRx refill request task",
+        "criteria": "Task?code=https://terminology.fhir.oystehr.com/CodeSystem/erx-task|rx-renewal",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX-REFILL-REQUEST/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "ERX_CHANGE_REQUEST_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "eRx change request task",
+        "criteria": "Task?code=https://terminology.fhir.oystehr.com/CodeSystem/erx-task|rx-change",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX-REFILL-REQUEST/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
           }
         ]
       }

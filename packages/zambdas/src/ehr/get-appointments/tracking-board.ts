@@ -546,7 +546,7 @@ export const buildOrdersForTrackingBoard = ({
   table.immunizationOrdersByEncounterId = groupBy(immunizationOrders, (order) => order.encounterId);
 
   table.erxOrdersByEncounterId = groupBy(
-    pools.medicationRequests.map(makePrescribedMedicationDTO),
+    pools.medicationRequests.map((medicationRequest) => makePrescribedMedicationDTO(medicationRequest)),
     (order) => order.encounterId
   );
 

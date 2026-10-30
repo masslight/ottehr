@@ -10,6 +10,7 @@ import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHou
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
 import { useChartData } from '../visits/shared/hooks/useChartData';
+import { useChartSection } from '../visits/shared/hooks/useChartSection';
 import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
 
 export const TASK_CATEGORY_LABEL: Record<string, string> = {
@@ -168,6 +169,28 @@ export function useInHouseMedicationsOptions(encounterId: string): {
         label: order.medicationName,
       };
     }),
+  };
+}
+
+/** A visit's eRx prescriptions, for a patient's refill request (a manual eRx task on one of them). */
+export function usePrescriptionsOptions(encounterId: string): {
+  prescriptionsLoading: boolean;
+  prescriptionsOptions: Order[];
+  compoundPrescriptionIds: string[];
+} {
+  const { data, isLoading } = useChartSection('plan', { encounterId });
+  return {
+    prescriptionsLoading: isLoading,
+    // The eRx service can't cancel a compound yet, so a patient's change request (which cancels it) can't be on one.
+    compoundPrescriptionIds: (data?.prescribedMedications ?? [])
+      .filter((prescription) => prescription.order?.compound)
+      .map((prescription) => prescription.resourceId ?? ''),
+    prescriptionsOptions: (data?.prescribedMedications ?? []).map((prescription) => ({
+      id: prescription.resourceId ?? '',
+      label: [prescription.name, prescription.sent && DateTime.fromISO(prescription.sent).toFormat('M/d/yyyy')]
+        .filter(Boolean)
+        .join(' · '),
+    })),
   };
 }
 

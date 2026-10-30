@@ -1,19 +1,10 @@
 import Oystehr, { ErxSearchPharmaciesParams, ErxSearchPharmaciesResponse } from '@oystehr/sdk';
 import { standardizePhoneWithExtension } from 'utils/lib/helpers/helpers';
+import { PlacesAddressComponents } from 'utils/lib/types/data/search-places';
 
 export const PLACES_API_BASE_URL = 'https://places.googleapis.com/v1/places';
 
-type PlacesDetailAddress = {
-  streetAddress: string | undefined;
-  streetNumber: string | undefined;
-  streetLong: string | undefined; // Pineapple Street
-  streetShort: string | undefined; // Pineapple St
-  city: string | undefined;
-  stateLong: string | undefined; // New York
-  stateShort: string | undefined; // NY
-  zipCode: string | undefined;
-  country: string | undefined;
-};
+type PlacesDetailAddress = PlacesAddressComponents;
 
 // when searching the places detail api to retrieve specific components of an address you must include addressComponents in the fieldMask and iterate over the array returned
 // https://developers.google.com/maps/documentation/javascript/geocoding#address-types

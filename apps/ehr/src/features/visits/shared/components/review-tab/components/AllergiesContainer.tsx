@@ -11,9 +11,10 @@ import { useVisitNote } from '../../../hooks/useVisitNote';
 import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
 import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
-export const AllergiesContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
+// `encounterId`: another visit's, in place of the page's (the eRx order form outside a visit).
+export const AllergiesContainer: FC<{ notes?: NoteDTO[]; encounterId?: string }> = ({ notes, encounterId }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: note } = useVisitNote();
+  const { data: note } = useVisitNote(encounterId ? { encounterId } : {});
   const theme = useTheme();
   const aiAdded = useAiAddedRecommendations();
 
