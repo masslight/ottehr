@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import { GetBillingReportHistoryResponse, ReportRefreshStatus } from 'utils/lib/types/data/billing/billing.types';
@@ -7,7 +6,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeValidate } from '../../../shared/validation';
-import { createBillingClient } from '../../shared';
+import { BillingOystehr, createBillingClient } from '../../shared';
 import { findActiveRefreshTask, findRecentFailedRefreshTask, kickOffRefreshTask } from '../framework/refresh-task';
 import { reportRegistry } from '../framework/registry';
 import {
@@ -38,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // over the cached detail, returned inline (they are small). `history` lists the kind's cached
 // runs (one meta DocumentReference search) instead of serving a report.
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   secrets: ZambdaInput['secrets'],
   kind: RefreshReportKind,
   rawParams: unknown,
@@ -97,7 +96,7 @@ export async function performEffect(
 }
 
 async function statusOf(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   cacheKey: string,
   generatedAt: string | undefined,
   knownActive: Awaited<ReturnType<typeof findActiveRefreshTask>>

@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils/lib/secrets';
@@ -6,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { gunzipSync, gzipSync } from 'zlib';
 import { lookupCardsWithDirectory } from '../../../src/billing/reports/card-directory';
 import { REPORT_CACHE_IDENTIFIER_SYSTEM } from '../../../src/billing/reports/framework/report-cache';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const freshISO = DateTime.now().minus({ hours: 1 }).toUTC().toISO() ?? '';
 const staleISO = DateTime.now().minus({ hours: 48 }).toUTC().toISO() ?? '';
@@ -27,7 +27,7 @@ interface Upload {
 const clientWith = (
   entries: Record<string, unknown> | undefined
 ): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   uploads: Upload[];
   uploadFile: ReturnType<typeof vi.fn>;
   fetchMock: ReturnType<typeof vi.fn>;
@@ -79,7 +79,7 @@ const clientWith = (
   const oystehr = {
     z3: { getPresignedUrl, uploadFile, deleteObject },
     fhir: { search, update, create },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
   return { oystehr, uploads, uploadFile, fetchMock };
 };
 

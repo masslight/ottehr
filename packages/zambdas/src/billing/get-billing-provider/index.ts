@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
 import { GetBillingProviderInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -10,6 +9,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
+  BillingOystehr,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   mapProvider,
@@ -32,7 +32,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: GetBillingProviderParams): Promise<BillingProviderOption> {
+async function performEffect(
+  oystehr: BillingOystehr,
+  params: GetBillingProviderParams
+): Promise<BillingProviderOption> {
   // Role is a meta.tag (one system, code per role), independent of resource type: a provider
   // (Practitioner or Organization) can bill and/or render.
   const roleCode = params.providerType === 'rendering' ? PROVIDER_ROLE_RENDERING : PROVIDER_ROLE_BILLING;

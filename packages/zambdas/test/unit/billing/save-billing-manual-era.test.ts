@@ -34,6 +34,7 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_TAG,
 } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { claimHistoryEntries, historyChanges, provenanceChanges } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/custom-insurance-org.helpers', async (importOriginal) => ({
@@ -135,7 +136,7 @@ function storedRemit(): FhirResource[] {
 
 // In-memory FHIR store: searches by _id / target / identifier, and a transaction that echoes each
 // write back with an id and version, the way the server answers.
-function makeClient(resources: FhirResource[]): { oystehr: Oystehr; transaction: Mock } {
+function makeClient(resources: FhirResource[]): { oystehr: OystehrMock; transaction: Mock } {
   const search = vi.fn(
     async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
       const param = (name: string): string | undefined => params.find((p) => p.name === name)?.value;
@@ -173,7 +174,7 @@ function makeClient(resources: FhirResource[]): { oystehr: Oystehr; transaction:
       };
     }),
   }));
-  return { oystehr: { fhir: { search, transaction } } as unknown as Oystehr, transaction };
+  return { oystehr: { fhir: { search, transaction } } as unknown as OystehrMock, transaction };
 }
 
 const params = (overrides: Partial<SaveManualEraParams>): SaveManualEraParams => ({
@@ -193,13 +194,13 @@ const describeRequests = (requests: BatchInputRequest<FhirResource>[]): string[]
   requests.map((request) => `${request.method} ${request.url}`);
 
 // A save as the handler runs it: checked against what's stored, then written.
-const save = async (oystehr: Oystehr, input: SaveManualEraParams): Promise<SaveManualEraResponse> =>
+const save = async (oystehr: OystehrMock, input: SaveManualEraParams): Promise<SaveManualEraResponse> =>
   performEffect(oystehr, input, await complexValidation(oystehr, input), ACTOR, NOW);
 
 describe('save-billing-manual-era', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (resolvePayerOrganization as Mock).mockImplementation(async (_oystehr: Oystehr, payerId: string) => {
+    (resolvePayerOrganization as Mock).mockImplementation(async (_oystehr: OystehrMock, payerId: string) => {
       const payer = [PAYER_ORG, CUSTOM_PAYER_ORG].find((org) => org.id === payerId);
       if (!payer) throw new Error(`No payer ${payerId}`);
       return payer;

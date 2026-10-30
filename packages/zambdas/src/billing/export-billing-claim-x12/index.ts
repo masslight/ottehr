@@ -8,7 +8,7 @@ import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { createBillingClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 
 type ExportClaimX12Params = ValidatedZambdaInput<typeof ExportClaimX12InputSchema>;
 
@@ -35,7 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function performEffect(params: ExportClaimX12Params, oystehr: Oystehr): Promise<ExportClaimX12Response> {
+async function performEffect(params: ExportClaimX12Params, oystehr: BillingOystehr): Promise<ExportClaimX12Response> {
   const { claimId, submissionType, submissionInsurance, payerClaimControlNumber } = params;
   try {
     const { x12 } = await oystehr.rcm.claimToX12({

@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import {
   AUTO_ACCIDENT_TAG_NAME,
@@ -13,6 +12,7 @@ import {
   describeSystemTagBasicCleanupPlan,
   planSystemTagBasicCleanup,
 } from '../../../src/scripts/delete-billing-system-tag-basics.helpers';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const tagBasic = (id: string, name: string): Basic => ({
   resourceType: 'Basic',
@@ -144,7 +144,7 @@ describe('deleteTagBasics', () => {
     fhir: {
       transaction,
     },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
 
   beforeEach(() => {
     vi.clearAllMocks();

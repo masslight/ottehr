@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
@@ -12,6 +11,7 @@ import {
   UpdateChargeItemDefinitionParams,
   validateRequestParameters,
 } from '../../../src/billing/update-charge-item-definition/validateRequestParameters';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 describe('update-charge-item-definition', () => {
   describe('validation', () => {
@@ -156,7 +156,7 @@ describe('update-charge-item-definition', () => {
         fhir: {
           search: vi.fn().mockResolvedValueOnce({ unbundle: () => [] }),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       await expect(async () => complexValidation(oystehr, params)).rejects.toThrow(
         expect.objectContaining({
           code: 4017,
@@ -199,7 +199,7 @@ describe('update-charge-item-definition', () => {
         fhir: {
           search: vi.fn().mockResolvedValueOnce({ unbundle: () => [completeResource] }),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo = await complexValidation(oystehr, params);
       expect(cvo).toEqual({ definition: completeResource });
       expect(oystehr.fhir.search).toHaveBeenCalledWith({
@@ -274,7 +274,7 @@ describe('update-charge-item-definition', () => {
         fhir: {
           update: vi.fn().mockResolvedValueOnce(updatedResource),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const result = await performEffect(oystehr, params, { definition: existingResource });
       expect(result).toEqual({
         id: 'some-uuid',
@@ -417,7 +417,7 @@ describe('update-charge-item-definition', () => {
         fhir: {
           update: vi.fn().mockResolvedValueOnce(updatedResource),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const result = await performEffect(oystehr, params, { definition: existingResource });
       expect(result).toEqual({
         id: 'some-uuid',
@@ -500,7 +500,7 @@ describe('update-charge-item-definition', () => {
         fhir: {
           update: vi.fn().mockResolvedValueOnce(updatedResource),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const result = await performEffect(oystehr, params, { definition: existingResource });
       expect(result).toEqual({
         id: 'some-uuid',

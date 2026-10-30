@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Claim,
@@ -36,6 +35,7 @@ import {
 import { buildEraClaimRemit, eraContainedMemberId, eraPatientAccountNumber, resolveEraPayee } from '../era-remits';
 import { manualEraEntryFromFhir } from '../manual-era';
 import {
+  BillingOystehr,
   createBillingClient,
   fhirName,
   findById,
@@ -60,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Promise<EraDetailResponse> {
+export async function performEffect(oystehr: BillingOystehr, params: GetEraDetailParams): Promise<EraDetailResponse> {
   const bundle = await oystehr.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [{ name: '_id', value: params.eraId }],
@@ -255,7 +255,7 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
   };
 }
 
-async function requestorPayee(oystehr: Oystehr, pr: PaymentReconciliation): Promise<EraPayee | null> {
+async function requestorPayee(oystehr: BillingOystehr, pr: PaymentReconciliation): Promise<EraPayee | null> {
   const [resourceType, id] = pr.requestor?.reference?.split('/') ?? [];
   if ((resourceType !== 'Organization' && resourceType !== 'Practitioner') || !id) return null;
   const provider = await findById<Organization | Practitioner>(oystehr, resourceType, id);
@@ -268,7 +268,7 @@ async function requestorPayee(oystehr: Oystehr, pr: PaymentReconciliation): Prom
   };
 }
 
-async function fetchEraAttachments(oystehr: Oystehr, eraId: string): Promise<EraAttachment[]> {
+async function fetchEraAttachments(oystehr: BillingOystehr, eraId: string): Promise<EraAttachment[]> {
   const bundle = await oystehr.fhir.search<DocumentReference>({
     resourceType: 'DocumentReference',
     params: [{ name: 'related', value: `PaymentReconciliation/${eraId}` }],

@@ -98,6 +98,7 @@ import {
 } from '../../../src/billing/shared';
 import { createAccidentCondition } from '../../../src/shared/chart-data';
 import { validateWithSchema } from '../../../src/shared/validation';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
@@ -1163,8 +1164,8 @@ describe('create-billing-claim-from-encounter', () => {
               getPayerByUrl: vi.fn().mockResolvedValue(oystehrResources.payor),
               constructPayerUrl: new Oystehr({}).rcm.constructPayerUrl,
             },
-          } as unknown as Oystehr,
-          { fhir: { search: tc.billingOystehrSearch } } as unknown as Oystehr,
+          } as unknown as OystehrMock,
+          { fhir: { search: tc.billingOystehrSearch } } as unknown as OystehrMock,
           { encounterId, secrets: tc.secrets ?? {} }
         )
       );
@@ -1205,7 +1206,7 @@ describe('create-billing-claim-from-encounter', () => {
     it('copies coverage tree for new account', () => {
       const billingOystehr = {
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const [ops] = copyCoverageAndSubscriberForAccount(
         billingOystehr,
         [clinicalResources.coverage],
@@ -1344,7 +1345,7 @@ describe('create-billing-claim-from-encounter', () => {
     it('copies coverages for existing account', () => {
       const billingOystehr = {
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const [claimOps] = copyCoverageAndSubscriber(
         billingOystehr,
         billingResources.coverage,
@@ -1431,7 +1432,7 @@ describe('create-billing-claim-from-encounter', () => {
       rcm: {
         constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
 
     const copiedCoverage = (coverage: Coverage): Coverage => {
       const [ops] = copyCoverageAndSubscriber(billingOystehr, coverage, 'urn:uuid:patient', [oystehrResources.payor]);
@@ -1473,7 +1474,7 @@ describe('create-billing-claim-from-encounter', () => {
     it('properly finds coverages for existing billing resources for urgent care', () => {
       const billingOystehr = {
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const [claimOps] = copyCoverageAndSubscriber(
         billingOystehr,
         billingResources.coverage,
@@ -1497,7 +1498,7 @@ describe('create-billing-claim-from-encounter', () => {
     it('properly finds coverages for new billing resources for urgent care', () => {
       const billingOystehr = {
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const [ops] = copyCoverageAndSubscriberForAccount(
         billingOystehr,
         [clinicalResources.coverage],
@@ -1545,7 +1546,7 @@ describe('create-billing-claim-from-encounter', () => {
       subject: [{ reference: 'Patient/patient-123' }],
       owner,
     });
-    const billingOystehrWithGet = (get: Mock): Oystehr => ({ fhir: { get } }) as unknown as Oystehr;
+    const billingOystehrWithGet = (get: Mock): OystehrMock => ({ fhir: { get } }) as unknown as OystehrMock;
 
     it('stamps the occ-med Account owner NIO token as a native billing Organization reference', async () => {
       const get = vi.fn();
@@ -1625,7 +1626,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
 
       const occMedAppointment = structuredClone(clinicalResources.appointment);
       occMedAppointment.serviceCategory![0].coding![0].code = 'occupational-medicine';
@@ -1713,7 +1714,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -1855,7 +1856,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const wcAcct = structuredClone({ ...clinicalResources.account });
       wcAcct.type!.coding![0].code = 'WCOMPACCT';
       delete wcAcct.coverage![0].priority;
@@ -2127,7 +2128,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const wcAcct = structuredClone({ ...clinicalResources.account });
       wcAcct.type!.coding![0].code = 'WCOMPACCT';
       delete wcAcct.coverage![0].priority;
@@ -2246,7 +2247,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [emptyAccount],
@@ -2384,7 +2385,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -2556,7 +2557,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn, patch: patchFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -2745,7 +2746,7 @@ describe('create-billing-claim-from-encounter', () => {
         rcm: {
           constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
 
       await performEffect(
         billingOystehr,
@@ -2815,7 +2816,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -3167,7 +3168,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -3306,7 +3307,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn, search: searchFn, create: createFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -3460,7 +3461,7 @@ describe('create-billing-claim-from-encounter', () => {
           create: vi.fn(),
         },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -3520,7 +3521,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -3666,7 +3667,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const medicationProcedure = (code: string): Procedure => ({
         ...clinicalResources.procedure,
         code: { coding: [{ system: CODE_SYSTEM_CPT, code }] },
@@ -3763,7 +3764,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -3934,7 +3935,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account],
@@ -4028,7 +4029,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn, patch: vi.fn().mockResolvedValue({}) },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
 
       const result = await performEffect(
         billingOystehr,
@@ -4099,7 +4100,7 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         fhir: { transaction: txFn, patch: vi.fn().mockResolvedValue({}) },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
 
       await performEffect(
         billingOystehr,
@@ -4166,7 +4167,7 @@ describe('create-billing-claim-from-encounter', () => {
         rcm: {
           constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
 
       await performEffect(
         billingOystehr,
@@ -4213,7 +4214,7 @@ describe('create-billing-claim-from-encounter', () => {
         fhir: {
           search,
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
 
       const result = await findMainBillingPatient(oystehr, 'patient-123');
 
@@ -4243,7 +4244,7 @@ describe('create-billing-claim-from-encounter', () => {
         fhir: {
           search,
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
 
       const result = await findMainBillingPatient(oystehr, 'patient-123');
 
@@ -4260,7 +4261,7 @@ describe('create-billing-claim-from-encounter', () => {
         fhir: {
           search,
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
 
       expect((await findMainBillingPatient(oystehr, 'patient-123')).total).toEqual(2);
     });

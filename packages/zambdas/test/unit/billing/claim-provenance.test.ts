@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Claim,
@@ -65,6 +64,7 @@ import {
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   getClaimTypeCoding,
 } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/u1' } };
@@ -984,7 +984,7 @@ describe('claim history lookups', () => {
   });
 
   // a server that returns one entry per page, whatever _count asks for
-  const onePerPage = (provenances: Provenance[]): Oystehr =>
+  const onePerPage = (provenances: Provenance[]): OystehrMock =>
     ({
       fhir: {
         search: vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => {
@@ -1002,7 +1002,7 @@ describe('claim history lookups', () => {
           };
         }),
       },
-    }) as unknown as Oystehr;
+    }) as unknown as OystehrMock;
 
   it('links a history entry from a later page of results', async () => {
     const oystehr = onePerPage([
@@ -1371,7 +1371,7 @@ describe('claimProvenanceRequest rule attribution', () => {
 
   it('addErrorProvenanceForClaimSubmission attributes the error change to the failing rule', async () => {
     const transaction = vi.fn().mockResolvedValue({ entry: [] });
-    const oystehr = { fhir: { transaction } } as unknown as Oystehr;
+    const oystehr = { fhir: { transaction } } as unknown as OystehrMock;
     const claim = { resourceType: 'Claim', id: 'c1', type: { coding: [] } } as unknown as Claim;
 
     await addErrorProvenanceForClaimSubmission(oystehr, claim, new Error('Rule "R" failed'), [agent], RULE_REF);
@@ -1415,7 +1415,7 @@ describe('claim resource change guts (shared by all mutation endpoints)', () => 
 
   it('commits pre-requests, the change pair, and post-requests in one transaction', async () => {
     const transaction = vi.fn().mockResolvedValue({ entry: [] });
-    const oystehr = { fhir: { transaction } } as unknown as Oystehr;
+    const oystehr = { fhir: { transaction } } as unknown as OystehrMock;
 
     const result = await commitClaimResourceChange(oystehr, {
       resource: coverage({ subscriberId: 'M2' }),
@@ -1459,7 +1459,7 @@ describe('commitClaimMetaTagsWithProvenance patient-AR date extensions', () => {
       fhir: {
         transaction,
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
     await commitClaimMetaTagsWithProvenance(
       oystehr,
       before,

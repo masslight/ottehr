@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import {
   UpdateChargeItemDefinitionInput,
@@ -9,6 +8,7 @@ import { validateJsonBody } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { getChargeItemDefinition } from '../get-charge-item-definition';
+import { BillingOystehr } from '../shared';
 
 export interface UpdateChargeItemDefinitionParams extends UpdateChargeItemDefinitionInput {
   secrets: ZambdaInput['secrets'];
@@ -38,7 +38,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateChargeItemD
 }
 
 export async function complexValidation(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: UpdateChargeItemDefinitionParams
 ): Promise<{ definition: ChargeItemDefinition }> {
   const definition = await getChargeItemDefinition(oystehr, {

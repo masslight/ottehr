@@ -1,15 +1,15 @@
-import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/delete-billing-tag';
 import { DeleteBillingTagParams } from '../../../src/billing/delete-billing-tag/index';
 import { TAG_CODE_SYSTEM } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const search = vi.fn();
 const batch = vi.fn();
 const deleteFn = vi.fn();
-const oystehr = { fhir: { search, batch, delete: deleteFn } } as unknown as Oystehr;
+const oystehr = { fhir: { search, batch, delete: deleteFn } } as unknown as OystehrMock;
 
 const params: DeleteBillingTagParams = { tagId: 'tag-1', secrets: {} } as DeleteBillingTagParams;
 

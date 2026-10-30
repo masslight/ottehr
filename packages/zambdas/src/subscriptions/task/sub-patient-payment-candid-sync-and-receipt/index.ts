@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
@@ -18,7 +17,7 @@ import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingPatientPayment } from '
 import { createBillingClient } from '../../../billing/shared';
 import { performCandidPreEncounterSync, shouldUseCandid, shouldUseOttehrBilling } from '../../../shared/candid';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../../shared/helpers';
 import { createPatientPaymentReceiptPdf } from '../../../shared/pdf/patient-payment-receipt-pdf';
 import { wrapHandler } from '../../../shared/sentry';
 import { getStripeClient } from '../../../shared/stripeIntegration';
@@ -27,7 +26,7 @@ import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 let oystehrToken: string;
-let oystehr: Oystehr;
+let oystehr: ClinicalOystehr;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-patient-payment-candid-sync-and-receipt';

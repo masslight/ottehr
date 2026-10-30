@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Resource } from 'fhir/r4b';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
@@ -15,7 +14,7 @@ import {
   scanMatchingClaims,
   sortScannedClaims,
 } from '../claim-search';
-import { ClaimSearchParam, createBillingClient } from '../shared';
+import { BillingOystehr, ClaimSearchParam, createBillingClient } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -31,7 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SearchBillingClaimsParams
 ): Promise<SearchBillingClaimsResponse> {
   const filterParams = await buildClaimFilterParams({
@@ -59,7 +58,7 @@ async function searchClaims({
   params,
   filterParams,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   params: SearchBillingClaimsParams;
   filterParams: ClaimSearchParam[];
 }): Promise<SearchBillingClaimsResponse> {

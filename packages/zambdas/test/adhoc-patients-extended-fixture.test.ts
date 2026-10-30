@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
   ChargeItemDefinition,
@@ -39,6 +38,7 @@ import { PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 import { makeProcedureResource } from '../src/shared/chart-data';
+import { OystehrMock } from './helpers/oystehr-mock';
 
 // Fixture tests for the Patients layers that reuse app logic: the Recent Patients report's new-vs-existing
 // rule and the visit details face sheet's demographics / PCP / pharmacy composers.
@@ -532,7 +532,7 @@ const fakeOystehr = {
     waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
-} as unknown as Oystehr;
+} as unknown as OystehrMock;
 
 // the billing app holds no payments in these fixtures; every payment is a legacy EHR notice
 const emptyBillingOystehr = {
@@ -540,7 +540,7 @@ const emptyBillingOystehr = {
     search: async () => ({ jobId: 'billing', contentLocation: '', mode: 'bulk' }),
     waitForAsyncJob: async () => ({ status: 200, mode: 'bulk', manifest: { output: [], requiresAccessToken: false } }),
   },
-} as unknown as Oystehr;
+} as unknown as OystehrMock;
 
 const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
 

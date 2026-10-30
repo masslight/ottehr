@@ -1,10 +1,10 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/set-billing-claim-status';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const secrets = null;
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
@@ -17,7 +17,7 @@ const makeClaim = (tag: { system: string; code: string }[] = []): Claim =>
 const makeOystehr = (
   claim: Claim
 ): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   transaction: ReturnType<typeof vi.fn>;
   search: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
@@ -25,7 +25,7 @@ const makeOystehr = (
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
   const search = vi.fn().mockResolvedValue({ unbundle: () => [claim] });
   const create = vi.fn();
-  return { oystehr: { fhir: { search, transaction, create } } as unknown as Oystehr, transaction, search, create };
+  return { oystehr: { fhir: { search, transaction, create } } as unknown as OystehrMock, transaction, search, create };
 };
 
 // The status change now commits as a transaction: a JSON-Patch Binary against the claim plus a

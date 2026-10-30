@@ -12,6 +12,7 @@ import {
   RefreshReportKind,
 } from 'utils/lib/types/data/billing/billing.constants';
 import { REPORT_REFRESH_QUEUE_FAILED_ERROR } from 'utils/lib/types/errors';
+import { BillingOystehr } from '../../shared';
 
 // a refresh untouched for this long is assumed dead and no longer blocks
 const STALE_REFRESH_MINUTES = 30;
@@ -38,7 +39,7 @@ export const refreshTaskChain = (task: Task): number => {
 };
 
 async function searchRefreshTasksByCacheKey(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   cacheKey: string,
   statuses: string,
   count: number
@@ -64,7 +65,7 @@ export const isVersionConflict = (err: unknown): boolean =>
   err instanceof Oystehr.OystehrSdkError && String(err.code) === '412';
 
 // the running (or queued) refresh for one cache key, if any; stale tasks don't count
-export async function findActiveRefreshTask(oystehr: Oystehr, cacheKey: string): Promise<Task | undefined> {
+export async function findActiveRefreshTask(oystehr: BillingOystehr, cacheKey: string): Promise<Task | undefined> {
   const tasks = await searchRefreshTasksByCacheKey(oystehr, cacheKey, 'requested,in-progress', 10);
   const staleBefore = staleBeforeMillis();
   return tasks.find((task) => instantOf(task.meta?.lastUpdated) > staleBefore);
@@ -72,7 +73,7 @@ export async function findActiveRefreshTask(oystehr: Oystehr, cacheKey: string):
 
 // most recent failed refresh newer than the served cache
 export async function findRecentFailedRefreshTask(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   cacheKey: string,
   sinceISO: string
 ): Promise<Task | undefined> {
@@ -84,7 +85,7 @@ export async function findRecentFailedRefreshTask(
 // Queues a refresh; idempotent per cache key — concurrent kickoffs resolve to one Task via
 // FHIR conditional create on the identifier + active statuses.
 export async function kickOffRefreshTask(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   input: { kind: RefreshReportKind; params: unknown; cacheKey: string }
 ): Promise<Task> {
   const activeStatusTasks = await searchRefreshTasksByCacheKey(oystehr, input.cacheKey, 'requested,in-progress', 10);
@@ -143,7 +144,7 @@ export async function kickOffRefreshTask(
 // only the currently running worker calls this, and its own in-progress Task would satisfy
 // the conditional-create criteria and swallow the continuation.
 export async function createContinuationRefreshTask(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   input: { kind: RefreshReportKind; params: unknown; cacheKey: string },
   chain: number
 ): Promise<Task | undefined> {
@@ -190,7 +191,11 @@ function buildRefreshTask(input: { kind: RefreshReportKind; params: unknown; cac
 // Worker-side phase reporting; failures are swallowed because progress is cosmetic.
 // Version-locked behind a status read so a Task cancelled mid-run is never patched
 // (which would bump its lastUpdated and make it look like a live refresh again).
-export async function updateRefreshTaskProgress(oystehr: Oystehr, taskId: string, progress: string): Promise<void> {
+export async function updateRefreshTaskProgress(
+  oystehr: BillingOystehr,
+  taskId: string,
+  progress: string
+): Promise<void> {
   try {
     const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
     if (task.status !== 'in-progress') return;

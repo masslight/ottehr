@@ -1,8 +1,8 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse } from 'fhir/r4b';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import { performEffect as matchClaimResponse } from '../../../src/billing/match-claim-response';
 import { performEffect as unmatchClaimResponse } from '../../../src/billing/unmatch-claim-response';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { claimHistoryEntries, provenanceChanges, TEST_AGENT } from './claim-history-fixtures';
 import { claimResponse } from './era-fixtures';
 
@@ -71,7 +71,7 @@ const unmatchedResponse = claimResponse({
   ],
 });
 
-function makeClient(stored: ClaimResponse): { oystehr: Oystehr; transaction: Mock } {
+function makeClient(stored: ClaimResponse): { oystehr: OystehrMock; transaction: Mock } {
   const transaction = vi.fn().mockResolvedValue({
     unbundle: () => [stored],
   });
@@ -82,7 +82,7 @@ function makeClient(stored: ClaimResponse): { oystehr: Oystehr; transaction: Moc
         get,
         transaction,
       },
-    } as unknown as Oystehr,
+    } as unknown as OystehrMock,
     transaction,
   };
 }

@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { vi } from 'vitest';
@@ -9,6 +8,7 @@ import {
   validateRequestParameters,
 } from '../../../src/billing/delete-charge-item-definition/validateRequestParameters';
 import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 describe('delete-charge-item-definition', () => {
   describe('validation', () => {
@@ -72,7 +72,7 @@ describe('delete-charge-item-definition', () => {
         fhir: {
           search: vi.fn().mockResolvedValueOnce({ unbundle: () => [] }),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       await expect(async () => complexValidation(oystehr, params)).rejects.toThrow(
         expect.objectContaining({
           code: 4017,
@@ -115,7 +115,7 @@ describe('delete-charge-item-definition', () => {
         fhir: {
           search: vi.fn().mockResolvedValueOnce({ unbundle: () => [completeResource] }),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const cvo = await complexValidation(oystehr, params);
       expect(cvo).toEqual({ definition: completeResource });
       expect(oystehr.fhir.search).toHaveBeenCalledWith({
@@ -156,7 +156,7 @@ describe('delete-charge-item-definition', () => {
         fhir: {
           delete: vi.fn().mockResolvedValueOnce(completeResource),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const result = await performEffect(oystehr, params);
       expect(result).toBeUndefined();
       expect(oystehr.fhir.delete).toHaveBeenCalledWith({

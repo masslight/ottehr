@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Organization } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
@@ -11,7 +11,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { isCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type DeleteInsuranceOrgParams = ValidatedZambdaInput<typeof DeleteCustomInsuranceOrgInputSchema>;
 
@@ -43,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(oystehr: Oystehr, params: DeleteInsuranceOrgParams): Promise<Organization> {
+async function complexValidation(oystehr: BillingOystehr, params: DeleteInsuranceOrgParams): Promise<Organization> {
   const existing = await fetchById<Organization>(oystehr, 'Organization', params.insuranceOrgId);
   if (!isCustomInsuranceOrganization(existing)) {
     throw INVALID_INPUT_ERROR(`Organization ${params.insuranceOrgId} is not an insurance organization`);
@@ -52,7 +52,7 @@ async function complexValidation(oystehr: Oystehr, params: DeleteInsuranceOrgPar
 }
 
 // Soft delete: active=false, so stored references stay resolvable.
-export async function performEffect(oystehr: Oystehr, existing: Organization): Promise<DeletedResponse> {
+export async function performEffect(oystehr: BillingOystehr, existing: Organization): Promise<DeletedResponse> {
   const requests: BatchInputRequest<FhirResource>[] = [
     {
       method: 'PUT',

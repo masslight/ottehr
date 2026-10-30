@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
@@ -8,6 +7,7 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
 
@@ -167,10 +167,10 @@ beforeEach(() => {
 
   vi.mocked(createClinicalOystehrClient).mockReturnValue({
     fhir: { get: clinicalGet, search: clinicalSearch },
-  } as unknown as Oystehr);
+  } as unknown as OystehrMock);
   vi.mocked(createBillingClient).mockReturnValue({
     fhir: { get: billingGet, search: billingSearch, create: billingCreate, patch: billingPatch },
-  } as unknown as Oystehr);
+  } as unknown as OystehrMock);
   vi.mocked(getOrCreateCandidApiClient).mockResolvedValue({
     patientRefunds: { v1: { getMulti: candidGetMulti, create: candidCreate } },
   } as any);

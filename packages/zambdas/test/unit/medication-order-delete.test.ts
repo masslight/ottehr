@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, Encounter, MedicationAdministration, Procedure, ServiceRequest, Task } from 'fhir/r4b';
 import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_CPT } from 'utils/lib/helpers/rcm/constants';
@@ -16,6 +15,7 @@ import {
   selectPendingRecheckOrders,
   selectRetainedCptCodes,
 } from '../../src/shared/medication-order-delete';
+import { OystehrMock } from '../helpers/oystehr-mock';
 
 const cptLine = (id: string, code: string, orderId?: string): Procedure => ({
   resourceType: 'Procedure',
@@ -175,10 +175,10 @@ describe('selectPendingRecheckOrders', () => {
 });
 
 describe('hasEncounterBillingRecord', () => {
-  const clinicalWith = (encounter: Encounter): Oystehr =>
-    ({ fhir: { get: async () => encounter } }) as unknown as Oystehr;
-  const billingWith = (search: () => Promise<{ unbundle: () => Claim[] }>): Oystehr =>
-    ({ fhir: { search } }) as unknown as Oystehr;
+  const clinicalWith = (encounter: Encounter): OystehrMock =>
+    ({ fhir: { get: async () => encounter } }) as unknown as OystehrMock;
+  const billingWith = (search: () => Promise<{ unbundle: () => Claim[] }>): OystehrMock =>
+    ({ fhir: { search } }) as unknown as OystehrMock;
   const encounter: Encounter = { resourceType: 'Encounter', id: 'e1', status: 'finished', class: { code: 'AMB' } };
 
   it('treats a Candid encounter id as billing evidence without searching for an Ottehr billing claim', async () => {

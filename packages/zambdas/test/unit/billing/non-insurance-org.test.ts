@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Organization, OrganizationAffiliation } from 'fhir/r4b';
 import { getNioReferenceUrl } from 'utils/lib/helpers/helpers';
 import { CreateNonInsuranceOrgInput } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
@@ -27,6 +26,7 @@ import {
 } from '../../../src/billing/non-insurance-org.helpers';
 import { performEffect as searchNios } from '../../../src/billing/search-billing-non-insurance-orgs';
 import { performEffect as updateNio } from '../../../src/billing/update-billing-non-insurance-org';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const NIO_ID = '11111111-1111-4111-8111-111111111111';
 const PAYER_RCM_ID = '22222222-2222-4222-8222-222222222222';
@@ -262,7 +262,7 @@ describe('computeCoverageChanges', () => {
 });
 
 interface MockOystehr {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   transaction: ReturnType<typeof vi.fn>;
   search: ReturnType<typeof vi.fn>;
   getPayer: ReturnType<typeof vi.fn>;
@@ -280,7 +280,7 @@ function makeOystehr(): MockOystehr {
   const search = vi.fn();
   const getPayer = vi.fn();
   const getPayerByUrl = vi.fn();
-  const oystehr = { fhir: { transaction, search }, rcm: { getPayer, getPayerByUrl } } as unknown as Oystehr;
+  const oystehr = { fhir: { transaction, search }, rcm: { getPayer, getPayerByUrl } } as unknown as OystehrMock;
   return { oystehr, transaction, search, getPayer, getPayerByUrl };
 }
 

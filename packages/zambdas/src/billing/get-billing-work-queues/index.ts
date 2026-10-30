@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { claimsListFiltersToSearchInput } from 'utils/lib/types/data/billing/claims-list-view.schemas';
 import {
@@ -11,7 +10,7 @@ import { mapWithConcurrency } from '../../shared/concurrency';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { buildClaimFilterParams, scanMatchingClaims } from '../claim-search';
-import { createBillingClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 import { findWorkQueuesList, listToWorkQueues } from '../work-queues/serialization';
 
 let m2mToken: string;
@@ -28,14 +27,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(oystehr: Oystehr): Promise<GetBillingWorkQueuesResponse> {
+export async function performEffect(oystehr: BillingOystehr): Promise<GetBillingWorkQueuesResponse> {
   const queues = listToWorkQueues(await findWorkQueuesList(oystehr));
   return {
     queues: await mapWithConcurrency(queues, QUEUE_STATS_CONCURRENCY, (queue) => summarizeWorkQueue(oystehr, queue)),
   };
 }
 
-export async function summarizeWorkQueue(oystehr: Oystehr, queue: WorkQueue): Promise<WorkQueueSummary> {
+export async function summarizeWorkQueue(oystehr: BillingOystehr, queue: WorkQueue): Promise<WorkQueueSummary> {
   try {
     const params = claimsListFiltersToSearchInput(queue.filters);
     const filterParams = await buildClaimFilterParams({

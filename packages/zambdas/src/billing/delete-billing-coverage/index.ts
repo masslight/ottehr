@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage } from 'fhir/r4b';
 import { DeleteBillingCoverageInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -9,6 +9,7 @@ import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validatio
 import {
   accountUnlinkRequests,
   BillingFhirResource,
+  BillingOystehr,
   createBillingClient,
   fetchById,
   getPatientAccounts,
@@ -30,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 // Hard delete: unlink the coverage from the patient's account(s) and delete the Coverage and its
 // standalone RelatedPerson subscriber — all in one transaction so they succeed or fail together.
-async function performEffect(oystehr: Oystehr, params: DeleteBillingCoverageParams): Promise<void> {
+async function performEffect(oystehr: BillingOystehr, params: DeleteBillingCoverageParams): Promise<void> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
   const coverageRef = `Coverage/${params.coverageId}`;

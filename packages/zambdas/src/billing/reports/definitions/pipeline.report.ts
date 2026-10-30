@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -6,6 +5,7 @@ import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/
 import { GetBillingPipelineReportResponse, PipelineReportRow } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, getActiveStatusGroup, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { gunzipSync, gzipSync } from 'zlib';
+import { BillingOystehr } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import { searchAllViaBulk } from '../shared';
 
@@ -49,7 +49,10 @@ export const pipelineReport: ReportDefinition<ReportDateWindowParams, PipelineRe
   summarize: (payload) => `pipeline report cached (${payload.totals.claims} claims)`,
 };
 
-async function computePipelineReport(oystehr: Oystehr, params: ReportDateWindowParams): Promise<PipelineReportPayload> {
+async function computePipelineReport(
+  oystehr: BillingOystehr,
+  params: ReportDateWindowParams
+): Promise<PipelineReportPayload> {
   const searchParams = [{ name: '_elements', value: 'id,meta,total' }];
   if (params.dateFrom) searchParams.push({ name: 'created', value: `ge${params.dateFrom}` });
   if (params.dateTo) searchParams.push({ name: 'created', value: `le${params.dateTo}` });
@@ -120,7 +123,7 @@ async function computePipelineReport(oystehr: Oystehr, params: ReportDateWindowP
 // Upserts today's snapshot into the history document and returns the comparison snapshot:
 // the most recent one at least 7 days old, else the oldest one before today.
 async function recordSnapshotAndFindLastWeek(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   snapshot: PipelineSnapshot
 ): Promise<PipelineSnapshot | undefined> {
   const history = await loadHistory(oystehr);
@@ -135,7 +138,7 @@ async function recordSnapshotAndFindLastWeek(
   return previous;
 }
 
-async function findHistoryDocument(oystehr: Oystehr): Promise<DocumentReference | undefined> {
+async function findHistoryDocument(oystehr: BillingOystehr): Promise<DocumentReference | undefined> {
   const bundle = await oystehr.fhir.search<DocumentReference>({
     resourceType: 'DocumentReference',
     params: [
@@ -147,7 +150,7 @@ async function findHistoryDocument(oystehr: Oystehr): Promise<DocumentReference 
   return bundle.unbundle()[0];
 }
 
-async function loadHistory(oystehr: Oystehr): Promise<PipelineSnapshot[]> {
+async function loadHistory(oystehr: BillingOystehr): Promise<PipelineSnapshot[]> {
   try {
     const document = await findHistoryDocument(oystehr);
     const data = document?.content?.[0]?.attachment?.data;
@@ -162,7 +165,7 @@ async function loadHistory(oystehr: Oystehr): Promise<PipelineSnapshot[]> {
 
 // Small bounded snapshot history (≤ HISTORY_MAX_DAYS days) kept as gzipped JSON in a
 // DocumentReference attachment; the report payloads themselves live in Z3.
-async function saveHistory(oystehr: Oystehr, history: PipelineSnapshot[]): Promise<void> {
+async function saveHistory(oystehr: BillingOystehr, history: PipelineSnapshot[]): Promise<void> {
   try {
     const data = gzipSync(new Uint8Array(Buffer.from(JSON.stringify(history), 'utf8'))).toString('base64');
     if (data.length > MAX_CACHE_BYTES) {

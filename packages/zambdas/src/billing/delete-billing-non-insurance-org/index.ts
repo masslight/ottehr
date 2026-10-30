@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Organization } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
@@ -11,7 +11,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { fetchNioCoveragePairs, isNonInsuranceOrganization, NioCoveragePair } from '../non-insurance-org.helpers';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type DeleteNonInsuranceOrgParams = ValidatedZambdaInput<typeof DeleteNonInsuranceOrgInputSchema>;
 
@@ -44,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function complexValidation(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: DeleteNonInsuranceOrgParams
 ): Promise<{ existing: Organization; pairs: NioCoveragePair[] }> {
   const existing = await fetchById<Organization>(oystehr, 'Organization', params.nioId);
@@ -58,7 +58,7 @@ async function complexValidation(
 // Soft delete: active=false on the NIO org and every still-active affiliation + coverage org, in
 // one transaction. Stored references to the NIO stay resolvable.
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   existing: Organization,
   pairs: NioCoveragePair[]
 ): Promise<DeletedResponse> {

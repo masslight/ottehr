@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
 import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
@@ -11,13 +10,14 @@ import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';
 import { SaveBillingRulesParams } from '../../../src/billing/save-billing-rules/validateRequestParameters';
 import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const search = vi.fn();
 const create = vi.fn();
 const update = vi.fn();
 const batch = vi.fn();
 const getPayer = vi.fn();
-const oystehr = { fhir: { search, create, update, batch }, rcm: { getPayer } } as unknown as Oystehr;
+const oystehr = { fhir: { search, create, update, batch }, rcm: { getPayer } } as unknown as OystehrMock;
 
 const rule = (name: string, id?: string): BillingRuleInput => ({
   ...(id ? { id } : {}),

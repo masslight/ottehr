@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPatchRequest, FhirResourceReturnValue } from '@oystehr/sdk';
+import { BatchInputPatchRequest, FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Coverage, Provenance, ProvenanceAgent, Reference } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
@@ -28,6 +28,7 @@ import {
   resolveClaimActor,
 } from '../../../billing/provenance';
 import {
+  BillingOystehr,
   buildUpdatedClaimStatusTags,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
@@ -85,7 +86,7 @@ export interface ComplexValidationOutput {
 }
 
 export async function complexValidation(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   claimResponseId: string,
   // the version that fired the subscription, when the notification carries it
   firedVersionId: string | undefined,
@@ -117,7 +118,7 @@ export async function complexValidation(
 // version before didn't qualify: it lacked a tag, or pointed elsewhere. Any other update is an edit of a
 // remit claim already matched, and leaves the claim's status and ICN alone.
 async function firedOnNewMatch(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   claimResponseId: string,
   firedVersionId: string | undefined
 ): Promise<boolean> {
@@ -169,7 +170,7 @@ function planStatusAdjustment(claim: Claim, claimResponse: ClaimResponse): Statu
       };
 }
 
-export async function performEffect(oystehr: Oystehr, validated: ComplexValidationOutput): Promise<void> {
+export async function performEffect(oystehr: BillingOystehr, validated: ComplexValidationOutput): Promise<void> {
   const { claim, claimResponse, agent } = validated;
   if (!validated.newlyMatched) {
     console.log(`ClaimResponse/${validated.claimResponseId} was edited, not newly matched; leaving Claim/${claim.id}`);
@@ -330,7 +331,7 @@ export function claimWasForwarded(claimResponse: ClaimResponse): boolean {
 }
 
 async function getInsuranceOrdinal(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   claim: FhirResourceReturnValue<Claim>,
   insurer: Reference
 ): Promise<string | undefined> {

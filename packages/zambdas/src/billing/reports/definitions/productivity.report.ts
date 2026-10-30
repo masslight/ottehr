@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -7,6 +6,7 @@ import {
   ProductivityReportRow,
 } from 'utils/lib/types/data/billing/billing.types';
 import { CLAIM_PROVENANCE_ACTIVITY, CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
+import { BillingOystehr, UnscopedOystehr } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import { resolveActorNames, searchAllViaBulk } from '../shared';
 
@@ -37,8 +37,8 @@ interface ActorAccumulator {
 }
 
 async function computeProductivityReport(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   params: ReportDateWindowParams
 ): Promise<ProductivityReportPayload> {
   const searchParams = [{ name: '_elements', value: 'id,agent,activity,recorded,target' }];

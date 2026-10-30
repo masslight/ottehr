@@ -1,11 +1,12 @@
-import Oystehr from '@oystehr/sdk';
 import { Account, Appointment, Coverage, Encounter, Organization } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { ACCOUNT_TYPE_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
+import { ClinicalOystehr } from '../../shared/helpers';
 import {
+  BillingOystehr,
   findOccupationalMedicineAccount,
   findRef,
   getNonInsurancePayerReference,
@@ -15,8 +16,8 @@ import {
 } from '../shared';
 
 export async function getClaimTaskPayerNames(
-  clinical: Oystehr,
-  billing: Oystehr,
+  clinical: ClinicalOystehr,
+  billing: BillingOystehr,
   resources: (Encounter | Appointment | Account)[],
   payerCache = new Map<string, Organization>()
 ): Promise<Map<string, string[]>> {

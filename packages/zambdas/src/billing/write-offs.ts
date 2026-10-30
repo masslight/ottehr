@@ -1,9 +1,9 @@
-import Oystehr from '@oystehr/sdk';
 import { Extension, PaymentNotice } from 'fhir/r4b';
 import { getExtension, getExtensionValue } from 'utils/lib/fhir/helpers';
 import { ottehrExtensionUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { ClaimWriteOff } from 'utils/lib/types/data/billing/billing.types';
 import { fetchResourcesGrouped } from './claim-amounts';
+import { BillingOystehr } from './shared';
 
 export const WRITE_OFF_SYSTEM = ottehrIdentifierSystem('billing-write-off');
 export const WRITE_OFF_PARTY_EXT_URL = ottehrExtensionUrl('billing-write-off-party');
@@ -12,7 +12,7 @@ export const WRITE_OFF_REASON_EXT_URL = ottehrExtensionUrl('billing-write-off-re
 export const WRITE_OFF_NOTE_EXT_URL = ottehrExtensionUrl('billing-write-off-note');
 export const WRITE_OFF_VOID_EXT_URL = ottehrExtensionUrl('billing-write-void');
 
-export async function fetchWriteOffs(oystehr: Oystehr, claimId: string): Promise<PaymentNotice[]> {
+export async function fetchWriteOffs(oystehr: BillingOystehr, claimId: string): Promise<PaymentNotice[]> {
   return (
     await oystehr.fhir.search<PaymentNotice>({
       resourceType: 'PaymentNotice',
@@ -31,7 +31,7 @@ export async function fetchWriteOffs(oystehr: Oystehr, claimId: string): Promise
 }
 
 export async function fetchWriteOffsByClaimIds(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   claimIds: string[]
 ): Promise<Map<string, PaymentNotice[]>> {
   return fetchResourcesGrouped<PaymentNotice>({

@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { List, Organization, Resource } from 'fhir/r4b';
@@ -26,6 +25,7 @@ import { isNonInsuranceOrganization } from '../non-insurance-org.helpers';
 import { rulesToList } from '../rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
+  BillingOystehr,
   createBillingClient,
   fetchDefinedTagNames,
   findRulesEngineList,
@@ -55,7 +55,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function complexValidation(oystehr: Oystehr, params: SaveBillingRulesParams): Promise<List | undefined> {
+export async function complexValidation(
+  oystehr: BillingOystehr,
+  params: SaveBillingRulesParams
+): Promise<List | undefined> {
   const [existing] = await Promise.all([
     findRulesEngineList(oystehr, params.engine),
     validateAppliedTagsExist(oystehr, params.rules),
@@ -71,7 +74,10 @@ export async function complexValidation(oystehr: Oystehr, params: SaveBillingRul
 // API-created rules obey the same contract. System-managed tags (Hold, Auto Accident, …) are
 // exempt: they are defined in code and never stored as tag definitions. Runs at most one Basic
 // search, and none when no rule applies a non-system tag.
-async function validateAppliedTagsExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
+async function validateAppliedTagsExist(
+  oystehr: BillingOystehr,
+  rules: SaveBillingRulesParams['rules']
+): Promise<void> {
   const perRule = rules
     .map((rule) => ({
       name: rule.name,
@@ -95,7 +101,7 @@ async function validateAppliedTagsExist(oystehr: Oystehr, rules: SaveBillingRule
 // none runs when no rule sets a provider/facility. The engine re-checks at apply time (a resource
 // deleted after save fails the rule and holds the claim).
 async function validateReferencedResourcesExist(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   rules: SaveBillingRulesParams['rules']
 ): Promise<void> {
   const perRule = rules
@@ -124,7 +130,10 @@ async function validateReferencedResourcesExist(
 // (the kind managed on the Non-Insurance Organizations page). One batched fetch covers all distinct
 // ids, and none runs when no rule sets one. The engine re-checks at apply time (an organization
 // deleted after save fails the rule and holds the claim).
-async function validateNioReferencesExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
+async function validateNioReferencesExist(
+  oystehr: BillingOystehr,
+  rules: SaveBillingRulesParams['rules']
+): Promise<void> {
   const perRule = rules
     .map((rule) => ({ name: rule.name, ids: collectSetNioIds(rule) }))
     .filter((entry) => entry.ids.length > 0);
@@ -153,7 +162,10 @@ async function validateNioReferencesExist(oystehr: Oystehr, rules: SaveBillingRu
 // prefetched custom insurance organization is written as an RCM payer URL — so a typo or a deleted
 // organization would otherwise silently stamp a bogus payer. One batched FHIR fetch covers the
 // custom-organization candidates; only ids it doesn't resolve are looked up in RCM.
-async function validatePayerReferencesExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
+async function validatePayerReferencesExist(
+  oystehr: BillingOystehr,
+  rules: SaveBillingRulesParams['rules']
+): Promise<void> {
   const perRule = rules
     .map((rule) => ({ name: rule.name, ids: collectSetPayerIds(rule) }))
     .filter((entry) => entry.ids.length > 0);
@@ -206,7 +218,10 @@ async function validatePayerReferencesExist(oystehr: Oystehr, rules: SaveBilling
 // Every service a rule sets must be the code of one of the services on claims created from visits —
 // the engine writes the value as the claim's service code. Runs one search, and none when no rule sets
 // a service.
-async function validateSetServicesExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
+async function validateSetServicesExist(
+  oystehr: BillingOystehr,
+  rules: SaveBillingRulesParams['rules']
+): Promise<void> {
   const perRule = rules
     .map((rule) => ({ name: rule.name, services: collectSetServiceValues(rule) }))
     .filter((entry) => entry.services.length > 0);
@@ -241,7 +256,7 @@ function referencedResourceProblem(resource: Resource | undefined, field: string
 }
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SaveBillingRulesParams,
   existing: List | undefined,
   env: string

@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Account, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
@@ -20,6 +19,7 @@ import {
   checkForStripeCustomerDeletedError,
   SCHEDULE_NOT_FOUND_ERROR,
 } from 'utils/lib/types/errors';
+import { ClinicalOystehr } from '../shared/helpers';
 import {
   applyRefundsToPaymentNotice,
   stripeEncounterMetadataQuery,
@@ -34,12 +34,13 @@ import {
   stripePaymentIntentIdForNotice,
 } from './patient-payments';
 import { stampedStripeAccount } from './payments';
+import { BillingOystehr } from './shared';
 
 interface GetPaymentsForEncounterInput {
   // reads Account, Encounter, Practitioner and legacy EHR PaymentNotices
-  clinicalOystehr: Oystehr;
+  clinicalOystehr: ClinicalOystehr;
   // reads billing PaymentNotices and keeps their refund stamps current
-  billingOystehr: Oystehr;
+  billingOystehr: BillingOystehr;
   stripeClient: Stripe;
   account: Account;
   encounterId: string;
@@ -125,7 +126,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
 // payments are still listed, from FHIR alone, rather than failing the whole list.
 const lookUpScheduleStripeAccount = async (
   encounterId: string,
-  clinicalOystehr: Oystehr
+  clinicalOystehr: ClinicalOystehr
 ): Promise<{ found: boolean; stripeAccount?: string }> => {
   try {
     return {
@@ -234,7 +235,7 @@ const resolveRefundsForPaymentNotice = async (
   paymentIntent: Stripe.PaymentIntent | undefined,
   stripeClient: Stripe,
   stripeAccount: string | undefined,
-  billingOystehr: Oystehr
+  billingOystehr: BillingOystehr
 ): Promise<PaymentRefundDTO[] | undefined> => {
   // legacy EHR notices are read-only here; their state is re-derived from Stripe on every read
   const persistRefunds = async (refunds: PaymentRefundDTO[], removeIds: string[]): Promise<void> => {
@@ -301,7 +302,7 @@ const resolveRefundsForPaymentNotice = async (
 // reference resolve locally; older ones fall back to one batched Practitioner lookup.
 const resolveTakenByNames = async (
   fhirPaymentNotices: PaymentNotice[],
-  clinicalOystehr: Oystehr
+  clinicalOystehr: ClinicalOystehr
 ): Promise<Map<string, string>> => {
   const takenByByNoticeId = new Map<string, string>();
   const noticeIdsByPractitionerId = new Map<string, string[]>();
@@ -354,7 +355,7 @@ const buildChargeOnlyPaymentDTOs = async (
   paymentNotice: PaymentNotice,
   stripeClient: Stripe,
   stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   takenBy: string | undefined
 ): Promise<PatientPaymentDTO[]> => {
   const chargeId = stripeIdsForPaymentNotice(paymentNotice).find((id) => id.startsWith('ch_') || id.startsWith('py_'));
@@ -399,8 +400,8 @@ async function buildPaymentDTOs(
   paymentMethods: Stripe.PaymentMethod[],
   stripeClient: Stripe,
   stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
-  clinicalOystehr: Oystehr,
-  billingOystehr: Oystehr
+  clinicalOystehr: ClinicalOystehr,
+  billingOystehr: BillingOystehr
 ): Promise<PatientPaymentDTO[]> {
   const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
   const paymentIntentCache = new Map<string, Stripe.PaymentIntent>(stripePayments.map((pi) => [pi.id, pi]));

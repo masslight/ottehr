@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Claim, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { AddClaimNoteInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -11,6 +10,7 @@ import {
 } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/add-billing-claim-note';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CLAIM_ID = randomUUID();
 
@@ -32,7 +32,7 @@ const claim: Claim = {
 } as Claim;
 
 function makeOystehr(resourcesById: Record<string, unknown> = { [CLAIM_ID]: claim }): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   transaction: ReturnType<typeof vi.fn>;
 } {
   const search = vi.fn().mockImplementation(
@@ -55,7 +55,7 @@ function makeOystehr(resourcesById: Record<string, unknown> = { [CLAIM_ID]: clai
       search,
       transaction,
     },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
   return {
     oystehr,
     transaction,

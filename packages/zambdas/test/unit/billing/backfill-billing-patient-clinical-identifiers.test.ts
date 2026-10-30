@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -12,6 +11,7 @@ import {
   backfillBillingPatientClinicalIdentifiers,
   syncClinicalPatientIdentifiers,
 } from '../../../src/scripts/backfill-billing-patient-clinical-identifiers.helpers';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 function billingPatient(patient: Partial<Patient> & Pick<Patient, 'id'>): Patient {
   return {
@@ -55,7 +55,7 @@ function copyOf(clinicalPatientId: string, friendlyId?: string): Patient['extens
 }
 
 function mockOystehr(patients: Patient[]): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   search: ReturnType<typeof vi.fn>;
   patch: ReturnType<typeof vi.fn>;
 } {
@@ -76,16 +76,16 @@ function mockOystehr(patients: Patient[]): {
         search,
         patch,
       },
-    } as unknown as Oystehr,
+    } as unknown as OystehrMock,
     search,
     patch,
   };
 }
 
 function runOptions(
-  oystehr: Oystehr,
+  oystehr: OystehrMock,
   overrides?: { dryRun?: boolean; pruneStale?: boolean }
-): { oystehr: Oystehr; dryRun: boolean; pruneStale: boolean } {
+): { oystehr: OystehrMock; dryRun: boolean; pruneStale: boolean } {
   return {
     oystehr,
     dryRun: false,
@@ -934,7 +934,7 @@ describe('syncClinicalPatientIdentifiers', () => {
       isBillingPatientId: () => false,
     });
 
-  const mockWriter = (): { oystehr: Oystehr; patch: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> } => {
+  const mockWriter = (): { oystehr: OystehrMock; patch: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> } => {
     const patch = vi.fn().mockResolvedValue({});
     const get = vi.fn();
     return {
@@ -943,7 +943,7 @@ describe('syncClinicalPatientIdentifiers', () => {
           patch,
           get,
         },
-      } as unknown as Oystehr,
+      } as unknown as OystehrMock,
       patch,
       get,
     };

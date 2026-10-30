@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import {
   Claim,
   ClaimResponse,
@@ -26,6 +25,7 @@ import {
   ERA_STATUS_CODE_EXTENSION,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -226,7 +226,7 @@ const coverage: Coverage = {
 };
 
 // The billing client reads the ERA too: sub-tag-era-resources gives it the billing tag.
-const makeBillingClient = (eras: PaymentReconciliation[] = [paymentReconciliation]): Oystehr =>
+const makeBillingClient = (eras: PaymentReconciliation[] = [paymentReconciliation]): OystehrMock =>
   ({
     fhir: {
       search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
@@ -241,7 +241,7 @@ const makeBillingClient = (eras: PaymentReconciliation[] = [paymentReconciliatio
         })
       ),
     },
-  }) as unknown as Oystehr;
+  }) as unknown as OystehrMock;
 
 describe('get-billing-era-detail performEffect', () => {
   beforeEach(() => {
@@ -486,7 +486,7 @@ describe('get-billing-era-detail performEffect', () => {
           })
         ),
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
 
     const result = await performEffect(billingClient, { eraId: 'era-m', secrets: {} });
 

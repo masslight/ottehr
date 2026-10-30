@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPayerId } from 'utils/lib/helpers/helpers';
@@ -23,7 +22,7 @@ import {
   sortClaimResponsesByRecency,
 } from '../../claim-amounts';
 import { eraPatientAccountNumber } from '../../era-remits';
-import { fhirName, getEraCheckNumber, resolvePayersByRef } from '../../shared';
+import { BillingOystehr, fhirName, getEraCheckNumber, resolvePayersByRef, UnscopedOystehr } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import {
   checkDateInRange,
@@ -113,8 +112,8 @@ export const paymentsReport: ReportDefinition<
 // ERA's payer (paymentIssuer, else the ClaimResponses' insurer). Payer rows honor the check-date
 // window; the waterfall matrix (DOS month × check month) and the drilldown detail span all ERAs.
 async function computeInsurancePayments(
-  oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  oystehr: BillingOystehr,
+  eraReadClient: UnscopedOystehr,
   params: ReportDateWindowParams
 ): Promise<{ rows: PaymentsReportPayerRow[]; waterfall: PaymentsReportWaterfallCell[]; detail: PaymentsReportDetail }> {
   const allEras = await fetchAllEras(eraReadClient);

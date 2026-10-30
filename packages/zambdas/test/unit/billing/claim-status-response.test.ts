@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { applyPatch, Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse, FhirResource, Provenance } from 'fhir/r4b';
 import {
@@ -24,6 +24,7 @@ import {
   classifyClaimStatusResponse,
   complexValidation,
 } from '../../../src/subscriptions/claim-response/sub-claim-status-response';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const response = (valueString: string): ClaimResponse => ({
   resourceType: 'ClaimResponse',
@@ -124,7 +125,9 @@ describe('claim status subscription', () => {
     });
     expect(claimStatusCompletionRequest(tagged)).toBeUndefined();
     const search = vi.fn().mockResolvedValue({ unbundle: () => [tagged] });
-    await expect(complexValidation({ fhir: { search } } as unknown as Oystehr, tagged.id!)).resolves.toBeUndefined();
+    await expect(
+      complexValidation({ fhir: { search } } as unknown as OystehrMock, tagged.id!)
+    ).resolves.toBeUndefined();
     expect(search).toHaveBeenCalledTimes(1);
   });
 
@@ -151,7 +154,7 @@ describe('claim status subscription', () => {
       });
     // 'W' yields neither an acknowledgment nor a rejection, so there is nothing to deduplicate.
     const hasRecords = status !== 'W';
-    const context = await complexValidation({ fhir: { search } } as unknown as Oystehr, fixture.id!);
+    const context = await complexValidation({ fhir: { search } } as unknown as OystehrMock, fixture.id!);
     expect(context?.recordedFields).toEqual(new Set(hasRecords ? [field] : []));
     expect(context?.completion).toBeDefined();
     expect(search.mock.calls.map(([input]) => input.resourceType)).toEqual(
@@ -519,7 +522,7 @@ describe('claim status acknowledgments', () => {
         fhir: {
           search,
         },
-      } as unknown as Oystehr,
+      } as unknown as OystehrMock,
       fixture.id!
     );
     expect(context?.recordedFields).toEqual(new Set([field]));

@@ -14,6 +14,7 @@ import { getCptCodesFromMA, isImmunizationOrder } from 'utils/lib/fhir/medicatio
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { replaceOperation } from 'utils/lib/helpers/operations';
 import { findBillingClaimForEncounter } from '../billing/payments';
+import { BillingOystehr } from '../billing/shared';
 import { deleteResourceRequest } from '../ehr/delete-chart-data/helpers';
 import { mapMedicationAdministrationToImmunizationOrder } from '../ehr/immunization/get-orders';
 import { getCandidEncounterIdFromEncounter } from './candid';
@@ -107,7 +108,7 @@ const searchCptLines = (oystehr: Oystehr, param: { name: string; value: string }
 
 export async function hasEncounterBillingRecord(
   oystehr: Oystehr,
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   encounterId: string
 ): Promise<boolean> {
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
@@ -117,7 +118,7 @@ export async function hasEncounterBillingRecord(
 
 export async function makeOrderDeleteRequests(
   oystehr: Oystehr,
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   medicationAdministration: MedicationAdministration
 ): Promise<{
   requests: BatchInputRequest<FhirResource>[];

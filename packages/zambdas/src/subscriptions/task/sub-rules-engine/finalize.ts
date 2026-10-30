@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import {
   AR_STAGE,
@@ -14,7 +13,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
-import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
+import { assertValidClaimStatusField, BillingOystehr, fetchById } from '../../../billing/shared';
 import { submitClaim } from './submit-claim';
 
 // What happens after every rule passed, per engine: the Claim Submission engine submits the claim
@@ -23,7 +22,7 @@ import { submitClaim } from './submit-claim';
 // earlier run or an AR stage change no longer applies.
 
 export interface FinalizeRunInput {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   model: RulesEngineClaimModel;
   agent: ProvenanceAgent[];
   submissionType: RulesEngineSubmissionType | null;

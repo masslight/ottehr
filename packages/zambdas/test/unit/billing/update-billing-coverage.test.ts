@@ -1,8 +1,8 @@
-import Oystehr from '@oystehr/sdk';
 import { Coverage, Provenance, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-coverage';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CLAIM_ID = '44444444-4444-4444-8444-444444444444';
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
@@ -19,7 +19,7 @@ const coverage: Coverage = {
 };
 
 function makeOystehr(resourcesById: Record<string, unknown> = {}): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   transaction: ReturnType<typeof vi.fn>;
 } {
   const search = vi.fn().mockImplementation(({ params }: { params: { name: string; value: string }[] }) => {
@@ -28,7 +28,7 @@ function makeOystehr(resourcesById: Record<string, unknown> = {}): {
     return Promise.resolve({ unbundle: () => (resource ? [resource] : []) });
   });
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
-  const oystehr = { fhir: { search, transaction } } as unknown as Oystehr;
+  const oystehr = { fhir: { search, transaction } } as unknown as OystehrMock;
   return { oystehr, transaction };
 }
 

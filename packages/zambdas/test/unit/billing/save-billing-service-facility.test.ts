@@ -1,9 +1,9 @@
-import Oystehr from '@oystehr/sdk';
 import { Location, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-service-facility';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CLAIM_ID = '33333333-3333-4333-8333-333333333333';
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
@@ -29,7 +29,7 @@ const baseInput: SaveServiceFacilityInput = {
 const SHARED_NPI = '1234567893';
 
 function makeOystehr(): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   search: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
@@ -39,7 +39,7 @@ function makeOystehr(): {
   const update = vi.fn().mockImplementation((resource: Location) => Promise.resolve(resource));
   const create = vi.fn().mockImplementation((resource: Location) => Promise.resolve({ ...resource, id: 'fac-new' }));
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
-  const oystehr = { fhir: { search, update, create, transaction } } as unknown as Oystehr;
+  const oystehr = { fhir: { search, update, create, transaction } } as unknown as OystehrMock;
   return {
     oystehr,
     search,

@@ -1,10 +1,10 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { NetCollectionsDetailEra, NetCollectionsReportDetail } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { netCollectionsReport } from '../../../src/billing/reports/definitions/net-collections.report';
 import { reportRegistry } from '../../../src/billing/reports/framework/registry';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -107,7 +107,7 @@ const computeWith = async (input: {
   );
   vi.mocked(patientNetCollections).mockResolvedValue(input.patient);
   vi.mocked(fetchPartialClaimsById).mockResolvedValue(input.claimsById ?? new Map());
-  const ctx = { oystehr: {} as Oystehr, untaggedClient: {} as Oystehr, secrets: null };
+  const ctx = { oystehr: {} as OystehrMock, untaggedClient: {} as OystehrMock, secrets: null };
   return netCollectionsReport.compute(ctx, input.params ?? {}, async () => undefined);
 };
 

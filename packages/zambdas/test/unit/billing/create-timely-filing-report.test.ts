@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, Provenance, Resource } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
@@ -10,6 +9,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { claimAcknowledgmentEvents, claimTransmitEvent } from '../../../src/billing/claim-acknowledgments';
 import { performEffect, timelyFilingReportFileName } from '../../../src/billing/create-timely-filing-report';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CLAIM_ID = 'claim-1';
 const LAMBDA_RESPONSE_LIMIT_BYTES = 6 * 1024 * 1024;
@@ -331,7 +331,7 @@ describe('create-timely-filing-report performEffect', () => {
   beforeEach(() => vi.clearAllMocks());
 
   function makeClients(billingClaim: Claim = claim): {
-    oystehr: Oystehr;
+    oystehr: OystehrMock;
     search: ReturnType<typeof vi.fn>;
     transaction: ReturnType<typeof vi.fn>;
     getPresignedUrl: ReturnType<typeof vi.fn>;
@@ -361,7 +361,7 @@ describe('create-timely-filing-report performEffect', () => {
       rcm: {
         getPayerByUrl: vi.fn(),
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
     return {
       oystehr: client,
       search,

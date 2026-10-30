@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { PaymentReconciliation } from 'fhir/r4b';
 import { SearchErasInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
@@ -6,6 +5,7 @@ import { fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from 
 import { performEffect } from '../../../src/billing/search-billing-eras';
 import { SearchErasParams } from '../../../src/billing/search-billing-eras/validateRequestParameters';
 import { ERA_CHECK_SYSTEM, ERA_SOURCE_EXTENSION, resolvePayersByRef } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -88,7 +88,7 @@ const makeOystehr = (
   eras: PaymentReconciliation[],
   scanPages?: PaymentReconciliation[][]
 ): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   search: Mock;
 } => {
   let scanCall = 0;
@@ -116,7 +116,7 @@ const makeOystehr = (
       rcm: {
         listPayers: vi.fn(),
       },
-    } as unknown as Oystehr,
+    } as unknown as OystehrMock,
     search,
   };
 };
@@ -193,7 +193,7 @@ describe('search-billing-eras performEffect', () => {
       extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: 'manual' }],
       requestor: { reference: 'Organization/org-1', display: 'Brightside Pediatrics LLC' },
     };
-    // unmarked, and without the identifier, as Oystehr writes clearing-house ERAs
+    // unmarked, and without the identifier, as OystehrMock writes clearing-house ERAs
     const clearingHouse = importedEra('era-ch', 'CHK-1');
     (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(
       new Map([

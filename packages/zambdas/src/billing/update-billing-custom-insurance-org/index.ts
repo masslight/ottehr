@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Organization } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
@@ -15,7 +15,7 @@ import {
   findCustomInsuranceOrgByBusinessId,
   isCustomInsuranceOrganization,
 } from '../custom-insurance-org.helpers';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type UpdateInsuranceOrgParams = ValidatedZambdaInput<typeof UpdateCustomInsuranceOrgInputSchema>;
 
@@ -47,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(oystehr: Oystehr, params: UpdateInsuranceOrgParams): Promise<Organization> {
+async function complexValidation(oystehr: BillingOystehr, params: UpdateInsuranceOrgParams): Promise<Organization> {
   const existing = await fetchById<Organization>(oystehr, 'Organization', params.insuranceOrgId);
   if (!isCustomInsuranceOrganization(existing)) {
     throw INVALID_INPUT_ERROR(`Organization ${params.insuranceOrgId} is not an insurance organization`);
@@ -60,7 +60,7 @@ async function complexValidation(oystehr: Oystehr, params: UpdateInsuranceOrgPar
 }
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: UpdateInsuranceOrgParams,
   existing: Organization
 ): Promise<SavedResourceResponse> {

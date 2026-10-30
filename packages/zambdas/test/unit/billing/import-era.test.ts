@@ -1,9 +1,9 @@
-import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import { markImportedEra } from '../../../src/billing/import-era';
 import { ERA_SOURCE_EXTENSION, tagEraResources } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const paymentReconciliation = (id?: string, tagged = false): PaymentReconciliation => ({
   resourceType: 'PaymentReconciliation',
@@ -48,7 +48,7 @@ const claimResponse = (id: string): ClaimResponse => ({
 
 describe('tagEraResources', () => {
   const makeOystehr = (): {
-    oystehr: Oystehr;
+    oystehr: OystehrMock;
     transaction: ReturnType<typeof vi.fn>;
   } => {
     const transaction = vi.fn().mockResolvedValue({ entry: [] });
@@ -56,7 +56,7 @@ describe('tagEraResources', () => {
       fhir: {
         transaction,
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
     return {
       oystehr,
       transaction,
@@ -122,10 +122,10 @@ describe('markImportedEra', () => {
   const RAW_X12 = { url: 'https://extensions.fhir.oystehr.com/rcm-raw-x12', valueString: 'ISA*...' };
   const MARKER = { url: ERA_SOURCE_EXTENSION, valueCode: 'x12-import' };
 
-  const makeClient = (stored: PaymentReconciliation): { oystehr: Oystehr; get: Mock; patch: Mock } => {
+  const makeClient = (stored: PaymentReconciliation): { oystehr: OystehrMock; get: Mock; patch: Mock } => {
     const get = vi.fn().mockResolvedValue(stored);
     const patch = vi.fn().mockResolvedValue(stored);
-    return { oystehr: { fhir: { get, patch } } as unknown as Oystehr, get, patch };
+    return { oystehr: { fhir: { get, patch } } as unknown as OystehrMock, get, patch };
   };
 
   it('appends the X12-import marker next to the raw 835', async () => {

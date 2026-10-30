@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -28,6 +27,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { parseStoredAcknowledgment } from '../claim-acknowledgments';
 import {
+  BillingOystehr,
   copySourceId,
   createBillingClient,
   fhirName,
@@ -58,7 +58,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryParams): Promise<GetClaimHistoryResponse> {
+export async function performEffect(
+  oystehr: BillingOystehr,
+  params: GetClaimHistoryParams
+): Promise<GetClaimHistoryResponse> {
   const { claimId } = params;
   const environment = getOptionalSecret(SecretsKeys.ENVIRONMENT, params.secrets) ?? '';
 
@@ -219,7 +222,7 @@ function toHistoryEntry(
 // provider/facility references (via the master resource behind each working copy) and (b) resolves a
 // friendly name for any value whose display was missing at write time — stored as the raw reference
 // by older records, as null (with the ref in a linked entity) by newer ones.
-async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHistoryEntry[]): Promise<void> {
+async function attachLinksAndFallbackNames(oystehr: BillingOystehr, entries: ClaimHistoryEntry[]): Promise<void> {
   const resourceIdsByType: Record<string, Set<string>> = {
     Practitioner: new Set(),
     Organization: new Set(),

@@ -33,8 +33,9 @@ import {
   paymentMethodForNotice,
   stripePaymentIntentIdForNotice,
 } from '../../billing/patient-payments';
-import { createBillingClient } from '../../billing/shared';
+import { BillingOystehr, createBillingClient } from '../../billing/shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
+import { ClinicalOystehr } from '../helpers';
 import { stripeEncounterMetadataQuery } from '../stripeIntegration';
 import { createPresignedUrl } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
@@ -87,7 +88,7 @@ interface CreatePatientPaymentReceiptPdfInput {
   patientId: string;
   secrets: Secrets | null;
   oystehrToken: string;
-  oystehr: Oystehr;
+  oystehr: ClinicalOystehr;
   stripeClient: Stripe;
   stripeAccountId?: string;
   lastOperationPaymentIntent?: Stripe.PaymentIntent;
@@ -147,8 +148,8 @@ async function getReceiptData(input: {
   encounterId: string;
   patientId: string;
   organizationId: string;
-  oystehr: Oystehr;
-  billingOystehr: Oystehr;
+  oystehr: ClinicalOystehr;
+  billingOystehr: BillingOystehr;
   stripeClient: Stripe;
   stripeAccountId?: string;
   lastOperationPaymentIntent?: Stripe.PaymentIntent;

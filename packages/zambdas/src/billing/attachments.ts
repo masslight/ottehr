@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getMimeType, MIME_TYPES, sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
-import { BILLING_APP_BUCKET, getClaimAttachmentBucketAndPathFromZ3Url } from './shared';
+import { BILLING_APP_BUCKET, BillingOystehr, getClaimAttachmentBucketAndPathFromZ3Url } from './shared';
 
 // Files billers attach in the billing app (claim documentation, remit scans) live in the billing
 // app bucket under <prefix>/<owner id>/, one DocumentReference each whose context.related points at
@@ -148,7 +147,7 @@ export function ownedAttachmentLocation(documentReference: DocumentReference, ow
 }
 
 export async function presignAttachment(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   location: Z3Location,
   action: 'upload' | 'download'
 ): Promise<string> {
@@ -162,7 +161,7 @@ export async function presignAttachment(
 
 // Runs once the record is gone, so a failure only leaves a file nothing points at, never a record
 // pointing at a missing file. The upload happens in the browser, so the file may never have reached Z3.
-export async function deleteAttachmentObject(oystehr: Oystehr, location: Z3Location): Promise<void> {
+export async function deleteAttachmentObject(oystehr: BillingOystehr, location: Z3Location): Promise<void> {
   try {
     await oystehr.z3.deleteObject({ bucketName: location.bucketName, 'objectPath+': location.path });
   } catch (err) {

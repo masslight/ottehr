@@ -1,10 +1,10 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { DailyPaymentsReportZambdaOutput } from 'utils/lib/types/api/daily-payments-report.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OystehrMock } from '../helpers/oystehr-mock';
 
 vi.mock('../../src/shared/sentry', () => ({ wrapHandler: (_name: string, handler: unknown) => handler }));
 vi.mock('../../src/shared/auth', () => ({ checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('token') }));
@@ -62,7 +62,7 @@ const createdWithin = (notice: PaymentNotice, params: SearchArgs['params']): boo
 };
 
 // a window search filters by created; a counterpart search matches by identifier, whatever the date
-const fakeWorkspace = (notices: PaymentNotice[]): Oystehr =>
+const fakeWorkspace = (notices: PaymentNotice[]): OystehrMock =>
   ({
     fhir: {
       search: vi.fn(async ({ params }: SearchArgs) => {
@@ -75,7 +75,7 @@ const fakeWorkspace = (notices: PaymentNotice[]): Oystehr =>
         return { unbundle: () => matches };
       }),
     },
-  }) as unknown as Oystehr;
+  }) as unknown as OystehrMock;
 
 const report = async (start: string, end: string): Promise<DailyPaymentsReportZambdaOutput> => {
   const result = await (index as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)({

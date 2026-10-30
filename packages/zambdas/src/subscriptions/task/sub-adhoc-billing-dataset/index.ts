@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -17,7 +16,7 @@ import {
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { fetchAdHocClaimRows } from '../../../billing/adhoc/claims';
 import { fetchAdHocRuleRows } from '../../../billing/adhoc/rules';
-import { createBillingClient, createEraReadClient } from '../../../billing/shared';
+import { BillingOystehr, createBillingClient, createEraReadClient, UnscopedOystehr } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { validateOutputWithSchema } from '../../../shared/validate-zod';
 import { wrapTaskHandler } from '../helpers';
@@ -26,7 +25,7 @@ const ZAMBDA_NAME = 'sub-adhoc-billing-dataset';
 
 let m2mToken: string;
 
-async function eraReadClientFor(secrets: Secrets): Promise<Oystehr> {
+async function eraReadClientFor(secrets: Secrets): Promise<UnscopedOystehr> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the untagged E/M code ValueSet, and actor names span users' Practitioners and billing Devices
   return createEraReadClient(m2mToken, secrets);
@@ -47,8 +46,8 @@ function readParams(task: Task): ReportParams {
 }
 
 async function buildOutputJson(
-  oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  oystehr: BillingOystehr,
+  eraReadClient: UnscopedOystehr,
   params: ReportParams
 ): Promise<{ json: string; rowCount: number }> {
   const { datasetId, dateRange, options } = params;
@@ -83,7 +82,12 @@ interface UploadedJson {
   objectPath: string;
 }
 
-async function uploadJson(oystehr: Oystehr, secrets: Secrets, taskId: string, json: string): Promise<UploadedJson> {
+async function uploadJson(
+  oystehr: BillingOystehr,
+  secrets: Secrets,
+  taskId: string,
+  json: string
+): Promise<UploadedJson> {
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
   const bucketName = `${projectId}-${BUCKET_NAMES.BILLING_CLAIM_EXPORTS}`;
@@ -98,7 +102,7 @@ async function uploadJson(oystehr: Oystehr, secrets: Secrets, taskId: string, js
   return { url: `${projectApi}/z3/${bucketName}/${objectPath}`, bucketName, objectPath };
 }
 
-async function deleteUnrecordedJson(oystehr: Oystehr, { bucketName, objectPath }: UploadedJson): Promise<void> {
+async function deleteUnrecordedJson(oystehr: BillingOystehr, { bucketName, objectPath }: UploadedJson): Promise<void> {
   try {
     await oystehr.z3.deleteObject({ bucketName, 'objectPath+': objectPath });
   } catch (error) {

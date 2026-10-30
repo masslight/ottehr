@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Identifier, Organization, PaymentNotice, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { chunkThings } from 'utils/lib/fhir/chat';
@@ -28,6 +27,7 @@ import { TaskIndicator } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
 import { shouldUseOttehrBilling } from '../shared/candid';
 import { isFhirNotFoundError } from '../shared/errors';
+import { ClinicalOystehr } from '../shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { fetchPatientPaymentsByEncounterIds, fetchResourcesGrouped } from './claim-amounts';
 import {
@@ -40,7 +40,7 @@ import {
   stampedStripeAccount,
   withStripeAccountExtension,
 } from './payments';
-import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
+import { BillingOystehr, ScopedOystehr, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
 
 // Patient payments are owned by the billing app: new ones are billing-tagged PaymentNotices whose
 // request points at the encounter's claim. Notices the EHR wrote before the move are untagged,
@@ -179,7 +179,7 @@ export const mergeBillingAndLegacyPaymentNotices = (
 const COUNTERPART_BATCH_SIZE = 100;
 
 const searchPaymentNoticesByValues = async (
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   name: string,
   values: string[]
 ): Promise<PaymentNotice[]> =>
@@ -206,8 +206,8 @@ const searchPaymentNoticesByValues = async (
  * window fetch the counterparts unfiltered, merge, then apply the window to the merged payment.
  */
 export const fetchPaymentNoticeCounterparts = async (params: {
-  clinicalOystehr: Oystehr;
-  billingOystehr: Oystehr;
+  clinicalOystehr: ClinicalOystehr;
+  billingOystehr: BillingOystehr;
   billingNotices: PaymentNotice[];
   legacyNotices: PaymentNotice[];
 }): Promise<{ billing: PaymentNotice[]; legacy: PaymentNotice[] }> => {
@@ -239,8 +239,8 @@ export const fetchPaymentNoticeCounterparts = async (params: {
 
 // Patient payments for each encounter, keyed by encounter id.
 export const fetchEncounterPaymentNotices = async (params: {
-  clinicalOystehr: Oystehr;
-  billingOystehr: Oystehr;
+  clinicalOystehr: ClinicalOystehr;
+  billingOystehr: BillingOystehr;
   encounterIds: string[];
 }): Promise<Map<string, PaymentNotice[]>> => {
   const { clinicalOystehr, billingOystehr, encounterIds } = params;
@@ -275,8 +275,8 @@ export const fetchEncounterPaymentNotices = async (params: {
  * stamp tells platform-account payments, such as outreach invoices, apart.
  */
 export const createStripeAccountResolver = (params: {
-  billingOystehr: Oystehr;
-  clinicalOystehr: Oystehr;
+  billingOystehr: BillingOystehr;
+  clinicalOystehr: ClinicalOystehr;
   encounterId: string;
   // the schedule owner's account when the caller already looked it up
   scheduleAccount?: Promise<string | undefined>;
@@ -314,7 +314,7 @@ export const createStripeAccountResolver = (params: {
   };
 };
 
-const getPaymentNoticeIfVisible = async (oystehr: Oystehr, id: string): Promise<PaymentNotice | undefined> => {
+const getPaymentNoticeIfVisible = async (oystehr: ScopedOystehr, id: string): Promise<PaymentNotice | undefined> => {
   try {
     return await oystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id });
   } catch (error) {
@@ -334,7 +334,7 @@ const assertNoticeBelongsToEncounter = (notice: PaymentNotice, encounterId: stri
 // from that account.
 const stripeChargeForLegacyPayment = async (
   getStripe: () => Stripe,
-  clinicalOystehr: Oystehr,
+  clinicalOystehr: ClinicalOystehr,
   paymentIntentId: string,
   encounterId: string
 ): Promise<{ chargeId: string | undefined; stripeAccount: string | undefined }> => {
@@ -355,7 +355,7 @@ const stripeChargeForLegacyPayment = async (
 // other payment writers do after storing, repairs both; the copy is re-read since the link bumps
 // its version.
 const linkToLateClaim = async (
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   notice: PaymentNotice,
   encounterId: string
 ): Promise<PaymentNotice> => {
@@ -371,8 +371,8 @@ const linkToLateClaim = async (
 // webhook's notice, so a later charge or refund event merges into the copy instead of recording
 // the payment a second time; anything else is keyed by the legacy id. Retries reuse the copy.
 const adoptLegacyPaymentNotice = async (params: {
-  clinicalOystehr: Oystehr;
-  billingOystehr: Oystehr;
+  clinicalOystehr: ClinicalOystehr;
+  billingOystehr: BillingOystehr;
   getStripe: () => Stripe;
   legacyNotice: PaymentNotice;
   encounterId: string;
@@ -438,7 +438,7 @@ const adoptLegacyPaymentNotice = async (params: {
 
 // the legacy EHR notice a billing notice was copied from, or that records the same Stripe payment
 const findLegacyCounterpart = async (
-  clinicalOystehr: Oystehr,
+  clinicalOystehr: ClinicalOystehr,
   billingNotice: PaymentNotice,
   encounterId: string
 ): Promise<PaymentNotice | undefined> => {
@@ -463,7 +463,7 @@ const findLegacyCounterpart = async (
 // Persists legacy-only refund and void state onto the billing notice before a write validates
 // against it. Version guarded, so a concurrent writer fails this request instead of being overwritten.
 const persistLegacyState = async (
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   billingNotice: PaymentNotice,
   legacyNotice: PaymentNotice | undefined
 ): Promise<PaymentNotice> => {
@@ -502,7 +502,7 @@ const persistLegacyState = async (
  * in place changes nothing.
  */
 export const recordLocalRefundOffsets = async (
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   notice: PaymentNotice,
   encounterId: string,
   secrets: Secrets,
@@ -531,8 +531,8 @@ export const recordLocalRefundOffsets = async (
 // reconciled before the caller validates, so billing balances already reflect earlier refunds even
 // when validation then rejects the request.
 export const resolvePaymentNoticeForWrite = async (params: {
-  clinicalOystehr: Oystehr;
-  billingOystehr: Oystehr;
+  clinicalOystehr: ClinicalOystehr;
+  billingOystehr: BillingOystehr;
   // resolves the charge behind a legacy Stripe payment when it is adopted; only called then
   getStripe: () => Stripe;
   paymentNoticeId: string;
@@ -576,7 +576,7 @@ export const resolvePaymentNoticeForWrite = async (params: {
 // on an idempotent replay: the subscription only completes Tasks, so a finished one still blocks
 // a duplicate, while a missing one (a previous attempt died before creating it) is created.
 export const ensurePaymentTaskForNotice = async (
-  clinicalOystehr: Oystehr,
+  clinicalOystehr: ClinicalOystehr,
   paymentNotice: PaymentNotice,
   encounterId: string
 ): Promise<void> => {
@@ -607,8 +607,8 @@ export const ensurePaymentTaskForNotice = async (
 // Loads the notice a payment Task points at: a billing notice, or a legacy EHR notice for Tasks
 // the terminal flow still creates.
 export const getPaymentNoticeForTask = async (params: {
-  clinicalOystehr: Oystehr;
-  billingOystehr: Oystehr;
+  clinicalOystehr: ClinicalOystehr;
+  billingOystehr: BillingOystehr;
   paymentNoticeId: string;
 }): Promise<PaymentNotice | undefined> => {
   const { clinicalOystehr, billingOystehr, paymentNoticeId } = params;

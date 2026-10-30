@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchClaimEraLinks } from '../../../src/billing/claim-amounts';
 import { performEffect as match } from '../../../src/billing/match-claim-response';
 import { performEffect as unmatch } from '../../../src/billing/unmatch-claim-response';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -33,7 +34,7 @@ const response: ClaimResponse = {
 };
 const get = vi.fn();
 const transaction = vi.fn();
-const client = { fhir: { get, transaction } } as unknown as Oystehr;
+const client = { fhir: { get, transaction } } as unknown as OystehrMock;
 const params = {
   claimResponseId: 'cr-1',
   claimId: 'claim-1',

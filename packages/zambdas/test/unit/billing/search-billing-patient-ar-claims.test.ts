@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, Patient } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -21,6 +20,7 @@ import {
   isInActivePatientArStage,
   mapToPatientArClaimItem,
 } from '../../../src/billing/search-billing-patient-ar-claims/handler';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const statuses = (overrides: Partial<ClaimStatusValues>): ClaimStatusValues => ({
   ...emptyClaimStatusValues(),
@@ -341,7 +341,7 @@ describe('fetchPatientsById', () => {
 
   const clientReturning = (
     knownIds: Set<string>
-  ): { client: Oystehr; search: ReturnType<typeof vi.fn>; batchSizes: () => number[] } => {
+  ): { client: OystehrMock; search: ReturnType<typeof vi.fn>; batchSizes: () => number[] } => {
     const search = vi.fn(
       async ({
         params,
@@ -372,7 +372,7 @@ describe('fetchPatientsById', () => {
         fhir: {
           search,
         },
-      } as unknown as Oystehr,
+      } as unknown as OystehrMock,
       search,
       batchSizes: () =>
         search.mock.calls.map((call) => {
@@ -442,7 +442,7 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
     request: { identifier: { value: encounterId } },
   });
 
-  const oystehrReturning = (claimsPerSearch: Claim[][], notices: unknown[] = []): Oystehr => {
+  const oystehrReturning = (claimsPerSearch: Claim[][], notices: unknown[] = []): OystehrMock => {
     let claimSearchCount = 0;
     const search = vi.fn(async (args: { resourceType: string; params: { name: string; value: string }[] }) => {
       if (args.resourceType === 'Claim') {
@@ -455,7 +455,7 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
       }
       return { link: [], unbundle: () => [] };
     });
-    return { fhir: { search } } as unknown as Oystehr;
+    return { fhir: { search } } as unknown as OystehrMock;
   };
 
   it('batches the encounter-id filter into chunked claim searches and dedupes merged results', async () => {

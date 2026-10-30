@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
@@ -12,7 +12,7 @@ import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validatio
 import { renamedAttachmentContent, RETIRED_ATTACHMENT_STATUS } from '../attachments';
 import { attachedClaimId } from '../claim-attachments';
 import { claimEventProvenanceRequest, resolveClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type RenameClaimAttachmentParams = ValidatedZambdaInput<typeof RenameClaimAttachmentInputSchema> & {
   agent: ProvenanceAgent;
@@ -36,7 +36,7 @@ export const index = wrapHandler(
   }
 );
 
-export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachmentParams): Promise<void> {
+export async function performEffect(oystehr: BillingOystehr, params: RenameClaimAttachmentParams): Promise<void> {
   const documentReference = await fetchById<DocumentReference>(
     oystehr,
     'DocumentReference',

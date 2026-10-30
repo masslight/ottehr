@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { versionLockedPatches } from 'utils/lib/fhir/helpers';
@@ -12,7 +11,14 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { claimMetaTagsWithProvenanceRequests, resolveClaimActor } from '../provenance';
-import { createBillingClient, fetchById, isSystemTag, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
+import {
+  BillingOystehr,
+  createBillingClient,
+  fetchById,
+  isSystemTag,
+  TAG_CODE_SYSTEM,
+  TAG_DESCRIPTION_URL,
+} from '../shared';
 
 export type SaveBillingTagParams = ValidatedZambdaInput<typeof SaveBillingTagInputSchema>;
 
@@ -39,7 +45,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // System-managed tag names are reserved (case-insensitively, so a "hold" can't masquerade as
 // Hold): a tag can neither be created with one nor renamed onto one. When updating, additionally
 // load the tag being edited and confirm it exists and isn't itself system-managed.
-export async function complexValidation(oystehr: Oystehr, params: SaveBillingTagParams): Promise<Basic | undefined> {
+export async function complexValidation(
+  oystehr: BillingOystehr,
+  params: SaveBillingTagParams
+): Promise<Basic | undefined> {
   const collision = collidingSystemManagedTagName(params.name);
   if (collision) {
     throw INVALID_INPUT_ERROR(`"${collision}" is a system-managed tag name — pick a different name`);
@@ -53,7 +62,7 @@ export async function complexValidation(oystehr: Oystehr, params: SaveBillingTag
 }
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SaveBillingTagParams & { authorizationHeader: string | undefined },
   existing: Basic | undefined
 ): Promise<{ id: string | undefined }> {
@@ -103,7 +112,7 @@ export async function performEffect(
 // Fetch all claims with the old tag, then rewrite each one's meta.tag with its history entry. Each
 // claim commits on its own, so one that fails is reported without undoing the others.
 async function rewriteClaimTags(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   oldName: string,
   newName: string,
   agent: ProvenanceAgent
@@ -135,7 +144,7 @@ async function rewriteClaimTags(
   return failedIds;
 }
 
-async function fetchAllTaggedClaims(oystehr: Oystehr, tagName: string): Promise<Claim[]> {
+async function fetchAllTaggedClaims(oystehr: BillingOystehr, tagName: string): Promise<Claim[]> {
   const allClaims: Claim[] = [];
 
   await fetchAllPages(async (offset, count) => {

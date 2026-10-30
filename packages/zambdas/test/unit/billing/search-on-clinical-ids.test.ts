@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -13,6 +12,7 @@ import {
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 function billingPatient(id: string, clinicalPatientId?: string, friendlyId?: string): Patient {
   const extension = [
@@ -53,14 +53,14 @@ function workingCopy(id: string, sourceBillingPatientId?: string, friendlyId?: s
   };
 }
 
-function mockOystehr(patients: Patient[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } {
+function mockOystehr(patients: Patient[]): { oystehr: OystehrMock; search: ReturnType<typeof vi.fn> } {
   const search = vi.fn().mockResolvedValue({ unbundle: () => patients });
   return {
     oystehr: {
       fhir: {
         search,
       },
-    } as unknown as Oystehr,
+    } as unknown as OystehrMock,
     search,
   };
 }
@@ -180,7 +180,7 @@ describe('resolveClinicalPatientIds', () => {
     return async (id: string): Promise<Patient | undefined> => byId.get(id);
   };
 
-  const serverWith = (patients: Patient[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+  const serverWith = (patients: Patient[]): { oystehr: OystehrMock; search: ReturnType<typeof vi.fn> } => {
     const search = vi.fn().mockImplementation(
       ({
         params,
@@ -200,7 +200,7 @@ describe('resolveClinicalPatientIds', () => {
         fhir: {
           search,
         },
-      } as unknown as Oystehr,
+      } as unknown as OystehrMock,
       search,
     };
   };
@@ -414,7 +414,7 @@ describe('searchPatientsByClinicalIds', () => {
       total: 1,
       unbundle: () => [billingPatient('billing-match', 'clinical-1')],
     });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
     const result = await searchPatientsByClinicalIds({
       oystehr,
@@ -454,7 +454,7 @@ describe('searchPatientsByClinicalIds', () => {
       total: 40,
       unbundle: () => [billingPatient('billing-match', 'clinical-1')],
     });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
     const result = await searchPatientsByClinicalIds({
       oystehr,
@@ -482,7 +482,7 @@ describe('searchPatientsByClinicalIds', () => {
       .fn()
       .mockResolvedValueOnce({ total: 0, unbundle: () => [] })
       .mockResolvedValueOnce({ unbundle: () => [billingPatient('billing-legacy', 'clinical-1')] });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
     const result = await searchPatientsByClinicalIds({
       oystehr,
@@ -501,7 +501,7 @@ describe('searchPatientsByClinicalIds', () => {
       total: 1,
       unbundle: () => [billingPatient('billing-1', 'clinical-1', '1015')],
     });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
     const result = await searchPatientsByClinicalIds({
       oystehr,
@@ -530,7 +530,7 @@ describe('searchPatientsByClinicalIds', () => {
       total: 2,
       unbundle: () => [billingPatient('billing-1', 'clinical-1'), billingPatient('billing-2', 'clinical-2', '1015')],
     });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
     const result = await searchPatientsByClinicalIds({
       oystehr,
@@ -561,7 +561,7 @@ describe('searchPatientsByClinicalIds', () => {
       .fn()
       .mockResolvedValueOnce({ total: 0, unbundle: () => [] })
       .mockResolvedValueOnce({ unbundle: () => [billingPatient('billing-legacy', 'clinical-1', '1015')] });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
     const result = await searchPatientsByClinicalIds({
       oystehr,

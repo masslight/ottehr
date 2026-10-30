@@ -1,9 +1,9 @@
-import Oystehr from '@oystehr/sdk';
 import { Identifier, Patient } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { addOperation, removeOperation, replaceOperation } from 'utils/lib/helpers/operations';
 import {
+  BillingOystehr,
   clinicalFriendlyIdIdentifier,
   clinicalPatientIdentifier,
   identifierSearchToken,
@@ -217,7 +217,7 @@ export async function syncClinicalPatientIdentifiers({
   pruneStale,
   isBillingPatientId,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   patient: Patient;
   clinicalId?: string;
   clinicalFriendlyId?: string;
@@ -260,7 +260,7 @@ export async function backfillBillingPatientClinicalIdentifiers({
   dryRun,
   pruneStale,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   dryRun: boolean;
   pruneStale: boolean;
 }): Promise<BillingPatientClinicalIdentifierBackfillStats> {

@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import {
   Claim,
   ClaimResponse,
@@ -38,6 +37,7 @@ import { parseStoredAcknowledgment, parseStoredTransmit } from '../claim-acknowl
 import { ClaimEraLinks, fetchClaimEraLinks } from '../claim-amounts';
 import { ClaimLookups } from '../claim-search';
 import {
+  BillingOystehr,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
@@ -53,6 +53,7 @@ import {
   isInstitutionalClaim,
   readClaimItemDrug,
   sortClaimInsurance,
+  UnscopedOystehr,
 } from '../shared';
 import { REPORT_ZONE } from './report-dates';
 
@@ -118,7 +119,7 @@ const coverageRefs = (claim: Claim): string[] =>
     .map((insurance) => insurance.coverage?.reference)
     .filter((ref): ref is string => !!ref?.startsWith('Coverage/'));
 
-export async function fetchClaimCoverages(oystehr: Oystehr, claims: Claim[]): Promise<Map<string, Coverage>> {
+export async function fetchClaimCoverages(oystehr: BillingOystehr, claims: Claim[]): Promise<Map<string, Coverage>> {
   const ids = [...new Set(claims.flatMap(coverageRefs).map((ref) => ref.replace('Coverage/', '')))];
   const coverages = new Map<string, Coverage>();
 
@@ -146,7 +147,10 @@ export async function fetchClaimCoverages(oystehr: Oystehr, claims: Claim[]): Pr
 export const coveragePayorRefs = (coverages: Map<string, Coverage>): (string | undefined)[] =>
   [...coverages.values()].map((coverage) => coverage.payor?.[0]?.reference);
 
-export async function fetchEraLinksForClaims(eraReadClient: Oystehr, lookups: ClaimLookups): Promise<ClaimEraLinks> {
+export async function fetchEraLinksForClaims(
+  eraReadClient: UnscopedOystehr,
+  lookups: ClaimLookups
+): Promise<ClaimEraLinks> {
   const claimResponses = [...lookups.claimResponsesByClaimId.values()].flat();
   if (claimResponses.length === 0) return emptyClaimExtras().eraLinks;
   return fetchClaimEraLinks(eraReadClient, claimResponses);
@@ -155,7 +159,10 @@ export async function fetchEraLinksForClaims(eraReadClient: Oystehr, lookups: Cl
 export const paymentIssuerRefs = (eraLinks: ClaimEraLinks): (string | undefined)[] =>
   eraLinks.paymentReconciliations.map((paymentReconciliation) => paymentReconciliation.paymentIssuer?.reference);
 
-export async function fetchClaimHistories(oystehr: Oystehr, claimIds: string[]): Promise<Map<string, Provenance[]>> {
+export async function fetchClaimHistories(
+  oystehr: BillingOystehr,
+  claimIds: string[]
+): Promise<Map<string, Provenance[]>> {
   const byClaimId = new Map<string, Provenance[]>();
 
   if (claimIds.length === 0) return byClaimId;

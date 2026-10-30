@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -7,7 +6,7 @@ import {
   CreateInvoiceTasksForBillingClaimsResponse,
 } from 'utils/lib/types/api/invoicing.types';
 import { fetchAllActivePatientArClaims } from '../../billing/search-billing-patient-ar-claims/handler';
-import { createBillingClient } from '../../billing/shared';
+import { BillingOystehr, createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { isOttehrBillingInvoicingEnabled } from '../../shared/invoice-tasks';
 import { truncateForLog } from '../../shared/logging';
@@ -52,7 +51,7 @@ interface PerformEffectResponse extends CreateInvoiceTasksForBillingClaimsRespon
   message: string;
 }
 
-async function performEffect(oystehr: Oystehr): Promise<PerformEffectResponse> {
+async function performEffect(oystehr: BillingOystehr): Promise<PerformEffectResponse> {
   const arClaims = await fetchAllActivePatientArClaims(oystehr);
   console.log(`Active patient AR claims: ${arClaims.length}`);
 

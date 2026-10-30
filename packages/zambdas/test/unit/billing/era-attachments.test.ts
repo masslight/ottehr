@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { performEffect as addEraAttachment } from '../../../src/billing/add-era-attachment';
@@ -7,6 +6,7 @@ import { performEffect as deleteEraAttachment } from '../../../src/billing/delet
 import { performEffect as downloadEraAttachment } from '../../../src/billing/download-era-attachment';
 import { performEffect as renameEraAttachment } from '../../../src/billing/rename-era-attachment';
 import { fetchById } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -26,7 +26,7 @@ const scan = (overrides: Partial<DocumentReference> = {}): DocumentReference => 
   ...overrides,
 });
 
-function makeClient(): Oystehr {
+function makeClient(): OystehrMock {
   return {
     fhir: {
       create: vi.fn(async (resource: DocumentReference) => ({ ...resource, id: 'doc-new' })),
@@ -37,7 +37,7 @@ function makeClient(): Oystehr {
       getPresignedUrl: vi.fn().mockResolvedValue({ signedUrl: 'signed-url' }),
       deleteObject: vi.fn(),
     },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
 }
 
 describe('ERA attachments', () => {

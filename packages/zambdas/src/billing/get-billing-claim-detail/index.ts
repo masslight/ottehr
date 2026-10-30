@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -50,6 +49,7 @@ import { getClaimServiceDate } from '../claim-search';
 import { buildEraRemitServiceLines } from '../era-remits';
 import { getCLIA } from '../service-facility.helpers';
 import {
+  BillingOystehr,
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
@@ -78,6 +78,7 @@ import {
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
+  UnscopedOystehr,
 } from '../shared';
 import { fetchWriteOffs, sumWriteOffs, writeOffFromPaymentNotice } from '../write-offs';
 
@@ -101,8 +102,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // untaggedClient reads only the claim's submission ClaimResponses, which never get the billing tag; its
 // ERA remits are tagged by sub-tag-era-resources, so they come through the billing client.
 export async function performEffect(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -427,7 +428,7 @@ export async function performEffect(
 // name so renames show through, falling back to the display snapshotted on the claim when the
 // Organization is gone.
 async function resolveNonInsurancePayerDetail(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   claim: Claim
 ): Promise<{ fhirId: string; name: string }> {
   const payerRef = getClaimNonInsurancePayer(claim);
@@ -459,7 +460,7 @@ function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingPoli
 }
 
 async function fetchOtherClaims(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   patientId: string | undefined,
   currentClaimId: string
 ): Promise<ClaimDetailResponse['otherClaims']> {

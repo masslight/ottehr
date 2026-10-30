@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Appointment, Claim, Encounter, Location, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
@@ -31,7 +30,14 @@ import {
   PATIENT_PAYMENT_IDENTIFIER_FILTER,
   stampedStripeAccount,
 } from '../../payments';
-import { BILLING_WORKING_COPY_TAG, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
+import {
+  BILLING_WORKING_COPY_TAG,
+  BillingOystehr,
+  fhirName,
+  ScopedOystehr,
+  STRIPE_ACCOUNT_IDENTIFIER_SYSTEM,
+  UnscopedOystehr,
+} from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import { listStripeAccounts, toDay, toMonth } from '../shared';
 
@@ -95,8 +101,8 @@ export interface MatchedClaimKeys {
 // claim-encounter-id) plus refunds of those counted payments. Shares loadNoticeContext with the
 // main report so both agree on what a payment is.
 export async function patientNetCollections(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   params: ReportDateWindowParams,
   secrets: ZambdaInput['secrets'],
   matched: MatchedClaimKeys,
@@ -200,8 +206,8 @@ interface NoticeLoad {
 // Notice loading + Stripe charge/refund synthesis only — no encounter/appointment/location
 // lookups, so net-only rollups skip three batched query phases over all notices.
 async function loadWindowNotices(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   params: ReportDateWindowParams,
   secrets: ZambdaInput['secrets'],
   onProgress?: (message: string) => Promise<void>
@@ -209,7 +215,7 @@ async function loadWindowNotices(
   // PaymentNotice has no paymentDate search param and payments can be back- or future-dated, so
   // no created bound is safe server-side — noticeInWindow filters on the effective payment day
   const fetchNotices = async (
-    client: Oystehr,
+    client: ScopedOystehr,
     extraParams: { name: string; value: string }[]
   ): Promise<PaymentNotice[]> => {
     const fetched: PaymentNotice[] = [];
@@ -318,8 +324,8 @@ async function loadWindowNotices(
 }
 
 async function loadNoticeContext(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   params: ReportDateWindowParams,
   secrets: ZambdaInput['secrets'],
   onProgress?: (message: string) => Promise<void>
@@ -385,8 +391,8 @@ const chargeStripeIds = (charge: Stripe.Charge): string[] =>
 
 // succeeded charges across all accounts in the window
 async function listWindowCharges(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   params: ReportDateWindowParams,
   secrets: ZambdaInput['secrets']
 ): Promise<Stripe.Charge[]> {
@@ -572,8 +578,8 @@ function rollupOf(context: NoticeContext): PatientPaymentsPayload {
 
 // drilldown dataset: every payment with snapshot Stripe status and location id
 async function detailOf(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   context: NoticeContext,
   secrets: ZambdaInput['secrets']
 ): Promise<PatientPaymentsReportDetail> {
@@ -667,7 +673,7 @@ const totalsOf = (rows: PatientPaymentsReportRow[]): GetBillingPatientPaymentsRe
 // Status per notice, aligned by index with the input. Stripe-linked payments get live invoice
 // state ('Invoice past due' etc.); manual payments report ''.
 async function resolveStripeStatuses(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   notices: PaymentNotice[],
   refundTotalsByChargeId: Map<string, number>,
   secrets: ZambdaInput['secrets'],
@@ -766,7 +772,7 @@ async function resolveStripeStatuses(
 }
 
 async function fetchResourcesById<T extends Appointment | Claim | Encounter | Location | Patient>(
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   resourceType: T['resourceType'],
   ids: string[],
   elements: string

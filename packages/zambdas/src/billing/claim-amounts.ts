@@ -1,4 +1,4 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { SearchParam } from '@oystehr/sdk';
 import {
   Claim,
   ClaimResponse,
@@ -23,7 +23,7 @@ import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
 import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from './payments';
-import { ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance } from './shared';
+import { BillingOystehr, ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance, ScopedOystehr } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
 export const X12_ADJUSTMENT_GROUP_SYSTEM = 'https://x12.org/codes/claim-adjustment-group-codes';
@@ -297,7 +297,7 @@ export async function fetchResourcesGrouped<T extends FhirResource>({
   keep,
   batchSize = BATCH,
 }: {
-  oystehr: Oystehr;
+  oystehr: ScopedOystehr;
   resourceType: T['resourceType'];
   ids: string[];
   buildParam: (batch: string[]) => SearchParam[];
@@ -347,7 +347,7 @@ function hasEraStatusCode(claimResponse: ClaimResponse): boolean {
 // ClaimResponses never carry a Claim/{id} request reference, so this returns matched ones only.
 // Filters out non-ERA ClaimResponses created by claim submission, and the ones of voided ERAs.
 export async function fetchClaimResponsesByClaimIds(
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   claimIds: string[]
 ): Promise<Map<string, ClaimResponse[]>> {
   return fetchResourcesGrouped<ClaimResponse>({
@@ -376,7 +376,7 @@ export async function fetchClaimResponsesByClaimIds(
 }
 
 export async function fetchPatientPaymentsByEncounterIds(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   encounterIds: string[]
 ): Promise<Map<string, PaymentNotice[]>> {
   const system = ottehrIdentifierSystem('claim-encounter-id');
@@ -403,7 +403,7 @@ export async function fetchPatientPaymentsByClaimId({
   oystehr,
   claims,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   claims: Claim[];
 }): Promise<Map<string, PaymentNotice[]>> {
   const system = ottehrIdentifierSystem('claim-encounter-id');
@@ -429,7 +429,7 @@ export async function fetchPatientPaidByClaimId({
   oystehr,
   claims,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   claims: Claim[];
 }): Promise<Map<string, number>> {
   return sumPatientPaymentsByClaimId(await fetchPatientPaymentsByClaimId({ oystehr, claims }));
@@ -437,7 +437,10 @@ export async function fetchPatientPaidByClaimId({
 
 // Fetch the era-processing Provenances (one per ERA, targeting its PaymentReconciliation +
 // ClaimResponses) that point at any of the given resource references, deduped by id.
-export async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: string[]): Promise<Provenance[]> {
+export async function fetchEraProcessingProvenances(
+  oystehr: ScopedOystehr,
+  targetRefs: string[]
+): Promise<Provenance[]> {
   const byId = new Map<string, Provenance>();
   const uniqueRefs = [...new Set(targetRefs)];
 
@@ -482,7 +485,10 @@ export function eraProvenanceTargetIds(provenance: Provenance, resourceType: str
     .map((reference) => reference.slice(prefix.length));
 }
 
-async function fetchPaymentReconciliationsByIds(oystehr: Oystehr, ids: string[]): Promise<PaymentReconciliation[]> {
+async function fetchPaymentReconciliationsByIds(
+  oystehr: ScopedOystehr,
+  ids: string[]
+): Promise<PaymentReconciliation[]> {
   const results: PaymentReconciliation[] = [];
   const uniqueIds = [...new Set(ids)];
 
@@ -517,7 +523,7 @@ async function fetchPaymentReconciliationsByIds(oystehr: Oystehr, ids: string[])
 }
 
 export async function fetchClaimResponsesByPaymentReconciliations(
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   paymentReconciliations: PaymentReconciliation[]
 ): Promise<Map<string, ClaimResponse[]>> {
   const paymentReconciliationIds = paymentReconciliations
@@ -533,7 +539,7 @@ export async function fetchClaimResponsesByPaymentReconciliations(
 }
 
 export async function fetchClaimResponsesFromEraProvenances(
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   provenances: Provenance[]
 ): Promise<Map<string, ClaimResponse[]>> {
   const claimResponseIdsByPaymentReconciliationId = new Map<string, string[]>();
@@ -584,7 +590,10 @@ export interface ClaimEraLinks {
   agentRefByPaymentReconciliationId?: Map<string, string>;
 }
 
-export async function fetchClaimEraLinks(oystehr: Oystehr, claimResponses: ClaimResponse[]): Promise<ClaimEraLinks> {
+export async function fetchClaimEraLinks(
+  oystehr: ScopedOystehr,
+  claimResponses: ClaimResponse[]
+): Promise<ClaimEraLinks> {
   const claimResponseIds = new Set(claimResponses.map((cr) => cr.id).filter((id): id is string => !!id));
 
   const provenances = await fetchEraProcessingProvenances(
@@ -653,7 +662,7 @@ export function firstSubmittedDate(claimResponses: ClaimResponse[]): string {
 }
 
 // Submission responses are untagged, so this needs the ERA read client.
-export async function fetchClaimFirstSubmittedDate(oystehr: Oystehr, claimId: string): Promise<string> {
+export async function fetchClaimFirstSubmittedDate(oystehr: ScopedOystehr, claimId: string): Promise<string> {
   const claimResponsesByClaimId = await fetchResourcesGrouped<ClaimResponse>({
     oystehr,
     resourceType: 'ClaimResponse',

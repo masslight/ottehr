@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -14,6 +13,7 @@ import {
   ClaimTransmitEventSchema,
   parseJsonOrUndefined,
 } from './claim-status-responses';
+import { BillingOystehr } from './shared';
 
 export type StoredAcknowledgment =
   | {
@@ -87,7 +87,7 @@ export async function fetchClaimHistoryProvenances({
   oystehr,
   claimId,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   claimId: string;
 }): Promise<Provenance[]> {
   return getAllFhirSearchPages<Provenance>(

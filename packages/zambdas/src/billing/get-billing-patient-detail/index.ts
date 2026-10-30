@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient } from 'fhir/r4b';
 import { GetPatientDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -16,6 +15,7 @@ import {
   summarizePatientBalance,
 } from '../claim-amounts';
 import {
+  BillingOystehr,
   createBillingClient,
   fetchById,
   formatAddress,
@@ -42,7 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): Promise<PatientDetailResponse> {
+async function performEffect(oystehr: BillingOystehr, params: GetPatientDetailParams): Promise<PatientDetailResponse> {
   const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
 
   const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
@@ -79,7 +79,7 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
 }
 
 async function fetchPatientClaims(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   patientId: string
 ): Promise<{
   claims: PatientDetailResponse['claims'];

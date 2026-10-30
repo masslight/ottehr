@@ -1,10 +1,10 @@
-import Oystehr from '@oystehr/sdk';
 import { Bundle, Claim, ProvenanceAgent, Task } from 'fhir/r4b';
 import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TASK_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/run-billing-rules-engine';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const agent: ProvenanceAgent = {
   type: {
@@ -17,9 +17,9 @@ const agent: ProvenanceAgent = {
 
 const makeOystehr = (
   transactionImpl: (args: { requests: { resource: Task }[] }) => Promise<Bundle<Task>>
-): { oystehr: Oystehr; transaction: ReturnType<typeof vi.fn> } => {
+): { oystehr: OystehrMock; transaction: ReturnType<typeof vi.fn> } => {
   const transaction = vi.fn().mockImplementation(transactionImpl);
-  return { oystehr: { fhir: { transaction } } as unknown as Oystehr, transaction };
+  return { oystehr: { fhir: { transaction } } as unknown as OystehrMock, transaction };
 };
 
 const echoCreatedTasks = ({ requests }: { requests: { resource: Task }[] }): Promise<Bundle<Task>> =>
@@ -125,9 +125,9 @@ describe('run-billing-rules-engine - complexValidation', () => {
       meta: { tag: arStage ? [{ system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: arStage }] : [] },
     }) as Claim;
 
-  const makeSearchOystehr = (claims: Claim[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+  const makeSearchOystehr = (claims: Claim[]): { oystehr: OystehrMock; search: ReturnType<typeof vi.fn> } => {
     const search = vi.fn().mockResolvedValue({ unbundle: () => claims });
-    return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+    return { oystehr: { fhir: { search } } as unknown as OystehrMock, search };
   };
 
   it('resolves each claim to its engine with a single search ORing the ids', async () => {

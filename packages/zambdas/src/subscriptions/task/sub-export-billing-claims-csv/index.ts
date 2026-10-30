@@ -1,4 +1,4 @@
-import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
+import { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, Resource, Task, TaskOutput } from 'fhir/r4b';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { toCsv } from 'utils/lib/helpers/csv';
@@ -18,7 +18,7 @@ import {
   fetchClaimsPageByIds,
   searchClaimsBySearchText,
 } from '../../../billing/claim-search';
-import { createBillingClient } from '../../../billing/shared';
+import { BillingOystehr, createBillingClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { truncateForLog } from '../../../shared/logging';
 import { wrapTaskHandler } from '../helpers';
@@ -51,7 +51,7 @@ export const index = wrapTaskHandler(
 );
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: ExportBillingClaimsCsvParams
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const { taskId, secrets, ...filters } = params;
@@ -94,7 +94,7 @@ export interface ClaimExportRows {
   incomplete: boolean;
 }
 
-async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): Promise<ClaimExportRows> {
+async function buildRows(oystehr: BillingOystehr, filters: ExportBillingClaimsInput): Promise<ClaimExportRows> {
   const filterParams = await buildClaimFilterParams({
     oystehr,
     params: filters,

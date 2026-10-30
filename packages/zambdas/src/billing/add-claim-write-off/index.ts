@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -7,7 +6,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 import {
   WRITE_OFF_NOTE_EXT_URL,
   WRITE_OFF_PARTY_EXT_URL,
@@ -29,7 +28,7 @@ export const index = wrapHandler('add-claim-write-off', async (input: ZambdaInpu
   return { statusCode: 200, body: JSON.stringify(result) };
 });
 
-export async function performEffect(oystehr: Oystehr, params: AddClaimWriteOffParams): Promise<void> {
+export async function performEffect(oystehr: BillingOystehr, params: AddClaimWriteOffParams): Promise<void> {
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
   const payeeRef: Reference = claim?.provider ?? {
     reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, params.secrets),
