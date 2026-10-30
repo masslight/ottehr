@@ -311,6 +311,27 @@ describe('task notes handlers', () => {
 });
 
 describe('update: concurrent edits', () => {
+  it.each([
+    { change: 'deleted', resource: taskNote({ status: 'entered-in-error' }), message: /deleted/i },
+    { change: 'no longer a note', resource: taskNote({ meta: { tag: [] } }), message: /not a .*note/i },
+    {
+      change: 'moved to another task',
+      resource: taskNote({ basedOn: [{ reference: 'Task/another-task' }] }),
+      message: /does not belong/i,
+    },
+  ])('stops retrying when the note is $change after a conflict', async ({ resource, message }) => {
+    mockFhirClient.fhir.get.mockResolvedValueOnce(taskNote()).mockResolvedValueOnce(me).mockResolvedValueOnce(resource);
+    mockFhirClient.fhir.patch.mockRejectedValueOnce(Object.assign(new Error('Precondition Failed'), { code: 412 }));
+
+    await expect(
+      updateHandler(makeInput({ note: { resourceId: NOTE_ID, taskId: TASK_ID, text: 'Edited' } }))
+    ).rejects.toMatchObject({ code: 4103, message: expect.stringMatching(message) });
+
+    expect(mockFhirClient.fhir.get).toHaveBeenCalledTimes(3);
+    expect(mockFhirClient.fhir.patch).toHaveBeenCalledTimes(1);
+    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+  });
+
   const editors: Record<string, Practitioner> = {
     'practitioner-a': {
       resourceType: 'Practitioner',
