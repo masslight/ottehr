@@ -1,6 +1,6 @@
 import Oystehr, { Bundle } from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { APIGatewayProxyResult } from 'aws-lambda';
+import { Context } from 'aws-lambda';
 import {
   Appointment,
   Communication,
@@ -122,6 +122,9 @@ const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
 // issues searches as POST bodies.
 const PROVENANCE_SEARCH_CHUNK_SIZE = 100;
 
+// Kept back from the Lambda's limit for Step C, the response and the Sentry flush; Step B is cut short before it.
+const TRACKING_BOARD_RESPONSE_RESERVE_MS = 5_000;
+
 /** Visit type and service category filters. The encounter map is needed to detect scheduled follow-ups. */
 const filterAppointmentsForBoard = (
   appointments: Appointment[],
@@ -156,7 +159,10 @@ const filterAppointmentsForBoard = (
 
 let m2mToken: string;
 
-export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-appointments', async (input: ZambdaInput, context?: Context) => {
+  const trackingBoardDeadline = context
+    ? Date.now() + context.getRemainingTimeInMillis() - TRACKING_BOARD_RESPONSE_RESERVE_MS
+    : undefined;
   // The tracking board polls this endpoint every 30 s per open tab, so per-invocation logging is one summary line
   // (see logSummary) rather than a line per phase.
   const phaseMs: Record<string, number> = {};
@@ -433,6 +439,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     encounterIds: trackingBoardEncounterIds,
     // Optional: it only shortens `next` links, and a missing secret must not fail the page (see the catch below).
     fhirApiUrl: getOptionalSecret(SecretsKeys.FHIR_API, secrets),
+    deadline: trackingBoardDeadline,
   })
     .finally(() => {
       // It overlaps the related-resource phase, so it gets its own timing rather than a phase.

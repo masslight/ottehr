@@ -1,0 +1,290 @@
+import Oystehr from '@oystehr/sdk';
+import { PaymentNotice } from 'fhir/r4b';
+import { PENDING_RESERVATION_PREFIX } from 'utils/lib/fhir/paymentRefunds';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
+import { describe, expect, it, vi } from 'vitest';
+import { recordPaymentNoticeChange } from '../../../src/billing/payments';
+import { applyRefundsToPaymentNotice, voidPaymentNotice } from '../../../src/shared/stripeIntegration';
+import { claimHistoryEntries, provenanceChanges, TEST_AGENT } from './claim-history-fixtures';
+
+const billingCopy: PaymentNotice = {
+  resourceType: 'PaymentNotice',
+  id: 'pn-billing',
+  status: 'active',
+  created: '2026-10-01T12:00:00Z',
+  amount: {
+    value: 50,
+    currency: 'USD',
+  },
+  payment: {
+    reference: '#contained-reconciliation',
+  },
+  recipient: {
+    reference: 'Organization/o1',
+  },
+  request: {
+    reference: 'Claim/claim-1',
+  },
+};
+
+const makeOystehr = (): {
+  oystehr: Oystehr;
+  transaction: ReturnType<typeof vi.fn>;
+} => {
+  const transaction = vi.fn().mockResolvedValue({
+    entry: [],
+  });
+  return {
+    oystehr: {
+      fhir: {
+        transaction,
+      },
+    } as unknown as Oystehr,
+    transaction,
+  };
+};
+
+describe('payment notice changes with a claim history recorder', () => {
+  it('writes a void and its claim history entry together', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await voidPaymentNotice(
+      oystehr,
+      billingCopy,
+      {
+        reason: 'Entered in error',
+        voidedAtISO: '2026-10-02T12:00:00Z',
+      },
+      recordPaymentNoticeChange(TEST_AGENT)
+    );
+
+    const { requests } = transaction.mock.calls[0][0];
+    expect(requests[0]).toMatchObject({
+      method: 'PATCH',
+      url: '/PaymentNotice/pn-billing',
+    });
+    const [entry] = claimHistoryEntries(requests);
+    expect(entry.target).toEqual([
+      {
+        reference: 'PaymentNotice/pn-billing',
+      },
+      {
+        reference: 'Claim/claim-1',
+      },
+    ]);
+    expect(provenanceChanges(entry)).toEqual([
+      {
+        field: 'status',
+        label: 'Status',
+        previousValue: 'active',
+        newValue: 'cancelled',
+      },
+      {
+        field: 'voidReason',
+        label: 'Void Reason',
+        previousValue: null,
+        newValue: 'Entered in error',
+      },
+    ]);
+  });
+
+  it('writes a clinical notice without a history entry', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await voidPaymentNotice(oystehr, billingCopy, {
+      reason: 'Entered in error',
+      voidedAtISO: '2026-10-02T12:00:00Z',
+    });
+
+    const { requests } = transaction.mock.calls[0][0];
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      method: 'PATCH',
+      url: '/PaymentNotice/pn-billing',
+    });
+  });
+
+  it('writes no history entry for a refund reservation, which moves no money', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        {
+          stripeRefundId: `${PENDING_RESERVATION_PREFIX}op-1`,
+          amountInCents: 2000,
+          dateISO: new Date().toISOString(),
+          status: 'pending',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(TEST_AGENT)
+    );
+
+    expect(claimHistoryEntries(transaction.mock.calls[0][0].requests)).toEqual([]);
+  });
+});
+
+describe('payment notice change attribution', () => {
+  const SYSTEM_AGENT = {
+    who: {
+      reference: 'Device/system',
+    },
+  };
+
+  const recordedAgent = (transaction: ReturnType<typeof vi.fn>): unknown =>
+    claimHistoryEntries(transaction.mock.calls[0][0].requests)[0].agent;
+
+  it('attributes a void to the user the EHR stamped on it', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await voidPaymentNotice(
+      oystehr,
+      billingCopy,
+      {
+        reason: 'Entered in error',
+        voidedAtISO: '2026-10-02T12:00:00Z',
+        voidedBy: 'Jane Doe',
+        voidedByReference: 'Practitioner/jane',
+      },
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toMatchObject([
+      {
+        who: {
+          reference: 'Practitioner/jane',
+        },
+      },
+    ]);
+  });
+
+  it('attributes an added refund to the user who issued it', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        {
+          stripeRefundId: 're_1',
+          amountInCents: 2000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+          refundedByReference: 'Practitioner/jane',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toMatchObject([
+      {
+        who: {
+          reference: 'Practitioner/jane',
+        },
+      },
+    ]);
+  });
+
+  it('attributes a refund nobody stamped, like one made in the Stripe dashboard, to the system', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        {
+          stripeRefundId: 're_1',
+          amountInCents: 2000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toEqual([SYSTEM_AGENT]);
+  });
+
+  it.each<[string, PaymentRefundDTO]>([
+    [
+      'failed',
+      {
+        stripeRefundId: 're_failed',
+        amountInCents: 1000,
+        dateISO: '2026-10-02T12:00:00Z',
+        status: 'failed',
+        refundedByReference: 'Practitioner/jane',
+      },
+    ],
+    [
+      'reserved',
+      {
+        stripeRefundId: `${PENDING_RESERVATION_PREFIX}op-1`,
+        amountInCents: 1000,
+        dateISO: new Date().toISOString(),
+        status: 'pending',
+        refundedByReference: 'Practitioner/jane',
+      },
+    ],
+  ])('credits the issuer of the refund that settled, not one that %s', async (_state, unsettled) => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        unsettled,
+        {
+          stripeRefundId: 're_1',
+          amountInCents: 2000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+          refundedByReference: 'Practitioner/john',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toMatchObject([
+      {
+        who: {
+          reference: 'Practitioner/john',
+        },
+      },
+    ]);
+  });
+
+  it('attributes refunds several users issued in one stamp to the system', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingCopy,
+      [
+        {
+          stripeRefundId: 're_1',
+          amountInCents: 1000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+          refundedByReference: 'Practitioner/jane',
+        },
+        {
+          stripeRefundId: 're_2',
+          amountInCents: 1000,
+          dateISO: '2026-10-02T12:00:00Z',
+          status: 'succeeded',
+          refundedByReference: 'Practitioner/john',
+        },
+      ],
+      undefined,
+      recordPaymentNoticeChange(SYSTEM_AGENT)
+    );
+
+    expect(recordedAgent(transaction)).toEqual([SYSTEM_AGENT]);
+  });
+});

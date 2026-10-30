@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Patient } from 'fhir/r4b';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,6 +60,7 @@ const docRef = (id: string, url: string, over: Partial<DocumentReference> = {}):
 
 let searchResults: unknown[] = [];
 let visitSearchResults: unknown[] = [];
+let encounterSearchResults: unknown[] = [];
 let documentsById: Record<string, DocumentReference> = {};
 
 const oystehr = {
@@ -68,7 +70,12 @@ const oystehr = {
     ),
     search: vi.fn(({ resourceType }: { resourceType: string }) =>
       Promise.resolve({
-        unbundle: () => (resourceType === 'Appointment' ? visitSearchResults : searchResults),
+        unbundle: () =>
+          resourceType === 'Appointment'
+            ? visitSearchResults
+            : resourceType === 'Encounter'
+            ? encounterSearchResults
+            : searchResults,
         link: [],
       } as unknown as never)
     ),
@@ -83,6 +90,7 @@ describe('resolveFaxPacketPlan', () => {
     vi.clearAllMocks();
     searchResults = [];
     visitSearchResults = [];
+    encounterSearchResults = [];
     documentsById = {};
     mockGetAppointmentAndRelatedResources.mockImplementation((_oystehr, appointmentId: string) =>
       Promise.resolve(visitResources(appointmentId))
@@ -260,6 +268,50 @@ describe('resolveFaxPacketPlan', () => {
     expect(mockBuildFaxPacketSection.mock.calls[0][0].parts.map((part: any) => part.z3Url)).toEqual([
       'https://z3.example/doc-2.pdf',
       'https://z3.example/paperwork.pdf',
+    ]);
+  });
+
+  it("faxes a follow-up's documents with the follow-up's month, not the main visit's", async () => {
+    searchResults = [
+      docRef('doc-1', 'https://z3.example/main.pdf', {
+        context: {
+          related: [{ reference: 'Appointment/appointment-main' }],
+          encounter: [{ reference: 'Encounter/encounter-main' }],
+        },
+      }),
+      docRef('doc-2', 'https://z3.example/follow-up.pdf', {
+        context: { encounter: [{ reference: 'Encounter/encounter-follow-up' }] },
+      }),
+    ];
+    visitSearchResults = [{ resourceType: 'Appointment', id: 'appointment-main', start: '2026-09-14T14:00:00.000Z' }];
+    encounterSearchResults = [
+      {
+        resourceType: 'Encounter',
+        id: 'encounter-main',
+        status: 'finished',
+        class: { code: 'AMB' },
+        appointment: [{ reference: 'Appointment/appointment-main' }],
+      },
+      {
+        resourceType: 'Encounter',
+        id: 'encounter-follow-up',
+        status: 'finished',
+        class: { code: 'VR' },
+        type: buildFollowupEncounterType('annotation'),
+        partOf: { reference: 'Encounter/encounter-main' },
+        appointment: [{ reference: 'Appointment/appointment-main' }],
+        period: { start: '2026-10-23T15:00:00.000Z' },
+      },
+    ];
+
+    await resolve({
+      type: 'medical-record',
+      patientId: PATIENT_ID,
+      dateRange: { from: '2026-10-01T00:00:00.000-04:00', to: '2026-10-31T23:59:59.999-04:00' },
+    });
+
+    expect(mockBuildFaxPacketSection.mock.calls[0][0].parts.map((part: any) => part.z3Url)).toEqual([
+      'https://z3.example/follow-up.pdf',
     ]);
   });
 

@@ -28,7 +28,7 @@ import {
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { resolveFlowCanonicalForServiceMode } from '../../../ehr/paperwork-flow/shared';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { checkIsEHRUser, checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -39,7 +39,7 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = await validateRequestParameters(input);
   console.groupEnd();
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -71,7 +71,7 @@ interface BasicInput extends Omit<CreateSlotParams, 'lengthInMinutes' | 'lengthI
   questionnaireCanonical?: CanonicalUrl;
 }
 
-const validateRequestParameters = (input: ZambdaInput): BasicInput => {
+const validateRequestParameters = async (input: ZambdaInput): Promise<BasicInput> => {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
@@ -118,7 +118,12 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   }
   const now = DateTime.now();
   if (!walkin && startDate < now) {
-    throw INVALID_INPUT_ERROR('"startISO" must be in the future');
+    const userToken = input.headers.Authorization?.replace('Bearer ', '');
+    const user = userToken ? await getUser(userToken, input.secrets) : undefined;
+
+    if (!checkIsEHRUser(user)) {
+      throw INVALID_INPUT_ERROR('"startISO" must be in the future');
+    }
   }
 
   if (status && typeof status !== 'string') {

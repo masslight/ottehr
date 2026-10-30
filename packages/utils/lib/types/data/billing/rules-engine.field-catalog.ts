@@ -129,17 +129,24 @@ export type RuleFieldValueType =
 export interface RuleFieldOption {
   value: string;
   label: string;
+  // Whether a setField action may write this value (default true). False marks a value conditions
+  // can compare against but rules cannot set — e.g. a relationship can be set to Self only.
+  settable?: boolean;
 }
+
+// The options a setField action may write: every option not marked settable: false.
+export const settableOptions = (options: RuleFieldOption[]): RuleFieldOption[] =>
+  options.filter((option) => option.settable !== false);
 
 // Value formats a text-typed field can declare. Formats with a `validate` are enforced on
 // exact-match condition values and written values (fragment operators like contains/startsWith
-// legitimately take partial values and skip them); `tag` and `cpt` carry no sync validator — they
-// pick the rule builder's input component (tag dropdown / CPT terminology autocomplete), and tag
-// existence is checked server-side at save time.
-export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt';
+// legitimately take partial values and skip them); `tag`, `cpt` and `service` carry no sync
+// validator — they pick the rule builder's input component (tag dropdown / CPT terminology
+// autocomplete / service picker), and tag existence is checked server-side at save time.
+export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt' | 'service';
 
 export interface RuleValueFormatDef {
-  // Sync per-value check; absent for formats that only drive input dispatch (tag, cpt).
+  // Sync per-value check; absent for formats that only drive input dispatch (tag, cpt, service).
   validate?: (value: string) => string | undefined;
   // One-line format hint for the generated docs and UI helper text.
   hint: string;
@@ -171,6 +178,7 @@ export const RULE_VALUE_FORMATS: Record<RuleValueFormat, RuleValueFormatDef> = {
   },
   tag: { hint: 'a tag defined on the Tags page' },
   cpt: { hint: 'a CPT/HCPCS code' },
+  service: { hint: 'a service on claims created from visits' },
 };
 
 export interface RuleFieldDef {
@@ -213,8 +221,9 @@ const SCALAR_OPS: RuleOperator[] = [
   'notExists',
 ];
 const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'matches', 'notMatches', 'exists', 'notExists'];
-// Provider/facility reference values ("Practitioner/<id>") are opaque ids — pattern matching them
-// is meaningless, so ref-typed fields skip the regex operators.
+// Provider/facility reference values ("Practitioner/<id>") are opaque ids and services are picked
+// whole from the list of services on claims — matching part of them or a pattern is meaningless, so
+// these fields take whole values only.
 const REF_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
@@ -236,9 +245,11 @@ const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map
   label: `${option.candidCode} - ${option.label}`,
 }));
 
+// Only Self is settable: every other relationship needs a policy-holder record rules cannot create.
 const RELATIONSHIP_OPTIONS: RuleFieldOption[] = SUBSCRIBER_RELATIONSHIPS.map((relationship) => ({
   value: relationship,
   label: relationship,
+  settable: relationship === 'Self',
 }));
 
 // The patient-coverage slots (primary / secondary / workers comp on the patient's billing
@@ -464,9 +475,13 @@ const coverageFields = (
       group,
       valueType: 'select',
       operators: ENUM_OPS,
-      // Explicitly false, since this requires also mutating another resource
-      settable: false,
-      description: `The patient's relationship to the ${countingWord} policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead.`,
+      settable,
+      description:
+        `The patient's relationship to the ${countingWord} policy holder. Rules can only set it to Self, which makes ` +
+        `the patient the ${countingWord} coverage's subscriber and drops its separate policy holder (the ` +
+        `${countingWord} policy holder properties then read empty); any other relationship needs a policy-holder ` +
+        "record, which rules cannot create — edit the claim's insurance instead.",
+      requiredOnSet: true,
       options: RELATIONSHIP_OPTIONS,
     },
   ];
@@ -577,10 +592,12 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     label: 'Service category',
     group: 'claim',
     valueType: 'string',
-    operators: SCALAR_OPS,
+    operators: REF_OPS,
     settable: true,
     description:
-      'The service category code on the claim (e.g. urgent-care, workers-comp). Categories are configurable, so the value is free text.',
+      'The service category: one of the services on claims created from visits so far, picked by the name the claims list shows (e.g. Workers Comp) and stored and compared as its code (workers-comp). ' +
+      'Setting it requires the code of a listed service.',
+    format: 'service',
   },
   {
     id: 'serviceDate',
@@ -1289,7 +1306,7 @@ export function setFieldValueProblem(
 ): string | undefined {
   const trimmed = value?.trim() ?? '';
   if (trimmed === '') return def.requiredOnSet ? VALUE_REQUIRED_PROBLEM : undefined;
-  return strictValueProblem(def, trimmed);
+  return strictValueProblem({ ...def, options: def.options && settableOptions(def.options) }, trimmed);
 }
 
 // A service-line match value's problem — same operator-aware logic over a line property def.
@@ -1427,6 +1444,20 @@ export function ruleReferencesPatientCoverage(rule: { conditional: RuleCondition
 export interface SetResourceRef {
   field: string;
   ref: string;
+}
+
+export const SERVICE_FIELD_ID = 'service';
+
+// The service values a rule's setField actions assign (deduped, in tree order) — save-billing-rules
+// checks each is the code of a service on claims created from visits. Untrimmed: the engine writes the
+// value exactly as saved, so a padded code must not pass as the listed one.
+export function collectSetServiceValues(rule: { conditional: RuleConditional }): string[] {
+  const values: string[] = [];
+  forEachRuleAction(rule, (action) => {
+    if (action.type !== 'setField' || action.field !== SERVICE_FIELD_ID) return;
+    if (action.value && !values.includes(action.value)) values.push(action.value);
+  });
+  return values;
 }
 
 export const NON_INSURANCE_PAYER_FIELD_ID = 'nonInsurancePayerId';

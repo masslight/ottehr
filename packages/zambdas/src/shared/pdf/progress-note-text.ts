@@ -1,6 +1,6 @@
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VITAL_LABELS } from './sections/visit-note/vitals';
-import { ProgressNoteData } from './types';
+import { FormResponseLines, ProgressNoteData } from './types';
 
 /**
  * Plain-text rendering of the composed progress note, for the configurable AI note review that runs
@@ -33,6 +33,13 @@ const textSection = (heading: string, value: string | undefined): Section => ({
   heading,
   lines: value?.trim() ? [value.trim()] : [],
 });
+
+const formsSection = (heading: string, forms: FormResponseLines[] | undefined): Section =>
+  listSection(heading, [
+    forms?.map((form) =>
+      [form.title, ...form.lines.map(({ question, answer }) => `${question}: ${answer}`)].join(' | ')
+    ),
+  ]);
 
 const serializeVitals = (data: ProgressNoteData): Section => {
   const vitals = data.vitals?.vitals;
@@ -167,6 +174,8 @@ export function progressNoteDataToText(data: ProgressNoteData): string {
       data.surgicalHistory?.surgicalHistoryNotes,
     ]),
     listSection('HOSPITALIZATION', [data.hospitalization?.hospitalization, data.hospitalization?.hospitalizationNotes]),
+    formsSection('SCREENING FORMS', data.screening?.forms),
+    formsSection('CLINICAL FORMS', data.questionnaires?.forms),
     listSection('INTAKE NOTES', [data.intakeNotes?.intakeNotes]),
     serializeVitals(data),
     serializeRos(data),

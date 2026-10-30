@@ -26,6 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { FORM_PLACEMENT_LABELS } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { PracticeManagedQuestionnaireUpdateStatusData } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { usePracticeManagedQuestionnaires } from '../../../hooks/usePracticeManagedQuestionnaires';
@@ -163,6 +164,7 @@ export const QuestionnaireAdminPage: FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Where answers appear</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">
                   Actions
                 </TableCell>
@@ -198,6 +200,9 @@ export const QuestionnaireAdminPage: FC = () => {
                           />
                         )}
                       </Box>
+                    </TableCell>
+                    <TableCell sx={{ color: q.placement === 'visit-details' ? 'text.secondary' : 'primary.dark' }}>
+                      {FORM_PLACEMENT_LABELS[q.placement]}
                     </TableCell>
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                       {deleted ? (

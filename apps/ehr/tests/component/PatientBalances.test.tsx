@@ -302,7 +302,7 @@ describe('PatientBalances', () => {
 
         await waitFor(() => {
           expect(mockExecute).toHaveBeenCalledWith({
-            id: 'patient-payments-post',
+            id: 'post-billing-patient-payment',
             patientId: 'patient-id',
             encounterId: 'encounter-1',
             paymentDetails: {
@@ -329,7 +329,7 @@ describe('PatientBalances', () => {
 
         await waitFor(() => {
           expect(mockExecute).toHaveBeenCalledWith({
-            id: 'patient-payments-post',
+            id: 'post-billing-patient-payment',
             patientId: 'patient-id',
             encounterId: 'encounter-1',
             paymentDetails: {
