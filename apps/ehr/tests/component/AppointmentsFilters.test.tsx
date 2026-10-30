@@ -63,7 +63,7 @@ describe('AppointmentsFilters persistence', () => {
   it('restores persisted filters into the URL while preserving the tab param', async () => {
     localStorage.setItem(
       LOCAL_STORAGE_FILTERS_KEY,
-      JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'] })
+      JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'], version: 1 })
     );
     sessionStorage.setItem(
       SESSION_STORAGE_DATE_RANGE_KEY,
@@ -91,6 +91,25 @@ describe('AppointmentsFilters persistence', () => {
       const visitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
       expect(visitTypes).toContain('in-person-scheduled-follow-up');
     });
+  });
+
+  it('one-time migration: legacy persisted filters (no version) get every visit type selected', async () => {
+    localStorage.setItem(
+      LOCAL_STORAGE_FILTERS_KEY,
+      JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'] })
+    );
+
+    renderFilters('/visits?tab=in-office');
+
+    await waitFor(() => {
+      const params = new URLSearchParams(getSearch());
+      expect(params.get('location')).toBe('L1');
+      const visitTypes = params.get('visitType')?.split(',') ?? [];
+      expect(visitTypes).toContain('in-person-walk-in');
+      expect(visitTypes).toContain('in-person-scheduled-follow-up');
+    });
+    // the migration is marked done so a later narrowed selection is respected
+    expect(JSON.parse(localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY) ?? '{}').version).toBe(1);
   });
 
   it('defaults the date to today on a fresh session even with other filters persisted', async () => {

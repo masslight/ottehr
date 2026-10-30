@@ -50,6 +50,8 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
 };
 
 export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+// Persisted filters carry this marker. So we can add new filter options and silently select them for users
+const PERSISTED_FILTERS_VERSION = 1;
 // The tracking-board date range is kept in sessionStorage (not localStorage) so it survives
 // in-app navigation but resets to today on a new browser session.
 export const SESSION_STORAGE_DATE_RANGE_KEY = 'appointments.dateRange';
@@ -179,7 +181,10 @@ export default function AppointmentsFilters(): ReactElement {
         });
         if (values) {
           const { dateFrom, dateTo, ...rest } = values;
-          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(rest));
+          localStorage.setItem(
+            LOCAL_STORAGE_FILTERS_KEY,
+            JSON.stringify({ ...rest, version: PERSISTED_FILTERS_VERSION })
+          );
           if (dateFrom && dateTo) {
             // Persist only a complete range; a half-cleared range is invalid for the board, so it is
             // dropped here (and on restore) rather than stored and silently completed with today.
@@ -223,12 +228,13 @@ export default function AppointmentsFilters(): ReactElement {
     }
 
     try {
-      const parsed = JSON.parse(persistedValues);
+      const { version, ...parsed } = JSON.parse(persistedValues);
+      const isLegacy = version == null;
       methods.reset({
         ...defaultFilterValues,
         ...parsed,
         ...persistedDateRange,
-        visitType: parsed.visitType ?? defaultValues.visitType,
+        visitType: isLegacy ? defaultValues.visitType : parsed.visitType ?? defaultValues.visitType,
       });
     } catch {
       // Corrupt/legacy localStorage: drop it and fall back to defaults instead of crashing.
