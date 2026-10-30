@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter, useSearchParams } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,7 +63,7 @@ describe('AppointmentsFilters persistence', () => {
   it('restores persisted filters into the URL while preserving the tab param', async () => {
     localStorage.setItem(
       LOCAL_STORAGE_FILTERS_KEY,
-      JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'] })
+      JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'], version: 1 })
     );
     sessionStorage.setItem(
       SESSION_STORAGE_DATE_RANGE_KEY,
@@ -93,60 +93,23 @@ describe('AppointmentsFilters persistence', () => {
     });
   });
 
-  it('adds scheduled follow-up to a legacy "all selected" visit-type filter', async () => {
-    // Capture the full default selection, then persist it without scheduled follow-up and
-    // without `knownVisitTypes`, the way filters were saved before the option existed.
-    renderFilters('/visits?tab=in-office');
-    let allVisitTypes: string[] = [];
-    await waitFor(() => {
-      allVisitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
-      expect(allVisitTypes).toContain('in-person-scheduled-follow-up');
-    });
-    cleanup();
-    const legacyVisitTypes = allVisitTypes.filter((key) => key !== 'in-person-scheduled-follow-up');
-    localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify({ visitType: legacyVisitTypes }));
-
-    renderFilters('/visits?tab=in-office');
-
-    await waitFor(() => {
-      const visitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
-      expect(visitTypes.sort()).toEqual([...allVisitTypes].sort());
-    });
-  });
-
-  it('keeps a narrowed visit-type selection when new options were added since it was saved', async () => {
+  it('one-time migration: legacy persisted filters (no version) get every visit type selected', async () => {
     localStorage.setItem(
       LOCAL_STORAGE_FILTERS_KEY,
-      JSON.stringify({ visitType: ['in-person-walk-in'], knownVisitTypes: ['in-person-walk-in', 'virtual-walk-in'] })
+      JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'] })
     );
 
     renderFilters('/visits?tab=in-office');
 
     await waitFor(() => {
-      expect(new URLSearchParams(getSearch()).get('visitType')).toBe('in-person-walk-in');
+      const params = new URLSearchParams(getSearch());
+      expect(params.get('location')).toBe('L1');
+      const visitTypes = params.get('visitType')?.split(',') ?? [];
+      expect(visitTypes).toContain('in-person-walk-in');
+      expect(visitTypes).toContain('in-person-scheduled-follow-up');
     });
-  });
-
-  it('keeps scheduled follow-up deselected when a current-format filter saved it as known but unselected', async () => {
-    renderFilters('/visits?tab=in-office');
-    let allVisitTypes: string[] = [];
-    await waitFor(() => {
-      allVisitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
-      expect(allVisitTypes).toContain('in-person-scheduled-follow-up');
-    });
-    cleanup();
-    const narrowed = allVisitTypes.filter((key) => key !== 'in-person-scheduled-follow-up');
-    localStorage.setItem(
-      LOCAL_STORAGE_FILTERS_KEY,
-      JSON.stringify({ visitType: narrowed, knownVisitTypes: allVisitTypes })
-    );
-
-    renderFilters('/visits?tab=in-office');
-
-    await waitFor(() => {
-      const visitTypes = new URLSearchParams(getSearch()).get('visitType')?.split(',') ?? [];
-      expect(visitTypes.sort()).toEqual([...narrowed].sort());
-    });
+    // the migration is marked done so a later narrowed selection is respected
+    expect(JSON.parse(localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY) ?? '{}').version).toBe(1);
   });
 
   it('defaults the date to today on a fresh session even with other filters persisted', async () => {
