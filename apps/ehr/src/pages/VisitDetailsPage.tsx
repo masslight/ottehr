@@ -1157,6 +1157,7 @@ export default function VisitDetailsPage(): ReactElement {
           }
           id={patientId}
           encounterId={encounter?.id}
+          fallbackPatient={patient}
         />
       }
     >

@@ -1,5 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, useTheme } from '@mui/material';
+import { Patient } from 'fhir/r4b';
 import { FC } from 'react';
 import { showEnvironmentBanner } from 'src/App';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -19,12 +20,16 @@ type HeaderProps = {
   id?: string;
   /** The visit the page is about; without one the label is printed for the latest visit. */
   encounterId?: string;
+  /** Already-loaded patient shown while the header's own lookup is pending or has failed. */
+  fallbackPatient?: Patient;
 };
 
-export const Header: FC<HeaderProps> = ({ handleDiscard, id, encounterId }) => {
+export const Header: FC<HeaderProps> = ({ handleDiscard, id, encounterId, fallbackPatient }) => {
   const theme = useTheme();
 
-  const { loading, patient } = useGetPatient(id);
+  const { loading: patientLoading, patient: fetchedPatient } = useGetPatient(id);
+  const patient = fetchedPatient ?? fallbackPatient;
+  const loading = patientLoading && !patient;
   // Visit history is only needed to pick a label encounter when the page has none of its own.
   const { data: visitHistory } = useGetPatientVisitHistory(encounterId ? undefined : patient?.id);
   const appointments = visitHistory?.visits ?? [];
