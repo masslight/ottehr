@@ -17,7 +17,11 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { assertDefined, createClinicalOystehrClient, validateJsonBody, validateString } from '../../../shared/helpers';
 import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../../shared/sentry';
-import { getStatementDetails, resolveStatementAmountsSource } from '../../../shared/statements/get-statement-details';
+import {
+  getStatementDetails,
+  isBillingAppInvoiceStatement,
+  resolveStatementAmountsSource,
+} from '../../../shared/statements/get-statement-details';
 import { getJSONStatementTemplate } from '../../../shared/statements/get-statement-template';
 import { ZambdaInput } from '../../../shared/types/common';
 import { createPresignedUrl } from '../../../shared/z3Utils';
@@ -53,6 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets,
     oystehr,
     m2mToken,
+    billingAppInvoice: isBillingAppInvoiceStatement(task),
   });
 
   const encounterReference = `Encounter/${encounterId}`;

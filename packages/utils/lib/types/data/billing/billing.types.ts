@@ -1194,6 +1194,14 @@ export interface SearchBillingInvoicesResponse extends Paginated {
   invoices: BillingInvoiceListItem[];
 }
 
+export interface GetBillingInvoiceStatementResponse {
+  html: string;
+  // When the current statement PDF in the patient's chart was made.
+  generatedAt?: string;
+  // A short-lived link to that PDF.
+  pdfUrl?: string;
+}
+
 export interface AddClaimAttachmentResponse {
   documentReferenceId: string;
   uploadUrl: string;

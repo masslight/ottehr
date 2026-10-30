@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Invoice } from 'fhir/r4b';
 import {
+  getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
   getHostedInvoiceUrl,
   INVOICE_CLAIM_TAG_SYSTEM,
@@ -13,6 +14,7 @@ import {
 import { BillingInvoiceSummary } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues, isInvoiceableClaimStatus } from 'utils/lib/types/data/billing/claim-status';
 import { INVALID_INPUT_ERROR, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
+import { fetchById } from './shared';
 
 export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Promise<Invoice[]> {
   return (
@@ -43,6 +45,16 @@ export function getInvoiceableEncounterId(claim: Claim): string {
       'Only Patient AR claims that are ready to invoice, invoiced or finalized can be invoiced'
     );
   }
+  return getClaimEncounterId(claim);
+}
+
+// Returns the clinical visit behind an invoice's claim.
+export async function getInvoiceEncounterId(oystehr: Oystehr, invoiceId: string): Promise<string> {
+  const [{ claimId }] = getBillingInvoiceClaims(await fetchById<Invoice>(oystehr, 'Invoice', invoiceId));
+  return getClaimEncounterId(await fetchById<Claim>(oystehr, 'Claim', claimId));
+}
+
+function getClaimEncounterId(claim: Claim): string {
   const encounterId = claim.identifier?.find(
     (identifier) => identifier.system === ottehrIdentifierSystem('claim-encounter-id')
   )?.value;

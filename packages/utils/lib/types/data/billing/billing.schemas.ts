@@ -936,6 +936,10 @@ export const SearchBillingInvoicesInputSchema = z.object({
   pageSize: nonNegativeInt.optional(),
 });
 
+export const BillingInvoiceStatementInputSchema = z.object({
+  invoiceId: nonEmptyString,
+});
+
 // EHR-facing patient payment endpoints owned by the billing app.
 export const ListBillingPatientPaymentsInputSchema = z.object({
   patientId: nonEmptyString.uuid(),
