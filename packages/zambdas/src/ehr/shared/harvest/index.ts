@@ -3544,13 +3544,25 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     }
   }
 
-  if (preserveOmittedCoverages && existingCoverages.primary && !newPrimaryCoverage) {
+  // An omitted coverage is kept in its slot only if it didn't move to the other one (e.g. a sole primary coverage
+  // changed to secondary by the insurance section save); otherwise it would end up in both slots.
+  if (
+    preserveOmittedCoverages &&
+    existingCoverages.primary &&
+    !newPrimaryCoverage &&
+    existingCoverages.primary.id !== newSecondaryCoverageId
+  ) {
     suggestedNewCoverageObject.push({
       coverage: { reference: `Coverage/${existingCoverages.primary.id}` },
       priority: 1,
     });
   }
-  if (preserveOmittedCoverages && existingCoverages.secondary && !newSecondaryCoverage) {
+  if (
+    preserveOmittedCoverages &&
+    existingCoverages.secondary &&
+    !newSecondaryCoverage &&
+    existingCoverages.secondary.id !== newPrimaryCoverageId
+  ) {
     suggestedNewCoverageObject.push({
       coverage: { reference: `Coverage/${existingCoverages.secondary.id}` },
       priority: 2,
@@ -3921,6 +3933,23 @@ const replaceCurrentGuarantor = (
   });
 };
 
+export const isEmergencyContactRelatedPerson = (relatedPerson: RelatedPerson): boolean =>
+  Boolean(
+    relatedPerson.relationship?.some(
+      (rel) =>
+        rel.coding?.some(
+          (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
+        )
+    )
+  );
+
+export const isAttorneyRelatedPerson = (relatedPerson: RelatedPerson): boolean =>
+  Boolean(
+    relatedPerson.relationship?.some(
+      (rel) => rel.coding?.some((coding) => coding.code === 'OTHER' && coding.display === 'MVA Attorney')
+    )
+  );
+
 type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient | Organization)[];
 interface UnbundledAccountResourceWithInsuranceResources {
   patient: Patient;
@@ -3958,13 +3987,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   );
 
   const attorneyRelatedPerson: RelatedPerson | undefined = resources.find(
-    (res): res is RelatedPerson =>
-      res.resourceType === 'RelatedPerson' &&
-      Boolean(
-        res.relationship?.some(
-          (rel) => rel.coding?.some((coding) => coding.code === 'OTHER' && coding.display === 'MVA Attorney')
-        )
-      )
+    (res): res is RelatedPerson => res.resourceType === 'RelatedPerson' && isAttorneyRelatedPerson(res)
   );
 
   const existingCoverages: OrderedCoveragesWithSubscribers = {};
@@ -4059,15 +4082,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   );
 
   const emergencyContactResource = resources.find(
-    (res): res is RelatedPerson =>
-      (res.resourceType === 'RelatedPerson' &&
-        res.relationship?.some(
-          (rel) =>
-            rel.coding?.some(
-              (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
-            )
-        )) ||
-      false
+    (res): res is RelatedPerson => res.resourceType === 'RelatedPerson' && isEmergencyContactRelatedPerson(res)
   );
 
   return {

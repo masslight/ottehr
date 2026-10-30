@@ -1,10 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, PaymentNotice } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import {
   DailyPaymentsReportZambdaOutput,
   PaymentItem,
   PaymentMethodSummary,
 } from 'utils/lib/types/api/daily-payments-report.types';
+import {
+  encounterIdForPaymentNotice,
+  fetchPaymentNoticeCounterparts,
+  mergeBillingAndLegacyPaymentNotices,
+  paymentMethodForNotice,
+} from '../../billing/patient-payments';
+import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from '../../billing/payments';
+import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -14,6 +24,27 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'daily-payments-report';
+// keeps the _id list of the location lookup within URL limits
+const ENCOUNTER_BATCH_SIZE = 100;
+
+const uniqueById = (notices: PaymentNotice[]): PaymentNotice[] => [
+  ...new Map(notices.map((notice) => [notice.id, notice])).values(),
+];
+
+// A FHIR date search value covers the whole period at its own precision ('2026-10-27' is that entire
+// day), so a bound widens to the start or end of that period; zone-less values are read as UTC.
+function fhirSearchBoundMillis(value: string, side: 'start' | 'end'): number {
+  const time = value.split('T')[1]?.replace(/(Z|[+-]\d{2}:\d{2})$/, '');
+  const unit = time
+    ? time.includes('.')
+      ? 'millisecond'
+      : time.split(':').length > 2
+      ? 'second'
+      : 'minute'
+    : (['year', 'month', 'day'] as const)[value.split('-').length - 1];
+  const dateTime = DateTime.fromISO(value, { zone: 'utc' });
+  return (side === 'start' ? dateTime.startOf(unit) : dateTime.endOf(unit)).toMillis();
+}
 
 // Helper function to parse string as number, defaulting to 0
 function parseAsNumber(value: any): number {
@@ -58,6 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Get M2M token for FHIR access
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
+  const billingOystehr = createBillingClient(m2mToken, validatedParameters.secrets);
 
   // TODO: Once billable follow-up visits are available (with their own Appointment and full visit workflow),
   // ensure this report includes them as independent visits on their follow-up date.
@@ -68,56 +100,75 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Filtering by location ID:', locationId);
   }
 
-  // Search for payment notices within the date range with related resources
-  const searchParams: { name: string; value: string }[] = [
-    {
-      name: 'created',
-      value: `ge${dateRange.start}`,
-    },
-    {
-      name: 'created',
-      value: `le${dateRange.end}`,
-    },
-    {
-      name: '_count',
-      value: '1000',
-    },
+  // Search for payment notices within the date range: billing notices, plus the EHR notices
+  // recorded before payments moved to the billing app
+  const createdParams = [
+    { name: 'created', value: `ge${dateRange.start}` },
+    { name: 'created', value: `le${dateRange.end}` },
+    { name: '_count', value: '1000' },
   ];
-
-  // Add _include parameters to get related resources for location filtering
-  if (locationId) {
-    searchParams.push(
-      {
-        name: '_include',
-        value: 'PaymentNotice:request',
-      },
-      {
-        name: '_include:iterate',
-        value: 'Encounter:appointment',
-      },
-      {
-        name: '_include:iterate',
-        value: 'Appointment:location',
-      }
-    );
-  }
-
-  const paymentNoticeSearchResult = await oystehr.fhir.search<PaymentNotice | Encounter | Appointment>({
-    resourceType: 'PaymentNotice',
-    params: searchParams,
+  const fetchWindowNotices = async (
+    client: typeof oystehr,
+    extraParams: { name: string; value: string }[] = []
+  ): Promise<PaymentNotice[]> => {
+    const notices: PaymentNotice[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const bundle = await client.fhir.search<PaymentNotice>({
+        resourceType: 'PaymentNotice',
+        params: [...createdParams, ...extraParams, { name: '_offset', value: String(offset) }],
+      });
+      notices.push(...bundle.unbundle());
+      if (!bundle.link?.some((link) => link.relation === 'next')) return notices;
+    }
+  };
+  const [billingNotices, legacyNotices] = await Promise.all([
+    fetchWindowNotices(billingOystehr, [{ name: 'identifier', value: PATIENT_PAYMENT_IDENTIFIER_FILTER }]),
+    fetchWindowNotices(oystehr),
+  ]);
+  // The two halves of a payment recorded in both workspaces can carry created times on either side
+  // of a range boundary, so the window is applied to the merged payment, not to each half: otherwise
+  // the same payment would count on two adjacent reports.
+  const counterparts = await fetchPaymentNoticeCounterparts({
+    clinicalOystehr: oystehr,
+    billingOystehr,
+    billingNotices,
+    legacyNotices,
   });
-
-  // Get all resources from the search
-  const allResources = paymentNoticeSearchResult.unbundle();
-
-  // Separate resources by type
-  let paymentNotices = allResources.filter((r) => r.resourceType === 'PaymentNotice');
+  const rangeStart = fhirSearchBoundMillis(dateRange.start, 'start');
+  const rangeEnd = fhirSearchBoundMillis(dateRange.end, 'end');
+  let paymentNotices = mergeBillingAndLegacyPaymentNotices(
+    uniqueById([...billingNotices, ...counterparts.billing]),
+    uniqueById([...legacyNotices, ...counterparts.legacy])
+  ).filter((notice) => {
+    const created = DateTime.fromISO(notice.created ?? '').toMillis();
+    return created >= rangeStart && created <= rangeEnd;
+  });
   console.log(`Found ${paymentNotices.length} payment notices`);
 
   // If locationId filter is provided, filter payment notices by location
   if (locationId && paymentNotices.length > 0) {
-    const encounters = allResources.filter((r) => r.resourceType === 'Encounter');
-    const appointments = allResources.filter((r) => r.resourceType === 'Appointment');
+    const encounterIds = [
+      ...new Set(paymentNotices.map(encounterIdForPaymentNotice).filter((id): id is string => Boolean(id))),
+    ];
+    const encounterBatches = chunkThings(encounterIds, ENCOUNTER_BATCH_SIZE);
+    const encounterResources = (
+      await Promise.all(
+        encounterBatches.map(async (batch) =>
+          (
+            await oystehr.fhir.search<Encounter | Appointment>({
+              resourceType: 'Encounter',
+              params: [
+                { name: '_id', value: batch.join(',') },
+                { name: '_include', value: 'Encounter:appointment' },
+                { name: '_count', value: String(ENCOUNTER_BATCH_SIZE * 2) },
+              ],
+            })
+          ).unbundle()
+        )
+      )
+    ).flat();
+    const encounters = encounterResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
+    const appointments = encounterResources.filter((r): r is Appointment => r.resourceType === 'Appointment');
 
     // Create maps for quick lookups
     const encounterMap = new Map<string, Encounter>();
@@ -136,13 +187,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Filter payment notices by location
     paymentNotices = paymentNotices.filter((payment) => {
-      // Get the encounter reference from payment notice
-      if (!payment.request?.reference || !payment.request.reference.startsWith('Encounter/')) {
-        return false;
-      }
-
-      const encounterId = payment.request.reference.replace('Encounter/', '');
-      const encounter = encounterMap.get(encounterId);
+      const encounterId = encounterIdForPaymentNotice(payment);
+      const encounter = encounterId ? encounterMap.get(encounterId) : undefined;
 
       if (!encounter || !encounter.appointment || encounter.appointment.length === 0) {
         return false;
@@ -189,10 +235,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Process payment notices into structured data
   const paymentItems: PaymentItem[] = paymentNotices.map((payment) => {
     // Extract payment method from extension
-    const paymentMethodExtension = payment.extension?.find(
-      (ext) => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
-    );
-    const paymentMethod = paymentMethodExtension?.valueString || 'N/A';
+    const paymentMethod = paymentMethodForNotice(payment) || 'N/A';
 
     // Extract amount and currency
     const amount = parseAsNumber(payment.amount?.value);

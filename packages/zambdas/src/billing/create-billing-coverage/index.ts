@@ -78,6 +78,7 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     patientId: params.patientId,
     payerOrg,
     memberId: params.memberId,
+    groupNumber: params.groupNumber,
     // Coverage status is not part of the billing product model; every coverage is active.
     status: 'active',
     planType: params.planType,

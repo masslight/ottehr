@@ -41,6 +41,7 @@ export interface ImmunizationOrderAdministrationDetails {
     name: string;
   };
   administeredDateTime: string;
+  visGiven?: boolean;
   visGivenDate?: string;
   emergencyContact?: ImmunizationEmergencyContact;
 }
@@ -56,10 +57,16 @@ export interface ImmunizationOrder {
 
 export type InputImmunizationOrderDetails = Omit<ImmunizationOrderDetails, 'orderedDateTime'>;
 
+// Administration fields that can be entered at order time, before administration
+export type InputImmunizationOrderAdministrationDetails = Partial<
+  Omit<ImmunizationOrderAdministrationDetails, 'administeredProvider' | 'emergencyContact'>
+>;
+
 export interface CreateUpdateImmunizationOrderRequest {
   orderId?: string;
   encounterId: string;
   details: InputImmunizationOrderDetails;
+  administrationDetails?: InputImmunizationOrderAdministrationDetails;
 }
 
 export interface CreateUpdateImmunizationOrderResponse {

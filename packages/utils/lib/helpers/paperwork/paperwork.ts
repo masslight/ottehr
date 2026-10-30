@@ -32,10 +32,12 @@ import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwor
 import {
   CalculatedExpression,
   ConditionKeyObject,
+  flattenIntakeQuestionnaireItems,
   FormDisplayElementList,
   FormElement,
   FormSelectionElementList,
   InputWidthOption,
+  InsurancePriorityChanges,
   IntakeQuestionnaireItem,
   QuestionnaireItemConditionDefinition,
   QuestionnaireItemExtension,
@@ -932,4 +934,24 @@ export const getPaperworkResources = async (
     schedule,
     location,
   };
+};
+
+export const getRequestedInsurancePriorityChanges = (items: QuestionnaireResponseItem[]): InsurancePriorityChanges => {
+  const flattenedItems = flattenIntakeQuestionnaireItems(
+    items as IntakeQuestionnaireItem[]
+  ) as QuestionnaireResponseItem[];
+
+  const getPriority = (linkId: string): string | undefined =>
+    flattenedItems.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+
+  return {
+    primaryBecameSecondary: getPriority('insurance-priority') === 'Secondary',
+    secondaryBecamePrimary: getPriority('insurance-priority-2') === 'Primary',
+  };
+};
+
+export const hasInsurancePriorityChange = (items: QuestionnaireResponseItem[]): boolean => {
+  const { primaryBecameSecondary, secondaryBecamePrimary } = getRequestedInsurancePriorityChanges(items);
+
+  return primaryBecameSecondary || secondaryBecamePrimary;
 };

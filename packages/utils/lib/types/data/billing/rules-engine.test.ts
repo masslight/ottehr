@@ -240,6 +240,14 @@ describe('rule value validation', () => {
     expect(setFieldValueProblem(field('patient.state'), 'XX')).toContain('one of the listed options');
     expect(setFieldValueProblem(field('payerId'), '')).toBe('Value is required'); // requiredOnSet
     expect(setFieldValueProblem(field('payerId'), null)).toBe('Value is required');
+    // Options marked settable: false can be compared against but not written.
+    for (const prefix of ['insurance', 'secondaryInsurance', 'tertiaryInsurance', 'quaternaryInsurance']) {
+      const relationship = field(`${prefix}.relationship`);
+      expect(setFieldValueProblem(relationship, 'Self')).toBeUndefined();
+      expect(setFieldValueProblem(relationship, 'Child')).toContain('one of the listed options');
+      expect(setFieldValueProblem(relationship, '')).toBe('Value is required');
+      expect(ruleConditionValueProblem(relationship, 'eq', 'Child')).toBeUndefined();
+    }
     expect(setFieldValueProblem(field('billingProvider.taxId'), '12-3456789')).toContain('9 digits');
     expect(setFieldValueProblem(field('billingProvider.taxId'), '123456789')).toBeUndefined();
     expect(setFieldValueProblem(field('serviceFacility.clia'), '05D1234567')).toBeUndefined();
@@ -652,6 +660,30 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[0]).toContain('unsupported operator "contains"');
     expect(problems[1]).toContain('sets "serviceFacility.ref" to an invalid value');
     expect(problems[1]).toContain('facility reference');
+  });
+
+  it('takes only whole service values: contains, starts with and patterns are rejected', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: {
+              type: 'group',
+              logic: 'or',
+              conditions: [
+                { type: 'field', field: 'service', operator: 'in', value: ['Workers Comp', 'urgent-care'] },
+                { type: 'field', field: 'service', operator: 'startsWith', value: 'pre-' },
+                { type: 'field', field: 'service', operator: 'matches', value: '^Workers' },
+              ],
+            },
+            outcome: { type: 'noop' },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain('condition on "service" with unsupported operator "startsWith"');
+    expect(problems[1]).toContain('condition on "service" with unsupported operator "matches"');
   });
 
   it('accepts a compilable regex condition and rejects an uncompilable one, in conditions and line matches', () => {

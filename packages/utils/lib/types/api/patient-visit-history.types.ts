@@ -70,8 +70,16 @@ type VirtualAppointmentHistoryRow = BaseAppointmentHistoryRow & {
 
 export type AppointmentHistoryRow = InPersonAppointmentHistoryRow | VirtualAppointmentHistoryRow;
 
+export interface FreeFormEncounterHistoryRow {
+  encounterId: string;
+  dateTime: string | undefined;
+  note: string;
+  lastUpdated: string | undefined;
+}
+
 export interface PatientVisitListResponse {
   visits: AppointmentHistoryRow[];
+  freeFormEncounters: FreeFormEncounterHistoryRow[];
   metadata: {
     totalCount: number;
     sortDirection: 'asc' | 'desc';

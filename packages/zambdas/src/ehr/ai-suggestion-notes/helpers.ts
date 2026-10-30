@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
+import { Secrets } from 'utils/lib/secrets';
 import { assembleProgressNoteInput } from '../../shared/pdf/assemble-progress-note-input';
 import { composeProgressNoteData } from '../../shared/pdf/progress-note-pdf';
 import { progressNoteDataToText } from '../../shared/pdf/progress-note-text';
@@ -15,7 +16,8 @@ export async function assembleNoteReviewText(
   oystehr: Oystehr,
   token: string,
   appointmentId: string,
-  encounterId: string
+  encounterId: string,
+  secrets: Secrets | null
 ): Promise<string> {
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
@@ -28,7 +30,7 @@ export async function assembleNoteReviewText(
     throw new Error(`Appointment ${appointmentId} does not belong to encounter ${encounterId}`);
   }
 
-  const progressNoteInput = await assembleProgressNoteInput(oystehr, token, visitResources);
+  const progressNoteInput = await assembleProgressNoteInput(oystehr, token, visitResources, secrets);
   return progressNoteDataToText(composeProgressNoteData(progressNoteInput));
 }
 

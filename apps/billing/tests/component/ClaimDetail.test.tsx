@@ -93,6 +93,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
     arStage,
   },
   created: '2026-01-01',
+  dos: '2026-01-01',
   patientName: 'Jane Doe',
   patientDob: '1990-01-01',
   patientGender: 'female',
@@ -1012,7 +1013,10 @@ describe('ClaimDetail — run rules engine button', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
     await waitFor(() =>
-      expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'], skipRules: false })
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+        {},
+        { claimIds: ['claim-1'], skipRules: false, submissionType: 'new', submissionInsurance: 'primary' }
+      )
     );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Non-Insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',

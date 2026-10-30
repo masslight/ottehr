@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import {
   DME_BILLED_ORDER_EXTENSION_URL,
   DME_BILLING_PROCEDURE_EXTENSION_URL,
-  getDmeBillingProcedureIds,
   getDmeDispensed,
   makeDmeDeviceRequest,
 } from '../../../shared/dme';
@@ -111,15 +110,19 @@ describe('update-dme-order request builders', () => {
     expect(rest.some((r) => r.url === '/Task/task-done')).toBe(false);
   });
 
-  it('edit to third-party drops billing and cancels the open dispense task', () => {
+  it('edit to third-party keeps billing and cancels the open dispense task', () => {
     const requests = makeEditRequests({
       resources: resources(),
       fields: fields({ external: true }),
       providerName: 'x',
     });
-    expect(byMethod(requests, 'POST')).toHaveLength(0);
+    const posts = byMethod(requests, 'POST') as BatchInputPostRequest<FhirResource>[];
+    expect(posts.map((p) => (p.resource as any).code.coding[0].code)).toEqual(['L1820']);
     expect(byMethod(requests, 'DELETE')).toHaveLength(1);
-    expect(getDmeBillingProcedureIds((requests[0] as any).resource)).toEqual([]);
+    const links = (requests[0] as any).resource.extension.filter(
+      (e: any) => e.url === DME_BILLING_PROCEDURE_EXTENSION_URL
+    );
+    expect(links.map((e: any) => e.valueReference.reference)).toEqual(posts.map((p) => p.fullUrl));
     const patches = byMethod(requests, 'PATCH');
     expect(patches.map((p) => p.url)).toEqual(['/Task/task-open']);
     expect(decodePatch(patches[0])).toEqual([{ op: 'replace', path: '/status', value: 'cancelled' }]);

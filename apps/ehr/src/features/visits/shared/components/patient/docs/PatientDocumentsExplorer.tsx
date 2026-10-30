@@ -17,7 +17,6 @@ import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { useDownloadDocumentsZip } from 'src/hooks/useDownloadDocumentsZip';
 import {
   DocumentVisitRef,
-  hasVisitRef,
   PatientDocumentsFilters,
   PatientDocumentsFolder,
   useGetPatientDocs,
@@ -64,14 +63,10 @@ export type PatientDocumentsExplorerProps = {
   patientId: string;
   patient?: Patient;
   /**
-   * Scopes the explorer to a single visit: documents and folder counters are filtered to it, uploads
-   * and scans are filed against it, and the visit filter is hidden (the visit is already fixed).
-   *
-   * Both ids are needed: EHR uploads link a document by encounter, while several intake documents
-   * link by appointment, so a visit's documents are only complete when both are matched.
-   * Omit for the patient-level Docs view.
+   * Visit that uploads and scans are filed against. Set by visit surfaces; the documents shown stay
+   * patient-wide. Omit for the patient-level Docs view.
    */
-  visit?: DocumentVisitRef;
+  uploadEncounterId?: string;
   /** Preselect this folder once folders have loaded, matched case-insensitively on display name. */
   initialFolderName?: string;
   /**
@@ -83,18 +78,17 @@ export type PatientDocumentsExplorerProps = {
 
 /**
  * The documents explorer shared by the patient Docs page, the Progress Note Documents tab and the
- * Visit Details "Visit Documents" section: search + date filter, folder sidebar, and the documents
- * table with upload/scan.
+ * Visit Details "All Documents" section: search + date + visit filters, folder sidebar, and the
+ * documents table with upload/scan.
  */
 export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   patientId,
   patient,
-  visit,
+  uploadEncounterId,
   initialFolderName,
   readOnly = false,
 }) => {
   const theme = useTheme();
-  const isVisitScoped = hasVisitRef(visit);
 
   const {
     documents,
@@ -105,10 +99,9 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     downloadDocument,
     renameDocument,
     documentActions,
-  } = useGetPatientDocs(patientId, undefined, { uploadEncounterId: visit?.encounterId });
+  } = useGetPatientDocs(patientId, undefined, { uploadEncounterId });
 
-  const { visitOptions, isLoading: isLoadingVisits } = usePatientVisitOptions(isVisitScoped ? undefined : patientId);
-
+  const { visitOptions, isLoading: isLoadingVisits } = usePatientVisitOptions(patientId);
   const [searchDocNameFieldValue, setSearchDocNameFieldValue] = useState<string>('');
   const [docNameTextDebounced, setDocNameTextDebounced] = useState<string>('');
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
@@ -118,7 +111,6 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
   const [documentIdToFax, setDocumentIdToFax] = useState<string | null>(null);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<GridRowSelectionModel>([]);
-
   const { downloadDocumentsZip, isDownloading: isDownloadingDocuments } = useDownloadDocumentsZip();
 
   const faxSource = useMemo(
@@ -162,14 +154,12 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const shouldShowClearFilters =
     searchDocNameFieldValue.trim().length > 0 || !!searchDocAddedDate || !!selectedFolder || !!selectedVisit;
 
-  // When the explorer is visit-scoped the visit comes from the host page, not the filter row.
   const activeVisit: DocumentVisitRef | undefined = useMemo(
     () =>
-      visit ??
-      (selectedVisit
+      selectedVisit
         ? { encounterId: selectedVisit.encounterId, appointmentId: selectedVisit.appointmentId }
-        : undefined),
-    [visit, selectedVisit]
+        : undefined,
+    [selectedVisit]
   );
 
   useEffect(() => {
@@ -376,8 +366,8 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
 
   return (
     <Stack spacing={2}>
-      <Grid container sx={{ height: 'auto', width: isVisitScoped ? '50%' : '75%', backgroundColor: 'transparent' }}>
-        <Grid item xs={isVisitScoped ? 7 : 4}>
+      <Grid container sx={{ height: 'auto', width: '75%', backgroundColor: 'transparent' }}>
+        <Grid item xs={4}>
           <TextField
             value={searchDocNameFieldValue}
             onChange={handleSearchInputChange}
@@ -403,10 +393,10 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
           />
         </Grid>
 
-        <Grid item xs={isVisitScoped ? 4 : 3}>
+        <Grid item xs={3}>
           <Box sx={{ ml: 2, flexDirection: 'row' }}>
             <DateSearch
-              label="Added Date"
+              label="Added date"
               date={searchDocAddedDate}
               setDate={setSearchDocAddedDate}
               updateURL={false}
@@ -418,20 +408,18 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
           </Box>
         </Grid>
 
-        {!isVisitScoped && (
-          <Grid item xs={3}>
-            <Box sx={{ ml: 2, flexDirection: 'row' }}>
-              <VisitFilterAutocomplete
-                visitOptions={visitOptions}
-                isLoading={isLoadingVisits}
-                selectedVisit={selectedVisit}
-                onVisitSelected={setSelectedVisit}
-              />
-            </Box>
-          </Grid>
-        )}
+        <Grid item xs={3}>
+          <Box sx={{ ml: 2, flexDirection: 'row' }}>
+            <VisitFilterAutocomplete
+              visitOptions={visitOptions}
+              isLoading={isLoadingVisits}
+              selectedVisit={selectedVisit}
+              onVisitSelected={setSelectedVisit}
+            />
+          </Box>
+        </Grid>
 
-        <Grid item xs={isVisitScoped ? 1 : 2}>
+        <Grid item xs={2}>
           <Box sx={{ ml: 2, flexDirection: 'row' }}>
             {shouldShowClearFilters && (
               <RoundedButton variant="text" sx={{ color: theme.palette.error.main }} onClick={handleClearFilters}>

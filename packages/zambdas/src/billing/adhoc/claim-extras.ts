@@ -21,7 +21,6 @@ import {
   CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
   CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
 } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingClaimsRow } from 'utils/lib/types/adhoc/datasets/billing-claims';
 import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
@@ -42,17 +41,16 @@ import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
-  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
-  EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fhirName,
   findRef,
+  getClaimBillType,
   getClaimPcn,
   getClaimSupportingInfo,
-  getClaimType,
   getEraCheckNumber,
   getEraSource,
+  isInstitutionalClaim,
   readClaimItemDrug,
   sortClaimInsurance,
 } from '../shared';
@@ -222,10 +220,8 @@ export function claimDetailsLayer(
   const facility = findRef<Location>(lookups.locations, claim.facility?.reference);
   const patient = findRef<Patient>(lookups.patients, claim.patient?.reference);
   const extensionString = (url: string): string => getExtension(claim, url)?.valueString ?? '';
-  const facilityTypeCode = extensionString(EXTENSION_CLAIM_FACILITY_TYPE_CODE);
-  const frequencyCode = extensionString(EXTENSION_CLAIM_FREQUENCY_CODE) || '1';
   const address = patient?.address?.[0];
-  const institutional = getClaimType(claim) === CODE_SYSTEM_CLAIM_TYPE_CODES.institutional;
+  const institutional = isInstitutionalClaim(claim);
 
   return {
     billingProvider: billingProvider
@@ -241,7 +237,7 @@ export function claimDetailsLayer(
     payerClaimControlNumber:
       claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
         ?.value ?? '',
-    billType: facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '',
+    billType: getClaimBillType(claim),
     // A professional claim's billablePeriod is the visit, not an admission.
     admissionDate: institutional ? claim.billablePeriod?.start || null : null,
     dischargeDate: institutional ? claim.billablePeriod?.end || null : null,
