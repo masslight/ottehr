@@ -56,6 +56,7 @@ import {
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
+  // eslint-disable-next-line no-restricted-imports -- submission ClaimResponses are never billing-tagged
   createEraReadClient,
   ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
@@ -91,15 +92,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const untaggedClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, untaggedClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+// untaggedClient reads only the claim's submission ClaimResponses, which never get the billing tag; its
+// ERA remits are tagged by sub-tag-era-resources, so they come through the billing client.
 export async function performEffect(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  untaggedClient: Oystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -136,8 +139,8 @@ export async function performEffect(
     writeOffResources,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
-    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
+    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
+    fetchClaimFirstSubmittedDate(untaggedClient, claimId),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
@@ -146,7 +149,7 @@ export async function performEffect(
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
-    eraReadClient,
+    oystehr,
     claimResponses
   );
   const paymentReconciliationById = new Map(

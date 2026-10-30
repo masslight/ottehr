@@ -100,6 +100,7 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { chartDataResourceHasMetaTagByCode, makeAccidentDTOFromFhirResources } from '../../shared/chart-data';
 import { sendErrors } from '../../shared/errors';
+// eslint-disable-next-line no-restricted-imports -- the claim is built from the clinical encounter and its resources
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';

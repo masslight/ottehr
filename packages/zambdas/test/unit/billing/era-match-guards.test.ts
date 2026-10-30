@@ -34,7 +34,6 @@ const response: ClaimResponse = {
 const get = vi.fn();
 const transaction = vi.fn();
 const client = { fhir: { get, transaction } } as unknown as Oystehr;
-const readClient = {} as Oystehr;
 const params = {
   claimResponseId: 'cr-1',
   claimId: 'claim-1',
@@ -72,8 +71,8 @@ describe.each([
   { name: 'unmatch', perform: unmatch },
 ])('$name on a voided ERA', ({ perform }) => {
   it('patches the response of an active ERA at the version it checked', async () => {
-    await expect(perform(client, readClient, params)).resolves.toEqual(response);
-    expect(fetchClaimEraLinks).toHaveBeenCalledWith(readClient, [response]);
+    await expect(perform(client, params)).resolves.toEqual(response);
+    expect(fetchClaimEraLinks).toHaveBeenCalledWith(client, [response]);
     // the claim history entry for the change rides in the same transaction
     expect(transaction).toHaveBeenCalledWith({
       requests: expect.arrayContaining([
@@ -89,13 +88,13 @@ describe.each([
   it('fails without retrying when a void cancels the response after the check', async () => {
     const conflict = new Oystehr.OystehrSdkError({ message: 'precondition failed', code: 412 });
     transaction.mockRejectedValueOnce(conflict);
-    await expect(perform(client, readClient, params)).rejects.toBe(conflict);
+    await expect(perform(client, params)).rejects.toBe(conflict);
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a voided ERA before writing', async () => {
     vi.mocked(fetchClaimEraLinks).mockResolvedValue(links([{ ...era, status: 'cancelled' }]));
-    await expect(perform(client, readClient, params)).rejects.toMatchObject({
+    await expect(perform(client, params)).rejects.toMatchObject({
       message: 'Voided ERAs cannot be changed',
     });
     expect(transaction).not.toHaveBeenCalled();
@@ -103,7 +102,7 @@ describe.each([
 
   it('still patches a response no ERA links to', async () => {
     vi.mocked(fetchClaimEraLinks).mockResolvedValue(links([]));
-    await expect(perform(client, readClient, params)).resolves.toEqual(response);
+    await expect(perform(client, params)).resolves.toEqual(response);
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 });
