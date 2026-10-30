@@ -23,6 +23,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import ReceiveShipmentDialog from 'src/components/dialogs/ReceiveShipmentDialog';
 import Loading from 'src/components/Loading';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
@@ -137,6 +138,7 @@ export default function UpdateMedicationPage(): ReactElement {
   const [status, setStatus] = useState<string>('');
   const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
   const [inventoryForm, setInventoryForm] = useState<InventoryFormState>(EMPTY_INVENTORY_FORM);
+  const [receiveOpen, setReceiveOpen] = useState(false);
   const { data: clinics = [] } = useGetAllLocations({ inPersonOnly: true });
   const setInventoryField = <K extends keyof InventoryFormState>(field: K, value: InventoryFormState[K]): void =>
     setInventoryForm((prev) => ({ ...prev, [field]: value }));
@@ -219,7 +221,7 @@ export default function UpdateMedicationPage(): ReactElement {
     const medispanIDForInteractions = selectedMedicationForPrecheck?.id.toString() || undefined;
 
     try {
-      await updateInHouseMedication(oystehrZambda, {
+      const updated = await updateInHouseMedication(oystehrZambda, {
         medicationID: medicationId,
         name,
         ndc,
@@ -230,6 +232,7 @@ export default function UpdateMedicationPage(): ReactElement {
           clinics.map((clinic) => clinic.id)
         ),
       });
+      setMedication(updated);
       enqueueSnackbar('Medication updated successfully', { variant: 'success' });
     } catch (error) {
       console.log('Error updating medication', error);
@@ -280,6 +283,8 @@ export default function UpdateMedicationPage(): ReactElement {
     : !medicationDetails
     ? 'Drug details for this medication could not be loaded, so it cannot be updated. Check that it has a Medispan ID.'
     : null;
+  // Receiving needs the saved setup (counted-as unit), not what is typed in the form above.
+  const savedInventory = getMedicationInventoryConfig(medication);
 
   return (
     <PageContainer>
@@ -523,6 +528,29 @@ export default function UpdateMedicationPage(): ReactElement {
             </Grid>
           </form>
         </Paper>
+
+        {savedInventory && medication.id ? (
+          <Paper sx={{ padding: 2, marginTop: 2 }}>
+            <Typography variant="h4">Receive shipment</Typography>
+            <Typography variant="body1">Add a lot of this medication to a clinic's stock.</Typography>
+            <LoadingButton
+              variant="contained"
+              sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
+              onClick={() => setReceiveOpen(true)}
+            >
+              Receive Shipment
+            </LoadingButton>
+            {receiveOpen ? (
+              <ReceiveShipmentDialog
+                open={receiveOpen}
+                onClose={() => setReceiveOpen(false)}
+                medication={medication as Medication & { id: string }}
+                inventory={savedInventory}
+                clinics={clinics}
+              />
+            ) : null}
+          </Paper>
+        ) : null}
 
         <Paper sx={{ padding: 2, marginTop: 2 }}>
           <Typography variant="h4">{status === 'active' ? 'Remove' : 'Activate'} medication</Typography>

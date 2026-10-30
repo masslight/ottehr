@@ -74,3 +74,143 @@ export type UpdateInHouseMedicationInput = Partial<CreateInHouseMedicationInput>
   /** `undefined` leaves the inventory setup unchanged; `null` clears it so the drug is no longer tracked. */
   inventory?: InHouseMedicationInventory | null;
 };
+
+// ─── Lots and stock entries (OTR-3339) ────────────────────────────────────────
+
+/** What a stock entry is. `code.coding[0]` on the entry; the MAR, adjustments and counts reuse these. */
+export const INVENTORY_ENTRY_TYPES = [
+  'received',
+  'administered',
+  'administration-reversed',
+  'adjustment',
+  'count',
+] as const;
+export type InventoryEntryType = (typeof INVENTORY_ENTRY_TYPES)[number];
+
+/** Why stock changed. `code.coding[1]` on the entry; the list from the requirements so every slice uses one system. */
+export const INVENTORY_ENTRY_REASONS = [
+  'partial-dose-waste',
+  'expired',
+  'temperature-excursion',
+  'broken-container',
+  'contaminated',
+  'reconstitution-error',
+  'drawn-up-not-administered',
+  'missing-stock',
+  'manufacturer-recall',
+  'transferred',
+  'other',
+  'count-adjustment',
+  'no-difference',
+] as const;
+export type InventoryEntryReason = (typeof INVENTORY_ENTRY_REASONS)[number];
+export const INVENTORY_ENTRY_REASON_LABELS: Record<InventoryEntryReason, string> = {
+  'partial-dose-waste': 'Partial dose / unused portion',
+  expired: 'Expired stock',
+  'temperature-excursion': 'Temperature excursion',
+  'broken-container': 'Broken / dropped container',
+  contaminated: 'Contaminated',
+  'reconstitution-error': 'Reconstitution / dilution error',
+  'drawn-up-not-administered': 'Drawn up, not administered',
+  'missing-stock': 'Missing stock',
+  'manufacturer-recall': 'Manufacturer recall',
+  transferred: 'Transferred to another clinic',
+  other: 'Other',
+  'count-adjustment': 'Count adjustment',
+  'no-difference': 'No difference',
+};
+
+/** Extra numbers on an entry: the wasted dose on an administration, the shelf count on a count. */
+export const INVENTORY_ENTRY_COMPONENTS = ['waste-amount', 'counted'] as const;
+export type InventoryEntryComponent = (typeof INVENTORY_ENTRY_COMPONENTS)[number];
+
+/** One lot of one drug at one clinic, as the UI sees it. */
+export interface InventoryLot {
+  id: string;
+  catalogMedicationId: string;
+  locationId: string;
+  lotNumber: string;
+  expirationDate: string;
+  ndc?: string;
+  manufacturer?: string;
+  vendor?: string;
+  /** Cost per counted-as item, USD. */
+  unitCost?: number;
+  onHand: number;
+  unit: string;
+  status: 'active' | 'inactive';
+}
+
+/** One stock change, as the UI sees it. `quantity` is signed, in the lot's unit. */
+export interface InventoryStockEntry {
+  id: string;
+  lotId: string;
+  locationId: string;
+  type: InventoryEntryType;
+  reason?: InventoryEntryReason;
+  quantity: number;
+  unit: string;
+  performerReference?: string;
+  effectiveDateTime: string;
+  medicationAdministrationId?: string;
+  reversesEntryId?: string;
+  note?: string;
+  components?: { code: InventoryEntryComponent; value: number; unit: string }[];
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Receiving a shipment (requirement 2). Cost is per package (as invoiced) or per counted-as item. */
+export const ReceiveMedicationShipmentInputSchema = z.object({
+  medicationId: z.string().min(1),
+  locationId: z.string().min(1),
+  lotNumber: z.string().trim().min(1),
+  expirationDate: z.string().regex(ISO_DATE, 'expirationDate must be YYYY-MM-DD'),
+  quantity: z.number().int().positive(),
+  ndc: z.string().trim().min(1),
+  manufacturer: z.string().trim().min(1).optional(),
+  vendor: z.string().trim().min(1).optional(),
+  cost: z
+    .union([
+      z.object({ pricePerPackage: z.number().nonnegative(), itemsPerPackage: z.number().int().positive() }),
+      z.object({ perItem: z.number().nonnegative() }),
+    ])
+    .optional(),
+});
+export type ReceiveMedicationShipmentInput = z.infer<typeof ReceiveMedicationShipmentInputSchema>;
+
+export interface ReceiveMedicationShipmentResponse {
+  lot: InventoryLot;
+  entry: InventoryStockEntry;
+}
+
+export const LookupNdcInputSchema = z.object({
+  ndc: z.string().trim().min(1),
+  medicationId: z.string().min(1),
+});
+export type LookupNdcInput = z.infer<typeof LookupNdcInputSchema>;
+
+/** What the FDA NDC directory says a box is. `unavailable` means the lookup failed; receiving still works. */
+export interface LookupNdcResponse {
+  status: 'match' | 'mismatch' | 'not-found' | 'unavailable';
+  product?: {
+    /** Package NDC as the directory spells it (hyphenated 10-digit). */
+    packageNdc: string;
+    name: string;
+    genericName?: string;
+    brandName?: string;
+    manufacturer?: string;
+    packageDescription?: string;
+    rxcuis: string[];
+  };
+  /** How match/mismatch was decided: RxCUI when both sides have one, otherwise generic name. */
+  comparedBy?: 'rxcui' | 'name';
+}
+
+export const GetMedicationInventoryInputSchema = z.object({ medicationId: z.string().min(1) });
+export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryInputSchema>;
+
+export interface GetMedicationInventoryResponse {
+  /** The lot of this drug (any clinic) with the newest "received" entry; prefills the receive dialog. */
+  lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
+}

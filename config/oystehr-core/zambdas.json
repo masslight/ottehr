@@ -629,6 +629,27 @@
       "src": "src/ehr/configuration/in-house-medications/get-in-house-medications/index",
       "zip": ".dist/zips/get-in-house-medications.zip"
     },
+    "RECEIVE-MEDICATION-SHIPMENT": {
+      "name": "receive-medication-shipment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/receive-medication-shipment/index",
+      "zip": ".dist/zips/receive-medication-shipment.zip"
+    },
+    "LOOKUP-NDC": {
+      "name": "lookup-ndc",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/lookup-ndc/index",
+      "zip": ".dist/zips/lookup-ndc.zip"
+    },
+    "GET-MEDICATION-INVENTORY": {
+      "name": "get-medication-inventory",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/get-medication-inventory/index",
+      "zip": ".dist/zips/get-medication-inventory.zip"
+    },
     "UPDATE-APPOINTMENT": {
       "name": "update-appointment",
       "type": "http_open",
