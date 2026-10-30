@@ -86,6 +86,7 @@ export const CLAIM_LIST_ELEMENTS = [
   // fetchPatientPaidByClaimId keys the patient payment total off the claim-encounter-id identifier.
   'Claim.identifier',
   'Claim.created',
+  'Claim.billablePeriod',
   'Claim.total',
   'Claim.patient',
   'Claim.insurer',
@@ -251,7 +252,11 @@ export async function buildClaimFilterParams({
 }
 
 export const getClaimServiceDate = (claim: Claim): string =>
-  claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '';
+  claim.billablePeriod?.start ??
+  claim.item?.[0]?.servicedPeriod?.start ??
+  claim.item?.[0]?.servicedDate ??
+  claim.created ??
+  '';
 
 const toServiceDay = (value?: string): string | null =>
   value ? DateTime.fromISO(value, { setZone: true }).toISODate() : null;
@@ -271,7 +276,12 @@ export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
 export const claimScanElements = (withServiceDate: boolean, withTotal = false): ClaimSearchParam => ({
   name: '_elements',
-  value: ['id', 'meta', ...(withServiceDate ? ['created', 'item'] : []), ...(withTotal ? ['total'] : [])].join(','),
+  value: [
+    'id',
+    'meta',
+    ...(withServiceDate ? ['created', 'item', 'billablePeriod'] : []),
+    ...(withTotal ? ['total'] : []),
+  ].join(','),
 });
 
 export function buildClaimSearchTextQueries({
@@ -743,7 +753,8 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
   const renderingProvider = findRef<Practitioner | Organization>(lookups.providers, renderingRef);
   const patientName = fhirName(patient);
-  const serviceDate = getClaimServiceDate(claim);
+  const claimServiceDate = getClaimServiceDate(claim);
+  const serviceDate = toServiceDay(claimServiceDate) ?? DateTime.fromISO(claimServiceDate).toFormat('yyyy-MM-dd');
   const patientPaid = lookups.patientPaidByClaimId.get(claim.id ?? '') ?? 0;
   const writeOffsTotal = sumWriteOffs(lookups.writeOffs.get(claim.id ?? '') ?? []);
 

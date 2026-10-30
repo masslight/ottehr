@@ -7,8 +7,10 @@ import { LabPaymentMethod, LabType } from './labs.types';
 // for order form pdf (we might not want this idk)
 export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
-// recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
-export const ORDER_NUMBER_LEN = 20;
+// dorn originally recommended 20 but we ran into an issue while testing with quest that they could only handle 20
+// in the case of split orders, "-1", "-2", etc can be added by Dorn in transit
+// so to accommodate quest limit of 20, dropping it down to 18
+export const ORDER_NUMBER_LEN = 18;
 
 // currently using for PID level NTEs (order level notes) & OBR-13
 export const HL7_NOTE_CHAR_LIMIT = 300;

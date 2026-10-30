@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException, captureMessage } from '@sentry/node-core/light';
 import {
   Appointment,
   Bundle,
@@ -24,16 +25,17 @@ import { VitalsAlertConfig } from 'utils/lib/types/api/vitals-alert-config/vital
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { DEFAULT_VITALS_ALERT_CONFIG, vitalsAlertConfigToVitalsDef } from 'utils/lib/utils/vitals-alert-config';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   buildSearchUrl,
   executeBatchSearches,
   MAX_ENTRIES_PER_BATCH,
+  MAX_NEXT_PAGE_ROUNDS,
   nextPageUrl,
 } from '../../src/ehr/get-appointments/batch-search';
 import {
   buildOrdersForTrackingBoard,
-  buildTrackingBoardSearchUrls,
+  buildTrackingBoardSearches,
   buildVitalsForTrackingBoard,
   classifyServiceRequest,
   emptyTrackingBoardExtras,
@@ -42,12 +44,15 @@ import {
   poolTrackingBoardResources,
   selectTrackingBoardEncounterIds,
   selectVitalsPatientsByEncounterId,
+  TRACKING_BOARD_ENTRIES_PER_BATCH,
   VitalsPatientsByEncounterId,
 } from '../../src/ehr/get-appointments/tracking-board';
 import { DME_ORDER_SEARCH_TAG, makeDmeDeviceRequest } from '../../src/shared/dme';
 import { SortedAppointmentQueues } from '../../src/shared/queueingUtils';
 
 const encounterIds = (count: number): string[] => Array.from({ length: count }, (_, index) => `enc-${index}`);
+
+const sizeCapError = (): Error => new Error('Response payload size exceeds the maximum allowed size (6,291,456 bytes)');
 
 const serviceRequest = (id: string, overrides: Partial<ServiceRequest> = {}): ServiceRequest => ({
   resourceType: 'ServiceRequest',
@@ -136,7 +141,11 @@ describe('batch-search', () => {
       'Task?paged=1',
       'Task?paged=2&_count=1',
     ];
-    const result = await executeBatchSearches(oystehr, urls, { fhirApiUrl: 'https://fhir.example.com/r4' });
+    const result = await executeBatchSearches(
+      oystehr,
+      urls.map((url) => ({ url })),
+      { fhirApiUrl: 'https://fhir.example.com/r4' }
+    );
 
     // 26 entries -> 20 + 6, then one follow-up batch carrying both next pages.
     expect(batchCalls.map((call) => call.length)).toEqual([MAX_ENTRIES_PER_BATCH, 6, 2]);
@@ -146,11 +155,49 @@ describe('batch-search', () => {
     // 23 plain + two paged searches with two pages each
     expect(result.resources).toHaveLength(27);
   });
+
+  test('a later page split by encounter gets the full page budget, since its narrower searches restart at page one', async () => {
+    // The parent's last page within the round cap is too large, and each half needs two pages of its own. Halves
+    // that inherited the parent's round would stop after their first page and drop the rest without a failed URL.
+    const pageOf = (url: string): number => Number(/_offset=(\d+)/.exec(url)?.[1] ?? 0);
+    const isParent = (url: string): boolean => url.startsWith('Task?group=ab&');
+    const batch = vi.fn(async ({ requests }: { requests: { url: string }[] }): Promise<Bundle<FhirResource>> => {
+      if (requests.some(({ url }) => isParent(url) && pageOf(url) === MAX_NEXT_PAGE_ROUNDS)) throw sizeCapError();
+      return {
+        resourceType: 'Bundle',
+        type: 'batch-response',
+        entry: requests.map(({ url }) => ({
+          response: { status: '200 OK' },
+          resource: {
+            resourceType: 'Bundle',
+            type: 'searchset',
+            entry: [{ resource: { resourceType: 'Task', id: url, status: 'requested', intent: 'order' } }],
+            ...(pageOf(url) < (isParent(url) ? MAX_NEXT_PAGE_ROUNDS : 1)
+              ? { link: [{ relation: 'next', url: 'unused' }] }
+              : {}),
+          },
+        })),
+      };
+    });
+    const oystehr = { fhir: { batch } } as unknown as Oystehr;
+
+    const result = await executeBatchSearches(oystehr, [
+      {
+        url: 'Task?group=ab&_count=1',
+        split: () => [{ url: 'Task?group=a&_count=1' }, { url: 'Task?group=b&_count=1' }],
+      },
+    ]);
+
+    expect(result.failedUrls).toEqual([]);
+    expect(result.resources.map((resource) => resource.id)).toEqual(
+      expect.arrayContaining(['Task?group=a&_count=1&_offset=1', 'Task?group=b&_count=1&_offset=1'])
+    );
+  });
 });
 
 describe('tracking board search plan', () => {
   test('one entry per resource family per encounter chunk, with only the includes the mappers read', () => {
-    const urls = buildTrackingBoardSearchUrls(encounterIds(120), undefined, true);
+    const urls = buildTrackingBoardSearches(encounterIds(120), true).map((search) => search.url);
 
     const byType = (prefix: string): string[] => urls.filter((url) => url.startsWith(`${prefix}?`));
     expect(byType('ServiceRequest')).toHaveLength(3);
@@ -178,22 +225,21 @@ describe('tracking board search plan', () => {
 
     const dmeUrl = byType('DeviceRequest')[0];
     expect(dmeUrl).toContain(`_tag=${DME_ORDER_SEARCH_TAG}`);
-    expect(dmeUrl).toContain('status=active');
+    // deleted orders are dropped after the search, by the same rule the note PDFs use
+    expect(dmeUrl).not.toContain('status=');
     expect(dmeUrl).toContain('_include=DeviceRequest:requester');
   });
 
   test('DME orders get no entry when the feature is off', () => {
     expect(
-      buildTrackingBoardSearchUrls(encounterIds(120), undefined, false).filter((url) =>
-        url.startsWith('DeviceRequest?')
-      )
+      buildTrackingBoardSearches(encounterIds(120), false).filter((search) => search.url.startsWith('DeviceRequest?'))
     ).toHaveLength(0);
   });
 
   test('no encounters means no entries', () => {
-    expect(buildTrackingBoardSearchUrls([])).toHaveLength(0);
-    expect(buildTrackingBoardSearchUrls(encounterIds(10), undefined, false)).toHaveLength(4);
-    expect(buildTrackingBoardSearchUrls(encounterIds(10), undefined, true)).toHaveLength(5);
+    expect(buildTrackingBoardSearches([])).toHaveLength(0);
+    expect(buildTrackingBoardSearches(encounterIds(10), false)).toHaveLength(4);
+    expect(buildTrackingBoardSearches(encounterIds(10), true)).toHaveLength(5);
   });
 
   test('selectTrackingBoardEncounterIds takes every in-office and discharged row, once', () => {
@@ -327,7 +373,7 @@ describe('buildOrdersForTrackingBoard', () => {
     expect(table.dmeOrdersByEncounterId).toEqual({});
   });
 
-  test('shows only in-house DME orders still waiting to be dispensed', () => {
+  test('shows pending and dispensed DME orders, not third-party or deleted ones', () => {
     const requesterId = '6c3d2e1a-7b8f-4c5d-9e0a-1b2c3d4e5f60';
     const requester: Practitioner = {
       resourceType: 'Practitioner',
@@ -368,12 +414,14 @@ describe('buildOrdersForTrackingBoard', () => {
     });
 
     expect(Object.keys(table.dmeOrdersByEncounterId)).toEqual(['enc-1']);
-    const [order] = table.dmeOrdersByEncounterId['enc-1'];
-    expect(table.dmeOrdersByEncounterId['enc-1']).toHaveLength(1);
-    expect(order.id).toBe('dme-pending');
-    expect(order.itemName).toBe('Item dme-pending');
-    expect(order.status).toBe(DmeOrderStatus.pending);
-    expect(order.orderedBy).toEqual({ practitionerId: requesterId, name: 'Dana Doc' });
+    const orders = table.dmeOrdersByEncounterId['enc-1'];
+    expect(Object.fromEntries(orders.map((order) => [order.id, order.status]))).toEqual({
+      'dme-pending': DmeOrderStatus.pending,
+      'dme-dispensed': DmeOrderStatus.dispensed,
+    });
+    const pending = orders.find((order) => order.id === 'dme-pending');
+    expect(pending?.itemName).toBe('Item dme-pending');
+    expect(pending?.orderedBy).toEqual({ practitionerId: requesterId, name: 'Dana Doc' });
   });
 });
 
@@ -552,8 +600,11 @@ describe('selectVitalsPatientsByEncounterId', () => {
 });
 
 describe('fetchTrackingBoardResources', () => {
-  const sizeCapError = (): Error =>
-    new Error('Response payload size exceeds the maximum allowed size (6,291,456 bytes)');
+  beforeEach(() => {
+    vi.mocked(captureException).mockClear();
+    vi.mocked(captureMessage).mockClear();
+  });
+
   const searchsetOf = (resources: FhirResource[]): Bundle<FhirResource> => ({
     resourceType: 'Bundle',
     type: 'searchset',
@@ -565,40 +616,149 @@ describe('fetchTrackingBoardResources', () => {
     entry: searchsets.map((searchset) => ({ response: { status: '200 OK' }, resource: searchset })),
   });
 
-  test('on a response size error it shrinks the entries per bundle as well as the encounter chunks', async () => {
-    // Stand-in for the byte cap: a bundle with more than six entries is "too large".
-    const bundleSizes: number[] = [];
-    const batch = vi.fn(async ({ requests }: { requests: { url: string }[] }): Promise<Bundle<FhirResource>> => {
-      bundleSizes.push(requests.length);
-      if (requests.length > 6) throw sizeCapError();
-      return batchResponse(requests.map(() => searchsetOf([])));
-    });
-    const search = vi.fn();
-    const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
+  type BatchRequest = { requests: { url: string }[] };
+  const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+  const encountersIn = (url: string): string[] =>
+    (/[?&](?:encounter|context)=([^&]*)/.exec(url)?.[1] ?? '').split(',').map((ref) => ref.replace('Encounter/', ''));
+  // A ServiceRequest search answers with one order per encounter it covers; every other family comes back empty.
+  const answer = ({ requests }: BatchRequest): Bundle<FhirResource> =>
+    batchResponse(
+      requests.map(({ url }) =>
+        searchsetOf(
+          url.startsWith('ServiceRequest?')
+            ? encountersIn(url).map((id) => serviceRequest(`sr-${id}`, { encounter: { reference: `Encounter/${id}` } }))
+            : []
+        )
+      )
+    );
+  const serviceRequestIds = (resources: FhirResource[]): string[] =>
+    resources.filter((resource) => resource.resourceType === 'ServiceRequest').map((resource) => resource.id ?? '');
+  const hasUrl = (prefix: string) => (request: BatchRequest) =>
+    request.requests.some(({ url }) => url.startsWith(prefix));
+  // Without DME orders, 100 encounters make 10 searches, sent as two batches of five: the order families of both
+  // 50-encounter chunks except the last MedicationRequest, then that MedicationRequest and the four vitals searches.
+  const fetchHundred = (oystehr: Oystehr, deadline?: number): ReturnType<typeof fetchTrackingBoardResources> =>
+    fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(100), includeDmeOrders: false, deadline });
+  const hundredSearchUrls = (): string[] =>
+    buildTrackingBoardSearches(encounterIds(100), false).map((search) => search.url);
+  const vitalsBatchUrls = (): string[] => hundredSearchUrls().slice(TRACKING_BOARD_ENTRIES_PER_BATCH);
 
-    const result = await fetchTrackingBoardResources({
-      oystehr,
-      encounterIds: encounterIds(100),
-      includeDmeOrders: false,
-    });
-
-    expect(result).toEqual({ resources: [], failedUrls: [] });
-    // 100 encounters: 10 entries in one bundle, too large; then 20 entries as two bundles of 10, still too large;
-    // then 39 entries as bundles of at most 5. Halving only the encounter chunks would have kept every retry in
-    // 20-entry bundles carrying the same bytes.
-    expect(bundleSizes.slice(0, 3)).toEqual([10, 10, 10]);
-    expect(bundleSizes.slice(3)).toHaveLength(8);
-    expect(bundleSizes.slice(3).every((size) => size <= 5)).toBe(true);
-    expect(search).not.toHaveBeenCalled();
-  });
-
-  test('any other error is not retried', async () => {
-    const batch = vi.fn(async (): Promise<Bundle<FhirResource>> => {
-      throw new Error('boom');
+  test('an oversized batch is retried one search per batch, and the batches that fit are not sent again', async () => {
+    // Stand-in for the byte cap: a ServiceRequest search over more than 20 encounters is "too large".
+    const sentBatches: string[][] = [];
+    const batch = vi.fn(async (request: BatchRequest): Promise<Bundle<FhirResource>> => {
+      sentBatches.push(request.requests.map(({ url }) => url));
+      if (request.requests.some(({ url }) => url.startsWith('ServiceRequest?') && encountersIn(url).length > 20)) {
+        throw sizeCapError();
+      }
+      return answer(request);
     });
     const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
 
-    await expect(fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(3) })).rejects.toThrow('boom');
+    const result = await fetchHundred(oystehr);
+
+    expect(result.failedUrls).toEqual([]);
+    expect(serviceRequestIds(result.resources).sort()).toEqual(
+      encounterIds(100)
+        .map((id) => `sr-${id}`)
+        .sort()
+    );
+    expect(sentBatches.every((urls) => urls.length <= TRACKING_BOARD_ENTRIES_PER_BATCH)).toBe(true);
+    // The old retry re-sent every search, the ones that had fit included, as more and larger-fanout batches.
+    const sent = sentBatches.flat();
+    vitalsBatchUrls().forEach((url) => expect(sent.filter((sentUrl) => sentUrl === url)).toHaveLength(1));
+    // Each failed attempt costs a full server-side build of the oversized response, so an oversized batch goes
+    // straight to one search per batch: halving it instead would re-send the searches that fit and add a serial
+    // failure per level before the too-large search could split its encounters.
+    hundredSearchUrls().forEach((url) =>
+      expect(sent.filter((sentUrl) => sentUrl === url).length).toBeLessThanOrEqual(2)
+    );
+  });
+
+  test('a search that cannot shrink below one encounter is reported failed, not retried forever', async () => {
+    const batch = vi.fn(async (request: BatchRequest): Promise<Bundle<FhirResource>> => {
+      if (hasUrl('ServiceRequest?')(request)) throw sizeCapError();
+      return answer(request);
+    });
+    const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
+
+    const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(2) });
+
+    expect(result.failedUrls.map(encountersIn)).toEqual([['enc-0'], ['enc-1']]);
+    expect(result.failedUrls.every((url) => url.startsWith('ServiceRequest?'))).toBe(true);
+  });
+
+  test('a batch that fails for another reason is not retried, and the other batches still count', async () => {
+    const boom = new Error('boom');
+    const batch = vi.fn(async (request: BatchRequest): Promise<Bundle<FhirResource>> => {
+      if (hasUrl('Observation?')(request)) throw boom;
+      return answer(request);
+    });
+    const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
+
+    const result = await fetchHundred(oystehr);
+
+    expect(batch).toHaveBeenCalledTimes(2);
+    expect(result.failedUrls).toEqual(vitalsBatchUrls());
+    expect(serviceRequestIds(result.resources)).toHaveLength(100);
+    // The failure no longer reaches index.ts's catch, so Sentry would never hear of it otherwise.
+    expect(captureException).toHaveBeenCalledWith(boom);
+  });
+
+  test('a next page that exceeds the size cap is split by encounter, like a first page', async () => {
+    // The two-encounter ServiceRequest search has a second page that is too large; each encounter alone fits. The
+    // split re-runs the search per encounter from the first page, and the pools dedupe what page one already held.
+    const batch = vi.fn(async ({ requests }: BatchRequest): Promise<Bundle<FhirResource>> => {
+      if (requests.some(({ url }) => url.includes('_offset='))) throw sizeCapError();
+      return batchResponse(
+        requests.map(({ url }) => {
+          if (!url.startsWith('ServiceRequest?')) return searchsetOf([]);
+          const ids = encountersIn(url);
+          const orders = ids.map((id) => serviceRequest(`sr-${id}`, { encounter: { reference: `Encounter/${id}` } }));
+          return ids.length > 1
+            ? { ...searchsetOf(orders.slice(0, 1)), link: [{ relation: 'next', url: 'unused' }] }
+            : searchsetOf(orders);
+        })
+      );
+    });
+    const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
+
+    const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(2) });
+
+    expect(result.failedUrls).toEqual([]);
+    expect(new Set(serviceRequestIds(result.resources))).toEqual(new Set(['sr-enc-0', 'sr-enc-1']));
+  });
+
+  test('at the deadline it settles with what arrived and counts the searches still in flight as failed', async () => {
+    const batch = vi.fn(
+      (request: BatchRequest): Promise<Bundle<FhirResource>> =>
+        hasUrl('Observation?')(request) ? new Promise(() => undefined) : Promise.resolve(answer(request))
+    );
+    const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
+
+    const result = await fetchHundred(oystehr, Date.now() + 50);
+
+    expect(result.failedUrls).toEqual(vitalsBatchUrls());
+    expect(serviceRequestIds(result.resources)).toHaveLength(100);
+    // Settling early keeps the Lambda from timing out, which also keeps Sentry's timeout warning from firing.
+    expect(captureMessage).toHaveBeenCalledWith(expect.stringContaining('deadline'), 'warning');
+  });
+
+  test('past the deadline an oversized batch is not split into new requests', async () => {
+    const batch = vi.fn(async (): Promise<Bundle<FhirResource>> => {
+      await sleep(30);
+      throw sizeCapError();
+    });
+    const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
+
+    const result = await fetchTrackingBoardResources({
+      oystehr,
+      encounterIds: encounterIds(3),
+      deadline: Date.now() + 10,
+    });
+    await sleep(50);
+
+    expect(result.failedUrls).toEqual(buildTrackingBoardSearches(encounterIds(3)).map((search) => search.url));
     expect(batch).toHaveBeenCalledTimes(1);
   });
 
@@ -648,5 +808,59 @@ describe('fetchTrackingBoardResources', () => {
         params: [{ name: 'based-on', value: 'DiagnosticReport/dr-ext' }],
       })
     );
+  });
+
+  // An external lab order whose report came back without its result-review Tasks, so the direct Task search is due.
+  const externalLabResourcesWithoutTasks = (): FhirResource[] => [
+    serviceRequest('sr-ext', { code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '1' }] } }),
+    {
+      resourceType: 'DiagnosticReport',
+      id: 'dr-ext',
+      status: 'final',
+      code: {},
+      basedOn: [{ reference: 'ServiceRequest/sr-ext' }],
+    },
+  ];
+
+  test('past the deadline the direct Task search is not started, and the result is marked incomplete', async () => {
+    // The batch lands just as the deadline passes. settleByDeadline stops waiting but cancels nothing, so a search
+    // started now would run unawaited through the window reserved for the response.
+    vi.useFakeTimers();
+    try {
+      const deadline = Date.now() + 1_000;
+      const batch = vi.fn(async (): Promise<Bundle<FhirResource>> => {
+        vi.setSystemTime(deadline);
+        return batchResponse([searchsetOf(externalLabResourcesWithoutTasks())]);
+      });
+      const search = vi.fn(async () => ({ unbundle: () => [] }));
+      const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
+
+      const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(1), deadline });
+
+      expect(search).not.toHaveBeenCalled();
+      expect(result.failedUrls).toEqual(['Task?based-on=<external lab DiagnosticReports>']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('a failed direct Task search keeps what the batch fetched, marks the result incomplete and reports it', async () => {
+    // Letting the rejection reach index.ts's catch would swap every fetched order and vitals resource for an empty
+    // result, which is what the batch itself avoids by recording failures in failedUrls.
+    const failure = new Error('Task search failed');
+    const batch = vi.fn(
+      async (): Promise<Bundle<FhirResource>> => batchResponse([searchsetOf(externalLabResourcesWithoutTasks())])
+    );
+    const search = vi.fn(async () => {
+      throw failure;
+    });
+    const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
+
+    const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(1) });
+
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(result.resources.map((resource) => resource.id)).toEqual(['sr-ext', 'dr-ext']);
+    expect(result.failedUrls).toEqual(['Task?based-on=<external lab DiagnosticReports>']);
+    expect(captureException).toHaveBeenCalledWith(failure);
   });
 });

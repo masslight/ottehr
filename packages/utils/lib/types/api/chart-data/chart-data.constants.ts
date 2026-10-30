@@ -166,6 +166,15 @@ export enum VitalsOxygenSatObservationMethod {
   OnSupplementalO2 = 'On supplemental O2',
 }
 
+export enum VitalsSupplementalO2DeliveryType {
+  NasalCannula = 'Nasal Cannula',
+  NonRebreatherMask = 'Non-Rebreather Mask',
+  SimpleFaceMask = 'Simple Face Mask',
+  TracheostomyCollar = 'Tracheostomy Collar',
+  VenturiMask = 'Venturi Mask',
+  Other = 'Other',
+}
+
 export enum AiObservationField {
   HistoryOfPresentIllness = 'ai-history-of-present-illness',
   MechanismOfInjury = 'ai-mechanism-of-injury',

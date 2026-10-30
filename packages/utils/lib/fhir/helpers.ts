@@ -97,7 +97,7 @@ import {
 } from './constants';
 import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
 import { PatientMasterRecordResourceType } from './patientMasterRecord';
-import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
+import { getPatchBinary, getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
 
 export function isFHIRError(error: any): boolean {
   return !(error instanceof Error) && typeof error === 'object' && error.resourceType === 'OperationOutcome';
@@ -400,6 +400,9 @@ export async function createFilesDocumentReferences(
       console.log('making DocumentReference results =>', JSON.stringify(docRefBundle, null, 2));
 
       const docRef = docRefBundle.entry?.[0]?.resource;
+      if (docRef) {
+        docRefs.push(docRef);
+      }
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
         let typeCode = type.coding[0].code;
@@ -422,7 +425,6 @@ export async function createFilesDocumentReferences(
             reference: `DocumentReference/${docRef.id}`,
           },
         });
-        docRefs.push(docRef);
       }
     }
 
@@ -1864,4 +1866,26 @@ export function reducePatchOperations<T extends FhirResource>(
     existingPatch.operations.push(...request.operations);
   }
   return newRequests;
+}
+
+// A transaction sends a JSON patch without its ifMatch, so the resource's patches go as binary ones
+// locked to its version instead.
+export function versionLockedPatches<T extends FhirResource>({
+  requests,
+  resource,
+}: {
+  requests: BatchInputRequest<T>[];
+  resource: FhirResource;
+}): BatchInputRequest<T>[] {
+  const url = `/${resource.resourceType}/${resource.id}`;
+  return requests.map((request) =>
+    request.method === 'PATCH' && 'operations' in request && request.url === url
+      ? (getPatchBinary({
+          resourceType: resource.resourceType,
+          resourceId: resource.id!,
+          ifMatch: makeOptimisticLockIfMatchHeader(resource),
+          patchOperations: request.operations,
+        }) as BatchInputRequest<T>)
+      : request
+  );
 }

@@ -1,8 +1,10 @@
 import { QuestionnaireDataTypes } from 'config-types/config/questionnaire';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
+import type { FormPlacement } from '../../../helpers/practice-managed-questionnaires';
 import { QAndQRResponse } from '../paperwork/paperwork.types';
 import {
+  GetPatientFormResponsesInputSchema,
   GetStandAlonePaperworkInputSchema,
   PracticeManagedQuestionnaireItemSchema,
   PracticeManagedQuestionnaireSchema,
@@ -44,6 +46,10 @@ export const DATA_TYPES_BY_ITEM_TYPE: Partial<Record<QuestionnaireItemType, Otte
 export const OTTEHR_INPUT_WIDTHS = ['s', 'm', 'l'] as const;
 export type OttehrInputWidth = (typeof OTTEHR_INPUT_WIDTHS)[number];
 
+/** Placements stored as a tag on the form; Visit details is the untagged default. */
+export const TAGGED_FORM_PLACEMENTS = ['screening', 'questionnaires'] as const;
+export type TaggedFormPlacement = (typeof TAGGED_FORM_PLACEMENTS)[number];
+
 export type PracticeManagedQuestionnaireItem = Omit<QuestionnaireItem, 'item'> &
   z.infer<typeof PracticeManagedQuestionnaireItemSchema> & {
     item?: PracticeManagedQuestionnaireItem[];
@@ -60,13 +66,32 @@ export type PracticeManagedQuestionnaireDTO = {
   title: string;
   status: Questionnaire['status'];
   url: string;
+  placement: FormPlacement;
   readOnly: boolean; // questionnaires imported via raw json are read only in the admin portal
 };
 
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
   questionnaireId: string;
   questionnaireTitle: string;
+  /** Where the form's answers appear; absent means Visit Details. */
+  placement?: FormPlacement;
+  /** The form's canonical url, shared by all of its versions. */
+  questionnaireUrl?: string;
 };
+
+/** A response from one of the patient's visits, for pages that show forms across visits. */
+export type PatientFormResponse = StandaloneFormDTO & {
+  encounterId: string;
+  appointmentId?: string;
+  visitDate?: string;
+  /** IANA zone of the visit's office, so its date reads as it did there. */
+  visitTimezone?: string;
+  /** False for forms answered inside the visit's paperwork, which are deleted with the paperwork. */
+  deletable: boolean;
+};
+
+export type GetPatientFormResponsesInput = z.infer<typeof GetPatientFormResponsesInputSchema>;
+export type GetPatientFormResponsesOutput = { responses: PatientFormResponse[] };
 
 // ============= api input / output types ===============
 

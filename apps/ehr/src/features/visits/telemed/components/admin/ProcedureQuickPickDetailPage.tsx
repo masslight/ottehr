@@ -10,6 +10,7 @@ import {
   formatInfusionTimeRange,
   formatProcedureCptCode,
   formatStructuredFacts,
+  performerTypeDisplayLabel,
   repairDepthDisplayLabel,
 } from 'utils/lib/procedure-coding/format';
 import { useProcedureSelectOptions } from '../../../in-person/components/procedures/useProcedureSelectOptions';
@@ -181,6 +182,11 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
           </Row>
           <Row label="Time Spent">
             <ValueDisplay value={quickPick.timeSpent} />
+          </Row>
+          <Row label="Performed By">
+            <ValueDisplay
+              value={quickPick.performerType != null ? performerTypeDisplayLabel(quickPick.performerType) : undefined}
+            />
           </Row>
           <Row label="Documented By">
             <ValueDisplay value={quickPick.documentedBy} />

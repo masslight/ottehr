@@ -593,6 +593,14 @@ const fakeOystehr = {
   user: { list: async () => [] },
 } as unknown as Oystehr;
 
+// the billing app holds no payments in these fixtures; every payment is a legacy EHR notice
+const emptyBillingOystehr = {
+  fhir: {
+    search: async () => ({ jobId: 'billing', contentLocation: '', mode: 'bulk' }),
+    waitForAsyncJob: async () => ({ status: 200, mode: 'bulk', manifest: { output: [], requiresAccessToken: false } }),
+  },
+} as unknown as Oystehr;
+
 const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
 
 // safeParse + issue dump so a schema mismatch fails with the exact zod issues, not just "false".
@@ -907,7 +915,7 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
   });
 
   it('billing: base rows match the schema; layer columns stay absent when not requested', async () => {
-    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange });
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange }, emptyBillingOystehr);
 
     expect(rows).toHaveLength(1);
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
@@ -922,7 +930,7 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
   });
 
   it('billing payments layer: one record per payment, oldest first, aggregates in step', async () => {
-    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includePayments: true });
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includePayments: true }, emptyBillingOystehr);
     const row = rows[0];
 
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);

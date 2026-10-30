@@ -35,7 +35,7 @@ export default function PatientBalances({ patient, patientBalances, handleClose 
       if (oystehrZambda && input) {
         return oystehrZambda.zambda
           .execute({
-            id: 'patient-payments-post',
+            id: 'post-billing-patient-payment',
             ...input,
           })
           .then(refetchAndCloseDialog);

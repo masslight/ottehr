@@ -263,7 +263,7 @@ describe('scanClaimIds', () => {
       withServiceDate: true,
     });
 
-    expect(paramNamed(claimSearchCalls(search)[0], '_elements')?.value).toBe('id,meta,created,item');
+    expect(paramNamed(claimSearchCalls(search)[0], '_elements')?.value).toBe('id,meta,created,item,billablePeriod');
   });
 
   it('pages until the query is drained', async () => {
@@ -556,7 +556,7 @@ describe('searchClaimsBySearchText', () => {
     });
 
     claimSearchCalls(search).forEach((params) =>
-      expect(paramNamed(params, '_elements')?.value).toBe('id,meta,created,item')
+      expect(paramNamed(params, '_elements')?.value).toBe('id,meta,created,item,billablePeriod')
     );
   });
 

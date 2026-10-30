@@ -86,6 +86,7 @@ export interface BillingCoverageOption {
   planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
+  groupNumber?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
 }
 
@@ -482,6 +483,7 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
+  dos: string;
   service?: string;
   patientName: string;
   patientDob: string;
@@ -503,6 +505,7 @@ export interface ClaimDetailResponse {
   payerId: string;
   payerClaimControlNumber?: string;
   memberId: string;
+  groupNumber?: string;
   subscriberId: string;
   planType: string;
   relationship: SubscriberRelationship;
@@ -512,16 +515,19 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  secondaryGroupNumber?: string;
   secondaryPayerClaimControlNumber?: string;
   tertiaryCoverageFhirId: string;
   tertiaryPayerName: string;
   tertiaryPayerId: string;
   tertiaryMemberId: string;
+  tertiaryGroupNumber?: string;
   tertiaryPayerClaimControlNumber?: string;
   quaternaryCoverageFhirId: string;
   quaternaryPayerName: string;
   quaternaryPayerId: string;
   quaternaryMemberId: string;
+  quaternaryGroupNumber?: string;
   quaternaryPayerClaimControlNumber?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
@@ -1159,15 +1165,6 @@ export interface CreateBillingInvoiceResponse {
   // True when this request's SMS was accepted, which does not confirm delivery. False when it failed.
   // Missing when this request sent no SMS, such as a retry of an invoice that was already sent or paid.
   smsSent?: boolean;
-}
-
-export interface RecordBillingRefundResponse {
-  billingNoticesStamped: number;
-  candidRefundsRecorded: number;
-}
-
-export interface RecordBillingVoidResponse {
-  billingNoticesVoided: number;
 }
 
 export interface AddClaimAttachmentResponse {

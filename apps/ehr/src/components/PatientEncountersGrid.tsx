@@ -25,7 +25,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import React, { FC, ReactElement, useMemo, useState } from 'react';
+import { enqueueSnackbar } from 'notistack';
+import React, { FC, ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getInPersonUrlByAppointmentType,
@@ -40,16 +41,25 @@ import { AppointmentType, visitStatusArray } from 'utils/lib/types/api/appointme
 import {
   AppointmentHistoryRow,
   FollowUpVisitHistoryRow,
+  FreeFormEncounterHistoryRow,
   PatientVisitListResponse,
 } from 'utils/lib/types/api/patient-visit-history.types';
 import { ServiceMode } from 'utils/lib/types/common';
 import { formatMinutes } from 'utils/lib/utils/visitUtils';
+import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { useMergedServiceCategories } from '../hooks/useMergedServiceCategories';
 import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
-import { filterVisitsByServiceCategory } from './patientEncountersFilters';
+import { FreeFormEncounterRow, FreeFormSaveSession } from './FreeFormEncounterRow';
+import {
+  applyLocalFreeFormSaves,
+  filterVisitsByServiceCategory,
+  freeFormRowsStartingFrom,
+  mergeEncounterGridRows,
+  pruneCaughtUpLocalSaves,
+} from './patientEncountersFilters';
 import { RoundedButton } from './RoundedButton';
 
 type PatientEncountersGridProps = {
@@ -115,6 +125,23 @@ const ProviderCell: FC<{ name: string | undefined }> = ({ name }) => {
 type SortField = 'dateTime';
 type SortDirection = 'asc' | 'desc';
 
+export const FREE_FORM_RECONCILE_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
+
+interface FreeFormDraft {
+  draftId: string;
+  patientId: string;
+  createdAt: string;
+  encounterId?: string;
+  reconcileExhausted?: boolean;
+}
+
+interface LocalFreeFormSaves {
+  patientId: string | undefined;
+  rows: Record<string, FreeFormEncounterHistoryRow>;
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 interface TableColumn {
   id: string;
   label: string;
@@ -137,7 +164,8 @@ const columns: TableColumn[] = [
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
   const { patient, totalCount, latestVisitDate } = props;
-  const { id: patientId } = useParams();
+  const { id: routePatientId } = useParams();
+  const currentPatientId = patient?.id && patient.id === routePatientId ? patient.id : undefined;
 
   const [type, setType] = useState('all');
   const [period, setPeriod] = useState(0);
@@ -155,8 +183,12 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
-  const { data: visitHistory, isLoading: visitHistoryIsLoading } = useQuery({
-    queryKey: [`get-patient-visit-history`, { patientId, status, type, period }],
+  const {
+    data: visitHistory,
+    isLoading: visitHistoryIsLoading,
+    refetch: refetchVisitHistory,
+  } = useQuery({
+    queryKey: [`get-patient-visit-history`, { patientId: currentPatientId, status, type, period }],
     queryFn: async (): Promise<PatientVisitListResponse> => {
       let from: string | undefined;
       if (period > 0) {
@@ -169,10 +201,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         typeParam = [typeStr as AppointmentType];
         serviceMode = serviceModeStr as ServiceMode;
       }
-      if (oystehrZambda && patient?.id) {
+      if (oystehrZambda && currentPatientId) {
         const result = await oystehrZambda.zambda.execute({
           id: 'get-patient-visit-history',
-          patientId: patient.id,
+          patientId: currentPatientId,
           type: typeParam,
           serviceMode,
           status: status !== 'all' ? [status] : undefined,
@@ -185,39 +217,168 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
 
       throw new Error('api client not defined or patient id is not provided');
     },
-    enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
+    enabled: Boolean(currentPatientId) && Boolean(oystehrZambda),
   });
 
-  const filtered = useMemo(() => {
-    if (!visitHistory) return [];
-    const { visits, metadata } = visitHistory;
-    let filtered = visits || [];
+  const [storedDraft, setDraft] = useState<FreeFormDraft | null>(null);
+  const draft = storedDraft?.patientId === currentPatientId ? storedDraft : null;
+  const draftRef = useRef<FreeFormDraft | null>(null);
+  const draftCounterRef = useRef(0);
+  const [draftEditing, setDraftEditing] = useState(false);
+  const [localSaves, setLocalSaves] = useState<LocalFreeFormSaves>({ patientId: currentPatientId, rows: {} });
+  const generationRef = useRef(0);
+
+  const updateDraft = useCallback((update: (current: FreeFormDraft | null) => FreeFormDraft | null): void => {
+    draftRef.current = update(draftRef.current);
+    setDraft(draftRef.current);
+  }, []);
+
+  useEffect(() => {
+    generationRef.current += 1;
+    updateDraft(() => null);
+    setDraftEditing(false);
+    setLocalSaves({ patientId: currentPatientId, rows: {} });
+    return () => {
+      generationRef.current += 1;
+    };
+  }, [currentPatientId, updateDraft]);
+
+  const filteredVisits = useMemo(() => {
+    let visits = visitHistory?.visits ?? [];
 
     if (hideCancelled) {
-      filtered = filtered.filter((item) => item.status !== 'cancelled');
+      visits = visits.filter((item) => item.status !== 'cancelled');
     }
 
     if (hideNoShow) {
       // not sure why all virtual visits are kept but keeping this pre-existing logic
-      filtered = filtered.filter((item) => item.serviceMode === ServiceMode.virtual || item.status !== 'no show');
+      visits = visits.filter((item) => item.serviceMode === ServiceMode.virtual || item.status !== 'no show');
     }
 
     if (serviceCategory !== 'all') {
-      filtered = filterVisitsByServiceCategory(filtered, serviceCategory);
+      visits = filterVisitsByServiceCategory(visits, serviceCategory);
     }
 
-    // Apply sorting
-    if (metadata.sortDirection === sortDirection) {
-      return filtered;
-    } else {
-      return filtered.slice().reverse();
-    }
-  }, [visitHistory, hideCancelled, hideNoShow, serviceCategory, sortDirection]);
+    return visits;
+  }, [visitHistory, hideCancelled, hideNoShow, serviceCategory]);
+
+  const serverFreeFormEncounters = visitHistory?.freeFormEncounters;
+  const periodStart = useMemo(
+    () => (period > 0 ? DateTime.now().minus({ months: period }).toISO() : undefined),
+    [period]
+  );
+  const freeFormEncounters = useMemo(
+    () =>
+      applyLocalFreeFormSaves(
+        serverFreeFormEncounters ?? [],
+        localSaves.patientId === currentPatientId
+          ? freeFormRowsStartingFrom(Object.values(localSaves.rows), periodStart)
+          : []
+      ),
+    [serverFreeFormEncounters, localSaves, currentPatientId, periodStart]
+  );
+
+  const includeFreeForm = type === 'all' && status === 'all' && serviceCategory === 'all';
+  const allRows = useMemo(
+    () => mergeEncounterGridRows(filteredVisits, freeFormEncounters, { includeFreeForm, sortDirection }),
+    [filteredVisits, freeFormEncounters, includeFreeForm, sortDirection]
+  );
+
+  const draftEncounterId = draft?.encounterId;
+  const visibleRows = useMemo(
+    () =>
+      draftEncounterId ? allRows.filter((row) => !(row.kind === 'free-form' && row.id === draftEncounterId)) : allRows,
+    [allRows, draftEncounterId]
+  );
 
   const paginatedData = useMemo(() => {
     const startIndex = page * rowsPerPage;
-    return filtered.slice(startIndex, startIndex + rowsPerPage);
-  }, [filtered, page, rowsPerPage]);
+    return visibleRows.slice(startIndex, startIndex + rowsPerPage);
+  }, [visibleRows, page, rowsPerPage]);
+
+  useEffect(() => {
+    if (!serverFreeFormEncounters) return;
+    setLocalSaves((current) => {
+      const rows = pruneCaughtUpLocalSaves(serverFreeFormEncounters, current.rows);
+      return rows === current.rows ? current : { ...current, rows };
+    });
+  }, [serverFreeFormEncounters]);
+
+  useEffect(() => {
+    if (!draft?.encounterId || draftEditing) return;
+    const { encounterId, reconcileExhausted } = draft;
+    const onServer = serverFreeFormEncounters?.some((row) => row.encounterId === encounterId) ?? false;
+    if (!onServer && !reconcileExhausted) return;
+
+    const index = allRows.findIndex((row) => row.kind === 'free-form' && row.id === encounterId);
+    if (index >= 0) setPage(Math.floor(index / rowsPerPage));
+    updateDraft(() => null);
+  }, [draft, draftEditing, serverFreeFormEncounters, allRows, rowsPerPage, updateDraft]);
+
+  const reconcileCreatedNote = useCallback(
+    async (isCurrent: () => boolean, encounterId: string): Promise<void> => {
+      let lastAttemptFailed = false;
+      for (const delay of FREE_FORM_RECONCILE_DELAYS_MS) {
+        if (delay) await sleep(delay);
+        if (!isCurrent()) return;
+        const result = await refetchVisitHistory();
+        if (!isCurrent()) return;
+        lastAttemptFailed = result.isError;
+        if (result.data?.freeFormEncounters.some((row) => row.encounterId === encounterId)) return;
+      }
+      updateDraft((current) =>
+        current?.encounterId === encounterId ? { ...current, reconcileExhausted: true } : current
+      );
+      enqueueSnackbar(
+        lastAttemptFailed
+          ? "Note saved, but the visit list couldn't refresh"
+          : 'Note saved; it may take a moment to appear after a reload',
+        { variant: 'warning' }
+      );
+    },
+    [refetchVisitHistory, updateDraft]
+  );
+
+  const createSaveSession = useCallback(
+    (draftId?: string): FreeFormSaveSession => {
+      const generation = generationRef.current;
+      const isCurrent = (): boolean =>
+        generation === generationRef.current && (draftId === undefined || draftRef.current?.draftId === draftId);
+      return {
+        isCurrent,
+        onSaved: (saved, created) => {
+          if (!isCurrent()) return;
+          setLocalSaves((current) => ({ ...current, rows: { ...current.rows, [saved.encounterId]: saved } }));
+          if (draftId === undefined || !created) return;
+          updateDraft((current) =>
+            current?.draftId === draftId ? { ...current, encounterId: saved.encounterId } : current
+          );
+          void reconcileCreatedNote(isCurrent, saved.encounterId);
+        },
+      };
+    },
+    [reconcileCreatedNote, updateDraft]
+  );
+
+  const handleAddFreeForm = (): void => {
+    if (!currentPatientId) return;
+    setType('all');
+    setStatus('all');
+    setServiceCategory('all');
+    setPage(0);
+    draftCounterRef.current += 1;
+    const draftId = String(draftCounterRef.current);
+    updateDraft(() => ({ draftId, patientId: currentPatientId, createdAt: DateTime.now().toISO() }));
+  };
+
+  const discardDraft = useCallback((): void => {
+    setDraftEditing(false);
+    updateDraft(() => null);
+  }, [updateDraft]);
+
+  const draftSavedRow = draftEncounterId
+    ? freeFormEncounters.find((row) => row.encounterId === draftEncounterId)
+    : undefined;
 
   const handleSort = (field: SortField): void => {
     if (sortField === field) {
@@ -359,10 +520,29 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         >
           Follow-up
         </RoundedButton>
+        <RoundedButton
+          variant="contained"
+          startIcon={<AddIcon fontSize="small" />}
+          onClick={handleAddFreeForm}
+          disabled={!currentPatientId || draft !== null}
+          data-testid={dataTestIds.patientRecordPage.addFreeFormButton}
+        >
+          Free Form
+        </RoundedButton>
       </Box>
 
       <Box sx={{ display: 'flex', gap: 2 }}>
-        <TextField size="small" fullWidth label="Type" select value={type} onChange={(e) => setType(e.target.value)}>
+        <TextField
+          size="small"
+          fullWidth
+          label="Type"
+          select
+          value={type}
+          onChange={(e) => {
+            setType(e.target.value);
+            setPage(0);
+          }}
+        >
           <MenuItem value="all">All</MenuItem>
           <MenuItem value={'walk-in|in-person'}>{visitTypeToInPersonLabel['walk-in']}</MenuItem>
           <MenuItem value={'post-telemed|in-person'}>{visitTypeToInPersonLabel['post-telemed']}</MenuItem>
@@ -396,7 +576,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           label="Visit Period"
           select
           value={period}
-          onChange={(e) => setPeriod(+e.target.value)}
+          onChange={(e) => {
+            setPeriod(+e.target.value);
+            setPage(0);
+          }}
         >
           <MenuItem value={0}>All</MenuItem>
           <MenuItem value={1}>Last month</MenuItem>
@@ -411,7 +594,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           label="Visit Status"
           select
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(0);
+          }}
         >
           <MenuItem value="all">All</MenuItem>
           {[...new Set(visitStatusArray.filter((item) => item !== 'cancelled'))].map((status) => (
@@ -472,20 +658,50 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             </TableRow>
           </TableHead>
           <TableBody>
-            {visitHistoryIsLoading ? (
+            {draft && currentPatientId && (
+              <FreeFormEncounterRow
+                key={`draft-${draft.draftId}`}
+                patientId={currentPatientId}
+                dateTime={draftSavedRow?.dateTime ?? draft.createdAt}
+                encounterId={draft.encounterId}
+                note={draftSavedRow?.note ?? ''}
+                columnCount={columns.length}
+                isDraft
+                startSave={() => createSaveSession(draft.draftId)}
+                onDiscardDraft={discardDraft}
+                onEditingChange={setDraftEditing}
+              />
+            )}
+            {visitHistoryIsLoading || !currentPatientId ? (
               <TableRow>
                 <TableCell colSpan={columns.length} sx={{ textAlign: 'center', py: 4 }}>
                   Loading...
                 </TableCell>
               </TableRow>
             ) : paginatedData.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} sx={{ textAlign: 'center', py: 4 }}>
-                  No encounters found
-                </TableCell>
-              </TableRow>
+              !draft && (
+                <TableRow>
+                  <TableCell colSpan={columns.length} sx={{ textAlign: 'center', py: 4 }}>
+                    No encounters found
+                  </TableCell>
+                </TableRow>
+              )
             ) : (
-              paginatedData.map((row, index) => {
+              paginatedData.map((gridRow, index) => {
+                if (gridRow.kind === 'free-form') {
+                  return (
+                    <FreeFormEncounterRow
+                      key={gridRow.id}
+                      patientId={currentPatientId ?? ''}
+                      dateTime={gridRow.encounter.dateTime}
+                      encounterId={gridRow.encounter.encounterId}
+                      note={gridRow.encounter.note}
+                      columnCount={columns.length}
+                      startSave={() => createSaveSession()}
+                    />
+                  );
+                }
+                const row = gridRow.visit;
                 const rowId = row.appointmentId || `row-${index}`;
                 const followupEncountersForRow = [...(row.followUps ?? [])].sort(
                   (a, b) =>
@@ -558,7 +774,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       <TablePagination
         rowsPerPageOptions={[20]}
         component="div"
-        count={filtered.length}
+        count={visibleRows.length}
         rowsPerPage={rowsPerPage}
         page={page}
         onPageChange={handleChangePage}

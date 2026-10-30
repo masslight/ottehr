@@ -4,7 +4,7 @@ import { Box, Stack } from '@mui/system';
 import { useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -25,11 +25,13 @@ import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import { ekgFamily } from 'utils/lib/procedure-coding/families/ekg';
 import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
-import { CodeOutcomeKind } from 'utils/lib/procedure-coding/model.types';
+import { CodeOutcomeKind, StandardProcedureField } from 'utils/lib/procedure-coding/model.types';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { isPediatricOnDate } from 'utils/lib/utils/dateUtils';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useChartData } from '../../shared/hooks/useChartData';
@@ -45,6 +47,7 @@ import { bestPracticeFindings, CodingFindingList } from '../components/procedure
 import { DocumentationCheck } from '../components/procedures/coding-assist/DocumentationCheck';
 import { ConditionalCodingFields } from '../components/procedures/ConditionalCodingFields';
 import { ProcedureFamilySentences } from '../components/procedures/narrative/CodingFieldSentences';
+import { EkgSentences } from '../components/procedures/narrative/EkgSentences';
 import {
   DateTimeBlank,
   MultiBlank,
@@ -103,6 +106,22 @@ const CODING_COLUMN_QUERY = `@container (min-width: ${
 }px)`;
 const CONSENT = ['obtained', 'not obtained'];
 
+const sentenceOf = (parts: (ReactElement | false)[]): ReactElement | null => {
+  const shown = parts.filter((part): part is ReactElement => part !== false);
+  if (!shown.length) return null;
+  return (
+    <Sentence>
+      {shown.map((part, index) => (
+        <Fragment key={index}>
+          {index > 0 && '. '}
+          {part}
+        </Fragment>
+      ))}
+      .
+    </Sentence>
+  );
+};
+
 interface ProceduresNewProps {
   procedureId?: string;
   onFinished?: () => void;
@@ -125,7 +144,7 @@ export default function ProceduresNew({
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const queryClient = useQueryClient();
 
-  const { encounter } = useAppointmentData();
+  const { encounter, patient } = useAppointmentData();
   const { setDraft, getDraft, clearDraft, hasDraft } = useProcedureStore();
   useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
   const draft = !procedureId && encounter.id ? getDraft(encounter.id) : {};
@@ -248,6 +267,13 @@ export default function ProceduresNew({
   ]);
 
   const codingFamily = detectProcedureFamily(procedureFacts);
+  const shows = (field: StandardProcedureField, hasValue: unknown): boolean =>
+    !codingFamily?.omitsStandardFields?.includes(field) || !!hasValue;
+  const siteShown = shows('site', state.bodySite || state.otherBodySite || state.bodySide);
+  const techniqueShown =
+    shows('anesthesia', state.medicationUsed) ||
+    shows('technique', state.technique?.length) ||
+    shows('supplies', state.suppliesUsed?.length);
   const resolvedStructuredFacts = useMemo(
     () => (codingFamily ? resolveFamilyFacts(codingFamily, procedureFacts) : state.structuredFacts),
     [codingFamily, procedureFacts, state.structuredFacts]
@@ -847,7 +873,7 @@ export default function ProceduresNew({
                   .
                 </Sentence>
 
-                {(!codingFamily?.capturesSite || !codingFamily?.capturesSide) && (
+                {siteShown && (!codingFamily?.capturesSite || !codingFamily?.capturesSide) && (
                   <>
                     <SectionLabel>Site</SectionLabel>
                     <Sentence>
@@ -896,13 +922,23 @@ export default function ProceduresNew({
                 {codingFamily && (
                   <>
                     <SectionLabel>{codingFamily.displayName}</SectionLabel>
-                    <ProcedureFamilySentences
-                      family={codingFamily}
-                      value={resolvedStructuredFacts ?? {}}
-                      onChange={(value) => updateState((state) => (state.structuredFacts = value))}
-                      readOnly={isReadOnly}
-                      medicationUsed={state.medicationUsed}
-                    />
+                    {codingFamily.id === ekgFamily.id ? (
+                      <EkgSentences
+                        family={codingFamily}
+                        value={resolvedStructuredFacts ?? {}}
+                        onChange={(value) => updateState((state) => (state.structuredFacts = value))}
+                        readOnly={isReadOnly}
+                        isChild={isPediatricOnDate(patient?.birthDate, state.procedureDate?.toISO() ?? undefined)}
+                      />
+                    ) : (
+                      <ProcedureFamilySentences
+                        family={codingFamily}
+                        value={resolvedStructuredFacts ?? {}}
+                        onChange={(value) => updateState((state) => (state.structuredFacts = value))}
+                        readOnly={isReadOnly}
+                        medicationUsed={state.medicationUsed}
+                      />
+                    )}
                   </>
                 )}
                 <ConditionalCodingFields
@@ -922,104 +958,135 @@ export default function ProceduresNew({
                   onInfusionStopChange={(value) => updateState((state) => (state.infusionStopTime = value))}
                 />
 
-                <SectionLabel>Technique</SectionLabel>
-                <Sentence>
-                  Anesthesia:{' '}
-                  <SelectBlank
-                    label="anesthesia"
-                    title="Anaesthesia / medication used"
-                    options={selectOptions?.medicationsUsed}
-                    value={state.medicationUsed}
-                    onChange={(value) => updateState((state) => (state.medicationUsed = value))}
-                    readOnly={isReadOnly}
-                    clearable
-                    dataTestId={dataTestIds.documentProcedurePage.anaesthesia}
-                  />
-                  . Technique:{' '}
-                  <MultiBlank
-                    label="technique"
-                    title="Technique"
-                    options={selectOptions?.techniques}
-                    values={state.technique}
-                    onChange={(values) => updateState((state) => (state.technique = values))}
-                    readOnly={isReadOnly}
-                    dataTestId={dataTestIds.documentProcedurePage.technique}
-                  />
-                  . Supplies:{' '}
-                  <MultiBlank
-                    label="supplies"
-                    title="Instruments / supplies used"
-                    options={selectOptions?.supplies}
-                    values={state.suppliesUsed}
-                    otherValue={state.otherSuppliesUsed}
-                    onOtherChange={(value) => updateState((state) => (state.otherSuppliesUsed = value))}
-                    onChange={(values) => updateState((state) => (state.suppliesUsed = values))}
-                    readOnly={isReadOnly}
-                    dataTestId={dataTestIds.documentProcedurePage.instruments}
-                  />
-                  .
-                </Sentence>
+                {techniqueShown && <SectionLabel>Technique</SectionLabel>}
+                {sentenceOf([
+                  shows('anesthesia', state.medicationUsed) && (
+                    <>
+                      Anesthesia:{' '}
+                      <SelectBlank
+                        label="anesthesia"
+                        title="Anaesthesia / medication used"
+                        options={selectOptions?.medicationsUsed}
+                        value={state.medicationUsed}
+                        onChange={(value) => updateState((state) => (state.medicationUsed = value))}
+                        readOnly={isReadOnly}
+                        clearable
+                        dataTestId={dataTestIds.documentProcedurePage.anaesthesia}
+                      />
+                    </>
+                  ),
+                  shows('technique', state.technique?.length) && (
+                    <>
+                      Technique:{' '}
+                      <MultiBlank
+                        label="technique"
+                        title="Technique"
+                        options={selectOptions?.techniques}
+                        values={state.technique}
+                        onChange={(values) => updateState((state) => (state.technique = values))}
+                        readOnly={isReadOnly}
+                        dataTestId={dataTestIds.documentProcedurePage.technique}
+                      />
+                    </>
+                  ),
+                  shows('supplies', state.suppliesUsed?.length) && (
+                    <>
+                      Supplies:{' '}
+                      <MultiBlank
+                        label="supplies"
+                        title="Instruments / supplies used"
+                        options={selectOptions?.supplies}
+                        values={state.suppliesUsed}
+                        otherValue={state.otherSuppliesUsed}
+                        onOtherChange={(value) => updateState((state) => (state.otherSuppliesUsed = value))}
+                        onChange={(values) => updateState((state) => (state.suppliesUsed = values))}
+                        readOnly={isReadOnly}
+                        dataTestId={dataTestIds.documentProcedurePage.instruments}
+                      />
+                    </>
+                  ),
+                ])}
 
                 <SectionLabel>Outcome</SectionLabel>
-                <Sentence>
-                  Specimen{' '}
-                  <SelectBlank
-                    label="specimen"
-                    title="Specimen sent"
-                    options={SPECIMEN_SENT}
-                    value={
-                      state.specimenSent == null ? undefined : state.specimenSent ? SPECIMEN_SENT[0] : SPECIMEN_SENT[1]
-                    }
-                    onChange={(value) =>
-                      updateState(
-                        (state) => (state.specimenSent = value === undefined ? undefined : value === SPECIMEN_SENT[0])
-                      )
-                    }
-                    readOnly={isReadOnly}
-                    dataTestId={dataTestIds.documentProcedurePage.specimenSent}
-                  />
-                  . Complications:{' '}
-                  <SelectBlank
-                    label="complications"
-                    title="Complications"
-                    options={selectOptions?.complications}
-                    value={state.complications}
-                    otherValue={state.otherComplications}
-                    onOtherChange={(value) => updateState((state) => (state.otherComplications = value))}
-                    onChange={(value) =>
-                      updateState((state) => {
-                        state.complications = value;
-                        state.otherComplications = undefined;
-                      })
-                    }
-                    readOnly={isReadOnly}
-                    clearable
-                    dataTestId={dataTestIds.documentProcedurePage.complications}
-                  />
-                  . Patient{' '}
-                  <SelectBlank
-                    label="response"
-                    title="Patient response"
-                    options={selectOptions?.patientResponses}
-                    value={state.patientResponse}
-                    onChange={(value) => updateState((state) => (state.patientResponse = value))}
-                    readOnly={isReadOnly}
-                    clearable
-                    dataTestId={dataTestIds.documentProcedurePage.patientResponse}
-                  />
-                  . Time spent:{' '}
-                  <SelectBlank
-                    label="time spent"
-                    title="Time spent"
-                    options={selectOptions?.timeSpent}
-                    value={state.timeSpent}
-                    onChange={(value) => updateState((state) => (state.timeSpent = value))}
-                    readOnly={isReadOnly}
-                    clearable
-                    dataTestId={dataTestIds.documentProcedurePage.timeSpent}
-                  />
-                  .
-                </Sentence>
+                {sentenceOf([
+                  shows('specimen', state.specimenSent != null) && (
+                    <>
+                      Specimen{' '}
+                      <SelectBlank
+                        label="specimen"
+                        title="Specimen sent"
+                        options={SPECIMEN_SENT}
+                        value={
+                          state.specimenSent == null
+                            ? undefined
+                            : state.specimenSent
+                            ? SPECIMEN_SENT[0]
+                            : SPECIMEN_SENT[1]
+                        }
+                        onChange={(value) =>
+                          updateState(
+                            (state) =>
+                              (state.specimenSent = value === undefined ? undefined : value === SPECIMEN_SENT[0])
+                          )
+                        }
+                        readOnly={isReadOnly}
+                        dataTestId={dataTestIds.documentProcedurePage.specimenSent}
+                      />
+                    </>
+                  ),
+                  shows('complications', state.complications) && (
+                    <>
+                      Complications:{' '}
+                      <SelectBlank
+                        label="complications"
+                        title="Complications"
+                        options={selectOptions?.complications}
+                        value={state.complications}
+                        otherValue={state.otherComplications}
+                        onOtherChange={(value) => updateState((state) => (state.otherComplications = value))}
+                        onChange={(value) =>
+                          updateState((state) => {
+                            state.complications = value;
+                            state.otherComplications = undefined;
+                          })
+                        }
+                        readOnly={isReadOnly}
+                        clearable
+                        dataTestId={dataTestIds.documentProcedurePage.complications}
+                      />
+                    </>
+                  ),
+                  shows('patientResponse', state.patientResponse) && (
+                    <>
+                      Patient{' '}
+                      <SelectBlank
+                        label="response"
+                        title="Patient response"
+                        options={selectOptions?.patientResponses}
+                        value={state.patientResponse}
+                        onChange={(value) => updateState((state) => (state.patientResponse = value))}
+                        readOnly={isReadOnly}
+                        clearable
+                        dataTestId={dataTestIds.documentProcedurePage.patientResponse}
+                      />
+                    </>
+                  ),
+                  shows('timeSpent', state.timeSpent) && (
+                    <>
+                      Time spent:{' '}
+                      <SelectBlank
+                        label="time spent"
+                        title="Time spent"
+                        options={selectOptions?.timeSpent}
+                        value={state.timeSpent}
+                        onChange={(value) => updateState((state) => (state.timeSpent = value))}
+                        readOnly={isReadOnly}
+                        clearable
+                        dataTestId={dataTestIds.documentProcedurePage.timeSpent}
+                      />
+                    </>
+                  ),
+                ])}
                 <Sentence>
                   Instructions given:{' '}
                   <MultiBlank

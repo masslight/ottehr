@@ -14,7 +14,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
-import { PAYMENT_METHOD_EXTENSION_URL, RCM_TAG_SYSTEM } from 'utils/lib/fhir/constants';
+import { RCM_TAG_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
 import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
@@ -23,6 +23,7 @@ import {
   parsePaymentVoidFromNotice,
   settledRefundTotalInCents,
 } from 'utils/lib/fhir/paymentRefunds';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
 import {
   buildLineItems,
@@ -35,6 +36,12 @@ import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { AdHocBillingInput, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
+import {
+  encounterIdForPaymentNotice,
+  mergeBillingAndLegacyPaymentNotices,
+  paymentMethodForNotice,
+} from '../../billing/patient-payments';
+import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from '../../billing/payments';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
@@ -183,6 +190,8 @@ const priceVisit = ({
   return { schedule, pricingSource, lineItems, expectedCharge };
 };
 
+const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
+
 // The refunds of a payment that settled, in USD (as the EHR's refundedAmountInCents).
 const refundedAmount = (notice: PaymentNotice): number =>
   settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice)) / 100;
@@ -190,7 +199,12 @@ const refundedAmount = (notice: PaymentNotice): number =>
 // What the patient actually paid with a payment: its amount less the refunds that settled.
 const netPaymentAmount = (notice: PaymentNotice): number => (notice.amount?.value ?? 0) - refundedAmount(notice);
 
-export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBillingInput): Promise<AdHocBillingRow[]> {
+// billingOystehr reads the billing app's PaymentNotices for the payments layer
+export async function fetchAdHocBillingRows(
+  oystehr: Oystehr,
+  params: AdHocBillingInput,
+  billingOystehr: Oystehr
+): Promise<AdHocBillingRow[]> {
   const { dateRange, includePayments, includeCoverage, includeEligibility, includeCharges, includeCodes } = params;
 
   // The main search stays LIGHT — only the bounded per-appointment resources ride along; each opt-in
@@ -289,7 +303,19 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       // Scope to THIS batch's encounters (PaymentNotice.request → Encounter) rather than scanning
       // every PaymentNotice project-wide on each of the ~52 concurrent 7-day batch calls — that
       // whole-table scan grows unbounded as billing history accumulates.
-      const notices = await fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs);
+      // Payments live in the billing app (referencing the encounter's claim); notices the EHR wrote before
+      // the move reference the Encounter and are merged in as the payments list merges them.
+      const [billingNotices, legacyNotices] = await Promise.all([
+        fetchScopedResources<PaymentNotice>(
+          billingOystehr,
+          'PaymentNotice',
+          'request:identifier',
+          encIds.map((id) => `${CLAIM_ENCOUNTER_ID_SYSTEM}|${id}`),
+          [{ name: 'identifier', value: PATIENT_PAYMENT_IDENTIFIER_FILTER }]
+        ),
+        fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs),
+      ]);
+      const notices = mergeBillingAndLegacyPaymentNotices(billingNotices, legacyNotices);
 
       // Voided as the payments list reads it: the notice is cancelled or carries the void record. The voided ones are
       // kept apart (the EHR lists them struck out); only the rest of the active notices are money collected. Any other
@@ -297,7 +323,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       for (const n of notices) {
         if (!n.created) continue;
 
-        const encId = stripRef(n.request?.reference, 'Encounter');
+        const encId = encounterIdForPaymentNotice(n);
 
         if (n.status === 'cancelled' || (n.status === 'active' && parsePaymentVoidFromNotice(n))) {
           pushTo(voidedPaymentsByEncId, encId, n);
@@ -365,7 +391,10 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
 
   // Pick the primary (lowest .order, else first) and secondary coverage from a patient's coverages.
   const planName = (c?: Coverage): string =>
-    c?.class?.find((cl) => cl.type?.coding?.some((t) => t.code === 'plan'))?.name || c?.class?.[0]?.name || '';
+    c?.payor?.[0]?.display ||
+    c?.class?.find((cl) => cl.type?.coding?.some((t) => t.code === 'plan'))?.name ||
+    c?.class?.[0]?.name ||
+    '';
   const SELF_PAY_TYPE_CODES = new Set(['pay', 'PAY', 'SELF', 'self', '81']);
 
   const rows: AdHocBillingRow[] = [];
@@ -436,13 +465,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
         .filter((d): d is string => Boolean(d))
         .sort();
 
-      const methods = Array.from(
-        new Set(
-          notices
-            .map((n) => n.extension?.find((e) => e.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString)
-            .filter((m): m is string => Boolean(m))
-        )
-      );
+      const methods = Array.from(new Set(notices.map(paymentMethodForNotice).filter((m): m is string => Boolean(m))));
 
       const voided = voidedPaymentsByEncId.get(encId) ?? [];
       row.paymentsCollected = paymentsCollected;
@@ -461,7 +484,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
           date: n.created,
           amount: round2(netPaymentAmount(n)),
           refundedAmount: round2(refundedAmount(n)),
-          method: n.extension?.find((e) => e.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '',
+          method: paymentMethodForNotice(n) ?? '',
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
     }
