@@ -704,6 +704,7 @@ export const dataTestIds = {
     procedureDate: 'procedure-date',
     procedureTime: 'procedure-time',
     addDiagnosis: 'add-diagnosis',
+    addCptCode: 'add-cpt-code',
   },
   proceduresPage: {
     title: 'procedures-title',

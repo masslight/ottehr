@@ -381,11 +381,31 @@ describe('procedure form selections', () => {
       />
     );
 
+    await user.click(screen.getByTestId('add-cpt-code'));
     await user.click(screen.getByRole('combobox', { name: 'CPT code' }));
     expect(await screen.findByRole('option', { name: '12042 Intermediate repair' })).toHaveAttribute(
       'aria-disabled',
       'true'
     );
     expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it('shows codes without search or remove controls when read-only', () => {
+    render(
+      <ProcedureCptCodesField
+        codes={[{ code: '12042', display: 'Intermediate repair' }]}
+        searchOptions={[]}
+        isSearching={false}
+        searchTerm=""
+        onSearchTermChange={vi.fn()}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        disabled
+      />
+    );
+
+    expect(screen.getByTestId('cpt-code')).toHaveTextContent('12042');
+    expect(screen.queryByTestId('add-cpt-code')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove 12042' })).not.toBeInTheDocument();
   });
 });
