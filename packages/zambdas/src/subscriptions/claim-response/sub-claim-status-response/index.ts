@@ -67,7 +67,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const billingClient = createBillingClient(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- tags new 277 status responses, which arrive untagged, and must tell billing claims from clinical ones
   const projectClient = createEraReadClient(m2mToken, secrets);
   try {
     await withVersionConflictRetries(

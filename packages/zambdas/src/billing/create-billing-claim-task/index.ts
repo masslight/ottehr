@@ -19,7 +19,6 @@ const ZAMBDA_NAME = 'create-billing-claim-task';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateWithSchema(CreateBillingClaimTaskInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- checks the clinical encounter exists
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
 

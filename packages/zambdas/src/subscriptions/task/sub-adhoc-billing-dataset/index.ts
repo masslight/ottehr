@@ -28,7 +28,6 @@ let m2mToken: string;
 
 async function eraReadClientFor(secrets: Secrets): Promise<Oystehr> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the untagged E/M code ValueSet, and actor names span users' Practitioners and billing Devices
   return createEraReadClient(m2mToken, secrets);
 }
 

@@ -41,7 +41,7 @@ const complexValidation = async (
     }
   }
 
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client can't see Encounters; checks this one exists before recording money against it
+  // The billing client cannot see Encounters, so check the ID before recording money against it.
   const clinicalOystehr = createClinicalOystehrClient(token, params.secrets);
   await fetchById<Encounter>(clinicalOystehr, 'Encounter', params.encounterId);
 

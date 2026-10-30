@@ -1,9 +1,0 @@
-{
-  "extends": "tsconfig/base.json",
-  "compilerOptions": {
-    // The rules are plain CommonJS so ESLint can require() them unbuilt; JSDoc types check them.
-    "allowJs": true,
-    "checkJs": true
-  },
-  "include": ["index.js", "rules", "test", "./*.ts"]
-}

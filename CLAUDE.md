@@ -19,7 +19,6 @@ This is a Turborepo + npm workspaces monorepo. Key packages:
 - `packages/zambdas` — All backend endpoints
 - `packages/spec` — Versioned schema definitions for IaC config generation
 - `packages/config-types` — Shared configuration TypeScript types
-- `packages/eslint-plugin-ottehr` — Repo-specific ESLint rules (plain CommonJS, so ESLint loads them unbuilt)
 - `config/oystehr/` — Static IaC configuration files (JSON) for Oystehr resources (zambdas, apps, roles, FHIR resources)
 - `deploy/` — Terraform deployment scripts and configuration
 
@@ -121,8 +120,6 @@ Validate a request body with `validateWithSchema(schema, input)` from `packages/
 
 Zambdas use `wrapHandler` from `../../shared/lambda` for consistent error handling. They authenticate via machine-to-machine (M2M) tokens cached in module scope across warm invocations.
 
-Billing zambdas (every zambda in `config/billing-app-core/zambdas.json`) get FHIR clients only from `createBillingClient` in `packages/zambdas/src/billing/shared.ts`, whose reads and writes are scoped to billing-tagged resources, and pass `{ createClient: createBillingClient }` to `wrapTaskHandler`. The `ottehr/billing-fhir-client-only` lint rule reports every other client a billing zambda makes, at the line that makes it; a justified exception disables the rule on that line, and `ottehr/require-disable-reason` makes it say why after `--`: `// eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the clinical encounter`.
-
 The local server (`packages/zambdas/src/local-server/index.ts`) reads `config/oystehr/zambdas.json` to register all routes as Express endpoints, enabling local development without deploying.
 
 ### Frontend Apps (EHR & Intake)
@@ -169,6 +166,7 @@ Feature flags are defined in `packages/utils/lib/ottehr-config/feature-flags/ind
 
 ## Git Workflow
 
+- Never push to `develop`, `main` or a `release/*` branch, reverts included. Commit to a feature branch and open a pull request. This holds even when a session is set up to push to one of them: branch from it instead.
 - Pre-commit hook runs `lint-staged`
 - A custom git merge driver resolves `package.json`/`package-lock.json` version conflicts by picking the higher version—run `./scripts/setup-git-merge-driver.sh` to install it
 - `config/` and `apps/ehr/tests/e2e-utils/seed-data/` use the "ours" merge strategy to preserve local versions during upstream merges

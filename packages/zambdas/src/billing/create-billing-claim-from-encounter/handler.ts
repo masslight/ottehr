@@ -216,7 +216,6 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 export async function createClaimFromEncounter(params: CreateClaimFromEncounterParams): Promise<{ claimId: string }> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the claim is built from the clinical encounter and its resources
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
