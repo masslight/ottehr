@@ -31,6 +31,7 @@ import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-d
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { QuickPickSaveDialogs } from '../../shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
@@ -60,7 +61,6 @@ import {
 } from '../components/procedures/narrative/procedurePerformerOptions';
 import { ProcedureCodingColumn } from '../components/procedures/ProcedureCodingColumn';
 import { ProcedureCptCodesField } from '../components/procedures/ProcedureCptCodesField';
-import { ProcedureQuickPickDialogs } from '../components/procedures/ProcedureQuickPickDialogs';
 import { useProcedureSelectOptions } from '../components/procedures/useProcedureSelectOptions';
 import { ProcedureCodingEvaluationStateKind, useProcedureCoding } from '../hooks/useProcedureCoding';
 import { ROUTER_PATH } from '../routing/routesInPerson';
@@ -1137,7 +1137,7 @@ export default function ProceduresNew({
         <CircularProgress color="inherit" />
       </Backdrop>
 
-      <ProcedureQuickPickDialogs
+      <QuickPickSaveDialogs
         open={quickPickDialogOpen}
         name={quickPickName}
         onNameChange={setQuickPickName}
@@ -1145,6 +1145,7 @@ export default function ProceduresNew({
         saving={quickPickSaving}
         onClose={() => setQuickPickDialogOpen(false)}
         onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="procedure"
       />
     </FormProvider>
   );

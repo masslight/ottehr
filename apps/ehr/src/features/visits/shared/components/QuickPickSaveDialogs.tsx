@@ -9,20 +9,24 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { FC, useState } from 'react';
-import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { ReactElement, useState } from 'react';
 
-interface ProcedureQuickPickDialogsProps {
+const buttonSx = { borderRadius: 25, textTransform: 'none', fontWeight: 'bold' } as const;
+const titleSx = { color: 'primary.dark', fontWeight: 600 } as const;
+
+interface QuickPickSaveDialogsProps<T extends { id?: string; name: string }> {
   open: boolean;
   name: string;
   onNameChange: (name: string) => void;
-  existingQuickPicks: ProcedureQuickPickData[];
+  existingQuickPicks: T[];
   saving: boolean;
   onClose: () => void;
   onSave: (overwriteId?: string) => void;
+  /** Used in the replace confirmation, e.g. "procedure" or "radiology order". */
+  entityLabel: string;
 }
 
-export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
+export const QuickPickSaveDialogs = <T extends { id?: string; name: string }>({
   open,
   name,
   onNameChange,
@@ -30,13 +34,14 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
   saving,
   onClose,
   onSave,
-}) => {
-  const [overwriteTarget, setOverwriteTarget] = useState<ProcedureQuickPickData | null>(null);
+  entityLabel,
+}: QuickPickSaveDialogsProps<T>): ReactElement => {
+  const [overwriteTarget, setOverwriteTarget] = useState<T | null>(null);
 
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Add to Quick Picks</DialogTitle>
+        <DialogTitle sx={titleSx}>Add to Quick Picks</DialogTitle>
         <DialogContent>
           <Autocomplete
             freeSolo
@@ -56,13 +61,14 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
             )}
           />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={onClose} disabled={saving}>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+          <Button variant="outlined" onClick={onClose} disabled={saving} sx={buttonSx}>
             Cancel
           </Button>
           <Button
             variant="contained"
             disabled={!name.trim() || saving}
+            sx={buttonSx}
             onClick={() => {
               const existing = existingQuickPicks.find(
                 (quickPick) => quickPick.name.toLowerCase() === name.trim().toLowerCase()
@@ -80,23 +86,24 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
       </Dialog>
 
       <Dialog open={overwriteTarget != null} onClose={() => setOverwriteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Update Existing Quick Pick?</DialogTitle>
+        <DialogTitle sx={titleSx}>Update Existing Quick Pick?</DialogTitle>
         <DialogContent>
           <Typography>
             A quick pick named &ldquo;{overwriteTarget?.name}&rdquo; already exists. Do you want to replace it with the
-            current procedure data?
+            current {entityLabel} data?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setOverwriteTarget(null)}>Back</Button>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+          <Button variant="outlined" onClick={() => setOverwriteTarget(null)} sx={buttonSx}>
+            Back
+          </Button>
           <Button
             variant="contained"
+            sx={buttonSx}
             onClick={() => {
               const targetId = overwriteTarget?.id;
               setOverwriteTarget(null);
-              if (targetId) {
-                onSave(targetId);
-              }
+              if (targetId) onSave(targetId);
             }}
           >
             Replace
