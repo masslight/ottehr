@@ -306,6 +306,7 @@
             "Zambda:Function:get-billing-work-queues",
             "Zambda:Function:get-billing-work-queue",
             "Zambda:Function:save-billing-work-queue",
+            "Zambda:Function:delete-billing-work-queue",
             "Zambda:Function:search-billing-work-queue-owners",
             "Zambda:Function:get-billing-claim-detail",
             "Zambda:Function:get-billing-claim-history",
