@@ -190,7 +190,7 @@ describe('Prescription sets on the order form', () => {
   });
 
   describe('the medication menu', () => {
-    it('before typing: a prompt to search medications on the left, the Active sets and quick picks on the right', async () => {
+    it('before typing: the Active quick picks and sets on the left, a prompt to search medications on the right', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
       await openMenu(user);
@@ -210,12 +210,12 @@ describe('Prescription sets on the order form', () => {
       expect(screen.getByText('Medications')).toBeInTheDocument();
       expect(menuItems(medicationColumn())).toEqual(['+ compound']);
       expect(within(medicationColumn()).getByText(/^Type to search medications or/)).toBeInTheDocument();
-      // The medications come first, on the left (and on top when the columns stack).
+      // The quick picks come first, on the left (and on top when the columns stack).
       expect(
-        medicationColumn().compareDocumentPosition(quickPickColumn()) & Node.DOCUMENT_POSITION_FOLLOWING
+        quickPickColumn().compareDocumentPosition(medicationColumn()) & Node.DOCUMENT_POSITION_FOLLOWING
       ).toBeTruthy();
       // The field names the two lists it drives.
-      expect(field().getAttribute('aria-controls')?.split(' ')).toEqual([medicationColumn().id, quickPickColumn().id]);
+      expect(field().getAttribute('aria-controls')?.split(' ')).toEqual([quickPickColumn().id, medicationColumn().id]);
     });
 
     it('lists up to 10 quick picks and 10 sets after them before anything is typed, then says to type for more', async () => {
@@ -423,16 +423,17 @@ describe('Prescription sets on the order form', () => {
       expect(highlighted()).toBe('+ compound starting with Amoxicillin');
       await user.keyboard('{ArrowDown}');
       expect(highlighted()).toBe('Amoxicillin');
-      await user.keyboard('{ArrowRight}');
+      // The quick picks are on the left.
+      await user.keyboard('{ArrowLeft}');
       expect(highlighted()).toBe(AMOX_ROWS[0]);
       await user.keyboard('{ArrowDown}');
       expect(highlighted()).toBe(AMOX_ROWS[1]);
-      // Back to the medications: the nearest row there, the last one.
-      await user.keyboard('{ArrowLeft}');
+      // Back to the medications on the right: the nearest row there, the last one.
+      await user.keyboard('{ArrowRight}');
       expect(highlighted()).toBe('+ compound starting with Amoxicillin');
       await user.keyboard('{ArrowUp}');
       expect(highlighted()).toBe('Amoxicillin');
-      await user.keyboard('{ArrowRight}');
+      await user.keyboard('{ArrowLeft}');
       expect(highlighted()).toBe(AMOX_ROWS[0]);
       // Up from the top goes round to the bottom: the last set.
       await user.keyboard('{ArrowUp}');
@@ -452,8 +453,8 @@ describe('Prescription sets on the order form', () => {
       await user.click(field());
       await user.keyboard('{ArrowDown}');
       expect(highlighted()).toBe(AMOX_ROWS[0]);
-      // "+ compound" is a Left away.
-      await user.keyboard('{ArrowLeft}');
+      // "+ compound" is a Right away.
+      await user.keyboard('{ArrowRight}');
       expect(highlighted()).toBe('+ compound');
       // Typing clears the highlight.
       await user.type(field(), 'amox');

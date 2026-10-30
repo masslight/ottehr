@@ -413,14 +413,14 @@ const MedicationMenu: FC<{
       setActive({ column, row });
     };
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      // Without results, the quick picks first: "+ compound" is a Left away.
+      // Without results, the quick picks first: "+ compound" is a Right away.
       const column = highlighted?.column ?? (medicationPicks.length || !quickPickPicks.length ? 0 : 1);
       const count = columns[column].length;
       const step = event.key === 'ArrowDown' ? 1 : -1;
       if (count) move(column, highlighted ? (highlighted.row + step + count) % count : step > 0 ? 0 : count - 1);
     } else if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && highlighted) {
-      // Until a row is highlighted, Left/Right move in the text.
-      const column = event.key === 'ArrowLeft' ? 0 : 1;
+      // Until a row is highlighted, Left/Right move in the text. The quick picks (column 1) are on the left.
+      const column = event.key === 'ArrowLeft' ? 1 : 0;
       const count = columns[column].length;
       if (column !== highlighted.column && count) move(column, Math.min(highlighted.row, count - 1));
     } else if (event.key === 'Enter' && highlighted) {
@@ -489,8 +489,8 @@ const MedicationMenu: FC<{
       </li>
     );
 
-  // Each column scrolls on its own (the rows' offsets measured from it); on a narrow screen the quick picks go under
-  // the medications. A fixed height, not a maximum: one following the rows resized the popup as typing emptied and
+  // The quick picks on the left, the search's medications on the right. Each column scrolls on its own (the rows'
+  // offsets measured from it); on a narrow screen the medications go under the quick picks. A fixed height, not a maximum: one following the rows resized the popup as typing emptied and
   // refilled the columns.
   const columnSx = {
     position: 'relative',
@@ -519,12 +519,29 @@ const MedicationMenu: FC<{
           autoComplete: 'off',
           'aria-autocomplete': 'list',
           'aria-expanded': true,
-          'aria-controls': `${id}-medications ${id}-quick-picks`,
+          'aria-controls': `${id}-quick-picks ${id}-medications`,
           'aria-activedescendant': activeId,
         }}
       />
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1, mt: 1 }}>
         <Box data-menu-column sx={columnSx}>
+          <Box
+            component="ul"
+            id={`${id}-quick-picks`}
+            role="listbox"
+            aria-label="Prescription sets and quick picks"
+            sx={MENU_LIST_SX}
+          >
+            {group('Quick picks', listed.quickPicks, 0)}
+            {group('Prescription sets', listed.sets, listed.quickPicks.length)}
+          </Box>
+          {quickPickPicks.length === 0 && <MenuMessage>No quick picks match</MenuMessage>}
+          {listed.more && <MenuMessage>Type to search more</MenuMessage>}
+        </Box>
+        <Box
+          data-menu-column
+          sx={{ ...columnSx, borderLeft: { sm: 1 }, borderTop: { xs: 1, sm: 0 }, borderColor: 'divider' }}
+        >
           <MenuHeading id={`${id}-medications-heading`}>Medications</MenuHeading>
           <Box
             component="ul"
@@ -557,23 +574,6 @@ const MedicationMenu: FC<{
               </Box>
             )
           )}
-        </Box>
-        <Box
-          data-menu-column
-          sx={{ ...columnSx, borderLeft: { sm: 1 }, borderTop: { xs: 1, sm: 0 }, borderColor: 'divider' }}
-        >
-          <Box
-            component="ul"
-            id={`${id}-quick-picks`}
-            role="listbox"
-            aria-label="Prescription sets and quick picks"
-            sx={MENU_LIST_SX}
-          >
-            {group('Quick picks', listed.quickPicks, 0)}
-            {group('Prescription sets', listed.sets, listed.quickPicks.length)}
-          </Box>
-          {quickPickPicks.length === 0 && <MenuMessage>No quick picks match</MenuMessage>}
-          {listed.more && <MenuMessage>Type to search more</MenuMessage>}
         </Box>
       </Box>
     </Box>
