@@ -1,8 +1,8 @@
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
+import { VitalsOverTime } from 'src/features/past-visits/components/VitalsOverTime';
 import { useGetPastVisits } from 'src/features/past-visits/past-visits.queries';
 import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
-import { AppointmentInformationIntake } from 'utils/lib/types/data/appointments/appointments.types';
 import { formatVisitDate } from 'utils/lib/utils/date';
 import { intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
@@ -19,15 +19,15 @@ const PastVisits = (): JSX.Element => {
   );
 
   const pastAppointments = pastVisitsData?.appointments;
+  const pastVitals = pastVisitsData?.vitals;
 
-  const handleVisitDetails = (appointment: AppointmentInformationIntake): void => {
-    if (!appointment || !patientId) {
+  const handleVisitDetails = (visitId: string): void => {
+    if (!visitId || !patientId) {
       return;
     }
-    const { id } = appointment;
     const destination = generatePath(intakeFlowPageRoute.VisitDetails.path, {
       patientId,
-      visitId: id,
+      visitId,
     });
     navigate(destination);
   };
@@ -49,6 +49,14 @@ const PastVisits = (): JSX.Element => {
       )}
       {!isFetching && (
         <>
+          {pastVitals && pastVitals.length > 0 && (
+            <>
+              <VitalsOverTime vitals={pastVitals} onSelectVisit={handleVisitDetails} />
+              <Typography variant="h3" color="primary.main">
+                Visit history
+              </Typography>
+            </>
+          )}
           {!pastAppointments ||
             (pastAppointments?.length < 1 && (
               <Typography variant="caption" data-testid="empty-state-message">
@@ -116,7 +124,7 @@ const PastVisits = (): JSX.Element => {
                       py: 1,
                       px: 2,
                     }}
-                    onClick={() => handleVisitDetails(appointment)}
+                    onClick={() => handleVisitDetails(appointment.id)}
                   >
                     View Details
                   </Button>

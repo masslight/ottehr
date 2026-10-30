@@ -16,7 +16,12 @@ import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { getFhirResources, mapEncountersToAppointmentIds } from './helpers';
+import {
+  CompletedVisit,
+  getFhirResources,
+  getVitalsForCompletedVisits,
+  mapEncountersToAppointmentIds,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-past-visits';
@@ -74,6 +79,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const locations = allResources.filter((resource) => resource.resourceType === 'Location') as Location[];
   const encountersMap = mapEncountersToAppointmentIds(allResources);
   const appointments: AppointmentInformationIntake[] = [];
+  const completedVisits: CompletedVisit[] = [];
   const pastVisitStatuses = ['fulfilled', 'cancelled'];
 
   allResources
@@ -123,13 +129,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         type: appointmentType,
       };
       appointments.push(appointment);
+
+      if (fhirAppointment.status === 'fulfilled' && encounter.id && fhirAppointment.start) {
+        completedVisits.push({
+          appointmentId: fhirAppointment.id,
+          encounterId: encounter.id,
+          date: fhirAppointment.start,
+          timezone,
+        });
+      }
     });
 
   const sorted = appointments.sort((a, b) => new Date(b.start || '').getTime() - new Date(a.start || '').getTime());
   console.log(`returning ${sorted.length} past visit(s)`);
 
+  console.log(`getting vitals for ${completedVisits.length} completed visit(s)`);
+  const vitals = await getVitalsForCompletedVisits(oystehr, completedVisits);
+
   const response: GetPastVisitsResponse = {
     appointments: sorted,
+    vitals,
   };
 
   return {

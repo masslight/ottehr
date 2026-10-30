@@ -28,6 +28,17 @@ import { FhirAppointmentType } from '../../common';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
+  vitals?: PastVisitVitals[];
+}
+
+/** Vitals recorded during one completed visit, in the units they are stored in. */
+export interface PastVisitVitals {
+  appointmentId: string;
+  date: string;
+  timezone?: string;
+  heartRateBpm?: number;
+  weightKg?: number;
+  heightCm?: number;
 }
 
 export interface AppointmentInformationIntake {
