@@ -215,7 +215,20 @@ describe('Refill request dialog: the order form outside a visit', () => {
     await waitFor(() =>
       expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
     );
+    // The dialog's toast only, not the order form's too.
+    expect(enqueueSnackbar).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows the patient’s info once: the order form’s, while it’s open', async () => {
+    const user = await open({
+      ...PHARMACY_REQUEST,
+      patient: { ...PATIENT, telecom: [{ system: 'phone', value: '5125550187' }] },
+    });
+    expect(screen.getAllByText('Patient Info')).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Change and approve' }));
+    expect(screen.getAllByText('Patient Info')).toHaveLength(1);
+    expect(screen.getAllByText('(512) 555-0187')).toHaveLength(1);
   });
 
   it('Change and approve of a change request starts from the selected suggestion and answers with it', async () => {
@@ -285,10 +298,17 @@ describe('Refill request dialog: the order form outside a visit', () => {
     const user = await open({
       taskId: 'task-1',
       kind: 'refill',
-      patientRequest: { note: 'Called; out in 2 days.', takenBy: 'Kim Front', taken: '2026-10-28T10:00:00.000Z' },
+      patientRequest: {
+        title: 'Mom called for lisinopril refill',
+        note: 'Called; out in 2 days.',
+        takenBy: 'Kim Front',
+        taken: '2026-10-28T10:00:00.000Z',
+      },
       prescription: PRESCRIPTION,
       patient: PATIENT,
     });
+    // What staff wrote: the task's title and details.
+    expect(screen.getByText('Mom called for lisinopril refill')).toBeInTheDocument();
     expect(screen.getByText('Called; out in 2 days.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Deny' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send prescription' }));
@@ -308,6 +328,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     await waitFor(() =>
       expect(enqueueSnackbar).toHaveBeenCalledWith('Prescription sent to Sample Pharmacy One', { variant: 'success' })
     );
+    expect(enqueueSnackbar).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalled();
   });
 

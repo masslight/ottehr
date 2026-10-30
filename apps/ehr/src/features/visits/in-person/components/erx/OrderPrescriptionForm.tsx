@@ -67,6 +67,8 @@ interface OrderPrescriptionFormProps {
   sendLabel?: string;
   /** After every prescription went, with the pharmacy it went to. */
   onSent?: (pharmacy: PharmacySearchResult) => void;
+  /** No "Prescription sent" toast of its own: `onSent` says what went out. */
+  quietSent?: boolean;
 }
 
 export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
@@ -76,6 +78,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   onSend,
   sendLabel,
   onSent,
+  quietSent,
 }) => {
   const theme = useTheme();
   const appointmentData = useAppointmentData();
@@ -207,9 +210,11 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
         sent.push(line);
         setLines((current) => current.filter((item) => item.key !== line.key));
       }
-      enqueueSnackbar(sent.length === 1 ? 'Prescription sent' : `${sent.length} prescriptions sent`, {
-        variant: 'success',
-      });
+      if (!quietSent) {
+        enqueueSnackbar(sent.length === 1 ? 'Prescription sent' : `${sent.length} prescriptions sent`, {
+          variant: 'success',
+        });
+      }
       setLines([emptyPrescriptionLine()]);
       setSendAttempted(false);
       onSent?.(pharmacy);

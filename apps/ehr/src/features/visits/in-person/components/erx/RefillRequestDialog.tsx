@@ -19,7 +19,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactNode, useState } from 'react';
+import { FC, ReactNode, useRef, useState } from 'react';
 import { getErxRequest, respondToChange, respondToRenewal } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -126,6 +126,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const [priorAuthorization, setPriorAuthorization] = useState('');
   const [note, setNote] = useState('');
   const [reason, setReason] = useState('');
+  const noteRef = useRef<HTMLInputElement>(null);
   const respond = useMutation({
     mutationFn: async (body: RenewalResponseInput | ChangeResponseInput) => {
       if (!token) throw new Error('API client not available');
@@ -145,12 +146,15 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const selected = suggestions[suggestion];
   // A drug-use alert with no suggestion is approved as written: the eRx service answers Approved with the original.
   const asWritten = change?.code === 'D' && !suggestions.length;
-  // Approve sends what the pharmacy asked; a change request with no suggestion has nothing to approve as is.
-  const answers = priorAuth
-    ? ANSWERS.filter((item) => item !== 'change')
-    : change && !suggestions.length && !asWritten
-    ? ANSWERS.filter((item) => item !== 'approve')
-    : ANSWERS;
+  // Approve sends what the pharmacy asked; a change request with no suggestion has nothing to approve as is. A change
+  // request is answered Pending only when it asks for a prior authorization.
+  const answers = (
+    priorAuth
+      ? ANSWERS.filter((item) => item !== 'change')
+      : change && !suggestions.length && !asWritten
+      ? ANSWERS.filter((item) => item !== 'approve')
+      : ANSWERS
+  ).filter((item) => !(change && !priorAuth && item === 'pending'));
   const answer = answers.includes(chosen) ? chosen : answers[0];
   const answerLabel = (key: Answer): string =>
     key === 'approve' && change && !priorAuth
@@ -275,6 +279,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             },
           }
         : { sendLabel: 'Send prescription' })}
+      // The dialog's toast says what went out, in place of the form's.
+      quietSent
       onSent={(sentTo) =>
         void completeAfterSending(`${request ? SENT_LABEL.change : 'Prescription'} sent to ${sentTo.name}`)
       }
@@ -335,8 +341,14 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 {change.subCodes.length > 0 && ` (sub-codes ${change.subCodes.join(', ')})`}
               </Typography>
             )}
+            {data.patientRequest?.title && (
+              <Typography>
+                <b>{data.patientRequest.title}</b>
+              </Typography>
+            )}
             {data.patientRequest?.note && <Typography>{data.patientRequest.note}</Typography>}
-            {(contact.address || contact.phone) && (
+            {/* The order form shows the patient's info beside it, so it's shown once. */}
+            {!showForm && (contact.address || contact.phone) && (
               <Box>
                 <SectionHeading>Patient Info</SectionHeading>
                 <Rows
@@ -465,7 +477,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     label="Reason"
                     required
                     value={reason}
-                    onChange={(event) => setReason(event.target.value)}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                      // The note is what's typed next, not the menu the reason was picked from.
+                      setTimeout(() => noteRef.current?.focus());
+                    }}
                   >
                     {reasons.map((item) => (
                       <MenuItem key={item} value={item}>
@@ -477,6 +493,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 {!closed && answer !== 'change' && (
                   <TextField
                     label="Note to pharmacy (optional)"
+                    inputRef={noteRef}
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
                     inputProps={{ maxLength: noteMax }}

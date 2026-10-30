@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { GetErxRequestResponse } from 'utils/lib/types/api/erx.types';
@@ -143,6 +143,29 @@ describe('Change request dialog', () => {
       expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('offers Pending only for a prior authorization request', async () => {
+    const answers = (): string[] =>
+      within(screen.getByText('Your answer').parentElement!)
+        .getAllByRole('button')
+        .map((button) => button.textContent ?? '');
+    await open(OUT_OF_STOCK);
+    expect(answers()).toEqual(['Approve selected', 'Change and approve', 'Deny']);
+    cleanup();
+    await open(CHANGE('G', { suggestions: OUT_OF_STOCK.pharmacyChangeRequest!.suggestions }));
+    expect(answers()).toEqual(['Approve selected', 'Change and approve', 'Deny']);
+    cleanup();
+    await open(CHANGE('P'));
+    expect(answers()).toEqual(['Approve', 'Deny', 'Pending']);
+  });
+
+  it('moves to the note once a reason is picked', async () => {
+    const user = await open(OUT_OF_STOCK);
+    await user.click(screen.getByRole('button', { name: 'Deny' }));
+    await user.click(screen.getByRole('combobox', { name: /Reason/ }));
+    await user.click(screen.getByRole('option', { name: 'Change not appropriate' }));
+    await waitFor(() => expect(screen.getByLabelText(/Note to pharmacy/)).toHaveFocus());
   });
 
   it('denies a change request with a change denial reason', async () => {
