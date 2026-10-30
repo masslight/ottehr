@@ -655,17 +655,21 @@ export const getAppointmentMetaTagOpForStatusUpdate = (
     updatedByOverride?: string;
   }
 ): Operation[] => {
+  return getPatchOperationsForNewMetaTags(appointment, getAppointmentStatusUpdateTags(updatedStatus, updatedBy));
+};
+
+export const getAppointmentStatusUpdateTags = (
+  updatedStatus: VisitStatusWithoutUnknown,
+  updatedBy: {
+    user?: User;
+    updatedByOverride?: string;
+  }
+): Coding[] => {
   const { user, updatedByOverride } = updatedBy;
   const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus, display: updatedStatus };
   const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
   const updatedByText = updatedByOverride ? updatedByOverride : staffUpdateBy;
-  const updateTag = {
-    system: CRITICAL_CHANGE_SYSTEM,
-    display: updatedByText,
-    version: DateTime.now().toISO() || '',
-  };
-  const ops = getPatchOperationsForNewMetaTags(appointment, [statusTag, updateTag]);
-  return ops;
+  return [statusTag, createCriticalUpdateTag(updatedByText)];
 };
 
 /**
