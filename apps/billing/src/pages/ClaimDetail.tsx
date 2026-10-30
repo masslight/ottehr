@@ -1031,6 +1031,7 @@ export function InsuranceSection({
           />
           <Row label="Payer ID" value={coverage.payorId} />
           <Row label="Member ID" value={coverage.memberId ?? ''} />
+          <Row label="Group Number" value={coverage.groupNumber} />
           <Row label="Relationship to insured" value={coverage.relationship ?? ''} />
           {coverage.policyHolder && (
             <Row

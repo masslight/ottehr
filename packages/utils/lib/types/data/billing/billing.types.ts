@@ -86,6 +86,7 @@ export interface BillingCoverageOption {
   planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
+  groupNumber?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
 }
 
@@ -504,6 +505,7 @@ export interface ClaimDetailResponse {
   payerId: string;
   payerClaimControlNumber?: string;
   memberId: string;
+  groupNumber?: string;
   subscriberId: string;
   planType: string;
   relationship: SubscriberRelationship;
@@ -513,16 +515,19 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  secondaryGroupNumber?: string;
   secondaryPayerClaimControlNumber?: string;
   tertiaryCoverageFhirId: string;
   tertiaryPayerName: string;
   tertiaryPayerId: string;
   tertiaryMemberId: string;
+  tertiaryGroupNumber?: string;
   tertiaryPayerClaimControlNumber?: string;
   quaternaryCoverageFhirId: string;
   quaternaryPayerName: string;
   quaternaryPayerId: string;
   quaternaryMemberId: string;
+  quaternaryGroupNumber?: string;
   quaternaryPayerClaimControlNumber?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;

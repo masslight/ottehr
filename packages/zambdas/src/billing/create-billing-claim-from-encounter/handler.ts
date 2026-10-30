@@ -669,6 +669,7 @@ export function copyCoverageAndSubscriber(
   let copy = workingCopy
     ? prepareWorkingCopy<Coverage>(coverage, coverage.id!)
     : prepareCopy<Coverage>(coverage, coverage.id!);
+  // Replace beneficiary reference
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
   // Subscriber is patient by default, check for contained RelatedPerson
   let subscriberId = patientUuidOrUrn;
