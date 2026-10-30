@@ -798,10 +798,19 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   const { medication } = line;
   const activeSets = useMemo(() => sets?.filter((set) => set.status === 'Active') ?? [], [sets]);
   // A new rows array resets the picks inside the suggestions box, so it changes only with the product, weight, quick
-  // picks or sets.
+  // picks, sets or the row the line was filled from.
   const suggestions = useMemo(
-    () => (medication ? prescriptionSuggestionsFor({ medication, weightKg, quickPicks, sets: activeSets }) : []),
-    [medication, weightKg, quickPicks, activeSets]
+    () =>
+      medication
+        ? prescriptionSuggestionsFor({
+            medication,
+            weightKg,
+            quickPicks,
+            sets: activeSets,
+            picked: line.pickedSuggestion,
+          })
+        : [],
+    [medication, weightKg, quickPicks, activeSets, line.pickedSuggestion]
   );
   // The directions and dispense blanks wait for a pick among the suggestions (or "Other"), unless the line opens
   // with directions (a quick pick, an edited line). A new medication or strength hides them again until a pick,

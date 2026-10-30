@@ -146,10 +146,10 @@ const Form = ({
   );
 };
 
-/** A line as picking the quick pick from the list on a new line makes it. */
-const listed = (quickPick: PrescriptionQuickPickData): Omit<PrescriptionLine, 'key'> => {
+/** A line as picking the quick pick from the list on a new line makes it; a set's line shows the set's row first. */
+const listed = (quickPick: PrescriptionQuickPickData, fromSet?: string): Omit<PrescriptionLine, 'key'> => {
   const { key: _key, ...line } = withListedQuickPick(emptyPrescriptionLine(), quickPick, WEIGHT.kg);
-  return line;
+  return fromSet ? { ...line, pickedSuggestion: `set-${fromSet}` } : line;
 };
 const withoutKey = ({ key: _key, ...line }: PrescriptionLine): Omit<PrescriptionLine, 'key'> => line;
 
@@ -491,7 +491,11 @@ describe('Prescription sets on the order form', () => {
       render(<Form initial={[emptyPrescriptionLine(), after]} />);
       await openMenu(user);
       await user.click(within(quickPickColumn()).getByText('Ear infection'));
-      expect(latest.map(withoutKey)).toEqual([listed(BY_WEIGHT), listed(IBUPROFEN), withoutKey(after)]);
+      expect(latest.map(withoutKey)).toEqual([
+        listed(BY_WEIGHT, 'set-ear'),
+        listed(IBUPROFEN, 'set-ear'),
+        withoutKey(after),
+      ]);
       // Re-dosed for the weight, with its maximum and settings, as the quick pick itself is.
       expect(latest[0]).toMatchObject({ dose: '9', dosing: { rate: 25, basis: 'mg/kg/dose' } });
       expect(screen.getAllByRole('button', { name: /^medication/ })).toHaveLength(3);
@@ -504,7 +508,11 @@ describe('Prescription sets on the order form', () => {
       render(<Form initial={[held]} />);
       await openMenu(user);
       await user.click(within(quickPickColumn()).getByText('Ear infection'));
-      expect(latest.map(withoutKey)).toEqual([withoutKey(held), listed(BY_WEIGHT), listed(IBUPROFEN)]);
+      expect(latest.map(withoutKey)).toEqual([
+        withoutKey(held),
+        listed(BY_WEIGHT, 'set-ear'),
+        listed(IBUPROFEN, 'set-ear'),
+      ]);
     });
 
     it('skips a quick pick that no longer exists and says so', async () => {
@@ -512,7 +520,7 @@ describe('Prescription sets on the order form', () => {
       render(<Form initial={[emptyPrescriptionLine()]} />);
       await openMenu(user);
       await user.click(within(quickPickColumn()).getByText('Acute otitis'));
-      expect(latest.map(withoutKey)).toEqual([listed(IBUPROFEN), listed(BY_WEIGHT)]);
+      expect(latest.map(withoutKey)).toEqual([listed(IBUPROFEN, 'set-ao'), listed(BY_WEIGHT, 'set-ao')]);
       expect(notices).toEqual(['1 prescription in this set no longer exists.']);
     });
   });
@@ -565,7 +573,8 @@ describe('Prescription sets on the order form', () => {
         patientInstructions: 'Take 9 mL by mouth twice daily for 10 days.',
         dosing: { rate: 25, basis: 'mg/kg/dose' },
       });
-      expect(withoutKey(latest[1])).toEqual(listed(IBUPROFEN));
+      expect(latest[0].pickedSuggestion).toBe('set-set-ao');
+      expect(withoutKey(latest[1])).toEqual(listed(IBUPROFEN, 'set-ao'));
       expect(notices).toEqual(['1 prescription in this set no longer exists.']);
     });
 
@@ -577,7 +586,54 @@ describe('Prescription sets on the order form', () => {
       expect(within(row).getByText(/^Also adds: Amoxicillin 400 mg\/5ml Susp. Take 9 mL/)).toBeInTheDocument();
       await user.click(within(row).getByRole('button', { name: 'Use this prescription' }));
       expect(latest[0]).toMatchObject({ patientInstructions: 'Take 5 mL by mouth twice daily for 10 days.' });
-      expect(withoutKey(latest[1])).toEqual(listed(BY_WEIGHT));
+      expect(withoutKey(latest[1])).toEqual(listed(BY_WEIGHT, 'set-both'));
+    });
+  });
+
+  describe('the suggestion the line was filled from comes first', () => {
+    // Every row of every line's box in order, the one "In use" (no "+") among them.
+    const shownRow = (index: number): HTMLElement =>
+      [
+        ...screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ }),
+        ...screen.queryAllByRole('img', { name: 'In use' }),
+      ]
+        .sort((x, y) => (x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+        [index].closest('.MuiBox-root')!.parentElement!;
+
+    it('a quick pick picked from the menu, though second by default', async () => {
+      const user = userEvent.setup();
+      render(<Form initial={[emptyPrescriptionLine()]} sets={[]} />);
+      await openMenu(user);
+      await user.click(within(quickPickColumn()).getByText('Amox strep'));
+      expect(shownRow(0)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
+      expect(shownRow(1)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
+    });
+
+    it('a set picked from the menu: its row first on every line it fills', async () => {
+      const user = userEvent.setup();
+      render(<Form initial={[emptyPrescriptionLine()]} />);
+      await openMenu(user);
+      await user.click(within(quickPickColumn()).getByText('Acute otitis'));
+      // Ibuprofen's line: by default its quick pick, then Acute otitis, then Ear infection.
+      expect(shownRow(0)).toHaveTextContent(/^Acute otitisSet · 2/);
+      expect(shownRow(1)).toHaveTextContent(/^Take 5 mL by mouth every 6 hours as needed for pain/);
+      expect(shownRow(2)).toHaveTextContent(/^Ear infection/);
+      // Amox's line, after Ibuprofen's three rows and "Write my own".
+      expect(shownRow(4)).toHaveTextContent(/Acute otitisSet · 2/);
+      expect(shownRow(5)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
+    });
+
+    it('a set whose row the cap of three would cut still shows, first', async () => {
+      const user = userEvent.setup();
+      render(<Form initial={[emptyPrescriptionLine()]} />);
+      await openMenu(user);
+      // Fourth for Amox by default: Amox as written, Amox strep, Acute otitis.
+      await user.click(within(quickPickColumn()).getByText('Ear infection'));
+      expect(shownRow(0)).toHaveTextContent(/Ear infectionSet · 2/);
+      expect(shownRow(1)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
+      expect(shownRow(2)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
+      expect(shownRow(2)).not.toHaveTextContent('Set ·');
+      expect(shownRow(3)).toHaveTextContent('Other');
     });
   });
 

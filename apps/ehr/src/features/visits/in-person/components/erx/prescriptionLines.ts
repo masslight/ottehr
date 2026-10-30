@@ -77,6 +77,9 @@ export interface PrescriptionLine extends PrescriptionDirections {
   generated: GeneratedFields;
   /** What the quick pick in use set beyond the directions, which a new product clears where still unchanged. */
   quickPicked: QuickPickedFields | null;
+  /** The suggestion row the line was filled from, by the medication menu or the suggestions box: `quick-pick-<id>` or
+   * `set-<setId>`; its row shows first. Goes with the product or another quick pick; never saved or sent. */
+  pickedSuggestion?: string;
   /** The line's details are hidden after a new medication or strength until a suggestion or "Write my own" is picked:
    * it can't be sent, since what it carries over isn't on screen. */
   awaitingPick?: boolean;
@@ -551,6 +554,7 @@ const withoutQuickPick = (line: PrescriptionLine): Partial<PrescriptionLine> => 
   return {
     ...Object.fromEntries(keys.filter((key) => line[key] === picked[key]).map((key) => [key, empty[key]])),
     quickPicked: null,
+    pickedSuggestion: undefined,
   };
 };
 
@@ -1060,6 +1064,7 @@ export const applyPrescriptionQuickPick = (
       numberOfRefills: applied.numberOfRefills,
       noteToPharmacy: applied.noteToPharmacy,
     },
+    pickedSuggestion: quickPick.id ? `quick-pick-${quickPick.id}` : undefined,
   };
 };
 

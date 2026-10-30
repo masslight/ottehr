@@ -63,6 +63,8 @@ export interface PrescriptionSuggestionQuery {
   quickPicks?: PrescriptionQuickPickData[];
   /** The practice's Active prescription sets. */
   sets?: PrescriptionSetQuickPickData[];
+  /** The row the line was filled from (`PrescriptionLine.pickedSuggestion`), shown first. */
+  picked?: string;
 }
 
 /** How many of the product's quick picks the box shows, before "Other". */
@@ -306,13 +308,14 @@ const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | u
 
 /** The suggestions for a product: the practice's quick picks for exactly this product and its Active sets with one,
  * up to `QUICK_PICK_SUGGESTIONS` together, quick picks first and sets after; the box adds "Other" (Write my own). A
- * set's row is its quick pick for the product, named for the set, with what else it adds. Where more suggestion data
- * plugs in. */
+ * set's row is its quick pick for the product, named for the set, with what else it adds. The row the line was
+ * filled from comes first, however far down. Where more suggestion data plugs in. */
 export const prescriptionSuggestionsFor = ({
   medication,
   weightKg,
   quickPicks = [],
   sets = [],
+  picked,
 }: PrescriptionSuggestionQuery): PrescriptionSuggestionRow[] => {
   const single = quickPicks
     .filter((quickPick) => isQuickPickFor(quickPick, medication))
@@ -334,8 +337,11 @@ export const prescriptionSuggestionsFor = ({
     };
     return [{ name: set.name, row }];
   });
-  // Sets, used less often, follow the quick picks; each keeps the list's order.
-  return [...single, ...fromSets].slice(0, QUICK_PICK_SUGGESTIONS).map(({ row }) => row);
+  // Sets, used less often, follow the quick picks; each keeps the list's order. The picked row leads, before the cap.
+  const rows = [...single, ...fromSets].map(({ row }) => row);
+  const at = rows.findIndex((row) => row.id === picked);
+  const ordered = at > 0 ? [rows[at], ...rows.filter((_, i) => i !== at)] : rows;
+  return ordered.slice(0, QUICK_PICK_SUGGESTIONS);
 };
 
 /** The lines a set puts where `line` is. Picked from the medication menu, an empty line takes its first quick pick
@@ -350,15 +356,17 @@ export const withPrescriptionSet = (
   used?: { line: PrescriptionLine; memberId: string }
 ): { lines: PrescriptionLine[]; missing: number } => {
   const { members, missing } = prescriptionSetMembers(set, quickPicks);
+  // Each line the set fills shows the set's row first.
+  const fromSet = (filled: PrescriptionLine): PrescriptionLine => ({ ...filled, pickedSuggestion: `set-${set.id}` });
   const added = (quickPick: PrescriptionQuickPickData): PrescriptionLine =>
-    withListedQuickPick(emptyPrescriptionLine(), quickPick, weightKg);
+    fromSet(withListedQuickPick(emptyPrescriptionLine(), quickPick, weightKg));
   if (used) {
     const at = members.findIndex((quickPick) => quickPick.id === used.memberId);
-    return { lines: [used.line, ...members.filter((_, i) => i !== at).map(added)], missing };
+    return { lines: [fromSet(used.line), ...members.filter((_, i) => i !== at).map(added)], missing };
   }
   if (isEmptyPrescriptionLine(line) && members.length) {
     const [first, ...rest] = members;
-    return { lines: [withListedQuickPick(line, first, weightKg), ...rest.map(added)], missing };
+    return { lines: [fromSet(withListedQuickPick(line, first, weightKg)), ...rest.map(added)], missing };
   }
   return { lines: [line, ...members.map(added)], missing };
 };
