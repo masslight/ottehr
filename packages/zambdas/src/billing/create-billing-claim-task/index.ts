@@ -4,6 +4,7 @@ import { Encounter, Task } from 'fhir/r4b';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
 import { CreateBillingClaimTaskInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+// eslint-disable-next-line no-restricted-imports -- checks the clinical encounter exists
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -19,7 +20,6 @@ const ZAMBDA_NAME = 'create-billing-claim-task';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateWithSchema(CreateBillingClaimTaskInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- checks the clinical encounter exists
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
 

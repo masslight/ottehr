@@ -25,6 +25,7 @@ import { RefundBillingPatientPaymentInputSchema } from 'utils/lib/types/data/bil
 import { INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { shouldUseCandid, syncCandidPatientRefunds } from '../../shared/candid';
+// eslint-disable-next-line no-restricted-imports -- reads legacy clinical payment notices, the Stripe account and Candid client, and syncs refunds to Candid
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
@@ -61,7 +62,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads legacy clinical payment notices, the Stripe account and Candid client, and syncs refunds to Candid
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
   const stripeClient = getStripeClient(secrets);

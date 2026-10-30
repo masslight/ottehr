@@ -10,6 +10,7 @@ import {
   loadReportCache,
   saveReportCache,
 } from '../../../billing/reports/framework/report-cache';
+// eslint-disable-next-line no-restricted-imports -- reports join billing data with clinical patients, visits, locations and users' Practitioners
 import { createBillingClient, createEraReadClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { safeValidate } from '../../../shared/validation';
@@ -31,7 +32,7 @@ export const index = wrapTaskHandler(
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createBillingClient(m2mToken, secrets);
-    // eslint-disable-next-line ottehr/billing-fhir-client-only -- reports join billing data with clinical patients, visits, locations and users' Practitioners
+    // patients/appointments/encounters are clinical (untagged) resources in the same store
     const untaggedClient = createEraReadClient(m2mToken, secrets);
     const onProgress = (message: string): Promise<void> => updateRefreshTaskProgress(oystehr, taskId, message);
 

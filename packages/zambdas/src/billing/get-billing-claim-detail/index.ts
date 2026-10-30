@@ -56,6 +56,7 @@ import {
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
+  // eslint-disable-next-line no-restricted-imports -- submission ClaimResponses are never billing-tagged
   createEraReadClient,
   ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
@@ -91,7 +92,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- submission ClaimResponses are never billing-tagged
   const untaggedClient = createEraReadClient(m2mToken, params.secrets);
 
   const response = await performEffect(oystehr, untaggedClient, params);

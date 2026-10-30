@@ -4,6 +4,7 @@ import { ListBillingPatientPaymentsInputSchema } from 'utils/lib/types/data/bill
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+// eslint-disable-next-line no-restricted-imports -- reads the patient's Account and legacy clinical payment notices
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient } from '../../shared/stripeIntegration';
@@ -24,7 +25,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { patientId, encounterId, secrets } = params;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the patient's Account and legacy clinical payment notices
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 

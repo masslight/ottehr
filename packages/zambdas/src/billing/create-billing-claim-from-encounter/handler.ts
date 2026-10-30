@@ -100,6 +100,7 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { chartDataResourceHasMetaTagByCode, makeAccidentDTOFromFhirResources } from '../../shared/chart-data';
 import { sendErrors } from '../../shared/errors';
+// eslint-disable-next-line no-restricted-imports -- the claim is built from the clinical encounter and its resources
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
@@ -216,7 +217,6 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 export async function createClaimFromEncounter(params: CreateClaimFromEncounterParams): Promise<{ claimId: string }> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the claim is built from the clinical encounter and its resources
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);

@@ -9,6 +9,7 @@ import {
 } from 'utils/lib/types/data/billing/work-queue.schemas';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+// eslint-disable-next-line no-restricted-imports -- owners' Practitioners are the users' clinical profiles
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -31,7 +32,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- owners' Practitioners are the users' clinical profiles
   await complexValidation(oystehr, createClinicalOystehrClient(m2mToken, params.secrets), params);
   const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
