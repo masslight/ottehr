@@ -11,6 +11,10 @@ import {
 } from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
 import { User } from 'utils/lib/types/api/user.types';
 import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared/produce-discharge-outreach';
+import {
+  cancelPendingNoShowOutreach,
+  produceNoShowOutreach,
+} from '../../rcm/scheduled-outreach/producers/shared/produce-no-show-outreach';
 import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -92,7 +96,33 @@ export const performEffect = async (
 ): Promise<ChangeInPersonVisitStatusResponse> => {
   const { encounter, appointment, user, updatedStatus } = validatedData;
 
+  const wasNoShow = appointment.status === 'noshow';
+
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
+
+  // Produce outreach tasks triggered by a missed appointment, e.g. a missed-appointment message
+  if (updatedStatus === 'no show' && !wasNoShow) {
+    try {
+      await produceNoShowOutreach({ encounterId: encounter.id!, oystehr });
+    } catch (err) {
+      console.error('Failed to produce no-show outreach tasks:', err);
+      captureException(err, {
+        extra: { encounterId: encounter.id, updatedStatus },
+      });
+    }
+  }
+
+  // A late arrival returned from No Show should not still get the missed-appointment message
+  if (wasNoShow && updatedStatus !== 'no show') {
+    try {
+      await cancelPendingNoShowOutreach({ encounterId: encounter.id!, oystehr });
+    } catch (err) {
+      console.error('Failed to cancel pending no-show outreach tasks:', err);
+      captureException(err, {
+        extra: { encounterId: encounter.id, updatedStatus },
+      });
+    }
+  }
 
   // Produce outreach tasks triggered by discharge
   if (updatedStatus === 'discharged') {

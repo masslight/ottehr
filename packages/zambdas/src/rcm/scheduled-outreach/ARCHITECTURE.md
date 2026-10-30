@@ -32,6 +32,7 @@ Producers read the PlanDefinition, filter actions matching their trigger event, 
 | `invoice-due` | Daily cron | Queries Stripe for past-due invoices |
 | `patient-birthday` | Daily cron | Scans upcoming patient birthdays |
 | `date-of-visit` | Event-driven | Piggybacks on discharge or standalone |
+| `no-show` | Event-driven | Fires when a visit is marked No Show; pending tasks are cancelled if it is returned to Arrived |
 
 All producers call a **shared `produceOutreachTasks()` function** that handles:
 - Reading the PlanDefinition

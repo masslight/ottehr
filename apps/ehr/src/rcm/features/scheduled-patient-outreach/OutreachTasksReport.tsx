@@ -138,6 +138,7 @@ const TRIGGER_EVENT_LABELS: Record<string, string> = {
   'invoice-issued': 'Invoice Issued',
   'invoice-due': 'Invoice Due',
   'patient-birthday': 'Patient Birthday',
+  'no-show': 'No Show',
 };
 
 const TRIGGER_EVENT_FILTER_OPTIONS = Object.keys(TRIGGER_EVENT_LABELS) as TriggerEventFilterValue[];

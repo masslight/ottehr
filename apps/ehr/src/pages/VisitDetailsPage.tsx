@@ -8,8 +8,10 @@ import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import PersonOffOutlinedIcon from '@mui/icons-material/PersonOffOutlined';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
+import UndoIcon from '@mui/icons-material/Undo';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -128,6 +130,7 @@ import {
   getAppointmentAndPatientHistory,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
+import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
 import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
@@ -253,7 +256,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   // state variables
   const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
-  const [errors, setErrors] = useState<{ hopError?: string }>({});
+  const [errors, setErrors] = useState<{ hopError?: string; noShowError?: string }>({});
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
@@ -274,6 +277,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState<boolean>(false);
   const [hopQueueDialogOpen, setHopQueueDialogOpen] = useState<boolean>(false);
+  const [noShowDialogOpen, setNoShowDialogOpen] = useState<boolean>(false);
   const [issueDialogOpen, setIssueDialogOpen] = useState<boolean>(false);
   const [activityLogDialogOpen, setActivityLogDialogOpen] = useState<boolean>(false);
   const [activityLogsLoading, setActivityLogsLoading] = useState<boolean>(true);
@@ -626,6 +630,33 @@ export default function VisitDetailsPage(): ReactElement {
       await queryClient.invalidateQueries({
         queryKey: ['get-visit-details', appointmentID],
       });
+    },
+  });
+
+  // No Show is a status, not a cancellation reason: the patient never came, as opposed to calling the
+  // visit off. Return to Arrived undoes it for a patient who shows up late.
+  const noShowStatusMutation = useMutation({
+    mutationFn: async (updatedStatus: 'no show' | 'arrived') => {
+      await handleChangeInPersonVisitStatus({ encounterId: encounter?.id ?? '', updatedStatus }, oystehrZambda);
+    },
+    onSuccess: async (_data, updatedStatus) => {
+      setErrors(({ noShowError: _noShowError, ...rest }) => rest);
+      setNoShowDialogOpen(false);
+      enqueueSnackbar(updatedStatus === 'no show' ? 'Visit marked as No Show' : 'Visit returned to Arrived', {
+        variant: 'success',
+      });
+      await refetchVisitDetails();
+      await getAndSetHistoricResources({ logs: true }).catch((error) =>
+        console.error('error getting activity logs after no show status change', error)
+      );
+    },
+    onError: (error, updatedStatus) => {
+      console.error('Error changing no show status:', error);
+      if (updatedStatus === 'no show') {
+        setErrors((prev) => ({ ...prev, noShowError: 'There was an error marking this visit as No Show' }));
+      } else {
+        enqueueSnackbar('There was an error returning this visit to Arrived', { variant: 'error' });
+      }
     },
   });
 
@@ -1283,7 +1314,55 @@ export default function VisitDetailsPage(): ReactElement {
                       Cancel Visit
                     </MenuItem>
                   )}
+                  {isInPerson && encounter?.id && status === 'pending' && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.noShowMenuItem}
+                      onClick={() => {
+                        setActionsMenuAnchor(null);
+                        setNoShowDialogOpen(true);
+                      }}
+                      sx={DESTRUCTIVE_MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <PersonOffOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      No Show
+                    </MenuItem>
+                  )}
+                  {isInPerson && encounter?.id && status === 'no show' && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.returnToArrivedMenuItem}
+                      disabled={noShowStatusMutation.isPending}
+                      onClick={() => {
+                        setActionsMenuAnchor(null);
+                        noShowStatusMutation.mutate('arrived');
+                      }}
+                      sx={MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <UndoIcon fontSize="small" />
+                      </ListItemIcon>
+                      Return to “Arrived”
+                    </MenuItem>
+                  )}
                 </Menu>
+                <CustomDialog
+                  open={noShowDialogOpen}
+                  handleClose={() => {
+                    setErrors(({ noShowError: _noShowError, ...rest }) => rest);
+                    setNoShowDialogOpen(false);
+                  }}
+                  closeButton={false}
+                  title="Mark as No Show"
+                  description={`Mark ${
+                    fullName || 'this patient'
+                  } as a No Show for this visit? The visit moves to the Cancelled tab. If the patient arrives late, use “Return to ‘Arrived’” from the Actions menu.`}
+                  closeButtonText="Cancel"
+                  handleConfirm={() => noShowStatusMutation.mutate('no show')}
+                  confirmText="Mark as No Show"
+                  confirmLoading={noShowStatusMutation.isPending}
+                  error={errors?.noShowError}
+                />
                 <RoundedButton
                   variant="contained"
                   data-testid={dataTestIds.visitDetailsPage.progressNoteButton}

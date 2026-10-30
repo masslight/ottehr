@@ -64,7 +64,13 @@ import OutreachTasksReport from './OutreachTasksReport';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
+type TriggerEvent =
+  | 'date-of-visit'
+  | 'invoice-issued'
+  | 'invoice-due'
+  | 'discharge-time'
+  | 'patient-birthday'
+  | 'no-show';
 
 type NotificationMedium = 'sms' | 'email' | 'paper-mail';
 
@@ -138,6 +144,7 @@ const TRIGGER_EVENT_LABELS: Record<TriggerEvent, string> = {
   'invoice-issued': 'Invoice Issue Date',
   'invoice-due': 'Invoice Due Date',
   'patient-birthday': 'Patient Birthday',
+  'no-show': 'No Show',
 };
 
 /** Which action types are allowed for each trigger event. */
@@ -147,6 +154,7 @@ const ALLOWED_ACTIONS: Record<TriggerEvent, ActionType[]> = {
   'invoice-due': ['charge-card', 'send-notification', 'refer-to-collections', 'log'],
   'discharge-time': ['send-notification', 'log'],
   'patient-birthday': ['send-notification', 'log'],
+  'no-show': ['send-notification', 'log'],
 };
 
 /** Which time units are available for each trigger event. */
@@ -156,6 +164,7 @@ const ALLOWED_TIME_UNITS: Record<TriggerEvent, TimeUnit[]> = {
   'invoice-due': ['days'],
   'discharge-time': ['days', 'hours', 'minutes'],
   'patient-birthday': ['days'],
+  'no-show': ['days', 'hours', 'minutes'],
 };
 
 /** Whether the trigger supports before/after direction. */
@@ -165,6 +174,7 @@ const SUPPORTS_DIRECTION: Record<TriggerEvent, boolean> = {
   'invoice-due': false,
   'discharge-time': false,
   'patient-birthday': true,
+  'no-show': false,
 };
 
 const TIME_UNIT_LABELS: Record<TimeUnit, string> = {
@@ -1114,6 +1124,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
       'invoice-issued': 2,
       'invoice-due': 3,
       'patient-birthday': 4,
+      'no-show': 5,
     };
     return [...actions].sort(
       (a, b) =>

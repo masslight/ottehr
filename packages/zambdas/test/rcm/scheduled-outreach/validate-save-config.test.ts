@@ -168,7 +168,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
         makeInput({ actions: [validSendNotificationAction({ trigger: { event: 'invalid-event', daysAfter: 0 } })] })
       )
     ).toThrow(
-      'actions[0].trigger.event must be one of: date-of-visit, invoice-issued, invoice-due, discharge-time, patient-birthday'
+      'actions[0].trigger.event must be one of: date-of-visit, invoice-issued, invoice-due, discharge-time, patient-birthday, no-show'
     );
   });
 

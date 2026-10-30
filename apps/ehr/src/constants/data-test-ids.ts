@@ -583,6 +583,8 @@ export const dataTestIds = {
   },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',
+    noShowMenuItem: 'no-show-menu-item',
+    returnToArrivedMenuItem: 'return-to-arrived-menu-item',
     cancelationReasonDropdown: 'cancelation-reason-dropdown',
     cancelVisitDialogue: 'cancel-visit-dialogue',
     consentAttestationCheckbox: 'consent-attestation-checkbox',

@@ -36,6 +36,7 @@ const VALID_TRIGGER_EVENTS: TriggerEvent[] = [
   'invoice-due',
   'discharge-time',
   'patient-birthday',
+  'no-show',
 ];
 const VALID_MEDIUMS: NotificationMedium[] = ['sms', 'email', 'paper-mail'];
 const VALID_STATEMENT_TYPES: OutreachStatementType[] = ['standard', 'past-due', 'final-notice'];
@@ -43,7 +44,7 @@ const VALID_TIME_UNITS: TimeUnit[] = ['days', 'hours', 'minutes'];
 const VALID_DIRECTIONS: TriggerDirection[] = ['after', 'before'];
 
 /** Events that only allow send-notification or log. */
-const NOTIFICATION_ONLY_EVENTS: TriggerEvent[] = ['discharge-time', 'patient-birthday'];
+const NOTIFICATION_ONLY_EVENTS: TriggerEvent[] = ['discharge-time', 'patient-birthday', 'no-show'];
 
 function validateNotificationSubConfig(config: unknown, path: string): void {
   if (!config || typeof config !== 'object') {

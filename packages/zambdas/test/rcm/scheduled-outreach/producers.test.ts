@@ -218,3 +218,79 @@ describe('produceInvoiceIssuedOutreach', () => {
     expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('produceNoShowOutreach', () => {
+  let produceNoShowOutreach: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-no-show-outreach').produceNoShowOutreach;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockProduceOutreachTasks.mockResolvedValue(defaultOutreachResult());
+    const mod = await import('../../../src/rcm/scheduled-outreach/producers/shared/produce-no-show-outreach');
+    produceNoShowOutreach = mod.produceNoShowOutreach;
+  });
+
+  it('produces no-show tasks focused on the encounter', async () => {
+    const encounter: Encounter = {
+      resourceType: 'Encounter',
+      id: 'enc-ns-1',
+      status: 'cancelled',
+      class: { code: 'AMB' },
+      subject: { reference: 'Patient/pat-ns-1' },
+      appointment: [{ reference: 'Appointment/appt-ns-1' }],
+    };
+
+    mockOystehr.fhir.get.mockResolvedValue(encounter);
+
+    await produceNoShowOutreach({ encounterId: 'enc-ns-1', oystehr: mockOystehr as any });
+
+    expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(1);
+    const call = mockProduceOutreachTasks.mock.calls[0][0];
+    expect(call.triggerEvent).toBe('no-show');
+    expect(call.patient).toEqual({ reference: 'Patient/pat-ns-1' });
+    expect(call.focus).toEqual({ reference: 'Encounter/enc-ns-1' });
+    expect(call.appointment).toEqual({ reference: 'Appointment/appt-ns-1' });
+  });
+
+  it('throws when encounter has no subject', async () => {
+    mockOystehr.fhir.get.mockResolvedValue({ resourceType: 'Encounter', id: 'enc-ns-2', status: 'cancelled' });
+
+    await expect(produceNoShowOutreach({ encounterId: 'enc-ns-2', oystehr: mockOystehr as any })).rejects.toThrow();
+    expect(mockProduceOutreachTasks).not.toHaveBeenCalled();
+  });
+});
+
+describe('cancelPendingNoShowOutreach', () => {
+  let cancelPendingNoShowOutreach: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-no-show-outreach').cancelPendingNoShowOutreach;
+  const mockPatch = vi.fn();
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    (mockOystehr.fhir as any).patch = mockPatch;
+    const mod = await import('../../../src/rcm/scheduled-outreach/producers/shared/produce-no-show-outreach');
+    cancelPendingNoShowOutreach = mod.cancelPendingNoShowOutreach;
+  });
+
+  it('cancels only not-yet-sent no-show tasks for the encounter', async () => {
+    mockOystehr.fhir.search.mockResolvedValue({
+      unbundle: () => [
+        { resourceType: 'Task', id: 'task-1', status: 'draft' },
+        { resourceType: 'Task', id: 'task-2', status: 'requested' },
+      ],
+    });
+
+    await cancelPendingNoShowOutreach({ encounterId: 'enc-ns-3', oystehr: mockOystehr as any });
+
+    const searchParams = mockOystehr.fhir.search.mock.calls[0][0].params;
+    expect(searchParams).toContainEqual({ name: 'focus', value: 'Encounter/enc-ns-3' });
+    expect(searchParams).toContainEqual({ name: '_tag', value: 'https://fhir.ottehr.com/r4/outreach-task|no-show' });
+    expect(searchParams).toContainEqual({ name: 'status', value: 'draft,requested' });
+
+    expect(mockPatch).toHaveBeenCalledTimes(2);
+    expect(mockPatch.mock.calls.map((c) => c[0].id)).toEqual(['task-1', 'task-2']);
+    expect(mockPatch.mock.calls[0][0].operations).toContainEqual({
+      op: 'replace',
+      path: '/status',
+      value: 'cancelled',
+    });
+  });
+});

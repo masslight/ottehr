@@ -21,7 +21,13 @@ export interface OutreachConfigResponse {
   notificationsTimeRestriction?: NotificationsTimeRestrictionDTO;
 }
 
-export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
+export type TriggerEvent =
+  | 'date-of-visit'
+  | 'invoice-issued'
+  | 'invoice-due'
+  | 'discharge-time'
+  | 'patient-birthday'
+  | 'no-show';
 export type NotificationMedium = 'sms' | 'email' | 'paper-mail';
 export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections' | 'log';
 export type TimeUnit = 'days' | 'hours' | 'minutes';
