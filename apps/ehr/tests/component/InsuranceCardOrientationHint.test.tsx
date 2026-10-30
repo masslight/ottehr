@@ -110,6 +110,15 @@ describe('InsuranceCardOrientationHint', () => {
     expect(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL })).toBeEnabled();
   });
 
+  it('renders the badge warning icon in the warning (orange) color', () => {
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
+    renderHint();
+
+    const icon = screen.getByTestId('WarningAmberIcon');
+    expect(icon).toHaveClass('MuiSvgIcon-colorWarning');
+    expect(icon).toHaveClass('MuiChip-iconColorWarning');
+  });
+
   it('rotates 90 degrees clockwise on click and refreshes the displayed image', async () => {
     setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
     mockRotateInsuranceCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
