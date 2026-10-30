@@ -25,7 +25,8 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id, encounterId }) => {
   const theme = useTheme();
 
   const { loading, patient } = useGetPatient(id);
-  const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
+  // Visit history is only needed to pick a label encounter when the page has none of its own.
+  const { data: visitHistory } = useGetPatientVisitHistory(encounterId ? undefined : patient?.id);
   const appointments = visitHistory?.visits ?? [];
 
   // todo: product has said that on screens with no specific encounter, use the latest encounter for the label

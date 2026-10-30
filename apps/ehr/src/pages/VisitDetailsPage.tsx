@@ -1145,7 +1145,19 @@ export default function VisitDetailsPage(): ReactElement {
   );
 
   return (
-    <PageContainer header={<Header handleDiscard={() => navigate(-1)} id={patientId} encounterId={encounter?.id} />}>
+    <PageContainer
+      header={
+        <Header
+          key={patientId}
+          handleDiscard={() =>
+            // Opened in a new tab (e.g. from Outstanding Balance) there is no in-app page to go back to.
+            (window.history.state as { idx?: number } | null)?.idx ? navigate(-1) : navigate(`/patient/${patientId}`)
+          }
+          id={patientId}
+          encounterId={encounter?.id}
+        />
+      }
+    >
       <>
         {/* /* page */}
         <Grid container direction="row">
