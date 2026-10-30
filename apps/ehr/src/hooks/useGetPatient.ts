@@ -70,7 +70,7 @@ export const useGetPatient = (
     (resource) => resource.resourceType === 'Patient'
   ) as Patient;
 
-  const { data: otherPatientsWithSameNameResources } = useQuery({
+  const { data: otherPatientsWithSameNameResources, isError: isDuplicateSearchError } = useQuery({
     queryKey: ['otherPatientsWithSameNameResources', id],
     queryFn: () => {
       if (!oystehr || !patientResource) return null;
@@ -101,7 +101,8 @@ export const useGetPatient = (
         return;
       }
 
-      if (!patientResources || !otherPatientsWithSameNameResources) {
+      // The duplicate-name search only feeds the duplicate warning; its failure must not hide the patient.
+      if (!patientResources || (!otherPatientsWithSameNameResources && !isDuplicateSearchError)) {
         return;
       }
 
@@ -113,7 +114,7 @@ export const useGetPatient = (
       ) as RelatedPerson;
       const personTemp: Person = patientResources.find((resource) => resource.resourceType === 'Person') as Person;
 
-      const duplicates = (otherPatientsWithSameNameResources as Patient[]).filter(
+      const duplicates = ((otherPatientsWithSameNameResources ?? []) as Patient[]).filter(
         (r) => r.resourceType === 'Patient' && r.id !== id && r.active !== false
       );
       if (duplicates.length > 0) {
@@ -134,7 +135,7 @@ export const useGetPatient = (
       console.error(error);
       captureException(error);
     });
-  }, [id, oystehr, patientResources, otherPatientsWithSameNameResources]);
+  }, [id, oystehr, patientResources, otherPatientsWithSameNameResources, isDuplicateSearchError]);
 
   return {
     loading,
