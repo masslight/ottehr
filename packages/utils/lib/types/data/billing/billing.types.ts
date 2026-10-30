@@ -611,6 +611,7 @@ export interface ClaimDetailResponse {
   accidentDate: string;
   attachments: ClaimAttachment[];
   writeOffs: ClaimWriteOff[];
+  invoices: BillingInvoiceSummary[];
 }
 
 interface Paginated {
@@ -1173,17 +1174,20 @@ export interface CreateBillingInvoiceResponse {
   smsSent?: boolean;
 }
 
-export interface BillingInvoiceListItem {
+export interface BillingInvoiceSummary {
   id: string;
   status: BillingInvoiceListStatus;
   // FHIR Invoice.date as an ISO timestamp.
   issueDate: string;
   dueDate: string;
   amount: number;
+  hostedInvoiceUrl?: string;
+}
+
+export interface BillingInvoiceListItem extends BillingInvoiceSummary {
   patientName: string;
   claimId?: string;
   serviceDate: string;
-  hostedInvoiceUrl?: string;
 }
 
 export interface SearchBillingInvoicesResponse extends Paginated {
