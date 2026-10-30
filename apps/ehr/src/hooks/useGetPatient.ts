@@ -286,6 +286,9 @@ export const useUpdatePatientAccount = (
         void queryClient.resetQueries({ queryKey: ['insurance-card-extraction'] });
       }
 
+      // Refresh the Patient resource shown in the sticky header and other useGetPatient consumers.
+      void queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources'] });
+
       if (onSuccess) {
         onSuccess();
       }
