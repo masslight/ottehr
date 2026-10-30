@@ -22,7 +22,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -38,6 +38,7 @@ import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/typ
 import styled from 'styled-components';
 import { getAnnotationFollowupStatusLabel, getFollowUpProgressNotePathSegment } from 'utils/lib/fhir/encounter';
 import { AppointmentType, visitStatusArray } from 'utils/lib/types/api/appointment.types';
+import { DeleteFreeFormEncounterInput } from 'utils/lib/types/api/free-form-encounter.types';
 import {
   AppointmentHistoryRow,
   FollowUpVisitHistoryRow,
@@ -46,12 +47,15 @@ import {
 } from 'utils/lib/types/api/patient-visit-history.types';
 import { ServiceMode } from 'utils/lib/types/common';
 import { formatMinutes } from 'utils/lib/utils/visitUtils';
+import { deleteFreeFormEncounter } from '../api/api';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { useMergedServiceCategories } from '../hooks/useMergedServiceCategories';
 import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
+import { useDeletedFreeFormEncountersStore } from '../state/deleted-free-form-encounters.store';
+import DeleteDialog from './dialogs/DeleteDialog';
 import { FreeFormEncounterRow, FreeFormSaveSession } from './FreeFormEncounterRow';
 import {
   applyLocalFreeFormSaves,
@@ -138,6 +142,11 @@ interface FreeFormDraft {
 interface LocalFreeFormSaves {
   patientId: string | undefined;
   rows: Record<string, FreeFormEncounterHistoryRow>;
+}
+
+interface FreeFormToDelete {
+  patientId: string;
+  encounterId: string;
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -227,6 +236,18 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [draftEditing, setDraftEditing] = useState(false);
   const [localSaves, setLocalSaves] = useState<LocalFreeFormSaves>({ patientId: currentPatientId, rows: {} });
   const generationRef = useRef(0);
+  const [freeFormToDelete, setFreeFormToDelete] = useState<FreeFormToDelete | null>(null);
+  const deletedFreeFormIds = useDeletedFreeFormEncountersStore((state) =>
+    currentPatientId ? state.deletedIdsByPatient[currentPatientId] : undefined
+  );
+  const markFreeFormDeleted = useDeletedFreeFormEncountersStore((state) => state.markDeleted);
+  const queryClient = useQueryClient();
+  const deleteFreeFormMutation = useMutation({
+    mutationFn: (input: DeleteFreeFormEncounterInput) => {
+      if (!oystehrZambda) throw new Error('Oystehr client is not initialized');
+      return deleteFreeFormEncounter(oystehrZambda, input);
+    },
+  });
 
   const updateDraft = useCallback((update: (current: FreeFormDraft | null) => FreeFormDraft | null): void => {
     draftRef.current = update(draftRef.current);
@@ -238,6 +259,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     updateDraft(() => null);
     setDraftEditing(false);
     setLocalSaves({ patientId: currentPatientId, rows: {} });
+    setFreeFormToDelete(null);
     return () => {
       generationRef.current += 1;
     };
@@ -274,8 +296,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         localSaves.patientId === currentPatientId
           ? freeFormRowsStartingFrom(Object.values(localSaves.rows), periodStart)
           : []
-      ),
-    [serverFreeFormEncounters, localSaves, currentPatientId, periodStart]
+      ).filter((row) => !deletedFreeFormIds?.includes(row.encounterId)),
+    [serverFreeFormEncounters, localSaves, currentPatientId, periodStart, deletedFreeFormIds]
   );
 
   const includeFreeForm = type === 'all' && status === 'all' && serviceCategory === 'all';
@@ -295,6 +317,12 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     const startIndex = page * rowsPerPage;
     return visibleRows.slice(startIndex, startIndex + rowsPerPage);
   }, [visibleRows, page, rowsPerPage]);
+
+  useEffect(() => {
+    if (!visitHistory) return;
+    const lastPage = Math.max(0, Math.ceil(visibleRows.length / rowsPerPage) - 1);
+    if (page > lastPage) setPage(lastPage);
+  }, [visitHistory, visibleRows.length, rowsPerPage, page]);
 
   useEffect(() => {
     if (!serverFreeFormEncounters) return;
@@ -379,6 +407,46 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const draftSavedRow = draftEncounterId
     ? freeFormEncounters.find((row) => row.encounterId === draftEncounterId)
     : undefined;
+
+  const requestFreeFormDelete = (encounterId: string | undefined): void => {
+    if (!currentPatientId || !encounterId) return;
+    setFreeFormToDelete({ patientId: currentPatientId, encounterId });
+  };
+
+  const deletingFreeForm =
+    deleteFreeFormMutation.isPending && deleteFreeFormMutation.variables?.encounterId === freeFormToDelete?.encounterId;
+
+  const closeDeleteFreeFormDialog = (): void => {
+    if (deletingFreeForm) return;
+    setFreeFormToDelete(null);
+  };
+
+  const confirmDeleteFreeForm = async (): Promise<void> => {
+    if (!freeFormToDelete) return;
+    const { patientId, encounterId } = freeFormToDelete;
+    const deletingDraft = draftRef.current?.encounterId === encounterId;
+    const draftIndex = deletingDraft
+      ? allRows.findIndex((row) => row.kind === 'free-form' && row.id === encounterId)
+      : -1;
+    if (deletingDraft) discardDraft();
+    const generation = generationRef.current;
+    try {
+      await deleteFreeFormMutation.mutateAsync({ patientId, encounterId });
+    } catch {
+      const isCurrent = generation === generationRef.current;
+      enqueueSnackbar(
+        isCurrent
+          ? "Couldn't delete the note. Please try again."
+          : "Couldn't delete the free-form note for the previous patient.",
+        { variant: 'error' }
+      );
+      if (isCurrent && draftIndex >= 0) setPage(Math.floor(draftIndex / rowsPerPage));
+      return;
+    }
+    markFreeFormDeleted(patientId, encounterId);
+    setFreeFormToDelete((current) => (current?.encounterId === encounterId ? null : current));
+    void queryClient.invalidateQueries({ queryKey: ['get-patient-visit-history', { patientId }] });
+  };
 
   const handleSort = (field: SortField): void => {
     if (sortField === field) {
@@ -668,6 +736,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                 columnCount={columns.length}
                 isDraft
                 startSave={() => createSaveSession(draft.draftId)}
+                onDelete={() => requestFreeFormDelete(draft.encounterId)}
                 onDiscardDraft={discardDraft}
                 onEditingChange={setDraftEditing}
               />
@@ -698,6 +767,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                       note={gridRow.encounter.note}
                       columnCount={columns.length}
                       startSave={() => createSaveSession()}
+                      onDelete={() => requestFreeFormDelete(gridRow.encounter.encounterId)}
                     />
                   );
                 }
@@ -779,6 +849,17 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
+      />
+
+      <DeleteDialog
+        open={freeFormToDelete !== null}
+        handleClose={closeDeleteFreeFormDialog}
+        handleDelete={() => void confirmDeleteFreeForm()}
+        title="Delete Free Form"
+        description="Are you sure you want to delete this form? This action cannot be undone."
+        closeButtonText="Keep"
+        deleteButtonText="Delete"
+        loadingDelete={deletingFreeForm}
       />
     </Paper>
   );
