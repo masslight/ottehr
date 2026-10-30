@@ -52,10 +52,13 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
             <PatientAvatar id={id} sx={{ width: 64, height: 64 }} />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Box sx={{ display: 'flex', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}>
+            <Box
+              data-testid={dataTestIds.patientHeader.nameRow}
+              sx={{ display: 'flex', alignItems: 'center', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}
+            >
               <FullNameDisplay patient={patient} loading={loading} variant="h5" />
               <PatientNotesButton patientId={id} />
-              <PrintVisitLabelButton encounterId={latestAppointmentEncounterId} />
+              <PrintVisitLabelButton encounterId={latestAppointmentEncounterId} color="primary.main" />
               <Summary patient={patient} loading={loading} />
             </Box>
             <Contacts patient={patient} loading={loading} />
