@@ -94,6 +94,7 @@ vi.mock('src/helpers/activityLogsUtils', async () => {
 vi.mock('src/pages/PatientInformationPage', () => ({ PatientAccountComponent: () => <div /> }));
 vi.mock('src/layout/PageContainer', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('src/components/CardThumbnail', () => ({ default: () => <div /> }));
+vi.mock('src/features/visits/shared/components/patient/Header', () => ({ Header: () => <div /> }));
 vi.mock('src/components/PatientPaymentsList', () => ({ default: () => <div /> }));
 vi.mock('src/components/AppointmentNotesHistory', () => ({ default: () => <div /> }));
 vi.mock('src/components/dialogs/ActivityLogDialog', () => ({ default: () => <div /> }));

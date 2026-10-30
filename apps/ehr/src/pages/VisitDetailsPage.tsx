@@ -63,7 +63,7 @@ import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
-import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
+import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
@@ -616,6 +616,7 @@ export default function VisitDetailsPage(): ReactElement {
     });
     if (editDialogConfig.type === 'dob') {
       await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+      await queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources', patientId] });
     }
   };
 
@@ -1144,7 +1145,7 @@ export default function VisitDetailsPage(): ReactElement {
   );
 
   return (
-    <PageContainer>
+    <PageContainer header={<Header handleDiscard={() => navigate(-1)} id={patientId} encounterId={encounter?.id} />}>
       <>
         {/* /* page */}
         <Grid container direction="row">
@@ -1444,14 +1445,11 @@ export default function VisitDetailsPage(): ReactElement {
               ) : null}
             </Grid>
 
-            {(patient || nameLastModifiedOld || nameLastModified) && (
+            {(nameLastModifiedOld || nameLastModified) && (
               <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
-                {patient && <IdentifiersRow patient={patient} />}
-                {(nameLastModifiedOld || nameLastModified) && (
-                  <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
-                    Name Last Modified {nameLastModifiedOld || nameLastModified}
-                  </Typography>
-                )}
+                <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
+                  Name Last Modified {nameLastModifiedOld || nameLastModified}
+                </Typography>
               </Grid>
             )}
 

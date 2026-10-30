@@ -15,6 +15,8 @@ interface PageContainerProps {
   title?: string;
   children: ReactElement;
   showEnvFooter?: boolean;
+  /** Rendered full width above the page content, e.g. a sticky patient header. */
+  header?: ReactElement;
 }
 
 export default function PageContainer({
@@ -23,6 +25,7 @@ export default function PageContainer({
   title,
   children,
   showEnvFooter = true,
+  header,
 }: PageContainerProps): ReactElement {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -60,6 +63,7 @@ export default function PageContainer({
 
   return (
     <>
+      {header}
       {sidebarItems ? (
         <Sidebar sidebarItems={sidebarItems} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}>
           {container}
