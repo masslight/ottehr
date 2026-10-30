@@ -12,6 +12,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { extractCptCodeModifiersFromCoding } from 'utils/lib/fhir/billing';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { CODE_SYSTEM_CPT, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -293,13 +294,13 @@ const makeProcedureConfig = (
     let procedureCodeExtension = {};
 
     if (orderMode === 'repeat') {
-      // this logic will cover if we add a test that is repeatable and has an extra modifier on it
-      // otherwise it will be spread below
-      const additionalModifierExt =
-        cptCoding?.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept) ?? [];
-
-      const repeatModifier = makeCptModifierExtension([REPEAT_TEST_CPT_CODE_MODIFIER]);
-      procedureCodeExtension = { extension: [repeatModifier, ...additionalModifierExt] };
+      // merge the AD's own modifiers with 91 into one extension so every modifier reader sees all of them
+      const modifiers = extractCptCodeModifiersFromCoding(cptCoding);
+      if (!modifiers.some((modifier) => modifier.code === REPEAT_TEST_CPT_CODE_MODIFIER.code)) {
+        modifiers.push(REPEAT_TEST_CPT_CODE_MODIFIER);
+      }
+      const otherExtensions = cptCoding.extension?.filter((ext) => ext.url !== EXTENSION_URL_CPT_MODIFIER) ?? [];
+      procedureCodeExtension = { extension: [...otherExtensions, makeCptModifierExtension(modifiers)] };
     }
 
     const procedureConfig: Procedure = {

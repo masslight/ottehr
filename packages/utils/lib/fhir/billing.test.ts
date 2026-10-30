@@ -1,12 +1,40 @@
 import { Coding } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
+import { CODE_SYSTEM_CPT_MODIFIER, EXTENSION_URL_CPT_MODIFIER } from '../helpers/rcm/constants';
 import {
+  extractCptCodeModifiersFromCoding,
   getCptBillableUnitsFromCoding,
   INSURANCE_TYPE_CODE_TO_CANDID_CODE,
   mapInsuranceTypeCodeToCandidCode,
 } from './billing';
 import { CPT_BILLABLE_UNITS_EXTENSION_URL } from './constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
+
+describe('extractCptCodeModifiersFromCoding', () => {
+  it('returns modifiers from every modifier extension on the coding', () => {
+    const coding: Coding = {
+      code: '84591',
+      extension: [
+        {
+          url: EXTENSION_URL_CPT_MODIFIER,
+          valueCodeableConcept: { coding: [{ system: CODE_SYSTEM_CPT_MODIFIER, code: '91', display: 'Repeat' }] },
+        },
+        {
+          url: EXTENSION_URL_CPT_MODIFIER,
+          valueCodeableConcept: { coding: [{ system: CODE_SYSTEM_CPT_MODIFIER, code: '50', display: 'Bilateral' }] },
+        },
+      ],
+    };
+    expect(extractCptCodeModifiersFromCoding(coding)).toEqual([
+      { code: '91', display: 'Repeat' },
+      { code: '50', display: 'Bilateral' },
+    ]);
+  });
+
+  it('returns an empty array when there is no modifier extension', () => {
+    expect(extractCptCodeModifiersFromCoding({ code: '84591' })).toEqual([]);
+  });
+});
 
 describe('getCptBillableUnitsFromCoding', () => {
   it('reads a positive unit count from the CPT coding extension', () => {
