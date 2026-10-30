@@ -10,6 +10,7 @@ export const EXPORT_INVOICES_ZAMBDA_KEY = 'export-invoices';
 export const CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY = 'create-invoice-tasks-for-billing-claims';
 export const PREPARE_BILLING_INVOICE_ZAMBDA_KEY = 'prepare-billing-invoice';
 export const SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY = 'send-billing-invoice-sms';
+export const GET_BILLING_INVOICE_VISIT_ZAMBDA_KEY = 'get-billing-invoice-visit';
 export const EXPORT_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
 export const EXPORT_INVOICES_CSV_TASK_CODE = 'export-invoices-csv';
 export const EXPORT_INVOICES_CSV_TASK_SYSTEM = EXPORT_TASK_SYSTEM;
@@ -218,6 +219,10 @@ export type PrepareBillingInvoiceResponse = {
   // Visit details for the templates. Amount, due date and invoice link are filled in by the caller.
   placeholders: InvoicePlaceholderInput;
 };
+
+export const GetBillingInvoiceVisitInputSchema = z.object({
+  encounterId: z.string().uuid(),
+});
 
 export const SendBillingInvoiceSmsInputSchema = z.object({
   encounterId: z.string().uuid(),
