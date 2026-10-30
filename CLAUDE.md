@@ -121,7 +121,7 @@ Validate a request body with `validateWithSchema(schema, input)` from `packages/
 
 Zambdas use `wrapHandler` from `../../shared/lambda` for consistent error handling. They authenticate via machine-to-machine (M2M) tokens cached in module scope across warm invocations.
 
-Billing zambdas (every zambda in `config/billing-app-core/zambdas.json`) get FHIR clients only from `createBillingClient` in `packages/zambdas/src/billing/shared.ts`, whose reads and writes are scoped to billing-tagged resources, and pass `{ createClient: createBillingClient }` to `wrapTaskHandler`. The `ottehr/billing-fhir-client-only` lint rule reports every other client a billing zambda makes, at the line that makes it; a justified exception disables the rule on that line, and `ottehr/require-disable-reason` makes it say why after `--`: `// eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the clinical encounter`.
+Billing zambdas (every zambda in `config/billing-app-core/zambdas.json`) get FHIR clients only from `createBillingClient` in `packages/zambdas/src/billing/shared.ts`, whose reads and writes are scoped to billing-tagged resources, and pass `{ createClient: createBillingClient }` to `wrapTaskHandler`. The `ottehr/billing-fhir-client-only` lint rule reports every other client a billing zambda makes, at the line that makes it; a justified exception disables the rule on that line with the reason: `// eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the clinical encounter`.
 
 The local server (`packages/zambdas/src/local-server/index.ts`) reads `config/oystehr/zambdas.json` to register all routes as Express endpoints, enabling local development without deploying.
 

@@ -6,6 +6,5 @@
 module.exports = {
   rules: {
     'billing-fhir-client-only': require('./rules/billing-fhir-client-only'),
-    'require-disable-reason': require('./rules/require-disable-reason'),
   },
 };
