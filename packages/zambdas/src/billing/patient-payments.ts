@@ -79,6 +79,12 @@ export const stripePaymentIntentIdForNotice = (notice: PaymentNotice): string | 
   return ids.find((id) => id.startsWith('pi_')) ?? ids.find((id) => !NON_PAYMENT_INTENT_STRIPE_ID.test(id));
 };
 
+// the Stripe invoice a payment settled; the webhook's disposition strings carry the charge↔invoice link
+export const invoiceIdForPaymentNotice = (notice: PaymentNotice): string | undefined =>
+  stripeIdsForPaymentNotice(notice).find((id) => id.startsWith('in_')) ??
+  notice.payment?.reference?.match(/in_\w+/)?.[0] ??
+  (notice.contained?.[0] as { disposition?: string } | undefined)?.disposition?.match(/invoice (in_\w+)/)?.[1];
+
 // the webhook records the Stripe method type, where the EHR records 'card-reader' for terminal payments
 export const paymentMethodForNotice = (notice: PaymentNotice): string | undefined => {
   const method = notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;

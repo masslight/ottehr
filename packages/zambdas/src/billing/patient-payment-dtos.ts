@@ -41,17 +41,26 @@ interface GetPaymentsForEncounterInput {
   // reads billing PaymentNotices and keeps their refund stamps current
   billingOystehr: Oystehr;
   stripeClient: Stripe;
-  account: Account;
+  // holds the patient's Stripe customer ids; without it card details come from each payment alone
+  account: Account | undefined;
   encounterId: string;
+  // the encounter's merged notices, when the caller already fetched them in bulk
+  fhirPaymentNotices?: PaymentNotice[];
+  // the EHR visit list shows at most CARD_PAYMENT_LIMIT card payments; listings that must be complete lift the cap
+  uncappedCardPayments?: boolean;
 }
+
+const CARD_PAYMENT_LIMIT = 20;
 
 export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInput): Promise<PatientPaymentDTO[]> => {
   const { clinicalOystehr, billingOystehr, stripeClient, account, encounterId } = input;
 
   const fhirPaymentNotices =
+    input.fhirPaymentNotices ??
     (await fetchEncounterPaymentNotices({ clinicalOystehr, billingOystehr, encounterIds: [encounterId] })).get(
       encounterId
-    ) ?? [];
+    ) ??
+    [];
 
   const stripePayments: Stripe.PaymentIntent[] = [];
   const paymentMethods: Stripe.PaymentMethod[] = [];
@@ -75,7 +84,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     scheduleAccount,
   });
 
-  const customerId = scheduleFound ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
+  const customerId = scheduleFound && account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
 
   if (customerId) {
     try {
@@ -117,7 +126,8 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     stripeClient,
     stripeAccountFor,
     clinicalOystehr,
-    billingOystehr
+    billingOystehr,
+    input.uncappedCardPayments ? undefined : CARD_PAYMENT_LIMIT
   );
 };
 
@@ -400,7 +410,9 @@ async function buildPaymentDTOs(
   stripeClient: Stripe,
   stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
   clinicalOystehr: Oystehr,
-  billingOystehr: Oystehr
+  billingOystehr: Oystehr,
+  // undefined keeps every card payment
+  cardPaymentLimit: number | undefined
 ): Promise<PatientPaymentDTO[]> {
   const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
   const paymentIntentCache = new Map<string, Stripe.PaymentIntent>(stripePayments.map((pi) => [pi.id, pi]));
@@ -522,7 +534,7 @@ async function buildPaymentDTOs(
     })
   );
 
-  const cardPayments: PatientPaymentDTO[] = cardPaymentsNested.flat().slice(0, 20);
+  const cardPayments: PatientPaymentDTO[] = cardPaymentsNested.flat().slice(0, cardPaymentLimit);
 
   // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
   // but that awaits the candid integration portion
