@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Invoice, Location, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Invoice, ProvenanceAgent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
@@ -37,9 +37,9 @@ import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { getInvoiceableEncounterId } from '../invoices';
+import { getInvoiceableEncounterId, getServiceFacilityId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
-import { copySourceId, createBillingClient, fetchById, findById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type CreateBillingInvoiceParams = ValidatedZambdaInput<typeof CreateBillingInvoiceInputSchema>;
 
@@ -158,12 +158,6 @@ async function createDraftUnlessClaimHasInvoice(
       { name: 'status', value: 'draft,issued,balanced' },
     ],
   });
-}
-
-// The claim points at its own copy of the service facility. The copy records which facility it came from.
-async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
-  const copyId = claim.facility?.reference?.replace('Location/', '');
-  return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
 }
 
 // A draft whose Stripe invoice was never finalized never reached the patient, so it can be replaced.
