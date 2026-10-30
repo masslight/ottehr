@@ -11,6 +11,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  ListSubheader,
   Paper,
   Popper,
   SxProps,
@@ -46,6 +47,8 @@ import { sentenceValue } from './sentenceValue';
 export interface BlankOption {
   value: string;
   label: string;
+  /** Options sharing a group get one subheader above them, in list order. */
+  group?: string;
 }
 
 const SEARCH_THRESHOLD = 8;
@@ -79,8 +82,12 @@ const ghostSx = (theme: Theme): Record<string, unknown> => ({
   '&:hover': { backgroundColor: theme.palette.action.hover, color: theme.palette.text.primary },
 });
 
-const ReadOnlyBlank: FC<{ label: string; value?: string }> = ({ label, value }) => (
-  <Box component="span" sx={(theme) => (value ? { ...filledSx(theme), '&:hover': {} } : { color: 'text.secondary' })}>
+const ReadOnlyBlank: FC<{ label: string; value?: string; dataTestId?: string }> = ({ label, value, dataTestId }) => (
+  <Box
+    component="span"
+    data-testid={dataTestId}
+    sx={(theme) => (value ? { ...filledSx(theme), '&:hover': {} } : { color: 'text.secondary' })}
+  >
     {value || `[${label}]`}
   </Box>
 );
@@ -112,7 +119,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
   expanded,
   popupId,
 }) => {
-  if (readOnly) return <ReadOnlyBlank label={label} value={value} />;
+  if (readOnly) return <ReadOnlyBlank label={label} value={value} dataTestId={dataTestId} />;
   // An inline span rather than <button>: a long value then wraps across lines like the surrounding text.
   return (
     <Box
@@ -154,6 +161,10 @@ export const BlankButton: FC<BlankButtonProps> = ({
 interface PopoverBlankProps extends Omit<BlankButtonProps, 'onClick'> {
   /** Popover heading; defaults to the blank's label. */
   title?: string;
+  /** Hides the heading, for content with a labelled field of its own; the title still names the dialog. */
+  hideTitle?: boolean;
+  /** For content that needs more room than the usual popover. */
+  paperSx?: SxProps<Theme>;
   children: (close: () => void) => ReactNode;
   onClose?: () => void;
 }
@@ -196,7 +207,7 @@ const POPOVER_MODIFIERS = [{ name: 'preventOverflow', options: { padding: 8 } }]
 
 /** Non-modal on purpose: a modal popover's backdrop swallowed the first click on Save / Clear Form /
  * another blank. Here the click away closes the popover and still reaches its target. */
-export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
+export const PopoverBlank: FC<PopoverBlankProps> = ({ title, hideTitle, paperSx, children, onClose, ...blank }) => {
   const popupId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   // Focus moves into the paper only after Popper has placed it: focusing earlier opens an autocomplete
@@ -263,16 +274,23 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
               onKeyDown={navigateChoices}
               elevation={8}
               data-testid={dataTestIds.documentProcedurePage.blankPopover}
-              sx={{
-                width: 'max-content',
-                minWidth: 'min(280px, calc(100vw - 32px))',
-                maxWidth: 'min(400px, calc(100vw - 32px))',
-                maxHeight: 'min(360px, calc(100dvh - 32px))',
-                overflow: 'auto',
-                p: 1,
-              }}
+              sx={[
+                {
+                  width: 'max-content',
+                  minWidth: 'min(280px, calc(100vw - 32px))',
+                  maxWidth: 'min(400px, calc(100vw - 32px))',
+                  maxHeight: 'min(360px, calc(100dvh - 32px))',
+                  overflow: 'auto',
+                  p: 1,
+                },
+                ...(Array.isArray(paperSx) ? paperSx : [paperSx]),
+              ]}
             >
-              <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{title ?? blank.label}</Typography>
+              {!hideTitle && (
+                <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>
+                  {title ?? blank.label}
+                </Typography>
+              )}
               {children(close)}
             </Paper>
           </ClickAwayListener>
@@ -321,8 +339,12 @@ interface SelectBlankProps {
   need?: boolean;
   /** Offers "Clear" at the end of the list, as the old dropdown's clear button did. */
   clearable?: boolean;
+  /** Shown in the popover when there is nothing to pick. */
+  emptyText?: string;
   dataTestId?: string;
   helperText?: string;
+  /** Shows the picked option as the list does, not lower-cased for running prose (names, units). */
+  verbatim?: boolean;
 }
 
 export const SelectBlank: FC<SelectBlankProps> = ({
@@ -334,10 +356,12 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   readOnly,
   need,
   clearable,
+  emptyText,
   dataTestId,
   helperText,
   otherValue,
   onOtherChange,
+  verbatim,
 }) => {
   const [filter, setFilter] = useState('');
   const all = withSavedValues(options, value === undefined ? [] : [value]);
@@ -351,8 +375,8 @@ export const SelectBlank: FC<SelectBlankProps> = ({
       value={
         value === OTHER && onOtherChange
           ? otherValue?.trim() || display
-          : display === undefined
-          ? undefined
+          : display === undefined || verbatim
+          ? display
           : sentenceValue(display)
       }
       need={need}
@@ -381,19 +405,30 @@ export const SelectBlank: FC<SelectBlankProps> = ({
             />
           )}
           <List dense disablePadding role="listbox" aria-label={title ?? label}>
-            {shown.map((option) => (
-              <ListItemButton
-                key={option.value}
-                role="option"
-                selected={option.value === value}
-                aria-selected={option.value === value}
-                onClick={() => {
-                  if (option.value !== value) onChange(option.value);
-                  if (option.value !== OTHER || !onOtherChange) close();
-                }}
-              >
-                <ListItemText primary={option.label} />
-              </ListItemButton>
+            {shown.length === 0 && emptyText && (
+              <Typography sx={{ fontSize: '14px', color: 'text.secondary', fontStyle: 'italic', px: 1, py: 0.5 }}>
+                {emptyText}
+              </Typography>
+            )}
+            {shown.map((option, i) => (
+              <Fragment key={option.value}>
+                {option.group && option.group !== shown[i - 1]?.group && (
+                  <ListSubheader disableSticky sx={{ lineHeight: '32px', fontWeight: 700, color: 'text.primary' }}>
+                    {option.group}
+                  </ListSubheader>
+                )}
+                <ListItemButton
+                  role="option"
+                  selected={option.value === value}
+                  aria-selected={option.value === value}
+                  onClick={() => {
+                    if (option.value !== value) onChange(option.value);
+                    if (option.value !== OTHER || !onOtherChange) close();
+                  }}
+                >
+                  <ListItemText primary={option.label} />
+                </ListItemButton>
+              </Fragment>
             ))}
             {clearable && value !== undefined && (
               <ListItemButton
@@ -451,7 +486,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
         : sentenceValue(all.find((option) => option.value === v)?.label ?? v)
     )
   );
-  if (readOnly) return <ReadOnlyBlank label={label} value={display || undefined} />;
+  if (readOnly) return <ReadOnlyBlank label={label} value={display || undefined} dataTestId={dataTestId} />;
   return (
     <PopoverBlank
       label={ghost ? `+ ${label}` : label}
@@ -562,7 +597,7 @@ export const TextBlank: FC<TextBlankProps> = ({
   dataTestId,
 }) => {
   const text = value === undefined ? '' : String(value);
-  if (readOnly) return <ReadOnlyBlank label={label} value={text} />;
+  if (readOnly) return <ReadOnlyBlank label={label} value={text} dataTestId={dataTestId} />;
   const placeholder = placeholderProp ?? label;
   return (
     <InputBase
@@ -616,7 +651,7 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
       ? value.toLocaleString(DateTime.DATE_MED)
       : value.toLocaleString(DateTime.TIME_SIMPLE)
     : undefined;
-  if (readOnly) return <ReadOnlyBlank label={label} value={display} />;
+  if (readOnly) return <ReadOnlyBlank label={label} value={display} dataTestId={dataTestId} />;
   const Picker = kind === 'date' ? DatePicker : TimePicker;
   return (
     <LocalizationProvider dateAdapter={AdapterLuxon}>

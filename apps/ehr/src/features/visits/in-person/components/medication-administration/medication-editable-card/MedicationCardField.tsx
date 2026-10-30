@@ -38,8 +38,8 @@ import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './
 
 type MedicationLocation = NonNullable<MedicationData['location']>;
 
-const POPULAR_SEPARATOR = 'popular-separator';
-const OTHER_SEPARATOR = 'other-separator';
+export const POPULAR_SEPARATOR = 'popular-separator';
+export const OTHER_SEPARATOR = 'other-separator';
 
 /** Lots of the order's drug on hand at the visit's clinic (requirement 3); only for drugs set up for inventory. */
 export interface InventoryLotSuggestions {

@@ -15,6 +15,103 @@ export interface CptCodeEntry {
   billableUnits?: number;
 }
 
+/** The list with `code` added once; with designation, the first code added becomes the medication. */
+export const addCptCode = (
+  cptCodes: CptCodeEntry[],
+  code: CPTCodeDTO,
+  showMedicationDesignation: boolean
+): CptCodeEntry[] => {
+  if (cptCodes.some((c) => c.code === code.code)) return cptCodes;
+  const newEntry: CptCodeEntry = { code: code.code, display: code.display };
+  if (showMedicationDesignation && cptCodes.length === 0) newEntry.isMedication = true;
+  return [...cptCodes, newEntry];
+};
+
+/** The list without `codeToRemove`; with designation, the first remaining code takes over as the medication. */
+export const removeCptCode = (
+  cptCodes: CptCodeEntry[],
+  codeToRemove: string,
+  showMedicationDesignation: boolean
+): CptCodeEntry[] => {
+  const remaining = cptCodes.filter((c) => c.code !== codeToRemove);
+  if (showMedicationDesignation && remaining.length > 0 && !remaining.some((c) => c.isMedication)) {
+    remaining[0] = { ...remaining[0], isMedication: true };
+  }
+  return remaining;
+};
+
+/** `code` as the medication; the others lose their designation and billing data. */
+export const designateMedicationCptCode = (cptCodes: CptCodeEntry[], code: string): CptCodeEntry[] =>
+  cptCodes.map((c) => (c.code === code ? { ...c, isMedication: true } : { code: c.code, display: c.display }));
+
+interface CptCodeSearchProps {
+  onPick: (code: CPTCodeDTO) => void;
+  dataTestId?: string;
+  autoFocus?: boolean;
+}
+
+/** The CPT / HCPCS search field on its own; picking a code hands it over and clears the field. */
+export const CptCodeSearch: FC<CptCodeSearchProps> = ({ onPick, dataTestId, autoFocus }) => {
+  const [inputValue, setInputValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
+
+  const debouncedSetSearchQuery = useCallback((value: string) => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setSearchQuery(value), 800);
+  }, []);
+
+  const { isFetching, data } = useGetCPTHCPCSSearch({ search: searchQuery, type: 'both' });
+  const searchOptions = data?.codes || [];
+
+  return (
+    <Autocomplete
+      data-testid={dataTestId}
+      size="small"
+      fullWidth
+      blurOnSelect
+      options={searchOptions}
+      filterOptions={(x) => x}
+      loading={isFetching}
+      inputValue={inputValue}
+      onInputChange={(_e, value, reason) => {
+        if (reason === 'input') {
+          setInputValue(value);
+          debouncedSetSearchQuery(value);
+        }
+        if (reason === 'clear') {
+          clearTimeout(timeoutRef.current);
+          setInputValue('');
+          setSearchQuery('');
+        }
+      }}
+      onChange={(_e, value) => {
+        if (!value) return;
+        onPick(value);
+        clearTimeout(timeoutRef.current);
+        setInputValue('');
+        setSearchQuery('');
+      }}
+      value={null}
+      getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
+      isOptionEqualToValue={(option, value) => option.code === value.code}
+      noOptionsText={
+        searchQuery && searchQuery.length > 2 && searchOptions.length === 0 ? 'Nothing found' : 'Start typing to search'
+      }
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          autoFocus={autoFocus}
+          label="Search CPT / HCPCS codes"
+          placeholder="Type code or description"
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
+      sx={{ mb: 1 }}
+    />
+  );
+};
+
 interface CptCodesInputProps {
   cptCodes: CptCodeEntry[];
   onChange: (codes: CptCodeEntry[]) => void;
@@ -31,91 +128,15 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
   dataTestId,
   showMedicationDesignation = false,
 }) => {
-  const [inputValue, setInputValue] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
-
-  const debouncedSetSearchQuery = useCallback((value: string) => {
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => setSearchQuery(value), 800);
-  }, []);
-
-  const { isFetching, data } = useGetCPTHCPCSSearch({ search: searchQuery, type: 'both' });
-  const searchOptions = data?.codes || [];
-
-  const handleAdd = (code: CPTCodeDTO | null): void => {
-    if (!code) return;
-    if (cptCodes.some((c) => c.code === code.code)) return;
-    const newEntry: CptCodeEntry = { code: code.code, display: code.display };
-    // First code added becomes the medication by default
-    if (showMedicationDesignation && cptCodes.length === 0) newEntry.isMedication = true;
-    onChange([...cptCodes, newEntry]);
-    clearTimeout(timeoutRef.current);
-    setInputValue('');
-    setSearchQuery('');
-  };
-
-  const handleRemove = (codeToRemove: string): void => {
-    const remaining = cptCodes.filter((c) => c.code !== codeToRemove);
-    // If the medication-designated code was removed, promote the first remaining code
-    if (showMedicationDesignation && remaining.length > 0 && !remaining.some((c) => c.isMedication)) {
-      remaining[0] = { ...remaining[0], isMedication: true };
-    }
-    onChange(remaining);
-  };
-
-  const handleSetMedication = (code: string): void => {
-    onChange(
-      cptCodes.map(
-        (c) => (c.code === code ? { ...c, isMedication: true } : { code: c.code, display: c.display }) // clear designation and billing data from the others
-      )
-    );
-  };
-
   return (
     <Box>
       <Box sx={{ mb: 1 }}>
         <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>CPT / HCPCS Codes</TooltipWrapper>
       </Box>
       {isEditable && (
-        <Autocomplete
-          data-testid={dataTestId}
-          size="small"
-          fullWidth
-          blurOnSelect
-          options={searchOptions}
-          filterOptions={(x) => x}
-          loading={isFetching}
-          inputValue={inputValue}
-          onInputChange={(_e, value, reason) => {
-            if (reason === 'input') {
-              setInputValue(value);
-              debouncedSetSearchQuery(value);
-            }
-            if (reason === 'clear') {
-              clearTimeout(timeoutRef.current);
-              setInputValue('');
-              setSearchQuery('');
-            }
-          }}
-          onChange={(_e, value) => handleAdd(value)}
-          value={null}
-          getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
-          isOptionEqualToValue={(option, value) => option.code === value.code}
-          noOptionsText={
-            searchQuery && searchQuery.length > 2 && searchOptions.length === 0
-              ? 'Nothing found'
-              : 'Start typing to search'
-          }
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Search CPT / HCPCS codes"
-              placeholder="Type code or description"
-              InputLabelProps={{ shrink: true }}
-            />
-          )}
-          sx={{ mb: 1 }}
+        <CptCodeSearch
+          dataTestId={dataTestId}
+          onPick={(code) => onChange(addCptCode(cptCodes, code, showMedicationDesignation))}
         />
       )}
       {cptCodes.length > 0 ? (
@@ -130,7 +151,11 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
                     </Tooltip>
                   ) : isEditable ? (
                     <Tooltip title="Mark as medication">
-                      <IconButton size="small" sx={{ p: 0 }} onClick={() => handleSetMedication(code.code)}>
+                      <IconButton
+                        size="small"
+                        sx={{ p: 0 }}
+                        onClick={() => onChange(designateMedicationCptCode(cptCodes, code.code))}
+                      >
                         <MedicationOutlinedIcon fontSize="small" color="disabled" />
                       </IconButton>
                     </Tooltip>
@@ -141,7 +166,11 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
                   {code.code} {code.display}
                 </Typography>
               </Box>
-              {isEditable && <DeleteIconButton onClick={() => handleRemove(code.code)} />}
+              {isEditable && (
+                <DeleteIconButton
+                  onClick={() => onChange(removeCptCode(cptCodes, code.code, showMedicationDesignation))}
+                />
+              )}
             </Box>
           ))}
         </Box>

@@ -2,7 +2,17 @@ import { otherColors } from '@ehrTheme/colors';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, CircularProgress, Grid, InputAdornment, Paper, TextField, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  CircularProgress,
+  Divider,
+  Grid,
+  InputAdornment,
+  Paper,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import Alert from '@mui/material/Alert';
 import { Stack } from '@mui/system';
 import { DateTime } from 'luxon';
@@ -25,11 +35,23 @@ import { Loader } from '../../../../shared/components/Loader';
 import { QuickPicksButton } from '../../../../shared/components/QuickPicksButton';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
+import { SectionLabel } from '../../procedures/narrative/InlineBlanks';
 import { ButtonRounded } from '../../RoundedButton';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
 import { getFieldLabel, MedicationFieldType, MedicationOrderType, XsVariants } from './fieldsConfig';
 import { InventoryLotSuggestions, MedicationCardField } from './MedicationCardField';
+import { BillingSentences, OrderSentences, QuickPickMenuItem } from './OrderSentences';
 import { InHouseMedicationFieldType, isLikelyMedicationCode } from './utils';
+
+type HardcodedQuickPick = (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number];
+
+const fhirQuickPickLabel = (quickPick: InHouseMedicationQuickPickData): string => {
+  const parts = [quickPick.name] as string[];
+  if (quickPick.dose != null && quickPick.units != null) {
+    parts.push(`${quickPick.dose} ${quickPick.units}`);
+  }
+  return parts.join(', ');
+};
 
 export interface InteractionsMessage {
   style: 'loading' | 'warning' | 'success';
@@ -219,17 +241,50 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   const inHouseMedicationsquickPicksList = useMemo(() => {
     const medispanCodeSet = selectsOptions.medicationId.medispanCodeSet ?? new Set<string>();
     const ndcCodeSet = selectsOptions.medicationId.ndcCodeSet ?? new Set<string>();
-    type QuickPick = (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number];
-    const hasNdc = (pick: QuickPick): boolean => pick.ndc != null && ndcCodeSet.has(pick.ndc);
-    const hasMedispan = (pick: QuickPick): boolean =>
+    const hasNdc = (pick: HardcodedQuickPick): boolean => pick.ndc != null && ndcCodeSet.has(pick.ndc);
+    const hasMedispan = (pick: HardcodedQuickPick): boolean =>
       pick.dosespotId != null && medispanCodeSet.has(String(pick.dosespotId));
     return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter((f) => hasNdc(f) || hasMedispan(f));
   }, [selectsOptions.medicationId.medispanCodeSet, selectsOptions.medicationId.ndcCodeSet]);
 
-  const showHardcodedQuickPicks =
-    (type === 'order-new' || type === 'order-edit') && onQuickPickSelect && inHouseMedicationsquickPicksList.length > 0;
+  const isOrderForm = type === 'order-new' || type === 'order-edit';
+  const showHardcodedQuickPicks = isOrderForm && onQuickPickSelect && inHouseMedicationsquickPicksList.length > 0;
   const showFhirQuickPicks =
     onFhirQuickPickSelect && (showQuickPickAddOption || (fhirQuickPicks && fhirQuickPicks.length > 0));
+
+  const hardcodedQuickPickLabel = (quickPick: HardcodedQuickPick): string => {
+    const parts = [quickPick.name] as string[];
+    if (quickPick.dose != null && quickPick.units != null) {
+      parts.push(`${quickPick.dose} ${quickPick.units}`);
+    } else if (quickPick.dose != null) {
+      parts.push(String(quickPick.dose));
+    }
+    if (quickPick.route != null) {
+      const routeLabel =
+        selectsOptions.route.options.find((o) => o.value === quickPick.route)?.label ?? quickPick.route;
+      parts.push(routeLabel);
+    }
+    return parts.join(', ');
+  };
+
+  // The order form's medication menu lists the same quick picks the Quick Picks field offered, FHIR ones first.
+  const menuQuickPicks: QuickPickMenuItem[] = showFhirQuickPicks
+    ? (fhirQuickPicks ?? []).map((quickPick) => ({
+        key: quickPick.id ?? quickPick.name,
+        label: fhirQuickPickLabel(quickPick),
+        onSelect: () => onFhirQuickPickSelect!(quickPick),
+      }))
+    : showHardcodedQuickPicks
+    ? inHouseMedicationsquickPicksList.map((quickPick) => ({
+        key: quickPick.name,
+        label: hardcodedQuickPickLabel(quickPick),
+        onSelect: () => onQuickPickSelect!(quickPick),
+      }))
+    : [];
+  const onSaveAsQuickPick =
+    showFhirQuickPicks && showQuickPickAddOption && isAdmin && onQuickPickAddOrUpdate
+      ? onQuickPickAddOrUpdate
+      : undefined;
 
   const OrderFooter = (): React.ReactElement => {
     return (
@@ -371,6 +426,131 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     );
   };
 
+  const HeaderRow = (): React.ReactElement => (
+    <>
+      {type !== 'order-new' && (
+        <Typography gutterBottom sx={{ height: '26px', display: 'flex', flexDirection: 'row', gap: 3 }}>
+          <span>Order ID: {medication?.id}</span>
+          <span>
+            {medication?.effectiveDateTime
+              ? DateTime.fromISO(medication.effectiveDateTime).toFormat('MM/dd/yyyy hh:mm a')
+              : ''}
+          </span>
+        </Typography>
+      )}
+      {isUpdating && (
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <Loader size={24} height={'30px'} width={'30px'} />
+          <Box ml={1}>Saving...</Box>
+        </div>
+      )}
+    </>
+  );
+
+  const InteractionsBanner = (): React.ReactElement | null =>
+    interactionsMessage ? (
+      <Stack
+        style={{
+          background:
+            interactionsMessage.style === 'warning'
+              ? otherColors.lightErrorBg
+              : interactionsMessage.style === 'success'
+              ? otherColors.lightGreen
+              : 'none',
+          padding: '16px',
+          borderRadius: '4px',
+          width: '100%',
+          cursor: 'pointer',
+        }}
+        alignItems="center"
+        direction="row"
+        onClick={onInteractionsMessageClick}
+      >
+        {interactionsMessage.style === 'warning' ? (
+          <ErrorOutlineOutlined style={{ width: '20px', height: '20px', color: theme.palette.error.main }} />
+        ) : interactionsMessage.style === 'success' ? (
+          <CheckCircleOutline style={{ width: '20px', height: '20px', color: theme.palette.success.main }} />
+        ) : (
+          <CircularProgress size="16px" />
+        )}
+        <Typography
+          variant="body2"
+          style={{
+            color:
+              interactionsMessage.style === 'warning'
+                ? otherColors.lightErrorText
+                : interactionsMessage.style === 'success'
+                ? otherColors.darkGreenText
+                : '#000',
+            marginLeft: '12px',
+          }}
+          display="inline"
+        >
+          <span style={{ fontWeight: '500' }}>Interaction: </span>
+          {interactionsMessage.message}
+        </Typography>
+      </Stack>
+    ) : null;
+
+  if (isOrderForm) {
+    const instructionsValue = getFieldValue('instructions');
+    return (
+      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+        {/* 12px apart, as the sentence forms are; SectionLabel's spacing assumes this gap. */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {(type !== 'order-new' || isUpdating) && (
+            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <HeaderRow />
+            </Box>
+          )}
+          <SectionLabel>Order</SectionLabel>
+          <OrderSentences
+            medication={medication}
+            isEditable={isEditable}
+            isRequired={(field) => fieldsConfig[field]?.isRequired ?? false}
+            getFieldValue={getFieldValue}
+            onFieldValueChange={onFieldValueChange}
+            selectsOptions={selectsOptions}
+            quickPicks={menuQuickPicks}
+            quickPicksLoading={Boolean(showFhirQuickPicks) && fhirQuickPicksLoading}
+            onSaveAsQuickPick={onSaveAsQuickPick}
+          />
+          <SectionLabel>Instructions</SectionLabel>
+          <TextField
+            data-testid={dataTestIds.orderMedicationPage.inputField('instructions')}
+            multiline
+            rows={3}
+            fullWidth
+            autoComplete="off"
+            placeholder="Instructions (optional)"
+            inputProps={{ 'aria-label': getFieldLabel('instructions', type) }}
+            value={instructionsValue ?? ''}
+            onChange={(e) => onFieldValueChange('instructions', e.target.value)}
+            disabled={!isEditable}
+          />
+          <InteractionsBanner />
+          <SectionLabel>Billing</SectionLabel>
+          <BillingSentences
+            cptCodes={localValues.cptCodes ?? []}
+            onCptCodesChange={(codes) => onFieldValueChange('cptCodes', withBillingData(codes, billableUnitSize))}
+            isEditable={isEditable}
+            billableUnitSizeInput={billableUnitSizeInput}
+            onBillableUnitSizeChange={handleBillableUnitSizeChange}
+            doseUnitsLabel={doseUnitsLabel}
+            billableUnits={billableUnits}
+          />
+          {billingWarnings.map((warning) => (
+            <Alert severity="warning" key={warning}>
+              {warning}
+            </Alert>
+          ))}
+          <Divider sx={{ mt: 1 }} />
+          <OrderFooter />
+        </Box>
+      </Paper>
+    );
+  }
+
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
       <Grid container spacing={2}>
@@ -379,13 +559,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             <QuickPicksButton
               quickPicks={fhirQuickPicks ?? []}
               loading={fhirQuickPicksLoading}
-              getLabel={(qp) => {
-                const parts = [qp.name] as string[];
-                if (qp.dose != null && qp.units != null) {
-                  parts.push(`${qp.dose} ${qp.units}`);
-                }
-                return parts.join(', ');
-              }}
+              getLabel={fhirQuickPickLabel}
               onSelect={onFhirQuickPickSelect!}
               disabled={isUpdating}
               showAddOption={showQuickPickAddOption}
@@ -394,50 +568,12 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             />
           </Grid>
         )}
-        {!showFhirQuickPicks && showHardcodedQuickPicks && (
-          <Grid item xs={12}>
-            <QuickPicksButton
-              quickPicks={inHouseMedicationsquickPicksList}
-              getLabel={(quickPick) => {
-                const parts = [quickPick.name] as string[];
-                if (quickPick.dose != null && quickPick.units != null) {
-                  parts.push(`${quickPick.dose} ${quickPick.units}`);
-                } else if (quickPick.dose != null) {
-                  parts.push(String(quickPick.dose));
-                }
-                if (quickPick.route != null) {
-                  const routeLabel =
-                    selectsOptions.route.options.find((o) => o.value === quickPick.route)?.label ?? quickPick.route;
-                  parts.push(routeLabel);
-                }
-                return parts.join(', ');
-              }}
-              onSelect={onQuickPickSelect}
-              disabled={isUpdating}
-            />
-          </Grid>
-        )}
         <Grid
           item
           xs={12}
           sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          {type !== 'order-new' && (
-            <Typography gutterBottom sx={{ height: '26px', display: 'flex', flexDirection: 'row', gap: 3 }}>
-              <span>Order ID: {medication?.id}</span>
-              <span>
-                {medication?.effectiveDateTime
-                  ? DateTime.fromISO(medication.effectiveDateTime).toFormat('MM/dd/yyyy hh:mm a')
-                  : ''}
-              </span>
-            </Typography>
-          )}
-          {isUpdating && (
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-              <Loader size={24} height={'30px'} width={'30px'} />
-              <Box ml={1}>Saving...</Box>
-            </div>
-          )}
+          <HeaderRow />
         </Grid>
         {Object.entries(fieldsConfig).map(([field, config]) => {
           if (field === 'cptCodes') return null; // Rendered separately below
@@ -473,47 +609,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
         })}
         {interactionsMessage ? (
           <Grid item xs={12}>
-            <Stack
-              style={{
-                background:
-                  interactionsMessage.style === 'warning'
-                    ? otherColors.lightErrorBg
-                    : interactionsMessage.style === 'success'
-                    ? otherColors.lightGreen
-                    : 'none',
-                padding: '16px',
-                borderRadius: '4px',
-                width: '100%',
-                cursor: 'pointer',
-              }}
-              alignItems="center"
-              direction="row"
-              onClick={onInteractionsMessageClick}
-            >
-              {interactionsMessage.style === 'warning' ? (
-                <ErrorOutlineOutlined style={{ width: '20px', height: '20px', color: theme.palette.error.main }} />
-              ) : interactionsMessage.style === 'success' ? (
-                <CheckCircleOutline style={{ width: '20px', height: '20px', color: theme.palette.success.main }} />
-              ) : (
-                <CircularProgress size="16px" />
-              )}
-              <Typography
-                variant="body2"
-                style={{
-                  color:
-                    interactionsMessage.style === 'warning'
-                      ? otherColors.lightErrorText
-                      : interactionsMessage.style === 'success'
-                      ? otherColors.darkGreenText
-                      : '#000',
-                  marginLeft: '12px',
-                }}
-                display="inline"
-              >
-                <span style={{ fontWeight: '500' }}>Interaction: </span>
-                {interactionsMessage.message}
-              </Typography>
-            </Stack>
+            <InteractionsBanner />
           </Grid>
         ) : null}
         <Grid item xs={12}>

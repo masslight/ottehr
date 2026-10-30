@@ -45,6 +45,10 @@ vi.mock(
 // component directly, so stub that instead — otherwise it renders and demands a QueryClient.
 vi.mock('src/components/input/CptCodesInput', () => ({
   CptCodesInput: () => <div />,
+  CptCodeSearch: () => <div />,
+  addCptCode: (codes: unknown[]) => codes,
+  removeCptCode: (codes: unknown[]) => codes,
+  designateMedicationCptCode: (codes: unknown[]) => codes,
 }));
 
 vi.mock('../../src/features/visits/shared/components/Loader', () => ({
@@ -142,7 +146,8 @@ vi.mock('../../src/features/visits/in-person/hooks/useGetFieldOptions', () => ({
     new Proxy(
       {
         medicationId: {
-          options: [],
+          options: [{ value: 'med-1', label: 'Medication One' }],
+          status: 'loaded',
           ndcToMedicationId: {},
           medispanCodeToMedicationId: {},
           defaultOption: undefined,
@@ -250,12 +255,13 @@ describe('EditableMedicationCard', () => {
       expect(useInHouseMedicationOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
     });
 
+    // The order form is sentences: the medication blank reads the picked medication's name, or "medication" when empty.
     it('populates form fields from the draft on mount', () => {
       useInHouseMedicationOrderStore.getState().setDraft(ENCOUNTER_ID, { medicationId: 'med-1' });
 
       render(<EditableMedicationCard type="order-new" />);
 
-      expect(screen.getByTestId('field-medicationId')).toHaveAttribute('data-value', 'med-1');
+      expect(screen.getByTestId('input-medicationId')).toHaveTextContent('Medication One');
     });
 
     it('clicking Clear Form resets form fields to empty', async () => {
@@ -263,11 +269,12 @@ describe('EditableMedicationCard', () => {
       const user = userEvent.setup();
 
       render(<EditableMedicationCard type="order-new" />);
-      expect(screen.getByTestId('field-medicationId')).toHaveAttribute('data-value', 'med-1');
+      expect(screen.getByTestId('input-medicationId')).toHaveTextContent('Medication One');
 
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
-      expect(screen.getByTestId('field-medicationId')).toHaveAttribute('data-value', '');
+      expect(screen.getByTestId('input-medicationId')).toHaveTextContent('medication');
+      expect(screen.getByTestId('input-medicationId')).not.toHaveTextContent('Medication One');
     });
 
     it('shows the interaction checking banner when the draft contains a medicationId', () => {
