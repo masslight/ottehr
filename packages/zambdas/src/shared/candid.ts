@@ -1803,14 +1803,17 @@ export const getCptModifierCodeFromProcedure = (
   const coding = fhirProcedure.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
   if (!coding) return;
 
-  const modifierCodableConcept = coding?.extension?.find(
+  const modifierExtensions = coding.extension?.filter(
     (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept
-  )?.valueCodeableConcept;
-  const modifier = modifierCodableConcept?.coding?.flatMap((c) =>
-    c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [{ code: c.code, display: c.display ?? '' }] : []
   );
+  if (!modifierExtensions?.length) return;
 
-  return modifier;
+  return modifierExtensions.flatMap(
+    (ext) =>
+      ext.valueCodeableConcept?.coding?.flatMap((c) =>
+        c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [{ code: c.code, display: c.display ?? '' }] : []
+      ) ?? []
+  );
 };
 
 export function shouldUseCandid(secrets: Secrets): boolean {
