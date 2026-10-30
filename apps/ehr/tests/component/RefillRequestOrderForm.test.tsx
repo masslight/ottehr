@@ -154,11 +154,12 @@ const CHANGE_REQUEST = (
   patient: PATIENT,
 });
 
+const onClose = vi.fn();
 const open = async (request: GetErxRequestResponse): Promise<ReturnType<typeof userEvent.setup>> => {
   mocks.getErxRequest.mockResolvedValue(request);
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <RefillRequestDialog taskId="task-1" onClose={vi.fn()} />
+      <RefillRequestDialog taskId="task-1" onClose={onClose} />
     </QueryClientProvider>
   );
   await screen.findByText(/^Original prescription/);
@@ -211,7 +212,10 @@ describe('Refill request dialog: the order form outside a visit', () => {
         patientInstructions: 'Take 1 tablet by mouth once daily',
       },
     });
-    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('Change and approve of a change request starts from the selected suggestion and answers with it', async () => {
@@ -301,7 +305,10 @@ describe('Refill request dialog: the order form outside a visit', () => {
       })
     );
     expect(mocks.respondToRenewal).not.toHaveBeenCalled();
-    expect(await screen.findByText('Sent to Sample Pharmacy One')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Prescription sent to Sample Pharmacy One', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('stays sent when the task can’t be completed, with a warning to close it from the Tasks page', async () => {
@@ -314,13 +321,13 @@ describe('Refill request dialog: the order form outside a visit', () => {
       patient: PATIENT,
     });
     await user.click(screen.getByRole('button', { name: 'Send prescription' }));
-    expect(await screen.findByText('Sent to Sample Pharmacy One')).toBeInTheDocument();
     await waitFor(() =>
       expect(enqueueSnackbar).toHaveBeenCalledWith(
-        'Prescription sent, but the task couldn’t be closed. Close it from the Tasks page.',
+        'Prescription sent to Sample Pharmacy One, but the task couldn’t be closed. Close it from the Tasks page.',
         { variant: 'warning' }
       )
     );
+    expect(onClose).toHaveBeenCalled();
   });
 
   const PATIENT_CHANGE: GetErxRequestResponse = {
@@ -362,7 +369,10 @@ describe('Refill request dialog: the order form outside a visit', () => {
       expect.objectContaining({ patientId: 'patient-1', encounterId: 'encounter-9', ndc: '00093111101' })
     );
     expect(order).toEqual(['cancel', 'order']);
-    expect(await screen.findByText('Sent to Sample Pharmacy One')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Prescription sent to Sample Pharmacy One', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('sends nothing when the original’s cancellation fails, and leaves the task open', async () => {

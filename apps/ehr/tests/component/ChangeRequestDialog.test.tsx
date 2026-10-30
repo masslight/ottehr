@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { enqueueSnackbar } from 'notistack';
 import { GetErxRequestResponse } from 'utils/lib/types/api/erx.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RefillRequestDialog } from '../../src/features/visits/in-person/components/erx/RefillRequestDialog';
@@ -81,12 +82,13 @@ const OUT_OF_STOCK = CHANGE('OS', {
   ],
 });
 
+const onClose = vi.fn();
 const open = async (request: GetErxRequestResponse): Promise<ReturnType<typeof userEvent.setup>> => {
   mocks.getErxRequest.mockResolvedValue(request);
   const user = userEvent.setup();
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <RefillRequestDialog taskId="task-1" onClose={vi.fn()} />
+      <RefillRequestDialog taskId="task-1" onClose={onClose} />
     </QueryClientProvider>
   );
   await screen.findByText(/^Original prescription/);
@@ -137,7 +139,10 @@ describe('Change request dialog', () => {
       note: undefined,
     });
     expect(mocks.respondToRenewal).not.toHaveBeenCalled();
-    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('denies a change request with a change denial reason', async () => {
@@ -153,6 +158,10 @@ describe('Change request dialog', () => {
       reason: 'Change not appropriate',
       denialReason: undefined,
     });
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Denial sent to CVS Pharmacy #7741', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('approves a drug-use alert with no suggestion as written, with no suggestion or changes', async () => {
@@ -167,7 +176,10 @@ describe('Change request dialog', () => {
       decision: 'approve',
       note: undefined,
     });
-    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('approves a prior authorization request with its number, with no Change and approve', async () => {
@@ -187,6 +199,9 @@ describe('Change request dialog', () => {
       note: undefined,
       priorAuthorization: { number: 'PA-88431207', status: 'approved' },
     });
-    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 });

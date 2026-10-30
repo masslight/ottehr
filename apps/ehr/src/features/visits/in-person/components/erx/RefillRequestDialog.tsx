@@ -61,6 +61,14 @@ const ANSWER_LABEL: Record<Answer, string> = {
   pending: 'Pending',
 };
 
+/** What a toast says went out, for each answer. */
+const SENT_LABEL: Record<Answer, string> = {
+  approve: 'Approval',
+  change: 'Approval',
+  deny: 'Denial',
+  pending: 'Pending',
+};
+
 const dateTime = (iso: string | undefined): string | undefined =>
   iso ? DateTime.fromISO(iso).toLocal().toFormat('M/d/yyyy h:mm a') : undefined;
 
@@ -118,7 +126,6 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const [priorAuthorization, setPriorAuthorization] = useState('');
   const [note, setNote] = useState('');
   const [reason, setReason] = useState('');
-  const [sent, setSent] = useState<string>();
   const respond = useMutation({
     mutationFn: async (body: RenewalResponseInput | ChangeResponseInput) => {
       if (!token) throw new Error('API client not available');
@@ -162,10 +169,13 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const ready =
     answer !== 'approve' ? reason !== '' : change ? !priorAuth || priorAuthorization.trim() !== '' : fillsValid;
 
-  // What went out stays sent when the task can't be completed: it's closed from the Tasks page instead.
+  // Once an answer goes out the dialog closes and a toast says what went out. What went out stays sent when the task
+  // can't be completed: it's closed from the Tasks page instead.
   const completeAfterSending = async (sentText: string): Promise<void> => {
+    onClose();
     try {
       await completeTask({ taskId });
+      enqueueSnackbar(sentText, { variant: 'success' });
     } catch (taskError) {
       console.error(`Error completing the task: ${taskError}`);
       enqueueSnackbar(`${sentText}, but the task couldn’t be closed. Close it from the Tasks page.`, {
@@ -196,14 +206,18 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             } as RenewalResponseInput)
       );
     } catch (sendError) {
+      // The dialog stays open, with what was typed, to try again.
       console.error(`Error answering the ${kindName.toLowerCase()} request: ${sendError}`);
       enqueueSnackbar(errorMessage(sendError), { variant: 'error' });
       return;
     }
-    // A pending answer keeps the task open, to answer again later.
-    if (answer === 'pending') await queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false });
-    else await completeAfterSending(`Sent to ${pharmacyName}`);
-    setSent(`Sent to ${pharmacyName}`);
+    const sentText = `${SENT_LABEL[answer]} sent to ${pharmacyName}`;
+    // A pending answer keeps the task open, to answer again later: the task list refreshes in the background.
+    if (answer === 'pending') {
+      onClose();
+      enqueueSnackbar(sentText, { variant: 'success' });
+      void queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false });
+    } else await completeAfterSending(sentText);
   };
 
   const reasons = answer !== 'deny' ? RENEWAL_PENDING_REASONS : change ? CHANGE_DENIAL_REASONS : RENEWAL_DENIAL_REASONS;
@@ -218,8 +232,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       : undefined;
   // A new prescription in the order form, saved to the original's visit: the pharmacy's request changed and approved
   // (sent to the pharmacy that asked), or a patient's request (sent as a new prescription, to any pharmacy).
-  const showForm =
-    !!data && !!prescription?.encounterId && !sent && (request ? answer === 'change' && !closed : !changeBlocked);
+  const showForm = !!data && !!prescription?.encounterId && (request ? answer === 'change' && !closed : !changeBlocked);
   const orderForm = showForm && (
     <OrderPrescriptionForm
       // Picking another suggestion starts the form again from it.
@@ -262,15 +275,22 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             },
           }
         : { sendLabel: 'Send prescription' })}
-      onSent={(sentTo) => {
-        setSent(`Sent to ${sentTo.name}`);
-        void completeAfterSending('Prescription sent');
-      }}
+      onSent={(sentTo) =>
+        void completeAfterSending(`${request ? SENT_LABEL.change : 'Prescription'} sent to ${sentTo.name}`)
+      }
     />
   );
 
   return (
-    <Dialog open onClose={respond.isPending ? undefined : onClose} fullWidth maxWidth={showForm ? 'lg' : 'md'}>
+    // One size whatever the answer: the order form's width and the screen's height, the content scrolling inside, so
+    // moving between answers doesn't resize it.
+    <Dialog
+      open
+      onClose={respond.isPending ? undefined : onClose}
+      fullWidth
+      maxWidth="lg"
+      PaperProps={{ sx: { height: 'calc(100% - 64px)' } }}
+    >
       <DialogTitle>
         {request
           ? `${kindName} request from ${pharmacyName}`
@@ -336,7 +356,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                       <FormControlLabel
                         key={index}
                         value={index}
-                        disabled={closed || !!sent}
+                        disabled={closed}
                         control={<Radio size="small" />}
                         label={
                           <Box>
@@ -389,10 +409,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 />
               </Box>
             </Box>
-            {sent && <Alert severity="success">{sent}</Alert>}
-            {!sent && changeBlocked && <Alert severity="warning">{changeBlocked}</Alert>}
+            {changeBlocked && <Alert severity="warning">{changeBlocked}</Alert>}
             {!request && orderForm}
-            {request && !sent && (
+            {request && (
               <Stack spacing={2}>
                 <SectionHeading>Your answer</SectionHeading>
                 <ToggleButtonGroup
@@ -487,9 +506,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <RoundedButton onClick={onClose} disabled={respond.isPending}>
-          {sent || closed ? 'Close' : 'Cancel'}
+          {closed ? 'Close' : 'Cancel'}
         </RoundedButton>
-        {request && !closed && !sent && answer !== 'change' && (
+        {request && !closed && answer !== 'change' && (
           <RoundedButton variant="contained" disabled={!ready} loading={respond.isPending} onClick={() => void send()}>
             {answer === 'deny' ? 'Send denial' : `Send to ${pharmacyName}`}
           </RoundedButton>

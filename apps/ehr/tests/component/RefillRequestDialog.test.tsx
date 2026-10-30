@@ -73,12 +73,13 @@ const REQUEST: GetErxRequestResponse = {
   },
 };
 
+const onClose = vi.fn();
 const open = async (request: GetErxRequestResponse = REQUEST): Promise<ReturnType<typeof userEvent.setup>> => {
   mocks.getErxRequest.mockResolvedValue(request);
   const user = userEvent.setup();
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <RefillRequestDialog taskId="task-1" onClose={vi.fn()} />
+      <RefillRequestDialog taskId="task-1" onClose={onClose} />
     </QueryClientProvider>
   );
   await screen.findByText('Pharmacy’s request');
@@ -150,18 +151,23 @@ describe('Refill request dialog', () => {
       numberOfRefills: 3,
       note: 'BP check soon',
     });
-    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('stays sent when the task can’t be completed, with a warning to close it from the Tasks page', async () => {
     mocks.completeTask.mockRejectedValue(new Error('Task update failed'));
     const user = await open();
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
-    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
-    expect(enqueueSnackbar).toHaveBeenCalledWith(
-      'Sent to CVS Pharmacy #7741, but the task couldn’t be closed. Close it from the Tasks page.',
-      { variant: 'warning' }
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith(
+        'Approval sent to CVS Pharmacy #7741, but the task couldn’t be closed. Close it from the Tasks page.',
+        { variant: 'warning' }
+      )
     );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('denies only with a reason', async () => {
@@ -178,6 +184,10 @@ describe('Refill request dialog', () => {
       reason: 'Patient needs appointment',
       denialReason: undefined,
     });
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Denial sent to CVS Pharmacy #7741', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('answers Pending without completing the task', async () => {
@@ -186,7 +196,10 @@ describe('Refill request dialog', () => {
     await user.click(screen.getByRole('combobox', { name: /Reason/ }));
     await user.click(screen.getByRole('option', { name: 'Patient has labs/tests pending' }));
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
-    expect(await screen.findByText('Sent to CVS Pharmacy #7741')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Pending sent to CVS Pharmacy #7741', { variant: 'success' })
+    );
+    expect(onClose).toHaveBeenCalled();
     expect(mocks.respondToRenewal.mock.calls[0][1]).toMatchObject({ decision: 'pending' });
     expect(mocks.completeTask).not.toHaveBeenCalled();
   });
@@ -199,6 +212,9 @@ describe('Refill request dialog', () => {
       expect(enqueueSnackbar).toHaveBeenCalledWith('The renewal request has expired', { variant: 'error' })
     );
     expect(mocks.completeTask).not.toHaveBeenCalled();
+    // The dialog stays open, to try again.
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' })).toBeEnabled();
   });
 
   it('can’t answer a withdrawn request', async () => {
