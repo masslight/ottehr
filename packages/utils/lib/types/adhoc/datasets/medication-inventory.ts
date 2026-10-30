@@ -50,7 +50,7 @@ export const MedicationInventoryBaseRowSchema = z.object({
   unit: z
     .string()
     .describe(
-      "Stock unit: the drug's counted-as item (vial, tablet, tube …), or the volume unit (ml) for a multi-use drug " +
+      "Stock unit: the drug's counting unit (vial, tablet, tube …), or the volume unit (ml) for a multi-use drug " +
         'measured by volume.'
     ),
   wasteAmount: z

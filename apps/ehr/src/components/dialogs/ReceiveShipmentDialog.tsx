@@ -248,7 +248,7 @@ export default function ReceiveShipmentDialog({
             Receive shipment
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {name} · counted as {units.plural}
+            {name} · counted in {units.plural}
           </Typography>
         </DialogTitle>
         <DialogContent>

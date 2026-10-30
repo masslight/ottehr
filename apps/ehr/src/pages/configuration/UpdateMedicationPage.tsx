@@ -389,10 +389,10 @@ export default function UpdateMedicationPage(): ReactElement {
               </Grid>
               <Grid item xs={3}>
                 <FormControl fullWidth>
-                  <InputLabel id="inventory-counted-as-label">Counted as</InputLabel>
+                  <InputLabel id="inventory-counted-as-label">Counting unit</InputLabel>
                   <Select
                     labelId="inventory-counted-as-label"
-                    label="Counted as"
+                    label="Counting unit"
                     disabled={!canEditSetup}
                     value={inventoryForm.countedAs}
                     onChange={(e) => setInventoryField('countedAs', e.target.value as MedicationCountedAs | '')}
