@@ -27,7 +27,8 @@ export interface RequestRow {
 /**
  * The pharmacy's request beside the original prescription. The request side holds only what the pharmacy sent: a
  * field it left out is undefined, never 0 and never the original's (S.207). A row differs when both sides have a
- * value and they aren't the same; the medication by its NDC.
+ * value and they don't read the same; the medication only when its NDC differs too, and a quantity sent with no unit by
+ * its value.
  */
 export const requestRows = (request: RequestedMedication, prescription: PrescribedMedicationDTO): RequestRow[] => {
   const order = prescription.order ?? {};
@@ -37,16 +38,20 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
     original,
     differs: requested !== undefined && original !== undefined && requested !== original,
   });
+  const medication = row('Medication', request.description, prescription.name);
+  const quantity = row(
+    'Quantity',
+    quantityText(request.quantityValue, request.quantityUnit),
+    quantityText(order.quantityValue, order.quantityUnit)
+  );
   return [
     {
-      ...row('Medication', request.description, prescription.name),
-      differs: request.ndc !== undefined && order.ndc !== undefined && request.ndc !== order.ndc,
+      ...medication,
+      differs: medication.differs && request.ndc !== undefined && order.ndc !== undefined && request.ndc !== order.ndc,
     },
-    row(
-      'Quantity',
-      quantityText(request.quantityValue, request.quantityUnit),
-      quantityText(order.quantityValue, order.quantityUnit)
-    ),
+    request.quantityUnit === undefined
+      ? { ...quantity, differs: row('', request.quantityValue?.toString(), order.quantityValue?.toString()).differs }
+      : quantity,
     row('Directions', request.sig, prescription.instructions),
     row('Days supply', request.daysSupply?.toString(), order.daysSupply?.toString()),
     row('Substitution', allowedText(request.substitutionAllowed), allowedText(order.substitutionAllowed)),

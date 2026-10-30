@@ -78,6 +78,25 @@ describe('refill request: what the pharmacy sent', () => {
     expect(row(rows, 'Refills')).toMatchObject({ request: '3', original: '1', differs: false });
     expect(row(rows, 'Substitution').differs).toBe(false);
   });
+
+  it('compares a quantity sent with no unit by its value, shown as sent', () => {
+    expect(row(requestRows({ quantityValue: 30 }, ORIGINAL), 'Quantity')).toMatchObject({
+      request: '30',
+      original: '30 tablets',
+      differs: false,
+    });
+    expect(row(requestRows({ quantityValue: 16 }, ORIGINAL), 'Quantity')).toMatchObject({
+      request: '16',
+      differs: true,
+    });
+  });
+
+  it('highlights the medication only when its name reads differently, never for its NDC alone', () => {
+    const sameName = requestRows({ description: 'Lisinopril 10 mg tablet', ndc: '00093111199' }, ORIGINAL);
+    expect(row(sameName, 'Medication').differs).toBe(false);
+    const otherName = requestRows({ description: 'Lisinopril 20 mg tablet', ndc: '00093111201' }, ORIGINAL);
+    expect(row(otherName, 'Medication').differs).toBe(true);
+  });
 });
 
 describe('refill request: the prescription the order form starts with', () => {
