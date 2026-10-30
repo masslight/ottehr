@@ -10,6 +10,7 @@ import {
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
+  CreateBillingInvoiceInputSchema,
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
@@ -27,6 +28,7 @@ import {
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
+  GetBillingInvoiceRecipientInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingProviderInputSchema,
@@ -80,6 +82,7 @@ import {
   BillingCodeOption,
   BillingProviderOption,
   ClaimDetailResponse,
+  CreateBillingInvoiceResponse,
   CreatedClaimResponse,
   CreatedResourceResponse,
   CreateTimelyFilingReportResponse,
@@ -90,6 +93,7 @@ import {
   ExportClaimX12Response,
   GetBillingCardsOnFileReportResponse,
   GetBillingCoverageResponse,
+  GetBillingInvoiceRecipientResponse,
   GetBillingInvoiceReportResponse,
   GetBillingNetCollectionsDrilldownResponse,
   GetBillingNetCollectionsReportResponse,
@@ -175,6 +179,19 @@ export const saveInvoiceConfig = (
   oystehr: Oystehr,
   parameters: SaveInvoiceConfigInput
 ): Promise<InvoiceConfigResponse> => executeBillingZambda(oystehr, 'save-billing-invoice-config', parameters);
+
+// --- Invoices ---
+
+export const getBillingInvoiceRecipient = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingInvoiceRecipientInputSchema>
+): Promise<GetBillingInvoiceRecipientResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-invoice-recipient', parameters);
+
+export const createBillingInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateBillingInvoiceInputSchema>
+): Promise<CreateBillingInvoiceResponse> => executeBillingZambda(oystehr, 'create-billing-invoice', parameters);
 
 // --- Rules engines ---
 

@@ -907,6 +907,23 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
+export const GetBillingInvoiceRecipientInputSchema = z.object({
+  claimId: z.string().uuid(),
+});
+
+export const CreateBillingInvoiceInputSchema = z.object({
+  claimId: nonEmptyString.uuid(),
+  amountCents: z.number().int().positive(),
+  dueDate: z.string().date(),
+  smsMessage: nonEmptyString,
+  memo: nonEmptyString,
+  // Same key on a retry resumes the invoice that request started.
+  idempotencyKey: z
+    .string()
+    .max(128)
+    .regex(/^[A-Za-z0-9._-]+$/),
+});
+
 // EHR-facing patient payment endpoints owned by the billing app.
 export const ListBillingPatientPaymentsInputSchema = z.object({
   patientId: nonEmptyString.uuid(),
@@ -1258,6 +1275,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type CreateBillingInvoiceInput = z.output<typeof CreateBillingInvoiceInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
 export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
 export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;

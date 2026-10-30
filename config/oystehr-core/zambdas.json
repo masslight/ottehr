@@ -1907,6 +1907,27 @@
       "src": "src/ehr/create-invoice-tasks-for-billing-claims/index",
       "zip": ".dist/zips/create-invoice-tasks-for-billing-claims.zip"
     },
+    "PREPARE-BILLING-INVOICE": {
+      "name": "prepare-billing-invoice",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/prepare-billing-invoice/index",
+      "zip": ".dist/zips/prepare-billing-invoice.zip"
+    },
+    "GET-BILLING-INVOICE-VISIT": {
+      "name": "get-billing-invoice-visit",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-billing-invoice-visit/index",
+      "zip": ".dist/zips/get-billing-invoice-visit.zip"
+    },
+    "SEND-BILLING-INVOICE-SMS": {
+      "name": "send-billing-invoice-sms",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-billing-invoice-sms/index",
+      "zip": ".dist/zips/send-billing-invoice-sms.zip"
+    },
     "EXPORT-INVOICES": {
       "name": "export-invoices",
       "type": "http_auth",

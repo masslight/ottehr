@@ -1152,6 +1152,21 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
+export interface GetBillingInvoiceRecipientResponse {
+  patient: { fullName: string; dob?: string; gender?: string; phoneNumber?: string };
+  responsibleParty: { fullName?: string; email?: string; phoneNumber?: string };
+  location?: string;
+  visitDate?: string;
+}
+
+export interface CreateBillingInvoiceResponse {
+  invoiceId: string;
+  stripeInvoiceId: string;
+  // True when this request's SMS was accepted, which does not confirm delivery. False when it failed.
+  // Missing when this request sent no SMS, such as a retry of an invoice that was already sent or paid.
+  smsSent?: boolean;
+}
+
 export interface AddClaimAttachmentResponse {
   documentReferenceId: string;
   uploadUrl: string;

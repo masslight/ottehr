@@ -59,6 +59,7 @@ import {
   ClaimStatusValues,
   formatAntCaseString,
   formatClaimStatusValue,
+  isInvoiceableClaimStatus,
 } from 'utils/lib/types/data/billing/claim-status';
 import {
   ClaimsListFilters,
@@ -85,11 +86,13 @@ import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
 import { usePayerSearch } from '../components/PayerSelect';
+import { SendInvoiceDialog } from '../components/SendInvoiceDialog';
 import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingServices } from '../hooks/useBillingServices';
+import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatFacilityAddress, valueToText } from '../utils/format';
@@ -453,6 +456,7 @@ export function ClaimsListView({
 }: ClaimsListViewProps): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
+  const invoicingInBillingApp = useInvoicingInBillingApp();
   const apiRef = useGridApiRef();
 
   const [claims, setClaims] = useState<BillingClaimItem[]>([]);
@@ -481,6 +485,7 @@ export function ClaimsListView({
   const [bulkSetRPModalOpen, setBulkSetRPModalOpen] = useState(false);
   const [bulkSetBPModalOpen, setBulkSetBPModalOpen] = useState(false);
   const [bulkSetSFModalOpen, setBulkSetSFModalOpen] = useState(false);
+  const [invoiceClaim, setInvoiceClaim] = useState<BillingClaimItem | null>(null);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const { services: serviceOptions, load: loadServices } = useBillingServices();
@@ -745,6 +750,11 @@ export function ClaimsListView({
     typeFilter.length ||
     selectedServices.length;
 
+  const selectedInvoiceableClaim =
+    selected.length === 1
+      ? claims.find((claim) => claim.id === String(selected[0]) && isInvoiceableClaimStatus(claim.statuses))
+      : undefined;
+
   // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
   // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
   // applies the configured rules, then performs its engine's success effect — submit to the payer
@@ -898,6 +908,18 @@ export function ClaimsListView({
                 >
                   Set Service Facility
                 </MenuItem>
+                {invoicingInBillingApp && (
+                  <MenuItem
+                    disabled={!selectedInvoiceableClaim}
+                    onClick={() => {
+                      setInvoiceClaim(selectedInvoiceableClaim ?? null);
+                      setClaimActionMenuOpen(false);
+                    }}
+                    disableRipple
+                  >
+                    Send Invoice
+                  </MenuItem>
+                )}
               </Menu>
               <Button
                 variant="outlined"
@@ -1203,6 +1225,16 @@ export function ClaimsListView({
         selected={selected}
         refetch={fetchClaimsWithCurrentFilters}
       />
+      {invoiceClaim && (
+        <SendInvoiceDialog
+          claim={invoiceClaim}
+          onClose={() => setInvoiceClaim(null)}
+          onSent={() => {
+            setInvoiceClaim(null);
+            void fetchClaimsWithCurrentFilters();
+          }}
+        />
+      )}
     </Box>
   );
 }

@@ -30,6 +30,7 @@ const VAR_DEFAULTS: { [key: string]: string } = {
   BILLING_LOGIN_REDIRECT_URL: 'https://billing-local.ottehr.com',
   BILLING_ALLOWED_URL_1: 'https://billing-local.ottehr.com',
   BILLING_INTEGRATION: '',
+  INVOICING_IN_BILLING_APP: 'false',
   PATIENT_BALANCE_SOURCE: 'candid',
   STRIPE_WEBHOOK_SECRET: '',
   STRIPE_PLATFORM_WEBHOOK_SECRET: '',
@@ -192,6 +193,7 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   const billingVars = { ...VAR_DEFAULTS, ...vars };
 
   assertBillingIntegrationSupportsNios(coreVars, env);
+  assertBillingAppInvoicingConfig(coreVars, env);
 
   await validateAndGenerateSpecFiles(coreSpecs, coreVars, outputPath);
   if (billingSpecs.length > 0) {
@@ -220,6 +222,30 @@ function assertBillingIntegrationSupportsNios(vars: { [key: string]: unknown }, 
         `feature flag is on. Non-insurance organizations need Ottehr billing as the system of record: set ` +
         `BILLING_INTEGRATION to 'ottehr' (or 'all' to also send comparison claims to Candid) in ` +
         `config/.env/${env}.json, or turn off customOrganizationsEnabled.`
+    );
+  }
+}
+
+/**
+ * INVOICING_IN_BILLING_APP moves Ottehr billing invoicing from the EHR to the billing app, so it only
+ * makes sense with that invoicing turned on and Ottehr billing claims in the claims path.
+ */
+function assertBillingAppInvoicingConfig(vars: { [key: string]: unknown }, env: string): void {
+  if (String(vars.INVOICING_IN_BILLING_APP) !== 'true') {
+    return;
+  }
+  if (!FEATURE_FLAGS_CONFIG.ottehrBillingInvoicingEnabled) {
+    throw new Error(
+      `INVOICING_IN_BILLING_APP is on for env '${env}' but ottehrBillingInvoicingEnabled is off. ` +
+        `Turn on ottehrBillingInvoicingEnabled to invoice from the billing app, or turn off INVOICING_IN_BILLING_APP.`
+    );
+  }
+  const billingIntegration = vars.BILLING_INTEGRATION;
+  if (billingIntegration !== 'ottehr' && billingIntegration !== 'all') {
+    throw new Error(
+      `BILLING_INTEGRATION is '${billingIntegration || '(unset)'}' for env '${env}', but INVOICING_IN_BILLING_APP ` +
+        `is on. Billing app invoicing needs Ottehr billing claims: set BILLING_INTEGRATION to 'ottehr' or 'all' ` +
+        `in config/.env/${env}.json, or turn off INVOICING_IN_BILLING_APP.`
     );
   }
 }

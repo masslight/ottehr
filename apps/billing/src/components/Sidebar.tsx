@@ -22,6 +22,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
+import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
 
 const DRAWER_WIDTH = 220;
 
@@ -64,6 +65,7 @@ const rulesNavItems = RULES_ENGINE_TYPES.map((engine) => ({
 export const Sidebar: FC = () => {
   const location = useLocation();
   const { logout } = useAuth0();
+  const invoicingInBillingApp = useInvoicingInBillingApp();
 
   const renderNavItem = ({ label, path, icon }: (typeof navItems)[number]): ReactElement => {
     const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
@@ -145,12 +147,16 @@ export const Sidebar: FC = () => {
         {navItems.map(renderNavItem)}
         <Divider sx={{ my: 1 }} />
         {rulesNavItems.map(renderNavItem)}
-        <Divider sx={{ my: 1 }} />
-        {renderNavItem({
-          label: 'Invoicing Configuration',
-          path: '/invoicing-configuration',
-          icon: <SettingsIcon sx={{ fontSize: 18 }} />,
-        })}
+        {invoicingInBillingApp && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            {renderNavItem({
+              label: 'Invoicing Configuration',
+              path: '/invoicing-configuration',
+              icon: <SettingsIcon sx={{ fontSize: 18 }} />,
+            })}
+          </>
+        )}
       </List>
 
       <List sx={{ px: 1.25 }}>

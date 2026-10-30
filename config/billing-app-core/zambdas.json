@@ -337,6 +337,20 @@
       "src": "src/billing/save-billing-invoice-config/index",
       "zip": ".dist/zips/save-billing-invoice-config.zip"
     },
+    "CREATE-BILLING-INVOICE": {
+      "name": "create-billing-invoice",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-invoice/index",
+      "zip": ".dist/zips/create-billing-invoice.zip"
+    },
+    "GET-BILLING-INVOICE-RECIPIENT": {
+      "name": "get-billing-invoice-recipient",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-invoice-recipient/index",
+      "zip": ".dist/zips/get-billing-invoice-recipient.zip"
+    },
     "GET-BILLING-REPORT": {
       "name": "get-billing-report",
       "type": "http_auth",

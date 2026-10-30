@@ -1,31 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, TaskOutput } from 'fhir/r4b';
+import { Patient, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils/lib/fhir/constants';
-import {
-  getPatientReferenceFromAccount,
-  getStripeCustomerIdFromAccount,
-  getTaskResource,
-} from 'utils/lib/fhir/helpers';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { fillInvoiceTemplate } from 'utils/lib/helpers/rcm/invoice-config';
 import { getInvoiceTaskSource, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TaskIndicator } from 'utils/lib/types/common';
-import { FHIR_RESOURCE_NOT_FOUND, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
-import { accountMatchesType } from '../../../ehr/shared/harvest';
 import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
 import { sendSmsForPatient } from '../../../shared/communication';
 import { createClinicalOystehrClient, resolveTimezone } from '../../../shared/helpers';
+import { getInvoiceVisitResources, resolveInvoiceStripeCustomerId } from '../../../shared/invoice-visit';
 import { wrapHandler } from '../../../shared/sentry';
-import { ensureStripeCustomerId, getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
+import { getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
 import { resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
 import { ZambdaInput } from '../../../shared/types/common';
 import { addErrorToInvoicingTaskOutput, getTaskAndSecretsFromInput, updateTaskStatusAndOutput } from '../../helpers';
@@ -49,34 +43,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const stripe = getStripeClient(secrets);
 
     console.log('Fetching fhir resources');
-    const fhirResources = await getFhirResources(oystehr, encounterId);
+    const fhirResources = await getInvoiceVisitResources(oystehr, encounterId);
     const { patient, encounter, account, appointment, location, schedule, stripeAccountId } = fhirResources;
     console.log('Fhir resources fetched');
 
     const source = getInvoiceTaskSource(task);
     console.log(`Resolving Stripe customer id for ${source} invoice task`);
-    let stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
-    if (!stripeCustomerId) {
-      console.log('No Stripe customer ID on account, creating one now');
-      const { customerId } = await ensureStripeCustomerId(
-        {
-          guarantorResource: patient,
-          account,
-          patientId: patient.id!,
-          stripeClient: stripe,
-          stripeAccount: stripeAccountId,
-        },
-        oystehr
-      );
-      stripeCustomerId = customerId;
-    }
-
-    const stripeCustomer = await stripe.customers.retrieve(stripeCustomerId, { stripeAccount: stripeAccountId });
-    if (stripeCustomer.deleted || !stripeCustomer.email) {
-      throw new Error(
-        'In order to create invoices that are sent to the customer, the responsible party must have a valid email.'
-      );
-    }
+    const stripeCustomerId = await resolveInvoiceStripeCustomerId({
+      oystehr,
+      stripe,
+      patient,
+      account,
+      stripeAccountId,
+    });
 
     if (source === 'candid' && !getCandidEncounterIdFromEncounter(encounter)) {
       throw new Error('CandidEncounterId is not found');
@@ -274,102 +253,6 @@ async function createInvoice(
     console.error('Error creating invoice:', error);
     throw error;
   }
-}
-
-async function getFhirResources(
-  oystehr: Oystehr,
-  encounterId: string
-): Promise<{
-  patient: Patient;
-  encounter: Encounter;
-  account: Account;
-  appointment: Appointment;
-  stripeAccountId?: string;
-  location?: Location;
-  schedule?: Schedule;
-}> {
-  const response = (
-    await oystehr.fhir.search({
-      resourceType: 'Encounter',
-      params: [
-        {
-          name: '_id',
-          value: encounterId,
-        },
-        {
-          name: '_include',
-          value: 'Encounter:patient',
-        },
-        {
-          name: '_include',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Appointment:location',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Account:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Schedule:actor:Location',
-        },
-      ],
-    })
-  ).unbundle();
-
-  const encounter = response.find((resource) => resource.resourceType === 'Encounter') as Encounter;
-  if (!encounter) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
-
-  const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
-  if (!patientId) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Encounter doesn't have patient reference");
-
-  const patient = response.find(
-    (resource) => resource.resourceType === 'Patient' && resource.id === patientId
-  ) as Patient;
-  if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
-  const accounts = response.filter(
-    (resource) =>
-      resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
-  ) as Account[];
-  const account = accounts.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
-  if (!account) throw FHIR_RESOURCE_NOT_FOUND('Account');
-
-  const appointment = response.find((res) => res.resourceType === 'Appointment') as Appointment;
-  if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
-  const locationId = appointment.participant
-    ?.find((p) => p.actor?.reference?.startsWith('Location/'))
-    ?.actor?.reference?.split('/')[1];
-  let location: Location | undefined;
-  if (locationId) {
-    location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;
-    if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
-  } else console.log("Appointment doesn't have location id");
-  const schedule = location?.id
-    ? (response.filter((res) => res.resourceType === 'Schedule') as Schedule[]).find(
-        (s) => s.actor?.some((a) => a.reference === `Location/${location.id}`)
-      )
-    : undefined;
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
-
-  console.log('Fhir encounter found: ', encounter.id);
-  console.log('Fhir patient found: ', patient.id);
-  console.log('Fhir account found', account?.id);
-  console.log('Fhir appointment found: ', appointment.id);
-  console.log('Fhir location found: ', location?.id);
-  if (stripeAccount) console.log('Stripe account id (optional): ', stripeAccount);
-
-  return {
-    encounter,
-    patient,
-    account,
-    appointment,
-    location,
-    schedule,
-    stripeAccountId: stripeAccount,
-  };
 }
 
 function isInvalidEmailError(error: unknown): boolean {
