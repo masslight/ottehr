@@ -6,17 +6,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { performEffect as createStatement } from '../../../src/billing/create-billing-invoice-statement';
 import { performEffect as getStatement } from '../../../src/billing/get-billing-invoice-statement';
 
-const { mockGetStatementDetails, mockResolveStatementAmountsSource, mockGetPresignedURL } = vi.hoisted(() => ({
-  mockGetStatementDetails: vi.fn(async () => ({ patient: { firstName: 'Sam' }, service: [] })),
-  mockResolveStatementAmountsSource: vi.fn(),
+const { mockGetPresignedURL } = vi.hoisted(() => ({
   mockGetPresignedURL: vi.fn(async () => 'https://signed.test/statement.pdf'),
 }));
 
 vi.mock('utils/lib/helpers/presigned-file-url/helpers', () => ({ getPresignedURL: mockGetPresignedURL }));
-vi.mock('../../../src/shared/statements/get-statement-details', () => ({
-  getStatementDetails: mockGetStatementDetails,
-  resolveStatementAmountsSource: mockResolveStatementAmountsSource,
-}));
 vi.mock('../../../src/shared/statements/get-statement-template', () => ({
   getHTMLStatementTemplate: () => ({ template: '<p>{{patient.firstName}}</p>' }),
 }));
@@ -37,23 +31,26 @@ const claim = {
   identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: 'enc-1' }],
 } as Claim;
 
-const makeBillingClient = (): { oystehr: Oystehr; execute: ReturnType<typeof vi.fn> } => {
+// Zambda outputs by zambda id, as the clinical endpoints would answer.
+const makeBillingClient = (
+  outputs: Record<string, unknown> = {}
+): { oystehr: Oystehr; execute: ReturnType<typeof vi.fn> } => {
   const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
     unbundle: () => [resourceType === 'Invoice' ? invoice : claim],
   }));
-  const execute = vi.fn(async () => ({ output: {} }));
+  const execute = vi.fn(async ({ id }: { id: string }) => ({ output: outputs[id] ?? {} }));
   return { oystehr: { fhir: { search }, zambda: { execute } } as unknown as Oystehr, execute };
 };
 
 describe('billing invoice statement', () => {
   it("previews the standard statement for the invoice's visit and links its current PDF", async () => {
-    const pdf = {
-      date: '2026-10-29T16:00:00.000Z',
-      content: [{ attachment: { url: 'https://project-api.test/v1/z3/proj-statements/pat-1/statement.pdf' } }],
-    };
-    const clinicalOystehr = { fhir: { search: vi.fn(async () => ({ unbundle: () => [pdf] })) } } as unknown as Oystehr;
+    const url = 'https://project-api.test/v1/z3/proj-statements/pat-1/statement.pdf';
+    const { oystehr, execute } = makeBillingClient({
+      'get-statement-details': { patient: { firstName: 'Sam' }, service: [] },
+      'get-statement-status': { generated: { generated: true, lastGenerated: '2026-10-29T16:00:00.000Z', url } },
+    });
 
-    const response = await getStatement(makeBillingClient().oystehr, clinicalOystehr, 'token', {
+    const response = await getStatement(oystehr, 'token', {
       invoiceId: 'inv-1',
       secrets: { PROJECT_API: 'https://project-api.test/v1', PROJECT_ID: 'proj' },
     });
@@ -63,13 +60,28 @@ describe('billing invoice statement', () => {
       generatedAt: '2026-10-29T16:00:00.000Z',
       pdfUrl: 'https://signed.test/statement.pdf',
     });
-    expect(mockResolveStatementAmountsSource).toHaveBeenCalledWith(
-      expect.objectContaining({ billingAppInvoice: true })
-    );
-    expect(mockGetStatementDetails).toHaveBeenCalledWith(
-      expect.objectContaining({ encounterId: 'enc-1', statementType: 'standard' })
-    );
-    expect(mockGetPresignedURL).toHaveBeenCalledWith(pdf.content[0].attachment.url, 'token');
+    expect(execute).toHaveBeenCalledWith({
+      id: 'get-statement-details',
+      encounterId: 'enc-1',
+      statementType: 'standard',
+      billingAppInvoice: true,
+    });
+    expect(execute).toHaveBeenCalledWith({ id: 'get-statement-status', encounterId: 'enc-1' });
+    expect(mockGetPresignedURL).toHaveBeenCalledWith(url, 'token');
+  });
+
+  it('offers no download before the EHR has generated a PDF', async () => {
+    const { oystehr } = makeBillingClient({
+      'get-statement-details': { patient: { firstName: 'Sam' }, service: [] },
+      'get-statement-status': { generated: { generated: false } },
+    });
+
+    const response = await getStatement(oystehr, 'token', {
+      invoiceId: 'inv-1',
+      secrets: { PROJECT_API: 'https://project-api.test/v1', PROJECT_ID: 'proj' },
+    });
+
+    expect(response).toEqual({ html: '<p>Sam</p>', generatedAt: undefined, pdfUrl: undefined });
   });
 
   it('asks the EHR to generate the PDF for the visit', async () => {
