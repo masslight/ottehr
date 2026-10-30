@@ -21,11 +21,12 @@ module.exports = {
   overrides: [
     {
       // Billing zambdas get FHIR clients only from createBillingClient. A justified exception is
-      // disabled on the line that makes the client; see packages/eslint-plugin-ottehr.
+      // disabled on the line that makes the client, with the reason; see packages/eslint-plugin-ottehr.
       files: BILLING_ZAMBDA_FILES,
       plugins: ['ottehr'],
       rules: {
         'ottehr/billing-fhir-client-only': 'error',
+        'ottehr/require-disable-reason': ['error', { rules: ['ottehr/billing-fhir-client-only'] }],
       },
     },
   ],
