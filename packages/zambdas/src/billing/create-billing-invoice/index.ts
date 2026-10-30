@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Invoice, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Invoice, Location, ProvenanceAgent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
@@ -9,6 +9,7 @@ import {
   getBillingInvoiceDueDate,
   getStripeInvoiceLink,
   INVOICE_CLAIM_TAG_SYSTEM,
+  withHostedInvoiceUrl,
   withStripeInvoiceLink,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
@@ -38,7 +39,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { getInvoiceableEncounterId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { copySourceId, createBillingClient, fetchById, findById } from '../shared';
 
 type CreateBillingInvoiceParams = ValidatedZambdaInput<typeof CreateBillingInvoiceInputSchema>;
 
@@ -146,6 +147,7 @@ async function createDraftUnlessClaimHasInvoice(
       recipient: claim.patient,
       subject: claim.patient,
       claims: [{ claimId: claim.id!, amountCents: params.amountCents }],
+      facilityId: await getServiceFacilityId(oystehr, claim),
     }),
     identifier: [{ system: IDEMPOTENCY_KEY_SYSTEM, value: params.idempotencyKey }],
   };
@@ -156,6 +158,12 @@ async function createDraftUnlessClaimHasInvoice(
       { name: 'status', value: 'draft,issued,balanced' },
     ],
   });
+}
+
+// The claim points at its own copy of the service facility. The copy records which facility it came from.
+async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
+  const copyId = claim.facility?.reference?.replace('Location/', '');
+  return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
 }
 
 // A draft whose Stripe invoice was never finalized never reached the patient, so it can be replaced.
@@ -240,10 +248,10 @@ async function sendDraft(
     throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}, expected open`);
   }
 
-  // Saved before the SMS, so a retry from here on does not send the email or SMS again.
-  // The patient may have paid between attempts, and nothing updates the status after that.
+  // Save the status before SMS so retries do not resend either message.
+  const hostedUrl = stripeInvoice.hosted_invoice_url;
   invoice = await updateInvoice(oystehr, {
-    ...invoice,
+    ...(hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice),
     status: stripeInvoice.status === 'paid' ? 'balanced' : 'issued',
   });
   if (stripeInvoice.status === 'paid') return { invoice };

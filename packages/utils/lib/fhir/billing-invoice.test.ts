@@ -4,8 +4,10 @@ import {
   BuildBillingInvoiceInput,
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
+  getHostedInvoiceUrl,
   getStripeInvoiceLink,
   invoiceClaimTag,
+  withHostedInvoiceUrl,
   withStripeInvoiceLink,
 } from './billing-invoice';
 
@@ -120,5 +122,21 @@ describe('withStripeInvoiceLink', () => {
     expect(withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_1', stripeAccount: 'acct_1' })).toBe(linked);
     expect(() => withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_2', stripeAccount: 'acct_1' })).toThrow();
     expect(() => withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_1', stripeAccount: 'acct_2' })).toThrow();
+  });
+});
+
+describe('withHostedInvoiceUrl', () => {
+  it('keeps one hosted URL next to the due date', () => {
+    const invoice = buildBillingInvoice({
+      ...base,
+      recipient: { reference: 'Patient/jane' },
+      claims: [{ claimId: 'claim-1', amountCents: 5000 }],
+    });
+
+    const hosted = withHostedInvoiceUrl(withHostedInvoiceUrl(invoice, 'https://pay.test/old'), 'https://pay.test/new');
+
+    expect(getHostedInvoiceUrl(hosted)).toBe('https://pay.test/new');
+    expect(getBillingInvoiceDueDate(hosted)).toBe('2026-11-08');
+    expect(hosted.extension).toHaveLength(2);
   });
 });

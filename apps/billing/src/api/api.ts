@@ -53,6 +53,7 @@ import {
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
   SearchBillingClaimTasksInputSchema,
+  SearchBillingInvoicesInputSchema,
   SearchBillingLocationsInputSchema,
   SearchBillingPatientARClaimsInputSchema,
   SearchBillingPatientsInputSchema,
@@ -114,6 +115,7 @@ import {
   SearchBillingClaimsResponse,
   SearchBillingClaimTasksResponse,
   SearchBillingErasResponse,
+  SearchBillingInvoicesResponse,
   SearchBillingLocationsResponse,
   SearchBillingPatientARClaimsResponse,
   SearchBillingPatientsResponse,
@@ -192,6 +194,11 @@ export const createBillingInvoice = (
   oystehr: Oystehr,
   parameters: z.input<typeof CreateBillingInvoiceInputSchema>
 ): Promise<CreateBillingInvoiceResponse> => executeBillingZambda(oystehr, 'create-billing-invoice', parameters);
+
+export const searchBillingInvoices = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingInvoicesInputSchema>
+): Promise<SearchBillingInvoicesResponse> => executeBillingZambda(oystehr, 'search-billing-invoices', parameters);
 
 // --- Rules engines ---
 

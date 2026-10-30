@@ -12,6 +12,7 @@ import { PAYMENT_REFUND_MEDIUMS, PAYMENT_REFUND_VOID_REASONS } from '../../api/p
 import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
 import {
+  BILLING_INVOICE_LIST_STATUSES,
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
   DRUG_UNIT_CODE_VALUES,
@@ -922,6 +923,17 @@ export const CreateBillingInvoiceInputSchema = z.object({
     .string()
     .max(128)
     .regex(/^[A-Za-z0-9._-]+$/),
+});
+
+export const SearchBillingInvoicesInputSchema = z.object({
+  status: z.enum(BILLING_INVOICE_LIST_STATUSES).optional(),
+  // A full claim ID, or the start of a patient's name.
+  searchText: nonEmptyString.optional(),
+  facilityId: nonEmptyString.optional(),
+  issuedFrom: z.string().date().optional(),
+  issuedTo: z.string().date().optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
 });
 
 // EHR-facing patient payment endpoints owned by the billing app.

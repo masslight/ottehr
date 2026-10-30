@@ -1,7 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, FhirResource, Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import {
+  Claim,
+  FhirResource,
+  Identifier,
+  Invoice,
+  Money,
+  PaymentNotice,
+  PaymentReconciliation,
+  Reference,
+} from 'fhir/r4b';
 import Stripe from 'stripe';
+import { STRIPE_INVOICE_ID_SYSTEM, withHostedInvoiceUrl } from 'utils/lib/fhir/billing-invoice';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
@@ -94,6 +104,13 @@ export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParam
         break;
       }
       await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, stripeAccount, secrets);
+      await updateBillingInvoiceStatus(oystehr, invoice, 'balanced');
+      break;
+    }
+    case 'invoice.voided': {
+      const invoice = event.data.object as Stripe.Invoice;
+      console.log(`Invoice voided event for ${invoice.id}`);
+      await updateBillingInvoiceStatus(oystehr, invoice, 'cancelled');
       break;
     }
     default:
@@ -539,4 +556,28 @@ const upsertPaymentNoticeForChargelessInvoice = async (
   });
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, invoice.id, claim, encounterId, true);
+};
+
+// EHR invoices have no matching billing Invoice and are skipped.
+const updateBillingInvoiceStatus = async (
+  oystehr: Oystehr,
+  stripeInvoice: Stripe.Invoice,
+  status: 'balanced' | 'cancelled'
+): Promise<void> => {
+  const [invoice] = (
+    await oystehr.fhir.search<Invoice>({
+      resourceType: 'Invoice',
+      params: [{ name: 'identifier', value: `${STRIPE_INVOICE_ID_SYSTEM}|${stripeInvoice.id}` }],
+    })
+  ).unbundle();
+  // Ignore duplicate events and preserve paid or cancelled status.
+  if (!invoice || (invoice.status !== 'draft' && invoice.status !== 'issued')) return;
+
+  // Fills in the link when the send request stopped before saving it.
+  const hostedUrl = stripeInvoice.hosted_invoice_url;
+  await oystehr.fhir.update<Invoice>(
+    { ...(hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice), status },
+    { optimisticLockingVersionId: invoice.meta?.versionId }
+  );
+  console.log(`Invoice/${invoice.id} is now ${status}`);
 };
