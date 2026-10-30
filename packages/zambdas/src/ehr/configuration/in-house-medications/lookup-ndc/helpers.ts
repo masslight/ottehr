@@ -84,7 +84,7 @@ const toProduct = (result: OpenFdaNdcResult, candidates: string[]): NdcProduct =
  */
 export async function fetchNdcProduct(candidates: string[]): Promise<NdcProduct | undefined> {
   if (candidates.length === 0) return undefined;
-  const search = `package_ndc:(${candidates.map((ndc) => `"${ndc}"`).join(' OR ')})`;
+  const search = `packaging.package_ndc:(${candidates.map((ndc) => `"${ndc}"`).join(' OR ')})`;
   const url = `${OPENFDA_NDC_URL}?search=${encodeURIComponent(search)}&limit=1`;
   const response = await fetch(url, { signal: AbortSignal.timeout(OPENFDA_TIMEOUT_MS) });
   if (response.status === 404) return undefined;

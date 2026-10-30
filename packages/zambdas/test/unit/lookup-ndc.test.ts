@@ -102,7 +102,9 @@ describe('fetchNdcProduct', () => {
 
     const url = new URL(fetchMock.mock.calls[0][0]);
     expect(url.origin + url.pathname).toBe('https://api.fda.gov/drug/ndc.json');
-    expect(url.searchParams.get('search')).toBe('package_ndc:("7257-2160-25" OR "72572-160-25" OR "72572-1602-5")');
+    expect(url.searchParams.get('search')).toBe(
+      'packaging.package_ndc:("7257-2160-25" OR "72572-160-25" OR "72572-1602-5")'
+    );
     expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
     expect(product).toEqual({
       packageNdc: '72572-160-25',

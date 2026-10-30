@@ -119,11 +119,16 @@ export default function InventoryAdminPage(): ReactElement {
       <AdminHeaderActionSlot>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <FormControl size="small" sx={{ width: 260 }}>
-            <InputLabel id="inventory-clinic-label">Clinic</InputLabel>
+            <InputLabel id="inventory-clinic-label" shrink>
+              Clinic
+            </InputLabel>
             <Select
               labelId="inventory-clinic-label"
               label="Clinic"
+              notched
+              displayEmpty
               value={clinicId ?? ALL_CLINICS}
+              renderValue={(value) => (value === ALL_CLINICS ? 'All clinics' : clinicName)}
               onChange={(e) => setClinicId(e.target.value)}
             >
               <MenuItem value={ALL_CLINICS}>All clinics</MenuItem>

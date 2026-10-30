@@ -20,6 +20,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { adjustMedicationInventory } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   INVENTORY_ADJUSTMENT_REASONS,
   INVENTORY_ENTRY_REASON_LABELS,
@@ -55,6 +56,7 @@ export default function AdjustStockDialog({
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState<InventoryAdjustmentReason | ''>('');
   const [note, setNote] = useState('');
+  const [showNoteError, setShowNoteError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const count = Number(quantity);
@@ -62,8 +64,14 @@ export default function AdjustStockDialog({
   const actionLabel = direction === 'remove' ? 'Remove' : 'Add';
   const submitLabel = count > 0 ? `${actionLabel} ${count} ${units}` : `${actionLabel} ${units}`;
 
+  const noteMissing = reason === 'other' && !note.trim();
+
   const save = async (): Promise<void> => {
     if (!oystehrZambda || !reason) return;
+    if (noteMissing) {
+      setShowNoteError(true);
+      return;
+    }
     setSaving(true);
     try {
       await adjustMedicationInventory(oystehrZambda, {
@@ -84,7 +92,7 @@ export default function AdjustStockDialog({
       onClose();
     } catch (error) {
       console.error('Error adjusting stock', error);
-      enqueueSnackbar('Failed to adjust stock', { variant: 'error' });
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to adjust stock' }), { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -149,6 +157,8 @@ export default function AdjustStockDialog({
               fullWidth
               label="What happened"
               value={note}
+              error={showNoteError && noteMissing}
+              helperText={showNoteError && noteMissing ? 'Say what the adjustment is for' : undefined}
               onChange={(e) => setNote(e.target.value)}
             />
           ) : null}

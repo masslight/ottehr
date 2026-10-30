@@ -439,7 +439,7 @@ export default function UpdateMedicationPage(): ReactElement {
               </Grid>
               <Grid item xs={3} sx={{ display: 'flex', gap: 1 }}>
                 <TextField
-                  label="In (optional)"
+                  label={inventoryForm.inUnit ? 'In' : 'In (optional)'}
                   type="number"
                   inputProps={{ min: 0, step: 'any' }}
                   required={Boolean(inventoryForm.inUnit)}
