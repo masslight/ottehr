@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Invoice } from 'fhir/r4b';
+import { Claim, Invoice, Location } from 'fhir/r4b';
 import {
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
@@ -14,7 +14,13 @@ import {
 import { BillingInvoiceSummary } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues, isInvoiceableClaimStatus } from 'utils/lib/types/data/billing/claim-status';
 import { INVALID_INPUT_ERROR, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
-import { fetchById } from './shared';
+import { copySourceId, fetchById, findById } from './shared';
+
+// The claim points at its own copy of the service facility. The copy records which facility it came from.
+export async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
+  const copyId = claim.facility?.reference?.replace('Location/', '');
+  return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
+}
 
 export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Promise<Invoice[]> {
   return (
