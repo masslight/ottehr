@@ -1151,7 +1151,9 @@ export default function VisitDetailsPage(): ReactElement {
           key={patientId}
           handleDiscard={() =>
             // Opened in a new tab (e.g. from Outstanding Balance) there is no in-app page to go back to.
-            (window.history.state as { idx?: number } | null)?.idx ? navigate(-1) : navigate(`/patient/${patientId}`)
+            (window.history.state as { idx?: number } | null)?.idx
+              ? navigate(-1)
+              : navigate(patientId ? `/patient/${patientId}` : '/visits')
           }
           id={patientId}
           encounterId={encounter?.id}
