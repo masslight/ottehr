@@ -650,6 +650,20 @@
       "src": "src/ehr/configuration/in-house-medications/get-medication-inventory/index",
       "zip": ".dist/zips/get-medication-inventory.zip"
     },
+    "LIST-MEDICATION-INVENTORY": {
+      "name": "list-medication-inventory",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/list-medication-inventory/index",
+      "zip": ".dist/zips/list-medication-inventory.zip"
+    },
+    "ADJUST-MEDICATION-INVENTORY": {
+      "name": "adjust-medication-inventory",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/adjust-medication-inventory/index",
+      "zip": ".dist/zips/adjust-medication-inventory.zip"
+    },
     "UPDATE-APPOINTMENT": {
       "name": "update-appointment",
       "type": "http_open",

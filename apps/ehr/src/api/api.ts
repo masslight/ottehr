@@ -60,9 +60,13 @@ import {
   UpdateEmCodeInput,
 } from 'utils/lib/types/api/config/em-codes';
 import {
+  AdjustMedicationInventoryInput,
+  AdjustMedicationInventoryResponse,
   CreateInHouseMedicationInput,
   GetMedicationInventoryInput,
   GetMedicationInventoryResponse,
+  ListMedicationInventoryInput,
+  ListMedicationInventoryResponse,
   LookupNdcInput,
   LookupNdcResponse,
   ReceiveMedicationShipmentInput,
@@ -524,6 +528,8 @@ const GET_IN_HOUSE_MEDICATIONS = 'get-in-house-medications';
 const RECEIVE_MEDICATION_SHIPMENT = 'receive-medication-shipment';
 const LOOKUP_NDC = 'lookup-ndc';
 const GET_MEDICATION_INVENTORY = 'get-medication-inventory';
+const LIST_MEDICATION_INVENTORY = 'list-medication-inventory';
+const ADJUST_MEDICATION_INVENTORY = 'adjust-medication-inventory';
 const GET_EM_CODES = 'get-em-codes';
 const CREATE_EM_CODE = 'create-em-code';
 const UPDATE_EM_CODE = 'update-em-code';
@@ -2064,6 +2070,22 @@ export const getMedicationInventory = async (
   parameters: GetMedicationInventoryInput
 ): Promise<GetMedicationInventoryResponse> => {
   const response = await oystehr.zambda.execute({ id: GET_MEDICATION_INVENTORY, ...parameters });
+  return chooseJson(response);
+};
+
+export const listMedicationInventory = async (
+  oystehr: Oystehr,
+  parameters: ListMedicationInventoryInput
+): Promise<ListMedicationInventoryResponse> => {
+  const response = await oystehr.zambda.execute({ id: LIST_MEDICATION_INVENTORY, ...parameters });
+  return chooseJson(response);
+};
+
+export const adjustMedicationInventory = async (
+  oystehr: Oystehr,
+  parameters: AdjustMedicationInventoryInput
+): Promise<AdjustMedicationInventoryResponse> => {
+  const response = await oystehr.zambda.execute({ id: ADJUST_MEDICATION_INVENTORY, ...parameters });
   return chooseJson(response);
 };
 

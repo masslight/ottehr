@@ -62,7 +62,7 @@ const NDC_LOOKUP_DEBOUNCE_MS = 600;
 const buttonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
 
 // The clinic the Tracking Board's location picker last saved, when it is one of the in-person clinics.
-function storedClinicId(clinics: { id: string }[]): string | undefined {
+export function storedClinicId(clinics: { id: string }[]): string | undefined {
   try {
     const stored = localStorage.getItem('selectedLocation');
     const id = stored ? (JSON.parse(stored) as { id?: string }).id : undefined;

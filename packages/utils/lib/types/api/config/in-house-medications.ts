@@ -214,3 +214,116 @@ export interface GetMedicationInventoryResponse {
   /** The lot of this drug (any clinic) with the newest "received" entry; prefills the receive dialog. */
   lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
 }
+
+// ─── Inventory screen, adjustments and counts (requirements 6 and 7) ──────────
+
+/** The reasons staff can pick when adjusting a lot by hand (requirement 6). Counts and the MAR use the rest. */
+export const INVENTORY_ADJUSTMENT_REASONS = [
+  'expired',
+  'temperature-excursion',
+  'broken-container',
+  'contaminated',
+  'reconstitution-error',
+  'drawn-up-not-administered',
+  'missing-stock',
+  'manufacturer-recall',
+  'transferred',
+  'other',
+] as const satisfies readonly InventoryEntryReason[];
+export type InventoryAdjustmentReason = (typeof INVENTORY_ADJUSTMENT_REASONS)[number];
+
+/** A lot comes within this many days of its expiration date: "expiring". */
+export const INVENTORY_EXPIRING_SOON_DAYS = 30;
+
+/** What the inventory screen marks (requirement 7). `low` is on hand below the clinic's reorder level. */
+export const INVENTORY_MARKERS = ['low', 'expiring', 'expired', 'below-zero'] as const;
+export type InventoryMarker = (typeof INVENTORY_MARKERS)[number];
+export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
+  low: 'low',
+  expiring: 'expiring',
+  expired: 'expired',
+  'below-zero': 'below zero',
+};
+
+export const ListMedicationInventoryInputSchema = z.discriminatedUnion('view', [
+  z.object({ view: z.literal('all-clinics') }),
+  z.object({ view: z.literal('clinic'), locationId: z.string().min(1) }),
+  z.object({ view: z.literal('lot-history'), lotId: z.string().min(1) }),
+]);
+export type ListMedicationInventoryInput = z.infer<typeof ListMedicationInventoryInputSchema>;
+
+/** One clinic's line under a drug in the all-clinics view. */
+export interface InventoryClinicLine {
+  locationId: string;
+  locationName: string;
+  onHand: number;
+  reorderLevel?: number;
+  /** Among the clinic's lots with stock on hand. */
+  earliestExpiration?: string;
+  markers: InventoryMarker[];
+}
+
+export interface InventoryLotRow extends InventoryLot {
+  markers: InventoryMarker[];
+}
+
+/** One tracked drug on the inventory screen. `clinics` is filled in the all-clinics view, `lots` in the clinic view. */
+export interface InventoryDrugRow {
+  medicationId: string;
+  name: string;
+  countedAs: MedicationCountedAs;
+  use: MedicationUse;
+  /** Total across the clinics (or lots) shown. */
+  onHand: number;
+  /** Among lots with stock on hand. */
+  earliestExpiration?: string;
+  /** The clinic's reorder level (clinic view only). */
+  reorderLevel?: number;
+  clinicsBelowReorderLevel: number;
+  clinicsWithReorderLevel: number;
+  markers: InventoryMarker[];
+  clinics: InventoryClinicLine[];
+  lots: InventoryLotRow[];
+}
+
+/** One stock history line. Newest first; `onHandAfter` is the running total after this entry. */
+export interface InventoryHistoryEntry extends InventoryStockEntry {
+  onHandAfter: number;
+  performerName?: string;
+  /** The visit the entry came from, when it has a MedicationAdministration. */
+  visit?: { appointmentId?: string; patientName?: string; date?: string };
+}
+
+export interface ListMedicationInventoryResponse {
+  /** Clinic and all-clinics views. Sorted by medication name. */
+  drugs: InventoryDrugRow[];
+  /** Lot-history view. */
+  entries: InventoryHistoryEntry[];
+}
+
+/** Adjusting a lot up or down with a reason, or counting what is on the shelf (requirement 6). */
+export const AdjustMedicationInventoryInputSchema = z
+  .discriminatedUnion('action', [
+    z.object({
+      action: z.literal('adjust'),
+      lotId: z.string().min(1),
+      direction: z.enum(['remove', 'add']),
+      quantity: z.number().int().positive(),
+      reason: z.enum(INVENTORY_ADJUSTMENT_REASONS),
+      note: z.string().trim().min(1).optional(),
+    }),
+    z.object({
+      action: z.literal('count'),
+      lotId: z.string().min(1),
+      /** Items on the shelf; multi-use items are counted as containers. */
+      counted: z.number().int().nonnegative(),
+    }),
+  ])
+  .superRefine((input, ctx) => {
+    if (input.action === 'adjust' && input.reason === 'other' && !input.note) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['note'], message: 'Say what the adjustment is for' });
+    }
+  });
+export type AdjustMedicationInventoryInput = z.infer<typeof AdjustMedicationInventoryInputSchema>;
+
+export type AdjustMedicationInventoryResponse = ReceiveMedicationShipmentResponse;

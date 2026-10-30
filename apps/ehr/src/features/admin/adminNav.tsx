@@ -11,6 +11,7 @@ import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
 import Groups2OutlinedIcon from '@mui/icons-material/Groups2Outlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
@@ -28,6 +29,7 @@ import { FeeSchedulesIcon } from 'src/features/admin/icons/FeeSchedulesIcon';
 import { InHouseLabsIcon } from 'src/features/admin/icons/InHouseLabsIcon';
 import { InsuranceIcon } from 'src/features/admin/icons/InsuranceIcon';
 import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
+import InventoryAdminPage from 'src/features/admin/inventory/InventoryAdminPage';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import { FormTemplatesAdminPage } from 'src/features/form-templates/FormTemplatesAdminPage';
@@ -162,6 +164,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/medications',
         icon: <MedicationOutlinedIcon />,
         render: () => <MedicationsConfigurationPage />,
+      },
+      {
+        label: 'Inventory',
+        path: '/admin/inventory',
+        icon: <Inventory2OutlinedIcon />,
+        render: () => <InventoryAdminPage />,
       },
     ],
   },
