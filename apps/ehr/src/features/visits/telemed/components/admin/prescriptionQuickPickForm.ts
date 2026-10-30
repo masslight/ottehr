@@ -180,13 +180,13 @@ const FormSchema = z
       ),
     substitutionAllowed: z.boolean(),
     noteToPharmacy: z.string().trim().max(210, 'Note to pharmacy must be up to 210 characters'),
-    sourceLabel: z.string().trim().max(200, 'Source must be up to 200 characters'),
+    sourceLabel: z.string().trim().max(200, 'Info must be up to 200 characters'),
     sourceUrl: z.string().refine((value) => blank(value) || isHttpsUrl(value.trim()), 'Link must be an https link'),
   })
   .superRefine((values, ctx) => {
     const issue = (path: keyof PrescriptionQuickPickFormValues, message: string): void =>
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
-    if (!blank(values.sourceUrl) && blank(values.sourceLabel)) issue('sourceLabel', 'Source is required with a link');
+    if (!blank(values.sourceUrl) && blank(values.sourceLabel)) issue('sourceLabel', 'Info is required with a link');
     // Every quick pick orders a product, either way of dosing (one saved before this gets one when next edited), or a
     // compound that could be sent, as the order form checks it.
     const compoundError = values.compound && compoundErrors(values.compound)[0];

@@ -785,7 +785,7 @@ describe('Maximum warnings on the line', () => {
     render(<Harness initial={liquidLine()} quickPicks={[MAXED]} weight={WEIGHT} />);
     const info = await hoverInfo(user, suggestionRow(0));
     expect(info.children[0]).toHaveTextContent(/^Quick pick: Amox strep, twice daily$/);
-    expect(info.children[1]).toHaveTextContent(/^Source: AAP Red Book$/);
+    expect(info.children[1]).toHaveTextContent(/^Info: AAP Red Book$/);
     expect(within(info).getByRole('link', { name: 'AAP Red Book' })).toHaveAttribute('href', SOURCE.url);
   });
 

@@ -130,8 +130,8 @@ describe('Prescription quick picks admin', () => {
     await user.type(within(dialog).getByLabelText('Duration (days)'), '10');
     await user.type(within(dialog).getByLabelText('Max per day (mg)'), '4000');
     await user.type(within(dialog).getByLabelText(/^Additional instructions/), 'Shake well. Take with food.');
-    await user.type(within(dialog).getByLabelText('Source (optional)'), 'AAP');
-    await user.type(within(dialog).getByLabelText('Source link (optional)'), 'https://example.org/aap');
+    await user.type(within(dialog).getByLabelText('Info (optional)'), 'AAP');
+    await user.type(within(dialog).getByLabelText('Info link (optional)'), 'https://example.org/aap');
     await user.click(within(dialog).getByRole('button', { name: 'Add' }));
 
     await waitFor(() => expect(api.createPrescriptionQuickPick).toHaveBeenCalledTimes(1));
@@ -242,7 +242,7 @@ describe('Prescription quick picks admin', () => {
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByLabelText('By weight or fixed dose'));
     await chooseOption(user, 'Per', 'mg/kg per day');
-    await user.type(within(dialog).getByLabelText('Source link (optional)'), 'http://example.org');
+    await user.type(within(dialog).getByLabelText('Info link (optional)'), 'http://example.org');
     await user.click(within(dialog).getByRole('button', { name: 'Add' }));
 
     expect(within(dialog).getByText('Name is required')).toBeInTheDocument();
@@ -250,11 +250,11 @@ describe('Prescription quick picks admin', () => {
     expect(within(dialog).getByText('Dose must be greater than 0')).toBeInTheDocument();
     expect(within(dialog).getByText('A scheduled frequency is required for mg/kg per day')).toBeInTheDocument();
     expect(within(dialog).getByText('Link must be an https link')).toBeInTheDocument();
-    expect(within(dialog).getByText('Source is required with a link')).toBeInTheDocument();
+    expect(within(dialog).getByText('Info is required with a link')).toBeInTheDocument();
     expect(api.createPrescriptionQuickPick).not.toHaveBeenCalled();
 
     await user.click(within(dialog).getByLabelText('As written'));
-    await user.clear(within(dialog).getByLabelText('Source link (optional)'));
+    await user.clear(within(dialog).getByLabelText('Info link (optional)'));
     await user.type(within(dialog).getByLabelText(/^Name/), 'Something');
     // As written needs its product too.
     await user.click(within(dialog).getByRole('button', { name: 'Add' }));

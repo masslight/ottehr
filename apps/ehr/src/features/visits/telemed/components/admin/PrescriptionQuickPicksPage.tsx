@@ -200,7 +200,7 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                 <TableCell sx={{ fontWeight: 600 }}>Product</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Dose</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Diagnosis</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Source</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Info</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -508,8 +508,8 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
             })}
             {/* Using the quick pick fills the prescription's diagnosis with it. */}
             <PrimaryDiagnosisInput value={values.diagnosis} onChange={(diagnosis) => set({ diagnosis })} />
-            {field('sourceLabel', 'Source (optional)', { placeholder: 'e.g. AAP guideline' })}
-            {field('sourceUrl', 'Source link (optional)', { placeholder: 'https://' })}
+            {field('sourceLabel', 'Info (optional)', { placeholder: 'e.g. AAP guideline' })}
+            {field('sourceUrl', 'Info link (optional)', { placeholder: 'https://' })}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>

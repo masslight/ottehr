@@ -21,7 +21,7 @@ export interface ErxSuggestionRow extends SuggestedSentence {
   doseInfoFor?: (picks: SentencePicks) => string[] | undefined;
   /** The quick pick the row came from: the first line behind the ⓘ ("Quick pick: Amox strep"), never on the row. */
   quickPickName?: string;
-  /** The quick pick's source, after its name: "Source: AAP Red Book", a link with a URL. */
+  /** The quick pick's source, after its name: "Info: AAP Red Book", a link with a URL. */
   quickPickSource?: { label: string; url?: string };
   /** A set's row: its name and a "Set · N" chip lead the sentence, after the dose tool. */
   setName?: string;
