@@ -62,6 +62,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
+import { getConvertToFollowUpDisabledReason } from 'src/features/visits/shared/components/patient/convertToFollowUp';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -77,6 +78,7 @@ import {
 } from 'utils/lib/fhir/appointments';
 import { FHIR_EXTENSION, ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
+  FOLLOWUP_SYSTEMS,
   getFollowUpProgressNotePathSegment,
   getFollowupSubtype,
   getVisitOccupationalMedicineEmployerFromEncounter,
@@ -521,6 +523,28 @@ export default function VisitDetailsPage(): ReactElement {
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
   const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
 
+  const otherInitialVisitsQueryEnabled =
+    Boolean(oystehr) && Boolean(patientId) && !!encounter?.id && !isFollowupEncounter(encounter);
+  const { data: hasOtherInitialVisits, isError: isOtherInitialVisitsError } = useQuery({
+    queryKey: ['visit-details-other-initial-visits', patientId, encounter?.id],
+    queryFn: async (): Promise<boolean> =>
+      (
+        await oystehr!.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [
+            { name: 'patient', value: patientId! },
+            { name: 'type:not', value: `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}` },
+            { name: '_elements', value: 'id,type' },
+            { name: '_count', value: '2' },
+          ],
+        })
+      )
+        .unbundle()
+        .some((other) => other.id !== encounter!.id && !isFollowupEncounter(other)),
+    enabled: otherInitialVisitsQueryEnabled,
+    retry: 1,
+  });
+
   const parentEncounterId = encounter?.partOf?.reference?.replace('Encounter/', '');
   const parentAppointmentQueryEnabled = Boolean(oystehr) && Boolean(parentEncounterId);
   const { data: parentAppointmentId, isPending: isParentAppointmentPending } = useQuery({
@@ -881,12 +905,13 @@ export default function VisitDetailsPage(): ReactElement {
         )
       : undefined;
 
-  const convertToFollowUpDisabledReason = ((): string | undefined => {
-    if (!appointment || !encounter || !patientId || isOwnFollowUpsUnresolved) return 'Loading the visit…';
-    if (isFollowupEncounter(encounter)) return 'This visit is already a follow-up';
-    if (hasOwnFollowUps) return 'This visit already has its own follow-ups';
-    return undefined;
-  })();
+  const convertToFollowUpDisabledReason = getConvertToFollowUpDisabledReason({
+    encounter,
+    isLoading: !appointment || !patientId || isOwnFollowUpsUnresolved,
+    hasOwnFollowUps,
+    // A failed lookup shouldn't block converting; the parent picker shows what is there.
+    hasOtherInitialVisits: isOtherInitialVisitsError || hasOtherInitialVisits,
+  });
   const isOtherFollowUpReason =
     isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
