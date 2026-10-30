@@ -144,10 +144,10 @@ const Fields: FC<{
   </Box>
 );
 
-/** "Source: AAP Red Book", the label a link when there is a URL; for a line behind an ⓘ. */
+/** "Info: AAP Red Book", the label a link when there is a URL; for a line behind an ⓘ. */
 export const SourceText: FC<{ source: { label: string; url?: string } }> = ({ source }) => (
   <>
-    Source:{' '}
+    Info:{' '}
     {source.url ? (
       <Link href={source.url} target="_blank" rel="noopener noreferrer" sx={{ color: 'inherit' }}>
         {source.label}
@@ -175,6 +175,8 @@ export const DoseInfoHover: FC<{
         ))}
       </Box>
     }
+    // Body-sized text: MUI's default tooltip text is too small to read a dose's working.
+    componentsProps={{ tooltip: { sx: { fontSize: '0.875rem', lineHeight: 1.5, maxWidth: 440, p: '8px 12px' } } }}
   >
     <Box
       component="span"

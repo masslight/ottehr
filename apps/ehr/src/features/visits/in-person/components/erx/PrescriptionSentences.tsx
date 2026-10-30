@@ -882,6 +882,9 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   // A dose over the maximum the line carries: orange under the dose sentence, its blank outlined; never blocks.
   const warnings = maximumWarnings(line);
   const warns = (blank: 'dose' | 'frequency'): boolean => warnings.some((warning) => warning.blank === blank);
+  // A dose the maximum capped, while it is still the one the calculator wrote: shown as the calculator shows it.
+  const firstNote = line.doseNotes?.[0];
+  const capNote = firstNote?.capNote && firstNote.dose === line.dose ? firstNote.capNote : undefined;
   const maximumFrom = line.maximum?.from;
   const warningInfo: ReactNode[] = maximumFrom
     ? [
@@ -1308,6 +1311,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 {line.steps.length === 0 ? courseEnd : '.'}
               </Sentence>
             )}
+            {capNote && <DoseWarningBoxes warnings={[capNote]} info={[]} testId="line-dose-cap" />}
             <DoseWarningBoxes warnings={warnings.map((warning) => warning.text)} info={warningInfo} />
             {line.steps.map((step, i) => (
               <Sentence
