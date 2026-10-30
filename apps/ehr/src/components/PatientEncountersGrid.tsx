@@ -1,6 +1,8 @@
+import { progressNoteIcon } from '@ehrTheme/icons';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import {
   Box,
@@ -30,6 +32,7 @@ import React, { FC, ReactElement, useCallback, useEffect, useMemo, useRef, useSt
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getInPersonUrlByAppointmentType,
+  getInPersonVisitDetailsUrl,
   withFollowUpEncounterId,
 } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
@@ -57,6 +60,7 @@ import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCateg
 import { useDeletedFreeFormEncountersStore } from '../state/deleted-free-form-encounters.store';
 import DeleteDialog from './dialogs/DeleteDialog';
 import { FreeFormEncounterRow, FreeFormSaveSession } from './FreeFormEncounterRow';
+import GoToButton from './GoToButton';
 import {
   applyLocalFreeFormSaves,
   filterVisitsByServiceCategory,
@@ -126,6 +130,27 @@ const ProviderCell: FC<{ name: string | undefined }> = ({ name }) => {
   return <Typography variant="body2">{name || '-'}</Typography>;
 };
 
+const VisitActions: FC<{ visitDetailsUrl?: string; progressNoteUrl?: string }> = ({
+  visitDetailsUrl,
+  progressNoteUrl,
+}) => {
+  if (!visitDetailsUrl && !progressNoteUrl) return <>-</>;
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      {visitDetailsUrl && (
+        <GoToButton text="Visit Details" to={visitDetailsUrl} backgroundColor="transparent">
+          <MedicalInformationIcon />
+        </GoToButton>
+      )}
+      {progressNoteUrl && (
+        <GoToButton text="Progress Note" to={progressNoteUrl} backgroundColor="transparent">
+          <img src={progressNoteIcon} alt="" />
+        </GoToButton>
+      )}
+    </Stack>
+  );
+};
+
 type SortField = 'dateTime';
 type SortDirection = 'asc' | 'desc';
 
@@ -163,12 +188,11 @@ const columns: TableColumn[] = [
   { id: 'dateTime', label: 'Date & Time', sortable: true, width: 150 },
   { id: 'status', label: 'Status', width: 140 },
   { id: 'type', label: 'Type & Service Category', width: 180 },
-  { id: 'reason', label: "Reason for today's visit", width: 150 },
+  { id: 'reason', label: 'Reason for visit', width: 150 },
   { id: 'provider', label: 'Provider', width: 150 },
   { id: 'office', label: 'Office', width: 150 },
   { id: 'los', label: 'LOS', width: 100 },
-  { id: 'info', label: 'Visit Info', width: 120, align: 'center' },
-  { id: 'note', label: 'Progress Note', width: 150 },
+  { id: 'actions', label: 'Actions', width: 180 },
 ];
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
@@ -496,26 +520,18 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         }
         return getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter.status));
       }
-      case 'info': {
-        if (encounter.followupSubtype !== 'scheduled' || !encounter.appointmentId) return null;
-        return (
-          <RoundedButton to={`/visit/${encounter.appointmentId}`} state={{ encounterId: encounter.encounterId }}>
-            Visit Info
-          </RoundedButton>
-        );
-      }
-      case 'note': {
-        const { encounterId, originalAppointmentId, followupSubtype, status } = encounter;
-        if (!originalAppointmentId) return '-';
-        if (typeof status === 'string' && ['planned', 'arrived'].includes(status)) {
-          return null;
-        }
-        const pathSegment = getFollowUpProgressNotePathSegment(followupSubtype);
-        const to = getInPersonUrlByAppointmentType(
-          { id: originalAppointmentId, encounterId, isFollowUp: true },
-          pathSegment
-        );
-        return <RoundedButton to={to}>Progress Note</RoundedButton>;
+      case 'actions': {
+        const { encounterId, originalAppointmentId, followupSubtype, status, appointmentId } = encounter;
+        const visitDetailsUrl =
+          followupSubtype === 'scheduled' && appointmentId ? getInPersonVisitDetailsUrl(appointmentId) : undefined;
+        const progressNoteUrl =
+          originalAppointmentId && !(typeof status === 'string' && ['planned', 'arrived'].includes(status))
+            ? getInPersonUrlByAppointmentType(
+                { id: originalAppointmentId, encounterId, isFollowUp: true },
+                getFollowUpProgressNotePathSegment(followupSubtype)
+              )
+            : undefined;
+        return <VisitActions visitDetailsUrl={visitDetailsUrl} progressNoteUrl={progressNoteUrl} />;
       }
       default:
         return '-';
@@ -547,20 +563,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return row.office || '-';
       case 'los':
         return row.length !== undefined ? `${formatMinutes(row.length)} ${row.length === 1 ? 'min' : 'mins'}` : '-';
-      case 'info': {
-        if (!row.appointmentId) return null;
-        return (
-          <RoundedButton to={`/visit/${row.appointmentId}`} state={{ encounterId: row.encounterId }}>
-            Visit Info
-          </RoundedButton>
-        );
-      }
-      case 'note': {
+      case 'actions': {
         const baseUrl = `/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
-        const to = row.encounterId
+        const progressNoteUrl = row.encounterId
           ? withFollowUpEncounterId(baseUrl, { isFollowUp: true, encounterId: row.encounterId })
           : baseUrl;
-        return <RoundedButton to={to}>Progress Note</RoundedButton>;
+        const visitDetailsUrl = row.appointmentId ? getInPersonVisitDetailsUrl(row.appointmentId) : undefined;
+        return <VisitActions visitDetailsUrl={visitDetailsUrl} progressNoteUrl={progressNoteUrl} />;
       }
       default:
         return '-';
@@ -571,7 +580,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
-          Encounters - {totalCount}
+          Visits - {totalCount}
         </Typography>
         {latestVisitDate && <Typography>Latest visit: {formatISOStringToDateAndTime(latestVisitDate)}</Typography>}
         <RoundedButton
@@ -790,6 +799,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                             width: column.width,
                             textAlign: column.align || 'left',
                             paddingLeft: colIndex === 0 ? 2 : 1,
+                            ...(column.id === 'actions' ? { paddingY: 0 } : {}),
                           }}
                         >
                           {renderCellContent(row, column.id)}
@@ -815,6 +825,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                                 sx={{
                                   width: column.width,
                                   textAlign: column.align || 'left',
+                                  paddingLeft: colIndex === 0 ? 2 : 1,
+                                  ...(column.id === 'actions' ? { paddingY: 0 } : {}),
                                   ...(colIndex === 0
                                     ? {
                                         display: 'flex',

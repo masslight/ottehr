@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { DeleteFreeFormEncounterOutput } from 'utils/lib/types/api/free-form-encounter.types';
 import {
   AppointmentHistoryRow,
+  FollowUpVisitHistoryRow,
   FreeFormEncounterHistoryRow,
   PatientVisitListResponse,
 } from 'utils/lib/types/api/patient-visit-history.types';
@@ -1311,6 +1312,82 @@ describe('PatientEncountersGrid free-form encounters', () => {
 
       expect(paginationText()).toBe('1–20 of 26');
       expect(countOf('Confirmed from page two')).toBe(1);
+    });
+  });
+
+  describe('table layout', () => {
+    it('titles the section Visits and links visits and follow-ups from one Actions column', async () => {
+      const followUp = (overrides: Partial<FollowUpVisitHistoryRow>): FollowUpVisitHistoryRow => ({
+        encounterId: 'fu',
+        originalEncounterId: 'enc-visit-00',
+        originalAppointmentId: 'visit-00',
+        status: 'finished',
+        type: 'Follow-up',
+        dateTime: '2026-01-02T10:00:00-05:00',
+        visitReason: undefined,
+        office: 'Follow-up Office',
+        provider: undefined,
+        ...overrides,
+      });
+      const parent: AppointmentHistoryRow = {
+        ...visit('visit-00', '2026-01-01T10:00:00-05:00'),
+        followUps: [
+          followUp({ encounterId: 'fu-scheduled', followupSubtype: 'scheduled', appointmentId: 'fu-appointment' }),
+          followUp({
+            encounterId: 'fu-annotation',
+            followupSubtype: 'annotation',
+            dateTime: '2026-01-03T10:00:00-05:00',
+          }),
+        ],
+      };
+      setHistory(PATIENT_A, historyOf([parent]));
+      renderGrid();
+      await waitForVisits();
+
+      expect(screen.getByText('Visits - 7')).toBeInTheDocument();
+      expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+        'Date & Time',
+        'Status',
+        'Type & Service Category',
+        'Reason for visit',
+        'Provider',
+        'Office',
+        'LOS',
+        'Actions',
+      ]);
+
+      const [visitRow, scheduledRow, annotationRow] = screen.getAllByRole('row').slice(1);
+      expect(within(visitRow).getByRole('link', { name: 'Visit Details' })).toHaveAttribute('href', '/visit/visit-00');
+      expect(within(visitRow).getByRole('link', { name: 'Progress Note' })).toHaveAttribute(
+        'href',
+        '/in-person/visit-00/review-and-sign?encounterId=enc-visit-00'
+      );
+      expect(within(scheduledRow).getByRole('link', { name: 'Visit Details' })).toHaveAttribute(
+        'href',
+        '/visit/fu-appointment'
+      );
+      expect(within(scheduledRow).getByRole('link', { name: 'Progress Note' })).toHaveAttribute(
+        'href',
+        '/in-person/visit-00/review-and-sign?encounterId=fu-scheduled'
+      );
+      expect(within(annotationRow).queryByRole('link', { name: 'Visit Details' })).not.toBeInTheDocument();
+      expect(within(annotationRow).getByRole('link', { name: 'Progress Note' })).toHaveAttribute(
+        'href',
+        '/in-person/visit-00/follow-up-note?encounterId=fu-annotation'
+      );
+    });
+
+    it('spans free-form rows across the header and keeps the trash in the Actions column', async () => {
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Lined up note')]));
+      renderGrid();
+      await waitForVisits();
+
+      const cells = within(rowOf(noteInput('Lined up note'))).getAllByRole('cell');
+      const spannedColumns = cells.reduce((sum, cell) => sum + Number(cell.getAttribute('colspan') ?? 1), 0);
+      expect(spannedColumns).toBe(screen.getAllByRole('columnheader').length);
+      expect(deleteButtonOf(noteInput('Lined up note'))).toBe(
+        within(cells[cells.length - 1]).getByTestId(dataTestIds.patientRecordPage.freeFormDeleteButton)
+      );
     });
   });
 

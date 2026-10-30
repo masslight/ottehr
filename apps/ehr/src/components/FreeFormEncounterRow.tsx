@@ -172,7 +172,7 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
           sx={{ typography: 'body2' }}
         />
       </TableCell>
-      <TableCell sx={{ paddingLeft: 1 }}>
+      <TableCell sx={{ paddingLeft: 1, textAlign: 'end' }}>
         {encounterId && (
           <IconButton
             size="small"
