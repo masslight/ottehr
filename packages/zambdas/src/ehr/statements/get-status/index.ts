@@ -24,6 +24,8 @@ interface StatementStatusResponse {
   generated: {
     generated: boolean;
     lastGenerated?: string;
+    // The current PDF, for callers that offer a download.
+    url?: string;
   };
   communication: {
     found: boolean;
@@ -176,6 +178,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     statementDocumentReferences,
     (resource) => resource.date ?? resource.meta?.lastUpdated
   )[0];
+  // Generating again supersedes the previous PDF, so only the newest current one can be downloaded.
+  const currentStatementDocumentReference = sortByDateDesc(
+    statementDocumentReferences.filter((resource) => resource.status === 'current'),
+    (resource) => resource.date ?? resource.meta?.lastUpdated
+  )[0];
 
   const communicationLetterId = getPostGridLetterIdFromCommunication(latestCommunication);
   const taskLetterId = getPostGridLetterIdFromTask(latestSendStatementByEmailTask);
@@ -212,6 +219,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? {
           generated: true,
           lastGenerated: latestStatementDocumentReference.date ?? latestStatementDocumentReference.meta?.lastUpdated,
+          url: currentStatementDocumentReference?.content?.[0]?.attachment.url,
         }
       : {
           generated: false,

@@ -23,6 +23,8 @@ const ZAMBDA_NAME = 'get-statement-details';
 interface GetStatementTypeInput {
   statementType: StatementType;
   encounterId: string;
+  // Set by the billing app, whose invoices are always for billing claims.
+  billingAppInvoice: boolean;
   secrets: Secrets;
 }
 
@@ -48,6 +50,7 @@ function validateRequestParameters(input: ZambdaInput): GetStatementTypeInput {
   return {
     statementType: statementType as StatementType,
     encounterId,
+    billingAppInvoice: body.billingAppInvoice === true,
     secrets: input.secrets,
   };
 }
@@ -66,6 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets: validatedInput.secrets,
     oystehr,
     m2mToken: oystehrToken,
+    billingAppInvoice: validatedInput.billingAppInvoice,
   });
   const statementDetails = await getStatementDetails({
     encounterId: validatedInput.encounterId,
