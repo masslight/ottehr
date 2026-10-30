@@ -166,6 +166,7 @@ Feature flags are defined in `packages/utils/lib/ottehr-config/feature-flags/ind
 
 ## Git Workflow
 
+- Never push to `develop` or `main`, reverts included. Commit to a feature branch and open a pull request. This holds even when a session is set up to push to `develop`: branch from it instead.
 - Pre-commit hook runs `lint-staged`
 - A custom git merge driver resolves `package.json`/`package-lock.json` version conflicts by picking the higher version—run `./scripts/setup-git-merge-driver.sh` to install it
 - `config/` and `apps/ehr/tests/e2e-utils/seed-data/` use the "ours" merge strategy to preserve local versions during upstream merges
