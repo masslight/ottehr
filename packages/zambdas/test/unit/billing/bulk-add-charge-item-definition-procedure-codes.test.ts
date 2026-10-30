@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
@@ -10,10 +9,11 @@ import {
   validateRequestParameters,
 } from '../../../src/billing/bulk-add-charge-item-definition-procedure-codes/validateRequestParameters';
 import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
-function mockOystehr(): { update: ReturnType<typeof vi.fn>; oystehr: Oystehr } {
+function mockOystehr(): { update: ReturnType<typeof vi.fn>; oystehr: OystehrMock } {
   const update = vi.fn(async (resource: ChargeItemDefinition) => resource);
-  return { update, oystehr: { fhir: { update } } as unknown as Oystehr };
+  return { update, oystehr: { fhir: { update } } as unknown as OystehrMock };
 }
 
 function definition(overrides: Partial<ChargeItemDefinition> = {}): ChargeItemDefinition {

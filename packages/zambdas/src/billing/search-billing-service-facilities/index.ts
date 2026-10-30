@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_CLIA, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
@@ -10,7 +9,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { mapServiceFacility } from '../service-facility.helpers';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
+import { BillingOystehr, createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
 
 type SearchServiceFacilitiesParams = ValidatedZambdaInput<typeof SearchServiceFacilitiesInputSchema>;
 
@@ -38,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SearchServiceFacilitiesParams
 ): Promise<SearchServiceFacilitiesResponse> {
   const pageSize = params.pageSize ?? 50;

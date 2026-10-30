@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { CreateChargeItemDefinitionInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
@@ -9,6 +8,7 @@ import {
 } from '../../../src/billing/create-charge-item-definition/index';
 import { CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../../../src/billing/shared';
 import { validateWithSchema } from '../../../src/shared/validation';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 describe('create-charge-item-definition', () => {
   describe('validation', () => {
@@ -112,7 +112,7 @@ describe('create-charge-item-definition', () => {
         fhir: {
           create: vi.fn().mockResolvedValueOnce(completeResource),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const result = await performEffect(oystehr, params);
       expect(result).toEqual({
         id: 'some-uuid',
@@ -154,7 +154,7 @@ describe('create-charge-item-definition', () => {
         fhir: {
           create: vi.fn().mockResolvedValueOnce(completeResource),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const result = await performEffect(oystehr, params);
       expect(result).toEqual({
         id: 'some-uuid',
@@ -199,7 +199,7 @@ describe('create-charge-item-definition', () => {
         fhir: {
           create: vi.fn().mockResolvedValueOnce(completeResource),
         },
-      } as unknown as Oystehr;
+      } as unknown as OystehrMock;
       const result = await performEffect(oystehr, params);
       expect(result).toEqual({
         id: 'some-uuid',

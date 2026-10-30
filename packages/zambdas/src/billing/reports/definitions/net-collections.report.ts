@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -24,7 +23,14 @@ import {
   sortClaimResponsesByRecency,
 } from '../../claim-amounts';
 import { eraPatientAccountNumber } from '../../era-remits';
-import { fhirName, getEraCheckNumber, resolvedPayerId, resolvePayersByRef } from '../../shared';
+import {
+  BillingOystehr,
+  fhirName,
+  getEraCheckNumber,
+  resolvedPayerId,
+  resolvePayersByRef,
+  UnscopedOystehr,
+} from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import {
   checkDateInRange,
@@ -147,8 +153,8 @@ const emptyMatched = (): MatchedClaimKeys => ({ claimIds: new Set(), encounterId
 // nothing. Mirrors the payments report's payer attribution (paymentIssuer, else the
 // ClaimResponses' insurer).
 async function computeInsuranceSide(
-  oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  oystehr: BillingOystehr,
+  eraReadClient: UnscopedOystehr,
   params: ReportDateWindowParams
 ): Promise<{
   payerRows: NetCollectionsPayerRow[];

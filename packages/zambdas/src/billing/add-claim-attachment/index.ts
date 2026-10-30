@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import { AddClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -9,7 +8,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { attachClaimDocument } from '../claim-attachments';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type AddClaimAttachmentParams = ValidatedZambdaInput<typeof AddClaimAttachmentInputSchema> & {
   agent: ProvenanceAgent;
@@ -31,7 +30,7 @@ export const index = wrapHandler('add-claim-attachment', async (input: ZambdaInp
 });
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: AddClaimAttachmentParams
 ): Promise<AddClaimAttachmentResponse> {
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);

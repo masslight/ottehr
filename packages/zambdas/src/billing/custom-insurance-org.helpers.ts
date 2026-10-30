@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Address, ContactPoint, Extension, Organization } from 'fhir/r4b';
 import {
   getCustomInsuranceOrgReferenceUrl,
@@ -29,6 +28,7 @@ import { NioContact } from 'utils/lib/types/data/billing/non-insurance-org.schem
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { toFhirContact, toNioContact } from './non-insurance-org.helpers';
+import { BillingOystehr, ScopedOystehr } from './shared';
 
 // --- Type guard ---
 
@@ -47,7 +47,7 @@ export function isCustomInsuranceOrganization(org: Organization): boolean {
 // insurance organization (a plain FHIR Organization, not in RCM's payer directory). Tries RCM first
 // (the common case, and avoids an extra FHIR read for it), then falls back to a direct FHIR read
 // guarded by the type check so an arbitrary Organization id can't masquerade as a payer.
-export async function resolvePayerOrganization(oystehr: Oystehr, payerId: string): Promise<Organization> {
+export async function resolvePayerOrganization(oystehr: ScopedOystehr, payerId: string): Promise<Organization> {
   if (isCustomInsuranceOrgBusinessId(payerId)) {
     const customOrg = await findCustomInsuranceOrgByBusinessId(oystehr, payerId);
     if (customOrg) {
@@ -211,7 +211,7 @@ export function mapClinicalCustomInsuranceOrgOption(org: Organization): Clinical
 // --- Business-id uniqueness lookup ---
 
 export async function findCustomInsuranceOrgByBusinessId(
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   orgId: string,
   excludeId?: string
 ): Promise<Organization | undefined> {
@@ -230,7 +230,7 @@ export async function findCustomInsuranceOrgByBusinessId(
 // references it by Organization/{id}, see buildPayorReference), so a business-id-shaped value is
 // resolved to that org first. An ordinary RCM payer id needs no lookup: getPayerUrl builds its
 // filter value directly from the id.
-export async function resolvePayerIssuerFilter(oystehr: Oystehr, payerId: string): Promise<string> {
+export async function resolvePayerIssuerFilter(oystehr: BillingOystehr, payerId: string): Promise<string> {
   if (isCustomInsuranceOrgBusinessId(payerId)) {
     const org = await findCustomInsuranceOrgByBusinessId(oystehr, payerId);
     if (!org?.id) throw INVALID_INPUT_ERROR(`No custom insurance organization matches id "${payerId}"`);

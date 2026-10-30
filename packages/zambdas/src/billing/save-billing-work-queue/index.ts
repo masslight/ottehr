@@ -9,10 +9,11 @@ import {
 } from 'utils/lib/types/data/billing/work-queue.schemas';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { createBillingClient, createEraReadClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 import { listWorkQueueOwners } from '../work-queues/owners';
 import { findWorkQueuesLists, listToWorkQueues, withWorkQueue } from '../work-queues/serialization';
 
@@ -30,15 +31,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  await complexValidation(oystehr, createEraReadClient(m2mToken, params.secrets), params);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- owners' Practitioners are the users' clinical profiles
+  await complexValidation(oystehr, createClinicalOystehrClient(m2mToken, params.secrets), params);
   const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 // The owner must be someone the owner picker offers — a Billing Admin.
 export async function complexValidation(
-  projectClient: Oystehr,
-  fhirClient: Oystehr,
+  projectClient: BillingOystehr,
+  fhirClient: ClinicalOystehr,
   params: SaveBillingWorkQueueParams
 ): Promise<void> {
   if (!params.owner) return;
@@ -49,7 +51,7 @@ export async function complexValidation(
 }
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SaveBillingWorkQueueParams
 ): Promise<BillingWorkQueueResponse> {
   const queue: WorkQueue = {
@@ -86,7 +88,7 @@ export async function performEffect(
 
 // Lists left behind by racing first-ever saves (see findWorkQueuesLists). Cleanup is best effort — a
 // concurrent save may be deleting the same List — so a failure is logged rather than failing the save.
-async function deleteDuplicateLists(oystehr: Oystehr, duplicates: List[]): Promise<void> {
+async function deleteDuplicateLists(oystehr: BillingOystehr, duplicates: List[]): Promise<void> {
   const requests: BatchInputDeleteRequest[] = duplicates
     .filter((list) => list.id)
     .map((list) => ({ method: 'DELETE', url: `/List/${list.id}` }));

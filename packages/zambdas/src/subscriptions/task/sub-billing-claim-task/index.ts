@@ -1,8 +1,7 @@
-import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import { createClaimFromEncounter } from '../../../billing/create-billing-claim-from-encounter/handler';
 import { findBillingClaimForEncounter } from '../../../billing/payments';
-import { createBillingClient } from '../../../billing/shared';
+import { BillingOystehr, createBillingClient } from '../../../billing/shared';
 import { wrapTaskHandler } from '../helpers';
 import { BillingClaimTaskParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -18,7 +17,7 @@ export const index = wrapTaskHandler(
 );
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: BillingClaimTaskParams
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const existingClaim = await findBillingClaimForEncounter(oystehr, params.encounterId);

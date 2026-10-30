@@ -1,7 +1,8 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { SearchParam } from '@oystehr/sdk';
 import { PaymentReconciliation } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import { ERA_PAGE_SIZE, fetchAllEras } from '../../../src/billing/reports/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // OTR-3330: both Insurance Payments and Net Collections use this scan when refreshed.
 describe('fetchAllEras', () => {
@@ -27,7 +28,7 @@ describe('fetchAllEras', () => {
         link: offset + count < filtered.length ? [{ relation: 'next', url: 'next-page' }] : [],
       });
     });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
     expect(await fetchAllEras(oystehr)).toEqual(active);
     expect(search).toHaveBeenCalledTimes(2);

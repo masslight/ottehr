@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import { AdHocBillingRulesRow, SERVICE_LINE_CONDITION_FIELDS } from 'utils/lib/types/adhoc/datasets/billing-rules';
 import { RULES_ENGINE_TYPES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -10,7 +9,7 @@ import {
   RuleOutcome,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { containedBasicToRule } from '../rules-engine/serialization';
-import { findRulesEngineList } from '../shared';
+import { BillingOystehr, findRulesEngineList } from '../shared';
 
 const SERVICE_LINE_FIELDS = new Set<string>(SERVICE_LINE_CONDITION_FIELDS);
 
@@ -71,7 +70,7 @@ export function mapRuleToAdHocRow(rule: BillingRule, engine: RulesEngineType, po
   };
 }
 
-export async function fetchAdHocRuleRows(oystehr: Oystehr): Promise<AdHocBillingRulesRow[]> {
+export async function fetchAdHocRuleRows(oystehr: BillingOystehr): Promise<AdHocBillingRulesRow[]> {
   const lists = await Promise.all(RULES_ENGINE_TYPES.map((engine) => findRulesEngineList(oystehr, engine)));
 
   return lists.flatMap((list, index) => {

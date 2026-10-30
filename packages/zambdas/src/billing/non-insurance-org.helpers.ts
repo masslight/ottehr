@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Address, ContactPoint, Extension, Organization, OrganizationAffiliation, Reference } from 'fhir/r4b';
 import { extractPayerIdFromUrl, getNioReferenceUrl, getPayerId, isPayerUrl } from 'utils/lib/helpers/helpers';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
@@ -35,7 +34,7 @@ import {
   isCustomInsuranceOrganization,
   resolvePayerOrganization,
 } from './custom-insurance-org.helpers';
-import { buildPayorReference, payerDisplay } from './shared';
+import { BillingOystehr, buildPayorReference, payerDisplay } from './shared';
 
 export type OrganizationContact = NonNullable<Organization['contact']>[number];
 
@@ -355,7 +354,7 @@ export interface NioCoveragePair {
 
 // All affiliation/coverage-org pairs for one NIO, inactive included (an unchecked category's pair
 // is kept around inactive so re-checking it later reactivates instead of duplicating).
-export async function fetchNioCoveragePairs(oystehr: Oystehr, nioId: string): Promise<NioCoveragePair[]> {
+export async function fetchNioCoveragePairs(oystehr: BillingOystehr, nioId: string): Promise<NioCoveragePair[]> {
   const bundle = await oystehr.fhir.search<Organization | OrganizationAffiliation>({
     resourceType: 'OrganizationAffiliation',
     params: [
@@ -416,7 +415,7 @@ export function computeCoverageChanges(covers: NioCoverageInput[], pairs: NioCov
 // The workers-comp payer selection arrives as the RCM payer Organization id (what PayerSelect
 // stores); persist it in the same canonical reference form Coverage.payor uses.
 export async function resolveWcPayerReference(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   covers: NioCoverageInput[] | undefined
 ): Promise<NioPayerReference | undefined> {
   const workersComp = covers?.find((coverage) => coverage.category === 'workers-comp');
@@ -435,7 +434,7 @@ export async function resolveWcPayerReference(
 // PayerSelect round-trips; mapCoverageDetail falls back to the stored reference + display for
 // anything that fails to resolve.
 export async function resolvePayerOptionsByRef(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   coverageOrgs: Organization[]
 ): Promise<Map<string, BillingPayerOption>> {
   const refs = new Set<string>();

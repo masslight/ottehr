@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
 import { DeleteBillingProviderInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -7,7 +6,14 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { BILLING_WORKING_COPY_TAG, createBillingClient, fetchById, hasTag, PROVIDER_ROLE_TAG } from '../shared';
+import {
+  BILLING_WORKING_COPY_TAG,
+  BillingOystehr,
+  createBillingClient,
+  fetchById,
+  hasTag,
+  PROVIDER_ROLE_TAG,
+} from '../shared';
 
 type DeleteBillingProviderParams = ValidatedZambdaInput<typeof DeleteBillingProviderInputSchema>;
 
@@ -26,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // Claims snapshot their provider into a per-claim working copy and never reference the
 // original, so deleting an original only removes it from the provider pick lists. Working
 // copies carry claim data
-async function performEffect(oystehr: Oystehr, params: DeleteBillingProviderParams): Promise<{ deleted: true }> {
+async function performEffect(oystehr: BillingOystehr, params: DeleteBillingProviderParams): Promise<{ deleted: true }> {
   const resourceType = params.kind === 'individual' ? 'Practitioner' : 'Organization';
   const provider = await fetchById<Practitioner | Organization>(oystehr, resourceType, params.providerId);
   if (hasTag(provider, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)) {

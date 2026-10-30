@@ -7,7 +7,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TaskStatus } from 'utils/lib/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendSmsToRelatedPersons } from '../../shared/communication';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -86,12 +86,27 @@ export const sendText = async (
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
+type TaskHandler<Client extends Oystehr> = (
+  input: { task: Task; secrets: Secrets },
+  oystehr: Client
+) => Promise<{ taskStatus: Task['status']; statusReason?: string }>;
+
+// The handler gets the client createClient makes, which also marks the Task's status: a billing task
+// passes createBillingClient, so its handler gets a BillingOystehr. Without one it is the clinical client.
+export function wrapTaskHandler<Client extends Oystehr>(
+  zambdaName: string,
+  handler: TaskHandler<Client>,
+  options: { retry?: boolean; createClient: (token: string, secrets: Secrets) => Client }
+): Handler<ZambdaInput, APIGatewayProxyResult>;
 export function wrapTaskHandler(
   zambdaName: string,
-  handler: (
-    input: { task: Task; secrets: Secrets },
-    oystehr: Oystehr
-  ) => Promise<{ taskStatus: Task['status']; statusReason?: string }>,
+  handler: TaskHandler<ClinicalOystehr>,
+  options?: { retry?: boolean }
+): Handler<ZambdaInput, APIGatewayProxyResult>;
+export function wrapTaskHandler(
+  zambdaName: string,
+  // The overloads above type each handler's client
+  handler: TaskHandler<any>,
   options: {
     retry?: boolean;
     createClient?: (token: string, secrets: Secrets) => Oystehr;

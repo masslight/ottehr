@@ -9,6 +9,7 @@ import {
   REPORT_CACHE_KIND_SYSTEM,
   saveReportCache,
 } from '../../../src/billing/reports/framework/report-cache';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CACHE_KEY = 'pipeline:v2:2026-01-01:2026-01-31';
 const secrets = { PROJECT_ID: 'test-project' } as never;
@@ -43,7 +44,7 @@ const committedDoc = (overrides: Partial<DocumentReference> = {}): DocumentRefer
 const clientWith = (
   existing: DocumentReference[]
 ): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   uploads: Upload[];
   create: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
@@ -62,7 +63,7 @@ const clientWith = (
   const oystehr = {
     z3: { uploadFile, deleteObject, getPresignedUrl: vi.fn(async () => ({ signedUrl: 'https://z3.test/x' })) },
     fhir: { search, create, update },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
   return { oystehr, uploads, create, update, deleteObject };
 };
 
@@ -184,7 +185,7 @@ describe('report-cache DocumentReference meta store', () => {
         ? { link: [{ relation: 'next', url: 'next-page' }], unbundle: () => [runFor('2026-01-01')] }
         : { unbundle: () => [runFor('2026-02-01')] };
     });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
     const entries = await listReportCacheHistory(oystehr, { kind: 'pipeline', cacheVersion: 'v2' });
     expect(search).toHaveBeenCalledTimes(2);

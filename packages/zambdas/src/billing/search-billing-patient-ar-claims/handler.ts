@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, Patient } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -19,7 +18,7 @@ import {
   fetchPatientPaidByClaimId,
   summarizeClaimPayments,
 } from '../claim-amounts';
-import { fhirName } from '../shared';
+import { BillingOystehr, fhirName } from '../shared';
 import { fetchWriteOffsByClaimIds, sumWriteOffs } from '../write-offs';
 
 const CLAIM_SCAN_PAGE_SIZE = 200;
@@ -28,7 +27,7 @@ const ENCOUNTER_ID_BATCH = 100;
 const DEFAULT_PAGE_SIZE = 25;
 
 export interface SearchPatientArClaimsParams {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   patientId?: string;
   claimIds?: string[];
   includeZeroBalance?: boolean;
@@ -63,7 +62,7 @@ export async function searchPatientArClaims(
 }
 
 export async function fetchAllActivePatientArClaims(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   options?: { encounterIds?: string[]; includeZeroBalance?: boolean; excludeFullyPaid?: boolean }
 ): Promise<PatientArClaimItem[]> {
   const matches = await collectPatientArMatches({ oystehr, ...options });
@@ -71,7 +70,7 @@ export async function fetchAllActivePatientArClaims(
 }
 
 async function collectPatientArMatches(params: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   patientId?: string;
   encounterIds?: string[];
   claimIds?: string[];
@@ -120,7 +119,10 @@ async function collectPatientArMatches(params: {
   return matches;
 }
 
-async function buildPatientArClaimItems(oystehr: Oystehr, matches: PatientArMatch[]): Promise<PatientArClaimItem[]> {
+async function buildPatientArClaimItems(
+  oystehr: BillingOystehr,
+  matches: PatientArMatch[]
+): Promise<PatientArClaimItem[]> {
   const patientsById = await fetchPatientsById(
     oystehr,
     matches.map(({ patientId }) => patientId)
@@ -199,7 +201,7 @@ function claimServiceDate(claim: Claim): string {
 }
 
 async function fetchPatientArStageClaims(params: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   patientId?: string;
   encounterIds?: string[];
   claimIds?: string[];
@@ -283,7 +285,7 @@ async function fetchPatientArStageClaims(params: {
   return claims;
 }
 
-export async function fetchPatientsById(oystehr: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
+export async function fetchPatientsById(oystehr: BillingOystehr, patientIds: string[]): Promise<Map<string, Patient>> {
   const uniqueIds = [...new Set(patientIds)].filter(Boolean);
   if (uniqueIds.length === 0) return new Map();
   const byId = new Map<string, Patient>();

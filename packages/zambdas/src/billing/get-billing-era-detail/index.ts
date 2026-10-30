@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Claim,
@@ -36,8 +35,8 @@ import {
 import { buildEraClaimRemit, eraContainedMemberId, eraPatientAccountNumber, resolveEraPayee } from '../era-remits';
 import { manualEraEntryFromFhir } from '../manual-era';
 import {
+  BillingOystehr,
   createBillingClient,
-  createEraReadClient,
   fhirName,
   findById,
   findRef,
@@ -56,18 +55,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateWithSchema(GetEraDetailInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(
-  oystehr: Oystehr,
-  eraReadClient: Oystehr,
-  params: GetEraDetailParams
-): Promise<EraDetailResponse> {
-  const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
+export async function performEffect(oystehr: BillingOystehr, params: GetEraDetailParams): Promise<EraDetailResponse> {
+  const bundle = await oystehr.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [{ name: '_id', value: params.eraId }],
   });
@@ -76,7 +70,7 @@ export async function performEffect(
 
   // ClaimResponses linked to this ERA via its era-processing Provenance
   const claimResponses: ClaimResponse[] =
-    (await fetchClaimResponsesByPaymentReconciliations(eraReadClient, [pr])).get(params.eraId) ?? [];
+    (await fetchClaimResponsesByPaymentReconciliations(oystehr, [pr])).get(params.eraId) ?? [];
 
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on the
   // ClaimResponses
@@ -261,7 +255,7 @@ export async function performEffect(
   };
 }
 
-async function requestorPayee(oystehr: Oystehr, pr: PaymentReconciliation): Promise<EraPayee | null> {
+async function requestorPayee(oystehr: BillingOystehr, pr: PaymentReconciliation): Promise<EraPayee | null> {
   const [resourceType, id] = pr.requestor?.reference?.split('/') ?? [];
   if ((resourceType !== 'Organization' && resourceType !== 'Practitioner') || !id) return null;
   const provider = await findById<Organization | Practitioner>(oystehr, resourceType, id);
@@ -274,7 +268,7 @@ async function requestorPayee(oystehr: Oystehr, pr: PaymentReconciliation): Prom
   };
 }
 
-async function fetchEraAttachments(oystehr: Oystehr, eraId: string): Promise<EraAttachment[]> {
+async function fetchEraAttachments(oystehr: BillingOystehr, eraId: string): Promise<EraAttachment[]> {
   const bundle = await oystehr.fhir.search<DocumentReference>({
     resourceType: 'DocumentReference',
     params: [{ name: 'related', value: `PaymentReconciliation/${eraId}` }],

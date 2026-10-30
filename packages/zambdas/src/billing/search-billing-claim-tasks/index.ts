@@ -1,4 +1,4 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Organization, Patient, Task } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
@@ -13,11 +13,11 @@ import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { createBillingClient, fhirName } from '../shared';
+import { BillingOystehr, createBillingClient, fhirName } from '../shared';
 import { getClaimTaskPayerNames } from './payers';
 
 type SearchBillingClaimTasksParams = ValidatedZambdaInput<typeof SearchBillingClaimTasksInputSchema>;
@@ -30,6 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   complexValidation(params);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- task rows show the clinical encounter, appointment and patient
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const response = await performEffect(oystehr, clinicalOystehr, params);
@@ -43,8 +44,8 @@ function complexValidation(params: SearchBillingClaimTasksParams): void {
 }
 
 async function performEffect(
-  oystehr: Oystehr,
-  clinicalOystehr: Oystehr,
+  oystehr: BillingOystehr,
+  clinicalOystehr: ClinicalOystehr,
   params: SearchBillingClaimTasksParams
 ): Promise<SearchBillingClaimTasksResponse> {
   const { status, createdFrom, createdTo, patientId, patientName, patientIdentifier, offset, pageSize } = params;
@@ -79,8 +80,8 @@ async function performEffect(
 }
 
 async function searchByPayer(
-  billing: Oystehr,
-  clinical: Oystehr,
+  billing: BillingOystehr,
+  clinical: ClinicalOystehr,
   searchParams: SearchParam[],
   { payerName, offset, pageSize }: SearchBillingClaimTasksParams
 ): Promise<SearchBillingClaimTasksResponse> {
@@ -113,8 +114,8 @@ async function searchByPayer(
 }
 
 async function getTaskRows(
-  oystehr: Oystehr,
-  clinicalOystehr: Oystehr,
+  oystehr: BillingOystehr,
+  clinicalOystehr: ClinicalOystehr,
   taskResources: Task[],
   payerCache?: Map<string, Organization>
 ): Promise<BillingClaimTaskItem[]> {

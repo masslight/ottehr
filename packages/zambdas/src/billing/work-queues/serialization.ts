@@ -1,8 +1,8 @@
-import Oystehr from '@oystehr/sdk';
 import { Basic, Extension, List } from 'fhir/r4b';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { ClaimsListFiltersSchema, ClaimsListLayoutSchema } from 'utils/lib/types/data/billing/claims-list-view.schemas';
 import { WorkQueue, WorkQueueSchema } from 'utils/lib/types/data/billing/work-queue.schemas';
+import { BillingOystehr } from '../shared';
 
 // ---------------------------------------------------------------------------
 // Serialization between the work queue domain model and FHIR.
@@ -105,7 +105,7 @@ export function withWorkQueue(list: List | undefined, queue: WorkQueue): List {
   };
 }
 
-export async function findWorkQueuesLists(oystehr: Oystehr): Promise<List[]> {
+export async function findWorkQueuesLists(oystehr: BillingOystehr): Promise<List[]> {
   const result = await oystehr.fhir.search<List>({
     resourceType: 'List',
     params: [
@@ -116,6 +116,6 @@ export async function findWorkQueuesLists(oystehr: Oystehr): Promise<List[]> {
   return result.unbundle();
 }
 
-export async function findWorkQueuesList(oystehr: Oystehr): Promise<List | undefined> {
+export async function findWorkQueuesList(oystehr: BillingOystehr): Promise<List | undefined> {
   return (await findWorkQueuesLists(oystehr))[0];
 }

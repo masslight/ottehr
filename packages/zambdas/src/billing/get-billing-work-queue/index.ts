@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   BillingWorkQueueResponse,
@@ -10,7 +9,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
-import { createBillingClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 import { findWorkQueuesList, listToWorkQueues } from '../work-queues/serialization';
 
 let m2mToken: string;
@@ -26,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: GetBillingWorkQueueInput
 ): Promise<BillingWorkQueueResponse> {
   const queue = listToWorkQueues(await findWorkQueuesList(oystehr)).find((q) => q.id === params.queueId);

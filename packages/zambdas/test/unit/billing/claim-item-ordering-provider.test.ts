@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Bundle, Claim, FhirResource, Practitioner } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
@@ -8,6 +7,7 @@ import {
   readClaimItemOrderingProvider,
   setClaimItemOrderingProviders,
 } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const claimWithItems = (count: number, extra?: Partial<Claim>): Claim =>
   ({
@@ -138,9 +138,9 @@ describe('readClaimItemOrderingProvider', () => {
 });
 
 describe('assertOrderingProvidersExist', () => {
-  const oystehrWith = (found: FhirResource[]): { oystehr: Oystehr; batch: ReturnType<typeof vi.fn> } => {
+  const oystehrWith = (found: FhirResource[]): { oystehr: OystehrMock; batch: ReturnType<typeof vi.fn> } => {
     const batch = vi.fn().mockResolvedValue(batchResponse(found));
-    return { oystehr: { fhir: { batch } } as unknown as Oystehr, batch };
+    return { oystehr: { fhir: { batch } } as unknown as OystehrMock, batch };
   };
 
   it('looks the referenced ids up as Practitioners in one request', async () => {

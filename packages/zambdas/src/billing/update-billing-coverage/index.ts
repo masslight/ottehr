@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Coverage, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
@@ -13,6 +13,7 @@ import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
   BillingFhirResource,
+  BillingOystehr,
   buildSubscriberRelatedPerson,
   coverageInsuranceTypeLabel,
   createBillingClient,
@@ -48,7 +49,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function complexValidation(
   params: UpdateBillingCoverageParams,
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   authorizationHeader: string | undefined
 ): Promise<ComplexValidationResult> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
@@ -79,7 +80,7 @@ async function complexValidation(
 }
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: UpdateBillingCoverageParams,
   cvo: ComplexValidationResult
 ): Promise<{ id: string | undefined }> {

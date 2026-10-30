@@ -1,15 +1,14 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Task } from 'fhir/r4b';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
 import { CreateBillingClaimTaskInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { findBillingClaimForEncounter } from '../payments';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type CreateBillingClaimTaskParams = ValidatedZambdaInput<typeof CreateBillingClaimTaskInputSchema>;
 
@@ -19,6 +18,7 @@ const ZAMBDA_NAME = 'create-billing-claim-task';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateWithSchema(CreateBillingClaimTaskInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- checks the clinical encounter exists
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -27,12 +27,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function complexValidation(oystehr: Oystehr, params: CreateBillingClaimTaskParams): Promise<Encounter> {
+async function complexValidation(oystehr: ClinicalOystehr, params: CreateBillingClaimTaskParams): Promise<Encounter> {
   return fetchById<Encounter>(oystehr, 'Encounter', params.encounterId);
 }
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: CreateBillingClaimTaskParams,
   encounter: Encounter
 ): Promise<{ taskId: string } | { claimId: string }> {

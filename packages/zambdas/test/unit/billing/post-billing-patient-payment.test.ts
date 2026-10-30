@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
@@ -7,6 +6,7 @@ import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
 
@@ -137,8 +137,10 @@ beforeEach(() => {
   );
   vi.mocked(createBillingClient).mockReturnValue({
     fhir: { search: billingSearch, get: billingGet, transaction: billingTransaction },
-  } as unknown as Oystehr);
-  vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { create: clinicalCreate } } as unknown as Oystehr);
+  } as unknown as OystehrMock);
+  vi.mocked(createClinicalOystehrClient).mockReturnValue({
+    fhir: { create: clinicalCreate },
+  } as unknown as OystehrMock);
   paymentIntentsCreate.mockResolvedValue({ id: 'pi_1', status: 'succeeded', latest_charge: 'ch_1' });
   vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue('acct_1');
 });

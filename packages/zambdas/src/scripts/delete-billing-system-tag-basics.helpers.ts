@@ -1,8 +1,8 @@
-import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
+import { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { isSystemManagedTagName, SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
-import { searchTagBasics } from '../billing/shared';
+import { BillingOystehr, searchTagBasics } from '../billing/shared';
 
 const DELETE_CHUNK_SIZE = 100;
 
@@ -106,7 +106,7 @@ export function describeSystemTagBasicCleanupPlan(plan: SystemTagBasicCleanupPla
   return lines.join('\n');
 }
 
-export async function deleteTagBasics(oystehr: Oystehr, refs: TagBasicRef[]): Promise<number> {
+export async function deleteTagBasics(oystehr: BillingOystehr, refs: TagBasicRef[]): Promise<number> {
   let deleted = 0;
   const chunks = chunkThings(refs, DELETE_CHUNK_SIZE);
 
@@ -127,6 +127,6 @@ export async function deleteTagBasics(oystehr: Oystehr, refs: TagBasicRef[]): Pr
   return deleted;
 }
 
-export async function planSystemTagBasicCleanupFor(oystehr: Oystehr): Promise<SystemTagBasicCleanupPlan> {
+export async function planSystemTagBasicCleanupFor(oystehr: BillingOystehr): Promise<SystemTagBasicCleanupPlan> {
   return planSystemTagBasicCleanup(await searchTagBasics(oystehr));
 }

@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice, Task } from 'fhir/r4b';
 import Stripe from 'stripe';
@@ -11,6 +10,7 @@ import { checkOrCreateM2MClientToken } from '../../src/shared/auth';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../src/shared/types/common';
+import { OystehrMock } from '../helpers/oystehr-mock';
 
 vi.mock('../../src/shared/sentry', () => ({ wrapHandler: (_name: string, handler: unknown) => handler }));
 vi.mock('../../src/shared/auth', () => ({ checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('token') }));
@@ -80,7 +80,7 @@ beforeEach(() => {
       patch,
       transaction,
     },
-  } as unknown as Oystehr);
+  } as unknown as OystehrMock);
 });
 
 describe('clinical-stripe-webhook', () => {

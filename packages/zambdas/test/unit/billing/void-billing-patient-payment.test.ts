@@ -1,10 +1,10 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { buildPaymentRefundsExtension, buildPaymentVoidExtension } from 'utils/lib/fhir/paymentRefunds';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/shared/sentry', () => ({ wrapHandler: (_name: string, handler: unknown) => handler }));
 vi.mock('../../../src/shared/auth', () => ({
@@ -115,7 +115,7 @@ const refundOffsetCreates = (): PaymentNotice[] => offsetCreateRequests().map((r
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { get: clinicalGet } } as unknown as Oystehr);
+  vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { get: clinicalGet } } as unknown as OystehrMock);
   vi.mocked(createBillingClient).mockReturnValue({
     fhir: {
       get: billingGet,
@@ -124,7 +124,7 @@ beforeEach(() => {
       patch: billingPatch,
       transaction: billingTransaction,
     },
-  } as unknown as Oystehr);
+  } as unknown as OystehrMock);
   billingTransaction.mockImplementation(async ({ requests }: { requests: { resource?: PaymentNotice }[] }) => ({
     unbundle: () => requests.map((request) => request.resource).filter(Boolean),
   }));

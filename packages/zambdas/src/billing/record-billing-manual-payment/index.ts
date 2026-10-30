@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -11,7 +10,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } from '../payments';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type RecordBillingManualPaymentParams = ValidatedZambdaInput<typeof RecordBillingManualPaymentInputSchema>;
 
@@ -41,7 +40,7 @@ const complexValidation = async (
     }
   }
 
-  // The billing client cannot see Encounters, so check the ID before recording money against it.
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client can't see Encounters; checks this one exists before recording money against it
   const clinicalOystehr = createClinicalOystehrClient(token, params.secrets);
   await fetchById<Encounter>(clinicalOystehr, 'Encounter', params.encounterId);
 
@@ -49,7 +48,7 @@ const complexValidation = async (
 };
 
 const performEffect = async (
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   effectInput: ComplexValidationOutput
 ): Promise<RecordBillingManualPaymentResponse> => {
   // Keep the creation time separate from the payment date.

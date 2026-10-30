@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import {
@@ -20,7 +20,7 @@ import {
   RETIRED_ATTACHMENT_STATUS,
 } from '../attachments';
 import { claimEventProvenanceRequest, resolveClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type DeleteClaimAttachmentParams = ValidatedZambdaInput<typeof DeleteClaimAttachmentInputSchema> & {
   agent: ProvenanceAgent;
@@ -44,7 +44,7 @@ export const index = wrapHandler(
   }
 );
 
-export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachmentParams): Promise<void> {
+export async function performEffect(oystehr: BillingOystehr, params: DeleteClaimAttachmentParams): Promise<void> {
   const { documentReference, location } = await withVersionConflictRetries(async () => {
     const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
     const documentReference = await fetchById<DocumentReference>(
@@ -83,7 +83,7 @@ async function retireAttachment({
   documentReference,
   agent,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   claim: Claim;
   documentReference: DocumentReference;
   agent: ProvenanceAgent;

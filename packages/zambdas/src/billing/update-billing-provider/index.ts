@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner, ProvenanceAgent } from 'fhir/r4b';
 import { setNpi } from 'utils/lib/fhir/helpers';
@@ -9,6 +8,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import {
+  BillingOystehr,
   buildAddress,
   createBillingClient,
   fetchById,
@@ -42,7 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // claim's history, so it needs the acting user; master-screen edits carry no claim context and
 // keep working without a resolvable caller.
 async function complexValidation(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: UpdateBillingProviderParams,
   authorizationHeader: string | undefined
 ): Promise<ProvenanceAgent | undefined> {
@@ -51,7 +51,7 @@ async function complexValidation(
 }
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: UpdateBillingProviderParams,
   agent?: ProvenanceAgent
 ): Promise<{ id: string }> {
@@ -76,7 +76,7 @@ export async function performEffect(
 // Claim-scoped edits write the update and its claim-history Provenance in one transaction;
 // master-screen edits stay a plain update.
 async function save(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: UpdateBillingProviderParams,
   provider: Practitioner | Organization,
   before: Practitioner | Organization,

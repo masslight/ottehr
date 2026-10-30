@@ -1,15 +1,15 @@
-import Oystehr from '@oystehr/sdk';
 import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import { ZodType } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
+import { BillingOystehr, UnscopedOystehr } from '../../shared';
 
 export type ProgressFn = (message: string) => Promise<void>;
 
 export interface ReportContext {
   // billing-tagged client
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   // clinical (untagged) resources in the same store
-  untaggedClient: Oystehr;
+  untaggedClient: UnscopedOystehr;
   secrets: ZambdaInput['secrets'];
 }
 

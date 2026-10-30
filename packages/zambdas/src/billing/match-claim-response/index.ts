@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
@@ -16,7 +15,7 @@ import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, MATCH_FIELDS, matchFieldsPatchOperations } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient, createEraReadClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'match-claim-response';
@@ -27,8 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
-  const response = await performEffect(oystehr, eraReadClient, {
+  const response = await performEffect(oystehr, {
     ...params,
     agent,
   });
@@ -40,8 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  oystehr: BillingOystehr,
   params: Params & { agent: ProvenanceAgent }
 ): Promise<ClaimResponse> {
   const claim = await oystehr.fhir.get<Claim>({
@@ -52,7 +49,7 @@ export async function performEffect(
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
-  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
+  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
   const matched: ClaimResponse = {
     ...claimResponse,
     request: {

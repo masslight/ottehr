@@ -1,8 +1,8 @@
-import Oystehr from '@oystehr/sdk';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { Mock, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/rename-claim-attachment';
 import { fetchById } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { claimHistoryRequest, historyChanges, TEST_AGENT } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -10,12 +10,12 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   fetchById: vi.fn(),
 }));
 
-function makeClient(): Oystehr {
+function makeClient(): OystehrMock {
   return {
     fhir: {
       transaction: vi.fn(),
     },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
 }
 
 describe('rename-claim-attachment', () => {

@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -41,6 +41,7 @@ import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validatio
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   assertOrderingProvidersExist,
+  BillingOystehr,
   buildClaimItemDrugDetail,
   buildDiagnosisSequence,
   copyBillingPatientWithClinicalIds,
@@ -89,7 +90,7 @@ interface OriginalResources {
 }
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: CreateClaimParams,
   agent: ProvenanceAgent
 ): Promise<{ claimId: string }> {
@@ -136,7 +137,7 @@ async function performEffect(
   return { claimId: created.id };
 }
 
-async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promise<OriginalResources> {
+async function readOriginals(oystehr: BillingOystehr, params: CreateClaimParams): Promise<OriginalResources> {
   const rp = params.renderingProvider;
   const bp = params.billingProvider;
 
@@ -162,7 +163,10 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
   return { patient, coverage, coverageSubscriber, renderingProvider, facility, billingProvider };
 }
 
-export async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResources): Promise<OriginalResources> {
+export async function createWorkingCopies(
+  oystehr: BillingOystehr,
+  originals: OriginalResources
+): Promise<OriginalResources> {
   const requests: BatchInputPostRequest<BillingFhirResource>[] = [];
   const order: string[] = [];
 
@@ -355,7 +359,7 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams, payerN
 }
 
 async function linkPatientCopyViaPerson(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   originalPatientId: string,
   copyPatientId: string
 ): Promise<void> {

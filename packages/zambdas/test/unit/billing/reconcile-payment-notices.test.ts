@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, PaymentNotice, Provenance } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -7,6 +6,7 @@ import {
 } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
 import { reconcilePaymentNoticesForClaim } from '../../../src/billing/payments';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -123,7 +123,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
   it('searches request:identifier with the system|value form', async () => {
     const oystehr = makeOystehr([]);
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     expect(oystehr.fhir.search).toHaveBeenCalledWith({
       resourceType: 'PaymentNotice',
@@ -142,7 +142,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
       [paymentEntry('pn-unlinked')]
     );
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
     const noticePatches = transactionRequests(oystehr).filter((request) => request.url.startsWith('/PaymentNotice/'));
@@ -161,7 +161,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
   it('adds the claim to the history entry written when the payment was taken', async () => {
     const oystehr = makeOystehr([makeNotice('pn-unlinked')], [paymentEntry('pn-unlinked')]);
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     expect(oystehr.fhir.search).toHaveBeenCalledWith({
       resourceType: 'Provenance',
@@ -180,7 +180,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
     const oystehr = makeOystehr([makeNotice('pn-a'), makeNotice('pn-b')], [paymentEntry('pn-a'), paymentEntry('pn-b')]);
     oystehr.fhir.transaction.mockRejectedValueOnce(new Error('conflict'));
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(2);
     [
@@ -198,7 +198,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
   it('locks the link to the notice version its history was read at', async () => {
     const oystehr = makeOystehr([makeNotice('pn-unlinked')], [paymentEntry('pn-unlinked')]);
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     expect(transactionRequests(oystehr)[0]).toMatchObject({
       url: '/PaymentNotice/pn-unlinked',
@@ -223,7 +223,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
       },
     });
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(2);
     expect(transactionRequests(oystehr, 1)[0]).toMatchObject({
@@ -238,7 +238,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
     oystehr.fhir.transaction.mockRejectedValueOnce(versionConflict());
     oystehr.fhir.get.mockResolvedValue(makeNotice('pn-unlinked', 'Claim/claim-1'));
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
   });
@@ -246,7 +246,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
   it('records a notice stored before claim history was kept, attributed to the system', async () => {
     const oystehr = makeOystehr([makeNotice('pn-unlinked')]);
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     const entries = transactionRequests(oystehr).filter((request) => request.url === '/Provenance');
     expect(entries).toMatchObject([
@@ -279,7 +279,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
   it('does not patch when every notice is already linked', async () => {
     const oystehr = makeOystehr([makeNotice('pn-linked', 'Claim/claim-1')]);
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim());
 
     expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
   });
@@ -287,7 +287,7 @@ describe('reconcilePaymentNoticesForClaim', () => {
   it('returns early without searching when the claim has no encounter identifier', async () => {
     const oystehr = makeOystehr([]);
 
-    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim({ identifier: [] }));
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as OystehrMock, makeClaim({ identifier: [] }));
 
     expect(oystehr.fhir.search).not.toHaveBeenCalled();
   });

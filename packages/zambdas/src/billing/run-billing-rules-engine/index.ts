@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent, Task } from 'fhir/r4b';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
@@ -18,7 +18,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolveClaimActor } from '../provenance';
 import { buildRulesEngineKickoffTask } from '../rules-engine/serialization';
-import { createBillingClient, determineRulesEngineForClaim } from '../shared';
+import { BillingOystehr, createBillingClient, determineRulesEngineForClaim } from '../shared';
 
 type RunBillingRulesEngineParams = ValidatedZambdaInput<typeof RunBillingRulesEngineInputSchema>;
 
@@ -53,7 +53,7 @@ export interface RulesEngineKickoff {
 // Confirm every claim exists (one search ORing the ids) and that an engine applies to each, so the
 // caller gets a clear error rather than silently orphaned Tasks or unhandled claims.
 export async function complexValidation(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: RunBillingRulesEngineParams
 ): Promise<RulesEngineKickoff[]> {
   const result = await oystehr.fhir.search<Claim>({
@@ -94,7 +94,7 @@ export async function complexValidation(
 // All kickoff Tasks are created in one transaction: either an engine is queued for every requested
 // claim or for none of them, so a partial failure can't leave the caller guessing which claims ran.
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   kickoffs: RulesEngineKickoff[],
   agent: ProvenanceAgent
 ): Promise<RunBillingRulesEngineResponse> {

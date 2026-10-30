@@ -1,9 +1,9 @@
-import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { Mock, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/add-claim-attachment';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM, fetchById } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { claimHistoryRequest, historyChanges, TEST_AGENT } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -17,7 +17,7 @@ const STORED_URL = new RegExp(
   `^https://project-api\\.zapehr\\.com/v1/z3/project-id-billing-app/${OBJECT_PATH.source.slice(1)}`
 );
 
-function makeClient(): Oystehr {
+function makeClient(): OystehrMock {
   return {
     fhir: {
       transaction: vi.fn().mockResolvedValue({
@@ -27,7 +27,7 @@ function makeClient(): Oystehr {
     z3: {
       getPresignedUrl: vi.fn().mockResolvedValueOnce({ signedUrl: 'some-presigned-url' }),
     },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
 }
 
 describe('add-claim-attachment', () => {
@@ -309,7 +309,7 @@ describe('add-claim-attachment', () => {
       use: 'claim' as const,
     };
     const secrets = { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' };
-    const attachmentOf = (oystehr: Oystehr): { contentType: string } =>
+    const attachmentOf = (oystehr: OystehrMock): { contentType: string } =>
       (oystehr.fhir.transaction as Mock).mock.calls[0][0].requests[0].resource.content[0].attachment;
 
     (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce(claim);

@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { Organization, Practitioner, Provenance, Resource } from 'fhir/r4b';
 import {
@@ -15,6 +14,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('@sentry/node-core/light', async (importActual) => ({
   ...(await importActual<typeof import('@sentry/node-core/light')>()),
@@ -57,7 +57,7 @@ const pagedBundle = (matches: Resource[], includes: Resource[] = []): unknown =>
   unbundle: () => [...matches, ...includes],
 });
 
-const makeOystehr = (handlers: Record<string, (params?: unknown) => unknown>): Oystehr => {
+const makeOystehr = (handlers: Record<string, (params?: unknown) => unknown>): OystehrMock => {
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     const handler = handlers[resourceType];
     if (!handler) return Promise.resolve({ entry: [], total: 0, unbundle: () => [] });
@@ -66,7 +66,7 @@ const makeOystehr = (handlers: Record<string, (params?: unknown) => unknown>): O
   const getPayerByUrl = vi
     .fn()
     .mockResolvedValue({ resourceType: 'Organization', id: 'pay1', name: 'Acme Health' } as Organization);
-  return { fhir: { search }, rcm: { getPayerByUrl } } as unknown as Oystehr;
+  return { fhir: { search }, rcm: { getPayerByUrl } } as unknown as OystehrMock;
 };
 
 describe('get-billing-claim-history performEffect', () => {

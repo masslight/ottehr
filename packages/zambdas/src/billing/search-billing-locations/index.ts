@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import { getNPI } from 'utils/lib/fhir/helpers';
@@ -7,7 +6,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { getPlaceOfServiceCode } from '../service-facility.helpers';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, formatAddress } from '../shared';
+import { BillingOystehr, createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, formatAddress } from '../shared';
 import { SearchBillingLocationsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -23,7 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SearchBillingLocationsParams
 ): Promise<{ locations: BillingLocationOption[] }> {
   // TODO: add pagination support

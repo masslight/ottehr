@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Account, Claim, Coverage, RelatedPerson } from 'fhir/r4b';
 import { ACCOUNT_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
@@ -11,6 +10,7 @@ import {
   fetchPatientCoverages,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // The shared patient-coverage helpers, used by both the claim detail coverage picker
 // (get-patient-coverages / update-billing-claim's attach) and the rules engine's
@@ -82,7 +82,7 @@ const accounts: Account[] = [
   },
 ];
 
-function makeOystehrMock(): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } {
+function makeOystehrMock(): { oystehr: OystehrMock; search: ReturnType<typeof vi.fn> } {
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     if (resourceType === 'Coverage') {
       return Promise.resolve({
@@ -93,7 +93,7 @@ function makeOystehrMock(): { oystehr: Oystehr; search: ReturnType<typeof vi.fn>
     if (resourceType === 'Account') return Promise.resolve({ unbundle: () => accounts });
     return Promise.resolve({ unbundle: () => [] });
   });
-  return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+  return { oystehr: { fhir: { search } } as unknown as OystehrMock, search };
 }
 
 describe('fetchPatientCoverages', () => {

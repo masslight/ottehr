@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Basic, Claim } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
@@ -8,6 +7,7 @@ import { resolveClaimActor } from '../../../src/billing/provenance';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-tag';
 import { SaveBillingTagParams } from '../../../src/billing/save-billing-tag/index';
 import { TAG_CODE_SYSTEM } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { claimHistoryEntries, provenanceChanges, TEST_AGENT } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
@@ -16,7 +16,7 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
 }));
 
 const search = vi.fn();
-const oystehr = { fhir: { search } } as unknown as Oystehr;
+const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
 const params = (name: string, tagId?: string): SaveBillingTagParams =>
   ({ name, tagId, secrets: {} }) as SaveBillingTagParams;
@@ -91,7 +91,7 @@ describe('save-billing-tag rename', () => {
       },
     }) as Claim;
 
-  const makeRenameClient = (claims: Claim[]): { oystehr: Oystehr; transaction: Mock } => {
+  const makeRenameClient = (claims: Claim[]): { oystehr: OystehrMock; transaction: Mock } => {
     const transaction = vi.fn().mockResolvedValue({
       entry: [],
     });
@@ -105,12 +105,12 @@ describe('save-billing-tag rename', () => {
           }),
           transaction,
         },
-      } as unknown as Oystehr,
+      } as unknown as OystehrMock,
       transaction,
     };
   };
 
-  const rename = (oystehr: Oystehr, name: string): Promise<unknown> =>
+  const rename = (oystehr: OystehrMock, name: string): Promise<unknown> =>
     performEffect(
       oystehr,
       {

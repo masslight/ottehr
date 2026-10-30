@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
 import { codeableConcept, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
@@ -17,7 +16,7 @@ import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, matchFieldsPatchOperations, UNMATCH_FIELDS } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient, createEraReadClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {
   display: 'Unknown',
@@ -32,8 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
-  const response = await performEffect(oystehr, eraReadClient, {
+  const response = await performEffect(oystehr, {
     ...params,
     agent,
   });
@@ -45,15 +43,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  oystehr: BillingOystehr,
   params: Params & { agent: ProvenanceAgent }
 ): Promise<ClaimResponse> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
-  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
+  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
   const containedClaim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
   const containedPatient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
   const unmatched: ClaimResponse = {

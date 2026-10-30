@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -50,6 +49,7 @@ import { getClaimServiceDate } from '../claim-search';
 import { buildEraRemitServiceLines } from '../era-remits';
 import { getCLIA } from '../service-facility.helpers';
 import {
+  BillingOystehr,
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
@@ -78,6 +78,7 @@ import {
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
+  UnscopedOystehr,
 } from '../shared';
 import { fetchWriteOffs, sumWriteOffs, writeOffFromPaymentNotice } from '../write-offs';
 
@@ -91,15 +92,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- submission ClaimResponses are never billing-tagged
+  const untaggedClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, untaggedClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+// untaggedClient reads only the claim's submission ClaimResponses, which never get the billing tag; its
+// ERA remits are tagged by sub-tag-era-resources, so they come through the billing client.
 export async function performEffect(
-  oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -136,8 +140,8 @@ export async function performEffect(
     writeOffResources,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
-    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
+    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
+    fetchClaimFirstSubmittedDate(untaggedClient, claimId),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
@@ -146,7 +150,7 @@ export async function performEffect(
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
-    eraReadClient,
+    oystehr,
     claimResponses
   );
   const paymentReconciliationById = new Map(
@@ -424,7 +428,7 @@ export async function performEffect(
 // name so renames show through, falling back to the display snapshotted on the claim when the
 // Organization is gone.
 async function resolveNonInsurancePayerDetail(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   claim: Claim
 ): Promise<{ fhirId: string; name: string }> {
   const payerRef = getClaimNonInsurancePayer(claim);
@@ -456,7 +460,7 @@ function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingPoli
 }
 
 async function fetchOtherClaims(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   patientId: string | undefined,
   currentClaimId: string
 ): Promise<ClaimDetailResponse['otherClaims']> {

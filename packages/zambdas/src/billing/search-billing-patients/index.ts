@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { BillingPatientOption } from 'utils/lib/types/data/billing/billing.types';
@@ -6,6 +5,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
+  BillingOystehr,
   clinicalFriendlyIdOfCopy,
   copySourceId,
   createBillingClient,
@@ -32,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SearchBillingPatientsParams
 ): Promise<{ patients: BillingPatientOption[]; total: number; offset: number; pageSize: number }> {
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;

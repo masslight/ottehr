@@ -1,4 +1,4 @@
-import Oystehr, {
+import {
   BatchInputDeleteRequest,
   BatchInputPatchRequest,
   BatchInputPostRequest,
@@ -100,7 +100,7 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { chartDataResourceHasMetaTagByCode, makeAccidentDTOFromFhirResources } from '../../shared/chart-data';
 import { sendErrors } from '../../shared/errors';
-import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
+import { assertDefined, ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { reconcilePaymentNoticesForClaim } from '../payments';
@@ -108,6 +108,7 @@ import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../prove
 import {
   billingCopyMatches,
   BillingFhirResource,
+  BillingOystehr,
   buildClaimItemDrugDetail,
   ClaimLineDrug,
   copyBillingPatient,
@@ -216,6 +217,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 export async function createClaimFromEncounter(params: CreateClaimFromEncounterParams): Promise<{ claimId: string }> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the claim is built from the clinical encounter and its resources
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
@@ -228,7 +230,7 @@ export async function createClaimFromEncounter(params: CreateClaimFromEncounterP
 }
 
 export async function performEffect(
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   cvo: ComplexValidationOutput,
   agent: ProvenanceAgent
 ): Promise<{ claimId: string; claim: Claim }> {
@@ -583,7 +585,7 @@ export function getClaimCoveragesForEncounter(
 // so the claim references it natively. Legacy clinical employer Organizations have no billing copy
 // and leave the claim unstamped, as before.
 export async function resolveNonInsurancePayer(
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   clinicalResources: Pick<ClinicalResources, 'encounter' | 'occupationalMedicineAccount'>
 ): Promise<Reference | undefined> {
   const payer = getNonInsurancePayerReference(
@@ -637,7 +639,7 @@ export function subscribersForCoverages(coverages: Coverage[], subscribers: Rela
 }
 
 export function copyCoverageAndSubscriberForAccount(
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   coverages: Coverage[],
   account: Account,
   patientUuidOrUrn: string,
@@ -655,7 +657,7 @@ export function copyCoverageAndSubscriberForAccount(
 }
 
 export function copyCoverageAndSubscriber(
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   coverage: Coverage,
   patientUuidOrUrn: string,
   payors: Organization[],
@@ -747,11 +749,11 @@ export function copyCoverageAndSubscriber(
   return [requests, order];
 }
 
-// Manually look up payors because they may be internal Organization resources, Oystehr RCM payer URLs,
+// Manually look up payors because they may be internal Organization resources, BillingOystehr RCM payer URLs,
 // or custom insurance organization tokens (billing-owned, so read from the billing project).
 export async function resolveCoveragePayors(
-  clinicalOystehr: Oystehr,
-  billingOystehr: Oystehr,
+  clinicalOystehr: ClinicalOystehr,
+  billingOystehr: BillingOystehr,
   coverages: Coverage[]
 ): Promise<Organization[]> {
   return Promise.all(
@@ -774,8 +776,8 @@ export async function resolveCoveragePayors(
 }
 
 async function getClinicalResources(
-  oystehr: Oystehr,
-  billingOystehr: Oystehr,
+  oystehr: ClinicalOystehr,
+  billingOystehr: BillingOystehr,
   params: CreateClaimFromEncounterParams
 ): Promise<ClinicalResources> {
   const resources = (
@@ -983,7 +985,7 @@ async function getClinicalResources(
 }
 
 export async function findMainBillingPatient(
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   clinicalPatientId: string
 ): Promise<{ total: number; patient?: Patient }> {
   const { total, results } = await searchPatientsByClinicalIds({
@@ -1010,7 +1012,7 @@ export async function findMainBillingPatient(
 }
 
 async function findExistingBillingResources(
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   clinicalResources: ClinicalResources,
   secrets: Secrets
 ): Promise<BillingResources> {
@@ -1474,8 +1476,8 @@ function getServiceCoding(appointment: Appointment): Coding | undefined {
 }
 
 export async function complexValidation(
-  clinicalOystehr: Oystehr,
-  billingOystehr: Oystehr,
+  clinicalOystehr: ClinicalOystehr,
+  billingOystehr: BillingOystehr,
   params: CreateClaimFromEncounterParams
 ): Promise<ComplexValidationOutput> {
   const existingClaims = (

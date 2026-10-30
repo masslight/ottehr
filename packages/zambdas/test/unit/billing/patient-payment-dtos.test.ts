@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Account, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import {
@@ -11,6 +10,7 @@ import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/paymen
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/patient-payments', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -79,8 +79,8 @@ describe('getPaymentsForEncounter', () => {
     );
 
     const payments = await getPaymentsForEncounter({
-      clinicalOystehr: {} as Oystehr,
-      billingOystehr: {} as Oystehr,
+      clinicalOystehr: {} as OystehrMock,
+      billingOystehr: {} as OystehrMock,
       stripeClient: {} as Stripe,
       account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
       encounterId: ENCOUNTER_ID,
@@ -133,10 +133,10 @@ describe('getPaymentsForEncounter', () => {
     const retrieve = vi.fn(async (id: string) => ({ id }));
 
     await getPaymentsForEncounter({
-      clinicalOystehr: {} as Oystehr,
+      clinicalOystehr: {} as OystehrMock,
       billingOystehr: {
         fhir: { get: vi.fn(async ({ id }: { id: string }) => organizations[id]) },
-      } as unknown as Oystehr,
+      } as unknown as OystehrMock,
       stripeClient: { paymentIntents: { retrieve } } as unknown as Stripe,
       account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
       encounterId: ENCOUNTER_ID,
@@ -170,8 +170,8 @@ describe('getPaymentsForEncounter', () => {
     const retrieve = vi.fn(async (id: string) => ({ id }));
 
     const payments = await getPaymentsForEncounter({
-      clinicalOystehr: {} as Oystehr,
-      billingOystehr: {} as Oystehr,
+      clinicalOystehr: {} as OystehrMock,
+      billingOystehr: {} as OystehrMock,
       stripeClient: { paymentIntents: { retrieve } } as unknown as Stripe,
       account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
       encounterId: ENCOUNTER_ID,
@@ -212,8 +212,8 @@ describe('getPaymentsForEncounter', () => {
       const retrieve = vi.fn().mockRejectedValue(new Error('No such payment_intent'));
 
       const payments = await getPaymentsForEncounter({
-        clinicalOystehr: {} as Oystehr,
-        billingOystehr: {} as Oystehr,
+        clinicalOystehr: {} as OystehrMock,
+        billingOystehr: {} as OystehrMock,
         stripeClient: { paymentIntents: { retrieve, search } } as unknown as Stripe,
         account,
         encounterId: ENCOUNTER_ID,
@@ -237,8 +237,8 @@ describe('getPaymentsForEncounter', () => {
 
       await expect(
         getPaymentsForEncounter({
-          clinicalOystehr: {} as Oystehr,
-          billingOystehr: {} as Oystehr,
+          clinicalOystehr: {} as OystehrMock,
+          billingOystehr: {} as OystehrMock,
           stripeClient: {} as Stripe,
           account,
           encounterId: ENCOUNTER_ID,
@@ -270,8 +270,8 @@ describe('getPaymentsForEncounter', () => {
     const retrieve = vi.fn(async (id: string) => ({ id }));
 
     const payments = await getPaymentsForEncounter({
-      clinicalOystehr: {} as Oystehr,
-      billingOystehr: {} as Oystehr,
+      clinicalOystehr: {} as OystehrMock,
+      billingOystehr: {} as OystehrMock,
       stripeClient: { paymentIntents: { retrieve } } as unknown as Stripe,
       account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
       encounterId: ENCOUNTER_ID,
@@ -299,8 +299,8 @@ describe('getPaymentsForEncounter', () => {
       vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(new Map([[ENCOUNTER_ID, [notice]]]));
       const retrieve = charge instanceof Error ? vi.fn().mockRejectedValue(charge) : vi.fn().mockResolvedValue(charge);
       const payments = await getPaymentsForEncounter({
-        clinicalOystehr: {} as Oystehr,
-        billingOystehr: {} as Oystehr,
+        clinicalOystehr: {} as OystehrMock,
+        billingOystehr: {} as OystehrMock,
         stripeClient: { charges: { retrieve } } as unknown as Stripe,
         account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
         encounterId: ENCOUNTER_ID,

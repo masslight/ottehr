@@ -128,6 +128,7 @@ import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
+import { ClinicalOystehr } from '../shared/helpers';
 import {
   getCustomInsuranceOrgBusinessId,
   isCustomInsuranceOrganization,
@@ -247,7 +248,7 @@ export function ensureClaimInsurance(insurance?: Claim['insurance']): NonNullabl
 // Resolve payer references — Oystehr RCM payer list URLs, or a billing-app custom insurance
 // organization's direct Organization/{id} reference (see buildPayorReference) — to their Organizations.
 export async function resolvePayersByRef(
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   refs: (string | undefined)[]
 ): Promise<Map<string, Organization>> {
   const byRef = new Map<string, Organization>();
@@ -454,7 +455,7 @@ export function pruneUnreferencedOrderingProviders(claim: Claim): void {
 
 // Existing Practitioners referenced as ordering providers must be there, so no item points at nothing.
 export async function assertOrderingProvidersExist(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   providers: (ClaimLineOrderingProvider | undefined)[]
 ): Promise<void> {
   const ids = [...new Set(providers.map((provider) => provider?.providerId).filter((id): id is string => !!id))];
@@ -562,7 +563,7 @@ export async function searchPatientsByClinicalIds({
   uuid,
   friendlyId,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   baseSearchParams: SearchParam[];
   offset: number;
   pageSize: number;
@@ -617,7 +618,7 @@ export async function resolveClinicalPatientIds({
   patient,
   fetchBillingPatient = (id) => findById<Patient>(oystehr, 'Patient', id),
 }: {
-  oystehr: Oystehr;
+  oystehr: ScopedOystehr;
   patient: Patient;
   fetchBillingPatient?: (id: string) => Promise<Patient | undefined>;
 }): Promise<ClinicalPatientIds> {
@@ -673,7 +674,7 @@ function noMainPatient(patient: Patient, reason: string): undefined {
 }
 
 export async function searchOnClinicalIDs(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   baseSearchParams: SearchParam[],
   baseOffset: number,
   basePageSize: number,
@@ -768,7 +769,7 @@ export function isSystemTag(tag: Basic): boolean {
 // All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
 // first. The one search behind both the Tags page (search-billing-tags) and the tag-existence
 // validations, so the two can't diverge.
-export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
+export async function searchTagBasics(oystehr: ScopedOystehr): Promise<Basic[]> {
   return getAllFhirSearchPages<Basic>(
     {
       resourceType: 'Basic',
@@ -783,12 +784,15 @@ export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
 
 // Names of the defined tags — used to validate tag references before they are written onto claims
 // or into rules.
-export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
+export async function fetchDefinedTagNames(oystehr: BillingOystehr): Promise<Set<string>> {
   const basics = await searchTagBasics(oystehr);
   return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
 }
 
-export async function countClaimsByTag(oystehr: Oystehr, tagNames: string[]): Promise<Map<string, number | undefined>> {
+export async function countClaimsByTag(
+  oystehr: BillingOystehr,
+  tagNames: string[]
+): Promise<Map<string, number | undefined>> {
   const counts = new Map<string, number | undefined>();
   if (tagNames.length === 0) return counts;
 
@@ -897,11 +901,22 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
+declare const billingScope: unique symbol;
+
+// The client createBillingClient makes, whose FHIR reads and writes see only billing-tagged resources.
+// Billing code types its clients this way, or as another scoped client got under a justified exception
+// to ottehr/billing-fhir-client-only. The brand is keyed by a symbol nothing else can name, so only this
+// factory makes one.
+export interface BillingOystehr extends Oystehr {
+  readonly [billingScope]: true;
+}
+
 export function createBillingClient(
   token: string,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
-): Oystehr {
+): BillingOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client factory, which sets the workspace tag
   return new Oystehr({
     accessToken: token,
     services: {
@@ -910,22 +925,36 @@ export function createBillingClient(
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
-  });
+  }) as BillingOystehr;
 }
 
+declare const unscopedScope: unique symbol;
+
+// The client createEraReadClient makes, which sees untagged and billing-tagged resources alike: for code
+// that must see resources before they are tagged, or that nothing tags. Billing code that needs one gets
+// it with a justified exception to ottehr/billing-fhir-client-only, then uses it like any other client.
+export interface UnscopedOystehr extends Oystehr {
+  readonly [unscopedScope]: true;
+}
+
+// A client whose type says what it can see. Helpers that work with any of them take this, so a client of
+// unknown scope can't be passed in.
+export type ScopedOystehr = BillingOystehr | ClinicalOystehr | UnscopedOystehr;
+
 // ERA resources are untagged by Oystehr
-export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+export function createEraReadClient(token: string, secrets: Secrets | null): UnscopedOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the unscoped client factory
   return new Oystehr({
     accessToken: token,
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
     },
-  });
+  }) as UnscopedOystehr;
 }
 
 export async function findById<T extends FhirResource>(
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   resourceType: T['resourceType'],
   id: string
 ): Promise<FhirResourceReturnValue<T> | undefined> {
@@ -942,7 +971,7 @@ export async function findById<T extends FhirResource>(
 }
 
 export async function fetchById<T extends FhirResource>(
-  oystehr: Oystehr,
+  oystehr: ScopedOystehr,
   resourceType: T['resourceType'],
   id: string
 ): Promise<FhirResourceReturnValue<T>> {
@@ -952,7 +981,7 @@ export async function fetchById<T extends FhirResource>(
 }
 
 // An engine's singleton rules List (undefined when no rules have been configured for it yet).
-export async function findRulesEngineList(oystehr: Oystehr, engine: RulesEngineType): Promise<List | undefined> {
+export async function findRulesEngineList(oystehr: BillingOystehr, engine: RulesEngineType): Promise<List | undefined> {
   const result = await oystehr.fhir.search<List>({
     resourceType: 'List',
     params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${RULES_ENGINE_FHIR[engine].listCode}` }],
@@ -995,7 +1024,7 @@ export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | un
 // duplicate claim) — that is why the catch lives here rather than in the callers: the failure is
 // logged and reported to Sentry, and the engine can be run on demand via run-billing-rules-engine.
 export async function kickOffRulesEngine(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   engine: RulesEngineType,
   claimId: string,
   requester: Reference,
@@ -1029,7 +1058,7 @@ export interface ClaimGraph {
   documentReferences: DocumentReference[];
 }
 
-export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promise<ClaimGraph> {
+export async function fetchClaimGraph(oystehr: BillingOystehr, claimId: string): Promise<ClaimGraph> {
   const bundle = await oystehr.fhir.search<Claim>({
     resourceType: 'Claim',
     params: [
@@ -1351,7 +1380,7 @@ export async function copyBillingPatientWithClinicalIds({
   patient,
   workingCopy,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   patient: Patient;
   workingCopy?: boolean;
 }): Promise<Patient> {
@@ -1516,7 +1545,7 @@ export function getClaimService(claim: Claim): string | undefined {
 // The codes of the services on claims created from visits: one Basic per service, created with the
 // first such claim (create-billing-claim-from-encounter). Read in full by the services list
 // (search-billing-services) and by rule saving, which checks the service a rule sets is one of them.
-export async function searchBillingServiceCodes(oystehr: Oystehr): Promise<string[]> {
+export async function searchBillingServiceCodes(oystehr: BillingOystehr): Promise<string[]> {
   const basics = await getAllFhirSearchPages<Basic>(
     { resourceType: 'Basic', params: [{ name: 'code', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|` }] },
     oystehr
@@ -1662,7 +1691,7 @@ function accountMatchesCode(account: Account, code: string): boolean {
   return account.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === code) ?? false;
 }
 
-export async function getPatientAccounts(oystehr: Oystehr, patientId: string): Promise<Account[]> {
+export async function getPatientAccounts(oystehr: BillingOystehr, patientId: string): Promise<Account[]> {
   const result = await oystehr.fhir.search<Account>({
     resourceType: 'Account',
     params: [{ name: 'subject', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
@@ -1751,7 +1780,10 @@ export interface PatientCoverageRecord {
 // Shared by the claim detail coverage picker (get-patient-coverages) and the rules engine's
 // "Coverage (from patient)" prefetch so both read the patient's coverages one way. Working copies
 // are excluded — these are the patient's reference coverages, which claims copy from.
-export async function fetchPatientCoverages(oystehr: Oystehr, patientId: string): Promise<PatientCoverageRecord[]> {
+export async function fetchPatientCoverages(
+  oystehr: BillingOystehr,
+  patientId: string
+): Promise<PatientCoverageRecord[]> {
   const [coverageBundle, subscriberBundle, accounts] = await Promise.all([
     oystehr.fhir.search<Coverage>({
       resourceType: 'Coverage',
@@ -1862,7 +1894,7 @@ export function coverageInsuranceTypeLabel(insuranceType: BillingInsuranceType):
 
 // Find an active (non-cancelled) coverage already assigned to the given insurance type for the patient.
 export async function findCoverageOfType(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   patientId: string,
   insuranceType: BillingInsuranceType,
   excludeCoverageId?: string
@@ -1934,7 +1966,7 @@ export async function tagEraResources({
   oystehr,
   resources,
 }: {
-  oystehr: Oystehr;
+  oystehr: UnscopedOystehr;
   resources: FhirResource[];
 }): Promise<number> {
   const untagged = new Map<string, FhirResource>();
@@ -1958,7 +1990,7 @@ export async function resolveLinkedPatientIds({
   oystehr,
   patientId,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   patientId: string;
 }): Promise<string[]> {
   const result = await oystehr.fhir.search<Person>({

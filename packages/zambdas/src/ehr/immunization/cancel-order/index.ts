@@ -8,7 +8,7 @@ import {
   CancelImmunizationOrderRequest,
   CancelImmunizationOrderResponse,
 } from 'utils/lib/types/data/immunization/types';
-import { createBillingClient } from '../../../billing/shared';
+import { BillingOystehr, createBillingClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { makeOrderDeleteRequests } from '../../../shared/medication-order-delete';
@@ -33,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function cancelImmunizationOrder(
   oystehr: Oystehr,
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   input: CancelImmunizationOrderRequest
 ): Promise<CancelImmunizationOrderResponse> {
   const { orderId } = input;

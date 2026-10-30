@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, OrganizationAffiliation } from 'fhir/r4b';
 import {
@@ -19,7 +18,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { getNioCoverageCategory, mapClinicalNioOption, referencedId } from '../non-insurance-org.helpers';
-import { createBillingClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 
 type ListNonInsuranceOrganizationsParams = ValidatedZambdaInput<typeof ListNonInsuranceOrganizationsInputSchema>;
 
@@ -52,7 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: ListNonInsuranceOrganizationsParams
 ): Promise<ListNonInsuranceOrganizationsResponse> {
   const searchParams: { name: string; value: string }[] = [

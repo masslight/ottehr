@@ -42,6 +42,7 @@ import {
   paymentMethodForNotice,
 } from '../../billing/patient-payments';
 import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from '../../billing/payments';
+import { BillingOystehr } from '../../billing/shared';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
@@ -203,7 +204,7 @@ const netPaymentAmount = (notice: PaymentNotice): number => (notice.amount?.valu
 export async function fetchAdHocBillingRows(
   oystehr: Oystehr,
   params: AdHocBillingInput,
-  billingOystehr: Oystehr
+  billingOystehr: BillingOystehr
 ): Promise<AdHocBillingRow[]> {
   const { dateRange, includePayments, includeCoverage, includeEligibility, includeCharges, includeCodes } = params;
 

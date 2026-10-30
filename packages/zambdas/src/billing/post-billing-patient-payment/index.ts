@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -33,7 +32,7 @@ import {
 } from 'utils/lib/types/errors';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadata } from '../../shared/stripeIntegration';
@@ -51,7 +50,7 @@ import {
   stripeAccountExtension,
 } from '../payments';
 import { humanClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type PostBillingPatientPaymentParams = ValidatedZambdaInput<typeof PostBillingPatientPaymentInputSchema>;
 
@@ -71,6 +70,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- checks the Encounter, resolves the submitter and Stripe account, and schedules the payment Task
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
@@ -89,8 +89,8 @@ interface EffectInput extends PostBillingPatientPaymentParams {
 
 const performEffect = async (
   input: EffectInput,
-  clinicalOystehr: Oystehr,
-  billingOystehr: Oystehr
+  clinicalOystehr: ClinicalOystehr,
+  billingOystehr: BillingOystehr
 ): Promise<PaymentNotice> => {
   const { encounterId, paymentDetails, secrets } = input;
   // every payment carries the identifier so billing AR picks it up; a request without a client
@@ -196,7 +196,7 @@ const performEffect = async (
 const chargeSavedCard = async (
   input: EffectInput,
   paymentMethodId: string,
-  clinicalOystehr: Oystehr
+  clinicalOystehr: ClinicalOystehr
 ): Promise<{ paymentIntent: Stripe.PaymentIntent; stripeAccount: string | undefined }> => {
   const { patientId, encounterId, paymentDetails, secrets } = input;
   const { account } = await getAccountAndCoverageResourcesForPatient(patientId, clinicalOystehr);
@@ -246,7 +246,7 @@ const chargeSavedCard = async (
 // claim link, which only reconcile adds so the history recorded before it comes along. The write is
 // locked to the version it read, so a refund stamped since is re-read instead of overwritten.
 const mergeIntoWebhookNotice = async (
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   storedNotice: PaymentNotice,
   desiredNotice: PaymentNotice,
   agent: ProvenanceAgent

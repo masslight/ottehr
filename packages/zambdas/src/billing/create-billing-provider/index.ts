@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Organization, Practitioner } from 'fhir/r4b';
 import {
@@ -15,6 +14,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
+  BillingOystehr,
   buildAddress,
   createBillingClient,
   LICENSE_TAG,
@@ -39,7 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: CreateBillingProviderParams): Promise<{ id: string }> {
+async function performEffect(oystehr: BillingOystehr, params: CreateBillingProviderParams): Promise<{ id: string }> {
   const created = await oystehr.fhir.create<Practitioner | Organization>(buildProvider(params));
   return { id: created.id! };
 }

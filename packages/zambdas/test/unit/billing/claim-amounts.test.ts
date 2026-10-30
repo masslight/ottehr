@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -25,6 +24,7 @@ import {
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
 import { ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const adjudication = (
   code: string,
@@ -918,7 +918,7 @@ describe('fetchPatientPaymentsByEncounterIds', () => {
       fhir: {
         search,
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
 
     const result = await fetchPatientPaymentsByEncounterIds(oystehr, ['enc-1', 'enc-2']);
 
@@ -952,7 +952,7 @@ describe('fetchPatientPaidByClaimId', () => {
   const clientReturning = (
     notices: PaymentNotice[]
   ): {
-    oystehr: Oystehr;
+    oystehr: OystehrMock;
     search: Mock;
   } => {
     const search = vi.fn().mockResolvedValue({
@@ -964,7 +964,7 @@ describe('fetchPatientPaidByClaimId', () => {
         fhir: {
           search,
         },
-      } as unknown as Oystehr,
+      } as unknown as OystehrMock,
       search,
     };
   };
@@ -1168,7 +1168,7 @@ describe('fetchClaimFirstSubmittedDate', () => {
       fhir: {
         search,
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
 
     const result = await fetchClaimFirstSubmittedDate(oystehr, 'claim-1');
 
@@ -1215,7 +1215,7 @@ describe('fetchClaimResponsesByClaimIds', () => {
       fhir: {
         search,
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
 
     const result = await fetchClaimResponsesByClaimIds(oystehr, ['claim-1', 'claim-2']);
 

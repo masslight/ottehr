@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { CreateBillingPatientInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -6,7 +5,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { buildAddress, createBillingClient } from '../shared';
+import { BillingOystehr, buildAddress, createBillingClient } from '../shared';
 
 type CreateBillingPatientParams = ValidatedZambdaInput<typeof CreateBillingPatientInputSchema>;
 
@@ -22,7 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: CreateBillingPatientParams): Promise<{ id: string }> {
+async function performEffect(oystehr: BillingOystehr, params: CreateBillingPatientParams): Promise<{ id: string }> {
   const patient: Patient = {
     resourceType: 'Patient',
     active: true,

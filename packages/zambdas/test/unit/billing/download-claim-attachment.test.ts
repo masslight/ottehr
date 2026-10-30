@@ -1,7 +1,7 @@
-import Oystehr from '@oystehr/sdk';
 import { Mock, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/download-claim-attachment';
 import { fetchById } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -10,12 +10,12 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 
 const SECRETS = { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' };
 
-function makeClient(): Oystehr {
+function makeClient(): OystehrMock {
   return {
     z3: {
       getPresignedUrl: vi.fn().mockResolvedValueOnce({ signedUrl: 'some-presigned-url' }),
     },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
 }
 
 describe('download-claim-attachment', () => {

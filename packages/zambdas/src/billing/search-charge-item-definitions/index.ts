@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { SearchChargeItemDefinitionsInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -12,6 +11,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { chargeItemDefinitionTypeSearchParam } from '../charge-master.helpers';
 import {
+  BillingOystehr,
   createBillingClient,
   getDefaultSettingForChargeItemDefinition,
   getTypeForChargeItemDefinition,
@@ -37,7 +37,7 @@ export const index = wrapHandler(
 );
 
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SearchChargeItemDefinitionsParams
 ): Promise<SearchChargeItemDefinitionsResponse> {
   const searchParams = [

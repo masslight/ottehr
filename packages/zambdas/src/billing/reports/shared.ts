@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputGetRequest, FhirResource, FhirSearchParams } from '@oystehr/sdk';
+import { BatchInputGetRequest, FhirResource, FhirSearchParams } from '@oystehr/sdk';
 import {
   Bundle,
   Claim,
@@ -16,7 +16,7 @@ import { ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants'
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { stripeAccountIdRegex } from 'utils/lib/validation/regex';
 import { fetchAllPages } from '../../shared/fhir';
-import { fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
+import { BillingOystehr, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, UnscopedOystehr } from '../shared';
 
 export const ERA_PAGE_SIZE = 200;
 export const CLAIM_BATCH_SIZE = 100;
@@ -27,7 +27,7 @@ export const WATERFALL_UNKNOWN_MONTH = 'unknown';
 // hundreds of paged searches. An errored manifest is rejected — a report must not cache
 // partial data.
 export async function searchAllViaBulk<T extends FhirResource>(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: FhirSearchParams<T>
 ): Promise<T[]> {
   const job = await oystehr.fhir.search<T>(params, { mode: 'async-bulk' });
@@ -87,8 +87,8 @@ async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]>
 // Platform account + connected accounts from Organization identifiers and Location
 // schedule-owner extensions; candidates verified against Stripe (test data carries junk ids).
 export async function listStripeAccounts(
-  oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  oystehr: BillingOystehr,
+  untaggedClient: UnscopedOystehr,
   stripe: Stripe
 ): Promise<(string | undefined)[]> {
   const orgs: Organization[] = [];
@@ -254,7 +254,7 @@ export function claimResponseServiceDay(
   return (matched ? claimServiceDay(matched) : null) ?? containedClaimServiceDay(claimResponse);
 }
 
-export async function fetchAllEras(eraReadClient: Oystehr): Promise<PaymentReconciliation[]> {
+export async function fetchAllEras(eraReadClient: UnscopedOystehr): Promise<PaymentReconciliation[]> {
   const eras: PaymentReconciliation[] = [];
 
   await fetchAllPages(
@@ -280,7 +280,7 @@ export async function fetchAllEras(eraReadClient: Oystehr): Promise<PaymentRecon
 }
 
 // Partial Claims (id/item/created/identifier) for DOS resolution and PCN fallback; billing FHIR store.
-export async function fetchPartialClaimsById(oystehr: Oystehr, claimIds: string[]): Promise<Map<string, Claim>> {
+export async function fetchPartialClaimsById(oystehr: BillingOystehr, claimIds: string[]): Promise<Map<string, Claim>> {
   const claimsById = new Map<string, Claim>();
   // unmatched ERA ClaimResponses carry logical/identifier request references, not Claim/{uuid}
   const uniqueIds = [...new Set(claimIds)].filter(isValidUUID);
@@ -307,7 +307,7 @@ export async function fetchPartialClaimsById(oystehr: Oystehr, claimIds: string[
 const ACTOR_NAME_BATCH_SIZE = 100;
 
 export async function resolveActorNames(
-  untaggedClient: Oystehr,
+  untaggedClient: UnscopedOystehr,
   actorRefs: string[],
   { throwOnError = false }: { throwOnError?: boolean } = {}
 ): Promise<Map<string, string>> {

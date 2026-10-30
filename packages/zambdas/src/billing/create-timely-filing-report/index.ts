@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -13,6 +12,7 @@ import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validatio
 import { claimAcknowledgmentEvents, claimTransmitEvent, fetchClaimHistoryProvenances } from '../claim-acknowledgments';
 import { fetchClaimResponsesByClaimIds } from '../claim-amounts';
 import {
+  BillingOystehr,
   createBillingClient,
   ERA_ICN_EXTENSION,
   fetchClaimGraph,
@@ -54,7 +54,7 @@ export async function performEffect({
   oystehr,
   params,
 }: {
-  oystehr: Oystehr;
+  oystehr: BillingOystehr;
   params: CreateTimelyFilingReportParams;
 }): Promise<CreateTimelyFilingReportResponse> {
   const { claimId } = params;

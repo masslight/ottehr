@@ -42,6 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads legacy clinical payment notices and resolves the voiding practitioner
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 

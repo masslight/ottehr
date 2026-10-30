@@ -1,0 +1,19 @@
+{
+  "name": "eslint-plugin-ottehr",
+  "version": "1.46.5",
+  "private": true,
+  "description": "Repo-specific ESLint rules",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
+    "test": "vitest run",
+    "test:ci": "vitest run --passWithNoTests --reporter=dot --reporter=github-actions"
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "^8.34.0",
+    "@typescript-eslint/utils": "^8.34.0",
+    "eslint": "^8.57.0",
+    "vitest": "^4.1.11"
+  }
+}

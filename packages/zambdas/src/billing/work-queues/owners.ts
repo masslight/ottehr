@@ -1,10 +1,10 @@
-import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { WorkQueueOwner } from 'utils/lib/types/data/billing/work-queue.schemas';
+import { ClinicalOystehr } from '../../shared/helpers';
 import { getRoleMembers } from '../../shared/users.helper';
-import { fhirName } from '../shared';
+import { BillingOystehr, fhirName } from '../shared';
 
 const PRACTITIONER_PREFIX = 'Practitioner/';
 
@@ -14,7 +14,10 @@ const PRACTITIONER_PREFIX = 'Practitioner/';
  * lists the role's users; `fhirClient` reads their Practitioners, which belong to the EHR rather
  * than the billing workspace, so it must not filter searches to billing-tagged resources.
  */
-export async function listWorkQueueOwners(projectClient: Oystehr, fhirClient: Oystehr): Promise<WorkQueueOwner[]> {
+export async function listWorkQueueOwners(
+  projectClient: BillingOystehr,
+  fhirClient: ClinicalOystehr
+): Promise<WorkQueueOwner[]> {
   const role = (await projectClient.role.list()).find((r) => r.name === RoleType.BillingAdmin);
   if (!role) return [];
 

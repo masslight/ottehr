@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
 import { SearchBillingProvidersInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -9,6 +8,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
+  BillingOystehr,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   mapProvider,
@@ -32,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SearchBillingProvidersParams
 ): Promise<{ providers: BillingProviderOption[]; total: number; offset: number; pageSize: number }> {
   const pageSize = params.pageSize ?? 50;

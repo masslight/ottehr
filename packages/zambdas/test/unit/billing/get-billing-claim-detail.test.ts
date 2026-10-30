@@ -1,4 +1,4 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { SearchParam } from '@oystehr/sdk';
 import { Claim, Organization, Patient, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -25,6 +25,7 @@ import {
   resolvePayersByRef,
 } from '../../../src/billing/shared';
 import { WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -129,7 +130,7 @@ const paymentNotice = (opts: {
   } as PaymentNotice;
 };
 
-const makeBillingClient = (notices: PaymentNotice[]): Oystehr => {
+const makeBillingClient = (notices: PaymentNotice[]): OystehrMock => {
   const search = vi
     .fn()
     .mockImplementation(({ resourceType, params }: { resourceType: string; params: SearchParam[] }) => {
@@ -150,7 +151,7 @@ const makeBillingClient = (notices: PaymentNotice[]): Oystehr => {
       search,
       batch,
     },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
 };
 
 describe('get-billing-claim-detail performEffect: patient payments', () => {
@@ -194,7 +195,7 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
 
     const response = await performEffect(
       oystehr,
-      {} as unknown as Oystehr,
+      {} as unknown as OystehrMock,
       {
         claimId: 'claim-1',
         secrets: {},
@@ -218,7 +219,7 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
 
     const response = await performEffect(
       oystehr,
-      {} as unknown as Oystehr,
+      {} as unknown as OystehrMock,
       {
         claimId: 'claim-1',
         secrets: {},
@@ -250,7 +251,7 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
 
     const response = await performEffect(
       oystehr,
-      {} as unknown as Oystehr,
+      {} as unknown as OystehrMock,
       {
         claimId: 'claim-1',
         secrets: {},
@@ -384,7 +385,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
   const run = (): ReturnType<typeof performEffect> =>
     performEffect(
       makeBillingClient([]),
-      {} as unknown as Oystehr,
+      {} as unknown as OystehrMock,
       {
         claimId: 'claim-1',
         secrets: {},
@@ -509,6 +510,17 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
     expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(expect.anything(), 'claim-1');
   });
 
+  it('reads the ERA remits through the billing client and only the untagged submissions without it', async () => {
+    const billingClient = makeBillingClient([]);
+    const untaggedClient = {} as unknown as OystehrMock;
+
+    await performEffect(billingClient, untaggedClient, { claimId: 'claim-1', secrets: {} } as never);
+
+    expect(fetchClaimResponsesByClaimIds).toHaveBeenCalledWith(billingClient, ['claim-1']);
+    expect(fetchClaimEraLinks).toHaveBeenCalledWith(billingClient, expect.anything());
+    expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(untaggedClient, 'claim-1');
+  });
+
   it('has a payer claim control number', async () => {
     const response = await run();
 
@@ -553,7 +565,7 @@ describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
     });
   });
 
-  const withGet = (get: Mock): Oystehr => {
+  const withGet = (get: Mock): OystehrMock => {
     const base = makeBillingClient([]);
     (base.fhir as unknown as { get: Mock }).get = get;
     return base;
@@ -564,7 +576,7 @@ describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
 
     const response = await performEffect(
       withGet(get),
-      {} as unknown as Oystehr,
+      {} as unknown as OystehrMock,
       {
         claimId: 'claim-1',
         secrets: {},
@@ -581,7 +593,7 @@ describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
 
     const response = await performEffect(
       withGet(get),
-      {} as unknown as Oystehr,
+      {} as unknown as OystehrMock,
       {
         claimId: 'claim-1',
         secrets: {},
@@ -598,7 +610,7 @@ describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
 
     const response = await performEffect(
       withGet(get),
-      {} as unknown as Oystehr,
+      {} as unknown as OystehrMock,
       {
         claimId: 'claim-1',
         secrets: {},
@@ -650,7 +662,7 @@ describe('get-billing-claim-detail performEffect: custom insurance organization 
   it('shows the custom insurance organization name and business id as the payer', async () => {
     const response = await performEffect(
       makeBillingClient([]),
-      {} as unknown as Oystehr,
+      {} as unknown as OystehrMock,
       {
         claimId: 'claim-1',
         secrets: {},

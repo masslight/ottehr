@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { isCustomInsuranceOrgBusinessId } from 'utils/lib/helpers/helpers';
@@ -16,7 +15,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { mapCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
-import { createBillingClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 
 type SearchInsuranceOrgsParams = ValidatedZambdaInput<typeof SearchCustomInsuranceOrgsInputSchema>;
 
@@ -45,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 // Serves both the list page (paginated) and the detail page (insuranceOrgId filter).
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SearchInsuranceOrgsParams
 ): Promise<SearchCustomInsuranceOrgsResponse> {
   const pageSize = params.pageSize ?? 50;

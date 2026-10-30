@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { PaymentNotice } from 'fhir/r4b';
@@ -25,7 +24,7 @@ import { RefundBillingPatientPaymentInputSchema } from 'utils/lib/types/data/bil
 import { INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { shouldUseCandid, syncCandidPatientRefunds } from '../../shared/candid';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import {
@@ -46,7 +45,7 @@ import {
 } from '../patient-payments';
 import { recordPaymentNoticeChange } from '../payments';
 import { humanClaimActor } from '../provenance';
-import { createBillingClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 
 const ZAMBDA_NAME = 'refund-billing-patient-payment';
 
@@ -61,6 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads legacy clinical payment notices, the Stripe account and Candid client, and syncs refunds to Candid
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
   const stripeClient = getStripeClient(secrets);
@@ -102,8 +102,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 interface RefundContext {
-  clinicalOystehr: Oystehr;
-  billingOystehr: Oystehr;
+  clinicalOystehr: ClinicalOystehr;
+  billingOystehr: BillingOystehr;
   secrets: Secrets;
   recordChange: PaymentNoticeChangeRecorder;
 }

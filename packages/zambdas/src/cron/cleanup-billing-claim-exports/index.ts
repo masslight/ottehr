@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -9,7 +8,7 @@ import {
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { EXPORT_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
 import { EXPORT_CLAIMS_CSV_TASK_CODE } from 'utils/lib/types/data/billing/billing.constants';
-import { createBillingClient } from '../../billing/shared';
+import { BillingOystehr, createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
@@ -49,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function performEffect(oystehr: Oystehr, secrets: Secrets): Promise<CleanupExportTaskFilesResult> {
+async function performEffect(oystehr: BillingOystehr, secrets: Secrets): Promise<CleanupExportTaskFilesResult> {
   const bucketName = `${getSecret(SecretsKeys.PROJECT_ID, secrets)}-${BUCKET_NAMES.BILLING_CLAIM_EXPORTS}`;
 
   const results = await Promise.allSettled([

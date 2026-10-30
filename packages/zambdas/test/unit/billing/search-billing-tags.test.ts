@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -12,10 +11,11 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/search-billing-tags';
 import { fetchDefinedTagNames, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const search = vi.fn();
 const batch = vi.fn();
-const oystehr = { fhir: { search, batch } } as unknown as Oystehr;
+const oystehr = { fhir: { search, batch } } as unknown as OystehrMock;
 
 const userTag = (id: string, name: string, description?: string): Basic => ({
   resourceType: 'Basic',

@@ -16,6 +16,7 @@ import {
   WORK_QUEUES_LIST_CODE,
   workQueueToContainedBasic,
 } from '../../../src/billing/work-queues/serialization';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const queue = (id: string, overrides: Partial<WorkQueue> = {}): WorkQueue => ({
   id,
@@ -83,7 +84,7 @@ describe('save-billing-work-queue', () => {
   const create = vi.fn();
   const update = vi.fn();
   const batch = vi.fn();
-  const oystehr = { fhir: { search, create, update, batch } } as unknown as Oystehr;
+  const oystehr = { fhir: { search, create, update, batch } } as unknown as OystehrMock;
 
   const params = (overrides: Partial<SaveBillingWorkQueueParams> = {}): SaveBillingWorkQueueParams =>
     ({
@@ -192,10 +193,10 @@ describe('save-billing-work-queue', () => {
           metadata: { nextCursor: null },
         }),
       },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
     const fhirClient = {
       fhir: { search: vi.fn().mockResolvedValue(bundle([{ resourceType: 'Practitioner', id: 'prac-1' }])) },
-    } as unknown as Oystehr;
+    } as unknown as OystehrMock;
 
     await expect(
       complexValidation(projectClient, fhirClient, params({ owner: { practitionerId: 'prac-1', name: 'Sarah' } }))
@@ -208,7 +209,7 @@ describe('save-billing-work-queue', () => {
 
 describe('get-billing-work-queues summaries', () => {
   const search = vi.fn();
-  const oystehr = { fhir: { search } } as unknown as Oystehr;
+  const oystehr = { fhir: { search } } as unknown as OystehrMock;
   const claim = (id: string, total?: number): Claim =>
     ({ resourceType: 'Claim', id, ...(total === undefined ? {} : { total: { value: total } }) }) as Claim;
 

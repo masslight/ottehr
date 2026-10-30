@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import {
   Account,
   Bundle,
@@ -53,13 +52,14 @@ import {
   snapshotModel,
 } from '../../../src/subscriptions/task/sub-rules-engine';
 import { ClaimSubmissionRejectedError } from '../../../src/subscriptions/task/sub-rules-engine/submit-claim';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const AGENT: ProvenanceAgent = { who: { reference: 'Device/rules-engine-device' } };
 
 const workingCopyTag = { system: BILLING_WORKING_COPY_TAG.system, code: BILLING_WORKING_COPY_TAG.code };
 
 function makeOystehrMock(): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   search: ReturnType<typeof vi.fn>;
   transaction: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
@@ -78,7 +78,7 @@ function makeOystehrMock(): {
     rcm: {
       submitClaim: submitClaimRcm,
     },
-  } as unknown as Oystehr;
+  } as unknown as OystehrMock;
   return {
     oystehr,
     search,
@@ -735,7 +735,7 @@ describe('sub-rules-engine performEffect', () => {
 
   describe('accident details check', () => {
     const run = (
-      oystehr: Oystehr,
+      oystehr: OystehrMock,
       model: RulesEngineClaimModel,
       rules: BillingRule[]
     ): ReturnType<typeof performEffect> =>
@@ -1816,7 +1816,7 @@ describe('sub-rules-engine loadCustomInsuranceOrganizations', () => {
           org(NIO_ID, NIO_KIND_CODE),
         ])
       );
-    const oystehr = { fhir: { batch } } as unknown as Oystehr;
+    const oystehr = { fhir: { batch } } as unknown as OystehrMock;
 
     const map = await loadCustomInsuranceOrganizations(oystehr, [
       setPayer('r1', ACTIVE_ID),
@@ -1832,7 +1832,7 @@ describe('sub-rules-engine loadCustomInsuranceOrganizations', () => {
 
   it('skips the lookup when no enabled rule sets a UUID payer', async () => {
     const batch = vi.fn();
-    const oystehr = { fhir: { batch } } as unknown as Oystehr;
+    const oystehr = { fhir: { batch } } as unknown as OystehrMock;
     await expect(
       loadCustomInsuranceOrganizations(oystehr, [setPayer('r1', '123456'), setPayer('r2', ACTIVE_ID, false)])
     ).resolves.toBeUndefined();

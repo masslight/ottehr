@@ -1,10 +1,10 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource } from 'fhir/r4b';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
+  BillingOystehr,
   CopyableBillingResource,
   copyBillingPatientWithClinicalIds,
   createBillingClient,
@@ -26,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: CreateWorkingCopyParams
 ): Promise<{ id: string | undefined; resourceType: string }> {
   const original = await fetchById<CopyableBillingResource>(oystehr, params.resourceType, params.resourceId);

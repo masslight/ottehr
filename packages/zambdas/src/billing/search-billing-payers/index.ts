@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
@@ -7,7 +6,7 @@ import { BillingPayerOption, SearchBillingPayersResponse } from 'utils/lib/types
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createBillingClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 import { SearchBillingPayersParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -23,7 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: SearchBillingPayersParams
 ): Promise<SearchBillingPayersResponse> {
   // Payers live in the Oystehr RCM service. An ID lookup is a resolve, not a search — return

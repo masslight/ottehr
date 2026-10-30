@@ -15,6 +15,7 @@ import {
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
 } from '../../../src/billing/shared';
 import { performEffect } from '../../../src/billing/void-billing-era';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -64,10 +65,9 @@ const cancelPatch = {
   data: Buffer.from(JSON.stringify([{ op: 'replace', path: '/status', value: 'cancelled' }])).toString('base64'),
 };
 const transaction = vi.fn();
-const oystehr = { fhir: { transaction } } as unknown as Oystehr;
-const eraReadClient = {} as Oystehr;
+const oystehr = { fhir: { transaction } } as unknown as OystehrMock;
 const conflict = (): Error => new Oystehr.OystehrSdkError({ message: 'precondition failed', code: 412 });
-const voidEra = (): ReturnType<typeof performEffect> => performEffect(oystehr, eraReadClient, params, actor, now);
+const voidEra = (): ReturnType<typeof performEffect> => performEffect(oystehr, params, actor, now);
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -87,8 +87,8 @@ describe('void-billing-era', () => {
         extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: source }],
       });
       await expect(voidEra()).resolves.toEqual({ ok: true });
-      expect(fetchById).toHaveBeenCalledWith(eraReadClient, 'PaymentReconciliation', 'era-1');
-      expect(fetchClaimResponsesFromEraProvenances).toHaveBeenCalledWith(eraReadClient, [provenance]);
+      expect(fetchById).toHaveBeenCalledWith(oystehr, 'PaymentReconciliation', 'era-1');
+      expect(fetchClaimResponsesFromEraProvenances).toHaveBeenCalledWith(oystehr, [provenance]);
       // No Claim, invoice or patient-payment writes.
       expect(transaction).toHaveBeenCalledExactlyOnceWith({
         requests: [
@@ -142,8 +142,8 @@ describe('void-billing-era', () => {
     const fetch = vi.fn(async (_request: Request) =>
       Response.json({ resourceType: 'Bundle', type: 'transaction-response', entry: [] })
     );
-    const client = new Oystehr({ accessToken: 'test-token', fhirApiUrl: 'https://fhir.invalid', fetch });
-    await performEffect(client, eraReadClient, params, actor, now);
+    const client = new Oystehr({ accessToken: 'test-token', fhirApiUrl: 'https://fhir.invalid', fetch }) as OystehrMock;
+    await performEffect(client, params, actor, now);
     const body = await fetch.mock.calls[0][0].json();
     expect(body.entry[0].request).toMatchObject({
       method: 'PATCH',

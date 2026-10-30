@@ -1,12 +1,12 @@
-import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { complexValidation } from '../../../src/billing/tag-billing-claim';
 import { TagBillingClaimParams } from '../../../src/billing/tag-billing-claim/index';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const search = vi.fn();
-const oystehr = { fhir: { search } } as unknown as Oystehr;
+const oystehr = { fhir: { search } } as unknown as OystehrMock;
 
 const params = (action: 'add' | 'remove', tagName: string): TagBillingClaimParams =>
   ({ claimId: 'claim-1', action, tagName, secrets: {} }) as TagBillingClaimParams;

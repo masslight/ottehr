@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Organization, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -10,7 +9,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { fetchPatientPaymentsByEncounterIds, sumPatientPayments } from '../claim-amounts';
-import { createBillingClient, fetchClaimGraph, getClaimType, resolvePayersByRef } from '../shared';
+import { BillingOystehr, createBillingClient, fetchClaimGraph, getClaimType, resolvePayersByRef } from '../shared';
 import { buildCms1500FormData, referringCareTeamMember } from './helpers';
 
 type GetClaimCms1500Params = ValidatedZambdaInput<typeof GetClaimCms1500InputSchema>;
@@ -29,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(oystehr: Oystehr, params: GetClaimCms1500Params): Promise<Cms1500FormData> {
+export async function performEffect(oystehr: BillingOystehr, params: GetClaimCms1500Params): Promise<Cms1500FormData> {
   const graph = await fetchClaimGraph(oystehr, params.claimId);
   if (getClaimType(graph.claim) !== 'professional') {
     throw INVALID_INPUT_ERROR('The CMS-1500 form is only for professional claims. Institutional claims use the UB-04.');
@@ -52,7 +51,7 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimCms1500Par
 
 // Item 17's provider isn't part of the claim graph, which only follows the rendering provider.
 async function fetchReferringProvider(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   claim: Claim
 ): Promise<Practitioner | Organization | undefined> {
   const [resourceType, id] = referringCareTeamMember(claim)?.provider?.reference?.split('/') ?? [];

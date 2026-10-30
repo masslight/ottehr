@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import { DeleteServiceFacilityInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -8,7 +7,7 @@ import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type DeleteServiceFacilityParams = ValidatedZambdaInput<typeof DeleteServiceFacilityInputSchema>;
 
@@ -40,12 +39,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(oystehr: Oystehr, params: DeleteServiceFacilityParams): Promise<Location> {
+async function complexValidation(oystehr: BillingOystehr, params: DeleteServiceFacilityParams): Promise<Location> {
   return fetchById<Location>(oystehr, 'Location', params.facilityId);
 }
 
 async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: DeleteServiceFacilityParams,
   existing: Location
 ): Promise<DeletedResponse> {

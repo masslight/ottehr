@@ -1,8 +1,8 @@
-import Oystehr from '@oystehr/sdk';
 import { Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-patient';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CLAIM_ID = '11111111-1111-4111-8111-111111111111';
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
@@ -15,11 +15,15 @@ const patient: Patient = {
   telecom: [{ system: 'phone', value: '555-0100' }],
 };
 
-function makeOystehr(): { oystehr: Oystehr; update: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> } {
+function makeOystehr(): {
+  oystehr: OystehrMock;
+  update: ReturnType<typeof vi.fn>;
+  transaction: ReturnType<typeof vi.fn>;
+} {
   const search = vi.fn().mockResolvedValue({ unbundle: () => [structuredClone(patient)] });
   const update = vi.fn().mockImplementation((resource: Patient) => Promise.resolve(resource));
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
-  const oystehr = { fhir: { search, update, transaction } } as unknown as Oystehr;
+  const oystehr = { fhir: { search, update, transaction } } as unknown as OystehrMock;
   return { oystehr, update, transaction };
 }
 

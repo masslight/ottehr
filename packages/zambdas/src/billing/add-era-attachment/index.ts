@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, PaymentReconciliation } from 'fhir/r4b';
 import { AddEraAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -16,7 +15,7 @@ import {
   resolveAttachmentContentType,
 } from '../attachments';
 import { assertEraNotVoided } from '../era-write';
-import { createBillingClient, fetchById } from '../shared';
+import { BillingOystehr, createBillingClient, fetchById } from '../shared';
 
 type AddEraAttachmentParams = ValidatedZambdaInput<typeof AddEraAttachmentInputSchema>;
 
@@ -36,7 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // its upload fails. The upload URL comes first: once the record is written, the client must get its id
 // back to clean it up.
 export async function performEffect(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   params: AddEraAttachmentParams
 ): Promise<AddEraAttachmentResponse> {
   const era = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId);

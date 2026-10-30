@@ -20,7 +20,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { StatementDetails } from 'utils/lib/statements/generate-statement';
 import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
-import { createBillingClient, createEraReadClient } from '../../billing/shared';
+import { BillingOystehr, createBillingClient, createEraReadClient, UnscopedOystehr } from '../../billing/shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { getDefaultBillingProviderResource } from '../../patient/get-eligibility/validation';
 import { getCandidEncounterIdFromEncounter, shouldUseOttehrBillingForPatientBalances } from '../candid';
@@ -63,8 +63,8 @@ export type StatementAmountsSource =
     }
   | {
       source: 'ottehr-billing';
-      billingOystehr: Oystehr;
-      eraReadOystehr: Oystehr;
+      billingOystehr: BillingOystehr;
+      eraReadOystehr: UnscopedOystehr;
     };
 
 interface GetStatementDetailsInput {

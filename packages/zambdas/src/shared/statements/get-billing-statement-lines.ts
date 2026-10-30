@@ -15,6 +15,7 @@ import {
 } from '../../billing/claim-amounts';
 import { buildEraRemitServiceLines } from '../../billing/era-remits';
 import { findBillingClaimForEncounter } from '../../billing/payments';
+import { BillingOystehr, UnscopedOystehr } from '../../billing/shared';
 import { fetchWriteOffsByClaimIds, sumWriteOffs } from '../../billing/write-offs';
 import { getProcedureCodeTitle } from './get-procedure-code-title';
 import { applyPaymentToLines, shareByCharge } from './statement-line-amounts';
@@ -44,8 +45,8 @@ export interface BillingStatementAmounts {
 
 export interface BillingStatementLinesInput {
   encounterId: string;
-  billingOystehr: Oystehr;
-  eraReadOystehr: Oystehr;
+  billingOystehr: BillingOystehr;
+  eraReadOystehr: UnscopedOystehr;
   clinicalOystehr: Oystehr;
 }
 

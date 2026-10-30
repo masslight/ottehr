@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -8,7 +7,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
-import { createBillingClient, findRulesEngineList, listToRulesReportingMalformed } from '../shared';
+import { BillingOystehr, createBillingClient, findRulesEngineList, listToRulesReportingMalformed } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-rules';
@@ -24,7 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function complexValidation(oystehr: Oystehr, engine: RulesEngineType): Promise<List | undefined> {
+async function complexValidation(oystehr: BillingOystehr, engine: RulesEngineType): Promise<List | undefined> {
   return findRulesEngineList(oystehr, engine);
 }
 

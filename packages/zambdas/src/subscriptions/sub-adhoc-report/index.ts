@@ -22,7 +22,7 @@ import {
   ADHOC_REPORT_PARAMS_CODE,
   ADHOC_REPORT_TASK_SYSTEM,
 } from 'utils/lib/types/adhoc/generation/report-task';
-import { createBillingClient } from '../../billing/shared';
+import { BillingOystehr, createBillingClient } from '../../billing/shared';
 import { fetchAdHocBillingRows } from '../../shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../../shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../../shared/adhoc-datasets/patients';
@@ -49,7 +49,7 @@ function readParams(task: Task): ReportParams {
 
 async function buildOutputJson(
   oystehr: Oystehr,
-  billingOystehr: Oystehr,
+  billingOystehr: BillingOystehr,
   params: ReportParams,
   environment: string
 ): Promise<{ json: string; rowCount: number }> {

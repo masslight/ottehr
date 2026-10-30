@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { PaymentReconciliation } from 'fhir/r4b';
 import { SearchErasInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
@@ -6,6 +5,7 @@ import { fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from 
 import { performEffect } from '../../../src/billing/search-billing-eras';
 import { SearchErasParams } from '../../../src/billing/search-billing-eras/validateRequestParameters';
 import { ERA_CHECK_SYSTEM, ERA_SOURCE_EXTENSION, resolvePayersByRef } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -88,7 +88,7 @@ const makeOystehr = (
   eras: PaymentReconciliation[],
   scanPages?: PaymentReconciliation[][]
 ): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   search: Mock;
 } => {
   let scanCall = 0;
@@ -116,7 +116,7 @@ const makeOystehr = (
       rcm: {
         listPayers: vi.fn(),
       },
-    } as unknown as Oystehr,
+    } as unknown as OystehrMock,
     search,
   };
 };
@@ -139,7 +139,7 @@ describe('search-billing-eras performEffect', () => {
       const voided: PaymentReconciliation = { ...claimMdEra('voided', 'CHK-100'), status: 'cancelled' };
       for (const checkNumber of [undefined, 'CHK-100']) {
         const { oystehr, search } = makeOystehr([active, voided]);
-        const result = await performEffect(oystehr, oystehr, searchParams({ status, checkNumber }));
+        const result = await performEffect(oystehr, searchParams({ status, checkNumber }));
         expect(result.eras.map((era) => era.id)).toEqual([status === 'voided' ? 'voided' : 'active']);
         expect(result.total).toBe(1);
         for (const [call] of search.mock.calls.filter(([call]) => !isPageFetch(call))) {
@@ -155,7 +155,6 @@ describe('search-billing-eras performEffect', () => {
     const second: PaymentReconciliation = { ...importedEra('void-2', 'CHK-100'), status: 'cancelled' };
     const { oystehr, search } = makeOystehr([active, first, second], [[active, first], [second]]);
     const result = await performEffect(
-      oystehr,
       oystehr,
       searchParams({ status: 'voided', checkNumber: 'CHK-100', offset: 1, pageSize: 1 })
     );
@@ -177,7 +176,7 @@ describe('search-billing-eras performEffect', () => {
       paymentReconciliations: [active, voided],
       paymentReconciliationIdByClaimResponseId: new Map(),
     });
-    const result = await performEffect(oystehr, oystehr, searchParams({ status: 'voided', patientId: 'patient-1' }));
+    const result = await performEffect(oystehr, searchParams({ status: 'voided', patientId: 'patient-1' }));
     expect(result.eras.map((era) => era.id)).toEqual(['voided']);
     expect(paramValue(search.mock.calls[2][0], '_id')).toBe('active,voided');
     expect(paramValue(search.mock.calls[2][0], 'status')).toBe('cancelled');
@@ -194,7 +193,7 @@ describe('search-billing-eras performEffect', () => {
       extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: 'manual' }],
       requestor: { reference: 'Organization/org-1', display: 'Brightside Pediatrics LLC' },
     };
-    // unmarked, and without the identifier, as Oystehr writes clearing-house ERAs
+    // unmarked, and without the identifier, as OystehrMock writes clearing-house ERAs
     const clearingHouse = importedEra('era-ch', 'CHK-1');
     (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(
       new Map([
@@ -219,7 +218,7 @@ describe('search-billing-eras performEffect', () => {
     };
     const { oystehr } = makeOystehr([manual, clearingHouse, imported]);
 
-    const result = await performEffect(oystehr, oystehr, searchParams());
+    const result = await performEffect(oystehr, searchParams());
 
     expect(result.eras.map(({ id, source, billingProviderName }) => ({ id, source, billingProviderName }))).toEqual([
       { id: 'era-manual', source: 'manual', billingProviderName: 'Brightside Pediatrics LLC' },
@@ -230,14 +229,14 @@ describe('search-billing-eras performEffect', () => {
 
   it('finds unmatched claims under the contained reference the converters and manual entry write', async () => {
     const { oystehr, search } = makeOystehr([]);
-    await performEffect(oystehr, oystehr, searchParams({ matchingStatus: 'anyUnmatched' }));
+    await performEffect(oystehr, searchParams({ matchingStatus: 'anyUnmatched' }));
     expect(paramValue(search.mock.calls[0][0], '_has:Provenance:target:target:ClaimResponse.request')).toBe('#request');
   });
 
   it('finds an ERA whose check number the importing converter left only on paymentIdentifier', async () => {
     const { oystehr } = makeOystehr([importedEra('era-1', 'CHK-100')]);
 
-    const result = await performEffect(oystehr, oystehr, searchParams({ checkNumber: 'CHK-100' }));
+    const result = await performEffect(oystehr, searchParams({ checkNumber: 'CHK-100' }));
 
     expect(result.eras.map((era) => era.id)).toEqual(['era-1']);
     expect(result.eras[0].checkNumber).toBe('CHK-100');
@@ -247,7 +246,7 @@ describe('search-billing-eras performEffect', () => {
   it('finds an ERA whose check number is a searchable identifier without asking the server to match it', async () => {
     const { oystehr, search } = makeOystehr([claimMdEra('era-1', 'CHK-100')]);
 
-    const result = await performEffect(oystehr, oystehr, searchParams({ checkNumber: 'CHK-100' }));
+    const result = await performEffect(oystehr, searchParams({ checkNumber: 'CHK-100' }));
 
     expect(result.eras.map((era) => era.id)).toEqual(['era-1']);
     const identifierParams = search.mock.calls.map((call) => paramValue(call[0], 'identifier')).filter(Boolean);
@@ -261,7 +260,7 @@ describe('search-billing-eras performEffect', () => {
       importedEra('era-3', 'CHK-100'),
     ]);
 
-    const result = await performEffect(oystehr, oystehr, searchParams({ checkNumber: 'CHK-100' }));
+    const result = await performEffect(oystehr, searchParams({ checkNumber: 'CHK-100' }));
 
     expect(result.eras.map((era) => era.id)).toEqual(['era-1', 'era-3']);
     expect(result.total).toBe(2);
@@ -276,7 +275,6 @@ describe('search-billing-eras performEffect', () => {
     ]);
 
     const result = await performEffect(
-      oystehr,
       oystehr,
       searchParams({
         checkNumber: 'CHK-100',
@@ -298,7 +296,7 @@ describe('search-billing-eras performEffect', () => {
       [[onFirstPage, claimMdEra('era-9', 'CHK-200')], [onSecondPage]]
     );
 
-    const result = await performEffect(oystehr, oystehr, searchParams({ checkNumber: 'CHK-100' }));
+    const result = await performEffect(oystehr, searchParams({ checkNumber: 'CHK-100' }));
 
     expect(result.eras.map((era) => era.id)).toEqual(['era-1', 'era-2']);
     expect(result.total).toBe(2);
@@ -310,7 +308,7 @@ describe('search-billing-eras performEffect', () => {
   it('matches a check number typed in a different case', async () => {
     const { oystehr } = makeOystehr([importedEra('era-1', 'eft-abc123')]);
 
-    const result = await performEffect(oystehr, oystehr, searchParams({ checkNumber: 'EFT-ABC123' }));
+    const result = await performEffect(oystehr, searchParams({ checkNumber: 'EFT-ABC123' }));
 
     expect(result.eras.map((era) => era.id)).toEqual(['era-1']);
   });
@@ -318,7 +316,7 @@ describe('search-billing-eras performEffect', () => {
   it('returns nothing when no ERA carries the check number', async () => {
     const { oystehr } = makeOystehr([importedEra('era-1', 'CHK-100')]);
 
-    const result = await performEffect(oystehr, oystehr, searchParams({ checkNumber: 'CHK-999' }));
+    const result = await performEffect(oystehr, searchParams({ checkNumber: 'CHK-999' }));
 
     expect(result.eras).toEqual([]);
     expect(result.total).toBe(0);
@@ -328,7 +326,6 @@ describe('search-billing-eras performEffect', () => {
     const { oystehr, search } = makeOystehr([importedEra('era-1', 'CHK-100')]);
 
     await performEffect(
-      oystehr,
       oystehr,
       searchParams({
         checkNumber: 'CHK-100',
@@ -346,7 +343,6 @@ describe('search-billing-eras performEffect', () => {
     const { oystehr, search } = makeOystehr([claimMdEra('era-1', 'CHK-100')]);
 
     const result = await performEffect(
-      oystehr,
       oystehr,
       searchParams({
         offset: 25,

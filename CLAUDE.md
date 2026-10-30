@@ -19,6 +19,7 @@ This is a Turborepo + npm workspaces monorepo. Key packages:
 - `packages/zambdas` — All backend endpoints
 - `packages/spec` — Versioned schema definitions for IaC config generation
 - `packages/config-types` — Shared configuration TypeScript types
+- `packages/eslint-plugin-ottehr` — Repo-specific ESLint rules (plain CommonJS, so ESLint loads them unbuilt)
 - `config/oystehr/` — Static IaC configuration files (JSON) for Oystehr resources (zambdas, apps, roles, FHIR resources)
 - `deploy/` — Terraform deployment scripts and configuration
 
@@ -119,6 +120,8 @@ Each endpoint in `packages/zambdas/src/ehr/` or `packages/zambdas/src/patient/` 
 Validate a request body with `validateWithSchema(schema, input)` from `packages/zambdas/src/shared/validation.ts`: it rejects a missing body or secrets and malformed JSON, applies the endpoint's Zod schema, and returns the parsed body plus `secrets`. Call it straight from the handler rather than wrapping it in a new `validateRequestParameters.ts`; name the result's type with `ValidatedZambdaInput<typeof Schema>`.
 
 Zambdas use `wrapHandler` from `../../shared/lambda` for consistent error handling. They authenticate via machine-to-machine (M2M) tokens cached in module scope across warm invocations.
+
+Billing zambdas (every zambda in `config/billing-app-core/zambdas.json`) use FHIR through the client `createBillingClient` makes (`packages/zambdas/src/billing/shared.ts`), typed `BillingOystehr`, whose reads and writes are scoped to billing-tagged resources. Billing helpers take that type, or `ScopedOystehr` when any scoped client will do, never a plain `Oystehr`; task handlers pass `{ createClient: createBillingClient }` to `wrapTaskHandler`. The type-aware `ottehr/billing-fhir-client-only` lint rule reports a client whose type doesn't say what it can see (`new Oystehr`, a plain `Oystehr`, `any`) wherever billing code uses it for FHIR or hands it on, and reports a cast to a client type. Getting a `ClinicalOystehr` or `UnscopedOystehr` takes a justified exception on the line that gets it, after which the client is used freely; `ottehr/require-disable-reason` makes the exception say why after `--`: `// eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the clinical encounter`.
 
 The local server (`packages/zambdas/src/local-server/index.ts`) reads `config/oystehr/zambdas.json` to register all routes as Express endpoints, enabling local development without deploying.
 

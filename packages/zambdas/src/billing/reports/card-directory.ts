@@ -1,7 +1,7 @@
-import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils/lib/secrets';
+import { BillingOystehr } from '../shared';
 import { loadReportCache, saveReportCache } from './framework/report-cache';
 import { ReportPayload } from './framework/types';
 
@@ -43,7 +43,7 @@ const isFresh = (entry: CardDirectoryEntry | undefined, staleBefore: number): en
 // and looking up (then recording) the rest. Returns only customers that have a card, matching
 // the "missing key = no card" convention of the report builders.
 export async function lookupCardsWithDirectory(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   secrets: Secrets | null,
   stripe: Stripe,
   lookups: CardLookup[],
@@ -115,7 +115,7 @@ async function lookupCard(
 }
 
 async function saveDirectory(
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   secrets: Secrets | null,
   entries: Record<string, CardDirectoryEntry>
 ): Promise<void> {

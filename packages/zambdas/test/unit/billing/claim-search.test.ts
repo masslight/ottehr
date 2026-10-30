@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
@@ -22,6 +21,7 @@ import {
   mapClaimToItem,
 } from '../../../src/billing/claim-search';
 import { getClaimTypeCoding } from '../../../src/billing/shared';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 type Lookups = Parameters<typeof mapClaimToItem>[1];
 
@@ -78,7 +78,7 @@ describe('buildClaimFilterParams: non-insurance payer', () => {
   it('filters by the NIO meta.tag mirror', async () => {
     const nioId = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
     const params = await buildClaimFilterParams({
-      oystehr: {} as unknown as Oystehr,
+      oystehr: {} as unknown as OystehrMock,
       params: { nonInsurancePayerId: [nioId] },
     });
     expect(params).toContainEqual({
@@ -92,7 +92,7 @@ describe('buildClaimFilterParams: payer', () => {
   it('builds an RCM payer URL insurer filter for an ordinary payerId, without any FHIR lookup', async () => {
     const search = vi.fn();
     const params = await buildClaimFilterParams({
-      oystehr: { fhir: { search } } as unknown as Oystehr,
+      oystehr: { fhir: { search } } as unknown as OystehrMock,
       params: { payerId: ['PAYER1'] },
     });
     expect(params).toContainEqual({ name: 'insurer', value: getPayerUrl('PAYER1') });
@@ -102,7 +102,7 @@ describe('buildClaimFilterParams: payer', () => {
   it('resolves a business-id-shaped payerId to the custom org and filters by its Organization reference', async () => {
     const search = vi.fn().mockResolvedValue({ unbundle: () => [{ resourceType: 'Organization', id: 'org-uuid' }] });
     const params = await buildClaimFilterParams({
-      oystehr: { fhir: { search } } as unknown as Oystehr,
+      oystehr: { fhir: { search } } as unknown as OystehrMock,
       params: { payerId: ['OTR-ACME'] },
     });
     expect(params).toContainEqual({ name: 'insurer', value: 'Organization/org-uuid' });
@@ -112,14 +112,14 @@ describe('buildClaimFilterParams: payer', () => {
     const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
     await expect(
       buildClaimFilterParams({
-        oystehr: { fhir: { search } } as unknown as Oystehr,
+        oystehr: { fhir: { search } } as unknown as OystehrMock,
         params: { payerId: ['OTR-UNKNOWN'] },
       })
     ).rejects.toThrow();
   });
   it('ORs several payers into one insurer filter', async () => {
     const params = await buildClaimFilterParams({
-      oystehr: {} as unknown as Oystehr,
+      oystehr: {} as unknown as OystehrMock,
       params: { payerId: ['PAYER1', 'PAYER2'] },
     });
     expect(params).toContainEqual({ name: 'insurer', value: `${getPayerUrl('PAYER1')},${getPayerUrl('PAYER2')}` });
@@ -127,7 +127,7 @@ describe('buildClaimFilterParams: payer', () => {
 });
 
 describe('buildClaimFilterParams: multi-value filters', () => {
-  const oystehr = {} as unknown as Oystehr;
+  const oystehr = {} as unknown as OystehrMock;
 
   it('ORs several values of one tag filter into a single _tag param', async () => {
     const params = await buildClaimFilterParams({

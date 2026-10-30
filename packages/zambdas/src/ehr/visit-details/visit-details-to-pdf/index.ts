@@ -11,7 +11,7 @@ import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
 import { getPaymentsForEncounter } from '../../../billing/patient-payment-dtos';
 import { createBillingClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../../shared/helpers';
 import {
   getOccupationalMedicineEmployerName,
   getVisitEmployerOrganizationId,
@@ -46,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export const performEffect = async (
-  oystehr: Oystehr,
+  oystehr: ClinicalOystehr,
   appointmentId: string,
   secrets: Secrets | null,
   token: string,

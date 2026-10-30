@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, FhirResource, Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
@@ -35,7 +34,7 @@ import {
   withStripeAccountExtension,
 } from '../payments';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient } from '../shared';
+import { BillingOystehr, createBillingClient } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
@@ -61,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // Patient payments live in billing whatever BILLING_INTEGRATION says, so their Stripe-owned state
 // and refund stamps are always kept current. Only Ottehr billing records Stripe activity the EHR did
 // not: a charge with no notice yet, the negative AR offset of a refund, an invoice paid out of band.
-export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParams): Promise<void> => {
+export const performEffect = async (oystehr: BillingOystehr, params: StripeWebhookParams): Promise<void> => {
   const { event, secrets, stripeAccount = event.account } = params;
   const recordsAr = shouldUseOttehrBilling(secrets);
   switch (event.type) {
@@ -189,7 +188,7 @@ const resolveEncounterIdForCharge = async (
 };
 
 const upsertPaymentNoticeOnBillingClaimForCharge = async (
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   charge: Stripe.Charge,
   stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets'],
@@ -278,7 +277,7 @@ const mergeStripeOwnedFields = (stored: PaymentNotice, desiredNotice: PaymentNot
 };
 
 const persistPaymentNoticeUpsert = async (
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   desiredNotice: PaymentNotice,
   dedupStripeId: string,
   claim: Claim | undefined,
@@ -361,7 +360,7 @@ const persistPaymentNoticeUpsert = async (
 };
 
 const upsertPaymentNoticeForRefund = async (
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   refund: Stripe.Refund,
   stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets'],
@@ -434,7 +433,7 @@ const upsertPaymentNoticeForRefund = async (
 };
 
 const markBillingNoticesForRefundedCharge = async (
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   charge: Stripe.Charge,
   stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets']
@@ -485,7 +484,7 @@ const markBillingNoticesForRefundedCharge = async (
 };
 
 const upsertPaymentNoticeForChargelessInvoice = async (
-  oystehr: Oystehr,
+  oystehr: BillingOystehr,
   invoice: Stripe.Invoice,
   stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets']

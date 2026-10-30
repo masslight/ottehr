@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import {
   Claim,
   ClaimResponse,
@@ -61,6 +60,7 @@ import {
 } from '../../../src/billing/shared';
 import { WRITE_OFF_PARTY_EXT_URL, WRITE_OFF_REASON_EXT_URL, WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 const PAYER_A = 'https://rcm-api.zapehr.com/v1/payer/payer-a';
@@ -455,7 +455,7 @@ function stubBillingClient({
   countPhantom = 0,
   onScan,
 }: { shortScans?: number; countPhantom?: number; onScan?: () => void } = {}): {
-  oystehr: Oystehr;
+  oystehr: OystehrMock;
   search: ReturnType<typeof vi.fn>;
   getPayerByUrl: ReturnType<typeof vi.fn>;
 } {
@@ -582,7 +582,7 @@ function stubBillingClient({
       };
     }),
   }));
-  const oystehr = { fhir: { search, batch }, rcm: { getPayerByUrl } } as unknown as Oystehr;
+  const oystehr = { fhir: { search, batch }, rcm: { getPayerByUrl } } as unknown as OystehrMock;
 
   return { oystehr, search, getPayerByUrl };
 }

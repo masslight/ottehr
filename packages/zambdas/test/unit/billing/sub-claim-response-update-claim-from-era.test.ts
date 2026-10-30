@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Binary, Claim, ClaimResponse, Coding, FhirResource, Identifier, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
@@ -23,6 +23,7 @@ import {
   performEffect,
 } from '../../../src/subscriptions/claim-response/sub-claim-response-update-claim-from-era';
 import { validateRequestParameters } from '../../../src/subscriptions/claim-response/sub-claim-response-update-claim-from-era/validateRequestParameters';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
@@ -41,7 +42,7 @@ const oystehr = {
     history,
     search,
   },
-} as unknown as Oystehr;
+} as unknown as OystehrMock;
 
 const agent: ProvenanceAgent = {
   who: { reference: 'Device/system' },

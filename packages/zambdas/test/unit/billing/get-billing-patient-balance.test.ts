@@ -1,17 +1,17 @@
-import Oystehr from '@oystehr/sdk';
 import { GetBillingPatientBalanceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { PatientArClaimItem } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect, summarizePatientBalance } from '../../../src/billing/get-billing-patient-balance/index';
 import { fetchAllActivePatientArClaims } from '../../../src/billing/search-billing-patient-ar-claims/handler';
 import { validateWithSchema } from '../../../src/shared/validation';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 import { createMockSecrets, createMockZambdaInput } from '../validate-request-parameters/helpers';
 
 vi.mock('../../../src/billing/search-billing-patient-ar-claims/handler', () => ({
   fetchAllActivePatientArClaims: vi.fn(),
 }));
 
-const oystehr = {} as unknown as Oystehr;
+const oystehr = {} as unknown as OystehrMock;
 
 const claim = (overrides: Partial<PatientArClaimItem>): PatientArClaimItem => ({
   claimId: 'claim-1',

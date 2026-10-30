@@ -1,8 +1,8 @@
-import Oystehr from '@oystehr/sdk';
 import { PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -37,8 +37,8 @@ const legacyNotice = { resourceType: 'PaymentNotice', request: { reference: 'Enc
 
 const resolver = (): ((notice: PaymentNotice) => Promise<string | undefined>) =>
   createStripeAccountResolver({
-    billingOystehr: { fhir: { get: billingGet } } as unknown as Oystehr,
-    clinicalOystehr: {} as Oystehr,
+    billingOystehr: { fhir: { get: billingGet } } as unknown as OystehrMock,
+    clinicalOystehr: {} as OystehrMock,
     encounterId: 'enc-1',
   });
 
