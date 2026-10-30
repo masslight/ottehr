@@ -25,6 +25,7 @@ import {
   CreateManualTaskRequest,
   ERX_TASK,
   FAX_TASK,
+  INVENTORY_TASK,
   isInboundFaxDeleting,
   isInboundFaxFiled,
   MANUAL_TASK,
@@ -43,6 +44,7 @@ export const VIEW_FAX = 'View';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
+const GO_TO_DRUG = 'Go to Drug';
 
 export const TASKS_PAGE_SIZE = 20;
 
@@ -724,6 +726,18 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     title = `Provider ${providerName} has notifications in DoseSpot`;
     completable = true;
     action = { name: OPEN_DOSESPOT, link: '' };
+  }
+  if (category === INVENTORY_TASK.category) {
+    // The inventory cron and stock-write hook wrote the full sentence into the description (it is also what
+    // the notification bell shows), so the queue reuses it rather than re-deriving it from inputs.
+    const medicationId = getInputString(INVENTORY_TASK.input.medicationId, task);
+    title = task.description ?? '';
+    subtitle = task.location?.display ?? '';
+    details = getInputString(INVENTORY_TASK.input.details, task) ?? '';
+    completable = true;
+    if (medicationId) {
+      action = { name: GO_TO_DRUG, link: `/admin/medication/${medicationId}` };
+    }
   }
   if (category === FAX_TASK.category) {
     const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';

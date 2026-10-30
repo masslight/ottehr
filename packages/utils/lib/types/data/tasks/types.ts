@@ -1,4 +1,5 @@
 import { Task as FhirTask } from 'fhir/r4b';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from '../../../fhir/systemUrls';
 
 export interface Task {
   id: string;
@@ -143,5 +144,27 @@ export const ERX_TASK = {
   },
   input: {
     providerName: 'provider-name',
+  },
+} as const;
+
+/**
+ * In-house medication inventory tasks (OTR-3339): created at the lot's clinic, once per event. The
+ * `identifier` (system `identitySystem`, value `<code>|<drug or lot>|<clinic>`) is what makes "once" hold:
+ * creation is conditional on no task with that identity.
+ */
+export const INVENTORY_TASK = {
+  category: 'inventory',
+  system: ottehrCodeSystemUrl('inventory-task'),
+  identitySystem: ottehrIdentifierSystem('inventory-task'),
+  code: {
+    reorder: 'reorder',
+    belowZero: 'below-zero',
+    expiring: 'expiring',
+    expired: 'expired',
+  },
+  input: {
+    details: 'details',
+    medicationId: 'medication-id',
+    lotId: 'lot-id',
   },
 } as const;

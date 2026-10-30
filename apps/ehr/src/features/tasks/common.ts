@@ -4,7 +4,7 @@ import { getFullName } from 'utils/lib/fhir/patient';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
-import { ERX_TASK, FAX_TASK, MANUAL_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
+import { ERX_TASK, FAX_TASK, INVENTORY_TASK, MANUAL_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
 import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
@@ -19,6 +19,7 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [RADIOLOGY_TASK.category]: 'Radiology',
   [ERX_TASK.category]: 'eRX',
   [DME_TASK.category]: 'DME',
+  [INVENTORY_TASK.category]: 'Inventory',
   [MANUAL_TASK.category.externalLab]: 'External Lab',
   [MANUAL_TASK.category.inHouseLab]: 'In-house Lab',
   [MANUAL_TASK.category.inHouseMedications]: 'In-House Medications',
