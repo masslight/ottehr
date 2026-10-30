@@ -33,7 +33,6 @@ import {
 } from 'utils/lib/types/errors';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- checks the Encounter, resolves the submitter and Stripe account, and schedules the payment Task
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
@@ -72,6 +71,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- checks the Encounter, resolves the submitter and Stripe account, and schedules the payment Task
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 

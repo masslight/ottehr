@@ -902,7 +902,7 @@ export function createBillingClient(
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
 ): Oystehr {
-  // eslint-disable-next-line no-restricted-syntax -- the billing client factory
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client factory
   return new Oystehr({
     accessToken: token,
     services: {
@@ -916,7 +916,7 @@ export function createBillingClient(
 
 // ERA resources are untagged by Oystehr
 export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
-  // eslint-disable-next-line no-restricted-syntax -- the unscoped client factory; its importers are restricted instead
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the unscoped client factory; each call to it needs its own exception
   return new Oystehr({
     accessToken: token,
     services: {
