@@ -51,6 +51,7 @@ export const ResultEntryFreeText: React.FC<ResultEntryFreeTextProps> = ({ testIt
             {...field}
             disabled={!!disabled}
             fullWidth
+            size="small"
             id="result-entry-text"
             error={!!fieldState.error}
             helperText={fieldState.error?.message}
