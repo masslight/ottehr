@@ -118,6 +118,7 @@ vi.mock('src/layout/PageContainer', () => ({ default: ({ children }: { children:
 
 // Child blocks that fetch or render their own heavy trees; irrelevant to the consent reminder.
 vi.mock('src/components/CardThumbnail', () => ({ default: () => <div /> }));
+vi.mock('src/features/visits/shared/components/patient/Header', () => ({ Header: () => <div /> }));
 vi.mock('src/components/PatientPaymentsList', () => ({ default: () => <div /> }));
 vi.mock('src/components/AppointmentNotesHistory', () => ({ default: () => <div /> }));
 vi.mock('src/components/dialogs/ActivityLogDialog', () => ({ default: () => <div /> }));

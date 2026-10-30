@@ -1,11 +1,12 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, useTheme } from '@mui/material';
+import { Patient } from 'fhir/r4b';
 import { FC } from 'react';
 import { showEnvironmentBanner } from 'src/App';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { PrintVisitLabelButton } from 'src/features/visits/in-person/components/PrintVisitLabelButton';
-import { BANNER_HEIGHT } from 'src/helpers/misc.helper';
+import { BANNER_HEIGHT, NAVBAR_HEIGHT_CSS_VAR } from 'src/helpers/misc.helper';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import { useGetPatientVisitHistory } from '../../../../../hooks/useGetPatientVisitHistory';
 import { PatientAvatar } from './info/Avatar';
@@ -17,13 +18,20 @@ import { Summary } from './info/Summary';
 type HeaderProps = {
   handleDiscard: () => void;
   id?: string;
+  /** The visit the page is about; without one the label is printed for the latest visit. */
+  encounterId?: string;
+  /** Already-loaded patient shown while the header's own lookup is pending or has failed. */
+  fallbackPatient?: Patient;
 };
 
-export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
+export const Header: FC<HeaderProps> = ({ handleDiscard, id, encounterId, fallbackPatient }) => {
   const theme = useTheme();
 
-  const { loading, patient } = useGetPatient(id);
-  const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
+  const { loading: patientLoading, patient: fetchedPatient } = useGetPatient(id);
+  const patient = fetchedPatient ?? fallbackPatient;
+  const loading = patientLoading && !patient;
+  // Visit history is only needed to pick a label encounter when the page has none of its own.
+  const { data: visitHistory } = useGetPatientVisitHistory(encounterId ? undefined : patient?.id);
   const appointments = visitHistory?.visits ?? [];
 
   // todo: product has said that on screens with no specific encounter, use the latest encounter for the label
@@ -34,7 +42,7 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
     <Box
       sx={{
         position: 'sticky',
-        top: showEnvironmentBanner ? BANNER_HEIGHT : 0,
+        top: `calc(${showEnvironmentBanner ? BANNER_HEIGHT : 0}px + var(${NAVBAR_HEIGHT_CSS_VAR}, 0px))`,
         zIndex: 1000,
         display: 'flex',
         justifyContent: 'space-between',
@@ -55,7 +63,7 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
             <Box sx={{ display: 'flex', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}>
               <FullNameDisplay patient={patient} loading={loading} variant="h5" />
               <PatientNotesButton patientId={id} />
-              <PrintVisitLabelButton encounterId={latestAppointmentEncounterId} />
+              <PrintVisitLabelButton encounterId={encounterId ?? latestAppointmentEncounterId} />
               <Summary patient={patient} loading={loading} />
             </Box>
             <Contacts patient={patient} loading={loading} />
