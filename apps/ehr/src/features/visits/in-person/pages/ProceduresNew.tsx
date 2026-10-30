@@ -1048,6 +1048,25 @@ export default function ProceduresNew({
                   data-testid={dataTestIds.documentProcedurePage.procedureDetails}
                 />
 
+                <SectionLabel>Billing</SectionLabel>
+                <ProcedureCptCodesField
+                  codes={state.cptCodes ?? []}
+                  searchOptions={cptSearchOptions}
+                  isSearching={isSearching}
+                  searchTerm={debouncedSearchTerm}
+                  onSearchTermChange={debouncedHandleInputChange}
+                  onAdd={(code) => updateState((state) => (state.cptCodes = [...(state.cptCodes ?? []), code]))}
+                  onDelete={(code) =>
+                    updateState((state) => {
+                      // The same code can appear twice with different modifiers (a repeat recording, a payer
+                      // alternative). Delete the line the user clicked, not every line sharing its code.
+                      const index = state.cptCodes?.findIndex((cptCode) => sameCptLine(cptCode, code)) ?? -1;
+                      if (index >= 0) state.cptCodes = state.cptCodes?.filter((_, i) => i !== index);
+                    })
+                  }
+                  disabled={isReadOnly}
+                />
+
                 <Divider orientation="horizontal" />
 
                 <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1099,24 +1118,6 @@ export default function ProceduresNew({
                   />
 
                   <DocumentationCheck evaluation={codingEvaluations?.defense} suggestionVisible={suggestionVisible} />
-
-                  <ProcedureCptCodesField
-                    codes={state.cptCodes ?? []}
-                    searchOptions={cptSearchOptions}
-                    isSearching={isSearching}
-                    searchTerm={debouncedSearchTerm}
-                    onSearchTermChange={debouncedHandleInputChange}
-                    onAdd={(code) => updateState((state) => (state.cptCodes = [...(state.cptCodes ?? []), code]))}
-                    onDelete={(code) =>
-                      updateState((state) => {
-                        // The same code can appear twice with different modifiers (a repeat recording, a payer
-                        // alternative). Delete the line the user clicked, not every line sharing its code.
-                        const index = state.cptCodes?.findIndex((cptCode) => sameCptLine(cptCode, code)) ?? -1;
-                        if (index >= 0) state.cptCodes = state.cptCodes?.filter((_, i) => i !== index);
-                      })
-                    }
-                    disabled={isReadOnly}
-                  />
 
                   {codingGuidance.length > 0 && !codingAssistIsEvaluating && (
                     <Box sx={{ background: theme.palette.action.hover, borderRadius: '8px', padding: '8px' }}>
