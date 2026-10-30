@@ -1333,7 +1333,7 @@ export default function VisitDetailsPage(): ReactElement {
             </Grid>
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
-              {loading || activityLogsLoading || !patient ? (
+              {loading || !patient ? (
                 <Skeleton aria-busy="true" width={200} height="" />
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
