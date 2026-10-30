@@ -260,8 +260,10 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
   const kind =
     code === ERX_TASK.code.refillRequest ? 'refill' : code === ERX_TASK.code.changeRequest ? 'change' : undefined;
   if (kind && requestTaskId) {
-    const versions = (await oystehr.fhir.history<Task>({ resourceType: 'Task', id: requestTaskId }))
-      .unbundle()
+    const history = await oystehr.fhir.history<Task>({ resourceType: 'Task', id: requestTaskId });
+    // A history bundle has no unbundle(): its entries are read as they are.
+    const versions = (history.entry ?? [])
+      .flatMap((entry) => (entry.resource ? [entry.resource] : []))
       .sort((a, b) => (a.meta?.lastUpdated ?? '').localeCompare(b.meta?.lastUpdated ?? ''));
     if (!versions.length) throw FHIR_RESOURCE_NOT_FOUND('Task');
     if (kind === 'refill') pharmacyRequest = readPharmacyRefillRequest(versions);
