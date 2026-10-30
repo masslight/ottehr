@@ -15,7 +15,6 @@ import {
   sumStockEntries,
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
-import { createStockLevelTasksAfterWrite } from './medication-inventory-tasks';
 
 // Writes to the stock ledger. The FHIR shapes (and why they are Medication + Observation) live in
 // utils/lib/fhir/medication-inventory.ts; this module owns the searches and the one-transaction write rule:
@@ -84,22 +83,8 @@ export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
  * On hand is recomputed from every entry of the lot plus this one, never incremented. `reviseLot` changes
  * other lot fields (e.g. `batch.expirationDate`) in the same write; it is applied to whichever version of
  * the lot is written, so a retry from a fresh read keeps the change.
- *
- * After the write, the drug's clinic total is checked for reorder / below-zero tasks; that check never fails
- * the write.
  */
 export async function writeInventoryStockEntry(
-  oystehr: Oystehr,
-  lot: Medication,
-  entry: StockEntryWrite,
-  reviseLot?: (lot: Medication) => Medication
-): Promise<{ lot: Medication; entry: Observation }> {
-  const written = await writeStockEntryTransaction(oystehr, lot, entry, reviseLot);
-  await createStockLevelTasksAfterWrite(oystehr, written.lot, entry.quantity);
-  return written;
-}
-
-async function writeStockEntryTransaction(
   oystehr: Oystehr,
   lot: Medication,
   entry: StockEntryWrite,

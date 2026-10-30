@@ -274,8 +274,6 @@ const makeMockOystehr = ({ ledger = [] as Observation[], lots = [] as Medication
 vi.mock('utils/lib/fhir/getAllFhirSearchPages', () => ({
   getAllFhirSearchPages: vi.fn(async (params: any, oystehr: any) => oystehr.fhir.search(params).unbundle()),
 }));
-// the reorder / below-zero check after each write has its own tests (medication-inventory-tasks.test.ts)
-vi.mock('../../src/shared/medication-inventory-tasks', () => ({ createStockLevelTasksAfterWrite: vi.fn() }));
 
 const existingLot: Medication = {
   ...withLotOnHand(makeInventoryLot(catalog, lotInput), 25),
