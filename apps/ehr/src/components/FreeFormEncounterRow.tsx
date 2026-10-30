@@ -1,4 +1,5 @@
-import { InputBase, TableCell, TableRow } from '@mui/material';
+import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
+import { IconButton, InputBase, TableCell, TableRow } from '@mui/material';
 import { isCancelledError, useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { FC, useEffect, useRef, useState } from 'react';
@@ -22,6 +23,7 @@ type FreeFormEncounterRowProps = {
   columnCount: number;
   isDraft?: boolean;
   startSave: () => FreeFormSaveSession;
+  onDelete: () => void;
   onDiscardDraft?: () => void;
   onEditingChange?: (editing: boolean) => void;
 };
@@ -34,6 +36,7 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
   columnCount,
   isDraft = false,
   startSave,
+  onDelete,
   onDiscardDraft,
   onEditingChange,
 }) => {
@@ -128,11 +131,20 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
     }
   };
 
+  const cancelEditing = (): void => {
+    cancelBlurSaveRef.current = true;
+    inputRef.current?.blur();
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key !== 'Escape') return;
     event.preventDefault();
-    cancelBlurSaveRef.current = true;
-    inputRef.current?.blur();
+    cancelEditing();
+  };
+
+  const handleDeleteClick = (): void => {
+    if (focused) cancelEditing();
+    onDelete();
   };
 
   return (
@@ -143,7 +155,7 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
       <TableCell sx={{ width: 150, paddingLeft: 2 }}>
         {dateTime ? formatISOStringToDateAndTime(dateTime) : '-'}
       </TableCell>
-      <TableCell colSpan={columnCount - 1} sx={{ paddingLeft: 1 }}>
+      <TableCell colSpan={columnCount - 2} sx={{ paddingLeft: 1 }}>
         <InputBase
           inputRef={inputRef}
           value={value}
@@ -159,6 +171,21 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
           inputProps={{ 'data-testid': dataTestIds.patientRecordPage.freeFormNoteInput }}
           sx={{ typography: 'body2' }}
         />
+      </TableCell>
+      <TableCell sx={{ paddingLeft: 1, textAlign: 'end' }}>
+        {encounterId && (
+          <IconButton
+            size="small"
+            aria-label="delete free form note"
+            sx={{ color: 'error.main' }}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={handleDeleteClick}
+            disabled={saveMutation.isPending}
+            data-testid={dataTestIds.patientRecordPage.freeFormDeleteButton}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        )}
       </TableCell>
     </TableRow>
   );

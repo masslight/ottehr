@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { DeleteFreeFormEncounterOutput } from 'utils/lib/types/api/free-form-encounter.types';
 import {
   AppointmentHistoryRow,
+  FollowUpVisitHistoryRow,
   FreeFormEncounterHistoryRow,
   PatientVisitListResponse,
 } from 'utils/lib/types/api/patient-visit-history.types';
@@ -12,6 +14,7 @@ import { ServiceMode } from 'utils/lib/types/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PatientEncountersGrid } from '../../src/components/PatientEncountersGrid';
 import { dataTestIds } from '../../src/constants/data-test-ids';
+import { useDeletedFreeFormEncountersStore } from '../../src/state/deleted-free-form-encounters.store';
 import { visitTypeToInPersonLabel } from '../../src/types/types';
 
 const PATIENT_A = '11111111-1111-4111-8111-111111111111';
@@ -26,8 +29,10 @@ vi.mock('react-router-dom', async () => {
 });
 
 const saveMock = vi.fn();
+const deleteMock = vi.fn();
 vi.mock('../../src/api/api', () => ({
   saveFreeFormEncounter: (...args: unknown[]) => saveMock(...args),
+  deleteFreeFormEncounter: (...args: unknown[]) => deleteMock(...args),
   listServiceCategories: () => Promise.resolve({ serviceCategories: [] }),
 }));
 
@@ -161,12 +166,28 @@ const sortAscending = async (user: ReturnType<typeof userEvent.setup>): Promise<
   await user.click(within(header).getByRole('button'));
 };
 
+const rowOf = (input: HTMLElement): HTMLElement => input.closest('tr') as HTMLElement;
+const noteInput = (text: string): HTMLTextAreaElement => noteInputs().find((input) => input.value === text)!;
+const deleteButtonOf = (input: HTMLElement): HTMLElement | null =>
+  within(rowOf(input)).queryByTestId(dataTestIds.patientRecordPage.freeFormDeleteButton);
+const deleteDialog = (): HTMLElement | null => screen.queryByRole('dialog');
+const confirmDelete = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+  await user.click(within(deleteDialog()!).getByRole('button', { name: 'Delete' }));
+};
+const keepNote = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+  await user.click(within(deleteDialog()!).getByRole('button', { name: 'Keep' }));
+  await waitFor(() => expect(deleteDialog()).not.toBeInTheDocument());
+};
+const RECONCILE_WARNING = 'Note saved; it may take a moment to appear after a reload';
+
 describe('PatientEncountersGrid free-form encounters', () => {
   beforeEach(() => {
     routePatientId = PATIENT_A;
     historyQueues.clear();
     historyCalls.length = 0;
     saveMock.mockReset();
+    deleteMock.mockReset();
+    useDeletedFreeFormEncountersStore.setState({ deletedIdsByPatient: {} });
     enqueueSnackbarMock.mockReset();
     executeMock.mockReset();
     executeMock.mockImplementation(async (params: { id: string; patientId: string }) => {
@@ -965,6 +986,408 @@ describe('PatientEncountersGrid free-form encounters', () => {
         await queryClient.invalidateQueries({ queryKey: ['get-patient-visit-history'] });
       });
       await waitFor(() => expect(noteValues()).toContain('Edited elsewhere'));
+    });
+  });
+
+  describe('deleting a note', () => {
+    it('deletes a saved note after confirmation and keeps it hidden while the search still returns it', async () => {
+      const user = userEvent.setup();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Called by mistake')]));
+      deleteMock.mockResolvedValue({ encounterId: 'note-1' });
+      renderGrid();
+      await waitForVisits();
+
+      await user.click(deleteButtonOf(noteInput('Called by mistake'))!);
+      expect(within(deleteDialog()!).getByText('Delete Free Form')).toBeInTheDocument();
+      expect(
+        within(deleteDialog()!).getByText('Are you sure you want to delete this form? This action cannot be undone.')
+      ).toBeInTheDocument();
+      await confirmDelete(user);
+
+      expect(deleteMock).toHaveBeenCalledWith(oystehrZambda, { patientId: PATIENT_A, encounterId: 'note-1' });
+      await waitFor(() => expect(deleteDialog()).not.toBeInTheDocument());
+      await waitFor(() => expect(historyCalls).toHaveLength(2));
+      expect(countOf('Called by mistake')).toBe(0);
+    });
+
+    it('keeps a deleted note hidden after switching patients and back, and after the grid remounts', async () => {
+      const user = userEvent.setup();
+      setHistory(
+        PATIENT_A,
+        historyOf(olderVisits(1), [freeForm('note-1', 'Deleted note'), freeForm('note-2', 'Kept note')])
+      );
+      setHistory(PATIENT_B, historyOf([visit('b-visit', '2026-02-01T10:00:00-05:00', 'Office of B')]));
+      deleteMock.mockResolvedValue({ encounterId: 'note-1' });
+      const { switchPatient } = renderGrid();
+      await waitForVisits();
+
+      await user.click(deleteButtonOf(noteInput('Deleted note'))!);
+      await confirmDelete(user);
+      await waitFor(() => expect(deleteDialog()).not.toBeInTheDocument());
+
+      switchPatient(PATIENT_B);
+      await screen.findByText('Office of B');
+      switchPatient(PATIENT_A);
+      await waitFor(() => expect(countOf('Kept note')).toBe(1));
+      expect(countOf('Deleted note')).toBe(0);
+
+      cleanup();
+      renderGrid();
+      await waitFor(() => expect(countOf('Kept note')).toBe(1));
+      expect(countOf('Deleted note')).toBe(0);
+    });
+
+    it('keeps the note when Keep is chosen', async () => {
+      const user = userEvent.setup();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Keep me')]));
+      renderGrid();
+      await waitForVisits();
+
+      await user.click(deleteButtonOf(noteInput('Keep me'))!);
+      await keepNote(user);
+
+      expect(deleteMock).not.toHaveBeenCalled();
+      expect(countOf('Keep me')).toBe(1);
+    });
+
+    it('keeps the dialog open and the note listed when the delete fails', async () => {
+      const user = userEvent.setup();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Still here')]));
+      deleteMock.mockRejectedValue(new Error('boom'));
+      renderGrid();
+      await waitForVisits();
+
+      await user.click(deleteButtonOf(noteInput('Still here'))!);
+      await confirmDelete(user);
+
+      await waitFor(() =>
+        expect(enqueueSnackbarMock).toHaveBeenCalledWith("Couldn't delete the note. Please try again.", {
+          variant: 'error',
+        })
+      );
+      expect(deleteDialog()).toBeInTheDocument();
+      expect(countOf('Still here')).toBe(1);
+    });
+
+    it('shows no trash on an unsaved draft and adds it once the first save resolves', async () => {
+      const user = userEvent.setup();
+      const pending = deferred<FreeFormEncounterHistoryRow>();
+      setHistory(PATIENT_A, historyOf(olderVisits(1)));
+      saveMock.mockReturnValue(pending.promise);
+      renderGrid();
+      await waitForVisits();
+
+      await user.click(addButton());
+      expect(deleteButtonOf(draftInput())).not.toBeInTheDocument();
+      await user.type(draftInput(), 'Soon saved');
+      await user.click(document.body);
+      expect(deleteButtonOf(draftInput())).not.toBeInTheDocument();
+
+      await act(async () => pending.resolve(freeForm('note-1', 'Soon saved')));
+
+      await waitFor(() => expect(deleteButtonOf(noteInput('Soon saved'))).toBeInTheDocument());
+    });
+
+    it('discards an unsaved edit instead of saving it when the trash is clicked', async () => {
+      const user = userEvent.setup();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Original text')]));
+      renderGrid();
+      await waitForVisits();
+      const input = noteInput('Original text');
+
+      await user.click(input);
+      await user.type(input, ' plus an unsaved edit');
+      await user.click(deleteButtonOf(input)!);
+
+      expect(deleteDialog()).toBeInTheDocument();
+      expect(saveMock).not.toHaveBeenCalled();
+
+      await keepNote(user);
+
+      expect(input.value).toBe('Original text');
+      expect(saveMock).not.toHaveBeenCalled();
+    });
+
+    it('moves back a page when the only row on the last page is deleted', async () => {
+      const user = userEvent.setup();
+      setHistory(
+        PATIENT_A,
+        historyOf(olderVisits(20), [freeForm('note-old', 'Oldest note', { dateTime: '2025-12-01T10:00:00.000Z' })])
+      );
+      deleteMock.mockResolvedValue({ encounterId: 'note-old' });
+      renderGrid();
+      await waitForVisits();
+      await user.click(screen.getByRole('button', { name: 'Go to next page' }));
+      expect(paginationText()).toBe('21–21 of 21');
+
+      await user.click(deleteButtonOf(noteInput('Oldest note'))!);
+      await confirmDelete(user);
+
+      await waitFor(() => expect(paginationText()).toBe('1–20 of 20'));
+      expect(screen.queryByText('No encounters found')).not.toBeInTheDocument();
+    });
+
+    it('closes the dialog when switching patients and does not reopen it on the way back', async () => {
+      const user = userEvent.setup();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-a', 'Note for A')]));
+      setHistory(PATIENT_B, historyOf([visit('b-visit', '2026-02-01T10:00:00-05:00', 'Office of B')]));
+      const { switchPatient } = renderGrid();
+      await waitForVisits();
+
+      await user.click(deleteButtonOf(noteInput('Note for A'))!);
+      expect(deleteDialog()).toBeInTheDocument();
+
+      switchPatient(PATIENT_B);
+      await waitFor(() => expect(deleteDialog()).not.toBeInTheDocument());
+      switchPatient(PATIENT_A);
+      await waitFor(() => expect(countOf('Note for A')).toBe(1));
+
+      expect(deleteDialog()).not.toBeInTheDocument();
+      expect(deleteMock).not.toHaveBeenCalled();
+    });
+
+    it("leaves the next patient's rows and dialog alone when a delete finishes after switching", async () => {
+      const user = userEvent.setup();
+      const pending = deferred<DeleteFreeFormEncounterOutput>();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-a', 'Note for A')]));
+      setHistory(
+        PATIENT_B,
+        historyOf([visit('b-visit', '2026-02-01T10:00:00-05:00', 'Office of B')], [freeForm('note-b', 'Note for B')])
+      );
+      deleteMock.mockReturnValueOnce(pending.promise);
+      const { switchPatient } = renderGrid();
+      await waitForVisits();
+
+      await user.click(deleteButtonOf(noteInput('Note for A'))!);
+      await confirmDelete(user);
+      switchPatient(PATIENT_B);
+      await waitFor(() => expect(countOf('Note for B')).toBe(1));
+      await user.click(deleteButtonOf(noteInput('Note for B'))!);
+      expect(within(deleteDialog()!).getByRole('button', { name: 'Delete' })).toBeEnabled();
+
+      await act(async () => pending.resolve({ encounterId: 'note-a' }));
+
+      expect(deleteDialog()).toBeInTheDocument();
+      expect(within(deleteDialog()!).getByRole('button', { name: 'Delete' })).toBeEnabled();
+      expect(countOf('Note for B')).toBe(1);
+
+      await keepNote(user);
+      switchPatient(PATIENT_A);
+      await waitForVisits();
+      expect(countOf('Note for A')).toBe(0);
+    });
+
+    it('reports a delete that fails after switching patients without touching the next patient', async () => {
+      const user = userEvent.setup();
+      const pending = deferred<DeleteFreeFormEncounterOutput>();
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-a', 'Note for A')]));
+      setHistory(
+        PATIENT_B,
+        historyOf([visit('b-visit', '2026-02-01T10:00:00-05:00', 'Office of B')], [freeForm('note-b', 'Note for B')])
+      );
+      deleteMock.mockReturnValueOnce(pending.promise);
+      const { switchPatient } = renderGrid();
+      await waitForVisits();
+
+      await user.click(deleteButtonOf(noteInput('Note for A'))!);
+      await confirmDelete(user);
+      switchPatient(PATIENT_B);
+      await waitFor(() => expect(countOf('Note for B')).toBe(1));
+      await waitFor(() => expect(deleteDialog()).not.toBeInTheDocument());
+
+      await act(async () => pending.reject(new Error('boom')));
+
+      expect(enqueueSnackbarMock).toHaveBeenCalledWith("Couldn't delete the free-form note for the previous patient.", {
+        variant: 'error',
+      });
+      expect(deleteDialog()).not.toBeInTheDocument();
+      expect(countOf('Note for B')).toBe(1);
+    });
+  });
+
+  describe('deleting a draft that is still reconciling', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    it('stops reconciling once the delete is confirmed, so no warning appears while it is pending', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const pending = deferred<DeleteFreeFormEncounterOutput>();
+      setHistory(PATIENT_A, historyOf(olderVisits(1)));
+      saveMock.mockResolvedValue(freeForm('note-1', 'Created then deleted'));
+      deleteMock.mockReturnValue(pending.promise);
+      renderGrid();
+      await waitForVisits();
+
+      await user.click(addButton());
+      await user.type(draftInput(), 'Created then deleted');
+      await user.click(document.body);
+      await waitFor(() => expect(historyCalls).toHaveLength(2));
+      await user.click(deleteButtonOf(noteInput('Created then deleted'))!);
+      await confirmDelete(user);
+      const callsAtConfirm = historyCalls.length;
+
+      await advance(15_000);
+
+      expect(historyCalls).toHaveLength(callsAtConfirm);
+      expect(enqueueSnackbarMock).not.toHaveBeenCalledWith(RECONCILE_WARNING, expect.anything());
+
+      await act(async () => pending.resolve({ encounterId: 'note-1' }));
+
+      await waitFor(() => expect(deleteDialog()).not.toBeInTheDocument());
+      expect(countOf('Created then deleted')).toBe(0);
+      expect(addButton()).toBeEnabled();
+    });
+
+    it('keeps the note visible and editable after a failed delete, through stale refetches, and deletes it on retry', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const saved = freeForm('note-1', 'Survives a failed delete');
+      const edited = { ...saved, note: 'Survives a failed delete, edited', lastUpdated: '2026-10-26T12:01:00.000Z' };
+      setHistory(PATIENT_A, historyOf(olderVisits(1)));
+      saveMock.mockResolvedValueOnce(saved).mockResolvedValueOnce(edited);
+      deleteMock.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({ encounterId: 'note-1' });
+      renderGrid();
+      await waitForVisits();
+
+      await user.click(addButton());
+      await user.type(draftInput(), 'Survives a failed delete');
+      await user.click(document.body);
+      await waitFor(() => expect(historyCalls).toHaveLength(2));
+      await user.click(deleteButtonOf(noteInput('Survives a failed delete'))!);
+      await confirmDelete(user);
+      await waitFor(() =>
+        expect(enqueueSnackbarMock).toHaveBeenCalledWith("Couldn't delete the note. Please try again.", {
+          variant: 'error',
+        })
+      );
+      await keepNote(user);
+
+      expect(addButton()).toBeEnabled();
+      expect(countOf('Survives a failed delete')).toBe(1);
+      expect(deleteButtonOf(noteInput('Survives a failed delete'))).toBeInTheDocument();
+      await advance(15_000);
+      expect(enqueueSnackbarMock).not.toHaveBeenCalledWith(RECONCILE_WARNING, expect.anything());
+
+      const input = noteInput('Survives a failed delete');
+      const callsBeforeEdit = historyCalls.length;
+      await user.click(input);
+      await user.type(input, ', edited');
+      await user.click(document.body);
+
+      expect(saveMock.mock.calls[1][1]).toEqual({
+        patientId: PATIENT_A,
+        encounterId: 'note-1',
+        note: 'Survives a failed delete, edited',
+      });
+      await waitFor(() => expect(historyCalls.length).toBeGreaterThan(callsBeforeEdit));
+      await waitFor(() => expect(countOf('Survives a failed delete, edited')).toBe(1));
+
+      await user.click(deleteButtonOf(noteInput('Survives a failed delete, edited'))!);
+      await confirmDelete(user);
+
+      await waitFor(() => expect(deleteDialog()).not.toBeInTheDocument());
+      expect(countOf('Survives a failed delete, edited')).toBe(0);
+      expect(deleteMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('lands on the page holding the note when a delete confirmed from another page fails', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      setHistory(PATIENT_A, historyOf(olderVisits(25)));
+      saveMock.mockResolvedValue(freeForm('note-1', 'Confirmed from page two'));
+      deleteMock.mockRejectedValue(new Error('boom'));
+      renderGrid();
+      await waitForVisits();
+
+      await user.click(addButton());
+      await user.type(draftInput(), 'Confirmed from page two');
+      await user.click(document.body);
+      await waitFor(() => expect(historyCalls).toHaveLength(2));
+      await user.click(screen.getByRole('button', { name: 'Go to next page' }));
+      expect(paginationText()).toBe('21–25 of 25');
+
+      await user.click(deleteButtonOf(noteInput('Confirmed from page two'))!);
+      await confirmDelete(user);
+      await waitFor(() => expect(enqueueSnackbarMock).toHaveBeenCalled());
+      await keepNote(user);
+
+      expect(paginationText()).toBe('1–20 of 26');
+      expect(countOf('Confirmed from page two')).toBe(1);
+    });
+  });
+
+  describe('table layout', () => {
+    it('titles the section Visits and links visits and follow-ups from one Actions column', async () => {
+      const followUp = (overrides: Partial<FollowUpVisitHistoryRow>): FollowUpVisitHistoryRow => ({
+        encounterId: 'fu',
+        originalEncounterId: 'enc-visit-00',
+        originalAppointmentId: 'visit-00',
+        status: 'finished',
+        type: 'Follow-up',
+        dateTime: '2026-01-02T10:00:00-05:00',
+        visitReason: undefined,
+        office: 'Follow-up Office',
+        provider: undefined,
+        ...overrides,
+      });
+      const parent: AppointmentHistoryRow = {
+        ...visit('visit-00', '2026-01-01T10:00:00-05:00'),
+        followUps: [
+          followUp({ encounterId: 'fu-scheduled', followupSubtype: 'scheduled', appointmentId: 'fu-appointment' }),
+          followUp({
+            encounterId: 'fu-annotation',
+            followupSubtype: 'annotation',
+            dateTime: '2026-01-03T10:00:00-05:00',
+          }),
+        ],
+      };
+      setHistory(PATIENT_A, historyOf([parent]));
+      renderGrid();
+      await waitForVisits();
+
+      expect(screen.getByText('Visits - 7')).toBeInTheDocument();
+      expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+        'Date & Time',
+        'Status',
+        'Type & Service Category',
+        'Reason for visit',
+        'Provider',
+        'Office',
+        'LOS',
+        'Actions',
+      ]);
+
+      const [visitRow, scheduledRow, annotationRow] = screen.getAllByRole('row').slice(1);
+      expect(within(visitRow).getByRole('link', { name: 'Visit Details' })).toHaveAttribute('href', '/visit/visit-00');
+      expect(within(visitRow).getByRole('link', { name: 'Progress Note' })).toHaveAttribute(
+        'href',
+        '/in-person/visit-00/review-and-sign?encounterId=enc-visit-00'
+      );
+      expect(within(scheduledRow).getByRole('link', { name: 'Visit Details' })).toHaveAttribute(
+        'href',
+        '/visit/fu-appointment'
+      );
+      expect(within(scheduledRow).getByRole('link', { name: 'Progress Note' })).toHaveAttribute(
+        'href',
+        '/in-person/visit-00/review-and-sign?encounterId=fu-scheduled'
+      );
+      expect(within(annotationRow).queryByRole('link', { name: 'Visit Details' })).not.toBeInTheDocument();
+      expect(within(annotationRow).getByRole('link', { name: 'Progress Note' })).toHaveAttribute(
+        'href',
+        '/in-person/visit-00/follow-up-note?encounterId=fu-annotation'
+      );
+    });
+
+    it('spans free-form rows across the header and keeps the trash in the Actions column', async () => {
+      setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Lined up note')]));
+      renderGrid();
+      await waitForVisits();
+
+      const cells = within(rowOf(noteInput('Lined up note'))).getAllByRole('cell');
+      const spannedColumns = cells.reduce((sum, cell) => sum + Number(cell.getAttribute('colspan') ?? 1), 0);
+      expect(spannedColumns).toBe(screen.getAllByRole('columnheader').length);
+      expect(deleteButtonOf(noteInput('Lined up note'))).toBe(
+        within(cells[cells.length - 1]).getByTestId(dataTestIds.patientRecordPage.freeFormDeleteButton)
+      );
     });
   });
 

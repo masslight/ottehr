@@ -1,6 +1,8 @@
+import { progressNoteIcon } from '@ehrTheme/icons';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import {
   Box,
@@ -22,7 +24,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -30,6 +32,7 @@ import React, { FC, ReactElement, useCallback, useEffect, useMemo, useRef, useSt
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getInPersonUrlByAppointmentType,
+  getInPersonVisitDetailsUrl,
   withFollowUpEncounterId,
 } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
@@ -38,6 +41,7 @@ import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/typ
 import styled from 'styled-components';
 import { getAnnotationFollowupStatusLabel, getFollowUpProgressNotePathSegment } from 'utils/lib/fhir/encounter';
 import { AppointmentType, visitStatusArray } from 'utils/lib/types/api/appointment.types';
+import { DeleteFreeFormEncounterInput } from 'utils/lib/types/api/free-form-encounter.types';
 import {
   AppointmentHistoryRow,
   FollowUpVisitHistoryRow,
@@ -46,13 +50,17 @@ import {
 } from 'utils/lib/types/api/patient-visit-history.types';
 import { ServiceMode } from 'utils/lib/types/common';
 import { formatMinutes } from 'utils/lib/utils/visitUtils';
+import { deleteFreeFormEncounter } from '../api/api';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { useMergedServiceCategories } from '../hooks/useMergedServiceCategories';
 import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
+import { useDeletedFreeFormEncountersStore } from '../state/deleted-free-form-encounters.store';
+import DeleteDialog from './dialogs/DeleteDialog';
 import { FreeFormEncounterRow, FreeFormSaveSession } from './FreeFormEncounterRow';
+import GoToButton from './GoToButton';
 import {
   applyLocalFreeFormSaves,
   filterVisitsByServiceCategory,
@@ -122,6 +130,27 @@ const ProviderCell: FC<{ name: string | undefined }> = ({ name }) => {
   return <Typography variant="body2">{name || '-'}</Typography>;
 };
 
+const VisitActions: FC<{ visitDetailsUrl?: string; progressNoteUrl?: string }> = ({
+  visitDetailsUrl,
+  progressNoteUrl,
+}) => {
+  if (!visitDetailsUrl && !progressNoteUrl) return null;
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      {visitDetailsUrl && (
+        <GoToButton text="Visit Details" to={visitDetailsUrl} backgroundColor="transparent">
+          <MedicalInformationIcon />
+        </GoToButton>
+      )}
+      {progressNoteUrl && (
+        <GoToButton text="Progress Note" to={progressNoteUrl} backgroundColor="transparent">
+          <img src={progressNoteIcon} alt="" />
+        </GoToButton>
+      )}
+    </Stack>
+  );
+};
+
 type SortField = 'dateTime';
 type SortDirection = 'asc' | 'desc';
 
@@ -140,6 +169,11 @@ interface LocalFreeFormSaves {
   rows: Record<string, FreeFormEncounterHistoryRow>;
 }
 
+interface FreeFormToDelete {
+  patientId: string;
+  encounterId: string;
+}
+
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface TableColumn {
@@ -154,12 +188,11 @@ const columns: TableColumn[] = [
   { id: 'dateTime', label: 'Date & Time', sortable: true, width: 150 },
   { id: 'status', label: 'Status', width: 140 },
   { id: 'type', label: 'Type & Service Category', width: 180 },
-  { id: 'reason', label: "Reason for today's visit", width: 150 },
+  { id: 'reason', label: 'Reason for visit', width: 150 },
   { id: 'provider', label: 'Provider', width: 150 },
   { id: 'office', label: 'Office', width: 150 },
   { id: 'los', label: 'LOS', width: 100 },
-  { id: 'info', label: 'Visit Info', width: 120, align: 'center' },
-  { id: 'note', label: 'Progress Note', width: 150 },
+  { id: 'actions', label: 'Actions', width: 180 },
 ];
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
@@ -227,6 +260,18 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [draftEditing, setDraftEditing] = useState(false);
   const [localSaves, setLocalSaves] = useState<LocalFreeFormSaves>({ patientId: currentPatientId, rows: {} });
   const generationRef = useRef(0);
+  const [freeFormToDelete, setFreeFormToDelete] = useState<FreeFormToDelete | null>(null);
+  const deletedFreeFormIds = useDeletedFreeFormEncountersStore((state) =>
+    currentPatientId ? state.deletedIdsByPatient[currentPatientId] : undefined
+  );
+  const markFreeFormDeleted = useDeletedFreeFormEncountersStore((state) => state.markDeleted);
+  const queryClient = useQueryClient();
+  const deleteFreeFormMutation = useMutation({
+    mutationFn: (input: DeleteFreeFormEncounterInput) => {
+      if (!oystehrZambda) throw new Error('Oystehr client is not initialized');
+      return deleteFreeFormEncounter(oystehrZambda, input);
+    },
+  });
 
   const updateDraft = useCallback((update: (current: FreeFormDraft | null) => FreeFormDraft | null): void => {
     draftRef.current = update(draftRef.current);
@@ -238,6 +283,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     updateDraft(() => null);
     setDraftEditing(false);
     setLocalSaves({ patientId: currentPatientId, rows: {} });
+    setFreeFormToDelete(null);
     return () => {
       generationRef.current += 1;
     };
@@ -274,8 +320,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         localSaves.patientId === currentPatientId
           ? freeFormRowsStartingFrom(Object.values(localSaves.rows), periodStart)
           : []
-      ),
-    [serverFreeFormEncounters, localSaves, currentPatientId, periodStart]
+      ).filter((row) => !deletedFreeFormIds?.includes(row.encounterId)),
+    [serverFreeFormEncounters, localSaves, currentPatientId, periodStart, deletedFreeFormIds]
   );
 
   const includeFreeForm = type === 'all' && status === 'all' && serviceCategory === 'all';
@@ -295,6 +341,12 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     const startIndex = page * rowsPerPage;
     return visibleRows.slice(startIndex, startIndex + rowsPerPage);
   }, [visibleRows, page, rowsPerPage]);
+
+  useEffect(() => {
+    if (!visitHistory) return;
+    const lastPage = Math.max(0, Math.ceil(visibleRows.length / rowsPerPage) - 1);
+    if (page > lastPage) setPage(lastPage);
+  }, [visitHistory, visibleRows.length, rowsPerPage, page]);
 
   useEffect(() => {
     if (!serverFreeFormEncounters) return;
@@ -380,6 +432,46 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     ? freeFormEncounters.find((row) => row.encounterId === draftEncounterId)
     : undefined;
 
+  const requestFreeFormDelete = (encounterId: string | undefined): void => {
+    if (!currentPatientId || !encounterId) return;
+    setFreeFormToDelete({ patientId: currentPatientId, encounterId });
+  };
+
+  const deletingFreeForm =
+    deleteFreeFormMutation.isPending && deleteFreeFormMutation.variables?.encounterId === freeFormToDelete?.encounterId;
+
+  const closeDeleteFreeFormDialog = (): void => {
+    if (deletingFreeForm) return;
+    setFreeFormToDelete(null);
+  };
+
+  const confirmDeleteFreeForm = async (): Promise<void> => {
+    if (!freeFormToDelete) return;
+    const { patientId, encounterId } = freeFormToDelete;
+    const deletingDraft = draftRef.current?.encounterId === encounterId;
+    const draftIndex = deletingDraft
+      ? allRows.findIndex((row) => row.kind === 'free-form' && row.id === encounterId)
+      : -1;
+    if (deletingDraft) discardDraft();
+    const generation = generationRef.current;
+    try {
+      await deleteFreeFormMutation.mutateAsync({ patientId, encounterId });
+    } catch {
+      const isCurrent = generation === generationRef.current;
+      enqueueSnackbar(
+        isCurrent
+          ? "Couldn't delete the note. Please try again."
+          : "Couldn't delete the free-form note for the previous patient.",
+        { variant: 'error' }
+      );
+      if (isCurrent && draftIndex >= 0) setPage(Math.floor(draftIndex / rowsPerPage));
+      return;
+    }
+    markFreeFormDeleted(patientId, encounterId);
+    setFreeFormToDelete((current) => (current?.encounterId === encounterId ? null : current));
+    void queryClient.invalidateQueries({ queryKey: ['get-patient-visit-history', { patientId }] });
+  };
+
   const handleSort = (field: SortField): void => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -428,26 +520,18 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         }
         return getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter.status));
       }
-      case 'info': {
-        if (encounter.followupSubtype !== 'scheduled' || !encounter.appointmentId) return null;
-        return (
-          <RoundedButton to={`/visit/${encounter.appointmentId}`} state={{ encounterId: encounter.encounterId }}>
-            Visit Info
-          </RoundedButton>
-        );
-      }
-      case 'note': {
-        const { encounterId, originalAppointmentId, followupSubtype, status } = encounter;
-        if (!originalAppointmentId) return '-';
-        if (typeof status === 'string' && ['planned', 'arrived'].includes(status)) {
-          return null;
-        }
-        const pathSegment = getFollowUpProgressNotePathSegment(followupSubtype);
-        const to = getInPersonUrlByAppointmentType(
-          { id: originalAppointmentId, encounterId, isFollowUp: true },
-          pathSegment
-        );
-        return <RoundedButton to={to}>Progress Note</RoundedButton>;
+      case 'actions': {
+        const { encounterId, originalAppointmentId, followupSubtype, status, appointmentId } = encounter;
+        const visitDetailsUrl =
+          followupSubtype === 'scheduled' && appointmentId ? getInPersonVisitDetailsUrl(appointmentId) : undefined;
+        const progressNoteUrl =
+          originalAppointmentId && !(typeof status === 'string' && ['planned', 'arrived'].includes(status))
+            ? getInPersonUrlByAppointmentType(
+                { id: originalAppointmentId, encounterId, isFollowUp: true },
+                getFollowUpProgressNotePathSegment(followupSubtype)
+              )
+            : undefined;
+        return <VisitActions visitDetailsUrl={visitDetailsUrl} progressNoteUrl={progressNoteUrl} />;
       }
       default:
         return '-';
@@ -479,20 +563,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return row.office || '-';
       case 'los':
         return row.length !== undefined ? `${formatMinutes(row.length)} ${row.length === 1 ? 'min' : 'mins'}` : '-';
-      case 'info': {
-        if (!row.appointmentId) return null;
-        return (
-          <RoundedButton to={`/visit/${row.appointmentId}`} state={{ encounterId: row.encounterId }}>
-            Visit Info
-          </RoundedButton>
-        );
-      }
-      case 'note': {
+      case 'actions': {
         const baseUrl = `/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
-        const to = row.encounterId
+        const progressNoteUrl = row.encounterId
           ? withFollowUpEncounterId(baseUrl, { isFollowUp: true, encounterId: row.encounterId })
           : baseUrl;
-        return <RoundedButton to={to}>Progress Note</RoundedButton>;
+        const visitDetailsUrl = row.appointmentId ? getInPersonVisitDetailsUrl(row.appointmentId) : undefined;
+        return <VisitActions visitDetailsUrl={visitDetailsUrl} progressNoteUrl={progressNoteUrl} />;
       }
       default:
         return '-';
@@ -503,7 +580,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
-          Encounters - {totalCount}
+          Visits - {totalCount}
         </Typography>
         {latestVisitDate && <Typography>Latest visit: {formatISOStringToDateAndTime(latestVisitDate)}</Typography>}
         <RoundedButton
@@ -668,6 +745,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                 columnCount={columns.length}
                 isDraft
                 startSave={() => createSaveSession(draft.draftId)}
+                onDelete={() => requestFreeFormDelete(draft.encounterId)}
                 onDiscardDraft={discardDraft}
                 onEditingChange={setDraftEditing}
               />
@@ -698,6 +776,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                       note={gridRow.encounter.note}
                       columnCount={columns.length}
                       startSave={() => createSaveSession()}
+                      onDelete={() => requestFreeFormDelete(gridRow.encounter.encounterId)}
                     />
                   );
                 }
@@ -720,6 +799,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                             width: column.width,
                             textAlign: column.align || 'left',
                             paddingLeft: colIndex === 0 ? 2 : 1,
+                            ...(column.id === 'actions' ? { paddingY: 0 } : {}),
                           }}
                         >
                           {renderCellContent(row, column.id)}
@@ -745,6 +825,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                                 sx={{
                                   width: column.width,
                                   textAlign: column.align || 'left',
+                                  paddingLeft: colIndex === 0 ? 2 : 1,
+                                  ...(column.id === 'actions' ? { paddingY: 0 } : {}),
                                   ...(colIndex === 0
                                     ? {
                                         display: 'flex',
@@ -779,6 +861,17 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
+      />
+
+      <DeleteDialog
+        open={freeFormToDelete !== null}
+        handleClose={closeDeleteFreeFormDialog}
+        handleDelete={() => void confirmDeleteFreeForm()}
+        title="Delete Free Form"
+        description="Are you sure you want to delete this form? This action cannot be undone."
+        closeButtonText="Keep"
+        deleteButtonText="Delete"
+        loadingDelete={deletingFreeForm}
       />
     </Paper>
   );
