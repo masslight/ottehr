@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BILLING_INVOICE_KINDS, BILLING_INVOICE_STATUSES } from '../../../fhir/billing-invoice';
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
@@ -12,6 +13,7 @@ import { PAYMENT_REFUND_MEDIUMS, PAYMENT_REFUND_VOID_REASONS } from '../../api/p
 import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
 import {
+  BILLING_INVOICE_LIMITS,
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
   DRUG_UNIT_CODE_VALUES,
@@ -838,8 +840,7 @@ const isoMonth = z
   .string()
   .regex(/^\d{4}-\d{2}$/, 'Expected an ISO month (YYYY-MM)')
   .refine(isCalendarDate, 'Not a valid calendar month');
-const dateWindowIsOrdered = (data: { dateFrom?: string; dateTo?: string }): boolean =>
-  !data.dateFrom || !data.dateTo || data.dateFrom <= data.dateTo;
+const dateWindowIsOrdered = (from?: string, to?: string): boolean => !from || !to || from <= to;
 const DATE_WINDOW_MESSAGE = { message: 'dateFrom must not be after dateTo', path: ['dateFrom'] };
 
 export const GetBillingReportInputSchema = z.object({
@@ -860,7 +861,7 @@ export const ReportDateWindowParamsSchema = z
     dateFrom: isoDate.optional(),
     dateTo: isoDate.optional(),
   })
-  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+  .refine((data) => dateWindowIsOrdered(data.dateFrom, data.dateTo), DATE_WINDOW_MESSAGE);
 
 export const EmptyReportParamsSchema = z.object({});
 
@@ -875,7 +876,7 @@ export const GetBillingPaymentsReportDrilldownInputSchema = z
     serviceMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
     checkMonth: z.union([isoMonth, z.literal('unknown')]).optional(),
   })
-  .refine(dateWindowIsOrdered, DATE_WINDOW_MESSAGE);
+  .refine((data) => dateWindowIsOrdered(data.dateFrom, data.dateTo), DATE_WINDOW_MESSAGE);
 
 // patient-payments drilldown row filter (the date window travels in the report params)
 export const PatientPaymentsDrilldownParamsSchema = z.object({
@@ -982,6 +983,30 @@ export const VoidBillingPatientPaymentInputSchema = z.object({
   paymentNoticeId: nonEmptyString.uuid(),
   reason: z.enum(PAYMENT_REFUND_VOID_REASONS),
   notes: blankableText,
+});
+
+export const SearchBillingInvoicesInputSchema = z
+  .object({
+    kind: z.enum(BILLING_INVOICE_KINDS).optional(),
+    status: oneOrMany(z.enum(BILLING_INVOICE_STATUSES)).optional(),
+    recipientId: nonEmptyString.uuid().optional(),
+    issuedFrom: z.string().date().optional(),
+    issuedTo: z.string().date().optional(),
+    offset: nonNegativeInt.optional(),
+    pageSize: nonNegativeInt.optional(),
+  })
+  .refine((data) => dateWindowIsOrdered(data.issuedFrom, data.issuedTo), {
+    message: 'issuedFrom must not be after issuedTo',
+    path: ['issuedFrom'],
+  });
+
+export const GetBillingInvoiceInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+});
+
+export const VoidBillingInvoiceInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+  reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),
 });
 
 export const AddClaimWriteOffInputSchema = z
@@ -1257,6 +1282,9 @@ export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseT
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type SearchBillingInvoicesInput = z.output<typeof SearchBillingInvoicesInputSchema>;
+export type GetBillingInvoiceInput = z.output<typeof GetBillingInvoiceInputSchema>;
+export type VoidBillingInvoiceInput = z.output<typeof VoidBillingInvoiceInputSchema>;
 export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
 export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;
 export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;

@@ -233,3 +233,11 @@ export const BILLING_RECORDABLE_PAYMENT_METHODS = [
   'card-reader',
   'external-card-reader',
 ] as const;
+
+// what record-billing-nio-invoice-payment callers may send; card payments go through Stripe
+export const BILLING_INVOICE_PAYMENT_METHODS = ['check', 'ach', 'wire', 'cash', 'other'] as const;
+
+export const BILLING_INVOICE_LIMITS = {
+  voidReasonLength: 300,
+  paymentReferenceLength: 300,
+} as const;

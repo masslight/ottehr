@@ -7,12 +7,13 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getMimeType, MIME_TYPES, sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
 import { BILLING_APP_BUCKET, getClaimAttachmentBucketAndPathFromZ3Url } from './shared';
 
-// Files billers attach in the billing app (claim documentation, remit scans) live in the billing
+// Files in the billing app (claim documentation, remit scans, invoice PDFs) live in the billing
 // app bucket under <prefix>/<owner id>/, one DocumentReference each whose context.related points at
 // the owning resource. Upload and download go through presigned URLs these helpers mint.
 
 export const CLAIM_ATTACHMENT_PATH_PREFIX = 'claim-attachments';
 export const ERA_ATTACHMENT_PATH_PREFIX = 'era-attachments';
+export const INVOICE_ATTACHMENT_PATH_PREFIX = 'invoice-attachments';
 
 // A deleted claim attachment's status until the document itself is removed.
 export const RETIRED_ATTACHMENT_STATUS = 'entered-in-error';
@@ -120,6 +121,16 @@ export function eraAttachmentOwner(eraId: string, secrets: Secrets): AttachmentO
     projectId: secrets['PROJECT_ID'],
     prefix: ERA_ATTACHMENT_PATH_PREFIX,
     ownerId: eraId,
+  };
+}
+
+export function invoiceAttachmentOwner(invoiceId: string, secrets: Secrets): AttachmentOwner {
+  return {
+    reference: `Invoice/${invoiceId}`,
+    projectApi: secrets['PROJECT_API'],
+    projectId: secrets['PROJECT_ID'],
+    prefix: INVOICE_ATTACHMENT_PATH_PREFIX,
+    ownerId: invoiceId,
   };
 }
 

@@ -1,4 +1,5 @@
 import { Address, Task } from 'fhir/r4b';
+import type { BillingInvoiceKind, BillingInvoiceStatus } from '../../../fhir/billing-invoice';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, EraSource, EraStatus, X12AdjustmentGroupCode } from './billing.constants';
@@ -670,6 +671,57 @@ export interface PatientArClaimItem {
 
 export interface SearchBillingPatientARClaimsResponse extends Paginated {
   claims: PatientArClaimItem[];
+}
+
+// amounts in dollars
+export interface BillingInvoiceItem {
+  id: string;
+  number: string;
+  kind: BillingInvoiceKind;
+  status: BillingInvoiceStatus;
+  pastDue: boolean;
+  recipient: {
+    id: string;
+    name: string;
+  };
+  issueDate: string;
+  dueDate: string;
+  total: number;
+  balance: number;
+}
+
+// amounts in dollars
+export interface BillingInvoiceClaimLine {
+  claimId: string;
+  patientId: string;
+  patientName: string;
+  serviceDate: string;
+  arStage: string;
+  status: string;
+  amount: number;
+}
+
+// amounts in dollars
+export interface BillingInvoicePayment {
+  paymentNoticeId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  reference?: string;
+}
+
+export interface BillingInvoiceDetail extends BillingInvoiceItem {
+  claims: BillingInvoiceClaimLine[];
+  payments: BillingInvoicePayment[];
+  pdfUrl?: string;
+}
+
+export interface SearchBillingInvoicesResponse extends Paginated {
+  invoices: BillingInvoiceItem[];
+}
+
+export interface IssueBillingInvoiceNumberResponse {
+  invoiceNumber: string;
 }
 
 export interface PatientBalanceSummary {

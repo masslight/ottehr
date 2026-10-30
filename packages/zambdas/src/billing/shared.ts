@@ -1270,6 +1270,9 @@ export function setClia(resource: Location, clia: string | null): void {
   }
 }
 
+export const getStripeAccountId = (resource: Practitioner | Organization): string | undefined =>
+  resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value;
+
 export function setStripeAccountId(resource: Practitioner | Organization, stripeAccountId: string): void {
   const identifier = resource.identifier ?? [];
   const existing = identifier.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM);
@@ -2025,7 +2028,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     ...common,
     kind: 'organization',
     name: resource.name ?? '',
-    stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
+    stripeAccountId: getStripeAccountId(resource) ?? '',
   };
 }
 export const CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM =
