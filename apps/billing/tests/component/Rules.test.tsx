@@ -1,10 +1,16 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
-import { BillingRule, RuleConditional } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  AddServiceLineInput,
+  BillingRule,
+  effectiveDiagnosisMode,
+  RuleConditional,
+  RuleConditionalSchema,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
@@ -407,6 +413,67 @@ describe('ConditionalEditor', () => {
     expect(await screen.findByText('CPT code is required')).toBeInTheDocument();
     expect(screen.getByText('Charges are required')).toBeInTheDocument();
     expect(onValid).not.toHaveBeenCalled();
+  });
+
+  describe('add-service-line Diagnoses picker', () => {
+    const addLineConditional = (line: AddServiceLineInput): RuleConditional => ({
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'addServiceLine', line }] },
+        },
+      ],
+    });
+    const clearDiagnoses = (): void => {
+      const picker = screen.getByLabelText('Diagnoses (optional)').closest('.MuiAutocomplete-root') as HTMLElement;
+      fireEvent.click(within(picker).getByTitle('Clear'));
+    };
+
+    it('saves a cleared picker as blank, which the save schema accepts', async () => {
+      const onValid = vi.fn();
+      render(
+        <ConditionalForm
+          conditional={addLineConditional({ cptCode: '00210', charges: '1', diagnosisMode: 'primary' })}
+          onValid={onValid}
+        />
+      );
+      expect(screen.getByLabelText('Diagnoses (optional)')).toHaveValue("Claim's primary diagnosis");
+
+      clearDiagnoses();
+      expect(screen.getByLabelText('Diagnoses (optional)')).toHaveValue('');
+
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() => expect(onValid).toHaveBeenCalled());
+      const saved: RuleConditional = onValid.mock.calls[0][0].conditional;
+      expect(saved).toEqual(addLineConditional({ cptCode: '00210', charges: '1', diagnosisMode: '' }));
+      // RuleDetail sends the conditional as-is, and save-billing-rules parses it with this schema.
+      expect(RuleConditionalSchema.safeParse(saved).success).toBe(true);
+    });
+
+    it('drops diagnosis pointers once the picker leaves "Specific diagnoses", so blank means the primary diagnosis', async () => {
+      const onValid = vi.fn();
+      render(
+        <ConditionalForm
+          conditional={addLineConditional({
+            cptCode: '00210',
+            charges: '1',
+            diagnosisMode: 'specific',
+            diagnosisPointers: '2',
+          })}
+          onValid={onValid}
+        />
+      );
+      expect(screen.getByLabelText(/Diagnosis pointers/)).toHaveValue('2');
+
+      clearDiagnoses();
+      expect(screen.queryByLabelText(/Diagnosis pointers/)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() => expect(onValid).toHaveBeenCalled());
+      const line: AddServiceLineInput = onValid.mock.calls[0][0].conditional.branches[0].outcome.actions[0].line;
+      expect(line).toMatchObject({ diagnosisMode: '', diagnosisPointers: '' });
+      expect(effectiveDiagnosisMode(line)).toBe('primary');
+    });
   });
 
   it('blocks submit, highlights, and focuses an empty tag name instead of round-tripping to the server', async () => {
