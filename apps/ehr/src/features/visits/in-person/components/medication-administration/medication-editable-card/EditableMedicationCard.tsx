@@ -282,13 +282,29 @@ export const EditableMedicationCard: React.FC<{
         ndc: quickPick.ndc,
         expDate: quickPick.expDate,
         cptCodes: quickPick.cptCodes ?? [],
+        // A drug set up for inventory takes these from the stocked lot picked at administration; a quick pick's
+        // saved lot would be stale and would stop the soonest-expiring lot being preselected.
+        ...(resolvedMedicationId &&
+          selectsOptions.medicationId.inventoryTrackedIds?.has(resolvedMedicationId) && {
+            lotNumber: undefined,
+            ndc: undefined,
+            expDate: undefined,
+            manufacturer: undefined,
+          }),
       };
       setLocalValues(newValues);
       if (isCreating && encounterId) setDraft(encounterId, newValues);
       // Only enable ERX on order pages — the ERX component isn't rendered for dispense/completed-edit
       if (resolvedMedicationId && isOrderType) setErxEnabled(true);
     },
-    [isOrderType, selectsOptions.medicationId.options, isCreating, encounterId, setDraft]
+    [
+      isOrderType,
+      selectsOptions.medicationId.options,
+      selectsOptions.medicationId.inventoryTrackedIds,
+      isCreating,
+      encounterId,
+      setDraft,
+    ]
   );
 
   const commandPaletteItems = useMemo(() => {

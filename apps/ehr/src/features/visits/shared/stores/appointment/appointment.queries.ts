@@ -17,6 +17,7 @@ import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erx
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getMedicationInventoryConfig } from 'utils/lib/fhir/medication-inventory';
 import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
@@ -976,12 +977,15 @@ type MedicationListData = {
   idToName: Record<string, string>;
   idToMedispanCode: Record<string, string>;
   idToNdc: Record<string, string>;
+  /** Drugs set up for inventory: their lot, expiration, NDC and manufacturer come from stock, not quick picks. */
+  inventoryTrackedIds: string[];
 };
 
 const emptyMedicationListData: MedicationListData = {
   idToName: {},
   idToMedispanCode: {},
   idToNdc: {},
+  inventoryTrackedIds: [],
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -992,7 +996,9 @@ export const useGetMedicationList = () => {
     const idToName: Record<string, string> = {};
     const idToMedispanCode: Record<string, string> = {};
     const idToNdc: Record<string, string> = {};
+    const inventoryTrackedIds: string[] = [];
     for (const entry of data || []) {
+      if (entry.id && getMedicationInventoryConfig(entry)) inventoryTrackedIds.push(entry.id);
       const identifier = entry.identifier?.find((id: Coding) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
       if (identifier?.value && entry.id) {
         idToName[entry.id] = identifier.value;
@@ -1008,7 +1014,7 @@ export const useGetMedicationList = () => {
         idToNdc[entry.id] = ndcCoding.code;
       }
     }
-    return { idToName, idToMedispanCode, idToNdc };
+    return { idToName, idToMedispanCode, idToNdc, inventoryTrackedIds };
   };
 
   const queryResult = useQuery({

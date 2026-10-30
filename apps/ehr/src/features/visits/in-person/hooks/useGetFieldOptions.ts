@@ -70,6 +70,7 @@ export type MedicationIdSelectOptions = {
   medispanCodeToMedicationId?: Record<string, string>;
   ndcCodeSet?: Set<string>;
   ndcToMedicationId?: Record<string, string>;
+  inventoryTrackedIds?: Set<string>;
 };
 
 export type OrderFieldsSelectsOptions = Record<
@@ -147,6 +148,11 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
     void getProvidersResults();
   }, [oystehrZambda, encounterId]);
 
+  const inventoryTrackedIds = useMemo(
+    () => new Set(medicationList?.inventoryTrackedIds ?? []),
+    [medicationList?.inventoryTrackedIds]
+  );
+
   const medicationListOptions: Option[] = Object.entries(medicationList?.idToName || {})
     .map(([id, label]) => ({ value: id, label }))
     .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
@@ -195,6 +201,7 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       medispanCodeToMedicationId,
       ndcCodeSet,
       ndcToMedicationId,
+      inventoryTrackedIds,
     },
     route: {
       options: getRoutesArray(inHouseMedicationsMedicationApplianceRoutes),
