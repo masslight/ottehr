@@ -184,9 +184,10 @@ describe('buildClinicRows', () => {
     ]);
   });
 
-  it('marks the drug low when on hand is below the reorder level, and below zero', () => {
+  it('marks the drug low when on hand is at or below the reorder level, and below zero', () => {
     const [low] = buildClinicRows(drugs, [lots[0]], 'main', today);
     expect(low).toMatchObject({ onHand: 18, markers: [] });
+    expect(buildClinicRows(drugs, [lot({ onHand: 10 })], 'main', today)[0].markers).toEqual(['low']);
     const [lowExpired] = buildClinicRows(drugs, [lots[1]], 'main', today);
     expect(lowExpired.markers).toEqual(['low', 'expired']);
     expect(lowExpired.earliestExpiration).toBe('2026-09-30');
@@ -326,7 +327,7 @@ describe('list-medication-inventory', () => {
     expect(() => validateList(createInput({ view: 'everything' }))).toThrow();
   });
 
-  it('searches active lots scoped by the lot identifier (and clinic tag for one clinic), never the ledger', async () => {
+  it('searches lots scoped by the lot identifier (clinic tag for one clinic, active elsewhere), never the ledger', async () => {
     const oystehr = makeMockOystehr({
       Medication: [catalog, untracked],
       Lot: [lotResource],
@@ -344,11 +345,15 @@ describe('list-medication-inventory', () => {
 
     const lotSearches = oystehr.fhir.search.mock.calls
       .map(([call]) => call)
-      .filter((call) => call.resourceType === 'Medication' && call.params.some((p: any) => p.name === 'status'));
+      .filter(
+        (call) =>
+          call.resourceType === 'Medication' &&
+          call.params.some((p: any) => String(p.value).startsWith(INVENTORY_LOT_IDENTIFIER_SYSTEM))
+      );
     expect(lotSearches).toHaveLength(1);
+    // the clinic view includes empty lots (they can still be counted and adjusted)
     expect(lotSearches[0].params).toEqual([
       { name: 'identifier', value: `${INVENTORY_LOT_IDENTIFIER_SYSTEM}|${INVENTORY_LOT_IDENTIFIER_VALUE}` },
-      { name: 'status', value: 'active' },
       { name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|main` },
     ]);
     expect(oystehr.fhir.search.mock.calls.some(([call]) => call.resourceType === 'Observation')).toBe(false);

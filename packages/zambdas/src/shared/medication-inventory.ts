@@ -14,6 +14,7 @@ import {
 import {
   AdministrationStockTarget,
   getMedicationInventoryConfig,
+  getOrderCatalogMedicationId,
   INVENTORY_ENTRY_TYPE_SYSTEM,
   INVENTORY_LOT_CLINIC_TAG_SYSTEM,
   INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
@@ -194,8 +195,9 @@ async function getAdministrationStockEntries(
 }
 
 /**
- * The catalog drug an order's contained Medication copy was made from. The copy keeps the catalog's name
- * identifier but not its id, and an existing order's `medicationId` is the contained sentinel.
+ * The catalog drug an order's contained Medication copy was made from, for orders saved before the copy
+ * carried the catalog id: the copy keeps the catalog's name identifier, and an existing order's `medicationId`
+ * is the contained sentinel.
  */
 async function findCatalogMedicationByName(oystehr: Oystehr, name: string): Promise<Medication | undefined> {
   const medications = (
@@ -205,6 +207,18 @@ async function findCatalogMedicationByName(oystehr: Oystehr, name: string): Prom
     })
   ).unbundle();
   return medications.find(isCatalogMedication);
+}
+
+/** The catalog drug of an order's contained Medication copy: by the catalog id it carries, else by name. */
+async function findOrderCatalogMedication(
+  oystehr: Oystehr,
+  contained: Medication,
+  name: string
+): Promise<Medication | undefined> {
+  const catalogId = getOrderCatalogMedicationId(contained);
+  if (!catalogId) return findCatalogMedicationByName(oystehr, name);
+  const medication = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: catalogId });
+  return isCatalogMedication(medication) ? medication : undefined;
 }
 
 /**
@@ -225,13 +239,13 @@ async function resolveAdministrationStockTarget(
   const name = getMedicationName(contained);
   const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
-  if (!lotNumber || !name || dose === undefined || !units || !encounterId) return undefined;
+  if (!contained || !lotNumber || !name || dose === undefined || !units || !encounterId) return undefined;
 
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
   const locationId = getEncounterLocationId(encounter);
   if (!locationId) return undefined;
 
-  const catalog = await findCatalogMedicationByName(oystehr, name);
+  const catalog = await findOrderCatalogMedication(oystehr, contained, name);
   const inventory = catalog ? getMedicationInventoryConfig(catalog) : undefined;
   if (!catalog?.id || !inventory) return undefined;
 

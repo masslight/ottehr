@@ -46,7 +46,7 @@ export const expirationMarkers = (expirationDate: string | undefined, today: Dat
 };
 
 const stockMarkers = (onHand: number, reorderLevel: number | undefined): InventoryMarker[] => [
-  ...(reorderLevel !== undefined && onHand < reorderLevel ? (['low'] as const) : []),
+  ...(reorderLevel !== undefined && onHand <= reorderLevel ? (['low'] as const) : []),
   ...(onHand < 0 ? (['below-zero'] as const) : []),
 ];
 
@@ -133,7 +133,7 @@ export const buildClinicRows = (
     const onHand = sumOnHand(drugLots);
     const reorderLevel = drug.inventory.reorderLevels.find((level) => level.locationId === locationId)?.level;
     const expiration = earliestExpiration(drugLots);
-    const low = reorderLevel !== undefined && onHand < reorderLevel;
+    const low = reorderLevel !== undefined && onHand <= reorderLevel;
     return {
       medicationId: drug.medicationId,
       name: drug.name,

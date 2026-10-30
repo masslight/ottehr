@@ -168,7 +168,7 @@ export default function InventoryAdminPage(): ReactElement {
                   </>
                 ) : (
                   <>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Clinics below reorder level</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Clinics at or below reorder level</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Earliest expiration</TableCell>
                   </>
                 )}
@@ -278,6 +278,10 @@ function ClinicDrugRows({
   const [expandedLots, toggleLot] = useToggleSet();
   const [dialog, setDialog] = useState<{ kind: 'adjust' | 'count'; lot: InventoryLotRow } | undefined>(undefined);
   const refresh = (): void => void queryClient.invalidateQueries({ queryKey: [INVENTORY_QUERY_KEY] });
+  // Empty lots stay out of the way but can still be counted and adjusted once shown.
+  const [showEmptyLots, setShowEmptyLots] = useState(false);
+  const emptyLotCount = drug.lots.filter((lot) => lot.onHand === 0).length;
+  const visibleLots = showEmptyLots ? drug.lots : drug.lots.filter((lot) => lot.onHand !== 0);
 
   return (
     <>
@@ -299,7 +303,7 @@ function ClinicDrugRows({
         <TableCell />
       </TableRow>
       {open &&
-        drug.lots.map((lot) => (
+        visibleLots.map((lot) => (
           <Fragment key={lot.id}>
             <TableRow>
               <TableCell>
@@ -336,6 +340,18 @@ function ClinicDrugRows({
             )}
           </Fragment>
         ))}
+      {open && emptyLotCount > 0 && (
+        <TableRow>
+          <TableCell />
+          <TableCell colSpan={5}>
+            <Link component="button" type="button" variant="body2" onClick={() => setShowEmptyLots((prev) => !prev)}>
+              {showEmptyLots
+                ? 'Hide empty lots'
+                : `Show ${emptyLotCount} empty ${emptyLotCount === 1 ? 'lot' : 'lots'}`}
+            </Link>
+          </TableCell>
+        </TableRow>
+      )}
       {dialog?.kind === 'adjust' && (
         <AdjustStockDialog
           open

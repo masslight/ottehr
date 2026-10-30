@@ -15,6 +15,7 @@ import {
 import {
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from '../types/api/medication-administration.constants';
 import { getExtension, getTag } from './helpers';
@@ -121,6 +122,10 @@ export const isCatalogMedication = (medication: Medication): boolean =>
   medication.identifier?.some(
     (identifier) => identifier.system === MEDICATION_TYPE_SYSTEM && identifier.value === INVENTORY_MEDICATION_TYPE_CODE
   ) ?? false;
+
+/** The catalog drug an order's contained Medication copy was made from; orders saved before it was recorded have none. */
+export const getOrderCatalogMedicationId = (contained: Medication | undefined): string | undefined =>
+  contained?.identifier?.find((identifier) => identifier.system === MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM)?.value;
 
 export interface InventoryLotInput {
   locationId: string;

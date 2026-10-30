@@ -10,7 +10,10 @@ import {
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  INVENTORY_MEDICATION_TYPE_CODE,
+  MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import {
   inHouseMedicationsMedicationApplianceRoutes,
   IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK,
@@ -39,7 +42,16 @@ export function createMedicationCopy(
   // deleting identifier with code that indicates that this medication is inventory one
   const typeIdentifierArrId =
     resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
-  if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+  if (typeIdentifierArrId >= 0) {
+    resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+    // the copy keeps the catalog drug's id so inventory can find the drug without matching by name
+    if (inventoryMedication.id) {
+      resourceCopy.identifier = [
+        ...(resourceCopy.identifier ?? []),
+        { system: MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM, value: inventoryMedication.id },
+      ];
+    }
+  }
   if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
       lotNumber: orderData.lotNumber,

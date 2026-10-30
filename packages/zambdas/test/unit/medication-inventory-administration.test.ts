@@ -18,6 +18,7 @@ import {
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
@@ -99,12 +100,15 @@ const makeOrder = ({
   expirationDate = '2027-03-31',
   dose = 2,
   units = 'mg',
+  catalogId,
 }: {
   status?: MedicationAdministration['status'];
   lotNumber?: string;
   expirationDate?: string;
   dose?: number;
   units?: string;
+  /** Orders saved since the copy records its catalog drug carry this; older orders are matched by name. */
+  catalogId?: string;
 } = {}): MedicationAdministration => ({
   resourceType: 'MedicationAdministration',
   id: 'ma-1',
@@ -116,7 +120,10 @@ const makeOrder = ({
     {
       resourceType: 'Medication',
       id: IN_HOUSE_CONTAINED_MEDICATION_ID,
-      identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: DRUG_NAME }],
+      identifier: [
+        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: DRUG_NAME },
+        ...(catalogId ? [{ system: MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM, value: catalogId }] : []),
+      ],
       batch: { lotNumber, expirationDate },
     },
   ],
@@ -345,6 +352,23 @@ describe('reconcileAdministrationStock', () => {
     const lotUpdate = oystehr.fhir.transaction.mock.calls[0][0].requests[1];
     expect(lotUpdate.method).toBe('PUT');
     expect(lotUpdate.url).toBe('/Medication/lot-1');
+  });
+
+  it('finds the catalog drug by the id on the order copy, and by name for orders saved before it was recorded', async () => {
+    const byId = makeMockOystehr();
+    await reconcileAdministrationStock(byId, makeOrder({ catalogId: 'med-catalog' }), 'Practitioner/nurse-1');
+    expect(postedEntries(byId)).toHaveLength(1);
+    expect(byId.fhir.get).toHaveBeenCalledWith({ resourceType: 'Medication', id: 'med-catalog' });
+    const nameSearches = (oystehr: MockOystehr): number =>
+      oystehr.fhir.search.mock.calls.filter(([call]: any) =>
+        call.params.some((p: any) => String(p.value).startsWith(`${MEDICATION_IDENTIFIER_NAME_SYSTEM}|`))
+      ).length;
+    expect(nameSearches(byId)).toBe(0);
+
+    const byName = makeMockOystehr();
+    await reconcileAdministrationStock(byName, makeOrder(), 'Practitioner/nurse-1');
+    expect(postedEntries(byName)).toHaveLength(1);
+    expect(nameSearches(byName)).toBe(1);
   });
 
   it('does nothing for a typed lot that is not in inventory at the visit clinic', async () => {

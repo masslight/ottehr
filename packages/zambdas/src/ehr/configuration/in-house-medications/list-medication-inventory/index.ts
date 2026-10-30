@@ -74,7 +74,7 @@ export const performEffect = async (
     return { drugs: [], entries: buildHistory(entries, await resolveHistoryNames(oystehr, entries)) };
   }
 
-  const [drugs, lots] = await Promise.all([getTrackedDrugs(oystehr), getActiveLots(oystehr, params)]);
+  const [drugs, lots] = await Promise.all([getTrackedDrugs(oystehr), getLots(oystehr, params)]);
   if (params.view === 'clinic') {
     return { drugs: buildClinicRows(drugs, lots, params.locationId, today), entries: [] };
   }
@@ -96,8 +96,11 @@ const getTrackedDrugs = async (oystehr: Oystehr): Promise<TrackedDrug[]> => {
   });
 };
 
-/** Lots with stock on hand (status is derived from the cached on hand), at one clinic or everywhere. */
-const getActiveLots = async (
+/**
+ * Lots at one clinic (empty ones too, so they can still be counted and adjusted), or with stock on hand
+ * everywhere (status is derived from the cached on hand).
+ */
+const getLots = async (
   oystehr: Oystehr,
   params: Extract<ListMedicationInventoryInput, { view: 'clinic' | 'all-clinics' }>
 ): Promise<InventoryLot[]> => {
@@ -106,10 +109,9 @@ const getActiveLots = async (
       resourceType: 'Medication',
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_IDENTIFIER_SYSTEM}|${INVENTORY_LOT_IDENTIFIER_VALUE}` },
-        { name: 'status', value: 'active' },
         ...(params.view === 'clinic'
           ? [{ name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|${params.locationId}` }]
-          : []),
+          : [{ name: 'status', value: 'active' }]),
       ],
     },
     oystehr
