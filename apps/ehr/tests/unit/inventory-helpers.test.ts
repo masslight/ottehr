@@ -9,7 +9,6 @@ const lot: InventoryLot = {
   lotNumber: 'A123',
   expirationDate: '2027-03-31',
   vendor: 'Henry Schein',
-  unitCost: 2.5,
   onHand: 35,
   unit: 'vial',
   status: 'active',
@@ -28,15 +27,13 @@ const entry = (overrides: Partial<InventoryHistoryEntry>): InventoryHistoryEntry
 });
 
 describe('inventory history reason text', () => {
-  it("shows each receipt's own vendor and cost, not the lot's latest", () => {
-    expect(describeReason(entry({ vendor: 'McKesson', unitCost: 1.8 }), lot)).toBe('Received · McKesson · $1.80/vial');
-    expect(describeReason(entry({ vendor: 'Henry Schein', unitCost: 2.5, quantity: 10 }), lot)).toBe(
-      'Received · Henry Schein · $2.50/vial'
-    );
+  it("shows each receipt's own vendor, not the lot's latest", () => {
+    expect(describeReason(entry({ vendor: 'McKesson' }), lot)).toBe('Received · McKesson');
+    expect(describeReason(entry({ vendor: 'Henry Schein', quantity: 10 }), lot)).toBe('Received · Henry Schein');
   });
 
-  it("falls back to the lot's vendor and cost for receipts written before they were recorded per entry", () => {
-    expect(describeReason(entry({}), lot)).toBe('Received · Henry Schein · $2.50/vial');
+  it("falls back to the lot's vendor for receipts written before it was recorded per entry", () => {
+    expect(describeReason(entry({}), lot)).toBe('Received · Henry Schein');
   });
 
   it('labels an expiration correction with its note', () => {

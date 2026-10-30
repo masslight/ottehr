@@ -8,9 +8,7 @@ import {
   DialogTitle,
   FormControl,
   Grid,
-  InputAdornment,
   InputLabel,
-  Link,
   MenuItem,
   Select,
   Stack,
@@ -53,10 +51,6 @@ interface ReceiveFormState {
   quantity: string;
   locationId: string;
   vendor: string;
-  costMode: 'package' | 'item';
-  pricePerPackage: string;
-  itemsPerPackage: string;
-  perItemCost: string;
 }
 
 type LookupState = { status: 'idle' | 'loading' } | LookupNdcResponse;
@@ -75,17 +69,6 @@ export function storedClinicId(clinics: { id: string }[]): string | undefined {
   }
 }
 
-function toCostInput(form: ReceiveFormState): ReceiveMedicationShipmentInput['cost'] {
-  if (form.costMode === 'item') {
-    return form.perItemCost.trim() ? { perItem: Number(form.perItemCost) } : undefined;
-  }
-  return form.pricePerPackage.trim() && form.itemsPerPackage.trim()
-    ? { pricePerPackage: Number(form.pricePerPackage), itemsPerPackage: Number(form.itemsPerPackage) }
-    : undefined;
-}
-
-const formatMoney = (value: number): string => `$${value.toFixed(2)}`;
-
 export default function ReceiveShipmentDialog({
   open,
   onClose,
@@ -103,10 +86,6 @@ export default function ReceiveShipmentDialog({
     quantity: '',
     locationId: storedClinicId(clinics) ?? clinics[0]?.id ?? '',
     vendor: '',
-    costMode: 'package',
-    pricePerPackage: '',
-    itemsPerPackage: '',
-    perItemCost: '',
   }));
   const [lookup, setLookup] = useState<LookupState>({ status: 'idle' });
   const [prefilledFromLastLot, setPrefilledFromLastLot] = useState(false);
@@ -119,14 +98,6 @@ export default function ReceiveShipmentDialog({
   const name = getMedicationName(medication) ?? '';
   const units = MEDICATION_COUNTED_AS_LABELS[inventory.countedAs];
   const quantity = Number(form.quantity);
-  const unitCost =
-    form.costMode === 'item'
-      ? form.perItemCost.trim()
-        ? Number(form.perItemCost)
-        : undefined
-      : form.pricePerPackage.trim() && Number(form.itemsPerPackage) > 0
-      ? Number(form.pricePerPackage) / Number(form.itemsPerPackage)
-      : undefined;
 
   // Later shipments start from the last lot received (any clinic).
   useEffect(() => {
@@ -191,7 +162,6 @@ export default function ReceiveShipmentDialog({
         ndc: form.ndc.trim(),
         manufacturer: form.manufacturer.trim() || undefined,
         vendor: form.vendor.trim() || undefined,
-        cost: toCostInput(form),
         expirationConflict,
       });
       if ('expirationConflict' in result) {
@@ -360,59 +330,6 @@ export default function ReceiveShipmentDialog({
                 value={form.vendor}
                 onChange={(e) => setField('vendor', e.target.value)}
               />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="overline" color="primary.dark" fontWeight={500}>
-                Cost (optional)
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-              {form.costMode === 'package' ? (
-                <>
-                  <TextField
-                    label="Price per package"
-                    type="number"
-                    inputProps={{ min: 0, step: 'any' }}
-                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                    value={form.pricePerPackage}
-                    onChange={(e) => setField('pricePerPackage', e.target.value)}
-                    sx={{ width: 160 }}
-                  />
-                  <TextField
-                    label={`${units.singular}s per package`}
-                    type="number"
-                    inputProps={{ min: 1, step: 1 }}
-                    value={form.itemsPerPackage}
-                    onChange={(e) => setField('itemsPerPackage', e.target.value)}
-                    sx={{ width: 160 }}
-                  />
-                </>
-              ) : (
-                <TextField
-                  label={`Cost per ${units.singular.toLowerCase()}`}
-                  type="number"
-                  inputProps={{ min: 0, step: 'any' }}
-                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                  value={form.perItemCost}
-                  onChange={(e) => setField('perItemCost', e.target.value)}
-                  sx={{ width: 160 }}
-                />
-              )}
-              {unitCost !== undefined && Number.isFinite(unitCost) ? (
-                <Typography>
-                  = {formatMoney(unitCost)} per {units.singular.toLowerCase()}
-                </Typography>
-              ) : null}
-              <Link
-                component="button"
-                type="button"
-                variant="body2"
-                onClick={() => setField('costMode', form.costMode === 'package' ? 'item' : 'package')}
-              >
-                {form.costMode === 'package'
-                  ? `Enter cost per ${units.singular.toLowerCase()} instead`
-                  : 'Enter price per package instead'}
-              </Link>
             </Grid>
             {prefilledFromLastLot ? (
               <Grid item xs={12}>

@@ -99,11 +99,9 @@ export const INVENTORY_LOT_CLINIC_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-lo
 export const INVENTORY_LOT_EXTENSION_URL = ottehrExtensionUrl('inventory-lot');
 const LOT_CLINIC = 'clinic';
 const LOT_VENDOR = 'vendor';
-const LOT_UNIT_COST = 'unit-cost';
 const LOT_ON_HAND = 'on-hand';
-const USD = 'USD';
 
-/** On a received entry: that shipment's vendor and unit cost (same sub-extension urls as the lot's). */
+/** On a received entry: that shipment's vendor (same sub-extension url as the lot's). */
 export const INVENTORY_STOCK_ENTRY_EXTENSION_URL = ottehrExtensionUrl('inventory-stock-entry');
 
 export const INVENTORY_STOCK_ENTRY_CODE = 'inventory-stock-entry';
@@ -131,22 +129,18 @@ export interface InventoryLotInput {
   ndc: string;
   manufacturer?: string;
   vendor?: string;
-  unitCost?: number;
   /** The drug's stock unit: counted-as items (or the dose volume unit for measured multi-use drugs). */
   unit: string;
 }
 
 const makeLotExtension = (
-  input: Pick<InventoryLotInput, 'locationId' | 'vendor' | 'unitCost' | 'unit'>,
+  input: Pick<InventoryLotInput, 'locationId' | 'vendor' | 'unit'>,
   onHand: number
 ): Extension => ({
   url: INVENTORY_LOT_EXTENSION_URL,
   extension: [
     { url: LOT_CLINIC, valueReference: { reference: `Location/${input.locationId}` } },
     ...(input.vendor ? [{ url: LOT_VENDOR, valueString: input.vendor }] : []),
-    ...(input.unitCost !== undefined
-      ? [{ url: LOT_UNIT_COST, valueMoney: { value: input.unitCost, currency: USD } }]
-      : []),
     { url: LOT_ON_HAND, valueQuantity: { value: onHand, unit: input.unit } },
   ],
 });
@@ -178,27 +172,21 @@ export const makeInventoryLot = (catalog: Medication & { id: string }, input: In
 
 const readLotExtension = (
   lot: Medication
-): { locationId?: string; vendor?: string; unitCost?: number; unit: string; onHand: number } | undefined => {
+): { locationId?: string; vendor?: string; unit: string; onHand: number } | undefined => {
   const root = getExtension(lot, INVENTORY_LOT_EXTENSION_URL);
   if (!root) return undefined;
   const onHand = getExtension(root, LOT_ON_HAND)?.valueQuantity;
-  const unitCost = getExtension(root, LOT_UNIT_COST)?.valueMoney?.value;
   return {
     locationId:
       getExtension(root, LOT_CLINIC)?.valueReference?.reference?.replace('Location/', '') ??
       getTag(lot, INVENTORY_LOT_CLINIC_TAG_SYSTEM)?.code,
     vendor: getExtension(root, LOT_VENDOR)?.valueString,
-    ...(unitCost !== undefined ? { unitCost } : {}),
     unit: onHand?.unit ?? '',
     onHand: onHand?.value ?? 0,
   };
 };
 
-const replaceLotExtension = (
-  lot: Medication,
-  details: { vendor?: string; unitCost?: number },
-  onHand: number
-): Medication => {
+const replaceLotExtension = (lot: Medication, details: { vendor?: string }, onHand: number): Medication => {
   const existing = readLotExtension(lot);
   if (!existing?.locationId) throw new Error(`Medication/${lot.id} is not an inventory lot`);
   return {
@@ -210,7 +198,6 @@ const replaceLotExtension = (
           locationId: existing.locationId,
           unit: existing.unit,
           vendor: details.vendor ?? existing.vendor,
-          unitCost: details.unitCost ?? existing.unitCost,
         },
         onHand
       ),
@@ -224,8 +211,8 @@ export const withLotOnHand = (lot: Medication, onHand: number): Medication => ({
   status: onHand === 0 ? 'inactive' : 'active',
 });
 
-/** The lot's vendor and/or unit cost replaced; a detail passed as undefined is kept. */
-export const withLotDetails = (lot: Medication, details: { vendor?: string; unitCost?: number }): Medication =>
+/** The lot's vendor replaced; passed as undefined it is kept. */
+export const withLotDetails = (lot: Medication, details: { vendor?: string }): Medication =>
   replaceLotExtension(lot, details, readLotExtension(lot)?.onHand ?? 0);
 
 export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => {
@@ -245,7 +232,6 @@ export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => 
     ndc: lot.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC)?.code,
     manufacturer: lot.manufacturer?.display,
     vendor: details.vendor,
-    ...(details.unitCost !== undefined ? { unitCost: details.unitCost } : {}),
     onHand: details.onHand,
     unit: details.unit,
     status: lot.status === 'active' ? 'active' : 'inactive',
@@ -278,18 +264,10 @@ export const makeInventoryStockEntry = (input: InventoryStockEntryInput): Observ
   effectiveDateTime: input.effectiveDateTime,
   valueQuantity: { value: input.quantity, unit: input.unit },
   ...(input.note ? { note: [{ text: input.note }] } : {}),
-  ...(input.vendor || input.unitCost !== undefined
+  ...(input.vendor
     ? {
         extension: [
-          {
-            url: INVENTORY_STOCK_ENTRY_EXTENSION_URL,
-            extension: [
-              ...(input.vendor ? [{ url: LOT_VENDOR, valueString: input.vendor }] : []),
-              ...(input.unitCost !== undefined
-                ? [{ url: LOT_UNIT_COST, valueMoney: { value: input.unitCost, currency: USD } }]
-                : []),
-            ],
-          },
+          { url: INVENTORY_STOCK_ENTRY_EXTENSION_URL, extension: [{ url: LOT_VENDOR, valueString: input.vendor }] },
         ],
       }
     : {}),
@@ -345,7 +323,6 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
   });
   const details = getExtension(observation, INVENTORY_STOCK_ENTRY_EXTENSION_URL);
   const vendor = details ? getExtension(details, LOT_VENDOR)?.valueString : undefined;
-  const unitCost = details ? getExtension(details, LOT_UNIT_COST)?.valueMoney?.value : undefined;
   return {
     id: observation.id,
     lotId,
@@ -361,7 +338,6 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
     note: observation.note?.[0]?.text,
     ...(components.length ? { components } : {}),
     ...(vendor ? { vendor } : {}),
-    ...(unitCost !== undefined ? { unitCost } : {}),
   };
 };
 

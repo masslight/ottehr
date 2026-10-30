@@ -60,20 +60,6 @@ export const MedicationInventoryBaseRowSchema = z.object({
       'Dose wasted on an administration (the unused part of a single-use container), in wasteUnit. Null when no waste.'
     ),
   wasteUnit: z.string().describe('Unit of wasteAmount (mg, ml …). "" when no waste.'),
-  unitCost: z
-    .number()
-    .nullable()
-    .describe(
-      'Cost per stock unit in USD: on a received entry the cost of that shipment, on every other entry the cost the ' +
-        'lot was last received at. Null when no cost was entered.'
-    ),
-  extendedCost: z
-    .number()
-    .nullable()
-    .describe(
-      'quantity × unitCost in USD, signed like quantity: positive on received stock (spend), negative for stock ' +
-        'taken off the shelf. Null when the lot has no unit cost.'
-    ),
   performer: z.string().describe('Staff member who made the entry (full name). "" when unknown.'),
   performerId: z.string().describe('Performer id (internal — joins).'),
   // --- Clinic / lot ---

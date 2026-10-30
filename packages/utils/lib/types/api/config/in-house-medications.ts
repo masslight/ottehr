@@ -136,8 +136,6 @@ export interface InventoryLot {
   ndc?: string;
   manufacturer?: string;
   vendor?: string;
-  /** Cost per counted-as item, USD. */
-  unitCost?: number;
   onHand: number;
   unit: string;
   status: 'active' | 'inactive';
@@ -158,14 +156,13 @@ export interface InventoryStockEntry {
   reversesEntryId?: string;
   note?: string;
   components?: { code: InventoryEntryComponent; value: number; unit: string }[];
-  /** On a received entry: the vendor and cost per item of that shipment (the lot keeps only the latest). */
+  /** On a received entry: the vendor of that shipment (the lot keeps only the latest). */
   vendor?: string;
-  unitCost?: number;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Receiving a shipment (requirement 2). Cost is per package (as invoiced) or per counted-as item. */
+/** Receiving a shipment (requirement 2). */
 export const ReceiveMedicationShipmentInputSchema = z.object({
   medicationId: z.string().min(1),
   locationId: z.string().min(1),
@@ -175,12 +172,6 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
   ndc: z.string().trim().min(1),
   manufacturer: z.string().trim().min(1).optional(),
   vendor: z.string().trim().min(1).optional(),
-  cost: z
-    .union([
-      z.object({ pricePerPackage: z.number().nonnegative(), itemsPerPackage: z.number().int().positive() }),
-      z.object({ perItem: z.number().nonnegative() }),
-    ])
-    .optional(),
   /**
    * What to do when this lot number is already on hand at the clinic with a different expiration date. Without
    * it the zambda writes nothing and answers with `expirationConflict` so staff can choose.

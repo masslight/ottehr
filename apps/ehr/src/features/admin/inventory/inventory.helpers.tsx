@@ -55,22 +55,14 @@ export const describeChange = (entry: InventoryHistoryEntry): string => {
 };
 
 /**
- * The Reason column. Receipts show that shipment's vendor and unit cost (the lot's latest for entries written
- * before they were recorded per entry); counts show what was counted and expected.
+ * The Reason column. Receipts show that shipment's vendor (the lot's latest for entries written before it was
+ * recorded per entry); counts show what was counted and expected.
  */
 export const describeReason = (entry: InventoryHistoryEntry, lot: InventoryLot): string => {
   const counted = entry.components?.find((component) => component.code === 'counted')?.value;
   switch (entry.type) {
     case 'received': {
-      const vendor = entry.vendor ?? lot.vendor;
-      const unitCost = entry.unitCost ?? lot.unitCost;
-      return [
-        ENTRY_TYPE_LABELS.received,
-        vendor,
-        unitCost !== undefined ? `$${unitCost.toFixed(2)}/${unitLabel(lot.unit, 1)}` : undefined,
-      ]
-        .filter(Boolean)
-        .join(' · ');
+      return [ENTRY_TYPE_LABELS.received, entry.vendor ?? lot.vendor].filter(Boolean).join(' · ');
     }
     case 'count':
       if (counted === undefined) return entry.reason ? INVENTORY_ENTRY_REASON_LABELS[entry.reason] : 'Count';

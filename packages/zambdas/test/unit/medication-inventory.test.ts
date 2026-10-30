@@ -31,10 +31,7 @@ import {
   MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  performEffect as receivePerformEffect,
-  unitCostFromInput,
-} from '../../src/ehr/configuration/in-house-medications/receive-medication-shipment/index';
+import { performEffect as receivePerformEffect } from '../../src/ehr/configuration/in-house-medications/receive-medication-shipment/index';
 import { validateRequestParameters } from '../../src/ehr/configuration/in-house-medications/receive-medication-shipment/validateRequestParameters';
 import { writeInventoryStockEntry } from '../../src/shared/medication-inventory';
 import { ZambdaInput } from '../../src/shared/types/common';
@@ -72,7 +69,6 @@ const lotInput = {
   ndc: '72572-0160-25',
   manufacturer: 'Civica',
   vendor: 'McKesson',
-  unitCost: 1.8,
   unit: 'vial',
 };
 
@@ -122,7 +118,6 @@ describe('inventory lot', () => {
       ndc: '72572-0160-25',
       manufacturer: 'Civica',
       vendor: 'McKesson',
-      unitCost: 1.8,
       onHand: 23,
       unit: 'vial',
       status: 'active',
@@ -131,7 +126,7 @@ describe('inventory lot', () => {
     expect(parseInventoryLot(withLotOnHand(lot, -2))?.onHand).toBe(-2);
   });
 
-  it('keeps other extensions and lets vendor and cost be replaced without touching on hand', () => {
+  it('keeps other extensions and lets vendor be replaced without touching on hand', () => {
     const other = { url: 'https://example.com/other', valueString: 'keep' };
     const lot = { ...withLotOnHand(makeInventoryLot(catalog, lotInput), 5), id: 'lot-1' };
     const updated = withLotDetails(
@@ -139,7 +134,7 @@ describe('inventory lot', () => {
       { vendor: 'Henry Schein' }
     );
     expect(updated.extension?.[0]).toEqual(other);
-    expect(parseInventoryLot(updated)).toMatchObject({ vendor: 'Henry Schein', unitCost: 1.8, onHand: 5 });
+    expect(parseInventoryLot(updated)).toMatchObject({ vendor: 'Henry Schein', onHand: 5 });
   });
 
   it('does not parse a catalog drug as a lot', () => {
@@ -210,7 +205,7 @@ describe('inventory stock entry', () => {
     });
   });
 
-  it("keeps a receipt's own vendor and unit cost on the entry", () => {
+  it("keeps a receipt's own vendor on the entry", () => {
     const observation = {
       ...makeInventoryStockEntry({
         lotReference: 'Medication/lot-1',
@@ -220,15 +215,11 @@ describe('inventory stock entry', () => {
         unit: 'vial',
         effectiveDateTime: '2026-10-30T14:02:00Z',
         vendor: 'McKesson',
-        unitCost: 1.8,
       }),
       id: 'entry-3',
     };
-    expect(observation.extension?.[0]?.extension).toEqual([
-      { url: 'vendor', valueString: 'McKesson' },
-      { url: 'unit-cost', valueMoney: { value: 1.8, currency: 'USD' } },
-    ]);
-    expect(parseInventoryStockEntry(observation)).toMatchObject({ vendor: 'McKesson', unitCost: 1.8 });
+    expect(observation.extension?.[0]?.extension).toEqual([{ url: 'vendor', valueString: 'McKesson' }]);
+    expect(parseInventoryStockEntry(observation)).toMatchObject({ vendor: 'McKesson' });
   });
 
   it('ignores a chart Observation', () => {
@@ -354,7 +345,6 @@ const receiveBody = {
   ndc: '72572-0160-25',
   manufacturer: 'Civica',
   vendor: 'McKesson',
-  cost: { pricePerPackage: 45, itemsPerPackage: 25 },
 };
 
 describe('receive-medication-shipment - validateRequestParameters', () => {
@@ -371,12 +361,9 @@ describe('receive-medication-shipment - validateRequestParameters', () => {
     expect(() => validateRequestParameters(createInput({ ...receiveBody, expirationConflict: 'overwrite' }))).toThrow();
   });
 
-  it('accepts a per-item cost and no optional fields', () => {
-    const { manufacturer: _m, vendor: _v, cost: _c, ...required } = receiveBody;
-    expect(validateRequestParameters(createInput({ ...required, cost: { perItem: 1.8 } })).cost).toEqual({
-      perItem: 1.8,
-    });
-    expect(validateRequestParameters(createInput(required)).cost).toBeUndefined();
+  it('accepts a request without the optional fields', () => {
+    const { manufacturer: _m, vendor: _v, ...required } = receiveBody;
+    expect(validateRequestParameters(createInput(required))).toMatchObject({ ...required, userToken: 'test-token' });
   });
 
   it.each([
@@ -387,8 +374,6 @@ describe('receive-medication-shipment - validateRequestParameters', () => {
     ['fractional quantity', { ...receiveBody, quantity: 1.5 }],
     ['missing ndc', { ...receiveBody, ndc: undefined }],
     ['missing clinic', { ...receiveBody, locationId: '' }],
-    ['package cost without items per package', { ...receiveBody, cost: { pricePerPackage: 45 } }],
-    ['negative per-item cost', { ...receiveBody, cost: { perItem: -1 } }],
   ])('rejects %s', (_label, body, headers?) => {
     expect(() => validateRequestParameters({ ...createInput(body), ...(headers ? { headers } : {}) })).toThrow();
   });
@@ -401,13 +386,6 @@ describe('receive-medication-shipment - performEffect', () => {
     if ('expirationConflict' in result) throw new Error('expected a write, got an expiration conflict');
     return result;
   };
-
-  it('converts package pricing to a per-item cost', () => {
-    expect(unitCostFromInput({ pricePerPackage: 45, itemsPerPackage: 25 })).toBe(1.8);
-    expect(unitCostFromInput({ pricePerPackage: 10, itemsPerPackage: 3 })).toBe(3.3333);
-    expect(unitCostFromInput({ perItem: 2.5 })).toBe(2.5);
-    expect(unitCostFromInput(undefined)).toBeUndefined();
-  });
 
   it('rejects a drug without inventory setup before writing anything', async () => {
     const oystehr = makeMockOystehr();
@@ -446,7 +424,6 @@ describe('receive-medication-shipment - performEffect', () => {
       ndc: '72572-0160-25',
       manufacturer: 'Civica',
       vendor: 'McKesson',
-      unitCost: 1.8,
       onHand: 25,
       unit: 'vial',
       status: 'active',
@@ -461,58 +438,50 @@ describe('receive-medication-shipment - performEffect', () => {
     expect(result.entry.effectiveDateTime).toBeTruthy();
   });
 
-  it('adds to the existing lot, updating vendor and cost when given', async () => {
+  it('adds to the existing lot, updating vendor when given', async () => {
     const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
     oystehr.fhir.get.mockResolvedValue(catalog);
     const result = written(
-      await receivePerformEffect(
-        oystehr,
-        { ...receiveBody, quantity: 10, vendor: 'Henry Schein', cost: { perItem: 2 } },
-        performer
-      )
+      await receivePerformEffect(oystehr, { ...receiveBody, quantity: 10, vendor: 'Henry Schein' }, performer)
     );
 
     const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
     expect(requests.map((r: any) => r.method)).toEqual(['POST', 'PUT']);
     expect(requests[1].ifMatch).toBe('W/"3"');
-    expect(result.lot).toMatchObject({ id: 'lot-1', vendor: 'Henry Schein', unitCost: 2, onHand: 35 });
+    expect(result.lot).toMatchObject({ id: 'lot-1', vendor: 'Henry Schein', onHand: 35 });
   });
 
-  it('keeps the existing lot vendor and cost when the request has none', async () => {
+  it('keeps the existing lot vendor when the request has none', async () => {
     const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
     oystehr.fhir.get.mockResolvedValue(catalog);
-    const { vendor: _v, cost: _c, ...body } = receiveBody;
+    const { vendor: _v, ...body } = receiveBody;
     const result = written(await receivePerformEffect(oystehr, { ...body, quantity: 5 }, performer));
-    expect(result.lot).toMatchObject({ vendor: 'McKesson', unitCost: 1.8, onHand: 30 });
+    expect(result.lot).toMatchObject({ vendor: 'McKesson', onHand: 30 });
   });
 
-  it('records each receipt with its own vendor and cost while the lot keeps the latest', async () => {
+  it('records each receipt with its own vendor while the lot keeps the latest', async () => {
     const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
     oystehr.fhir.get.mockResolvedValue(catalog);
-    const first = await receivePerformEffect(oystehr, { ...receiveBody, cost: { perItem: 2 } }, performer);
+    const first = await receivePerformEffect(oystehr, receiveBody, performer);
     const second = await receivePerformEffect(
       oystehr,
-      { ...receiveBody, quantity: 10, vendor: 'Henry Schein', cost: { perItem: 3 } },
+      { ...receiveBody, quantity: 10, vendor: 'Henry Schein' },
       performer
     );
 
-    expect(first).toMatchObject({ entry: { vendor: 'McKesson', unitCost: 2 }, lot: { unitCost: 2 } });
-    expect(second).toMatchObject({ entry: { vendor: 'Henry Schein', unitCost: 3 }, lot: { unitCost: 3 } });
+    expect(first).toMatchObject({ entry: { vendor: 'McKesson' }, lot: { vendor: 'McKesson' } });
+    expect(second).toMatchObject({ entry: { vendor: 'Henry Schein' }, lot: { vendor: 'Henry Schein' } });
     // what was written is what the history reads back
     const writtenEntry = oystehr.fhir.transaction.mock.calls[1][0].requests[0].resource as Observation;
-    expect(parseInventoryStockEntry({ ...writtenEntry, id: 'x' })).toMatchObject({
-      vendor: 'Henry Schein',
-      unitCost: 3,
-    });
+    expect(parseInventoryStockEntry({ ...writtenEntry, id: 'x' })).toMatchObject({ vendor: 'Henry Schein' });
   });
 
-  it('does not stamp vendor or cost on a receipt entered without them', async () => {
+  it('does not stamp vendor on a receipt entered without one', async () => {
     const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
     oystehr.fhir.get.mockResolvedValue(catalog);
-    const { vendor: _v, cost: _c, ...body } = receiveBody;
+    const { vendor: _v, ...body } = receiveBody;
     const { entry: receipt } = written(await receivePerformEffect(oystehr, body, performer));
     expect(receipt.vendor).toBeUndefined();
-    expect(receipt.unitCost).toBeUndefined();
   });
 
   describe('same lot number with a different expiration date', () => {

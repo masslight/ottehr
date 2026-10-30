@@ -22,8 +22,6 @@ import {
 import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { presentFullName } from '../adhoc-report';
 
-const round2 = (n: number): number => Math.round(n * 100) / 100;
-
 // The ledger is scoped by category and date (never read whole): one Observation per stock change, with
 // the lot (subject), clinic (focus), performer and, for administrations, the MedicationAdministration
 // and through it the visit and patient. See documents/otr-3339-fhir-inventory-modeling.md, "Key queries".
@@ -68,8 +66,6 @@ export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMe
       ? (byRef.get(administration.subject.reference) as Patient)
       : undefined;
     const waste = entry.components?.find((component) => component.code === 'waste-amount');
-    // a received entry carries its own shipment's vendor and cost; every other entry is priced at the lot's latest
-    const unitCost = entry.unitCost ?? lot?.unitCost ?? null;
 
     rows.push({
       entryId: entry.id,
@@ -84,8 +80,6 @@ export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMe
       unit: entry.unit,
       wasteAmount: waste?.value ?? null,
       wasteUnit: waste?.unit ?? '',
-      unitCost,
-      extendedCost: unitCost === null ? null : round2(entry.quantity * unitCost),
       performer: presentFullName(performer),
       performerId: entry.performerReference?.replace('Practitioner/', '') ?? '',
       clinic: location?.name ?? '',

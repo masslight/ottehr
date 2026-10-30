@@ -59,7 +59,6 @@ const lotInput = {
   ndc: '72572-0160-25',
   manufacturer: 'Civica',
   vendor: 'McKesson',
-  unitCost: 1.8,
   unit: 'vial',
 };
 
@@ -176,7 +175,7 @@ describe('medication inventory dataset', () => {
     ]);
   });
 
-  it('maps one row per stock entry with its lot, clinic, cost, waste and visit', async () => {
+  it('maps one row per stock entry with its lot, clinic, waste and visit', async () => {
     const oystehr = makeOystehr(entries, [lot, location, nurse, administration, encounter, patient, vitals]);
 
     const rows = await fetchAdHocMedicationInventoryRows(oystehr, { dateRange });
@@ -195,7 +194,6 @@ describe('medication inventory dataset', () => {
       'entry-count',
     ]);
 
-    // received with cost: spend = quantity × unit cost
     expect(rows[0]).toMatchObject({
       date: '2026-10-01T14:02:00Z',
       dateTime: '2026-10-01T14:02:00Z',
@@ -206,8 +204,6 @@ describe('medication inventory dataset', () => {
       unit: 'vial',
       wasteAmount: null,
       wasteUnit: '',
-      unitCost: 1.8,
-      extendedCost: 45,
       performer: 'Nina Nurse',
       performerId: 'prac-1',
       clinic: 'Clinic A',
@@ -231,7 +227,6 @@ describe('medication inventory dataset', () => {
       entryType: 'administered',
       reason: 'partial-dose-waste',
       quantity: -2,
-      extendedCost: -3.6,
       wasteAmount: 2,
       wasteUnit: 'mg',
       appointmentId: 'appt-1',
@@ -244,16 +239,15 @@ describe('medication inventory dataset', () => {
       entryType: 'adjustment',
       reason: 'broken-container',
       quantity: -1,
-      extendedCost: -1.8,
     });
 
     // a count that matched the shelf
-    expect(rows[3]).toMatchObject({ entryType: 'count', reason: 'no-difference', quantity: 0, extendedCost: 0 });
+    expect(rows[3]).toMatchObject({ entryType: 'count', reason: 'no-difference', quantity: 0 });
   });
 
-  it("prices each receipt at its own cost and vendor, and everything else at the lot's latest", async () => {
+  it("shows each receipt's own vendor, and the lot's latest on everything else", async () => {
     const latestLot: Medication = {
-      ...withLotOnHand(makeInventoryLot(catalog, { ...lotInput, vendor: 'Henry Schein', unitCost: 2.5 }), 33),
+      ...withLotOnHand(makeInventoryLot(catalog, { ...lotInput, vendor: 'Henry Schein' }), 33),
       id: 'lot-1',
     };
     const receipts: Observation[] = [
@@ -264,7 +258,6 @@ describe('medication inventory dataset', () => {
           quantity: 25,
           effectiveDateTime: '2026-10-01T14:02:00Z',
           vendor: 'McKesson',
-          unitCost: 1.8,
         }),
         id: 'receipt-1',
       },
@@ -275,7 +268,6 @@ describe('medication inventory dataset', () => {
           quantity: 10,
           effectiveDateTime: '2026-10-05T14:02:00Z',
           vendor: 'Henry Schein',
-          unitCost: 2.5,
         }),
         id: 'receipt-2',
       },
@@ -286,26 +278,8 @@ describe('medication inventory dataset', () => {
     const rows = await fetchAdHocMedicationInventoryRows(oystehr, { dateRange });
 
     expect(() => AdHocMedicationInventoryOutputSchema.parse({ rows })).not.toThrow();
-    expect(rows[0]).toMatchObject({ entryId: 'receipt-1', vendor: 'McKesson', unitCost: 1.8, extendedCost: 45 });
-    expect(rows[1]).toMatchObject({ entryId: 'receipt-2', vendor: 'Henry Schein', unitCost: 2.5, extendedCost: 25 });
-    expect(rows[2]).toMatchObject({
-      entryType: 'adjustment',
-      vendor: 'Henry Schein',
-      unitCost: 2.5,
-      extendedCost: -2.5,
-    });
-  });
-
-  it('leaves cost null when the lot was received without one', async () => {
-    const freeLot: Medication = {
-      ...withLotOnHand(makeInventoryLot(catalog, { ...lotInput, unitCost: undefined }), 25),
-      id: 'lot-1',
-    };
-    const oystehr = makeOystehr([entries[0]], [freeLot, location, nurse]);
-
-    const rows = await fetchAdHocMedicationInventoryRows(oystehr, { dateRange });
-
-    expect(() => AdHocMedicationInventoryOutputSchema.parse({ rows })).not.toThrow();
-    expect(rows[0]).toMatchObject({ unitCost: null, extendedCost: null, lotOnHand: 25 });
+    expect(rows[0]).toMatchObject({ entryId: 'receipt-1', vendor: 'McKesson' });
+    expect(rows[1]).toMatchObject({ entryId: 'receipt-2', vendor: 'Henry Schein' });
+    expect(rows[2]).toMatchObject({ entryType: 'adjustment', vendor: 'Henry Schein' });
   });
 });

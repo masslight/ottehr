@@ -48,19 +48,12 @@ export const index = wrapHandler(
   }
 );
 
-/** Cost per counted-as item from either way the invoice can be entered, to 4 decimals. */
-export const unitCostFromInput = (cost: ReceiveMedicationShipmentInput['cost']): number | undefined => {
-  if (!cost) return undefined;
-  const perItem = 'perItem' in cost ? cost.perItem : cost.pricePerPackage / cost.itemsPerPackage;
-  return Math.round(perItem * 10_000) / 10_000;
-};
-
 export const performEffect = async (
   oystehr: Oystehr,
   params: ReceiveMedicationShipmentInput,
   performerReference: string
 ): Promise<ReceiveMedicationShipmentResponse> => {
-  const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, manufacturer, vendor, cost } = params;
+  const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, manufacturer, vendor } = params;
 
   const catalog = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: medicationId });
   if (!catalog.id || !isCatalogMedication(catalog)) throw FHIR_RESOURCE_NOT_FOUND('Medication');
@@ -69,7 +62,6 @@ export const performEffect = async (
     throw INVALID_INPUT_ERROR('This medication is not set up for inventory. Save its inventory setup first.');
   }
 
-  const unitCost = unitCostFromInput(cost);
   const sameNumber = await findInventoryLotsByNumber(oystehr, {
     catalogMedicationId: catalog.id,
     locationId,
@@ -106,7 +98,7 @@ export const performEffect = async (
   }
 
   const lot = existingLot
-    ? withLotDetails(existingLot, { vendor, unitCost })
+    ? withLotDetails(existingLot, { vendor })
     : makeInventoryLot(catalog as Medication & { id: string }, {
         locationId,
         lotNumber,
@@ -114,7 +106,6 @@ export const performEffect = async (
         ndc,
         manufacturer,
         vendor,
-        unitCost,
         unit: inventory.countedAs,
       });
 
@@ -126,7 +117,6 @@ export const performEffect = async (
     performerReference,
     effectiveDateTime: DateTime.now().toUTC().toISO(),
     vendor,
-    unitCost,
   });
 
   const parsedLot = parseInventoryLot(written.lot);
