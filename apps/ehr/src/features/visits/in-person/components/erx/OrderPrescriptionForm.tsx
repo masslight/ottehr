@@ -110,10 +110,15 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   const { data: preferredPharmacy } = usePreferredPharmacy(patient?.id, savedPharmacy);
   const [pickedPharmacy, setPickedPharmacy] = useState<PharmacySearchResult | null>(null);
   const pharmacy = fixedPharmacy ?? pickedPharmacy ?? preferredPharmacy ?? null;
-  // The pharmacies this patient's prescriptions went to, once each.
+  // The pharmacies this patient's prescriptions went to, once each, named as any of them names it.
   const sentBefore = (plan?.prescribedMedications ?? []).flatMap((item, i, all) =>
     item.pharmacyId && all.findIndex((other) => other.pharmacyId === item.pharmacyId) === i
-      ? [{ ncpdpId: item.pharmacyId, name: item.pharmacyName }]
+      ? [
+          {
+            ncpdpId: item.pharmacyId,
+            name: all.find((other) => other.pharmacyId === item.pharmacyId && other.pharmacyName)?.pharmacyName,
+          },
+        ]
       : []
   );
 
