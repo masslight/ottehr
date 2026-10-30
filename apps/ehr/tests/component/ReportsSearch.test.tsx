@@ -35,6 +35,7 @@ vi.mock('../../src/layout/PageContainer', () => ({
   default: ({ children }: { children: ReactElement }) => children,
 }));
 
+import { listAdHocReports } from '../../src/api/api';
 import Reports from '../../src/pages/Reports';
 
 const renderReports = async (): Promise<void> => {
@@ -100,5 +101,20 @@ describe('Reports search', () => {
 
     await waitFor(() => expect(screen.getByText('No Results Found')).toBeTruthy());
     expect(screen.queryByRole('link', { name: 'Ad-hoc report' })).toBeNull();
+  });
+
+  it('keeps the saved-report load error visible instead of claiming no results', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(listAdHocReports).mockRejectedValueOnce(new Error('boom'));
+    render(
+      <MemoryRouter>
+        <Reports />
+      </MemoryRouter>
+    );
+    await screen.findByText(/Saved reports could not be loaded/);
+    search('Providers');
+
+    expect(screen.getByText(/Saved reports could not be loaded/)).toBeTruthy();
+    expect(screen.queryByText('No Results Found')).toBeNull();
   });
 });

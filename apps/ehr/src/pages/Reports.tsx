@@ -341,8 +341,9 @@ export default function Reports(): React.ReactElement {
   );
   const visibleSaved = savedReports.filter((report) => matchesReportSearch(query, report.name, report.description));
   const showSavedSection =
-    canViewAdHoc && (query ? visibleSaved.length > 0 : loadingSaved || savedReports.length > 0 || savedError);
-  const noResults = !!query && visibleTiles.length === 0 && visibleSaved.length === 0 && !loadingSaved;
+    canViewAdHoc &&
+    (query ? visibleSaved.length > 0 || savedError : loadingSaved || savedReports.length > 0 || savedError);
+  const noResults = !!query && visibleTiles.length === 0 && visibleSaved.length === 0 && !loadingSaved && !savedError;
 
   const handleTileClick = (path: string): void => {
     navigate(path);
