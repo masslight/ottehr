@@ -824,14 +824,14 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   if (!picked && (readOnly || (hasDirections && !awaitingPick))) setPicked(true);
   // A compound has no suggestions: its blanks show straight away.
   const revealed = picked || compound !== undefined || (line.medication !== null && suggestions.length === 0);
-  // The suggestions fold to their title once one is used (or "Other"); another medication, or a line waiting for a
-  // pick again (a new strength), opens them again.
-  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(false);
+  // The suggestions fold to their title once one is used (or "Other"), and start folded on a line a quick pick or set
+  // filled; another medication, or a line waiting for a pick again (a new strength), opens them again.
+  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(line.pickedSuggestion !== undefined);
   const suggestionsFor = line.drug?.name ?? line.medication?.description;
   const [collapsedFor, setCollapsedFor] = useState(suggestionsFor);
   if (collapsedFor !== suggestionsFor) {
     setCollapsedFor(suggestionsFor);
-    setSuggestionsCollapsed(false);
+    setSuggestionsCollapsed(line.pickedSuggestion !== undefined);
   }
   const changeProduct = (next: PrescriptionLine): void => {
     const changed = next.medication?.ndc !== line.medication?.ndc;
@@ -1197,12 +1197,16 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                     onQuickPick={(quickPick) => {
                       // A quick pick's directions are picked ones: they show.
                       setAwaitingPick(false);
+                      setSuggestionsCollapsed(true);
                       onQuickPick(quickPick);
                       close();
                     }}
                     onSet={(set) => {
                       // An empty line takes the set's first quick pick, whose directions show as a picked quick pick's do.
-                      if (isEmptyPrescriptionLine(line)) setAwaitingPick(false);
+                      if (isEmptyPrescriptionLine(line)) {
+                        setAwaitingPick(false);
+                        setSuggestionsCollapsed(true);
+                      }
                       onSet?.(set);
                       close();
                     }}

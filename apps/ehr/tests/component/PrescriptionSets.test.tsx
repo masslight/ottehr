@@ -599,12 +599,19 @@ describe('Prescription sets on the order form', () => {
       ]
         .sort((x, y) => (x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
         [index].closest('.MuiBox-root')!.parentElement!;
+    // A line a quick pick or set filled starts with its suggestions folded: each box opened to read its rows.
+    const openSuggestions = async (user: ReturnType<typeof userEvent.setup>, lines: number): Promise<void> => {
+      const folded = screen.getAllByRole('button', { name: 'Show suggestions' });
+      expect(folded).toHaveLength(lines);
+      for (const button of folded) await user.click(button);
+    };
 
     it('a quick pick picked from the menu, though second by default', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} sets={[]} />);
       await openMenu(user);
       await user.click(within(quickPickColumn()).getByText('Amox strep'));
+      await openSuggestions(user, 1);
       expect(shownRow(0)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
       expect(shownRow(1)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
     });
@@ -615,6 +622,7 @@ describe('Prescription sets on the order form', () => {
       await openMenu(user);
       await user.click(within(quickPickColumn()).getByText('Acute otitis'));
       // Ibuprofen's line: by default its quick pick, then Acute otitis, then Ear infection.
+      await openSuggestions(user, 2);
       expect(shownRow(0)).toHaveTextContent(/^Acute otitisSet · 2/);
       expect(shownRow(1)).toHaveTextContent(/^Take 5 mL by mouth every 6 hours as needed for pain/);
       expect(shownRow(2)).toHaveTextContent(/^Ear infection/);
@@ -629,6 +637,7 @@ describe('Prescription sets on the order form', () => {
       await openMenu(user);
       // Fourth for Amox by default: Amox as written, Amox strep, Acute otitis.
       await user.click(within(quickPickColumn()).getByText('Ear infection'));
+      await openSuggestions(user, 2);
       expect(shownRow(0)).toHaveTextContent(/Ear infectionSet · 2/);
       expect(shownRow(1)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
       expect(shownRow(2)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
