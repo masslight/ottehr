@@ -1,5 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, DocumentReference, Encounter } from 'fhir/r4b';
+import {
+  buildAppointmentStartMap,
+  getEncounterDateTime,
+  isAnnotationFollowupEncounter,
+  isFreeFormEncounter,
+} from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { MedicalRecordDateRange, MedicalRecordDateSpan } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
@@ -82,15 +88,26 @@ const getDatedPatientDocuments = async (
         encounter.period?.start,
     ])
   );
+  const appointmentStartMap = buildAppointmentStartMap(appointments);
+  const followUpStarts = new Map(
+    encounters
+      .filter((encounter) => isAnnotationFollowupEncounter(encounter) && !isFreeFormEncounter(encounter))
+      .map((encounter) => [encounter.id, getEncounterDateTime(encounter, appointmentStartMap)])
+  );
 
   return documents.map((document) => {
+    const followUpId = document.context?.encounter
+      ?.map((encounter) => referencedId(encounter.reference, 'Encounter'))
+      .find((id) => id !== undefined && followUpStarts.has(id));
     const visitStart =
-      document.context?.related
-        ?.map((related) => appointmentStarts.get(referencedId(related.reference, 'Appointment')))
-        .find(Boolean) ??
-      document.context?.encounter
-        ?.map((encounter) => encounterStarts.get(referencedId(encounter.reference, 'Encounter')))
-        .find(Boolean);
+      followUpId !== undefined
+        ? followUpStarts.get(followUpId)
+        : document.context?.related
+            ?.map((related) => appointmentStarts.get(referencedId(related.reference, 'Appointment')))
+            .find(Boolean) ??
+          document.context?.encounter
+            ?.map((encounter) => encounterStarts.get(referencedId(encounter.reference, 'Encounter')))
+            .find(Boolean);
     return { document, date: Date.parse(visitStart ?? document.date ?? '') };
   });
 };
