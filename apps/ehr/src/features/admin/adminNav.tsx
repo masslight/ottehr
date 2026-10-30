@@ -54,7 +54,7 @@ import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
-import { ADMIN_TIER_ROLES, RoleType } from 'utils/lib/types/api/user.types';
+import { ADMIN_TIER_ROLES, INVENTORY_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import PaperworkFlowsAdminPage from '../visits/telemed/components/admin/paperwork-flows/PaperworkFlowsAdminPage';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 
@@ -169,6 +169,7 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: 'Inventory',
         path: '/admin/inventory',
         icon: <Inventory2OutlinedIcon />,
+        allowedRoles: INVENTORY_STAFF_ROLES,
         render: () => <InventoryAdminPage />,
       },
     ],

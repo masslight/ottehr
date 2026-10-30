@@ -251,6 +251,51 @@ describe('medication inventory dataset', () => {
     expect(rows[3]).toMatchObject({ entryType: 'count', reason: 'no-difference', quantity: 0, extendedCost: 0 });
   });
 
+  it("prices each receipt at its own cost and vendor, and everything else at the lot's latest", async () => {
+    const latestLot: Medication = {
+      ...withLotOnHand(makeInventoryLot(catalog, { ...lotInput, vendor: 'Henry Schein', unitCost: 2.5 }), 33),
+      id: 'lot-1',
+    };
+    const receipts: Observation[] = [
+      {
+        ...makeInventoryStockEntry({
+          ...base,
+          type: 'received',
+          quantity: 25,
+          effectiveDateTime: '2026-10-01T14:02:00Z',
+          vendor: 'McKesson',
+          unitCost: 1.8,
+        }),
+        id: 'receipt-1',
+      },
+      {
+        ...makeInventoryStockEntry({
+          ...base,
+          type: 'received',
+          quantity: 10,
+          effectiveDateTime: '2026-10-05T14:02:00Z',
+          vendor: 'Henry Schein',
+          unitCost: 2.5,
+        }),
+        id: 'receipt-2',
+      },
+      entries[2],
+    ];
+    const oystehr = makeOystehr(receipts, [latestLot, location, nurse]);
+
+    const rows = await fetchAdHocMedicationInventoryRows(oystehr, { dateRange });
+
+    expect(() => AdHocMedicationInventoryOutputSchema.parse({ rows })).not.toThrow();
+    expect(rows[0]).toMatchObject({ entryId: 'receipt-1', vendor: 'McKesson', unitCost: 1.8, extendedCost: 45 });
+    expect(rows[1]).toMatchObject({ entryId: 'receipt-2', vendor: 'Henry Schein', unitCost: 2.5, extendedCost: 25 });
+    expect(rows[2]).toMatchObject({
+      entryType: 'adjustment',
+      vendor: 'Henry Schein',
+      unitCost: 2.5,
+      extendedCost: -2.5,
+    });
+  });
+
   it('leaves cost null when the lot was received without one', async () => {
     const freeLot: Medication = {
       ...withLotOnHand(makeInventoryLot(catalog, { ...lotInput, unitCost: undefined }), 25),

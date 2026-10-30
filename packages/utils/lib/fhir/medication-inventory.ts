@@ -80,8 +80,9 @@ export const getMedicationInventoryConfig = (medication: Medication): InHouseMed
 
 // ─── Lots and stock entries ───────────────────────────────────────────────────
 //
-// A lot is one Medication per drug × clinic × lot number (batch holds lot number and expiration, both
-// searchable). Every stock change is an Observation whose subject is the lot: Observation was chosen over
+// A lot is one Medication per drug × clinic × lot number × expiration date (batch holds lot number and
+// expiration, both searchable; the same number can be on hand twice when a shipment arrived with a different
+// date and staff chose to keep it separate). Every stock change is an Observation whose subject is the lot: Observation was chosen over
 // Basic because Oystehr searches only standard parameters, and Observation has one for everything the
 // inventory screens, tasks and reports filter on (subject, focus, part-of, derived-from, date, code,
 // category, performer, value-quantity). See documents/otr-3339-fhir-inventory-modeling.md, "Decision".
@@ -101,6 +102,9 @@ const LOT_VENDOR = 'vendor';
 const LOT_UNIT_COST = 'unit-cost';
 const LOT_ON_HAND = 'on-hand';
 const USD = 'USD';
+
+/** On a received entry: that shipment's vendor and unit cost (same sub-extension urls as the lot's). */
+export const INVENTORY_STOCK_ENTRY_EXTENSION_URL = ottehrExtensionUrl('inventory-stock-entry');
 
 export const INVENTORY_STOCK_ENTRY_CODE = 'inventory-stock-entry';
 export const INVENTORY_STOCK_ENTRY_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-stock-entry');
@@ -274,6 +278,21 @@ export const makeInventoryStockEntry = (input: InventoryStockEntryInput): Observ
   effectiveDateTime: input.effectiveDateTime,
   valueQuantity: { value: input.quantity, unit: input.unit },
   ...(input.note ? { note: [{ text: input.note }] } : {}),
+  ...(input.vendor || input.unitCost !== undefined
+    ? {
+        extension: [
+          {
+            url: INVENTORY_STOCK_ENTRY_EXTENSION_URL,
+            extension: [
+              ...(input.vendor ? [{ url: LOT_VENDOR, valueString: input.vendor }] : []),
+              ...(input.unitCost !== undefined
+                ? [{ url: LOT_UNIT_COST, valueMoney: { value: input.unitCost, currency: USD } }]
+                : []),
+            ],
+          },
+        ],
+      }
+    : {}),
   ...(input.components?.length
     ? {
         component: input.components.map((component) => ({
@@ -324,6 +343,9 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
       ? [{ code, value, unit: component.valueQuantity?.unit ?? '' }]
       : [];
   });
+  const details = getExtension(observation, INVENTORY_STOCK_ENTRY_EXTENSION_URL);
+  const vendor = details ? getExtension(details, LOT_VENDOR)?.valueString : undefined;
+  const unitCost = details ? getExtension(details, LOT_UNIT_COST)?.valueMoney?.value : undefined;
   return {
     id: observation.id,
     lotId,
@@ -338,6 +360,8 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
     reversesEntryId: observation.derivedFrom?.[0]?.reference?.replace('Observation/', ''),
     note: observation.note?.[0]?.text,
     ...(components.length ? { components } : {}),
+    ...(vendor ? { vendor } : {}),
+    ...(unitCost !== undefined ? { unitCost } : {}),
   };
 };
 

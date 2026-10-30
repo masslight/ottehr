@@ -13,6 +13,7 @@ import {
   Link,
   MenuItem,
   Select,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material';
@@ -24,12 +25,14 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useRef, useState } from 'react';
 import { getMedicationInventory, lookupNdc, receiveMedicationShipment } from 'src/api/api';
+import { formatExpiration, unitLabel } from 'src/features/admin/inventory/inventory.helpers';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import {
   InHouseMedicationInventory,
   LookupNdcResponse,
   MEDICATION_COUNTED_AS_LABELS,
+  ReceiveExpirationConflict,
   ReceiveMedicationShipmentInput,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { ConfirmationDialog } from '../ConfirmationDialog';
@@ -108,6 +111,8 @@ export default function ReceiveShipmentDialog({
   const [lookup, setLookup] = useState<LookupState>({ status: 'idle' });
   const [prefilledFromLastLot, setPrefilledFromLastLot] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Set when the clinic already has this lot number with another expiration date; staff pick what to do.
+  const [conflict, setConflict] = useState<ReceiveExpirationConflict | undefined>(undefined);
   const setField = <K extends keyof ReceiveFormState>(field: K, value: ReceiveFormState[K]): void =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -171,11 +176,13 @@ export default function ReceiveShipmentDialog({
     };
   }, [form.ndc, oystehrZambda, medication.id]);
 
-  const receive = async (): Promise<void> => {
+  const clinicName = clinics.find((clinic) => clinic.id === form.locationId)?.name ?? 'the clinic';
+
+  const receive = async (expirationConflict?: ReceiveMedicationShipmentInput['expirationConflict']): Promise<void> => {
     if (!oystehrZambda || !form.expirationDate) return;
     setSaving(true);
     try {
-      await receiveMedicationShipment(oystehrZambda, {
+      const result = await receiveMedicationShipment(oystehrZambda, {
         medicationId: medication.id,
         locationId: form.locationId,
         lotNumber: form.lotNumber.trim(),
@@ -185,8 +192,13 @@ export default function ReceiveShipmentDialog({
         manufacturer: form.manufacturer.trim() || undefined,
         vendor: form.vendor.trim() || undefined,
         cost: toCostInput(form),
+        expirationConflict,
       });
-      const clinicName = clinics.find((clinic) => clinic.id === form.locationId)?.name ?? 'the clinic';
+      if ('expirationConflict' in result) {
+        setConflict(result.expirationConflict);
+        return;
+      }
+      setConflict(undefined);
       enqueueSnackbar(`Received ${quantity} ${units.plural} of ${name} at ${clinicName}`, { variant: 'success' });
       onClose();
     } catch (error) {
@@ -421,7 +433,7 @@ export default function ReceiveShipmentDialog({
               description={`The FDA NDC directory says NDC ${product?.packageNdc ?? form.ndc.trim()} is ${
                 product?.name ?? 'a different drug'
               }, not ${name}.`}
-              response={receive}
+              response={() => receive()}
               actionButtons={{ proceed: { text: receiveLabel, color: 'error', loading: saving }, reverse: true }}
             >
               {(showDialog) => (
@@ -445,6 +457,87 @@ export default function ReceiveShipmentDialog({
           )}
         </DialogActions>
       </form>
+      {conflict && form.expirationDate ? (
+        <ExpirationConflictDialog
+          conflict={conflict}
+          lotNumber={form.lotNumber.trim()}
+          clinicName={clinicName}
+          enteredDate={form.expirationDate.toISODate() ?? ''}
+          quantity={quantity}
+          saving={saving}
+          onChoose={(choice) => void receive(choice)}
+          onBack={() => setConflict(undefined)}
+        />
+      ) : null}
+    </Dialog>
+  );
+}
+
+/** The warning when a lot number is already on hand with a different expiration date (OTR-3339). */
+function ExpirationConflictDialog({
+  conflict,
+  lotNumber,
+  clinicName,
+  enteredDate,
+  quantity,
+  saving,
+  onChoose,
+  onBack,
+}: {
+  conflict: ReceiveExpirationConflict;
+  lotNumber: string;
+  clinicName: string;
+  enteredDate: string;
+  quantity: number;
+  saving: boolean;
+  onChoose: (choice: NonNullable<ReceiveMedicationShipmentInput['expirationConflict']>) => void;
+  onBack: () => void;
+}): ReactElement {
+  const existing = formatExpiration(conflict.expirationDate);
+  const entered = formatExpiration(enteredDate);
+  const onHand = `${conflict.onHand} ${unitLabel(conflict.unit, conflict.onHand)}`;
+  const adding = `${quantity} ${unitLabel(conflict.unit, quantity)}`;
+  const choices: {
+    choice: NonNullable<ReceiveMedicationShipmentInput['expirationConflict']>;
+    label: string;
+    help: string;
+  }[] = [
+    {
+      choice: 'separate-lot',
+      label: 'Add as a Separate Lot',
+      help: `Keeps the ${onHand} expiring ${existing} and adds ${adding} expiring ${entered}. Both appear in the lot list on the medication card.`,
+    },
+    {
+      choice: 'correct-existing',
+      label: `Correct the Existing Lot to ${entered}`,
+      help: `Changes the expiration of the ${onHand} already on hand and adds the ${adding} to that lot. The change is recorded in the lot's history.`,
+    },
+  ];
+  return (
+    <Dialog open onClose={onBack} maxWidth="xs" fullWidth>
+      <DialogTitle component={Typography} variant="h5" color="primary.dark" sx={{ pb: 1 }}>
+        Lot {lotNumber} is already on hand at {clinicName} with expiration {existing}.
+      </DialogTitle>
+      <DialogContent sx={{ pb: 2 }}>
+        <Typography>You entered {entered}.</Typography>
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          {choices.map(({ choice, label, help }) => (
+            <Box key={choice}>
+              <LoadingButton variant="contained" loading={saving} sx={buttonSx} onClick={() => onChoose(choice)}>
+                {label}
+              </LoadingButton>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {help}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button variant="outlined" onClick={onBack} disabled={saving} sx={buttonSx}>
+          Go Back
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }

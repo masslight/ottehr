@@ -15,7 +15,9 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
-import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { ADMIN_TIER_ROLES } from 'utils/lib/types/api/user.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { callerHasRole, checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
@@ -28,6 +30,15 @@ export const index = wrapHandler(
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, inventory, secrets } =
       validateRequestParameters(input);
+
+    // Inventory setup (counted-as, reorder levels; null clears it) is admin-tier; the rest of the update is not.
+    if (inventory !== undefined && !(await callerHasRole(input.headers?.Authorization, secrets, ADMIN_TIER_ROLES))) {
+      throw {
+        code: APIErrorCode.NOT_AUTHORIZED,
+        message: "You are not permitted to change a medication's inventory setup.",
+      };
+    }
+
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);

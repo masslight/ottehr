@@ -14,10 +14,11 @@ import {
   ReceiveMedicationShipmentInput,
   ReceiveMedicationShipmentResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
+import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { callerHasRole, checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { findInventoryLot, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
+import { findInventoryLotsByNumber, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
@@ -29,6 +30,11 @@ export const index = wrapHandler(
   'admin-receive-medication-shipment',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { userToken, secrets, ...params } = validateRequestParameters(input);
+
+    if (!(await callerHasRole(input.headers?.Authorization, secrets, INVENTORY_STAFF_ROLES))) {
+      throw { code: APIErrorCode.NOT_AUTHORIZED, message: 'You are not permitted to receive medication shipments.' };
+    }
+
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
@@ -64,11 +70,39 @@ export const performEffect = async (
   }
 
   const unitCost = unitCostFromInput(cost);
-  const existingLot = await findInventoryLot(oystehr, { catalogMedicationId: catalog.id, locationId, lotNumber });
-  if (existingLot?.batch?.expirationDate && existingLot.batch.expirationDate !== expirationDate) {
-    throw INVALID_INPUT_ERROR(
-      `Lot ${lotNumber} at this clinic already has expiration date ${existingLot.batch.expirationDate}`
+  const sameNumber = await findInventoryLotsByNumber(oystehr, {
+    catalogMedicationId: catalog.id,
+    locationId,
+    lotNumber,
+  });
+  let existingLot = sameNumber.find((lot) => lot.batch?.expirationDate === expirationDate);
+
+  // Same number, different expiration: staff decide whether that is a second lot or a typo in the first one.
+  const otherExpiration = existingLot ? undefined : sameNumber.find((lot) => lot.batch?.expirationDate);
+  if (otherExpiration && !params.expirationConflict) {
+    const parsed = parseInventoryLot(otherExpiration);
+    if (!parsed) throw new Error(`Medication/${otherExpiration.id} could not be read as an inventory lot`);
+    const { id: lotId, expirationDate: existingDate, onHand, unit } = parsed;
+    return { expirationConflict: { lotId, expirationDate: existingDate, onHand, unit } };
+  }
+  if (otherExpiration && params.expirationConflict === 'correct-existing') {
+    const previous = otherExpiration.batch?.expirationDate ?? '';
+    const corrected = await writeInventoryStockEntry(
+      oystehr,
+      otherExpiration,
+      {
+        locationId,
+        type: 'adjustment',
+        reason: 'expiration-corrected',
+        quantity: 0,
+        unit: inventory.countedAs,
+        performerReference,
+        effectiveDateTime: DateTime.now().toUTC().toISO(),
+        note: `Expiration changed from ${formatDate(previous)} to ${formatDate(expirationDate)}`,
+      },
+      (lot) => ({ ...lot, batch: { ...lot.batch, expirationDate } })
     );
+    existingLot = corrected.lot;
   }
 
   const lot = existingLot
@@ -91,6 +125,8 @@ export const performEffect = async (
     unit: inventory.countedAs,
     performerReference,
     effectiveDateTime: DateTime.now().toUTC().toISO(),
+    vendor,
+    unitCost,
   });
 
   const parsedLot = parseInventoryLot(written.lot);
@@ -98,3 +134,6 @@ export const performEffect = async (
   if (!parsedLot || !parsedEntry) throw new Error('Stock entry was written but could not be read back');
   return { lot: parsedLot, entry: parsedEntry };
 };
+
+// Expiration dates are calendar dates (no zone); shown the way the inventory screen shows them.
+const formatDate = (isoDate: string): string => DateTime.fromISO(isoDate).toFormat('MM/dd/yyyy');

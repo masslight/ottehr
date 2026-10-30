@@ -63,7 +63,10 @@ export const MedicationInventoryBaseRowSchema = z.object({
   unitCost: z
     .number()
     .nullable()
-    .describe('Cost per stock unit in USD, as entered when the lot was received. Null when no cost was entered.'),
+    .describe(
+      'Cost per stock unit in USD: on a received entry the cost of that shipment, on every other entry the cost the ' +
+        'lot was last received at. Null when no cost was entered.'
+    ),
   extendedCost: z
     .number()
     .nullable()
@@ -78,12 +81,17 @@ export const MedicationInventoryBaseRowSchema = z.object({
   clinicId: z.string().describe('Location id (internal — joins).'),
   medication: z.string().describe('Medication name as listed in the in-house medication catalog.'),
   medicationId: z.string().describe('Catalog medication id (internal — joins).'),
-  lotId: z.string().describe('Lot id (internal — joins). A lot is one drug × clinic × lot number.'),
+  lotId: z.string().describe('Lot id (internal — joins). A lot is one drug × clinic × lot number × expiration date.'),
   lotNumber: z.string().describe('Manufacturer lot number.'),
   expirationDate: z.string().describe('The lot\'s expiration date (yyyy-MM-dd). "" when unknown.'),
   ndc: z.string().describe('NDC from the box. "" when none.'),
   manufacturer: z.string().describe('Manufacturer. "" when none.'),
-  vendor: z.string().describe('Vendor the lot was bought from. "" when none.'),
+  vendor: z
+    .string()
+    .describe(
+      'Vendor: on a received entry the vendor of that shipment, on every other entry the vendor the lot was last ' +
+        'received from. "" when none.'
+    ),
   lotOnHand: z
     .number()
     .nullable()

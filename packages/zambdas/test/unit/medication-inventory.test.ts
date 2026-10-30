@@ -19,7 +19,11 @@ import {
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { InHouseMedicationInventory } from 'utils/lib/types/api/config/in-house-medications';
+import {
+  InHouseMedicationInventory,
+  InventoryStockWriteResponse,
+  ReceiveMedicationShipmentResponse,
+} from 'utils/lib/types/api/config/in-house-medications';
 import {
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -206,6 +210,27 @@ describe('inventory stock entry', () => {
     });
   });
 
+  it("keeps a receipt's own vendor and unit cost on the entry", () => {
+    const observation = {
+      ...makeInventoryStockEntry({
+        lotReference: 'Medication/lot-1',
+        locationId: 'loc-a',
+        type: 'received',
+        quantity: 25,
+        unit: 'vial',
+        effectiveDateTime: '2026-10-30T14:02:00Z',
+        vendor: 'McKesson',
+        unitCost: 1.8,
+      }),
+      id: 'entry-3',
+    };
+    expect(observation.extension?.[0]?.extension).toEqual([
+      { url: 'vendor', valueString: 'McKesson' },
+      { url: 'unit-cost', valueMoney: { value: 1.8, currency: 'USD' } },
+    ]);
+    expect(parseInventoryStockEntry(observation)).toMatchObject({ vendor: 'McKesson', unitCost: 1.8 });
+  });
+
   it('ignores a chart Observation', () => {
     const vital: Observation = {
       resourceType: 'Observation',
@@ -340,6 +365,14 @@ describe('receive-medication-shipment - validateRequestParameters', () => {
     expect(result).toMatchObject({ ...receiveBody, userToken: 'test-token' });
   });
 
+  it('accepts a choice for a lot number already on hand with another expiration date', () => {
+    expect(
+      validateRequestParameters(createInput({ ...receiveBody, expirationConflict: 'correct-existing' }))
+        .expirationConflict
+    ).toBe('correct-existing');
+    expect(() => validateRequestParameters(createInput({ ...receiveBody, expirationConflict: 'overwrite' }))).toThrow();
+  });
+
   it('accepts a per-item cost and no optional fields', () => {
     const { manufacturer: _m, vendor: _v, cost: _c, ...required } = receiveBody;
     expect(validateRequestParameters(createInput({ ...required, cost: { perItem: 1.8 } })).cost).toEqual({
@@ -365,6 +398,11 @@ describe('receive-medication-shipment - validateRequestParameters', () => {
 
 describe('receive-medication-shipment - performEffect', () => {
   const performer = 'Practitioner/nurse-1';
+  /** The write result; fails the test if the zambda answered with an expiration conflict instead. */
+  const written = (result: ReceiveMedicationShipmentResponse): InventoryStockWriteResponse => {
+    if ('expirationConflict' in result) throw new Error('expected a write, got an expiration conflict');
+    return result;
+  };
 
   it('converts package pricing to a per-item cost', () => {
     expect(unitCostFromInput({ pricePerPackage: 45, itemsPerPackage: 25 })).toBe(1.8);
@@ -393,7 +431,7 @@ describe('receive-medication-shipment - performEffect', () => {
   it('creates the lot when drug × clinic × lot number is new and writes a received entry', async () => {
     const oystehr = makeMockOystehr();
     oystehr.fhir.get.mockResolvedValue(catalog);
-    const result = await receivePerformEffect(oystehr, receiveBody, performer);
+    const result = written(await receivePerformEffect(oystehr, receiveBody, performer));
 
     const [{ params }] = oystehr.fhir.search.mock.calls[0];
     expect(params).toContainEqual({ name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|med-catalog` });
@@ -428,10 +466,12 @@ describe('receive-medication-shipment - performEffect', () => {
   it('adds to the existing lot, updating vendor and cost when given', async () => {
     const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
     oystehr.fhir.get.mockResolvedValue(catalog);
-    const result = await receivePerformEffect(
-      oystehr,
-      { ...receiveBody, quantity: 10, vendor: 'Henry Schein', cost: { perItem: 2 } },
-      performer
+    const result = written(
+      await receivePerformEffect(
+        oystehr,
+        { ...receiveBody, quantity: 10, vendor: 'Henry Schein', cost: { perItem: 2 } },
+        performer
+      )
     );
 
     const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
@@ -444,16 +484,109 @@ describe('receive-medication-shipment - performEffect', () => {
     const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
     oystehr.fhir.get.mockResolvedValue(catalog);
     const { vendor: _v, cost: _c, ...body } = receiveBody;
-    const result = await receivePerformEffect(oystehr, { ...body, quantity: 5 }, performer);
+    const result = written(await receivePerformEffect(oystehr, { ...body, quantity: 5 }, performer));
     expect(result.lot).toMatchObject({ vendor: 'McKesson', unitCost: 1.8, onHand: 30 });
   });
 
-  it('rejects the same lot number at the same clinic with a different expiration date', async () => {
-    const oystehr = makeMockOystehr({ lots: [existingLot] });
+  it('records each receipt with its own vendor and cost while the lot keeps the latest', async () => {
+    const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
     oystehr.fhir.get.mockResolvedValue(catalog);
-    await expect(
-      receivePerformEffect(oystehr, { ...receiveBody, expirationDate: '2028-01-01' }, performer)
-    ).rejects.toMatchObject({ message: expect.stringContaining('2027-03-31') });
-    expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+    const first = await receivePerformEffect(oystehr, { ...receiveBody, cost: { perItem: 2 } }, performer);
+    const second = await receivePerformEffect(
+      oystehr,
+      { ...receiveBody, quantity: 10, vendor: 'Henry Schein', cost: { perItem: 3 } },
+      performer
+    );
+
+    expect(first).toMatchObject({ entry: { vendor: 'McKesson', unitCost: 2 }, lot: { unitCost: 2 } });
+    expect(second).toMatchObject({ entry: { vendor: 'Henry Schein', unitCost: 3 }, lot: { unitCost: 3 } });
+    // what was written is what the history reads back
+    const writtenEntry = oystehr.fhir.transaction.mock.calls[1][0].requests[0].resource as Observation;
+    expect(parseInventoryStockEntry({ ...writtenEntry, id: 'x' })).toMatchObject({
+      vendor: 'Henry Schein',
+      unitCost: 3,
+    });
+  });
+
+  it('does not stamp vendor or cost on a receipt entered without them', async () => {
+    const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
+    oystehr.fhir.get.mockResolvedValue(catalog);
+    const { vendor: _v, cost: _c, ...body } = receiveBody;
+    const { entry: receipt } = written(await receivePerformEffect(oystehr, body, performer));
+    expect(receipt.vendor).toBeUndefined();
+    expect(receipt.unitCost).toBeUndefined();
+  });
+
+  describe('same lot number with a different expiration date', () => {
+    const newDate = { ...receiveBody, quantity: 10, expirationDate: '2028-01-01' };
+
+    it('answers with the existing lot and writes nothing when no choice was made', async () => {
+      const oystehr = makeMockOystehr({ lots: [existingLot] });
+      oystehr.fhir.get.mockResolvedValue(catalog);
+      const result = await receivePerformEffect(oystehr, newDate, performer);
+      expect(result).toEqual({
+        expirationConflict: { lotId: 'lot-1', expirationDate: '2027-03-31', onHand: 25, unit: 'vial' },
+      });
+      expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+    });
+
+    it('separate-lot creates a second lot with the same number and leaves the first alone', async () => {
+      const oystehr = makeMockOystehr({ lots: [existingLot] });
+      oystehr.fhir.get.mockResolvedValue(catalog);
+      const result = await receivePerformEffect(oystehr, { ...newDate, expirationConflict: 'separate-lot' }, performer);
+
+      expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
+      const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
+      expect(requests.map((r: any) => r.method)).toEqual(['POST', 'POST']);
+      expect(requests[0].resource.batch).toEqual({ lotNumber: 'A123', expirationDate: '2028-01-01' });
+      expect(result).toMatchObject({ lot: { lotNumber: 'A123', expirationDate: '2028-01-01', onHand: 10 } });
+      expect(result).not.toMatchObject({ lot: { id: 'lot-1' } });
+    });
+
+    it('correct-existing changes the expiration, records it as a zero entry, then receives into the lot', async () => {
+      const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
+      oystehr.fhir.get.mockResolvedValue(catalog);
+      const result = await receivePerformEffect(
+        oystehr,
+        { ...newDate, expirationConflict: 'correct-existing' },
+        performer
+      );
+
+      expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(2);
+      const correction = oystehr.fhir.transaction.mock.calls[0][0].requests;
+      expect(correction.map((r: any) => r.method)).toEqual(['POST', 'PUT']);
+      expect(parseInventoryStockEntry({ ...correction[0].resource, id: 'x' })).toMatchObject({
+        type: 'adjustment',
+        reason: 'expiration-corrected',
+        quantity: 0,
+        note: 'Expiration changed from 03/31/2027 to 01/01/2028',
+        performerReference: performer,
+      });
+      expect(correction[1].ifMatch).toBe('W/"3"');
+      expect(correction[1].resource.batch).toEqual({ lotNumber: 'A123', expirationDate: '2028-01-01' });
+
+      const receipt = oystehr.fhir.transaction.mock.calls[1][0].requests;
+      expect(receipt.map((r: any) => r.method)).toEqual(['POST', 'PUT']);
+      expect(receipt[0].resource.subject).toEqual({ reference: 'Medication/lot-1' });
+      expect(result).toMatchObject({
+        lot: { id: 'lot-1', expirationDate: '2028-01-01', onHand: 35 },
+        entry: { type: 'received', quantity: 10 },
+      });
+    });
+
+    it('adds to the lot with the matching expiration when the clinic holds the number under two dates', async () => {
+      const laterLot: Medication = {
+        ...existingLot,
+        id: 'lot-2',
+        batch: { lotNumber: 'A123', expirationDate: '2028-01-01' },
+      };
+      const oystehr = makeMockOystehr({ lots: [existingLot, laterLot], ledger: [entry(25)] });
+      oystehr.fhir.get.mockResolvedValue(catalog);
+      const result = await receivePerformEffect(oystehr, newDate, performer);
+
+      expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
+      expect(oystehr.fhir.transaction.mock.calls[0][0].requests[1].url).toBe('/Medication/lot-2');
+      expect(result).toMatchObject({ lot: { id: 'lot-2', expirationDate: '2028-01-01' } });
+    });
   });
 });

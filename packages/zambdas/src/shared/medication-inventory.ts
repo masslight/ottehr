@@ -23,11 +23,17 @@ import { createStockLevelTasksAfterWrite } from './medication-inventory-tasks';
 
 const INVENTORY_CATEGORY_PARAM = `${INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM}|${INVENTORY_STOCK_ENTRY_CODE}`;
 
-/** The lot of `catalogMedicationId` at `locationId` with this lot number, if one exists. */
-export async function findInventoryLot(
+export interface InventoryLotKey {
+  catalogMedicationId: string;
+  locationId: string;
+  lotNumber: string;
+}
+
+/** Every lot of `catalogMedicationId` at `locationId` with this lot number (one per expiration date). */
+export async function findInventoryLotsByNumber(
   oystehr: Oystehr,
-  { catalogMedicationId, locationId, lotNumber }: { catalogMedicationId: string; locationId: string; lotNumber: string }
-): Promise<Medication | undefined> {
+  { catalogMedicationId, locationId, lotNumber }: InventoryLotKey
+): Promise<Medication[]> {
   const lots = (
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
@@ -38,8 +44,18 @@ export async function findInventoryLot(
       ],
     })
   ).unbundle();
-  // lot-number is a string search (prefix, case-insensitive); keep only the exact lot
-  return lots.find((lot) => isInventoryLot(lot) && lot.batch?.lotNumber === lotNumber);
+  // lot-number is a string search (prefix, case-insensitive); keep only the exact number
+  return lots.filter((lot) => isInventoryLot(lot) && lot.batch?.lotNumber === lotNumber);
+}
+
+/** The lot of `catalogMedicationId` at `locationId` with this lot number and expiration date, if one exists. */
+export async function findInventoryLot(
+  oystehr: Oystehr,
+  key: InventoryLotKey & { expirationDate: string }
+): Promise<Medication | undefined> {
+  return (await findInventoryLotsByNumber(oystehr, key)).find(
+    (lot) => lot.batch?.expirationDate === key.expirationDate
+  );
 }
 
 /** Every ledger entry of a lot, oldest first. */
@@ -65,7 +81,9 @@ export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
  * `lot` is either an existing lot (has an id; its current version guards the write with If-Match and the
  * write retries from a fresh read on a 412, at most 3 attempts) or a lot built with `makeInventoryLot` that
  * does not exist yet (created in the same bundle; the entry references it by transaction-local urn).
- * On hand is recomputed from every entry of the lot plus this one, never incremented.
+ * On hand is recomputed from every entry of the lot plus this one, never incremented. `reviseLot` changes
+ * other lot fields (e.g. `batch.expirationDate`) in the same write; it is applied to whichever version of
+ * the lot is written, so a retry from a fresh read keeps the change.
  *
  * After the write, the drug's clinic total is checked for reorder / below-zero tasks; that check never fails
  * the write.
@@ -73,9 +91,10 @@ export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
 export async function writeInventoryStockEntry(
   oystehr: Oystehr,
   lot: Medication,
-  entry: StockEntryWrite
+  entry: StockEntryWrite,
+  reviseLot?: (lot: Medication) => Medication
 ): Promise<{ lot: Medication; entry: Observation }> {
-  const written = await writeStockEntryTransaction(oystehr, lot, entry);
+  const written = await writeStockEntryTransaction(oystehr, lot, entry, reviseLot);
   await createStockLevelTasksAfterWrite(oystehr, written.lot, entry.quantity);
   return written;
 }
@@ -83,7 +102,8 @@ export async function writeInventoryStockEntry(
 async function writeStockEntryTransaction(
   oystehr: Oystehr,
   lot: Medication,
-  entry: StockEntryWrite
+  entry: StockEntryWrite,
+  reviseLot: (lot: Medication) => Medication = (lot) => lot
 ): Promise<{ lot: Medication; entry: Observation }> {
   if (!lot.id) {
     const lotUrn = `urn:uuid:${randomUUID()}`;
@@ -122,7 +142,7 @@ async function writeStockEntryTransaction(
       const updateLot: BatchInputPutRequest<Medication> = {
         method: 'PUT',
         url: `/Medication/${lotId}`,
-        resource: withLotOnHand(current, onHand),
+        resource: withLotOnHand(reviseLot(current), onHand),
         ifMatch: makeOptimisticLockIfMatchHeader(current),
       };
       const result = await oystehr.fhir.transaction<Medication | Observation>({ requests: [createEntry, updateLot] });

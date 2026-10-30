@@ -8,8 +8,9 @@ import {
   AdjustMedicationInventoryResponse,
   InventoryLot,
 } from 'utils/lib/types/api/config/in-house-medications';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
+import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { callerHasRole, checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { StockEntryWrite, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
@@ -24,6 +25,11 @@ export const index = wrapHandler(
   'admin-adjust-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { userToken, secrets, ...params } = validateRequestParameters(input);
+
+    if (!(await callerHasRole(input.headers?.Authorization, secrets, INVENTORY_STAFF_ROLES))) {
+      throw { code: APIErrorCode.NOT_AUTHORIZED, message: 'You are not permitted to adjust medication inventory.' };
+    }
+
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);

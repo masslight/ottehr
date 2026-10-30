@@ -18,7 +18,6 @@ import RecentPatients from 'src/pages/reports/RecentPatients';
 import VisitsOverview from 'src/pages/reports/VisitsOverview';
 import { setupSentry } from 'utils/lib/frontend/configurations/sentry';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
-import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
@@ -32,7 +31,7 @@ import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
 import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
-import { DEFAULT_BILLING_PATH } from './features/admin/adminNav';
+import { DEFAULT_BILLING_PATH, resolveAccessibleAdminNavGroups } from './features/admin/adminNav';
 import {
   BILLING_URL,
   CHARGE_MASTERS_URL,
@@ -330,10 +329,13 @@ function App(): ReactElement {
                 <Route path="/patients" element={<PatientsPage />} />
                 <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
 
-                {currentUser.hasRole(GLOBAL_ACTION_LOG_VIEWER_ROLES) && (
+                {/* Non-admin roles get the admin pages their role is allowed (Action Logs, Inventory) and the
+                    drug page for receiving shipments; AdminPage sends any other tab to the first allowed one. */}
+                {resolveAccessibleAdminNavGroups(currentUser.hasRole).length > 0 && (
                   <Route element={<AdminLayout />}>
                     <Route path="/admin" element={<AdminPage />} />
                     <Route path="/admin/:adminTab" element={<AdminPage />} />
+                    <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   </Route>
                 )}
 

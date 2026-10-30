@@ -34,6 +34,7 @@ import {
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
 import {
   getMedicationName,
@@ -55,6 +56,7 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { ADMIN_TIER_ROLES } from 'utils/lib/types/api/user.types';
 
 function getMedispanId(medication: Medication | null): string | undefined {
   return medication?.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
@@ -131,6 +133,8 @@ function toInventoryInput(form: InventoryFormState, locationIds: string[]): InHo
 
 export default function UpdateMedicationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
+  // Staff reach this page to receive shipments; the catalog entry and inventory setup stay admin-tier.
+  const canEditSetup = useEvolveUser()?.hasRole(ADMIN_TIER_ROLES) ?? false;
   const medicationId = useParams()['medication-id'];
   const [loading, setLoading] = useState<boolean>(false);
   const [medication, setMedication] = useState<Medication | null>(null);
@@ -378,7 +382,9 @@ export default function UpdateMedicationPage(): ReactElement {
                   Inventory
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Leave blank to not track stock for this medication. Its medication card then works as today.
+                  {canEditSetup
+                    ? 'Leave blank to not track stock for this medication. Its medication card then works as today.'
+                    : 'Only an administrator or manager can change the inventory setup.'}
                 </Typography>
               </Grid>
               <Grid item xs={3}>
@@ -387,6 +393,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   <Select
                     labelId="inventory-counted-as-label"
                     label="Counted as"
+                    disabled={!canEditSetup}
                     value={inventoryForm.countedAs}
                     onChange={(e) => setInventoryField('countedAs', e.target.value as MedicationCountedAs | '')}
                   >
@@ -407,7 +414,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   type="number"
                   inputProps={{ min: 0, step: 'any' }}
                   required={Boolean(inventoryForm.countedAs)}
-                  disabled={!inventoryForm.countedAs}
+                  disabled={!canEditSetup || !inventoryForm.countedAs}
                   value={inventoryForm.eachContainsAmount}
                   onChange={(e) => setInventoryField('eachContainsAmount', e.target.value)}
                   sx={{ flex: 1 }}
@@ -418,7 +425,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     labelId="inventory-each-contains-unit-label"
                     label="Unit"
                     required={Boolean(inventoryForm.countedAs)}
-                    disabled={!inventoryForm.countedAs}
+                    disabled={!canEditSetup || !inventoryForm.countedAs}
                     value={inventoryForm.eachContainsUnit}
                     onChange={(e) => setInventoryField('eachContainsUnit', e.target.value as MedicationUnitOptions)}
                   >
@@ -436,7 +443,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   type="number"
                   inputProps={{ min: 0, step: 'any' }}
                   required={Boolean(inventoryForm.inUnit)}
-                  disabled={!inventoryForm.countedAs}
+                  disabled={!canEditSetup || !inventoryForm.countedAs}
                   value={inventoryForm.inAmount}
                   onChange={(e) => setInventoryField('inAmount', e.target.value)}
                   sx={{ flex: 1 }}
@@ -447,7 +454,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     labelId="inventory-in-unit-label"
                     label="Unit"
                     required={Boolean(inventoryForm.inAmount)}
-                    disabled={!inventoryForm.countedAs}
+                    disabled={!canEditSetup || !inventoryForm.countedAs}
                     value={inventoryForm.inUnit}
                     onChange={(e) => setInventoryField('inUnit', e.target.value as MedicationUnitOptions | '')}
                   >
@@ -463,7 +470,7 @@ export default function UpdateMedicationPage(): ReactElement {
                 </FormControl>
               </Grid>
               <Grid item xs={3}>
-                <FormControl disabled={!inventoryForm.countedAs}>
+                <FormControl disabled={!canEditSetup || !inventoryForm.countedAs}>
                   <FormLabel id="inventory-use-label">Use</FormLabel>
                   <RadioGroup
                     aria-labelledby="inventory-use-label"
@@ -495,7 +502,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     placeholder="none"
                     type="number"
                     inputProps={{ min: 0, step: 1 }}
-                    disabled={!inventoryForm.countedAs}
+                    disabled={!canEditSetup || !inventoryForm.countedAs}
                     value={inventoryForm.reorderLevels[clinic.id] ?? ''}
                     onChange={(e) =>
                       setInventoryField('reorderLevels', {
@@ -514,17 +521,19 @@ export default function UpdateMedicationPage(): ReactElement {
                   />
                 </Grid>
               ))}
-              <Grid item xs={12}>
-                <LoadingButton
-                  type="submit"
-                  variant="contained"
-                  loading={loading}
-                  disabled={Boolean(blockingNotice)}
-                  sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
-                >
-                  Update Medication
-                </LoadingButton>
-              </Grid>
+              {canEditSetup ? (
+                <Grid item xs={12}>
+                  <LoadingButton
+                    type="submit"
+                    variant="contained"
+                    loading={loading}
+                    disabled={Boolean(blockingNotice)}
+                    sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
+                  >
+                    Update Medication
+                  </LoadingButton>
+                </Grid>
+              ) : null}
             </Grid>
           </form>
         </Paper>
@@ -552,23 +561,25 @@ export default function UpdateMedicationPage(): ReactElement {
           </Paper>
         ) : null}
 
-        <Paper sx={{ padding: 2, marginTop: 2 }}>
-          <Typography variant="h4">{status === 'active' ? 'Remove' : 'Activate'} medication</Typography>
-          <Typography variant="body1">
-            {status === 'active'
-              ? 'Removing this medication will make it so it can no longer be ordered for a visit. It will not affect any medications that have already been ordered.'
-              : 'Activating this medication will add it to the list of in-house medications that can be ordered for a visit.'}
-          </Typography>
-          <LoadingButton
-            variant="contained"
-            color={status === 'active' ? 'error' : 'success'}
-            sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
-            onClick={() => updateStatus(status === 'active' ? 'inactive' : 'active')}
-            loading={loading}
-          >
-            {status === 'active' ? 'Remove' : 'Activate'} Medication
-          </LoadingButton>
-        </Paper>
+        {canEditSetup ? (
+          <Paper sx={{ padding: 2, marginTop: 2 }}>
+            <Typography variant="h4">{status === 'active' ? 'Remove' : 'Activate'} medication</Typography>
+            <Typography variant="body1">
+              {status === 'active'
+                ? 'Removing this medication will make it so it can no longer be ordered for a visit. It will not affect any medications that have already been ordered.'
+                : 'Activating this medication will add it to the list of in-house medications that can be ordered for a visit.'}
+            </Typography>
+            <LoadingButton
+              variant="contained"
+              color={status === 'active' ? 'error' : 'success'}
+              sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
+              onClick={() => updateStatus(status === 'active' ? 'inactive' : 'active')}
+              loading={loading}
+            >
+              {status === 'active' ? 'Remove' : 'Activate'} Medication
+            </LoadingButton>
+          </Paper>
+        ) : null}
       </>
     </PageContainer>
   );

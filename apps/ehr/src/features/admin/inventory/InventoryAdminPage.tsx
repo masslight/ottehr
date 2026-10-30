@@ -228,7 +228,11 @@ function AllClinicsDrugRows({
         <TableCell>
           <ExpandButton open={open} onClick={onToggle} />
         </TableCell>
-        <TableCell sx={{ fontWeight: 500 }}>{drug.name}</TableCell>
+        <TableCell sx={{ fontWeight: 500 }}>
+          <Link component={RouterLink} to={`/admin/medication/${drug.medicationId}`} underline="hover">
+            {drug.name}
+          </Link>
+        </TableCell>
         <TableCell>
           {formatOnHand(drug.onHand, drug.countedAs)}
           <MarkerChips markers={drug.markers} only={['below-zero']} />
@@ -281,7 +285,11 @@ function ClinicDrugRows({
         <TableCell>
           <ExpandButton open={open} onClick={onToggle} />
         </TableCell>
-        <TableCell sx={{ fontWeight: 500 }}>{drug.name}</TableCell>
+        <TableCell sx={{ fontWeight: 500 }}>
+          <Link component={RouterLink} to={`/admin/medication/${drug.medicationId}`} underline="hover">
+            {drug.name}
+          </Link>
+        </TableCell>
         <TableCell>
           {formatOnHand(drug.onHand, drug.countedAs)}
           <MarkerChips markers={drug.markers} only={['low', 'below-zero']} />

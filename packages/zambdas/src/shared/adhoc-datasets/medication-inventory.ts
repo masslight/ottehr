@@ -68,7 +68,8 @@ export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMe
       ? (byRef.get(administration.subject.reference) as Patient)
       : undefined;
     const waste = entry.components?.find((component) => component.code === 'waste-amount');
-    const unitCost = lot?.unitCost ?? null;
+    // a received entry carries its own shipment's vendor and cost; every other entry is priced at the lot's latest
+    const unitCost = entry.unitCost ?? lot?.unitCost ?? null;
 
     rows.push({
       entryId: entry.id,
@@ -96,7 +97,7 @@ export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMe
       expirationDate: lot?.expirationDate ?? '',
       ndc: lot?.ndc ?? '',
       manufacturer: lot?.manufacturer ?? '',
-      vendor: lot?.vendor ?? '',
+      vendor: entry.vendor ?? lot?.vendor ?? '',
       lotOnHand: lot?.onHand ?? null,
       appointmentId: encounter?.appointment?.[0]?.reference?.replace('Appointment/', '') ?? null,
       patientId: patient?.id ?? null,

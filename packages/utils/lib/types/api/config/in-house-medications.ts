@@ -102,6 +102,7 @@ export const INVENTORY_ENTRY_REASONS = [
   'other',
   'count-adjustment',
   'no-difference',
+  'expiration-corrected',
 ] as const;
 export type InventoryEntryReason = (typeof INVENTORY_ENTRY_REASONS)[number];
 export const INVENTORY_ENTRY_REASON_LABELS: Record<InventoryEntryReason, string> = {
@@ -118,6 +119,7 @@ export const INVENTORY_ENTRY_REASON_LABELS: Record<InventoryEntryReason, string>
   other: 'Other',
   'count-adjustment': 'Count adjustment',
   'no-difference': 'No difference',
+  'expiration-corrected': 'Expiration corrected',
 };
 
 /** Extra numbers on an entry: the wasted dose on an administration, the shelf count on a count. */
@@ -156,6 +158,9 @@ export interface InventoryStockEntry {
   reversesEntryId?: string;
   note?: string;
   components?: { code: InventoryEntryComponent; value: number; unit: string }[];
+  /** On a received entry: the vendor and cost per item of that shipment (the lot keeps only the latest). */
+  vendor?: string;
+  unitCost?: number;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -176,13 +181,30 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
       z.object({ perItem: z.number().nonnegative() }),
     ])
     .optional(),
+  /**
+   * What to do when this lot number is already on hand at the clinic with a different expiration date. Without
+   * it the zambda writes nothing and answers with `expirationConflict` so staff can choose.
+   */
+  expirationConflict: z.enum(['separate-lot', 'correct-existing']).optional(),
 });
 export type ReceiveMedicationShipmentInput = z.infer<typeof ReceiveMedicationShipmentInputSchema>;
 
-export interface ReceiveMedicationShipmentResponse {
+export interface InventoryStockWriteResponse {
   lot: InventoryLot;
   entry: InventoryStockEntry;
 }
+
+/** The lot that already carries this number at the clinic, when its expiration date differs from the one entered. */
+export interface ReceiveExpirationConflict {
+  lotId: string;
+  expirationDate: string;
+  onHand: number;
+  unit: string;
+}
+
+export type ReceiveMedicationShipmentResponse =
+  | InventoryStockWriteResponse
+  | { expirationConflict: ReceiveExpirationConflict };
 
 export const LookupNdcInputSchema = z.object({
   ndc: z.string().trim().min(1),
@@ -326,4 +348,4 @@ export const AdjustMedicationInventoryInputSchema = z
   });
 export type AdjustMedicationInventoryInput = z.infer<typeof AdjustMedicationInventoryInputSchema>;
 
-export type AdjustMedicationInventoryResponse = ReceiveMedicationShipmentResponse;
+export type AdjustMedicationInventoryResponse = InventoryStockWriteResponse;
