@@ -3,12 +3,14 @@ import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ClearIcon from '@mui/icons-material/Clear';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import InsightsIcon from '@mui/icons-material/Insights';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
@@ -23,6 +25,8 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  InputAdornment,
+  Link,
   TextField,
   Tooltip,
   Typography,
@@ -31,7 +35,7 @@ import {
 import { captureException } from '@sentry/react';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { SavedAdHocReport } from 'utils/lib/types/adhoc/saved/saved.types';
 import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -288,6 +292,9 @@ const REPORT_TILES: ReportTileConfig[] = [
   },
 ];
 
+const matchesReportSearch = (query: string, title: string, description?: string): boolean =>
+  !query || title.toLowerCase().includes(query) || (description?.toLowerCase().includes(query) ?? false);
+
 export default function Reports(): React.ReactElement {
   const navigate = useNavigate();
   const user = useEvolveUser();
@@ -304,6 +311,8 @@ export default function Reports(): React.ReactElement {
   const [renameValue, setRenameValue] = useState('');
   const [descriptionValue, setDescriptionValue] = useState('');
   const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
 
   const refreshSaved = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !canViewAdHoc) return;
@@ -324,6 +333,17 @@ export default function Reports(): React.ReactElement {
   useEffect(() => {
     void refreshSaved();
   }, [refreshSaved]);
+
+  const visibleTiles = REPORT_TILES.filter(
+    (tile) =>
+      (tile.requiredRoles ? user?.hasRole(tile.requiredRoles) ?? false : isAdmin || !tile.adminOnly) &&
+      matchesReportSearch(query, tile.title, tile.description)
+  );
+  const visibleSaved = savedReports.filter((report) => matchesReportSearch(query, report.name, report.description));
+  const showSavedSection =
+    canViewAdHoc &&
+    (query ? visibleSaved.length > 0 || savedError : loadingSaved || savedReports.length > 0 || savedError);
+  const noResults = !!query && visibleTiles.length === 0 && visibleSaved.length === 0 && !loadingSaved && !savedError;
 
   const handleTileClick = (path: string): void => {
     navigate(path);
@@ -368,32 +388,84 @@ export default function Reports(): React.ReactElement {
     <PageContainer>
       <>
         <Box>
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom color="primary.dark" fontWeight={600}>
-              Reports
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Select a report to view detailed information and analytics
-            </Typography>
+          <Box
+            sx={{
+              mb: 4,
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Typography variant="h4" component="h1" gutterBottom color="primary.dark" fontWeight={600}>
+                Reports
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Select a report to view detailed information and analytics
+              </Typography>
+            </Box>
+            <TextField
+              size="small"
+              label="Search report"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              sx={{ width: { xs: '100%', md: 360 } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: search ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" aria-label="clear search" onClick={() => setSearch('')} edge="end">
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined,
+              }}
+            />
           </Box>
 
-          <Grid container spacing={3}>
-            {REPORT_TILES.filter((tile) =>
-              tile.requiredRoles ? user?.hasRole(tile.requiredRoles) ?? false : isAdmin || !tile.adminOnly
-            ).map((tile) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={tile.path}>
-                <ReportTile
-                  title={tile.title}
-                  description={tile.description}
-                  icon={tile.icon}
-                  path={tile.path}
-                  onClick={() => handleTileClick(tile.path)}
-                />
-              </Grid>
-            ))}
-          </Grid>
+          {visibleTiles.length > 0 && (
+            <Grid container spacing={3}>
+              {visibleTiles.map((tile) => (
+                <Grid item xs={12} sm={6} md={4} lg={3} key={tile.path}>
+                  <ReportTile
+                    title={tile.title}
+                    description={tile.description}
+                    icon={tile.icon}
+                    path={tile.path}
+                    onClick={() => handleTileClick(tile.path)}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          )}
 
-          {canViewAdHoc && (loadingSaved || savedReports.length > 0 || savedError) && (
+          {noResults && (
+            <Box>
+              <Typography variant="h5" component="h2" gutterBottom color="primary.dark" fontWeight={600}>
+                No Results Found
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                We couldn't find any reports matching your search.
+                {canEditAdHoc && (
+                  <>
+                    {' You can use '}
+                    <Link component={RouterLink} to="/reports/ad-hoc" underline="always">
+                      Ad-hoc report
+                    </Link>
+                    {' to generate a custom report.'}
+                  </>
+                )}
+              </Typography>
+            </Box>
+          )}
+
+          {showSavedSection && (
             <Box sx={{ mt: 5 }}>
               <Typography variant="h5" component="h2" gutterBottom color="primary.dark" fontWeight={600}>
                 Saved reports
@@ -410,7 +482,7 @@ export default function Reports(): React.ReactElement {
                 <CircularProgress size={24} />
               ) : (
                 <Grid container spacing={3}>
-                  {savedReports.map((report) => (
+                  {visibleSaved.map((report) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={report.id}>
                       <SavedReportTile
                         report={report}
