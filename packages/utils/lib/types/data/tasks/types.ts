@@ -17,6 +17,7 @@ export interface Task {
     name: string;
     date: string;
   };
+  createdById?: string;
   alert?: TaskAlertCode;
   completable: boolean;
 }

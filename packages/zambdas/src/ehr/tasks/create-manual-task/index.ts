@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Practitioner } from 'fhir/r4b';
+import { Practitioner, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getFullName } from 'utils/lib/fhir/patient';
@@ -23,6 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const token = input.headers.Authorization.replace('Bearer ', '');
   const isM2M = isM2MClient(token);
   let createdBy: string;
+  let requester: Reference | undefined;
   if (isM2M) {
     createdBy = params.createdBy ?? `M2M Client ${getM2MClientId(token)}`;
   } else {
@@ -32,6 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: userPractitionerId,
     });
     createdBy = getFullName(currentUserPractitioner);
+    requester = { reference: 'Practitioner/' + userPractitionerId, display: createdBy };
   }
 
   const taskBasedOn =
@@ -84,6 +86,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ],
     basedOn: taskBasedOn,
   });
+
+  taskToCreate.requester = requester;
 
   if (params.assignee) {
     taskToCreate.owner = {
