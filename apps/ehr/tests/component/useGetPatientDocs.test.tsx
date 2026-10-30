@@ -2,13 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { List } from 'fhir/r4b';
 import { ReactNode } from 'react';
-import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
+import { FOLDERS_CONFIG, HIDE_WHILE_PRELIMINARY_TAG } from 'utils/lib/fhir/constants';
 import {
   CUSTOM_FOLDER_DELETED_FLAG_CODE,
   CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
 } from 'utils/lib/fhir/list';
 import { SYNTHETIC_FOLDER_ID_PREFIX } from 'utils/lib/types/data/custom-folder.types';
+import { STATEMENT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock useAppClients before the hook is imported.
@@ -97,7 +98,21 @@ const catalogList = (entries: { internalName: string; displayName: string; delet
 
 const stubBundle = (resources: List[]): any => ({ unbundle: () => resources });
 
-// configure mockFhirSearch by params: identify catalog vs lists query.
+// The table's document search, as opposed to the folder-counter id search (identified by `_elements`).
+const isTableSearch = (req: any): boolean =>
+  req?.resourceType === 'DocumentReference' && !req.params.some((p: any) => p.name === '_elements');
+
+// The documents every List entry points at, as the server would return them.
+const listEntryDocRefs = (lists: List[]): any[] =>
+  lists.flatMap((list) =>
+    (list.entry ?? []).map((entry) => ({
+      resourceType: 'DocumentReference',
+      id: entry.item.reference!.replace('DocumentReference/', ''),
+      status: 'current',
+    }))
+  );
+
+// configure mockFhirSearch by params: identify catalog vs lists vs documents query.
 const setupSearch = (
   perPatientLists: List[],
   catalogEntries: { internalName: string; displayName: string; deleted?: boolean }[]
@@ -109,6 +124,9 @@ const setupSearch = (
     );
     if (isCatalogSearch) {
       return stubBundle(catalogEntries.length > 0 ? [catalogList(catalogEntries)] : []);
+    }
+    if (req?.resourceType === 'DocumentReference') {
+      return stubBundle(listEntryDocRefs(perPatientLists));
     }
     // Per-patient List search.
     return stubBundle(perPatientLists);
@@ -261,9 +279,8 @@ describe('useGetPatientDocs — document search short-circuit on synthetic folde
     renderHook(() => useGetPatientDocs(PATIENT_ID, filters), { wrapper });
     // Allow effects to run.
     await waitFor(() => expect(mockFhirSearch).toHaveBeenCalled());
-    // The DocumentReference search is short-circuited; mockFhirSearch should only have
-    // been called for the per-patient List + catalog queries (resourceType: 'List').
-    const docRefCalls = mockFhirSearch.mock.calls.filter(([req]: any[]) => req?.resourceType === 'DocumentReference');
+    // The table's DocumentReference search is short-circuited.
+    const docRefCalls = mockFhirSearch.mock.calls.filter(([req]: any[]) => isTableSearch(req));
     expect(docRefCalls).toHaveLength(0);
   });
 });
@@ -461,7 +478,7 @@ describe('useGetPatientDocs — visit filter', () => {
     expect(result.current.documents?.map((doc) => doc.id).sort()).toEqual([...ALL].sort());
 
     const offsets = mockFhirSearch.mock.calls
-      .filter(([req]: any[]) => req?.resourceType !== 'List')
+      .filter(([req]: any[]) => isTableSearch(req))
       .map(([req]: any[]) => Number(req.params.find((p: any) => p.name === '_offset').value));
     expect(offsets).toEqual([0, 1, 2, 3, 4]);
   });
@@ -491,13 +508,13 @@ describe('useGetPatientDocs — visit filter', () => {
 
     await waitFor(() => expect(result.current.documents?.length).toBe(1));
 
-    const docQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) => req?.resourceType !== 'List');
+    const docQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) => isTableSearch(req));
     // The first page plus the empty one that ends it — not a run up to the ceiling.
     expect(docQueries).toHaveLength(2);
   });
 
-  it('leaves folder counters patient-wide when no visit filter is applied', async () => {
-    setupVisitSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)]);
+  it('counts patient-wide documents when no visit filter is applied', async () => {
+    setupSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3)], []);
 
     const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper });
 
@@ -505,11 +522,99 @@ describe('useGetPatientDocs — visit filter', () => {
       const folder = result.current.documentsFolders.find((f) => f.internalName === PROTECTED_FOLDER.title);
       expect(folder?.documentsCount).toBe(3);
     });
-    // No visit means no need to resolve which documents belong to one.
+    // No visit means the id search is not narrowed to one.
     const idsQueries = mockFhirSearch.mock.calls.filter(([req]: any[]) =>
       (req?.params ?? []).some((p: any) => p.name === '_elements')
     );
-    expect(idsQueries).toHaveLength(0);
+    expect(idsQueries.length).toBeGreaterThan(0);
+    for (const [req] of idsQueries) {
+      expect(req.params.some((p: any) => p.name === 'encounter' || p.name === 'related')).toBe(false);
+    }
+  });
+});
+
+describe('useGetPatientDocs — folder counters match the listed documents', () => {
+  const ENCOUNTER_ID = 'encounter-1';
+  const STATEMENTS_FOLDER = FOLDERS_CONFIG.find((folder) => folder.documentTypeCode === STATEMENT_CODE)!;
+  const FOLDER = protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 3);
+  const STATEMENTS = protectedList('list-1', STATEMENTS_FOLDER.title, STATEMENTS_FOLDER.display, 3);
+  const STATEMENT_TYPE = { coding: [{ system: 'http://loinc.org', code: STATEMENT_CODE, display: 'Statement' }] };
+
+  const docRef = (id: string, extra: Record<string, unknown> = {}): any => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    date: '2026-07-28T12:00:00.000Z',
+    content: [{ attachment: { title: `${id}.pdf`, url: `https://z3/${id}.pdf` } }],
+    context: { encounter: [{ reference: `Encounter/${ENCOUNTER_ID}` }] },
+    ...extra,
+  });
+
+  const setupDocs = (list: List, docs: any[]): void => {
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+      if (req?.resourceType === 'List') {
+        const isCatalogSearch = params.some(
+          (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+        );
+        return stubBundle(isCatalogSearch ? [] : [list]);
+      }
+      return stubBundle(docs);
+    });
+  };
+
+  const expectListedAndCounted = async (
+    list: List,
+    expectedIds: string[],
+    filters?: PatientDocumentsFilters
+  ): Promise<void> => {
+    const { result } = renderHook(() => useGetPatientDocs(PATIENT_ID, filters), { wrapper });
+    await waitFor(() => {
+      const folder = result.current.documentsFolders.find((f) => f.internalName === list.title);
+      expect(result.current.documents?.map((doc) => doc.id).sort()).toEqual(expectedIds);
+      expect(folder?.documentsCount).toBe(expectedIds.length);
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Regenerating a statement supersedes the previous copy; each one is still a statement the patient may have received.
+  const regeneratedStatements = (): any[] => [
+    docRef('doc-list-1-0', { status: 'superseded', type: STATEMENT_TYPE }),
+    docRef('doc-list-1-1', { status: 'superseded', type: STATEMENT_TYPE }),
+    docRef('doc-list-1-2', { type: STATEMENT_TYPE }),
+  ];
+
+  it('lists and counts every previously generated statement', async () => {
+    setupDocs(STATEMENTS, regeneratedStatements());
+    await expectListedAndCounted(STATEMENTS, ['doc-list-1-0', 'doc-list-1-1', 'doc-list-1-2']);
+  });
+
+  it('lists and counts every previously generated statement under a visit filter', async () => {
+    setupDocs(STATEMENTS, regeneratedStatements());
+    await expectListedAndCounted(STATEMENTS, ['doc-list-1-0', 'doc-list-1-1', 'doc-list-1-2'], {
+      visit: { encounterId: ENCOUNTER_ID },
+    });
+  });
+
+  it('neither lists nor counts other superseded documents', async () => {
+    setupDocs(FOLDER, [
+      docRef('doc-list-1-0', { status: 'superseded' }),
+      docRef('doc-list-1-1', { status: 'superseded' }),
+      docRef('doc-list-1-2'),
+    ]);
+    await expectListedAndCounted(FOLDER, ['doc-list-1-2']);
+  });
+
+  it('does not count hidden drafts or List entries whose document no longer exists', async () => {
+    // doc-list-1-1 is missing from the search results: it was deleted but its List entry remains.
+    setupDocs(FOLDER, [
+      docRef('doc-list-1-0', { docStatus: 'preliminary', meta: { tag: [HIDE_WHILE_PRELIMINARY_TAG] } }),
+      docRef('doc-list-1-2'),
+    ]);
+    await expectListedAndCounted(FOLDER, ['doc-list-1-2']);
   });
 });
 
