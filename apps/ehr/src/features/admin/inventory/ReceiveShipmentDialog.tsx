@@ -3,6 +3,7 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
+  capitalize,
   Dialog,
   DialogActions,
   DialogContent,
@@ -24,7 +25,8 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useRef, useState } from 'react';
 import { getMedicationInventory, lookupNdc, receiveMedicationShipment } from 'src/api/api';
-import { formatExpiration, unitLabel } from 'src/features/admin/inventory/inventory.helpers';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
@@ -35,7 +37,7 @@ import {
   ReceiveExpirationConflict,
   ReceiveMedicationShipmentInput,
 } from 'utils/lib/types/api/config/in-house-medications';
-import { ConfirmationDialog } from '../ConfirmationDialog';
+import { formatExpiration, inventoryButtonSx, storedLocationId, unitLabel } from './inventory.helpers';
 
 interface ReceiveShipmentDialogProps {
   open: boolean;
@@ -58,18 +60,6 @@ interface ReceiveFormState {
 type LookupState = { status: 'idle' | 'loading' } | LookupNdcResponse;
 
 const NDC_LOOKUP_DEBOUNCE_MS = 600;
-const buttonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
-
-// The location the Tracking Board's location picker last saved, when it is one of the in-person locations.
-export function storedLocationId(locations: { id: string }[]): string | undefined {
-  try {
-    const stored = localStorage.getItem('selectedLocation');
-    const id = stored ? (JSON.parse(stored) as { id?: string }).id : undefined;
-    return locations.some((location) => location.id === id) ? id : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export default function ReceiveShipmentDialog({
   open,
@@ -183,7 +173,7 @@ export default function ReceiveShipmentDialog({
 
   const mismatch = lookup.status === 'mismatch';
   const product = 'product' in lookup ? lookup.product : undefined;
-  const unitsLabel = units.plural.charAt(0).toUpperCase() + units.plural.slice(1);
+  const unitsLabel = capitalize(units.plural);
   const receiveLabel = quantity > 0 ? `Receive ${quantity} ${unitsLabel}` : `Receive ${unitsLabel}`;
   const lookupPanel = ((): ReactElement | null => {
     if (lookup.status === 'idle') return null;
@@ -245,7 +235,13 @@ export default function ReceiveShipmentDialog({
   })();
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      data-testid={dataTestIds.receiveShipmentDialog.dialog}
+    >
       <form
         ref={formRef}
         onSubmit={(event) => {
@@ -270,6 +266,7 @@ export default function ReceiveShipmentDialog({
                 label="NDC From the Box"
                 value={form.ndc}
                 onChange={(e) => setField('ndc', e.target.value)}
+                inputProps={{ 'data-testid': dataTestIds.receiveShipmentDialog.ndcField }}
               />
             </Grid>
             <Grid item xs={6}>
@@ -292,6 +289,7 @@ export default function ReceiveShipmentDialog({
                 label="Lot Number"
                 value={form.lotNumber}
                 onChange={(e) => setField('lotNumber', e.target.value)}
+                inputProps={{ 'data-testid': dataTestIds.receiveShipmentDialog.lotNumberField }}
               />
             </Grid>
             <Grid item xs={4}>
@@ -311,7 +309,7 @@ export default function ReceiveShipmentDialog({
                 required
                 label={`Quantity (${units.plural})`}
                 type="number"
-                inputProps={{ min: 1, step: 1 }}
+                inputProps={{ min: 1, step: 1, 'data-testid': dataTestIds.receiveShipmentDialog.quantityField }}
                 value={form.quantity}
                 onChange={(e) => setField('quantity', e.target.value)}
               />
@@ -351,7 +349,7 @@ export default function ReceiveShipmentDialog({
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button variant="outlined" onClick={onClose} sx={buttonSx}>
+          <Button variant="outlined" onClick={onClose} sx={inventoryButtonSx}>
             Cancel
           </Button>
           {mismatch ? (
@@ -368,7 +366,8 @@ export default function ReceiveShipmentDialog({
                   type="button"
                   variant="contained"
                   loading={saving}
-                  sx={buttonSx}
+                  sx={inventoryButtonSx}
+                  data-testid={dataTestIds.receiveShipmentDialog.receiveButton}
                   onClick={() => {
                     if (formRef.current?.reportValidity()) showDialog();
                   }}
@@ -378,7 +377,13 @@ export default function ReceiveShipmentDialog({
               )}
             </ConfirmationDialog>
           ) : (
-            <LoadingButton type="submit" variant="contained" loading={saving} sx={buttonSx}>
+            <LoadingButton
+              type="submit"
+              variant="contained"
+              loading={saving}
+              sx={inventoryButtonSx}
+              data-testid={dataTestIds.receiveShipmentDialog.receiveButton}
+            >
               {receiveLabel}
             </LoadingButton>
           )}
@@ -450,7 +455,12 @@ function ExpirationConflictDialog({
         <Stack spacing={2} sx={{ mt: 2 }}>
           {choices.map(({ choice, label, help }) => (
             <Box key={choice}>
-              <LoadingButton variant="contained" loading={saving} sx={buttonSx} onClick={() => onChoose(choice)}>
+              <LoadingButton
+                variant="contained"
+                loading={saving}
+                sx={inventoryButtonSx}
+                onClick={() => onChoose(choice)}
+              >
                 {label}
               </LoadingButton>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -461,7 +471,7 @@ function ExpirationConflictDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="outlined" onClick={onBack} disabled={saving} sx={buttonSx}>
+        <Button variant="outlined" onClick={onBack} disabled={saving} sx={inventoryButtonSx}>
           Cancel
         </Button>
       </DialogActions>

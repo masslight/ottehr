@@ -19,6 +19,19 @@ import { DISPLAY_DATE_FORMAT, formatDateForDisplay } from 'utils/lib/utils/dateU
 
 const MINUS = '−';
 
+export const inventoryButtonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
+
+// The location the Tracking Board's location picker last saved, when it is one of the in-person locations.
+export function storedLocationId(locations: { id: string }[]): string | undefined {
+  try {
+    const stored = localStorage.getItem('selectedLocation');
+    const id = stored ? (JSON.parse(stored) as { id?: string }).id : undefined;
+    return locations.some((location) => location.id === id) ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const unitLabel = (unit: string, count: number): string => {
   const labels = MEDICATION_COUNTED_AS_LABELS[unit as MedicationCountedAs];
   if (!labels) return unit;

@@ -22,14 +22,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { listMedicationInventory } from 'src/api/api';
-import { storedLocationId } from 'src/components/dialogs/ReceiveShipmentDialog';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
-import { useApiClients } from 'src/hooks/useAppClients';
 import {
   InventoryDrugRow,
   InventoryLotRow,
@@ -45,10 +43,11 @@ import {
   formatOnHand,
   formatWhen,
   MarkerChips,
+  storedLocationId,
 } from './inventory.helpers';
+import { INVENTORY_QUERY_KEY, useLotHistory, useMedicationInventory } from './inventory.queries';
 
 const ALL_LOCATIONS = '';
-const INVENTORY_QUERY_KEY = 'medication-inventory';
 const RECENT_HISTORY_ENTRIES = 7;
 const NUM_LOADING_ROWS = 3;
 
@@ -85,7 +84,6 @@ function ExpandButton({
 
 /** Admin → Inventory (requirement 7): what is on hand per location, by drug and lot, with each lot's stock history. */
 export default function InventoryAdminPage(): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const locationsQuery = useGetAllLocations({ inPersonOnly: true });
   const locations = locationsQuery.data ?? [];
   // undefined until the locations load, then the Tracking Board's location when it is one of them, else all locations
@@ -105,11 +103,7 @@ export default function InventoryAdminPage(): ReactElement {
       : locationId === ALL_LOCATIONS
       ? { view: 'all-locations' }
       : { view: 'location', locationId };
-  const { data, isPending, isError, error } = useQuery({
-    queryKey: [INVENTORY_QUERY_KEY, view],
-    queryFn: () => listMedicationInventory(oystehrZambda!, view!),
-    enabled: !!oystehrZambda && !!view,
-  });
+  const { data, isPending, isError, error } = useMedicationInventory(view);
 
   const drugs = (data?.drugs ?? []).filter((drug) => drug.name.toLowerCase().includes(search.trim().toLowerCase()));
   const locationView = view?.view === 'location';
@@ -126,6 +120,7 @@ export default function InventoryAdminPage(): ReactElement {
             <Select
               labelId="inventory-location-label"
               label="Location"
+              data-testid={dataTestIds.inventoryPage.locationSelect}
               notched
               displayEmpty
               value={locationId ?? ALL_LOCATIONS}
@@ -146,6 +141,7 @@ export default function InventoryAdminPage(): ReactElement {
             placeholder="Medication name"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            inputProps={{ 'data-testid': dataTestIds.inventoryPage.searchField }}
             InputProps={{ endAdornment: <SearchIcon /> }}
             sx={{ width: 240 }}
           />
@@ -230,7 +226,10 @@ function AllLocationsDrugRows({
 }): ReactElement {
   return (
     <>
-      <TableRow sx={{ backgroundColor: open ? otherColors.apptHover : undefined }}>
+      <TableRow
+        sx={{ backgroundColor: open ? otherColors.apptHover : undefined }}
+        data-testid={dataTestIds.inventoryPage.medicationRow(drug.medicationId)}
+      >
         <TableCell>
           <ExpandButton open={open} onClick={onToggle} />
         </TableCell>
@@ -291,7 +290,10 @@ function LocationDrugRows({
 
   return (
     <>
-      <TableRow sx={{ backgroundColor: open ? otherColors.apptHover : undefined }}>
+      <TableRow
+        sx={{ backgroundColor: open ? otherColors.apptHover : undefined }}
+        data-testid={dataTestIds.inventoryPage.medicationRow(drug.medicationId)}
+      >
         <TableCell>
           <ExpandButton open={open} onClick={onToggle} />
         </TableCell>
@@ -311,7 +313,7 @@ function LocationDrugRows({
       {open &&
         visibleLots.map((lot) => (
           <Fragment key={lot.id}>
-            <TableRow>
+            <TableRow data-testid={dataTestIds.inventoryPage.lotRow(lot.id)}>
               <TableCell>
                 <ExpandButton open={expandedLots.has(lot.id)} onClick={() => toggleLot(lot.id)} indent />
               </TableCell>
@@ -328,10 +330,20 @@ function LocationDrugRows({
                 {[lot.ndc, lot.manufacturer].filter(Boolean).join(' · ')}
               </TableCell>
               <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                <Button size="small" onClick={() => setDialog({ kind: 'count', lot })} sx={{ textTransform: 'none' }}>
+                <Button
+                  size="small"
+                  onClick={() => setDialog({ kind: 'count', lot })}
+                  sx={{ textTransform: 'none' }}
+                  data-testid={dataTestIds.inventoryPage.countButton(lot.id)}
+                >
                   Count
                 </Button>
-                <Button size="small" onClick={() => setDialog({ kind: 'adjust', lot })} sx={{ textTransform: 'none' }}>
+                <Button
+                  size="small"
+                  onClick={() => setDialog({ kind: 'adjust', lot })}
+                  sx={{ textTransform: 'none' }}
+                  data-testid={dataTestIds.inventoryPage.adjustButton(lot.id)}
+                >
                   Adjust
                 </Button>
               </TableCell>
@@ -383,13 +395,8 @@ function LocationDrugRows({
 }
 
 function LotHistory({ lot }: { lot: InventoryLotRow }): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const [showAll, setShowAll] = useState(false);
-  const { data, isPending, isError, error } = useQuery({
-    queryKey: [INVENTORY_QUERY_KEY, { view: 'lot-history', lotId: lot.id }],
-    queryFn: () => listMedicationInventory(oystehrZambda!, { view: 'lot-history', lotId: lot.id }),
-    enabled: !!oystehrZambda,
-  });
+  const { data, isPending, isError, error } = useLotHistory(lot.id);
 
   const entries = data?.entries ?? [];
   const shown = showAll ? entries : entries.slice(0, RECENT_HISTORY_ENTRIES);

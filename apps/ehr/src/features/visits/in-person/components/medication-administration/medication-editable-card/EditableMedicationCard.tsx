@@ -24,6 +24,7 @@ import {
 } from 'src/api/api';
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
+import { useInventoryLotsOnHand } from 'src/features/admin/inventory/inventory.queries';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
@@ -68,7 +69,6 @@ import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { interactionsSummary } from '../util';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { InteractionsMessage, MedicationCardView } from './MedicationCardView';
-import { useInventoryLotsOnHand } from './useInventoryLotsOnHand';
 import {
   ConfirmSaveModalConfig,
   findPrescriptionsForInteractions,

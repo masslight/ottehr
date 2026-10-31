@@ -23,9 +23,9 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
-import ReceiveShipmentDialog from 'src/components/dialogs/ReceiveShipmentDialog';
 import Loading from 'src/components/Loading';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import ReceiveShipmentDialog from 'src/features/admin/inventory/ReceiveShipmentDialog';
 import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
 import {
   MEDICATION_DATABASE_FORBIDDEN_MESSAGE,
@@ -546,6 +546,7 @@ export default function UpdateMedicationPage(): ReactElement {
               variant="contained"
               sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
               onClick={() => setReceiveOpen(true)}
+              data-testid={dataTestIds.updateMedicationPage.receiveShipmentButton}
             >
               Receive Shipment
             </LoadingButton>

@@ -21,14 +21,10 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
 import React from 'react';
+import { formatOnHand } from 'src/features/admin/inventory/inventory.helpers';
 import { LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
-import {
-  INVENTORY_MARKER_LABELS,
-  InventoryLot,
-  MEDICATION_COUNTED_AS_LABELS,
-  MedicationCountedAs,
-} from 'utils/lib/types/api/config/in-house-medications';
+import { INVENTORY_MARKER_LABELS, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { MedicationData } from 'utils/lib/types/api/medication-administration.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
@@ -68,11 +64,8 @@ const LotSuggestionsPaper = ({ children, ...props }: PaperProps): React.ReactEle
   </Paper>
 );
 
-const lotOnHandLabel = (lot: InventoryLot): string => {
-  const labels = MEDICATION_COUNTED_AS_LABELS[lot.unit as MedicationCountedAs];
-  const unit = labels ? (lot.onHand === 1 ? labels.singular.toLowerCase() : labels.plural) : lot.unit;
-  return [`${lot.onHand} ${unit}`, lot.manufacturer].filter(Boolean).join(' · ');
-};
+const lotOnHandLabel = (lot: InventoryLot): string =>
+  [formatOnHand(lot.onHand, lot.unit), lot.manufacturer].filter(Boolean).join(' · ');
 
 interface MedicationCardFieldProps {
   field: MedicationFieldType;

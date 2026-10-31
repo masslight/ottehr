@@ -1,12 +1,21 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material';
+import {
+  Button,
+  capitalize,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { adjustMedicationInventory } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { InventoryDrugRow, InventoryLotRow } from 'utils/lib/types/api/config/in-house-medications';
-import { formatChange, formatOnHand, unitLabel } from './inventory.helpers';
+import { formatChange, formatOnHand, inventoryButtonSx, unitLabel } from './inventory.helpers';
 
 interface CountLotDialogProps {
   open: boolean;
@@ -16,9 +25,6 @@ interface CountLotDialogProps {
   lot: InventoryLotRow;
   locationName: string;
 }
-
-const buttonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
-const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** Count what is on the shelf; the difference from what Ottehr expects is recorded (requirement 6). */
 export default function CountLotDialog({
@@ -101,10 +107,10 @@ export default function CountLotDialog({
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button variant="outlined" onClick={onClose} sx={buttonSx}>
+          <Button variant="outlined" onClick={onClose} sx={inventoryButtonSx}>
             Cancel
           </Button>
-          <LoadingButton type="submit" variant="contained" loading={saving} sx={buttonSx}>
+          <LoadingButton type="submit" variant="contained" loading={saving} sx={inventoryButtonSx}>
             Save Count
           </LoadingButton>
         </DialogActions>

@@ -1,6 +1,7 @@
 import { LoadingButton } from '@mui/lab';
 import {
   Button,
+  capitalize,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,7 +29,7 @@ import {
   InventoryDrugRow,
   InventoryLotRow,
 } from 'utils/lib/types/api/config/in-house-medications';
-import { formatOnHand, unitLabel } from './inventory.helpers';
+import { formatOnHand, inventoryButtonSx, unitLabel } from './inventory.helpers';
 
 interface AdjustStockDialogProps {
   open: boolean;
@@ -38,9 +39,6 @@ interface AdjustStockDialogProps {
   lot: InventoryLotRow;
   locationName: string;
 }
-
-const buttonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
-const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** Adjust a lot up or down with a reason (requirement 6). */
 export default function AdjustStockDialog({
@@ -164,10 +162,10 @@ export default function AdjustStockDialog({
           ) : null}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button variant="outlined" onClick={onClose} sx={buttonSx}>
+          <Button variant="outlined" onClick={onClose} sx={inventoryButtonSx}>
             Cancel
           </Button>
-          <LoadingButton type="submit" variant="contained" loading={saving} sx={buttonSx}>
+          <LoadingButton type="submit" variant="contained" loading={saving} sx={inventoryButtonSx}>
             {submitLabel}
           </LoadingButton>
         </DialogActions>
