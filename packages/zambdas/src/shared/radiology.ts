@@ -10,10 +10,12 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { convert } from 'html-to-text';
 import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import {
+  decodeRadiologyReportHtml,
   LATERALITY_SELECTORS,
   LateralityValue,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
@@ -171,6 +173,10 @@ export const findRadiologyFinalReviewTask = (tasks: Task[], serviceRequestId: st
  */
 export const isRadiologyOrderReviewed = (tasks: Task[], serviceRequestId: string): boolean =>
   findRadiologyFinalReviewTask(tasks, serviceRequestId)?.status === 'completed';
+
+// Same conversion as the visit note PDF (discharge-summary/radiology.ts).
+export const radiologyReportText = (stored: string | undefined): string =>
+  stored ? convert(decodeRadiologyReportHtml(stored), { wordwrap: false }) : '';
 
 export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
   if (!reports.length) return undefined;

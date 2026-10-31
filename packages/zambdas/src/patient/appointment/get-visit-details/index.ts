@@ -5,13 +5,16 @@ import { isAnnotationFollowupEncounter, isFollowupEncounter } from 'utils/lib/fh
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { FileURLInfo } from 'utils/lib/types/common';
-import { GetVisitDetailsResponse } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import {
+  GetVisitDetailsResponse,
+  ReviewedRadiologyResult,
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { getMedications, getPatientPortalPresignedURLs } from './helpers';
+import { getMedications, getPatientPortalPresignedURLs, getReviewedRadiologyResults } from './helpers';
 
 export const GetVisitDetailsBodySchema = z.object({
   appointmentId: z.string().uuid(),
@@ -97,6 +100,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('getMedications', error);
   }
 
+  let reviewedRadiologyResults: ReviewedRadiologyResult[] = [];
+
+  try {
+    if (encounter?.id) {
+      reviewedRadiologyResults = await getReviewedRadiologyResults(oystehr, oystehrToken, secrets, encounter.id);
+    }
+  } catch (error) {
+    captureException(error);
+    console.log('getReviewedRadiologyResults', error);
+  }
+
   let followUps: GetVisitDetailsResponse['followUps'] = [];
 
   try {
@@ -149,6 +163,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     appointmentTime,
     followUps,
     reviewedLabResults,
+    reviewedRadiologyResults,
   };
 
   return {
