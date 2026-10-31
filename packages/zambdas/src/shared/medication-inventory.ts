@@ -16,8 +16,8 @@ import {
   getMedicationInventoryConfig,
   getOrderCatalogMedicationId,
   INVENTORY_ENTRY_TYPE_SYSTEM,
-  INVENTORY_LOT_CLINIC_TAG_SYSTEM,
   INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
+  INVENTORY_LOT_LOCATION_TAG_SYSTEM,
   INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM,
   INVENTORY_STOCK_ENTRY_CODE,
   InventoryStockEntryInput,
@@ -56,7 +56,7 @@ export async function findInventoryLotsByNumber(
       resourceType: 'Medication',
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${catalogMedicationId}` },
-        { name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|${locationId}` },
+        { name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|${locationId}` },
         { name: 'lot-number', value: lotNumber },
       ],
     })
@@ -75,7 +75,7 @@ export async function getInventoryLotsOnHand(
       resourceType: 'Medication',
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${catalogMedicationId}` },
-        { name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|${locationId}` },
+        { name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|${locationId}` },
         { name: 'status', value: 'active' },
         { name: '_sort', value: 'expiration-date' },
       ],
@@ -222,7 +222,7 @@ async function findOrderCatalogMedication(
 }
 
 /**
- * What an administration should have off the shelf right now: the lot of its drug at the visit's clinic
+ * What an administration should have off the shelf right now: the lot of its drug at the visit's location
  * with the lot number on the order, and what the dose takes from it. Undefined when nothing should be off:
  * the order isn't administered, the drug isn't tracked, the lot was typed (not in inventory), or the drug
  * is multi-use.
@@ -309,7 +309,7 @@ export async function reconcileAdministrationStock(
   }
 }
 
-/** The lot of a drug (any clinic) whose "received" entry is newest, for prefilling the next receipt. */
+/** The lot of a drug (any location) whose "received" entry is newest, for prefilling the next receipt. */
 export async function getLastReceivedLot(
   oystehr: Oystehr,
   catalogMedicationId: string

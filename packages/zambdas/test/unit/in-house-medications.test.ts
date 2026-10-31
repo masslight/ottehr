@@ -387,7 +387,7 @@ describe('update-in-house-medication - inventory persistence', () => {
     expect(extension.extension).toContainEqual({
       url: 'reorder-level',
       extension: [
-        { url: 'clinic', valueReference: { reference: 'Location/loc-main' } },
+        { url: 'location', valueReference: { reference: 'Location/loc-main' } },
         { url: 'level', valueInteger: 10 },
       ],
     });

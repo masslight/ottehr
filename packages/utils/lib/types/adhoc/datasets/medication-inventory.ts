@@ -62,12 +62,12 @@ export const MedicationInventoryBaseRowSchema = z.object({
   wasteUnit: z.string().describe('Unit of wasteAmount (mg, ml …). "" when no waste.'),
   performer: z.string().describe('Staff member who made the entry (full name). "" when unknown.'),
   performerId: z.string().describe('Performer id (internal — joins).'),
-  // --- Clinic / lot ---
-  clinic: z.string().describe('Clinic (location) name the lot is kept at.'),
-  clinicId: z.string().describe('Location id (internal — joins).'),
+  // --- Location / lot ---
+  location: z.string().describe('Location name the lot is kept at.'),
+  locationId: z.string().describe('Location id (internal — joins).'),
   medication: z.string().describe('Medication name as listed in the in-house medication catalog.'),
   medicationId: z.string().describe('Catalog medication id (internal — joins).'),
-  lotId: z.string().describe('Lot id (internal — joins). A lot is one drug × clinic × lot number × expiration date.'),
+  lotId: z.string().describe('Lot id (internal — joins). A lot is one drug × location × lot number × expiration date.'),
   lotNumber: z.string().describe('Manufacturer lot number.'),
   expirationDate: z.string().describe('The lot\'s expiration date (yyyy-MM-dd). "" when unknown.'),
   ndc: z.string().describe('NDC from the box. "" when none.'),
@@ -99,7 +99,7 @@ export const MedicationInventoryBaseRowSchema = z.object({
 export const MEDICATION_INVENTORY_INTERNAL_FIELDS: readonly (keyof AdHocMedicationInventoryRow)[] = [
   'entryId',
   'performerId',
-  'clinicId',
+  'locationId',
   'medicationId',
   'lotId',
 ];
@@ -108,7 +108,7 @@ export const MEDICATION_INVENTORY_INTERNAL_FIELDS: readonly (keyof AdHocMedicati
 // categoricals a report filters or groups by. Excludes identifiers (lot numbers, NDCs), names,
 // free text and every numeric/date field. entryType and reason are z.enum already.
 export const MEDICATION_INVENTORY_DOMAIN_FIELDS: readonly (keyof AdHocMedicationInventoryRow)[] = [
-  'clinic',
+  'location',
   'medication',
   'manufacturer',
   'vendor',

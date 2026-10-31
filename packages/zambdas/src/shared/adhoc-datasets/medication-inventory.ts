@@ -23,7 +23,7 @@ import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { presentFullName } from '../adhoc-report';
 
 // The ledger is scoped by category and date (never read whole): one Observation per stock change, with
-// the lot (subject), clinic (focus), performer and, for administrations, the MedicationAdministration
+// the lot (subject), location (focus), performer and, for administrations, the MedicationAdministration
 // and through it the visit and patient. See documents/otr-3339-fhir-inventory-modeling.md, "Key queries".
 export function medicationInventorySearchParams(dateRange: DateRange): { name: string; value: string }[] {
   return [
@@ -40,7 +40,7 @@ export function medicationInventorySearchParams(dateRange: DateRange): { name: s
   ];
 }
 
-/** One row per stock entry among `resources` (entries plus their included lots, clinics, performers, visits). */
+/** One row per stock entry among `resources` (entries plus their included lots, locations, performers, visits). */
 export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMedicationInventoryRow[] {
   const byRef = new Map<string, FhirResource>();
   for (const resource of resources) if (resource.id) byRef.set(`${resource.resourceType}/${resource.id}`, resource);
@@ -82,8 +82,8 @@ export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMe
       wasteUnit: waste?.unit ?? '',
       performer: presentFullName(performer),
       performerId: entry.performerReference?.replace('Practitioner/', '') ?? '',
-      clinic: location?.name ?? '',
-      clinicId: entry.locationId,
+      location: location?.name ?? '',
+      locationId: entry.locationId,
       medication: lotResource?.resourceType === 'Medication' ? lotResource.code?.text ?? '' : '',
       medicationId: lot?.catalogMedicationId ?? '',
       lotId: entry.lotId,

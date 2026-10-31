@@ -61,7 +61,7 @@ export const InHouseMedicationInventorySchema = z.object({
   /** How much drug is in one counted item, in dose units; `in` is the volume it comes in (4 mg in 2 ml). */
   eachContains: MedicationAmountSchema.extend({ in: MedicationAmountSchema.optional() }),
   use: z.enum(MEDICATION_USE_OPTIONS),
-  /** One entry per in-person Location that has a reorder level; a clinic without one has none. */
+  /** One entry per in-person Location that has a reorder level; a location without one has none. */
   reorderLevels: z
     .array(z.object({ locationId: z.string().min(1), level: z.number().int().nonnegative() }))
     .default([]),
@@ -115,7 +115,7 @@ export const INVENTORY_ENTRY_REASON_LABELS: Record<InventoryEntryReason, string>
   'drawn-up-not-administered': 'Drawn up, not administered',
   'missing-stock': 'Missing stock',
   'manufacturer-recall': 'Manufacturer recall',
-  transferred: 'Transferred to another clinic',
+  transferred: 'Transferred to another location',
   other: 'Other',
   'count-adjustment': 'Count adjustment',
   'no-difference': 'No difference',
@@ -126,7 +126,7 @@ export const INVENTORY_ENTRY_REASON_LABELS: Record<InventoryEntryReason, string>
 export const INVENTORY_ENTRY_COMPONENTS = ['waste-amount', 'counted'] as const;
 export type InventoryEntryComponent = (typeof INVENTORY_ENTRY_COMPONENTS)[number];
 
-/** One lot of one drug at one clinic, as the UI sees it. */
+/** One lot of one drug at one location, as the UI sees it. */
 export interface InventoryLot {
   id: string;
   catalogMedicationId: string;
@@ -173,7 +173,7 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
   manufacturer: z.string().trim().min(1).optional(),
   vendor: z.string().trim().min(1).optional(),
   /**
-   * What to do when this lot number is already on hand at the clinic with a different expiration date. Without
+   * What to do when this lot number is already on hand at the location with a different expiration date. Without
    * it the zambda writes nothing and answers with `expirationConflict` so staff can choose.
    */
   expirationConflict: z.enum(['separate-lot', 'correct-existing']).optional(),
@@ -185,7 +185,7 @@ export interface InventoryStockWriteResponse {
   entry: InventoryStockEntry;
 }
 
-/** The lot that already carries this number at the clinic, when its expiration date differs from the one entered. */
+/** The lot that already carries this number at the location, when its expiration date differs from the one entered. */
 export interface ReceiveExpirationConflict {
   lotId: string;
   expirationDate: string;
@@ -222,15 +222,15 @@ export interface LookupNdcResponse {
 
 export const GetMedicationInventoryInputSchema = z.object({
   medicationId: z.string().uuid(),
-  /** With a clinic: the drug's lots on hand there (for the MAR Lot field) instead of the last lot received. */
+  /** With a location: the drug's lots on hand there (for the MAR Lot field) instead of the last lot received. */
   locationId: z.string().uuid().optional(),
 });
 export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryInputSchema>;
 
 export interface GetMedicationInventoryResponse {
-  /** The lot of this drug (any clinic) with the newest "received" entry; prefills the receive dialog. */
+  /** The lot of this drug (any location) with the newest "received" entry; prefills the receive dialog. */
   lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
-  /** With `locationId`: lots with stock on hand at that clinic, soonest expiration first. Absent for an untracked drug. */
+  /** With `locationId`: lots with stock on hand at that location, soonest expiration first. Absent for an untracked drug. */
   lots?: InventoryLot[];
 }
 
@@ -254,7 +254,7 @@ export type InventoryAdjustmentReason = (typeof INVENTORY_ADJUSTMENT_REASONS)[nu
 /** A lot comes within this many days of its expiration date: "expiring". */
 export const INVENTORY_EXPIRING_SOON_DAYS = 30;
 
-/** What the inventory screen marks (requirement 7). `low` is on hand below the clinic's reorder level. */
+/** What the inventory screen marks (requirement 7). `low` is on hand below the location's reorder level. */
 export const INVENTORY_MARKERS = ['low', 'expiring', 'expired', 'below-zero'] as const;
 export type InventoryMarker = (typeof INVENTORY_MARKERS)[number];
 export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
@@ -265,19 +265,19 @@ export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
 };
 
 export const ListMedicationInventoryInputSchema = z.discriminatedUnion('view', [
-  z.object({ view: z.literal('all-clinics') }),
-  z.object({ view: z.literal('clinic'), locationId: z.string().uuid() }),
+  z.object({ view: z.literal('all-locations') }),
+  z.object({ view: z.literal('location'), locationId: z.string().uuid() }),
   z.object({ view: z.literal('lot-history'), lotId: z.string().uuid() }),
 ]);
 export type ListMedicationInventoryInput = z.infer<typeof ListMedicationInventoryInputSchema>;
 
-/** One clinic's line under a drug in the all-clinics view. */
-export interface InventoryClinicLine {
+/** One location's line under a drug in the all-locations view. */
+export interface InventoryLocationLine {
   locationId: string;
   locationName: string;
   onHand: number;
   reorderLevel?: number;
-  /** Among the clinic's lots with stock on hand. */
+  /** Among the location's lots with stock on hand. */
   earliestExpiration?: string;
   markers: InventoryMarker[];
 }
@@ -286,22 +286,22 @@ export interface InventoryLotRow extends InventoryLot {
   markers: InventoryMarker[];
 }
 
-/** One tracked drug on the inventory screen. `clinics` is filled in the all-clinics view, `lots` in the clinic view. */
+/** One tracked drug on the inventory screen. `locations` is filled in the all-locations view, `lots` in the location view. */
 export interface InventoryDrugRow {
   medicationId: string;
   name: string;
   countedAs: MedicationCountedAs;
   use: MedicationUse;
-  /** Total across the clinics (or lots) shown. */
+  /** Total across the locations (or lots) shown. */
   onHand: number;
   /** Among lots with stock on hand. */
   earliestExpiration?: string;
-  /** The clinic's reorder level (clinic view only). */
+  /** The location's reorder level (location view only). */
   reorderLevel?: number;
-  clinicsBelowReorderLevel: number;
-  clinicsWithReorderLevel: number;
+  locationsBelowReorderLevel: number;
+  locationsWithReorderLevel: number;
   markers: InventoryMarker[];
-  clinics: InventoryClinicLine[];
+  locations: InventoryLocationLine[];
   lots: InventoryLotRow[];
 }
 
@@ -314,7 +314,7 @@ export interface InventoryHistoryEntry extends InventoryStockEntry {
 }
 
 export interface ListMedicationInventoryResponse {
-  /** Clinic and all-clinics views. Sorted by medication name. */
+  /** Location and all-locations views. Sorted by medication name. */
   drugs: InventoryDrugRow[];
   /** Lot-history view. */
   entries: InventoryHistoryEntry[];

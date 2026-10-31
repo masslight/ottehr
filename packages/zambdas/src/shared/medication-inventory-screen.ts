@@ -2,9 +2,9 @@ import { DateTime } from 'luxon';
 import {
   InHouseMedicationInventory,
   INVENTORY_EXPIRING_SOON_DAYS,
-  InventoryClinicLine,
   InventoryDrugRow,
   InventoryHistoryEntry,
+  InventoryLocationLine,
   InventoryLot,
   InventoryLotRow,
   InventoryMarker,
@@ -12,7 +12,7 @@ import {
 } from 'utils/lib/types/api/config/in-house-medications';
 
 // The inventory screen's read model (requirement 7), built from the lots' cached on-hand numbers so the
-// all-clinics view never reads the ledger. Pure functions: the zambda does the searches.
+// all-locations view never reads the ledger. Pure functions: the zambda does the searches.
 
 /** A catalog drug that is set up for inventory. */
 export interface TrackedDrug {
@@ -21,7 +21,7 @@ export interface TrackedDrug {
   inventory: InHouseMedicationInventory;
 }
 
-export interface Clinic {
+export interface ActiveLocation {
   id: string;
   name: string;
 }
@@ -73,23 +73,23 @@ const lotRow = (lot: InventoryLot, today: DateTime): InventoryLotRow => ({
   markers: [...expirationMarkers(lot.expirationDate, today), ...stockMarkers(lot.onHand, undefined)],
 });
 
-/** One row per tracked drug with a line per clinic (all-clinics view). */
-export const buildAllClinicsRows = (
+/** One row per tracked drug with a line per location (all-locations view). */
+export const buildAllLocationsRows = (
   drugs: TrackedDrug[],
   lots: InventoryLot[],
-  clinics: Clinic[],
+  locations: ActiveLocation[],
   today: DateTime
 ): InventoryDrugRow[] =>
   [...drugs].sort(byName).map((drug) => {
     const drugLots = lots.filter((lot) => lot.catalogMedicationId === drug.medicationId);
-    const lines: InventoryClinicLine[] = [...clinics].sort(byName).map((clinic) => {
-      const clinicLots = drugLots.filter((lot) => lot.locationId === clinic.id);
-      const onHand = sumOnHand(clinicLots);
-      const reorderLevel = drug.inventory.reorderLevels.find((level) => level.locationId === clinic.id)?.level;
-      const expiration = earliestExpiration(clinicLots);
+    const lines: InventoryLocationLine[] = [...locations].sort(byName).map((location) => {
+      const locationLots = drugLots.filter((lot) => lot.locationId === location.id);
+      const onHand = sumOnHand(locationLots);
+      const reorderLevel = drug.inventory.reorderLevels.find((level) => level.locationId === location.id)?.level;
+      const expiration = earliestExpiration(locationLots);
       return {
-        locationId: clinic.id,
-        locationName: clinic.name,
+        locationId: location.id,
+        locationName: location.name,
         onHand,
         ...(reorderLevel !== undefined ? { reorderLevel } : {}),
         ...(expiration ? { earliestExpiration: expiration } : {}),
@@ -98,7 +98,7 @@ export const buildAllClinicsRows = (
     });
     const onHand = sumOnHand(drugLots);
     const expiration = earliestExpiration(drugLots);
-    const clinicsBelowReorderLevel = lines.filter((line) => line.markers.includes('low')).length;
+    const locationsBelowReorderLevel = lines.filter((line) => line.markers.includes('low')).length;
     return {
       medicationId: drug.medicationId,
       name: drug.name,
@@ -106,20 +106,20 @@ export const buildAllClinicsRows = (
       use: drug.inventory.use,
       onHand,
       ...(expiration ? { earliestExpiration: expiration } : {}),
-      clinicsBelowReorderLevel,
-      clinicsWithReorderLevel: lines.filter((line) => line.reorderLevel !== undefined).length,
+      locationsBelowReorderLevel,
+      locationsWithReorderLevel: lines.filter((line) => line.reorderLevel !== undefined).length,
       markers: [
-        ...(clinicsBelowReorderLevel > 0 ? (['low'] as const) : []),
+        ...(locationsBelowReorderLevel > 0 ? (['low'] as const) : []),
         ...stockMarkers(onHand, undefined),
         ...expirationMarkers(expiration, today),
       ],
-      clinics: lines,
+      locations: lines,
       lots: [],
     };
   });
 
-/** One row per tracked drug with its lots at `locationId` (clinic view). */
-export const buildClinicRows = (
+/** One row per tracked drug with its lots at `locationId` (location view). */
+export const buildLocationRows = (
   drugs: TrackedDrug[],
   lots: InventoryLot[],
   locationId: string,
@@ -142,10 +142,10 @@ export const buildClinicRows = (
       onHand,
       ...(expiration ? { earliestExpiration: expiration } : {}),
       ...(reorderLevel !== undefined ? { reorderLevel } : {}),
-      clinicsBelowReorderLevel: low ? 1 : 0,
-      clinicsWithReorderLevel: reorderLevel !== undefined ? 1 : 0,
+      locationsBelowReorderLevel: low ? 1 : 0,
+      locationsWithReorderLevel: reorderLevel !== undefined ? 1 : 0,
       markers: [...stockMarkers(onHand, reorderLevel), ...expirationMarkers(expiration, today)],
-      clinics: [],
+      locations: [],
       lots: drugLots.map((lot) => lotRow(lot, today)),
     };
   });

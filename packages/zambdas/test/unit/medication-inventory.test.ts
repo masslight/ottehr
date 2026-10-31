@@ -3,10 +3,10 @@ import { Location, Medication, Observation } from 'fhir/r4b';
 import {
   INVENTORY_ENTRY_REASON_SYSTEM,
   INVENTORY_ENTRY_TYPE_SYSTEM,
-  INVENTORY_LOT_CLINIC_TAG_SYSTEM,
   INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
   INVENTORY_LOT_IDENTIFIER_SYSTEM,
   INVENTORY_LOT_IDENTIFIER_VALUE,
+  INVENTORY_LOT_LOCATION_TAG_SYSTEM,
   INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM,
   INVENTORY_STOCK_ENTRY_CODE,
   makeInventoryLot,
@@ -89,14 +89,14 @@ const entry = (value: number, id = `entry-${value}`): Observation => ({
 // ─── lot builder / parser ─────────────────────────────────────────────────────
 
 describe('inventory lot', () => {
-  it('builds a lot that names the drug, the clinic and the box NDC, and never looks like a catalog drug', () => {
+  it('builds a lot that names the drug, the location and the box NDC, and never looks like a catalog drug', () => {
     const lot = makeInventoryLot(catalog, lotInput);
     expect(lot.identifier).toEqual([
       { system: INVENTORY_LOT_IDENTIFIER_SYSTEM, value: INVENTORY_LOT_IDENTIFIER_VALUE },
       { system: INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM, value: 'med-catalog' },
     ]);
     expect(lot.identifier?.some((identifier) => identifier.value === INVENTORY_MEDICATION_TYPE_CODE)).toBe(false);
-    expect(lot.meta?.tag).toEqual([{ system: INVENTORY_LOT_CLINIC_TAG_SYSTEM, code: 'loc-a' }]);
+    expect(lot.meta?.tag).toEqual([{ system: INVENTORY_LOT_LOCATION_TAG_SYSTEM, code: 'loc-a' }]);
     expect(lot.code?.coding).toEqual([
       { system: MEDICATION_DISPENSABLE_DRUG_ID, code: '12345' },
       { system: CODE_SYSTEM_NDC, code: '72572-0160-25' },
@@ -383,7 +383,7 @@ describe('receive-medication-shipment - validateRequestParameters', () => {
     ['zero quantity', { ...requestBody, quantity: 0 }],
     ['fractional quantity', { ...requestBody, quantity: 1.5 }],
     ['missing ndc', { ...requestBody, ndc: undefined }],
-    ['missing clinic', { ...requestBody, locationId: '' }],
+    ['missing location', { ...requestBody, locationId: '' }],
     ['a location id that is not a FHIR id', { ...requestBody, locationId: 'loc-a' }],
   ])('rejects %s', (_label, body, headers?) => {
     expect(() => validateRequestParameters({ ...createInput(body), ...(headers ? { headers } : {}) })).toThrow();
@@ -424,14 +424,14 @@ describe('receive-medication-shipment - performEffect', () => {
     });
   });
 
-  it('creates the lot when drug × clinic × lot number is new and writes a received entry', async () => {
+  it('creates the lot when drug × location × lot number is new and writes a received entry', async () => {
     const oystehr = makeMockOystehr();
     oystehr.fhir.get.mockResolvedValue(catalog);
     const result = written(await receivePerformEffect(oystehr, receiveBody, performer));
 
     const [{ params }] = oystehr.fhir.search.mock.calls.find(([call]) => call.resourceType === 'Medication')!;
     expect(params).toContainEqual({ name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|med-catalog` });
-    expect(params).toContainEqual({ name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|loc-a` });
+    expect(params).toContainEqual({ name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|loc-a` });
     expect(params).toContainEqual({ name: 'lot-number', value: 'A123' });
 
     const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
@@ -561,7 +561,7 @@ describe('receive-medication-shipment - performEffect', () => {
       });
     });
 
-    it('adds to the lot with the matching expiration when the clinic holds the number under two dates', async () => {
+    it('adds to the lot with the matching expiration when the location holds the number under two dates', async () => {
       const laterLot: Medication = {
         ...existingLot,
         id: 'lot-2',

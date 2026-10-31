@@ -13,7 +13,7 @@ interface CountLotDialogProps {
   onSaved: () => void;
   drug: InventoryDrugRow;
   lot: InventoryLotRow;
-  clinicName: string;
+  locationName: string;
 }
 
 const buttonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
@@ -26,7 +26,7 @@ export default function CountLotDialog({
   onSaved,
   drug,
   lot,
-  clinicName,
+  locationName,
 }: CountLotDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [counted, setCounted] = useState('');
@@ -69,7 +69,7 @@ export default function CountLotDialog({
             Count lot
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {drug.name} · Lot {lot.lotNumber} · {clinicName}
+            {drug.name} · Lot {lot.lotNumber} · {locationName}
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>

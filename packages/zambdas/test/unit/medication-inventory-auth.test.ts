@@ -68,7 +68,7 @@ const receiveBody = {
 const inventory = { countedAs: 'vial', eachContains: { amount: 4, unit: 'mg' }, use: 'single-use' };
 
 const staffEndpoints: [string, ZambdaHandler, Record<string, unknown>][] = [
-  ['list-medication-inventory', listRaw as unknown as ZambdaHandler, { view: 'all-clinics' }],
+  ['list-medication-inventory', listRaw as unknown as ZambdaHandler, { view: 'all-locations' }],
   [
     'adjust-medication-inventory',
     adjustRaw as unknown as ZambdaHandler,

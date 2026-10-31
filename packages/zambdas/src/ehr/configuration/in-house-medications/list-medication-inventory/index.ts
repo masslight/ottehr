@@ -6,9 +6,9 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import {
   getMedicationInventoryConfig,
-  INVENTORY_LOT_CLINIC_TAG_SYSTEM,
   INVENTORY_LOT_IDENTIFIER_SYSTEM,
   INVENTORY_LOT_IDENTIFIER_VALUE,
+  INVENTORY_LOT_LOCATION_TAG_SYSTEM,
   parseInventoryLot,
   parseInventoryStockEntry,
 } from 'utils/lib/fhir/medication-inventory';
@@ -25,9 +25,9 @@ import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { getInventoryLotEntries } from '../../../../shared/medication-inventory';
 import {
-  buildAllClinicsRows,
-  buildClinicRows,
+  buildAllLocationsRows,
   buildHistory,
+  buildLocationRows,
   HistoryNames,
   TrackedDrug,
 } from '../../../../shared/medication-inventory-screen';
@@ -38,7 +38,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-/** The inventory screen (requirement 7): every tracked drug for one clinic or all clinics, or one lot's history. */
+/** The inventory screen (requirement 7): every tracked drug for one location or all locations, or one lot's history. */
 export const index = wrapHandler(
   'admin-list-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -72,11 +72,11 @@ export const performEffect = async (
   }
 
   const [drugs, lots] = await Promise.all([getTrackedDrugs(oystehr), getLots(oystehr, params)]);
-  if (params.view === 'clinic') {
-    return { drugs: buildClinicRows(drugs, lots, params.locationId, today), entries: [] };
+  if (params.view === 'location') {
+    return { drugs: buildLocationRows(drugs, lots, params.locationId, today), entries: [] };
   }
   const { locations } = await listActiveLocations(oystehr, { inPersonOnly: true });
-  return { drugs: buildAllClinicsRows(drugs, lots, locations, today), entries: [] };
+  return { drugs: buildAllLocationsRows(drugs, lots, locations, today), entries: [] };
 };
 
 /** Every catalog drug with an inventory setup. */
@@ -94,20 +94,20 @@ const getTrackedDrugs = async (oystehr: Oystehr): Promise<TrackedDrug[]> => {
 };
 
 /**
- * Lots at one clinic (empty ones too, so they can still be counted and adjusted), or with stock on hand
+ * Lots at one location (empty ones too, so they can still be counted and adjusted), or with stock on hand
  * everywhere (status is derived from the cached on hand).
  */
 const getLots = async (
   oystehr: Oystehr,
-  params: Extract<ListMedicationInventoryInput, { view: 'clinic' | 'all-clinics' }>
+  params: Extract<ListMedicationInventoryInput, { view: 'location' | 'all-locations' }>
 ): Promise<InventoryLot[]> => {
   const lots = await getAllFhirSearchPages<Medication>(
     {
       resourceType: 'Medication',
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_IDENTIFIER_SYSTEM}|${INVENTORY_LOT_IDENTIFIER_VALUE}` },
-        ...(params.view === 'clinic'
-          ? [{ name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|${params.locationId}` }]
+        ...(params.view === 'location'
+          ? [{ name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|${params.locationId}` }]
           : [{ name: 'status', value: 'active' }]),
       ],
     },

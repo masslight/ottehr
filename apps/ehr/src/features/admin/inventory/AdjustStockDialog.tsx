@@ -36,7 +36,7 @@ interface AdjustStockDialogProps {
   onSaved: () => void;
   drug: InventoryDrugRow;
   lot: InventoryLotRow;
-  clinicName: string;
+  locationName: string;
 }
 
 const buttonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
@@ -49,7 +49,7 @@ export default function AdjustStockDialog({
   onSaved,
   drug,
   lot,
-  clinicName,
+  locationName,
 }: AdjustStockDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [direction, setDirection] = useState<'remove' | 'add'>('remove');
@@ -111,7 +111,7 @@ export default function AdjustStockDialog({
             Adjust stock
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {drug.name} · Lot {lot.lotNumber} · {clinicName} · {formatOnHand(lot.onHand, lot.unit)} on hand
+            {drug.name} · Lot {lot.lotNumber} · {locationName} · {formatOnHand(lot.onHand, lot.unit)} on hand
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>

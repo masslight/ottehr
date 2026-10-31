@@ -40,7 +40,7 @@ interface ReceiveShipmentDialogProps {
   onClose: () => void;
   medication: Medication & { id: string };
   inventory: InHouseMedicationInventory;
-  clinics: { id: string; name: string }[];
+  locations: { id: string; name: string }[];
 }
 
 interface ReceiveFormState {
@@ -58,12 +58,12 @@ type LookupState = { status: 'idle' | 'loading' } | LookupNdcResponse;
 const NDC_LOOKUP_DEBOUNCE_MS = 600;
 const buttonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
 
-// The clinic the Tracking Board's location picker last saved, when it is one of the in-person clinics.
-export function storedClinicId(clinics: { id: string }[]): string | undefined {
+// The location the Tracking Board's location picker last saved, when it is one of the in-person locations.
+export function storedLocationId(locations: { id: string }[]): string | undefined {
   try {
     const stored = localStorage.getItem('selectedLocation');
     const id = stored ? (JSON.parse(stored) as { id?: string }).id : undefined;
-    return clinics.some((clinic) => clinic.id === id) ? id : undefined;
+    return locations.some((location) => location.id === id) ? id : undefined;
   } catch {
     return undefined;
   }
@@ -74,7 +74,7 @@ export default function ReceiveShipmentDialog({
   onClose,
   medication,
   inventory,
-  clinics,
+  locations,
 }: ReceiveShipmentDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const formRef = useRef<HTMLFormElement>(null);
@@ -84,13 +84,13 @@ export default function ReceiveShipmentDialog({
     lotNumber: '',
     expirationDate: null,
     quantity: '',
-    locationId: storedClinicId(clinics) ?? clinics[0]?.id ?? '',
+    locationId: storedLocationId(locations) ?? locations[0]?.id ?? '',
     vendor: '',
   }));
   const [lookup, setLookup] = useState<LookupState>({ status: 'idle' });
   const [prefilledFromLastLot, setPrefilledFromLastLot] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Set when the clinic already has this lot number with another expiration date; staff pick what to do.
+  // Set when the location already has this lot number with another expiration date; staff pick what to do.
   const [conflict, setConflict] = useState<ReceiveExpirationConflict | undefined>(undefined);
   const setField = <K extends keyof ReceiveFormState>(field: K, value: ReceiveFormState[K]): void =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -99,7 +99,7 @@ export default function ReceiveShipmentDialog({
   const units = MEDICATION_COUNTED_AS_LABELS[inventory.countedAs];
   const quantity = Number(form.quantity);
 
-  // Later shipments start from the last lot received (any clinic).
+  // Later shipments start from the last lot received (any location).
   useEffect(() => {
     if (!open || !oystehrZambda) return;
     let cancelled = false;
@@ -147,7 +147,7 @@ export default function ReceiveShipmentDialog({
     };
   }, [form.ndc, oystehrZambda, medication.id]);
 
-  const clinicName = clinics.find((clinic) => clinic.id === form.locationId)?.name ?? 'the clinic';
+  const locationName = locations.find((location) => location.id === form.locationId)?.name ?? 'the location';
 
   const receive = async (expirationConflict?: ReceiveMedicationShipmentInput['expirationConflict']): Promise<void> => {
     if (!oystehrZambda || !form.expirationDate) return;
@@ -169,7 +169,7 @@ export default function ReceiveShipmentDialog({
         return;
       }
       setConflict(undefined);
-      enqueueSnackbar(`Received ${quantity} ${units.plural} of ${name} at ${clinicName}`, { variant: 'success' });
+      enqueueSnackbar(`Received ${quantity} ${units.plural} of ${name} at ${locationName}`, { variant: 'success' });
       onClose();
     } catch (error) {
       console.error('Error receiving shipment', error);
@@ -308,16 +308,16 @@ export default function ReceiveShipmentDialog({
             </Grid>
             <Grid item xs={6}>
               <FormControl fullWidth required>
-                <InputLabel id="receive-clinic-label">Clinic</InputLabel>
+                <InputLabel id="receive-location-label">Location</InputLabel>
                 <Select
-                  labelId="receive-clinic-label"
-                  label="Clinic"
+                  labelId="receive-location-label"
+                  label="Location"
                   value={form.locationId}
                   onChange={(e) => setField('locationId', e.target.value)}
                 >
-                  {clinics.map((clinic) => (
-                    <MenuItem key={clinic.id} value={clinic.id}>
-                      {clinic.name}
+                  {locations.map((location) => (
+                    <MenuItem key={location.id} value={location.id}>
+                      {location.name}
                     </MenuItem>
                   ))}
                 </Select>
@@ -378,7 +378,7 @@ export default function ReceiveShipmentDialog({
         <ExpirationConflictDialog
           conflict={conflict}
           lotNumber={form.lotNumber.trim()}
-          clinicName={clinicName}
+          locationName={locationName}
           enteredDate={form.expirationDate.toISODate() ?? ''}
           quantity={quantity}
           saving={saving}
@@ -394,7 +394,7 @@ export default function ReceiveShipmentDialog({
 function ExpirationConflictDialog({
   conflict,
   lotNumber,
-  clinicName,
+  locationName,
   enteredDate,
   quantity,
   saving,
@@ -403,7 +403,7 @@ function ExpirationConflictDialog({
 }: {
   conflict: ReceiveExpirationConflict;
   lotNumber: string;
-  clinicName: string;
+  locationName: string;
   enteredDate: string;
   quantity: number;
   saving: boolean;
@@ -433,7 +433,7 @@ function ExpirationConflictDialog({
   return (
     <Dialog open onClose={onBack} maxWidth="xs" fullWidth>
       <DialogTitle component={Typography} variant="h5" color="primary.dark" sx={{ pb: 1 }}>
-        Lot {lotNumber} is already on hand at {clinicName} with expiration {existing}.
+        Lot {lotNumber} is already on hand at {locationName} with expiration {existing}.
       </DialogTitle>
       <DialogContent sx={{ pb: 2 }}>
         <Typography>You entered {entered}.</Typography>

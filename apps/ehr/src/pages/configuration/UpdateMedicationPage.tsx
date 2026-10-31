@@ -143,7 +143,7 @@ export default function UpdateMedicationPage(): ReactElement {
   const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
   const [inventoryForm, setInventoryForm] = useState<InventoryFormState>(EMPTY_INVENTORY_FORM);
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const { data: clinics = [] } = useGetAllLocations({ inPersonOnly: true });
+  const { data: locations = [] } = useGetAllLocations({ inPersonOnly: true });
   const setInventoryField = <K extends keyof InventoryFormState>(field: K, value: InventoryFormState[K]): void =>
     setInventoryForm((prev) => ({ ...prev, [field]: value }));
 
@@ -233,7 +233,7 @@ export default function UpdateMedicationPage(): ReactElement {
         medispanIDForInteractions,
         inventory: toInventoryInput(
           inventoryForm,
-          clinics.map((clinic) => clinic.id)
+          locations.map((location) => location.id)
         ),
       });
       setMedication(updated);
@@ -490,24 +490,24 @@ export default function UpdateMedicationPage(): ReactElement {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="primary.dark">
-                  Reorder level per clinic
+                  Reorder level per location
                 </Typography>
               </Grid>
-              {clinics.map((clinic) => (
-                <Grid item xs={4} key={clinic.id}>
+              {locations.map((location) => (
+                <Grid item xs={4} key={location.id}>
                   <TextField
                     fullWidth
                     size="small"
-                    label={clinic.name}
+                    label={location.name}
                     placeholder="none"
                     type="number"
                     inputProps={{ min: 0, step: 1 }}
                     disabled={!canEditSetup || !inventoryForm.countedAs}
-                    value={inventoryForm.reorderLevels[clinic.id] ?? ''}
+                    value={inventoryForm.reorderLevels[location.id] ?? ''}
                     onChange={(e) =>
                       setInventoryField('reorderLevels', {
                         ...inventoryForm.reorderLevels,
-                        [clinic.id]: e.target.value,
+                        [location.id]: e.target.value,
                       })
                     }
                     InputLabelProps={{ shrink: true }}
@@ -541,7 +541,7 @@ export default function UpdateMedicationPage(): ReactElement {
         {savedInventory && medication.id ? (
           <Paper sx={{ padding: 2, marginTop: 2 }}>
             <Typography variant="h4">Receive shipment</Typography>
-            <Typography variant="body1">Add a lot of this medication to a clinic's stock.</Typography>
+            <Typography variant="body1">Add a lot of this medication to a location's stock.</Typography>
             <LoadingButton
               variant="contained"
               sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
@@ -555,7 +555,7 @@ export default function UpdateMedicationPage(): ReactElement {
                 onClose={() => setReceiveOpen(false)}
                 medication={medication as Medication & { id: string }}
                 inventory={savedInventory}
-                clinics={clinics}
+                locations={locations}
               />
             ) : null}
           </Paper>

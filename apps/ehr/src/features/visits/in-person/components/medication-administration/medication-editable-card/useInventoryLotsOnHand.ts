@@ -3,7 +3,7 @@ import { getMedicationInventory } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 
-/** Lots of a catalog drug with stock on hand at the visit's clinic, for the Lot field's suggestions. */
+/** Lots of a catalog drug with stock on hand at the visit's location, for the Lot field's suggestions. */
 export const useInventoryLotsOnHand = ({
   catalogMedicationId,
   locationId,

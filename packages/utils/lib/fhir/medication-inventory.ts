@@ -30,7 +30,7 @@ const EACH_CONTAINS = 'each-contains';
 const EACH_CONTAINS_IN = 'each-contains-in';
 const USE = 'use';
 const REORDER_LEVEL = 'reorder-level';
-const REORDER_LEVEL_CLINIC = 'clinic';
+const REORDER_LEVEL_LOCATION = 'location';
 const REORDER_LEVEL_LEVEL = 'level';
 
 const makeAmountExtension = (url: string, amount: { amount: number; unit: string }): Extension => ({
@@ -53,7 +53,7 @@ export const makeMedicationInventoryExtension = (inventory: InHouseMedicationInv
       .map(({ locationId, level }) => ({
         url: REORDER_LEVEL,
         extension: [
-          { url: REORDER_LEVEL_CLINIC, valueReference: { reference: `Location/${locationId}` } },
+          { url: REORDER_LEVEL_LOCATION, valueReference: { reference: `Location/${locationId}` } },
           { url: REORDER_LEVEL_LEVEL, valueInteger: level },
         ],
       })),
@@ -72,7 +72,10 @@ export const getMedicationInventoryConfig = (medication: Medication): InHouseMed
     reorderLevels: (root.extension ?? [])
       .filter((extension) => extension.url === REORDER_LEVEL)
       .map((extension) => ({
-        locationId: getExtension(extension, REORDER_LEVEL_CLINIC)?.valueReference?.reference?.replace('Location/', ''),
+        locationId: getExtension(extension, REORDER_LEVEL_LOCATION)?.valueReference?.reference?.replace(
+          'Location/',
+          ''
+        ),
         level: getExtension(extension, REORDER_LEVEL_LEVEL)?.valueInteger,
       })),
   });
@@ -81,7 +84,7 @@ export const getMedicationInventoryConfig = (medication: Medication): InHouseMed
 
 // ─── Lots and stock entries ───────────────────────────────────────────────────
 //
-// A lot is one Medication per drug × clinic × lot number × expiration date (batch holds lot number and
+// A lot is one Medication per drug × location × lot number × expiration date (batch holds lot number and
 // expiration, both searchable; the same number can be on hand twice when a shipment arrived with a different
 // date and staff chose to keep it separate). Every stock change is an Observation whose subject is the lot: Observation was chosen over
 // Basic because Oystehr searches only standard parameters, and Observation has one for everything the
@@ -95,10 +98,10 @@ export const INVENTORY_LOT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('inventory
 export const INVENTORY_LOT_IDENTIFIER_VALUE = 'inventory-lot';
 /** Names the catalog drug the lot belongs to (value = catalog Medication id). */
 export const INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('inventory-lot-drug');
-/** meta.tag naming the clinic (code = Location id) so lots can be searched per clinic. */
-export const INVENTORY_LOT_CLINIC_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-lot-clinic');
+/** meta.tag naming the location (code = Location id) so lots can be searched per location. */
+export const INVENTORY_LOT_LOCATION_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-lot-location');
 export const INVENTORY_LOT_EXTENSION_URL = ottehrExtensionUrl('inventory-lot');
-const LOT_CLINIC = 'clinic';
+const LOT_LOCATION = 'location';
 const LOT_VENDOR = 'vendor';
 const LOT_ON_HAND = 'on-hand';
 
@@ -144,7 +147,7 @@ const makeLotExtension = (
 ): Extension => ({
   url: INVENTORY_LOT_EXTENSION_URL,
   extension: [
-    { url: LOT_CLINIC, valueReference: { reference: `Location/${input.locationId}` } },
+    { url: LOT_LOCATION, valueReference: { reference: `Location/${input.locationId}` } },
     ...(input.vendor ? [{ url: LOT_VENDOR, valueString: input.vendor }] : []),
     { url: LOT_ON_HAND, valueQuantity: { value: onHand, unit: input.unit } },
   ],
@@ -162,7 +165,7 @@ export const makeInventoryLot = (catalog: Medication & { id: string }, input: In
   ];
   return {
     resourceType: 'Medication',
-    meta: { tag: [{ system: INVENTORY_LOT_CLINIC_TAG_SYSTEM, code: input.locationId }] },
+    meta: { tag: [{ system: INVENTORY_LOT_LOCATION_TAG_SYSTEM, code: input.locationId }] },
     identifier: [
       { system: INVENTORY_LOT_IDENTIFIER_SYSTEM, value: INVENTORY_LOT_IDENTIFIER_VALUE },
       { system: INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM, value: catalog.id },
@@ -183,8 +186,8 @@ const readLotExtension = (
   const onHand = getExtension(root, LOT_ON_HAND)?.valueQuantity;
   return {
     locationId:
-      getExtension(root, LOT_CLINIC)?.valueReference?.reference?.replace('Location/', '') ??
-      getTag(lot, INVENTORY_LOT_CLINIC_TAG_SYSTEM)?.code,
+      getExtension(root, LOT_LOCATION)?.valueReference?.reference?.replace('Location/', '') ??
+      getTag(lot, INVENTORY_LOT_LOCATION_TAG_SYSTEM)?.code,
     vendor: getExtension(root, LOT_VENDOR)?.valueString,
     unit: onHand?.unit ?? '',
     onHand: onHand?.value ?? 0,

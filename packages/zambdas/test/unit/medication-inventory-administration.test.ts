@@ -168,7 +168,7 @@ type MockOystehr = Oystehr & {
   fhir: { get: ReturnType<typeof vi.fn>; search: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> };
 };
 
-/** A FHIR store with one catalog drug, its lots at clinic A, and a ledger. */
+/** A FHIR store with one catalog drug, its lots at location A, and a ledger. */
 const makeMockOystehr = ({
   catalog = makeCatalog(singleUseVial),
   lots = [makeLot('lot-1', 'A123', 25)],
@@ -371,7 +371,7 @@ describe('reconcileAdministrationStock', () => {
     expect(nameSearches(byName)).toBe(1);
   });
 
-  it('does nothing for a typed lot that is not in inventory at the visit clinic', async () => {
+  it('does nothing for a typed lot that is not in inventory at the visit location', async () => {
     const oystehr = makeMockOystehr();
     await reconcileAdministrationStock(oystehr, makeOrder({ lotNumber: 'SAMPLE-1' }), 'Practitioner/nurse-1');
     expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
@@ -469,8 +469,8 @@ describe('syncInventoryForOrder', () => {
 
 // ─── lots for the Lot field ───────────────────────────────────────────────────
 
-describe('get-medication-inventory with a clinic', () => {
-  it('returns the lots on hand at the clinic, soonest expiration first, and none for an untracked drug', async () => {
+describe('get-medication-inventory with a location', () => {
+  it('returns the lots on hand at the location, soonest expiration first, and none for an untracked drug', async () => {
     const oystehr = makeMockOystehr({
       lots: [
         makeLot('lot-1', 'HK3302', 18, '2027-06-30'),

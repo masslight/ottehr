@@ -17,8 +17,8 @@ const LABEL = 'Medication inventory';
 
 const DESCRIPTION =
   'One row per in-house medication stock entry in the date range: shipments received, medications given at visits ' +
-  '(with any wasted dose), reversals, adjustments with a reason and shelf counts, each with its clinic, lot and ' +
-  'quantity. Waste by reason, usage, received stock and expiring stock by clinic and period.';
+  '(with any wasted dose), reversals, adjustments with a reason and shelf counts, each with its location, lot and ' +
+  'quantity. Waste by reason, usage, received stock and expiring stock by location and period.';
 
 async function fetchAdHocMedicationInventory({
   oystehrZambda,

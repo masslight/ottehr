@@ -54,7 +54,7 @@ function Harness({
       required
       onChange={(_field, newValue) => setValue(String(newValue ?? ''))}
       selectsOptions={selectsOptions}
-      inventoryLots={lots.length ? { lots, clinicName: 'Main Street Clinic' } : undefined}
+      inventoryLots={lots.length ? { lots, locationName: 'Main Street Clinic' } : undefined}
       onInventoryLotPick={(picked) => {
         setValue(picked.lotNumber);
         onPick(picked);
@@ -69,7 +69,7 @@ const openList = (): HTMLElement => {
 };
 
 describe('MedicationCardField lot suggestions', () => {
-  it('lists the lots on hand at the clinic, soonest expiration first, expired last and marked', () => {
+  it('lists the lots on hand at the location, soonest expiration first, expired last and marked', () => {
     render(<Harness onPick={vi.fn()} />);
     const list = openList();
 

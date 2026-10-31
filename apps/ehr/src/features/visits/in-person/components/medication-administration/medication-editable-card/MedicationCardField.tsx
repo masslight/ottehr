@@ -41,10 +41,10 @@ type MedicationLocation = NonNullable<MedicationData['location']>;
 export const POPULAR_SEPARATOR = 'popular-separator';
 export const OTHER_SEPARATOR = 'other-separator';
 
-/** Lots of the order's drug on hand at the visit's clinic (requirement 3); only for drugs set up for inventory. */
+/** Lots of the order's drug on hand at the visit's location (requirement 3); only for drugs set up for inventory. */
 export interface InventoryLotSuggestions {
   lots: InventoryLot[];
-  clinicName?: string;
+  locationName?: string;
 }
 
 type LotOption = { lot: InventoryLot; expired: boolean };
@@ -128,7 +128,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   const isInstruction = field === 'instructions';
 
   if (field === 'lotNumber' && inventoryLots && inventoryLots.lots.length > 0 && onInventoryLotPick) {
-    const { lots, clinicName } = inventoryLots;
+    const { lots, locationName } = inventoryLots;
     const options = sortInventoryLotsForPicking(lots, DateTime.now().toISODate());
     const text = typeof rawValue === 'string' ? rawValue : '';
     const findLot = (lotNumber: string): InventoryLot | undefined =>
@@ -151,7 +151,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
             if (!search || findLot(inputValue)) return all;
             return all.filter((option) => option.lot.lotNumber.toLowerCase().includes(search));
           }}
-          groupBy={() => `On hand at ${clinicName ?? 'this clinic'}`}
+          groupBy={() => (locationName ? `On hand at ${locationName}` : 'On hand')}
           PaperComponent={LotSuggestionsPaper}
           onChange={(_e, option) => {
             if (option && typeof option !== 'string') onInventoryLotPick(option.lot);

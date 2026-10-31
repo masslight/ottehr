@@ -622,7 +622,7 @@ export const EditableMedicationCard: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lot suggestions (requirement 3): the order's catalog drug at the visit's clinic. An existing order's
+  // Lot suggestions (requirement 3): the order's catalog drug at the visit's location. An existing order's
   // medicationId is the contained-copy sentinel, so the catalog drug is found by name, as quick picks do.
   const medicationIdValue = getFieldValue('medicationId');
   const catalogMedicationId =
@@ -856,7 +856,7 @@ export const EditableMedicationCard: React.FC<{
         isAdmin={isAdmin}
         onQuickPickAddOrUpdate={() => void openQuickPickDialog()}
         inventoryLots={
-          inventoryLots?.length ? { lots: inventoryLots, clinicName: resources.location?.name } : undefined
+          inventoryLots?.length ? { lots: inventoryLots, locationName: resources.location?.name } : undefined
         }
         onInventoryLotPick={handleInventoryLotPick}
       />

@@ -2,9 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { Medication, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  INVENTORY_LOT_CLINIC_TAG_SYSTEM,
   INVENTORY_LOT_IDENTIFIER_SYSTEM,
   INVENTORY_LOT_IDENTIFIER_VALUE,
+  INVENTORY_LOT_LOCATION_TAG_SYSTEM,
   makeInventoryLot,
   makeInventoryStockEntry,
   makeMedicationInventoryExtension,
@@ -30,9 +30,9 @@ import { validateRequestParameters as validateAdjust } from '../../src/ehr/confi
 import { performEffect as listPerformEffect } from '../../src/ehr/configuration/in-house-medications/list-medication-inventory/index';
 import { validateRequestParameters as validateList } from '../../src/ehr/configuration/in-house-medications/list-medication-inventory/validateRequestParameters';
 import {
-  buildAllClinicsRows,
-  buildClinicRows,
+  buildAllLocationsRows,
   buildHistory,
+  buildLocationRows,
   expirationMarkers,
   sortLots,
   TrackedDrug,
@@ -70,7 +70,7 @@ const drug = (
   inventory: { countedAs: 'vial', eachContains: { amount: 4, unit: 'mg' }, use: 'single-use', reorderLevels },
 });
 
-const clinics = [
+const locations = [
   { id: 'west', name: 'Westfield Clinic' },
   { id: 'main', name: 'Main Street Clinic' },
   { id: 'north', name: 'Northside Urgent Care' },
@@ -91,9 +91,9 @@ describe('expirationMarkers', () => {
   });
 });
 
-// ─── all clinics ──────────────────────────────────────────────────────────────
+// ─── all locations ────────────────────────────────────────────────────────────
 
-describe('buildAllClinicsRows', () => {
+describe('buildAllLocationsRows', () => {
   const drugs = [
     drug('ketorolac', 'Ketorolac', [
       { locationId: 'main', level: 8 },
@@ -121,7 +121,7 @@ describe('buildAllClinicsRows', () => {
     lot({ id: 'k-north', catalogMedicationId: 'ketorolac', locationId: 'north', onHand: 3 }),
     lot({ id: 'k-west', catalogMedicationId: 'ketorolac', locationId: 'west', onHand: 9 }),
   ];
-  const rows = buildAllClinicsRows(drugs, lots, clinics, today);
+  const rows = buildAllLocationsRows(drugs, lots, locations, today);
 
   it('lists every tracked drug by name, with totals from the lots on-hand caches', () => {
     expect(rows.map((row) => [row.name, row.onHand])).toEqual([
@@ -131,53 +131,53 @@ describe('buildAllClinicsRows', () => {
     ]);
   });
 
-  it('counts clinics below their reorder level against clinics that have one, and finds the earliest expiration', () => {
+  it('counts locations below their reorder level against locations that have one, and finds the earliest expiration', () => {
     const ondansetron = rows[2];
     expect(ondansetron).toMatchObject({
-      clinicsBelowReorderLevel: 1,
-      clinicsWithReorderLevel: 2,
+      locationsBelowReorderLevel: 1,
+      locationsWithReorderLevel: 2,
       earliestExpiration: '2026-11-15',
       markers: ['low', 'expiring'],
     });
     expect(
-      ondansetron.clinics.map((line) => [line.locationName, line.onHand, line.reorderLevel, line.markers])
+      ondansetron.locations.map((line) => [line.locationName, line.onHand, line.reorderLevel, line.markers])
     ).toEqual([
       ['Main Street Clinic', 22, 10, ['expiring']],
       ['Northside Urgent Care', 4, 6, ['low']],
       ['Westfield Clinic', 0, undefined, []],
     ]);
-    expect(ondansetron.clinics[0].earliestExpiration).toBe('2026-11-15');
-    expect(ondansetron.clinics[2].earliestExpiration).toBeUndefined();
+    expect(ondansetron.locations[0].earliestExpiration).toBe('2026-11-15');
+    expect(ondansetron.locations[2].earliestExpiration).toBeUndefined();
   });
 
-  it('marks a total below zero and a clinic below zero and low', () => {
+  it('marks a total below zero and a location below zero and low', () => {
     const ketorolac = rows[0];
     expect(ketorolac.markers).toEqual(['low']);
-    expect(ketorolac.clinics[0]).toMatchObject({ locationId: 'main', onHand: -2, markers: ['low', 'below-zero'] });
-    expect(ketorolac.clinicsBelowReorderLevel).toBe(2);
-    expect(buildAllClinicsRows(drugs, [lots[4]], clinics, today)[0].markers).toEqual(['low', 'below-zero']);
+    expect(ketorolac.locations[0]).toMatchObject({ locationId: 'main', onHand: -2, markers: ['low', 'below-zero'] });
+    expect(ketorolac.locationsBelowReorderLevel).toBe(2);
+    expect(buildAllLocationsRows(drugs, [lots[4]], locations, today)[0].markers).toEqual(['low', 'below-zero']);
   });
 
   it('shows a drug with no lots as empty everywhere', () => {
-    expect(rows[1]).toMatchObject({ onHand: 0, clinicsWithReorderLevel: 0, markers: [], lots: [] });
+    expect(rows[1]).toMatchObject({ onHand: 0, locationsWithReorderLevel: 0, markers: [], lots: [] });
     expect(rows[1].earliestExpiration).toBeUndefined();
-    expect(rows[1].clinics).toHaveLength(3);
+    expect(rows[1].locations).toHaveLength(3);
   });
 });
 
-// ─── one clinic ───────────────────────────────────────────────────────────────
+// ─── one location ─────────────────────────────────────────────────────────────
 
-describe('buildClinicRows', () => {
+describe('buildLocationRows', () => {
   const drugs = [drug('ondansetron', 'Ondansetron', [{ locationId: 'main', level: 10 }])];
   const lots = [
     lot({ id: 'hk', lotNumber: 'HK3302', onHand: 18, expirationDate: '2027-06-30' }),
     lot({ id: 'b8', lotNumber: 'B88120', onHand: 2, expirationDate: '2026-09-30' }),
     lot({ id: 'c2', lotNumber: 'C24117', onHand: 4, expirationDate: '2026-11-15' }),
-    lot({ id: 'other-clinic', locationId: 'north', onHand: 50, expirationDate: '2026-01-01' }),
+    lot({ id: 'other-location', locationId: 'north', onHand: 50, expirationDate: '2026-01-01' }),
   ];
 
-  it('lists the clinic lots soonest expiration first with expired lots last, and marks each', () => {
-    const [row] = buildClinicRows(drugs, lots, 'main', today);
+  it('lists the location lots soonest expiration first with expired lots last, and marks each', () => {
+    const [row] = buildLocationRows(drugs, lots, 'main', today);
     // an expired lot that still has stock is the earliest expiration (it needs attention)
     expect(row).toMatchObject({ onHand: 24, reorderLevel: 10, earliestExpiration: '2026-09-30', markers: ['expired'] });
     expect(row.lots.map((l) => [l.lotNumber, l.markers])).toEqual([
@@ -188,13 +188,13 @@ describe('buildClinicRows', () => {
   });
 
   it('marks the drug low when on hand is at or below the reorder level, and below zero', () => {
-    const [low] = buildClinicRows(drugs, [lots[0]], 'main', today);
+    const [low] = buildLocationRows(drugs, [lots[0]], 'main', today);
     expect(low).toMatchObject({ onHand: 18, markers: [] });
-    expect(buildClinicRows(drugs, [lot({ onHand: 10 })], 'main', today)[0].markers).toEqual(['low']);
-    const [lowExpired] = buildClinicRows(drugs, [lots[1]], 'main', today);
+    expect(buildLocationRows(drugs, [lot({ onHand: 10 })], 'main', today)[0].markers).toEqual(['low']);
+    const [lowExpired] = buildLocationRows(drugs, [lots[1]], 'main', today);
     expect(lowExpired.markers).toEqual(['low', 'expired']);
     expect(lowExpired.earliestExpiration).toBe('2026-09-30');
-    const [negative] = buildClinicRows(drugs, [lot({ onHand: -1 })], 'main', today);
+    const [negative] = buildLocationRows(drugs, [lot({ onHand: -1 })], 'main', today);
     expect(negative.markers).toEqual(['low', 'below-zero']);
     expect(negative.lots[0].markers).toEqual(['below-zero']);
   });
@@ -323,32 +323,32 @@ const createInput = (body: Record<string, unknown>, authorized = true): ZambdaIn
 
 describe('list-medication-inventory', () => {
   it('validates the three views', () => {
-    expect(validateList(createInput({ view: 'all-clinics' })).view).toBe('all-clinics');
-    expect(validateList(createInput({ view: 'clinic', locationId: LOCATION_UUID }))).toMatchObject({
+    expect(validateList(createInput({ view: 'all-locations' })).view).toBe('all-locations');
+    expect(validateList(createInput({ view: 'location', locationId: LOCATION_UUID }))).toMatchObject({
       locationId: LOCATION_UUID,
     });
     expect(validateList(createInput({ view: 'lot-history', lotId: LOT_UUID }))).toMatchObject({ lotId: LOT_UUID });
-    expect(() => validateList(createInput({ view: 'clinic' }))).toThrow();
+    expect(() => validateList(createInput({ view: 'location' }))).toThrow();
     // a comma would turn the FHIR search value into an OR
-    expect(() => validateList(createInput({ view: 'clinic', locationId: `${LOCATION_UUID},other` }))).toThrow();
+    expect(() => validateList(createInput({ view: 'location', locationId: `${LOCATION_UUID},other` }))).toThrow();
     expect(() => validateList(createInput({ view: 'everything' }))).toThrow();
   });
 
-  it('searches lots scoped by the lot identifier (clinic tag for one clinic, active elsewhere), never the ledger', async () => {
+  it('searches lots scoped by the lot identifier (location tag for one location, active elsewhere), never the ledger', async () => {
     const oystehr = makeMockOystehr({
       Medication: [catalog, untracked],
       Lot: [lotResource],
       Location: [{ resourceType: 'Location', id: 'main', name: 'Main Street Clinic' }],
     });
-    const clinic = await listPerformEffect(oystehr, { view: 'clinic', locationId: 'main' }, today);
-    expect(clinic.drugs).toHaveLength(1);
-    expect(clinic.drugs[0]).toMatchObject({
+    const location = await listPerformEffect(oystehr, { view: 'location', locationId: 'main' }, today);
+    expect(location.drugs).toHaveLength(1);
+    expect(location.drugs[0]).toMatchObject({
       name: 'Ondansetron 4 MG/2ML',
       onHand: 6,
       reorderLevel: 10,
       markers: ['low'],
     });
-    expect(clinic.drugs[0].lots[0]).toMatchObject({ id: 'lot-1', lotNumber: 'A1', onHand: 6 });
+    expect(location.drugs[0].lots[0]).toMatchObject({ id: 'lot-1', lotNumber: 'A1', onHand: 6 });
 
     const lotSearches = oystehr.fhir.search.mock.calls
       .map(([call]) => call)
@@ -358,15 +358,15 @@ describe('list-medication-inventory', () => {
           call.params.some((p: any) => String(p.value).startsWith(INVENTORY_LOT_IDENTIFIER_SYSTEM))
       );
     expect(lotSearches).toHaveLength(1);
-    // the clinic view includes empty lots (they can still be counted and adjusted)
+    // the location view includes empty lots (they can still be counted and adjusted)
     expect(lotSearches[0].params).toEqual([
       { name: 'identifier', value: `${INVENTORY_LOT_IDENTIFIER_SYSTEM}|${INVENTORY_LOT_IDENTIFIER_VALUE}` },
-      { name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|main` },
+      { name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|main` },
     ]);
     expect(oystehr.fhir.search.mock.calls.some(([call]) => call.resourceType === 'Observation')).toBe(false);
 
-    const all = await listPerformEffect(oystehr, { view: 'all-clinics' }, today);
-    expect(all.drugs[0].clinics).toEqual([
+    const all = await listPerformEffect(oystehr, { view: 'all-locations' }, today);
+    expect(all.drugs[0].locations).toEqual([
       {
         locationId: 'main',
         locationName: 'Main Street Clinic',

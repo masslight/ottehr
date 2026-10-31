@@ -17,7 +17,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 /**
- * What a screen needs to know about a drug's stock: with a clinic, the lots on hand there (the MAR Lot
+ * What a screen needs to know about a drug's stock: with a location, the lots on hand there (the MAR Lot
  * field); without one, the last lot received (the receive dialog's prefill).
  */
 export const index = wrapHandler(
@@ -41,18 +41,18 @@ export const index = wrapHandler(
 
 export const performEffect = async (
   oystehr: Oystehr,
-  { medicationId, locationId: clinicId }: GetMedicationInventoryInput
+  { medicationId, locationId }: GetMedicationInventoryInput
 ): Promise<GetMedicationInventoryResponse> => {
-  if (clinicId) {
+  if (locationId) {
     const catalog = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: medicationId });
     if (!getMedicationInventoryConfig(catalog)) return {};
     return {
-      lots: await getInventoryLotsOnHand(oystehr, { catalogMedicationId: medicationId, locationId: clinicId }),
+      lots: await getInventoryLotsOnHand(oystehr, { catalogMedicationId: medicationId, locationId }),
     };
   }
   const lastLot = await getLastReceivedLot(oystehr, medicationId);
   const parsed = lastLot ? parseInventoryLot(lastLot) : undefined;
   if (!parsed) return {};
-  const { id, locationId, lotNumber, ndc, manufacturer, vendor } = parsed;
-  return { lastReceivedLot: { id, locationId, lotNumber, ndc, manufacturer, vendor } };
+  const { id, lotNumber, ndc, manufacturer, vendor } = parsed;
+  return { lastReceivedLot: { id, locationId: parsed.locationId, lotNumber, ndc, manufacturer, vendor } };
 };

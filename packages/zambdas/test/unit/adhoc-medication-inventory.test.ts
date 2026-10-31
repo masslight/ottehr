@@ -30,7 +30,7 @@ import {
 } from '../../src/shared/adhoc-datasets/medication-inventory';
 
 // The fetch+map pipeline runs against a stubbed Oystehr client returning one lot's ledger with its
-// included lot, clinic, performer and visit; the mapped rows must parse with the endpoint's own Output
+// included lot, location, performer and visit; the mapped rows must parse with the endpoint's own Output
 // schema — the same schema the runtime validation uses.
 
 const inventory: InHouseMedicationInventory = {
@@ -160,7 +160,7 @@ const makeOystehr = (
 };
 
 describe('medication inventory dataset', () => {
-  it('scopes the ledger search by category and the period, including the lot, clinic, performer and visit', () => {
+  it('scopes the ledger search by category and the period, including the lot, location, performer and visit', () => {
     expect(medicationInventorySearchParams(dateRange)).toEqual([
       { name: 'category', value: expect.stringMatching(/\|inventory-stock-entry$/) },
       { name: 'date', value: `ge${dateRange.start}` },
@@ -175,7 +175,7 @@ describe('medication inventory dataset', () => {
     ]);
   });
 
-  it('maps one row per stock entry with its lot, clinic, waste and visit', async () => {
+  it('maps one row per stock entry with its lot, location, waste and visit', async () => {
     const oystehr = makeOystehr(entries, [lot, location, nurse, administration, encounter, patient, vitals]);
 
     const rows = await fetchAdHocMedicationInventoryRows(oystehr, { dateRange });
@@ -206,8 +206,8 @@ describe('medication inventory dataset', () => {
       wasteUnit: '',
       performer: 'Nina Nurse',
       performerId: 'prac-1',
-      clinic: 'Clinic A',
-      clinicId: 'loc-a',
+      location: 'Clinic A',
+      locationId: 'loc-a',
       medication: 'Ondansetron HCl Injection Solution 4 MG/2ML',
       medicationId: 'med-catalog',
       lotId: 'lot-1',

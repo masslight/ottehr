@@ -26,7 +26,7 @@ import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { listMedicationInventory } from 'src/api/api';
-import { storedClinicId } from 'src/components/dialogs/ReceiveShipmentDialog';
+import { storedLocationId } from 'src/components/dialogs/ReceiveShipmentDialog';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -46,7 +46,7 @@ import {
   MarkerChips,
 } from './inventory.helpers';
 
-const ALL_CLINICS = '';
+const ALL_LOCATIONS = '';
 const INVENTORY_QUERY_KEY = 'medication-inventory';
 const RECENT_HISTORY_ENTRIES = 7;
 const NUM_LOADING_ROWS = 3;
@@ -82,28 +82,28 @@ function ExpandButton({
   );
 }
 
-/** Admin → Inventory (requirement 7): what is on hand per clinic, by drug and lot, with each lot's stock history. */
+/** Admin → Inventory (requirement 7): what is on hand per location, by drug and lot, with each lot's stock history. */
 export default function InventoryAdminPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
   const locationsQuery = useGetAllLocations({ inPersonOnly: true });
-  const clinics = locationsQuery.data ?? [];
-  // undefined until the clinics load, then the Tracking Board's clinic when it is one of them, else all clinics
-  const [clinicId, setClinicId] = useState<string | undefined>(undefined);
+  const locations = locationsQuery.data ?? [];
+  // undefined until the locations load, then the Tracking Board's location when it is one of them, else all locations
+  const [locationId, setLocationId] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [expandedDrugs, toggleDrug] = useToggleSet();
 
   useEffect(() => {
-    if (locationsQuery.isSuccess && clinicId === undefined) {
-      setClinicId(storedClinicId(locationsQuery.data) ?? ALL_CLINICS);
+    if (locationsQuery.isSuccess && locationId === undefined) {
+      setLocationId(storedLocationId(locationsQuery.data) ?? ALL_LOCATIONS);
     }
-  }, [locationsQuery.isSuccess, locationsQuery.data, clinicId]);
+  }, [locationsQuery.isSuccess, locationsQuery.data, locationId]);
 
   const view: ListMedicationInventoryInput | undefined =
-    clinicId === undefined
+    locationId === undefined
       ? undefined
-      : clinicId === ALL_CLINICS
-      ? { view: 'all-clinics' }
-      : { view: 'clinic', locationId: clinicId };
+      : locationId === ALL_LOCATIONS
+      ? { view: 'all-locations' }
+      : { view: 'location', locationId };
   const { data, isPending, isError, error } = useQuery({
     queryKey: [INVENTORY_QUERY_KEY, view],
     queryFn: () => listMedicationInventory(oystehrZambda!, view!),
@@ -111,30 +111,30 @@ export default function InventoryAdminPage(): ReactElement {
   });
 
   const drugs = (data?.drugs ?? []).filter((drug) => drug.name.toLowerCase().includes(search.trim().toLowerCase()));
-  const clinicView = view?.view === 'clinic';
-  const clinicName = clinics.find((clinic) => clinic.id === clinicId)?.name ?? '';
+  const locationView = view?.view === 'location';
+  const locationName = locations.find((location) => location.id === locationId)?.name ?? '';
 
   return (
     <Box>
       <AdminHeaderActionSlot>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <FormControl size="small" sx={{ width: 260 }}>
-            <InputLabel id="inventory-clinic-label" shrink>
-              Clinic
+            <InputLabel id="inventory-location-label" shrink>
+              Location
             </InputLabel>
             <Select
-              labelId="inventory-clinic-label"
-              label="Clinic"
+              labelId="inventory-location-label"
+              label="Location"
               notched
               displayEmpty
-              value={clinicId ?? ALL_CLINICS}
-              renderValue={(value) => (value === ALL_CLINICS ? 'All clinics' : clinicName)}
-              onChange={(e) => setClinicId(e.target.value)}
+              value={locationId ?? ALL_LOCATIONS}
+              renderValue={(value) => (value === ALL_LOCATIONS ? 'All locations' : locationName)}
+              onChange={(e) => setLocationId(e.target.value)}
             >
-              <MenuItem value={ALL_CLINICS}>All clinics</MenuItem>
-              {clinics.map((clinic) => (
-                <MenuItem key={clinic.id} value={clinic.id}>
-                  {clinic.name}
+              <MenuItem value={ALL_LOCATIONS}>All locations</MenuItem>
+              {locations.map((location) => (
+                <MenuItem key={location.id} value={location.id}>
+                  {location.name}
                 </MenuItem>
               ))}
             </Select>
@@ -161,9 +161,9 @@ export default function InventoryAdminPage(): ReactElement {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ width: 36 }} />
-                <TableCell sx={{ fontWeight: 'bold' }}>{clinicView ? 'Medication / lot' : 'Medication'}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{locationView ? 'Medication / lot' : 'Medication'}</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>On hand</TableCell>
-                {clinicView ? (
+                {locationView ? (
                   <>
                     <TableCell sx={{ fontWeight: 'bold' }}>Expiration</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>NDC · manufacturer</TableCell>
@@ -173,7 +173,7 @@ export default function InventoryAdminPage(): ReactElement {
                   </>
                 ) : (
                   <>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Clinics at or below reorder level</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Locations at or below reorder level</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Earliest expiration</TableCell>
                   </>
                 )}
@@ -184,22 +184,22 @@ export default function InventoryAdminPage(): ReactElement {
                 [...Array(NUM_LOADING_ROWS).keys()].map((index) => (
                   <TableRow key={`loading-${index}`}>
                     <TableCell />
-                    <TableCell colSpan={clinicView ? 5 : 4}>
+                    <TableCell colSpan={locationView ? 5 : 4}>
                       <Skeleton width="40%" />
                     </TableCell>
                   </TableRow>
                 ))}
               {drugs.map((drug) =>
-                clinicView ? (
-                  <ClinicDrugRows
+                locationView ? (
+                  <LocationDrugRows
                     key={drug.medicationId}
                     drug={drug}
-                    clinicName={clinicName}
+                    locationName={locationName}
                     open={expandedDrugs.has(drug.medicationId)}
                     onToggle={() => toggleDrug(drug.medicationId)}
                   />
                 ) : (
-                  <AllClinicsDrugRows
+                  <AllLocationsDrugRows
                     key={drug.medicationId}
                     drug={drug}
                     open={expandedDrugs.has(drug.medicationId)}
@@ -218,7 +218,7 @@ export default function InventoryAdminPage(): ReactElement {
   );
 }
 
-function AllClinicsDrugRows({
+function AllLocationsDrugRows({
   drug,
   open,
   onToggle,
@@ -243,7 +243,7 @@ function AllClinicsDrugRows({
           <MarkerChips markers={drug.markers} only={['below-zero']} />
         </TableCell>
         <TableCell>
-          {drug.clinicsBelowReorderLevel} of {drug.clinicsWithReorderLevel}
+          {drug.locationsBelowReorderLevel} of {drug.locationsWithReorderLevel}
           <MarkerChips markers={drug.markers} only={['low']} />
         </TableCell>
         <TableCell>
@@ -252,30 +252,30 @@ function AllClinicsDrugRows({
         </TableCell>
       </TableRow>
       {open &&
-        drug.clinics.map((clinic) => (
-          <TableRow key={clinic.locationId}>
+        drug.locations.map((line) => (
+          <TableRow key={line.locationId}>
             <TableCell />
-            <TableCell sx={{ pl: 3.5, color: 'text.secondary' }}>{clinic.locationName}</TableCell>
+            <TableCell sx={{ pl: 3.5, color: 'text.secondary' }}>{line.locationName}</TableCell>
             <TableCell>
-              {formatOnHand(clinic.onHand, drug.countedAs)}
-              <MarkerChips markers={clinic.markers} only={['low', 'below-zero']} />
+              {formatOnHand(line.onHand, drug.countedAs)}
+              <MarkerChips markers={line.markers} only={['low', 'below-zero']} />
             </TableCell>
-            <TableCell sx={{ color: 'text.secondary' }}>{reorderLabel(clinic.reorderLevel)}</TableCell>
-            <TableCell>{formatExpiration(clinic.earliestExpiration)}</TableCell>
+            <TableCell sx={{ color: 'text.secondary' }}>{reorderLabel(line.reorderLevel)}</TableCell>
+            <TableCell>{formatExpiration(line.earliestExpiration)}</TableCell>
           </TableRow>
         ))}
     </>
   );
 }
 
-function ClinicDrugRows({
+function LocationDrugRows({
   drug,
-  clinicName,
+  locationName,
   open,
   onToggle,
 }: {
   drug: InventoryDrugRow;
-  clinicName: string;
+  locationName: string;
   open: boolean;
   onToggle: () => void;
 }): ReactElement {
@@ -364,7 +364,7 @@ function ClinicDrugRows({
           onSaved={refresh}
           drug={drug}
           lot={dialog.lot}
-          clinicName={clinicName}
+          locationName={locationName}
         />
       )}
       {dialog?.kind === 'count' && (
@@ -374,7 +374,7 @@ function ClinicDrugRows({
           onSaved={refresh}
           drug={drug}
           lot={dialog.lot}
-          clinicName={clinicName}
+          locationName={locationName}
         />
       )}
     </>
