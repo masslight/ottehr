@@ -1,3 +1,5 @@
+import type { PrescriptionOrderMetadata } from './erx.types';
+
 // NCPDP QuantityUnitOfMeasure preferred terms accepted by the order prescription endpoint
 export const QUANTITY_UNITS = [
   'Applicator',
@@ -169,6 +171,9 @@ interface OrderPrescriptionCommonInput {
 export interface OrderProductPrescriptionInput extends OrderPrescriptionCommonInput {
   ndc: string;
   compound?: never;
+  /** The blanks the directions were written from, kept on the prescription for a re-fill (at most 10000 characters as
+   * JSON); none when the directions were typed. A compound's are always typed. */
+  metadata?: PrescriptionOrderMetadata;
 }
 
 /** A prescription for a compound, named by `medicationDescription`: the quantity is the finished compound's, and
@@ -177,6 +182,7 @@ export interface OrderCompoundPrescriptionInput extends OrderPrescriptionCommonI
   ndc?: never;
   substitutionAllowed: false;
   compound: CompoundOrder;
+  metadata?: never;
 }
 
 export type OrderPrescriptionInput = OrderProductPrescriptionInput | OrderCompoundPrescriptionInput;

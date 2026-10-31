@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { Task } from 'fhir/r4b';
+import { MedicationRequest, Task } from 'fhir/r4b';
 import {
   ERX_CHANGE_REQUEST_TASK_CODE,
   ERX_REQUEST_TASK_CODE_SYSTEM,
   ERX_REQUEST_TASK_INPUT_SYSTEM,
+  PRESCRIPTION_ERX_METADATA_URL,
   SURESCRIPTS_MESSAGE_ID_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { ERX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
@@ -13,6 +14,7 @@ import {
   makeErxRequestTask,
   readPharmacyChangeRequest,
   readPharmacyRefillRequest,
+  readPrescriptionMetadata,
   refillRequestTaskAction,
   refillRequestTitle,
   syncErxRequestTask,
@@ -281,17 +283,58 @@ describe('a patient’s request that staff wrote down, as the dialog reads it', 
               status: 'active',
               intent: 'order',
               subject: { reference: 'Patient/patient-1' },
+              extension: [
+                {
+                  url: PRESCRIPTION_ERX_METADATA_URL,
+                  valueString:
+                    '{"version":1,"route":"by mouth","dose":"2","frequency":"every 4 hours","durationDays":""}',
+                },
+              ],
             },
             { resourceType: 'Patient', id: 'patient-1' },
           ],
         }),
       },
     } as unknown as Oystehr;
-    expect((await getErxRequest(oystehr, 'task-1')).patientRequest).toEqual({
+    const response = await getErxRequest(oystehr, 'task-1');
+    expect(response.patientRequest).toEqual({
       title: 'Mom called for albuterol refill',
       note: 'Out in 2 days',
       takenBy: 'Kim Front',
       taken: '2026-10-28T10:00:00.000Z',
     });
+    // The blanks the prescription was sent with come along, for the order form.
+    expect(response.metadata).toEqual({
+      version: 1,
+      route: 'by mouth',
+      dose: '2',
+      frequency: 'every 4 hours',
+      durationDays: '',
+    });
+  });
+});
+
+describe('the blanks a prescription was sent with (metadata)', () => {
+  const metadata = { version: 1, route: 'by mouth', dose: '1', frequency: 'once daily', durationDays: '30' };
+  const stored = (valueString: string): MedicationRequest => ({
+    resourceType: 'MedicationRequest',
+    id: 'rx-1',
+    status: 'active',
+    intent: 'order',
+    subject: { reference: 'Patient/patient-1' },
+    extension: [{ url: PRESCRIPTION_ERX_METADATA_URL, valueString }],
+  });
+
+  it('reads them from the metadata extension', () => {
+    expect(readPrescriptionMetadata(stored(JSON.stringify(metadata)))).toEqual(metadata);
+  });
+
+  it('treats anything else as none: no extension, not JSON, another version, or not the blanks', () => {
+    expect(readPrescriptionMetadata({ ...stored(''), extension: undefined })).toBeUndefined();
+    expect(readPrescriptionMetadata(stored('{not json'))).toBeUndefined();
+    expect(readPrescriptionMetadata(stored(JSON.stringify({ ...metadata, version: 2 })))).toBeUndefined();
+    expect(readPrescriptionMetadata(stored(JSON.stringify({ version: 1, dose: 1 })))).toBeUndefined();
+    expect(readPrescriptionMetadata(stored(JSON.stringify({ ...metadata, route: 'intravenously' })))).toBeUndefined();
+    expect(readPrescriptionMetadata(stored(JSON.stringify(['by mouth'])))).toBeUndefined();
   });
 });

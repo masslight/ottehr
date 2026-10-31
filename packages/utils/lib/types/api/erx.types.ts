@@ -1,5 +1,7 @@
 import { Patient } from 'fhir/r4b';
 import z from 'zod';
+import { DOSE_BASES } from '../../helpers/medications/plain-dose';
+import { PRESCRIPTION_ROUTES } from '../../helpers/medications/prescription-suggestions';
 import { PrescribedMedicationDTO } from './chart-data/chart-data.types';
 
 export const GetErxOrdersInputSchema = z.object({
@@ -156,6 +158,49 @@ export const GetErxRequestInputSchema = z.object({ taskId: z.string().uuid() });
 
 export type GetErxRequestInput = z.infer<typeof GetErxRequestInputSchema>;
 
+const PrescriptionStepSchema = z.object({ dose: z.string(), frequency: z.string(), durationDays: z.string() });
+
+/** The order form's blanks behind a prescription's directions, sent as the order's `metadata`: the eRx service keeps
+ * it on the MedicationRequest (never sent to the pharmacy) so a later re-fill starts from the blanks, not only the sig.
+ * Sent only while the directions are what the blanks wrote; read back as untrusted, so anything not of this shape
+ * counts as none. */
+export const PrescriptionOrderMetadataSchema = z.object({
+  version: z.literal(1),
+  /** The product's structured details the blanks were read with: they give the dose unit and the dispense. */
+  product: z
+    .object({
+      rxcui: z.string().optional(),
+      doseForm: z.string().optional(),
+      ingredients: z
+        .array(
+          z.object({ name: z.string(), amount: z.number(), unit: z.string(), per: z.number(), perUnit: z.string() })
+        )
+        .optional(),
+    })
+    .optional(),
+  route: z.enum(PRESCRIPTION_ROUTES).or(z.literal('')),
+  dose: z.string(),
+  frequency: z.string(),
+  durationDays: z.string(),
+  /** The "then" steps of a taper. */
+  steps: z.array(PrescriptionStepSchema).optional(),
+  instructions: z.string().optional(),
+  additionalInstructions: z.string().optional(),
+  /** The dose calculator's settings, while the dose was the one it wrote. */
+  dosing: z
+    .object({
+      rate: z.number(),
+      basis: z.enum(DOSE_BASES),
+      maxPerDoseMg: z.number().optional(),
+      maxPerDayMg: z.number().optional(),
+    })
+    .optional(),
+  /** The ingredient of a combination product the calculator dosed by. */
+  doseBy: z.string().optional(),
+});
+
+export type PrescriptionOrderMetadata = z.infer<typeof PrescriptionOrderMetadataSchema>;
+
 /** A refill or change request task's request: the pharmacy's, or a patient's that staff wrote down, with the prescription it is
  * about and its patient. */
 export interface GetErxRequestResponse {
@@ -166,6 +211,8 @@ export interface GetErxRequestResponse {
   /** What staff wrote down: the task's title and details */
   patientRequest?: { title?: string; note?: string; takenBy?: string; taken?: string };
   prescription: PrescribedMedicationDTO;
+  /** The blanks the prescription's directions were written from; none when they were typed, or not stored */
+  metadata?: PrescriptionOrderMetadata;
   prescriberName?: string;
   patient: Patient;
 }

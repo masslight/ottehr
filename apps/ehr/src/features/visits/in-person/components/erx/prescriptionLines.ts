@@ -21,6 +21,7 @@ import {
   PrescriptionStep,
   SuggestedPrescriptionFields,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
+import { PrescriptionOrderMetadata } from 'utils/lib/types/api/erx.types';
 import {
   MedicationIngredient,
   MedicationProductDetails,
@@ -698,6 +699,56 @@ export const withSuggestion = (line: PrescriptionLine, fields: SuggestedPrescrip
   },
 });
 
+/** The blanks behind the line's directions, as the order keeps them on the prescription for a re-fill
+ * (`withPrescriptionMetadata` is the way back). The caller sends them only while the directions are the blanks'. */
+export const prescriptionLineMetadata = (line: PrescriptionLine): PrescriptionOrderMetadata => ({
+  version: 1,
+  ...(line.medication ? { product: productDetailsOf(line.medication) } : {}),
+  route: line.route,
+  dose: line.dose,
+  frequency: line.frequency,
+  durationDays: line.durationDays,
+  ...(line.steps.length ? { steps: line.steps } : {}),
+  ...(line.instructions ? { instructions: line.instructions } : {}),
+  ...(line.additionalInstructions ? { additionalInstructions: line.additionalInstructions } : {}),
+  ...(line.dosing ? { dosing: line.dosing } : {}),
+  ...(line.doseBy !== undefined ? { doseBy: line.doseBy } : {}),
+});
+
+/** The line with the blanks a sent prescription was written from (`prescriptionLineMetadata`), filled as a suggestion
+ * fills them: the directions are written again from the blanks, for the line's product, so the Directions box reads as
+ * it was sent and follows the blanks from here. The quantity, unit, days supply and refills stay the line's. */
+export const withPrescriptionMetadata = (
+  line: PrescriptionLine,
+  metadata: PrescriptionOrderMetadata
+): PrescriptionLine => {
+  const directions: Required<PrescriptionDirections> = {
+    route: metadata.route,
+    dose: metadata.dose,
+    frequency: metadata.frequency,
+    durationDays: metadata.durationDays,
+    steps: metadata.steps ?? [],
+    instructions: metadata.instructions ?? '',
+  };
+  return {
+    ...withSuggestion(line, {
+      ...directions,
+      quantityValue: line.quantityValue,
+      quantityUnit: line.quantityUnit,
+      daysSupply: line.daysSupply,
+      numberOfRefills: line.numberOfRefills,
+      patientInstructions: withAdditionalInstructions(
+        prescriptionDirectionsText(line.medication, directions),
+        metadata.additionalInstructions
+      ),
+    }),
+    additionalInstructions: metadata.additionalInstructions,
+    dosing: metadata.dosing,
+    maximum: lineMaximumOf(metadata.dosing, 'calculator'),
+    doseBy: metadata.doseBy,
+  };
+};
+
 const isWholeNumberInRange = (value: string, min: number, max: number): boolean => {
   const number = Number(value);
   return value.trim() !== '' && Number.isInteger(number) && number >= min && number <= max;
@@ -816,7 +867,7 @@ interface OrderContext {
 const ASCII_FRACTIONS: Record<string, string> = { '¼': '1/4', '½': '1/2', '¾': '3/4' };
 
 /** "Take 1½ tablets, then ½ tablet" → "Take 1 1/2 tablets, then 1/2 tablet", for the text sent. */
-const asciiFractions = (text: string): string =>
+export const asciiFractions = (text: string): string =>
   text.replace(
     /(\d?)([¼½¾])/g,
     (_, digit: string, fraction: string) => `${digit ? `${digit} ` : ''}${ASCII_FRACTIONS[fraction]}`
@@ -827,6 +878,8 @@ const asciiFractions = (text: string): string =>
 export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderContext): OrderPrescriptionInput => {
   const { medication, compound } = line;
   if (!line.quantityUnit) throw new Error('Prescription line is incomplete');
+  // Directions still as the blanks wrote them, not typed over.
+  const fromBlanks = line.patientInstructions === line.generated.patientInstructions;
   const common = {
     patientId: context.patientId,
     practitionerId: context.practitionerId,
@@ -838,7 +891,7 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     numberOfRefills: Number(line.numberOfRefills),
     // Directions go with ASCII fractions ("1/2 tablet"): the blanks' written so, typed or quick-pick
     // ones converted; the screen keeps "½". A compound's are typed.
-    patientInstructions: (medication && line.patientInstructions === line.generated.patientInstructions
+    patientInstructions: (medication && fromBlanks
       ? asciiFractions(
           withAdditionalInstructions(
             prescriptionDirectionsText(medication, line, { ascii: true }),
@@ -875,6 +928,8 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     ndc: medication.ndc,
     medicationDescription: medication.description.trim(),
     substitutionAllowed: line.substitutionAllowed,
+    // The blanks, kept on the prescription for a re-fill; typed directions have none behind them.
+    ...(fromBlanks ? { metadata: prescriptionLineMetadata(line) } : {}),
   };
 };
 

@@ -4,6 +4,7 @@ import {
   ERX_CHANGE_REQUEST_TASK_CODE,
   ERX_REQUEST_TASK_CODE_SYSTEM,
   ERX_REQUEST_TASK_INPUT_SYSTEM,
+  PRESCRIPTION_ERX_METADATA_URL,
   SURESCRIPTS_MESSAGE_ID_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getCoding } from 'utils/lib/fhir/helpers';
@@ -13,6 +14,8 @@ import {
   ErxPharmacyChangeRequest,
   ErxPharmacyRefillRequest,
   GetErxRequestResponse,
+  PrescriptionOrderMetadata,
+  PrescriptionOrderMetadataSchema,
 } from 'utils/lib/types/api/erx.types';
 import { ERX_TASK, getTaskInputValue, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -246,6 +249,23 @@ export const readPharmacyChangeRequest = (versions: Task[]): ErxPharmacyChangeRe
   };
 };
 
+/** The order form's blanks the prescription was sent with, from the eRx service's metadata extension. None when it was
+ * sent without them, or what is stored isn't this version's shape (treated as nothing stored, never as an error). */
+export const readPrescriptionMetadata = (
+  medicationRequest: MedicationRequest
+): PrescriptionOrderMetadata | undefined => {
+  const json = medicationRequest.extension?.find((extension) => extension.url === PRESCRIPTION_ERX_METADATA_URL)
+    ?.valueString;
+  if (!json) return undefined;
+  try {
+    const parsed = PrescriptionOrderMetadataSchema.safeParse(JSON.parse(json));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    // Not JSON: the same as none stored.
+    return undefined;
+  }
+};
+
 /** The request behind a refill or change request task: the pharmacy's (basedOn its renewal or change Task), or a
  * patient's that staff wrote down as a manual eRx task on a prescription. */
 export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<GetErxRequestResponse> => {
@@ -310,6 +330,7 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
       medicationRequest,
       resources.filter((resource): resource is Provenance => resource.resourceType === 'Provenance')
     ),
+    metadata: readPrescriptionMetadata(medicationRequest),
     prescriberName: prescriber && getFullName(prescriber),
     patient,
   };

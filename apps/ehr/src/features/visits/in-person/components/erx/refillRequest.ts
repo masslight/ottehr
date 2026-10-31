@@ -1,17 +1,30 @@
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { ChangeResponseInput, ErxPharmacyRefillRequest, RenewalResponseInput } from 'utils/lib/types/api/erx.types';
+import {
+  ChangeResponseInput,
+  ErxPharmacyRefillRequest,
+  PrescriptionOrderMetadata,
+  RenewalResponseInput,
+} from 'utils/lib/types/api/erx.types';
 import { COMPOUND_DOSAGE_FORMS, OrderPrescriptionInput } from 'utils/lib/types/api/order-prescription.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import {
   applyPrescriptionQuickPick,
+  asciiFractions,
   emptyPrescriptionLine,
   isQuantityUnit,
   PrescriptionLine,
   prescriptionLineToOrder,
   quantityText,
+  withPrescriptionMetadata,
 } from './prescriptionLines';
 
 type RequestedMedication = ErxPharmacyRefillRequest['medication'];
+
+/** Whether the pharmacy sent our directions back: the same words in any case and spacing, "½" as "1/2". */
+const sameSig = (requested: string, sent: string | undefined): boolean => {
+  const plain = (text: string): string => asciiFractions(text).toLowerCase().replace(/\s+/g, ' ').trim();
+  return sent !== undefined && plain(requested) === plain(sent);
+};
 
 const allowedText = (allowed: boolean | undefined): string | undefined =>
   allowed === undefined ? undefined : allowed ? 'Allowed' : 'Not allowed';
@@ -74,12 +87,29 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
  * The prescription the order form starts with when the provider answers with a new one: what the pharmacy sent
  * where it sent it, else the original prescription's, since the provider writes the whole prescription again. The
  * diagnosis is always the original's (a request has none). A renewal's fills are the first fill plus its refills.
+ * The original's directions blanks (`metadata`) fill the form again when the medication is still its product and the
+ * pharmacy sent our directions back (or none); its stored details go with them, so the sentence reads as it did.
+ * Directions of the pharmacy's own stay as its text, with the blanks empty.
  */
-export const refillLine = (prescription: PrescribedMedicationDTO, request?: RequestedMedication): PrescriptionLine => {
+export const refillLine = (
+  prescription: PrescribedMedicationDTO,
+  request?: RequestedMedication,
+  metadata?: PrescriptionOrderMetadata
+): PrescriptionLine => {
   const order = prescription.order ?? {};
   // The unit goes with the quantity it came with: a request's own, else empty for the provider, never the original's.
   const unit = request ? request.quantityUnit : order.quantityUnit;
   const compound = request ? undefined : order.compound;
+  // The blanks were written for the original's product and directions: another product (or none named), or a sig of
+  // the pharmacy's own, starts from the sig alone.
+  const blanks =
+    metadata &&
+    (!request ||
+      (request.ndc !== undefined &&
+        request.ndc === order.ndc &&
+        (request.sig === undefined || sameSig(request.sig, prescription.instructions))))
+      ? metadata
+      : undefined;
   const line = applyPrescriptionQuickPick(emptyPrescriptionLine(), {
     name: '',
     ...(compound
@@ -95,6 +125,7 @@ export const refillLine = (prescription: PrescribedMedicationDTO, request?: Requ
           ndc: request ? request.ndc : order.ndc,
           medicationDescription: request?.description ?? order.medicationDescription ?? prescription.name,
           substitutionAllowed: request?.substitutionAllowed ?? order.substitutionAllowed,
+          ...blanks?.product,
         }),
     quantityValue: request?.quantityValue ?? order.quantityValue,
     quantityUnit: isQuantityUnit(unit) ? unit : undefined,
@@ -108,7 +139,8 @@ export const refillLine = (prescription: PrescribedMedicationDTO, request?: Requ
       ? { code: order.diagnosisCode, display: order.diagnosisDescription ?? order.diagnosisCode }
       : undefined,
   });
-  return { ...line, quickPicked: null };
+  const started = { ...line, quickPicked: null };
+  return blanks ? withPrescriptionMetadata(started, blanks) : started;
 };
 
 /** "Change and approve": the renewal response approving the prescription the order form holds. Its fills are the

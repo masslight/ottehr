@@ -1233,6 +1233,8 @@ export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
 
 export const PRESCRIPTION_ERX_PHARMACY_ID_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-id';
 export const PRESCRIPTION_ERX_PHARMACY_NAME_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-name';
+// The order's `metadata` (the directions blanks, `PrescriptionOrderMetadata`) as the eRx service keeps it: JSON in valueString
+export const PRESCRIPTION_ERX_METADATA_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-metadata';
 // The code system of the eRx service's prescription events (Provenance.activity)
 export const ERX_EVENT_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/erx-event';
 // Requested from the eRx service: a cancel reply event's Provenance carries the reply's details in this extension,

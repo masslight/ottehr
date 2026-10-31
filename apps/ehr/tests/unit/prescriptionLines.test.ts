@@ -14,6 +14,7 @@ import {
   pickedStrength,
   PrescriptionLine,
   prescriptionLineErrors,
+  prescriptionLineMetadata,
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   withCalculatorDosing,
@@ -22,6 +23,7 @@ import {
   withDirections,
   withDrug,
   withoutCompound,
+  withPrescriptionMetadata,
   withProduct,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -1234,5 +1236,93 @@ describe('compoundOrderIngredients: each ingredient as the amount that goes in',
         )
       ).toEqual({ errors: ['Ingredient 2 is the base, but the other ingredients already make up the total'] });
     }
+  });
+});
+
+describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
+  const context = {
+    patientId: 'patient-1',
+    practitionerId: 'practitioner-1',
+    encounterId: 'encounter-1',
+    pharmacy: PHARMACY,
+    writtenDate: '2026-10-07',
+  };
+  const dosing = { rate: 25, basis: 'mg/kg/dose' as const, maxPerDoseMg: 500 };
+  // The blanks wrote the directions, with the calculator's dose and a note after the sentence.
+  const written = withDirections(
+    { ...complete(), patientInstructions: '', dosing, maximum: { maxPerDoseMg: 500, from: 'calculator' } },
+    { dose: '1', frequency: 'twice daily', durationDays: '10', steps: [], additionalInstructions: 'Take with food.' }
+  );
+
+  it('sends the blanks, with the product details they were read with, while the directions are theirs', () => {
+    expect(written.patientInstructions).toBe('Take 1 capsule by mouth twice daily for 10 days. Take with food.');
+    expect(prescriptionLineToOrder(written, context).metadata).toEqual({
+      version: 1,
+      product: ERX_PRODUCT_DETAILS['00093310901'],
+      route: 'by mouth',
+      dose: '1',
+      frequency: 'twice daily',
+      durationDays: '10',
+      additionalInstructions: 'Take with food.',
+      dosing,
+    });
+    const tapered = withDirections(written, { steps: [{ dose: '0.5', frequency: 'once daily', durationDays: '3' }] });
+    expect(prescriptionLineToOrder(tapered, context).metadata?.steps).toEqual([
+      { dose: '0.5', frequency: 'once daily', durationDays: '3' },
+    ]);
+  });
+
+  it('sends none for directions typed over, a quick pick’s written ones, or a compound', () => {
+    const typed = { ...written, patientInstructions: `${written.patientInstructions} Finish the course.` };
+    expect(prescriptionLineToOrder(typed, context)).not.toHaveProperty('metadata');
+    const picked = applyPrescriptionQuickPick(written, { id: 'qp', name: 'Amox', patientInstructions: 'Take 1 daily' });
+    expect(prescriptionLineToOrder({ ...picked, quantityUnit: 'Capsule' }, context)).not.toHaveProperty('metadata');
+    const compound = applyPrescriptionQuickPick(emptyPrescriptionLine(), {
+      id: 'qp-cream',
+      name: 'Pain cream',
+      compound: {
+        description: 'Ketoprofen cream',
+        dosageForm: 'Cream',
+        ingredients: [{ description: 'Ketoprofen Powder', ndc: '00000000001', strength: { value: 10, unit: '%' } }],
+      },
+      quantityValue: 60,
+      quantityUnit: 'Gram',
+      patientInstructions: 'Apply twice daily.',
+    });
+    expect(prescriptionLineToOrder(compound, context)).not.toHaveProperty('metadata');
+  });
+
+  it('fills the blanks back, writing the directions again so they follow the blanks from there', () => {
+    const metadata = prescriptionLineMetadata(written);
+    // As a re-fill starts: the stored order's product, quantity and sig, without blanks.
+    const stored: PrescriptionLine = {
+      ...emptyPrescriptionLine(),
+      medication: { ndc: '00093310901', description: 'Amoxicillin 500 MG Oral Capsule', ...metadata.product },
+      quantityValue: '20',
+      quantityUnit: 'Capsule',
+      daysSupply: '10',
+      numberOfRefills: '1',
+      patientInstructions: 'Take 1 capsule by mouth twice daily for 10 days. Take with food.',
+    };
+    const refilled = withPrescriptionMetadata(stored, metadata);
+    expect(refilled).toMatchObject({
+      route: 'by mouth',
+      dose: '1',
+      frequency: 'twice daily',
+      durationDays: '10',
+      additionalInstructions: 'Take with food.',
+      patientInstructions: 'Take 1 capsule by mouth twice daily for 10 days. Take with food.',
+      quantityValue: '20',
+      daysSupply: '10',
+      numberOfRefills: '1',
+      dosing,
+      maximum: { maxPerDoseMg: 500, from: 'calculator' },
+    });
+    // Sent again, the same blanks go with it.
+    expect(prescriptionLineToOrder(refilled, context).metadata).toEqual(metadata);
+    // A changed blank rewrites the directions and the quantity, as after a suggestion.
+    const changed = withDirections(refilled, { dose: '2' });
+    expect(changed.patientInstructions).toBe('Take 2 capsules by mouth twice daily for 10 days. Take with food.');
+    expect(changed.quantityValue).toBe('40');
   });
 });

@@ -242,7 +242,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       // Picking another suggestion starts the form again from it.
       key={suggestion}
       visit={{ patient: data.patient, encounterId: prescription.encounterId! }}
-      initialLine={refillLine(prescription, change ? selected : refill?.medication)}
+      initialLine={refillLine(prescription, change ? selected : refill?.medication, data.metadata)}
       {...(request
         ? {
             pharmacy: {

@@ -1,4 +1,5 @@
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { PrescriptionOrderMetadata } from 'utils/lib/types/api/erx.types';
 import { describe, expect, it } from 'vitest';
 import {
   changeApproval,
@@ -248,5 +249,89 @@ describe('change request: the answers', () => {
     });
     // No suggestions (a clarification): the changes are over the original.
     expect(changeApproval('change-1', undefined, refillLine(ORIGINAL)).requestedMedicationIndex).toBeUndefined();
+  });
+});
+
+describe('refill request: the original’s blanks fill the order form again', () => {
+  const METADATA: PrescriptionOrderMetadata = {
+    version: 1,
+    product: {
+      doseForm: 'Oral Tablet',
+      ingredients: [{ name: 'lisinopril', amount: 10, unit: 'MG', per: 1, perUnit: 'EACH' }],
+    },
+    route: 'by mouth',
+    dose: '1',
+    frequency: 'once daily',
+    durationDays: '30',
+  };
+
+  it('fills the blanks for the original’s product and writes the directions from them', () => {
+    const line = refillLine(ORIGINAL, undefined, METADATA);
+    expect(line).toMatchObject({
+      route: 'by mouth',
+      dose: '1',
+      frequency: 'once daily',
+      durationDays: '30',
+      patientInstructions: 'Take 1 tablet by mouth once daily for 30 days.',
+      quantityValue: '30',
+      daysSupply: '30',
+      numberOfRefills: '1',
+    });
+    expect(line.medication).toEqual({
+      ndc: '00093111101',
+      description: 'Lisinopril 10 mg tablet',
+      ...METADATA.product,
+    });
+    // The pharmacy asking for the same product, with its own quantity.
+    expect(
+      refillLine(
+        ORIGINAL,
+        { ndc: '00093111101', quantityValue: 90, quantityUnit: 'Tablet', requestedRefills: 3 },
+        METADATA
+      )
+    ).toMatchObject({ dose: '1', frequency: 'once daily', quantityValue: '90', numberOfRefills: '2' });
+  });
+
+  it('fills them when the pharmacy sent our directions back, in any case and spacing', () => {
+    const line = refillLine(ORIGINAL, { ndc: '00093111101', sig: 'TAKE 1 TABLET  BY MOUTH ONCE DAILY ' }, METADATA);
+    expect(line).toMatchObject({
+      dose: '1',
+      route: 'by mouth',
+      frequency: 'once daily',
+      patientInstructions: 'Take 1 tablet by mouth once daily for 30 days.',
+    });
+    // "½" on screen, "1/2" as sent and as the pharmacy has it.
+    const half = { ...ORIGINAL, instructions: 'Take ½ tablet by mouth once daily' };
+    expect(refillLine(half, { ndc: '00093111101', sig: 'Take 1/2 tablet by mouth once daily' }, METADATA).dose).toBe(
+      '1'
+    );
+  });
+
+  it('keeps the pharmacy’s own directions as its text, with the blanks empty', () => {
+    const line = refillLine(ORIGINAL, { ndc: '00093111101', sig: 'Take 1 tablet by mouth twice daily' }, METADATA);
+    expect(line).toMatchObject({
+      dose: '',
+      route: '',
+      frequency: '',
+      durationDays: '',
+      patientInstructions: 'Take 1 tablet by mouth twice daily',
+    });
+    expect(line.medication).toEqual({ ndc: '00093111101', description: 'Lisinopril 10 mg tablet' });
+  });
+
+  it('starts from the sig alone without them, or when the request names another product or none', () => {
+    const asBefore = { dose: '', route: '', frequency: '', durationDays: '' };
+    expect(refillLine(ORIGINAL)).toMatchObject({
+      ...asBefore,
+      patientInstructions: 'Take 1 tablet by mouth once daily',
+    });
+    expect(
+      refillLine(
+        ORIGINAL,
+        { description: 'Lisinopril 20 mg tablet', ndc: '00093111201', sig: 'Take 1 tablet by mouth once daily' },
+        METADATA
+      )
+    ).toMatchObject({ ...asBefore, patientInstructions: 'Take 1 tablet by mouth once daily' });
+    expect(refillLine(ORIGINAL, { description: 'Lisinopril 10 mg tablet' }, METADATA)).toMatchObject(asBefore);
   });
 });
