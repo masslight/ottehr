@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Chip } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement } from 'react';
@@ -11,6 +12,7 @@ import {
   MEDICATION_COUNTED_AS_LABELS,
   MedicationCountedAs,
 } from 'utils/lib/types/api/config/in-house-medications';
+import { DISPLAY_DATE_FORMAT, formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 
 // Display helpers for the inventory screen and its dialogs. Quantities are shown in the lot's unit: counted-as
 // items ("vial"/"vials"), or the unit as stored when it is not one (measured multi-use drugs).
@@ -31,12 +33,11 @@ export const formatOnHand = (count: number, unit: string): string =>
 export const formatChange = (quantity: number, unit: string): string =>
   `${quantity > 0 ? '+' : quantity < 0 ? MINUS : ''}${Math.abs(quantity)} ${unitLabel(unit, quantity)}`;
 
-export const formatExpiration = (date: string | undefined): string =>
-  date ? DateTime.fromISO(date).toFormat('MM/dd/yyyy') : 'none';
+export const formatExpiration = (date: string | undefined): string => (date ? formatDateForDisplay(date) : 'none');
 
 /** Local time, as the browser sees it. */
 export const formatWhen = (dateTime: string): string =>
-  DateTime.fromISO(dateTime).toLocal().toFormat('MM/dd/yyyy h:mm a');
+  DateTime.fromISO(dateTime).toLocal().toFormat(`${DISPLAY_DATE_FORMAT} hh:mm a`);
 
 const ENTRY_TYPE_LABELS: Record<InventoryEntryType, string> = {
   received: 'Received',
@@ -80,11 +81,11 @@ export const describeReason = (entry: InventoryHistoryEntry, lot: InventoryLot):
   }
 };
 
-const MARKER_COLORS: Record<InventoryMarker, { backgroundColor: string; color: string }> = {
-  low: { backgroundColor: '#FFF3E0', color: '#8A4B00' },
-  expiring: { backgroundColor: '#FFF3E0', color: '#8A4B00' },
-  expired: { backgroundColor: '#FDECEA', color: '#5F2120' },
-  'below-zero': { backgroundColor: '#FDECEA', color: '#5F2120' },
+const MARKER_COLORS: Record<InventoryMarker, { background: string; color: string }> = {
+  low: { background: otherColors.warningBackground, color: otherColors.warningText },
+  expiring: { background: otherColors.warningBackground, color: otherColors.warningText },
+  expired: { background: otherColors.lightErrorBg, color: otherColors.lightErrorText },
+  'below-zero': { background: otherColors.lightErrorBg, color: otherColors.lightErrorText },
 };
 
 export function MarkerChips({ markers, only }: { markers: InventoryMarker[]; only?: InventoryMarker[] }): ReactElement {

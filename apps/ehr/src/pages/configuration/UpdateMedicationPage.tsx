@@ -389,10 +389,10 @@ export default function UpdateMedicationPage(): ReactElement {
               </Grid>
               <Grid item xs={3}>
                 <FormControl fullWidth>
-                  <InputLabel id="inventory-counted-as-label">Counting unit</InputLabel>
+                  <InputLabel id="inventory-counted-as-label">Counting Unit</InputLabel>
                   <Select
                     labelId="inventory-counted-as-label"
-                    label="Counting unit"
+                    label="Counting Unit"
                     disabled={!canEditSetup}
                     value={inventoryForm.countedAs}
                     onChange={(e) => setInventoryField('countedAs', e.target.value as MedicationCountedAs | '')}
@@ -410,7 +410,7 @@ export default function UpdateMedicationPage(): ReactElement {
               </Grid>
               <Grid item xs={3} sx={{ display: 'flex', gap: 1 }}>
                 <TextField
-                  label="Each contains"
+                  label="Each Contains"
                   type="number"
                   inputProps={{ min: 0, step: 'any' }}
                   required={Boolean(inventoryForm.countedAs)}
@@ -490,7 +490,7 @@ export default function UpdateMedicationPage(): ReactElement {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="primary.dark">
-                  Reorder level per location
+                  Reorder Level per Location
                 </Typography>
               </Grid>
               {locations.map((location) => (

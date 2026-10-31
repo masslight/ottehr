@@ -24,12 +24,14 @@ import React from 'react';
 import { LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
 import {
+  INVENTORY_MARKER_LABELS,
   InventoryLot,
   MEDICATION_COUNTED_AS_LABELS,
   MedicationCountedAs,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { MedicationData } from 'utils/lib/types/api/medication-administration.types';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
@@ -173,8 +175,16 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
                     {lot.lotNumber}
                   </Typography>
                   {' · exp '}
-                  {lot.expirationDate ? DateTime.fromISO(lot.expirationDate).toFormat('MM/dd/yyyy') : '—'}
-                  {expired && <Chip label="expired" size="small" color="error" variant="outlined" sx={{ ml: 1 }} />}
+                  {formatDateForDisplay(lot.expirationDate) || '—'}
+                  {expired && (
+                    <Chip
+                      label={INVENTORY_MARKER_LABELS.expired}
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      sx={{ ml: 1 }}
+                    />
+                  )}
                 </span>
                 <Typography component="span" color="text.secondary">
                   {lotOnHandLabel(lot)}

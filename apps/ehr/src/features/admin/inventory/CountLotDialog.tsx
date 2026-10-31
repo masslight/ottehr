@@ -4,6 +4,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { adjustMedicationInventory } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { InventoryDrugRow, InventoryLotRow } from 'utils/lib/types/api/config/in-house-medications';
 import { formatChange, formatOnHand, unitLabel } from './inventory.helpers';
 
@@ -50,7 +51,7 @@ export default function CountLotDialog({
       onClose();
     } catch (error) {
       console.error('Error saving count', error);
-      enqueueSnackbar('Failed to save count', { variant: 'error' });
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to save count' }), { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -66,7 +67,7 @@ export default function CountLotDialog({
       >
         <DialogTitle component="div">
           <Typography variant="h5" color="primary.dark">
-            Count lot
+            Count Lot
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {drug.name} · Lot {lot.lotNumber} · {locationName}
@@ -75,7 +76,7 @@ export default function CountLotDialog({
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
           <TextField
             required
-            label={`${capitalize(unitLabel(lot.unit, 2))} on the shelf`}
+            label={`${capitalize(unitLabel(lot.unit, 2))} on the Shelf`}
             type="number"
             inputProps={{ min: 0, step: 1 }}
             value={counted}

@@ -198,7 +198,7 @@ const MedicationMenu: FC<{
           data-menu-column
           sx={{ ...columnSx, borderLeft: { sm: 1 }, borderTop: { xs: 1, sm: 0 }, borderColor: 'divider' }}
         >
-          <MenuHeading id={`${id}-quick-picks-heading`}>Quick picks</MenuHeading>
+          <MenuHeading id={`${id}-quick-picks-heading`}>Quick Picks</MenuHeading>
           <Box
             component="ul"
             id={`${id}-quick-picks`}

@@ -258,10 +258,10 @@ export const INVENTORY_EXPIRING_SOON_DAYS = 30;
 export const INVENTORY_MARKERS = ['low', 'expiring', 'expired', 'below-zero'] as const;
 export type InventoryMarker = (typeof INVENTORY_MARKERS)[number];
 export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
-  low: 'low',
-  expiring: 'expiring',
-  expired: 'expired',
-  'below-zero': 'below zero',
+  low: 'Low',
+  expiring: 'Expiring',
+  expired: 'Expired',
+  'below-zero': 'Below Zero',
 };
 
 export const ListMedicationInventoryInputSchema = z.discriminatedUnion('view', [

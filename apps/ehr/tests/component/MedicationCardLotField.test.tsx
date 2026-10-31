@@ -78,10 +78,10 @@ describe('MedicationCardField lot suggestions', () => {
     expect(options.map((option) => option.textContent)).toEqual([
       `C24117 · exp ${DateTime.fromISO(inDays(16)).toFormat('MM/dd/yyyy')}1 vial · Civica`,
       `HK3302 · exp ${DateTime.fromISO(inDays(240)).toFormat('MM/dd/yyyy')}18 vials · Hikma`,
-      `B88120 · exp ${DateTime.fromISO(inDays(-30)).toFormat('MM/dd/yyyy')}expired2 vials · Civica`,
+      `B88120 · exp ${DateTime.fromISO(inDays(-30)).toFormat('MM/dd/yyyy')}Expired2 vials · Civica`,
     ]);
-    expect(within(options[2]).getByText('expired')).toBeInTheDocument();
-    expect(within(options[0]).queryByText('expired')).not.toBeInTheDocument();
+    expect(within(options[2]).getByText('Expired')).toBeInTheDocument();
+    expect(within(options[0]).queryByText('Expired')).not.toBeInTheDocument();
     expect(screen.getByText(/Or type a lot that isn't listed/)).toBeInTheDocument();
   });
 

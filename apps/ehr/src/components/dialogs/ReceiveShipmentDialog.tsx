@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
@@ -26,6 +27,7 @@ import { getMedicationInventory, lookupNdc, receiveMedicationShipment } from 'sr
 import { formatExpiration, unitLabel } from 'src/features/admin/inventory/inventory.helpers';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   InHouseMedicationInventory,
   LookupNdcResponse,
@@ -173,7 +175,7 @@ export default function ReceiveShipmentDialog({
       onClose();
     } catch (error) {
       console.error('Error receiving shipment', error);
-      enqueueSnackbar('Failed to receive shipment', { variant: 'error' });
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to receive shipment' }), { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -208,16 +210,24 @@ export default function ReceiveShipmentDialog({
     }
     if (lookup.status === 'mismatch') {
       return (
-        <Box sx={{ backgroundColor: '#FDECEA', borderRadius: 1, px: 1.5, py: 1.25, color: '#5F2120' }}>
+        <Box
+          sx={{
+            backgroundColor: otherColors.lightErrorBg,
+            borderRadius: 1,
+            px: 1.5,
+            py: 1.25,
+            color: otherColors.lightErrorText,
+          }}
+        >
           <Typography variant="body2">
-            NDC {product?.packageNdc ?? form.ndc.trim()} is {product?.name ?? 'a different drug'}, not {name}. Check the
-            box before saving.
+            NDC {product?.packageNdc ?? form.ndc.trim()} is {product?.name ?? 'a different medication'}, not {name}.
+            Check the box before saving.
           </Typography>
         </Box>
       );
     }
     return (
-      <Box sx={{ backgroundColor: 'rgba(225,245,254,.8)', borderRadius: 2, px: 1.5, py: 1 }}>
+      <Box sx={{ backgroundColor: otherColors.infoAlert, borderRadius: 2, px: 1.5, py: 1 }}>
         <Typography variant="body2" fontWeight={700}>
           FDA NDC directory
         </Typography>
@@ -227,7 +237,7 @@ export default function ReceiveShipmentDialog({
             {product.packageDescription}
           </Typography>
         ) : null}
-        <Typography variant="body2" sx={{ color: '#1B5E20', mt: 0.25 }}>
+        <Typography variant="body2" sx={{ color: otherColors.darkGreenText, mt: 0.25 }}>
           Matches this medication
         </Typography>
       </Box>
@@ -245,7 +255,7 @@ export default function ReceiveShipmentDialog({
       >
         <DialogTitle component="div">
           <Typography variant="h5" color="primary.dark">
-            Receive shipment
+            Receive Shipment
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {name} · counted in {units.plural}
@@ -257,7 +267,7 @@ export default function ReceiveShipmentDialog({
               <TextField
                 fullWidth
                 required
-                label="NDC from the box"
+                label="NDC From the Box"
                 value={form.ndc}
                 onChange={(e) => setField('ndc', e.target.value)}
               />
@@ -279,7 +289,7 @@ export default function ReceiveShipmentDialog({
               <TextField
                 fullWidth
                 required
-                label="Lot number"
+                label="Lot Number"
                 value={form.lotNumber}
                 onChange={(e) => setField('lotNumber', e.target.value)}
               />
@@ -287,7 +297,7 @@ export default function ReceiveShipmentDialog({
             <Grid item xs={4}>
               <LocalizationProvider dateAdapter={AdapterLuxon}>
                 <DatePicker
-                  label="Expiration date"
+                  label="Expiration Date"
                   value={form.expirationDate}
                   onChange={(value) => setField('expirationDate', value)}
                   format="MM/dd/yyyy"
@@ -346,9 +356,9 @@ export default function ReceiveShipmentDialog({
           </Button>
           {mismatch ? (
             <ConfirmationDialog
-              title="Receive under a different drug?"
+              title="Receive under a different medication?"
               description={`The FDA NDC directory says NDC ${product?.packageNdc ?? form.ndc.trim()} is ${
-                product?.name ?? 'a different drug'
+                product?.name ?? 'a different medication'
               }, not ${name}.`}
               response={() => receive()}
               actionButtons={{ proceed: { text: receiveLabel, color: 'error', loading: saving }, reverse: true }}
@@ -452,7 +462,7 @@ function ExpirationConflictDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button variant="outlined" onClick={onBack} disabled={saving} sx={buttonSx}>
-          Go Back
+          Cancel
         </Button>
       </DialogActions>
     </Dialog>

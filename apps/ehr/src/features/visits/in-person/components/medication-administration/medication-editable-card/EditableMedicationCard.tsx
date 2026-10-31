@@ -59,6 +59,7 @@ import {
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS,
 } from 'utils/lib/types/constants';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
@@ -861,27 +862,31 @@ export const EditableMedicationCard: React.FC<{
         onInventoryLotPick={handleInventoryLotPick}
       />
       {expiredLotPrompt && (
-        <DeleteDialog
+        <InPersonModal
+          icon={null}
+          color="primary.main"
           open
-          title="This lot has expired"
+          title="Expired Lot"
+          showEntityPreview={false}
+          closeOnConfirm={false}
           description={
             <>
               Lot <strong>{expiredLotPrompt.lotNumber}</strong> expired on{' '}
-              {DateTime.fromISO(expiredLotPrompt.expDate).toFormat('MM/dd/yyyy')}. Mark {medication?.medicationName}{' '}
+              {formatDateForDisplay(expiredLotPrompt.expDate)}. Mark {medication?.medicationName}{' '}
               {pendingSaveRef.current?.orderData?.dose}{' '}
               {selectsOptions.units.options.find((option) => option.value === pendingSaveRef.current?.orderData?.units)
                 ?.label ?? pendingSaveRef.current?.orderData?.units}{' '}
               as administered anyway?
             </>
           }
-          closeButtonText="Go Back"
-          deleteButtonText="Mark Administered"
+          closeButtonText="Cancel"
+          confirmText="Mark as Administered"
           handleClose={() => {
             setExpiredLotPrompt(null);
             pendingSaveRef.current = null;
             typeRef.current = typeFromProps;
           }}
-          handleDelete={() => {
+          handleConfirm={() => {
             const pendingSave = pendingSaveRef.current;
             setExpiredLotPrompt(null);
             pendingSaveRef.current = null;

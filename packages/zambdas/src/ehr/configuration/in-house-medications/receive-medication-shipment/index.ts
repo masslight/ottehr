@@ -16,6 +16,7 @@ import {
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { findInventoryLotsByNumber, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
@@ -93,7 +94,7 @@ export const performEffect = async (
         unit: inventory.countedAs,
         performerReference,
         effectiveDateTime: DateTime.now().toUTC().toISO(),
-        note: `Expiration changed from ${formatDate(previous)} to ${formatDate(expirationDate)}`,
+        note: `Expiration changed from ${formatDateForDisplay(previous)} to ${formatDateForDisplay(expirationDate)}`,
       },
       (lot) => ({ ...lot, batch: { ...lot.batch, expirationDate } })
     );
@@ -127,6 +128,3 @@ export const performEffect = async (
   if (!parsedLot || !parsedEntry) throw new Error('Stock entry was written but could not be read back');
   return { lot: parsedLot, entry: parsedEntry };
 };
-
-// Expiration dates are calendar dates (no zone); shown the way the inventory screen shows them.
-const formatDate = (isoDate: string): string => DateTime.fromISO(isoDate).toFormat('MM/dd/yyyy');

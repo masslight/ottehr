@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import SearchIcon from '@mui/icons-material/Search';
@@ -22,7 +23,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { listMedicationInventory } from 'src/api/api';
@@ -35,6 +35,7 @@ import {
   InventoryLotRow,
   ListMedicationInventoryInput,
 } from 'utils/lib/types/api/config/in-house-medications';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import AdjustStockDialog from './AdjustStockDialog';
 import CountLotDialog from './CountLotDialog';
 import {
@@ -161,20 +162,20 @@ export default function InventoryAdminPage(): ReactElement {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ width: 36 }} />
-                <TableCell sx={{ fontWeight: 'bold' }}>{locationView ? 'Medication / lot' : 'Medication'}</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>On hand</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{locationView ? 'Medication / Lot' : 'Medication'}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>On Hand</TableCell>
                 {locationView ? (
                   <>
                     <TableCell sx={{ fontWeight: 'bold' }}>Expiration</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>NDC · manufacturer</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>NDC · Manufacturer</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }} align="right">
                       Actions
                     </TableCell>
                   </>
                 ) : (
                   <>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Locations at or below reorder level</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Earliest expiration</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Locations at or Below Reorder Level</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Earliest Expiration</TableCell>
                   </>
                 )}
               </TableRow>
@@ -229,7 +230,7 @@ function AllLocationsDrugRows({
 }): ReactElement {
   return (
     <>
-      <TableRow sx={{ backgroundColor: open ? '#FAFBFC' : undefined }}>
+      <TableRow sx={{ backgroundColor: open ? otherColors.apptHover : undefined }}>
         <TableCell>
           <ExpandButton open={open} onClick={onToggle} />
         </TableCell>
@@ -290,7 +291,7 @@ function LocationDrugRows({
 
   return (
     <>
-      <TableRow sx={{ backgroundColor: open ? '#FAFBFC' : undefined }}>
+      <TableRow sx={{ backgroundColor: open ? otherColors.apptHover : undefined }}>
         <TableCell>
           <ExpandButton open={open} onClick={onToggle} />
         </TableCell>
@@ -410,7 +411,7 @@ function LotHistory({ lot }: { lot: InventoryLotRow }): ReactElement {
               <TableCell>Reason</TableCell>
               <TableCell>Visit</TableCell>
               <TableCell>By</TableCell>
-              <TableCell>On hand after</TableCell>
+              <TableCell>On Hand After</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -429,10 +430,7 @@ function LotHistory({ lot }: { lot: InventoryLotRow }): ReactElement {
                 <TableCell>
                   {entry.visit
                     ? (() => {
-                        const label = [
-                          entry.visit.patientName,
-                          entry.visit.date ? DateTime.fromISO(entry.visit.date).toLocal().toFormat('MM/dd') : undefined,
-                        ]
+                        const label = [entry.visit.patientName, formatDateForDisplay(entry.visit.date)]
                           .filter(Boolean)
                           .join(', ');
                         return entry.visit.appointmentId ? (

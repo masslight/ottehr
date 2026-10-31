@@ -108,7 +108,7 @@ export default function AdjustStockDialog({
       >
         <DialogTitle component="div">
           <Typography variant="h5" color="primary.dark">
-            Adjust stock
+            Adjust Stock
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {drug.name} · Lot {lot.lotNumber} · {locationName} · {formatOnHand(lot.onHand, lot.unit)} on hand
@@ -155,7 +155,7 @@ export default function AdjustStockDialog({
             <TextField
               required
               fullWidth
-              label="What happened"
+              label="What Happened"
               value={note}
               error={showNoteError && noteMissing}
               helperText={showNoteError && noteMissing ? 'Say what the adjustment is for' : undefined}
