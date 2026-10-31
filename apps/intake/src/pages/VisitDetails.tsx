@@ -122,6 +122,31 @@ const VisitDetailsContent = ({
         </Box>
       )}
 
+      {!!(data?.reviewedRadiologyResults && data.reviewedRadiologyResults.length > 0) && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: '8px' }}>
+          <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+            Radiology
+          </Typography>
+          {data.reviewedRadiologyResults.map((radiologyResult, idx) => (
+            <Box key={`${idx}-radiology-result`}>
+              <Typography>{radiologyResult.studyType}</Typography>
+              {!!radiologyResult.report && (
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                  {radiologyResult.report}
+                </Typography>
+              )}
+              {radiologyResult.files.map((file, fileIdx) => (
+                <Box key={`${fileIdx}-radiology-file`}>
+                  <Link sx={{ cursor: 'pointer' }} onClick={() => openExternalLink(file.presignedUrl || '')}>
+                    {file.description}
+                  </Link>
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Box>
+      )}
+
       {data?.followUps && data.followUps.length > 0 && (
         <>
           <Divider sx={{ my: 3 }} />
