@@ -1,20 +1,20 @@
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Autocomplete,
+  Box,
   debounce,
   FormControl,
-  FormControlLabel,
-  FormLabel,
   Grid,
   InputAdornment,
   InputLabel,
   MenuItem,
   Paper,
-  Radio,
-  RadioGroup,
   Select,
+  Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Medication } from 'fhir/r4b';
@@ -130,6 +130,30 @@ function toInventoryInput(form: InventoryFormState, locationIds: string[]): InHo
       .map((locationId) => ({ locationId, level: Number(form.reorderLevels[locationId]) })),
   };
 }
+
+// The Inventory heading's tooltip: what each setup field does.
+const INVENTORY_SETUP_HELP: { field: string; help: string }[] = [
+  {
+    field: 'Counting Unit',
+    help: 'What staff count on the shelf (vial, tablet, tube…). Leave as "Not tracked" to turn inventory off for this medication.',
+  },
+  {
+    field: 'Each Contains',
+    help: 'How much medication is in one counted item, e.g. 4 mg per vial. For single-use items, used to work out how many items a dose takes.',
+  },
+  {
+    field: 'In',
+    help: 'The volume that amount comes in, e.g. 4 mg in 2 ml. Only matters for liquids: it lets doses charted in ml be counted. Leave blank for tablets, capsules and powder vials.',
+  },
+  {
+    field: 'Use',
+    help: 'Single-use items come off stock when given from a listed lot, with any leftover recorded as waste. Multi-use items (multi-dose vials, bottles, tubes) are corrected by the next count.',
+  },
+  {
+    field: 'Reorder Level',
+    help: 'The location is marked low at or below this number. Leave blank for no reorder level.',
+  },
+];
 
 export default function UpdateMedicationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -378,9 +402,27 @@ export default function UpdateMedicationPage(): ReactElement {
                 <></>
               )}
               <Grid item xs={12}>
-                <Typography variant="h6" color="primary.dark">
-                  Inventory
-                </Typography>
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography variant="h6" color="primary.dark">
+                    Inventory
+                  </Typography>
+                  <Tooltip
+                    placement="right"
+                    arrow
+                    componentsProps={{ tooltip: { sx: { maxWidth: 400, padding: 1.5 } } }}
+                    title={
+                      <Stack spacing={1}>
+                        {INVENTORY_SETUP_HELP.map(({ field, help }) => (
+                          <Typography key={field} variant="body2">
+                            <b>{field}:</b> {help}
+                          </Typography>
+                        ))}
+                      </Stack>
+                    }
+                  >
+                    <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary', cursor: 'help' }} />
+                  </Tooltip>
+                </Box>
                 <Typography variant="body2" color="text.secondary">
                   {canEditSetup
                     ? 'Leave blank to not track stock for this medication. Its medication card then works as today.'
@@ -470,22 +512,20 @@ export default function UpdateMedicationPage(): ReactElement {
                 </FormControl>
               </Grid>
               <Grid item xs={3}>
-                <FormControl disabled={!canEditSetup || !inventoryForm.countedAs}>
-                  <FormLabel id="inventory-use-label">Use</FormLabel>
-                  <RadioGroup
-                    aria-labelledby="inventory-use-label"
+                <FormControl fullWidth disabled={!canEditSetup || !inventoryForm.countedAs}>
+                  <InputLabel id="inventory-use-label">Use</InputLabel>
+                  <Select
+                    labelId="inventory-use-label"
+                    label="Use"
                     value={inventoryForm.use}
                     onChange={(e) => setInventoryField('use', e.target.value as MedicationUse)}
                   >
                     {MEDICATION_USE_OPTIONS.map((option) => (
-                      <FormControlLabel
-                        key={option}
-                        value={option}
-                        control={<Radio size="small" />}
-                        label={MEDICATION_USE_LABELS[option]}
-                      />
+                      <MenuItem key={option} value={option}>
+                        {MEDICATION_USE_LABELS[option]}
+                      </MenuItem>
                     ))}
-                  </RadioGroup>
+                  </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
