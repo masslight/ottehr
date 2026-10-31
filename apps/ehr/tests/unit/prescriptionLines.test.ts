@@ -564,6 +564,7 @@ describe('prescription quick picks', () => {
       ...line,
       key: target.key,
       quickPicked: { quantityValue: '20', daysSupply: '10', numberOfRefills: '0', noteToPharmacy: '' },
+      pickedSuggestion: 'quick-pick-qp-1',
     });
   });
 
