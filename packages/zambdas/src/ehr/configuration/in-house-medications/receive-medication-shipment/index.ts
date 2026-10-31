@@ -15,13 +15,14 @@ import {
   ReceiveMedicationShipmentResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
-import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { callerHasRole, checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { findInventoryLotsByNumber, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
+import { performEffect as listActiveLocations } from '../../../locations/list-active-locations';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -31,9 +32,7 @@ export const index = wrapHandler(
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { userToken, secrets, ...params } = validateRequestParameters(input);
 
-    if (!(await callerHasRole(input.headers?.Authorization, secrets, INVENTORY_STAFF_ROLES))) {
-      throw { code: APIErrorCode.NOT_AUTHORIZED, message: 'You are not permitted to receive medication shipments.' };
-    }
+    await requireUserWithRole(userToken, secrets, INVENTORY_STAFF_ROLES);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
@@ -60,6 +59,10 @@ export const performEffect = async (
   const inventory = getMedicationInventoryConfig(catalog);
   if (!inventory) {
     throw INVALID_INPUT_ERROR('This medication is not set up for inventory. Save its inventory setup first.');
+  }
+  const { locations } = await listActiveLocations(oystehr, { inPersonOnly: true });
+  if (!locations.some((location) => location.id === locationId)) {
+    throw INVALID_INPUT_ERROR('This location is not an active in-person location.');
   }
 
   const sameNumber = await findInventoryLotsByNumber(oystehr, {

@@ -43,6 +43,9 @@ vi.mock('utils/lib/fhir/getAllFhirSearchPages', () => ({
   getAllFhirSearchPages: vi.fn(async (params: any, oystehr: any) => oystehr.fhir.search(params).unbundle()),
 }));
 
+const LOCATION_UUID = '6f1c2a4e-2222-4b2a-9c3d-000000000002';
+const LOT_UUID = '6f1c2a4e-3333-4b2a-9c3d-000000000003';
+
 const today = DateTime.fromISO('2026-10-30T12:00:00', { zone: 'utc' });
 
 const lot = (overrides: Partial<InventoryLot>): InventoryLot => ({
@@ -321,9 +324,13 @@ const createInput = (body: Record<string, unknown>, authorized = true): ZambdaIn
 describe('list-medication-inventory', () => {
   it('validates the three views', () => {
     expect(validateList(createInput({ view: 'all-clinics' })).view).toBe('all-clinics');
-    expect(validateList(createInput({ view: 'clinic', locationId: 'main' }))).toMatchObject({ locationId: 'main' });
-    expect(validateList(createInput({ view: 'lot-history', lotId: 'lot-1' }))).toMatchObject({ lotId: 'lot-1' });
+    expect(validateList(createInput({ view: 'clinic', locationId: LOCATION_UUID }))).toMatchObject({
+      locationId: LOCATION_UUID,
+    });
+    expect(validateList(createInput({ view: 'lot-history', lotId: LOT_UUID }))).toMatchObject({ lotId: LOT_UUID });
     expect(() => validateList(createInput({ view: 'clinic' }))).toThrow();
+    // a comma would turn the FHIR search value into an OR
+    expect(() => validateList(createInput({ view: 'clinic', locationId: `${LOCATION_UUID},other` }))).toThrow();
     expect(() => validateList(createInput({ view: 'everything' }))).toThrow();
   });
 
@@ -450,8 +457,8 @@ describe('list-medication-inventory', () => {
 
 // ─── adjust-medication-inventory zambda ───────────────────────────────────────
 
-const adjustBody = { action: 'adjust', lotId: 'lot-1', direction: 'remove', quantity: 2, reason: 'expired' };
-const countBody = { action: 'count', lotId: 'lot-1', counted: 5 };
+const adjustBody = { action: 'adjust', lotId: LOT_UUID, direction: 'remove', quantity: 2, reason: 'expired' };
+const countBody = { action: 'count', lotId: LOT_UUID, counted: 5 };
 
 describe('adjust-medication-inventory - validateRequestParameters', () => {
   it('accepts an adjustment and a count, keeping the user token', () => {
@@ -476,6 +483,7 @@ describe('adjust-medication-inventory - validateRequestParameters', () => {
     ['a negative count', { ...countBody, counted: -1 }],
     ['a fractional count', { ...countBody, counted: 2.5 }],
     ['a count without a lot', { action: 'count', counted: 2 }],
+    ['a lot id that is not a FHIR id', { ...countBody, lotId: 'lot-1' }],
   ])('rejects %s', (_label, body, authorized = true) => {
     expect(() => validateAdjust(createInput(body, authorized))).toThrow();
   });

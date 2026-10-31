@@ -164,8 +164,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Receiving a shipment (requirement 2). */
 export const ReceiveMedicationShipmentInputSchema = z.object({
-  medicationId: z.string().min(1),
-  locationId: z.string().min(1),
+  medicationId: z.string().uuid(),
+  locationId: z.string().uuid(),
   lotNumber: z.string().trim().min(1),
   expirationDate: z.string().regex(ISO_DATE, 'expirationDate must be YYYY-MM-DD'),
   quantity: z.number().int().positive(),
@@ -199,7 +199,7 @@ export type ReceiveMedicationShipmentResponse =
 
 export const LookupNdcInputSchema = z.object({
   ndc: z.string().trim().min(1),
-  medicationId: z.string().min(1),
+  medicationId: z.string().uuid(),
 });
 export type LookupNdcInput = z.infer<typeof LookupNdcInputSchema>;
 
@@ -221,9 +221,9 @@ export interface LookupNdcResponse {
 }
 
 export const GetMedicationInventoryInputSchema = z.object({
-  medicationId: z.string().min(1),
+  medicationId: z.string().uuid(),
   /** With a clinic: the drug's lots on hand there (for the MAR Lot field) instead of the last lot received. */
-  locationId: z.string().min(1).optional(),
+  locationId: z.string().uuid().optional(),
 });
 export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryInputSchema>;
 
@@ -266,8 +266,8 @@ export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
 
 export const ListMedicationInventoryInputSchema = z.discriminatedUnion('view', [
   z.object({ view: z.literal('all-clinics') }),
-  z.object({ view: z.literal('clinic'), locationId: z.string().min(1) }),
-  z.object({ view: z.literal('lot-history'), lotId: z.string().min(1) }),
+  z.object({ view: z.literal('clinic'), locationId: z.string().uuid() }),
+  z.object({ view: z.literal('lot-history'), lotId: z.string().uuid() }),
 ]);
 export type ListMedicationInventoryInput = z.infer<typeof ListMedicationInventoryInputSchema>;
 
@@ -325,7 +325,7 @@ export const AdjustMedicationInventoryInputSchema = z
   .discriminatedUnion('action', [
     z.object({
       action: z.literal('adjust'),
-      lotId: z.string().min(1),
+      lotId: z.string().uuid(),
       direction: z.enum(['remove', 'add']),
       quantity: z.number().int().positive(),
       reason: z.enum(INVENTORY_ADJUSTMENT_REASONS),
@@ -333,7 +333,7 @@ export const AdjustMedicationInventoryInputSchema = z
     }),
     z.object({
       action: z.literal('count'),
-      lotId: z.string().min(1),
+      lotId: z.string().uuid(),
       /** Items on the shelf; multi-use items are counted as containers. */
       counted: z.number().int().nonnegative(),
     }),

@@ -21,8 +21,7 @@ import {
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
-import { APIErrorCode } from 'utils/lib/types/errors';
-import { callerHasRole, checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { getInventoryLotEntries } from '../../../../shared/medication-inventory';
 import {
@@ -45,9 +44,7 @@ export const index = wrapHandler(
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, ...params } = validateRequestParameters(input);
 
-    if (!(await callerHasRole(input.headers?.Authorization, secrets, INVENTORY_STAFF_ROLES))) {
-      throw { code: APIErrorCode.NOT_AUTHORIZED, message: 'You are not permitted to view medication inventory.' };
-    }
+    await requireUserWithRole(getUserToken(input), secrets, INVENTORY_STAFF_ROLES);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 

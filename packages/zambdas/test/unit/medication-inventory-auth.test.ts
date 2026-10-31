@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ADMIN_TIER_ROLES, INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
-import { APIErrorCode } from 'utils/lib/types/errors';
+import { APIErrorCode, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -9,9 +9,9 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-const { mockOystehr, mockCallerHasRole, mockGetMyPractitionerId } = vi.hoisted(() => ({
+const { mockOystehr, mockRequireUserWithRole, mockGetMyPractitionerId } = vi.hoisted(() => ({
   mockOystehr: { fhir: { get: vi.fn(), search: vi.fn(), transaction: vi.fn(), patch: vi.fn() } },
-  mockCallerHasRole: vi.fn(),
+  mockRequireUserWithRole: vi.fn(),
   mockGetMyPractitionerId: vi.fn(),
 }));
 
@@ -23,7 +23,7 @@ vi.mock('../../src/shared/helpers', async (importOriginal) => ({
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('m2m-token'),
-  callerHasRole: mockCallerHasRole,
+  requireUserWithRole: mockRequireUserWithRole,
 }));
 
 vi.mock('../../src/shared/practitioners', () => ({ getMyPractitionerId: mockGetMyPractitionerId }));
@@ -52,9 +52,13 @@ const makeInput = (body: Record<string, unknown>): ZambdaInput => ({
   secrets,
 });
 
+const MEDICATION_ID = '6f1c2a4e-1111-4b2a-9c3d-000000000001';
+const LOCATION_ID = '6f1c2a4e-2222-4b2a-9c3d-000000000002';
+const LOT_ID = '6f1c2a4e-3333-4b2a-9c3d-000000000003';
+
 const receiveBody = {
-  medicationId: 'med-catalog',
-  locationId: 'loc-a',
+  medicationId: MEDICATION_ID,
+  locationId: LOCATION_ID,
   lotNumber: 'A123',
   expirationDate: '2027-03-31',
   quantity: 25,
@@ -68,11 +72,11 @@ const staffEndpoints: [string, ZambdaHandler, Record<string, unknown>][] = [
   [
     'adjust-medication-inventory',
     adjustRaw as unknown as ZambdaHandler,
-    { action: 'count', lotId: 'lot-1', counted: 5 },
+    { action: 'count', lotId: LOT_ID, counted: 5 },
   ],
   ['receive-medication-shipment', receiveRaw as unknown as ZambdaHandler, receiveBody],
-  ['get-medication-inventory', getRaw as unknown as ZambdaHandler, { medicationId: 'med-catalog' }],
-  ['lookup-ndc', lookupNdcRaw as unknown as ZambdaHandler, { ndc: '72572-0160-25', medicationId: 'med-catalog' }],
+  ['get-medication-inventory', getRaw as unknown as ZambdaHandler, { medicationId: MEDICATION_ID }],
+  ['lookup-ndc', lookupNdcRaw as unknown as ZambdaHandler, { ndc: '72572-0160-25', medicationId: MEDICATION_ID }],
 ];
 const update = updateRaw as unknown as ZambdaHandler;
 
@@ -87,7 +91,7 @@ const expectNothingTouched = (): void => {
 describe('inventory endpoints - caller role', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCallerHasRole.mockResolvedValue(false);
+    mockRequireUserWithRole.mockRejectedValue(NOT_AUTHORIZED);
   });
 
   it.each(staffEndpoints)(
@@ -95,9 +99,9 @@ describe('inventory endpoints - caller role', () => {
     async (_name, handler, body) => {
       const result = await handler(makeInput(body));
 
-      expect(result.statusCode).toBe(400);
+      expect(result.statusCode).toBe(401);
       expect(JSON.parse(result.body).code).toBe(APIErrorCode.NOT_AUTHORIZED);
-      expect(mockCallerHasRole).toHaveBeenCalledWith('Bearer caller-token', secrets, INVENTORY_STAFF_ROLES);
+      expect(mockRequireUserWithRole).toHaveBeenCalledWith('caller-token', secrets, INVENTORY_STAFF_ROLES);
       expectNothingTouched();
     }
   );
@@ -105,9 +109,9 @@ describe('inventory endpoints - caller role', () => {
   it('update-in-house-medication rejects a non-admin changing the inventory setup before any FHIR call', async () => {
     const result = await update(makeInput({ medicationID: 'med-123', name: 'Drug', inventory }));
 
-    expect(result.statusCode).toBe(400);
+    expect(result.statusCode).toBe(401);
     expect(JSON.parse(result.body).code).toBe(APIErrorCode.NOT_AUTHORIZED);
-    expect(mockCallerHasRole).toHaveBeenCalledWith('Bearer caller-token', secrets, ADMIN_TIER_ROLES);
+    expect(mockRequireUserWithRole).toHaveBeenCalledWith('caller-token', secrets, ADMIN_TIER_ROLES);
     expectNothingTouched();
   });
 
@@ -118,18 +122,19 @@ describe('inventory endpoints - caller role', () => {
     expectNothingTouched();
   });
 
-  it('update-in-house-medication leaves the rest of the update ungated when inventory is not sent', async () => {
-    mockOystehr.fhir.get.mockResolvedValue({ resourceType: 'Medication', id: 'med-123', status: 'active' });
+  it.each([
+    ['deactivating', { medicationID: 'med-123', status: 'inactive' }],
+    ['renaming or re-coding', { medicationID: 'med-123', name: 'X', ndc: '0000-0000-00' }],
+  ])('update-in-house-medication rejects a non-admin %s a medication', async (_label, body) => {
+    const result = await update(makeInput(body));
 
-    const result = await update(makeInput({ medicationID: 'med-123', status: 'inactive' }));
-
-    expect(result.statusCode).toBe(200);
-    expect(mockCallerHasRole).not.toHaveBeenCalled();
-    expect(mockOystehr.fhir.patch).toHaveBeenCalledOnce();
+    expect(result.statusCode).toBe(401);
+    expect(mockRequireUserWithRole).toHaveBeenCalledWith('caller-token', secrets, ADMIN_TIER_ROLES);
+    expectNothingTouched();
   });
 
   it('update-in-house-medication lets an admin save the inventory setup', async () => {
-    mockCallerHasRole.mockResolvedValue(true);
+    mockRequireUserWithRole.mockResolvedValue({});
     mockOystehr.fhir.get.mockResolvedValue({ resourceType: 'Medication', id: 'med-123', status: 'active' });
 
     const result = await update(makeInput({ medicationID: 'med-123', name: 'Drug', inventory }));

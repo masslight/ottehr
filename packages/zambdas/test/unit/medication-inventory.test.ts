@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Medication, Observation } from 'fhir/r4b';
+import { Location, Medication, Observation } from 'fhir/r4b';
 import {
   INVENTORY_ENTRY_REASON_SYSTEM,
   INVENTORY_ENTRY_TYPE_SYSTEM,
@@ -30,6 +30,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect as receivePerformEffect } from '../../src/ehr/configuration/in-house-medications/receive-medication-shipment/index';
 import { validateRequestParameters } from '../../src/ehr/configuration/in-house-medications/receive-medication-shipment/validateRequestParameters';
@@ -247,6 +248,8 @@ type MockOystehr = Oystehr & {
   fhir: { get: ReturnType<typeof vi.fn>; search: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> };
 };
 
+const activeLocations: Location[] = [{ resourceType: 'Location', id: 'loc-a', name: 'Main Street' }];
+
 const makeMockOystehr = ({ ledger = [] as Observation[], lots = [] as Medication[] } = {}): MockOystehr => {
   const transaction = vi.fn().mockImplementation(({ requests }: { requests: { resource: any; method: string }[] }) => ({
     resourceType: 'Bundle',
@@ -255,7 +258,7 @@ const makeMockOystehr = ({ ledger = [] as Observation[], lots = [] as Medication
     })),
   }));
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => ({
-    unbundle: () => (resourceType === 'Medication' ? lots : ledger),
+    unbundle: () => (resourceType === 'Medication' ? lots : resourceType === 'Location' ? activeLocations : ledger),
   }));
   return {
     fhir: { get: vi.fn(), search, transaction },
@@ -348,32 +351,40 @@ const receiveBody = {
 };
 
 describe('receive-medication-shipment - validateRequestParameters', () => {
+  // Requests carry FHIR ids; performEffect is called directly below with readable ones.
+  const requestBody = {
+    ...receiveBody,
+    medicationId: '6f1c2a4e-1111-4b2a-9c3d-000000000001',
+    locationId: '6f1c2a4e-2222-4b2a-9c3d-000000000002',
+  };
+
   it('accepts a full request and keeps the user token', () => {
-    const result = validateRequestParameters(createInput(receiveBody));
-    expect(result).toMatchObject({ ...receiveBody, userToken: 'test-token' });
+    const result = validateRequestParameters(createInput(requestBody));
+    expect(result).toMatchObject({ ...requestBody, userToken: 'test-token' });
   });
 
   it('accepts a choice for a lot number already on hand with another expiration date', () => {
     expect(
-      validateRequestParameters(createInput({ ...receiveBody, expirationConflict: 'correct-existing' }))
+      validateRequestParameters(createInput({ ...requestBody, expirationConflict: 'correct-existing' }))
         .expirationConflict
     ).toBe('correct-existing');
-    expect(() => validateRequestParameters(createInput({ ...receiveBody, expirationConflict: 'overwrite' }))).toThrow();
+    expect(() => validateRequestParameters(createInput({ ...requestBody, expirationConflict: 'overwrite' }))).toThrow();
   });
 
   it('accepts a request without the optional fields', () => {
-    const { manufacturer: _m, vendor: _v, ...required } = receiveBody;
+    const { manufacturer: _m, vendor: _v, ...required } = requestBody;
     expect(validateRequestParameters(createInput(required))).toMatchObject({ ...required, userToken: 'test-token' });
   });
 
   it.each([
-    ['no auth header', { ...receiveBody }, { Authorization: '' }],
-    ['missing lot number', { ...receiveBody, lotNumber: ' ' }],
-    ['expiration not a date', { ...receiveBody, expirationDate: '03/31/2027' }],
-    ['zero quantity', { ...receiveBody, quantity: 0 }],
-    ['fractional quantity', { ...receiveBody, quantity: 1.5 }],
-    ['missing ndc', { ...receiveBody, ndc: undefined }],
-    ['missing clinic', { ...receiveBody, locationId: '' }],
+    ['no auth header', { ...requestBody }, { Authorization: '' }],
+    ['missing lot number', { ...requestBody, lotNumber: ' ' }],
+    ['expiration not a date', { ...requestBody, expirationDate: '03/31/2027' }],
+    ['zero quantity', { ...requestBody, quantity: 0 }],
+    ['fractional quantity', { ...requestBody, quantity: 1.5 }],
+    ['missing ndc', { ...requestBody, ndc: undefined }],
+    ['missing clinic', { ...requestBody, locationId: '' }],
+    ['a location id that is not a FHIR id', { ...requestBody, locationId: 'loc-a' }],
   ])('rejects %s', (_label, body, headers?) => {
     expect(() => validateRequestParameters({ ...createInput(body), ...(headers ? { headers } : {}) })).toThrow();
   });
@@ -396,6 +407,15 @@ describe('receive-medication-shipment - performEffect', () => {
     expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
+  it('rejects a location that is not an active in-person Location before writing anything', async () => {
+    const oystehr = makeMockOystehr();
+    oystehr.fhir.get.mockResolvedValue(catalog);
+    await expect(
+      receivePerformEffect(oystehr, { ...receiveBody, locationId: 'loc-gone' }, performer)
+    ).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects a Medication that is not a catalog drug', async () => {
     const oystehr = makeMockOystehr();
     oystehr.fhir.get.mockResolvedValue(existingLot);
@@ -409,7 +429,7 @@ describe('receive-medication-shipment - performEffect', () => {
     oystehr.fhir.get.mockResolvedValue(catalog);
     const result = written(await receivePerformEffect(oystehr, receiveBody, performer));
 
-    const [{ params }] = oystehr.fhir.search.mock.calls[0];
+    const [{ params }] = oystehr.fhir.search.mock.calls.find(([call]) => call.resourceType === 'Medication')!;
     expect(params).toContainEqual({ name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|med-catalog` });
     expect(params).toContainEqual({ name: '_tag', value: `${INVENTORY_LOT_CLINIC_TAG_SYSTEM}|loc-a` });
     expect(params).toContainEqual({ name: 'lot-number', value: 'A123' });

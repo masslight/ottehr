@@ -5,8 +5,8 @@ import { Medication } from 'fhir/r4b';
 import { isCatalogMedication } from 'utils/lib/fhir/medication-inventory';
 import { LookupNdcInput, LookupNdcResponse } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
-import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
-import { callerHasRole, checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
@@ -18,9 +18,7 @@ let m2mToken: string;
 export const index = wrapHandler('admin-lookup-ndc', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, ...params } = validateRequestParameters(input);
 
-  if (!(await callerHasRole(input.headers?.Authorization, secrets, INVENTORY_STAFF_ROLES))) {
-    throw { code: APIErrorCode.NOT_AUTHORIZED, message: 'You are not permitted to look up NDCs.' };
-  }
+  await requireUserWithRole(getUserToken(input), secrets, INVENTORY_STAFF_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
