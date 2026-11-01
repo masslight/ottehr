@@ -52,6 +52,53 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// Pin the consent-form list to a stable 2-form fixture so tests are independent
+// of whatever overlay is applied to CONSENT_FORMS_CONFIG.
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const _hipaa = {
+    id: 'hipaa-acknowledgement',
+    assetPath: './assets/Privacy_Practices.pdf',
+    publicUrl: '/Privacy_Practices.pdf',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const _cttDefault = {
+    id: 'consent-to-treat',
+    assetPath: './assets/Consent_to_Treatment.pdf',
+    publicUrl: '/Consent_to_Treatment.pdf',
+    formTitle: 'Consent to Treatment',
+    resourceTitle: 'Consent forms',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const _cttIL = {
+    ..._cttDefault,
+    assetPath: './assets/IL_Consent_to_Treatment.pdf',
+    publicUrl: '/IL_Consent_to_Treatment.pdf',
+  };
+  return {
+    getConsentFormsForLocation: (locationState?: string) => [_hipaa, locationState === 'IL' ? _cttIL : _cttDefault],
+    CONSENT_FORMS_DATA: { forms: [_hipaa, _cttDefault] },
+    CONSENT_FORMS_CONFIG: Object.freeze({ forms: [_hipaa, _cttDefault] }),
+    resolveConsentFormsPaths: (forms: unknown[]) => forms,
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
