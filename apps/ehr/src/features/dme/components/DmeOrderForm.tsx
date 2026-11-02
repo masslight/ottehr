@@ -1,6 +1,6 @@
 import { Autocomplete, Box, Divider, FormHelperText, Paper, Stack, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Controller, FormProvider, PathValue, useController, useForm } from 'react-hook-form';
 import { createDmeQuickPick, getDmeQuickPicks, updateDmeQuickPick } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -26,7 +26,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { sortQuickPicks, useMergedDmeQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
-import { formatPhoneNumberDisplay, isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -51,6 +51,7 @@ import {
   buildDmeQuickPick,
   DmeOrderFormValues,
   DmeQuickPickPatch,
+  normalizePhone,
   toCodeDisplay,
 } from './dmeQuickPick';
 import { DmeQuickPickDialogs } from './DmeQuickPickDialogs';
@@ -79,7 +80,9 @@ const OrderedByBlank: React.FC<{
   onChange: (value: OrderedBy) => void;
   readOnly: boolean;
   dataTestId?: string;
-}> = ({ value, onChange, readOnly, dataTestId }) => {
+  invalid?: boolean;
+  describedBy?: string;
+}> = ({ value, onChange, readOnly, dataTestId, invalid, describedBy }) => {
   const { oystehrZambda } = useApiClients();
   const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
   const options = useMemo(
@@ -95,7 +98,16 @@ const OrderedByBlank: React.FC<{
   );
   const name = (value && (options.find((option) => option.id === value.id)?.name ?? value.name)) || undefined;
   return (
-    <PopoverBlank label="ordered by" title="Ordered by" value={name} need readOnly={readOnly} dataTestId={dataTestId}>
+    <PopoverBlank
+      label="ordered by"
+      title="Ordered by"
+      value={name}
+      need
+      readOnly={readOnly}
+      dataTestId={dataTestId}
+      invalid={invalid}
+      describedBy={describedBy}
+    >
       {(close) => (
         <Autocomplete
           size="small"
@@ -125,8 +137,8 @@ export const buildDmeOrderFields = (values: DmeOrderFormValues): DmeOrderFields 
     name: optional(values.thirdParty.name),
     address: optional(values.thirdParty.address),
     // Stored as "(xxx) xxx-xxxx", the shape the masked phone fields saved.
-    phone: optional(formatPhoneNumberDisplay(values.thirdParty.phone)),
-    fax: optional(formatPhoneNumberDisplay(values.thirdParty.fax)),
+    phone: optional(normalizePhone(values.thirdParty.phone)),
+    fax: optional(normalizePhone(values.thirdParty.fax)),
   };
   return {
     itemName: values.itemName.trim(),
@@ -399,11 +411,17 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
   });
   const ids = dataTestIds.dmeOrders.form;
   const { errors } = formState;
-  const errorText = (...messages: (string | undefined)[]): React.ReactNode => {
+  const errorIdPrefix = useId();
+  const orderErrorId = `${errorIdPrefix}-order`;
+  const orderedByErrorId = `${errorIdPrefix}-ordered-by`;
+  const thirdPartyErrorId = `${errorIdPrefix}-third-party`;
+  const invalidProps = (invalid: boolean, describedBy: string): { invalid?: boolean; describedBy?: string } =>
+    invalid ? { invalid, describedBy } : {};
+  const errorText = (id: string, ...messages: (string | undefined)[]): React.ReactNode => {
     const shown = messages.filter(Boolean);
     return (
       shown.length > 0 && (
-        <FormHelperText error sx={{ mt: '-8px' }}>
+        <FormHelperText id={id} error sx={{ mt: '-8px' }}>
           {shown.join(' ')}
         </FormHelperText>
       )
@@ -441,6 +459,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
                 readOnly={isReadOnly}
                 need
                 dataTestId={ids.quantity}
+                {...invalidProps(!!errors.quantity, orderErrorId)}
               />{' '}
               <TextBlank
                 label="DME"
@@ -449,6 +468,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
                 readOnly={isReadOnly}
                 need
                 dataTestId={ids.item}
+                {...invalidProps(!!errors.itemName, orderErrorId)}
               />
               {', '}
               <Controller
@@ -500,6 +520,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
                 onChange={durationValueField.onChange}
                 readOnly={isReadOnly}
                 dataTestId={ids.durationValue}
+                {...invalidProps(!!errors.durationValue, orderErrorId)}
               />{' '}
               <Controller
                 name="durationUnit"
@@ -518,7 +539,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
               />
               {' of use.'}
             </Sentence>
-            {errorText(errors.quantity?.message, errors.itemName?.message, errors.durationValue?.message)}
+            {errorText(orderErrorId, errors.quantity?.message, errors.itemName?.message, errors.durationValue?.message)}
             <Box data-testid={ids.diagnoses}>
               <Controller
                 name="diagnoses"
@@ -546,12 +567,13 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
                     onChange={field.onChange}
                     readOnly={isReadOnly}
                     dataTestId={ids.orderedBy}
+                    {...invalidProps(!!errors.orderedBy, orderedByErrorId)}
                   />
                 )}
               />
               .
             </Sentence>
-            {errorText(errors.orderedBy?.message)}
+            {errorText(orderedByErrorId, errors.orderedBy?.message)}
 
             <SectionLabel>Billing</SectionLabel>
             <Controller
@@ -612,6 +634,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
                   onChange={thirdPartyPhoneField.onChange}
                   readOnly={isReadOnly}
                   dataTestId={ids.thirdPartyPhone}
+                  {...invalidProps(!!errors.thirdParty?.phone, thirdPartyErrorId)}
                 />
                 {', fax '}
                 <TextBlank
@@ -620,11 +643,13 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
                   onChange={thirdPartyFaxField.onChange}
                   readOnly={isReadOnly}
                   dataTestId={ids.thirdPartyFax}
+                  {...invalidProps(!!errors.thirdParty?.fax, thirdPartyErrorId)}
                 />
                 .
               </Sentence>
             )}
-            {external && errorText(errors.thirdParty?.phone?.message, errors.thirdParty?.fax?.message)}
+            {external &&
+              errorText(thirdPartyErrorId, errors.thirdParty?.phone?.message, errors.thirdParty?.fax?.message)}
 
             <SectionLabel>Instructions</SectionLabel>
             <Controller

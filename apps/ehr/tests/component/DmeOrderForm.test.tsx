@@ -289,9 +289,11 @@ describe('DmeOrderForm', () => {
     await userEvent.clear(inputOf(ids.quantity));
     await userEvent.click(screen.getByTestId(ids.submitButton));
 
-    expect(
-      await screen.findByText('Quantity dispensed must be a positive whole number DME is required')
-    ).toBeInTheDocument();
+    const error = await screen.findByText('Quantity dispensed must be a positive whole number DME is required');
+    for (const blank of [inputOf(ids.quantity), itemNameInput()]) {
+      expect(blank).toHaveAttribute('aria-invalid', 'true');
+      expect(blank).toHaveAttribute('aria-describedby', error.id);
+    }
     expect(createOrder).not.toHaveBeenCalled();
   });
 

@@ -1,6 +1,6 @@
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { describe, expect, it } from 'vitest';
-import { applyDmeQuickPick, buildDmeQuickPick, DmeOrderFormValues } from './dmeQuickPick';
+import { applyDmeQuickPick, buildDmeQuickPick, DmeOrderFormValues, normalizePhone } from './dmeQuickPick';
 
 const NO_THIRD_PARTY = { name: '', address: '', phone: '', fax: '' };
 
@@ -155,5 +155,17 @@ describe('buildDmeQuickPick', () => {
     const patch = applyDmeQuickPick({ id: 'qp-1', ...buildDmeQuickPick(values, 'Crutches') });
 
     expect({ ...emptyValues(), ...patch }).toEqual(values);
+  });
+});
+
+describe('normalizePhone', () => {
+  it('formats a valid number however it was typed', () => {
+    expect(normalizePhone('555.987.6543')).toBe('(555) 987-6543');
+    expect(normalizePhone('+1 555 987 6543')).toBe('(555) 987-6543');
+  });
+
+  it('keeps an invalid number as typed instead of truncating it into a different one', () => {
+    expect(normalizePhone('21255501992')).toBe('21255501992');
+    expect(normalizePhone('55501')).toBe('55501');
   });
 });
