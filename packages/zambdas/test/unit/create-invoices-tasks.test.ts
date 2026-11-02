@@ -19,6 +19,7 @@ const config: ParsedInvoicingConfig = {
   dueDaysFromGeneration: 30,
   defaultSmsTemplate: 'sms template',
   defaultInvoiceMemo: 'memo template',
+  invoiceIssuerSource: 'service-facility',
 };
 
 const encounter = (id: string): Encounter =>
