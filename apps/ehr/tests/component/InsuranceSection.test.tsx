@@ -2,8 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Coverage, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import React, { type InputHTMLAttributes, type ReactNode, useState } from 'react';
 import { FormProvider, useForm, type UseFormReturn } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { CoverageWithPriority, OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
@@ -89,6 +91,7 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
 }));
 
 // Imported AFTER the mocks so they take effect.
+import { getDateOfServiceLabel } from '../../src/features/visits/shared/components/patient/EligibilityDetailsDialog';
 import {
   buildInsuranceSectionCounts,
   useCoverageFormRehydration,
@@ -219,10 +222,17 @@ interface HarnessProps {
   initialCoverages?: OrderedCoveragesWithSubscribers;
   defaultValues?: Record<string, unknown>;
   coverageChecks?: CoverageCheckWithDetails[];
+  visitDate?: string;
   controlRef: { current?: HarnessControl };
 }
 
-const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, coverageChecks, controlRef }) => {
+const Harness: React.FC<HarnessProps> = ({
+  initialCoverages,
+  defaultValues,
+  coverageChecks,
+  visitDate,
+  controlRef,
+}) => {
   const [coverages, setCoveragesState] = useState<OrderedCoveragesWithSubscribers>(initialCoverages ?? {});
   const [coveragesFormValues, setCoveragesFormValuesState] = useState<Record<string, unknown> | undefined>(undefined);
   const [formDefaults, setFormDefaultsState] = useState<Record<string, unknown> | undefined>(undefined);
@@ -295,6 +305,7 @@ const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, cove
         onCancelAddInsurance={handleCancelAddInsurance}
         onCloseAddInsurance={handleCloseAddInsurance}
         newInsuranceOrdinal={newInsuranceOrdinal}
+        visitDate={visitDate}
       />
     </FormProvider>
   );
@@ -540,6 +551,31 @@ describe('InsuranceSection — eligibility-derived insurance type', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull());
     expect(control.methods.getValues(PRIMARY.insurancePlanType.key)).toBe('13');
     expect(control.methods.getFieldState(PRIMARY.insurancePlanType.key).isDirty).toBe(false);
+  });
+});
+
+describe('InsuranceSection — eligibility date of service', () => {
+  const dateOfServiceInput = (): HTMLInputElement =>
+    screen.getByTestId(dataTestIds.insuranceContainer.dateOfServiceInput) as HTMLInputElement;
+
+  it('starts the date picker on the visit date', async () => {
+    renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
+
+    await screen.findByText(/Primary insurance/i);
+    expect(dateOfServiceInput().value).toBe('03/04/2025');
+  });
+
+  it('starts the date picker on today when there is no visit', async () => {
+    renderHarness({ initialCoverages: makeFullPrimaryCoverages() });
+
+    await screen.findByText(/Primary insurance/i);
+    expect(dateOfServiceInput().value).toBe(DateTime.now().toFormat('MM/dd/yyyy'));
+  });
+
+  it('labels a check run for a date of service other than the day it was run', () => {
+    expect(getDateOfServiceLabel('2025-03-04', '2026-01-01T12:00:00.000Z')).toBe('DOS 03/04/2025');
+    expect(getDateOfServiceLabel('2026-01-01', '2026-01-01T12:00:00.000Z')).toBeUndefined();
+    expect(getDateOfServiceLabel(undefined, '2026-01-01T12:00:00.000Z')).toBeUndefined();
   });
 });
 

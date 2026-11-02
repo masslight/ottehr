@@ -113,6 +113,13 @@ const getBillingProviderDataFromResource = (
 export const parseCoverageEligibilityResponse = (
   coverageResponse: CoverageEligibilityResponse
 ): InsuranceCheckStatusWithDate => {
+  const parsed = parseCoverageEligibilityResponseOutcome(coverageResponse);
+  return coverageResponse.servicedDate ? { ...parsed, servicedDate: coverageResponse.servicedDate } : parsed;
+};
+
+const parseCoverageEligibilityResponseOutcome = (
+  coverageResponse: CoverageEligibilityResponse
+): InsuranceCheckStatusWithDate => {
   const dateISO = coverageResponse.created;
   try {
     if (coverageResponse.error) {

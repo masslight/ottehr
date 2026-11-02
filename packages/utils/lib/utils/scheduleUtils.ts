@@ -318,6 +318,13 @@ export function getTimezone(
   return timezone;
 }
 
+// The calendar day (yyyy-MM-dd) of an appointment in its location's timezone. This is the date of service used for
+// claims and eligibility checks, so both agree on which day a visit that crosses midnight UTC belongs to.
+export function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {
+  const timezone = location ? getTimezone(location) : TIMEZONES[0];
+  return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
+}
+
 // creates a map where each open hour in the day's schedule is a key and the capacity for that hour is the value
 export function getSlotCapacityMapForDayAndSchedule(
   now: DateTime,

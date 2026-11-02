@@ -116,6 +116,8 @@ export const dataTestIds = {
   insuranceContainer: {
     showMoreButton: 'insurance-show-more-button',
     removeButton: 'insurance-remove-button',
+    dateOfServiceInput: 'insurance-date-of-service-input',
+    recheckEligibilityButton: 'insurance-recheck-eligibility-button',
   },
   userSettingsContainer: {
     releaseOfInfoDropdown: 'release-of-info-dropdown',

@@ -12,7 +12,10 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -32,7 +35,7 @@ import {
   PatientPaymentBenefit,
 } from 'utils/lib/types/data/telemed/eligibility.types';
 import { CopayWidget } from './CopayWidget';
-import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
+import { EligibilityDetailsDialog, getDateOfServiceLabel } from './EligibilityDetailsDialog';
 import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
 import { InsuranceCarrierQuickPicks } from './InsuranceCarrierQuickPicks';
 import PatientRecordFormField, { buildAnswerSourceOptionsInput, useAnswerOptionsQuery } from './PatientRecordFormField';
@@ -47,6 +50,10 @@ import {
 type InsuranceContainerProps = {
   ordinal: number;
   patientId: string;
+  /** Visit-page-only: the appointment whose date of service eligibility is checked for. */
+  appointmentId?: string;
+  /** Visit-page-only: date of the visit (yyyy-MM-dd) the date picker starts on; today when absent. */
+  visitDate?: string;
   initialEligibilityCheck?: CoverageCheckWithDetails;
   removeInProgress?: boolean;
   handleRemoveClick?: () => void;
@@ -83,6 +90,7 @@ function mapInitialStatus(
     return {
       status: status.status,
       dateISO: status.dateISO,
+      servicedDate: initialCheckResult.servicedDate,
       copay: initialCheckResult.copay,
       errors: initialCheckResult.errors,
     };
@@ -123,6 +131,7 @@ function getErrorDetailsFromCoverageResponse(
 interface SimpleStatusCheckWithDate {
   status: EligibilityCheckSimpleStatus;
   dateISO: string;
+  servicedDate?: string;
   copay?: PatientPaymentBenefit[];
   errors?: Array<{ code: { coding?: Array<{ code?: string; display?: string }>; text?: string } }>;
 }
@@ -132,6 +141,8 @@ const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
+  appointmentId,
+  visitDate,
   removeInProgress,
   initialEligibilityCheck,
   handleRemoveClick,
@@ -148,6 +159,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
     mapInitialStatus(initialEligibilityCheck)
   );
+
+  const [serviceDate, setServiceDate] = useState<DateTime | null>(() =>
+    DateTime.fromISO(visitDate ?? DateTime.now().toISODate())
+  );
+
+  const serviceDateISO = (serviceDate?.isValid ? serviceDate.toISODate() : undefined) ?? undefined;
 
   const { getValues, setValue, watch } = useFormContext();
 
@@ -222,6 +239,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             id: 'get-eligibility',
             patientId,
             coverageToCheck: coverageToCheck,
+            appointmentId,
+            servicedDate: serviceDateISO,
           })
           .then((res) => {
             console.log('eligibility check result', res);
@@ -232,6 +251,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             // Return combined data including the error details
             return {
               ...simpleStatus,
+              servicedDate: simpleStatus.servicedDate ?? serviceDateISO,
               errors: fullResult?.errors,
             };
           });
@@ -305,7 +325,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
               hour12: true,
             })
             .toLowerCase();
-          return `Last checked: ${dt.toLocaleDateString()} ${formattedTime}`;
+          const dosLabel = getDateOfServiceLabel(eligibilityStatus?.servicedDate, dateISO);
+          return `Last checked: ${dt.toLocaleDateString()} ${formattedTime}${dosLabel ? ` (${dosLabel})` : ''}`;
         } catch {
           return '';
         }
@@ -363,7 +384,27 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           >
             {lastRefreshDateString}
           </Typography>
-          <IconButton onClick={handleRecheckEligibility} size="small">
+          <LocalizationProvider dateAdapter={AdapterLuxon}>
+            <DatePicker
+              label="Date of service"
+              value={serviceDate}
+              onChange={(value) => setServiceDate(value)}
+              format="MM/dd/yyyy"
+              slotProps={{
+                textField: {
+                  size: 'small',
+                  sx: { width: 160 },
+                  inputProps: { 'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput },
+                },
+              }}
+            />
+          </LocalizationProvider>
+          <IconButton
+            data-testid={dataTestIds.insuranceContainer.recheckEligibilityButton}
+            onClick={handleRecheckEligibility}
+            disabled={!serviceDate?.isValid || recheckEligibility.isPending}
+            size="small"
+          >
             {recheckEligibility.isPending ? <CircularProgress size="24px" /> : <RefreshRounded color="primary" />}
           </IconButton>
         </Box>
@@ -385,6 +426,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         ...initialEligibilityCheck,
         status: mapSimpleStatusToDetailedStatus(eligibilityStatus.status),
         dateISO: eligibilityStatus.dateISO,
+        servicedDate: eligibilityStatus.servicedDate,
         // Prefer eligibilityStatus.copay if it has items, otherwise use initialEligibilityCheck.copay
         copay:
           eligibilityStatus.copay && eligibilityStatus.copay.length > 0
@@ -406,6 +448,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       return {
         status: mapSimpleStatusToDetailedStatus(eligibilityStatus.status),
         dateISO: eligibilityStatus.dateISO,
+        servicedDate: eligibilityStatus.servicedDate,
         copay: eligibilityStatus.copay,
         errors: eligibilityStatus.errors,
         subscriberId: '',
