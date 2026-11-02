@@ -39,6 +39,7 @@ import { PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 import { makeProcedureResource } from '../src/shared/chart-data';
+import { NOTE_EDITOR_EXTENSION_URL } from '../src/shared/notes';
 
 // Fixture tests for the Patients layers that reuse app logic: the Recent Patients report's new-vs-existing
 // rule and the visit details face sheet's demographics / PCP / pharmacy composers.
@@ -369,6 +370,28 @@ const patientNotes: Communication[] = [
   patientNote('pn-1', 'Prefers morning appointments', '2026-06-01T10:00:00.000Z'),
   // Edited after it was written: sent and lastUpdated drifted apart.
   patientNote('pn-2', 'Mother handles scheduling', '2026-06-20T10:00:00.000Z', '2026-06-10T10:00:00.000Z'),
+  {
+    ...patientNote('pn-3', 'Call after school', '2026-06-21T10:00:00.000Z', '2026-06-05T10:00:00.000Z'),
+    extension: [
+      {
+        url: NOTE_EDITOR_EXTENSION_URL,
+        valueReference: { reference: 'Practitioner/prac-2', display: 'Lina Grace' },
+      },
+      {
+        url: NOTE_EDITOR_EXTENSION_URL,
+        valueReference: { reference: 'Practitioner/prac-1', display: 'Nina Park' },
+      },
+    ],
+  },
+  {
+    ...patientNote('pn-4', 'Author corrected phone preference', '2026-06-15T10:00:01.000Z', '2026-06-15T10:00:00.000Z'),
+    extension: [
+      {
+        url: NOTE_EDITOR_EXTENSION_URL,
+        valueReference: { reference: 'Practitioner/prac-1', display: 'Nina Park' },
+      },
+    ],
+  },
 ];
 
 // pat-1's eligibility checks of cov-1, as get-eligibility stores them: two older rejected ones and the latest (eligible,
@@ -855,15 +878,42 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     });
   });
 
-  it("notes: the patient page's notes, newest first, with the edited marker", async () => {
-    const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeNotes: true });
-    expect(issuesOf(AdHocPatientsOutputSchema.safeParse({ patients: rows }))).toEqual([]);
+  it("notes: matches the patient page's creation dates, ordering and author/editor attribution", async () => {
+    const { patients: rows } = AdHocPatientsOutputSchema.parse({
+      patients: await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeNotes: true }),
+    });
     const returning = rows.find((r) => r.patientId === 'pat-1')!;
     expect(returning.patientNotes).toEqual([
-      { text: 'Mother handles scheduling', author: 'Nina Park', addedAt: '2026-06-20T10:00:00.000Z', edited: true },
-      { text: 'Prefers morning appointments', author: 'Nina Park', addedAt: '2026-06-01T10:00:00.000Z', edited: false },
+      {
+        text: 'Author corrected phone preference',
+        author: 'Nina Park',
+        addedAt: '2026-06-15T10:00:00.000Z',
+        edited: true,
+        editorNames: [],
+      },
+      {
+        text: 'Mother handles scheduling',
+        author: 'Nina Park',
+        addedAt: '2026-06-10T10:00:00.000Z',
+        edited: true,
+        editorNames: [],
+      },
+      {
+        text: 'Call after school',
+        author: 'Nina Park',
+        addedAt: '2026-06-05T10:00:00.000Z',
+        edited: true,
+        editorNames: ['Lina Grace'],
+      },
+      {
+        text: 'Prefers morning appointments',
+        author: 'Nina Park',
+        addedAt: '2026-06-01T10:00:00.000Z',
+        edited: false,
+        editorNames: [],
+      },
     ]);
-    expect(returning.patientNoteCount).toBe(2);
+    expect(returning.patientNoteCount).toBe(4);
     expect(rows.find((r) => r.patientId === 'pat-2')).toMatchObject({ patientNotes: [], patientNoteCount: 0 });
   });
 });

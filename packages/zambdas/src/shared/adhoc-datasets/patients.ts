@@ -15,7 +15,7 @@ import {
   Procedure,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION, PRIVATE_EXTENSION_BASE_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
@@ -31,7 +31,6 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import {
@@ -51,6 +50,7 @@ import {
   REPORT_ATTENDED_APPOINTMENT_STATUSES,
 } from '../adhoc-report';
 import { mapResourceToChartDataResponse } from '../chart-data';
+import { PATIENT_NOTE_TAG, toNoteDto } from '../notes';
 import { getOccupationalMedicineEmployerName } from '../occupational-medicine-employer';
 import { composeAttorneyData } from '../pdf/sections/attorneyInfo';
 import { composeEmergencyContactData } from '../pdf/sections/emergencyContactInfo';
@@ -67,9 +67,6 @@ import { fetchPatientAccounts } from './patient-accounts';
 const PRONOUNS_NOT_LISTED = ['My pronounces are not listed', 'My pronouns are not listed'];
 
 const uniq = (values: string[]): string[] => Array.from(new Set(values.filter(Boolean)));
-
-// The patient page's notes tag (get-patient-notes).
-const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 
 // An address as the face sheet composers split it, on one line.
 const oneLineAddress = (parts: {
@@ -655,16 +652,16 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     }
 
     if (includeNotes) {
-      // Mapped as get-patient-notes maps them, newest first.
-      const notes = [...(patientNotesByPatient.get(patientRef) ?? [])].sort((a, b) =>
-        (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? '')
-      );
+      const notes = (patientNotesByPatient.get(patientRef) ?? [])
+        .map((note) => toNoteDto(note))
+        .sort((a, b) => (b.sent ?? b.lastUpdated ?? '').localeCompare(a.sent ?? a.lastUpdated ?? ''));
 
       row.patientNotes = notes.map((note) => ({
-        text: note.payload?.[0]?.contentString ?? '',
-        author: note.sender?.display ?? '',
-        addedAt: note.meta?.lastUpdated || null,
-        edited: isNoteEdited(note.sent, note.meta?.lastUpdated),
+        text: note.text,
+        author: note.authorName,
+        addedAt: (note.sent ?? note.lastUpdated) || null,
+        edited: !!note.edited,
+        editorNames: note.editorNames ?? [],
       }));
 
       row.patientNoteCount = row.patientNotes.length;

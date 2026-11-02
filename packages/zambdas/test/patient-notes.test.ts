@@ -1,6 +1,8 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
+import { applyPatch, Operation } from 'fast-json-patch';
 import type { Communication, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { GetNotesOutput, SaveNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GetPatientNotesCountSchema } from '../src/ehr/patient-notes/count/index';
 import { validateRequestParameters as validateCreate } from '../src/ehr/patient-notes/create/validateRequestParameters';
@@ -692,6 +694,130 @@ describe('update-patient-note handler', () => {
 
     const { operations } = mockFhirClient.fhir.patch.mock.calls[0][0];
     expect(operations.map((operation: { path: string }) => operation.path)).toEqual(['/payload', '/extension']);
+  });
+});
+
+describe('patient note attribution after saving and reloading', () => {
+  const other: Practitioner = {
+    resourceType: 'Practitioner',
+    id: 'practitioner-other',
+    name: [{ given: ['Lina'], family: 'Grace' }],
+  };
+  const third: Practitioner = {
+    resourceType: 'Practitioner',
+    id: 'practitioner-third',
+    name: [{ given: ['Sam'], family: 'Lee' }],
+  };
+  const practitioners = [fakePractitioner, other, third];
+  let stored: Communication;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    stored = fakeNote({ meta: { ...fakeNote().meta, lastUpdated: fakeNote().sent, versionId: '1' } });
+    vi.mocked(getMyPractitionerId).mockImplementation(async (token) => token);
+    mockFhirClient.fhir.get.mockImplementation(async ({ resourceType, id }) =>
+      structuredClone(resourceType === 'Communication' ? stored : practitioners.find((person) => person.id === id))
+    );
+    mockFhirClient.fhir.create.mockImplementation(async (resource: Communication) => {
+      stored = structuredClone({
+        ...resource,
+        id: VALID_NOTE_ID,
+        meta: { ...resource.meta, lastUpdated: resource.sent },
+      });
+      return structuredClone(stored);
+    });
+    mockFhirClient.fhir.patch.mockImplementation(async ({ operations }: { operations: Operation[] }) => {
+      stored = applyPatch(structuredClone(stored), operations).newDocument;
+      stored.meta = { ...stored.meta, lastUpdated: '2026-03-05T12:00:00.000Z' };
+      return structuredClone(stored);
+    });
+    mockFhirClient.fhir.search.mockImplementation(async () => ({ unbundle: () => [structuredClone(stored)] }));
+  });
+
+  const reload = async (): Promise<GetNotesOutput> => {
+    const result = await getHandler(makeInput({ patientId: VALID_PATIENT_ID }));
+    expect(result.statusCode).toBe(200);
+    return JSON.parse(result.body);
+  };
+
+  it('stores and reloads an unedited note with its creator and creation time', async () => {
+    const created = await createHandler(makeInput({ note: baseNotePayload }, CALLER_ID));
+    const { note } = JSON.parse(created.body) as SaveNoteOutput;
+
+    expect(note).toMatchObject({ authorId: CALLER_ID, authorName: 'Jane Smith', edited: false, editorNames: [] });
+    expect(note.sent).toBeTruthy();
+    expect((await reload()).notes).toEqual([note]);
+    expect(stored.sender).toEqual({ reference: `Practitioner/${CALLER_ID}`, display: 'Jane Smith' });
+    expect(stored.sent).toBe(note.sent);
+  });
+
+  it.each([
+    { scenario: 'the author edits', edits: [{ id: CALLER_ID, names: [] }] },
+    { scenario: 'another staff member edits', edits: [{ id: other.id!, names: ['Lina Grace'] }] },
+    {
+      scenario: 'staff and the author edit repeatedly',
+      edits: [
+        { id: CALLER_ID, names: [] },
+        { id: other.id!, names: ['Lina Grace'] },
+        { id: third.id!, names: ['Lina Grace', 'Sam Lee'] },
+        { id: other.id!, names: ['Lina Grace', 'Sam Lee'] },
+        { id: CALLER_ID, names: ['Lina Grace', 'Sam Lee'] },
+      ],
+    },
+  ])('preserves stored authorship and all editors when $scenario', async ({ edits }) => {
+    const original = structuredClone(stored);
+    const unrelated = { url: `${PRIVATE_EXTENSION_BASE_URL}/unrelated`, valueString: 'keep' };
+    stored.extension = [unrelated];
+
+    for (const [index, edit] of edits.entries()) {
+      const text = `Revision ${index + 1}`;
+      const result = await updateHandler(
+        makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text } }, edit.id)
+      );
+      expect(result.statusCode).toBe(200);
+      const { note } = JSON.parse(result.body) as SaveNoteOutput;
+      expect(note).toMatchObject({
+        text,
+        authorId: CALLER_ID,
+        authorName: 'Jane Smith',
+        sent: original.sent,
+        edited: true,
+        editorNames: edit.names,
+      });
+      expect((await reload()).notes).toEqual([note]);
+      expect(stored).toMatchObject({ sender: original.sender, sent: original.sent, meta: { tag: original.meta?.tag } });
+      expect(stored.extension).toContainEqual(unrelated);
+      expect(stored.extension?.filter((extension) => extension.url === NOTE_EDITOR_EXTENSION_URL)).toHaveLength(
+        new Set(edits.slice(0, index + 1).map((editor) => editor.id)).size
+      );
+    }
+    expect(mockFhirClient.fhir.update).not.toHaveBeenCalled();
+  });
+
+  it('keeps the recorded author of a legacy note without inferring previous authors or editors', async () => {
+    stored = fakeNote({ sender: { reference: `Practitioner/${other.id}`, display: 'Lina Grace' } });
+    expect((await reload()).notes[0]).toMatchObject({ authorName: 'Lina Grace', edited: true, editorNames: [] });
+
+    await updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, CALLER_ID));
+
+    expect((await reload()).notes[0]).toMatchObject({
+      authorId: other.id,
+      authorName: 'Lina Grace',
+      sent: fakeNote().sent,
+      edited: true,
+      editorNames: ['Jane Smith'],
+    });
+    expect(stored.sender).toEqual({ reference: `Practitioner/${other.id}`, display: 'Lina Grace' });
+  });
+
+  it('does not invent missing legacy authorship or a creation time during an edit', async () => {
+    stored = fakeNote({ sender: undefined, sent: undefined });
+
+    await updateHandler(makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID } }, CALLER_ID));
+
+    expect(stored.sender).toBeUndefined();
+    expect(stored.sent).toBeUndefined();
+    expect((await reload()).notes[0]).toMatchObject({ authorId: '', authorName: '', editorNames: ['Jane Smith'] });
   });
 });
 
