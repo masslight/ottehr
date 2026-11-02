@@ -11,6 +11,7 @@ import { buildAddressInput } from '../utils/format';
 export interface CoverageForm {
   payerId: string;
   memberId: string;
+  groupNumber: string;
   insuranceType: BillingInsuranceType;
   planType: string;
   relationship: BillingSubscriberRelationship;
@@ -30,6 +31,7 @@ export function emptyCoverageForm(insuranceType: BillingInsuranceType = 'primary
   return {
     payerId: '',
     memberId: '',
+    groupNumber: '',
     insuranceType,
     planType: '',
     relationship: 'Self',
@@ -63,6 +65,7 @@ export function defaultCoverageFormValues(
     return {
       payerId: dataSource?.payorId ?? '',
       memberId: dataSource?.memberId ?? dataSource?.subscriberId ?? '',
+      groupNumber: dataSource?.groupNumber ?? '',
       insuranceType: dataSource?.insuranceType ?? 'primary',
       planType: dataSource?.planType ?? '',
       relationship: dataSource?.relationship || 'Self',
@@ -81,6 +84,7 @@ export function defaultCoverageFormValues(
   return {
     payerId: dataSource?.payerId ?? '',
     memberId: dataSource?.memberId ?? dataSource?.subscriberId ?? '',
+    groupNumber: dataSource?.groupNumber ?? '',
     insuranceType: 'primary',
     planType: dataSource?.planType ?? '',
     relationship: dataSource?.relationship || 'Self',
@@ -110,6 +114,7 @@ export function coverageToCreateInput(
     patientId,
     payerId: data.payerId!,
     memberId: data.memberId!.trim(),
+    groupNumber: data.groupNumber,
     insuranceType: data.insuranceType,
     planType: data.planType!,
     relationship: data.relationship!,
@@ -137,6 +142,7 @@ export function coverageToUpdateInput(
     coverageId,
     payerId: data.payerId!,
     memberId: data.memberId!.trim(),
+    groupNumber: data.groupNumber,
     insuranceType: data.insuranceType,
     planType: data.planType!,
     relationship: data.relationship!,
