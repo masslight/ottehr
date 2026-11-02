@@ -220,12 +220,22 @@ describe('withInvoiceIssuerSourceItem', () => {
       dueDaysItem,
       expect.objectContaining({
         linkId: 'invoicing.invoiceIssuerSource',
-        initial: [
-          {
-            valueString: 'service-facility',
-          },
-        ],
       }),
+    ]);
+  });
+
+  test('preselects the default issuer through its option', () => {
+    const item = withInvoiceIssuerSourceItem(legacy)?.item?.[0].item?.[1];
+
+    expect(item?.initial).toBeUndefined();
+    expect(item?.answerOption).toEqual([
+      {
+        valueString: 'service-facility',
+        initialSelected: true,
+      },
+      {
+        valueString: 'billing-provider',
+      },
     ]);
   });
 

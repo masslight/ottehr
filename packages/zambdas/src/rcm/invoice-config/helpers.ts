@@ -112,13 +112,11 @@ function buildInvoiceIssuerSourceQuestionnaireItem(): QuestionnaireItem {
     text: 'Invoice issuer',
     type: 'choice',
     required: true,
-    initial: [
-      {
-        valueString: DEFAULT_INVOICE_ISSUER_SOURCE,
-      },
-    ],
     answerOption: INVOICE_ISSUER_SOURCES.map((source) => ({
       valueString: source,
+      ...(source === DEFAULT_INVOICE_ISSUER_SOURCE && {
+        initialSelected: true,
+      }),
     })),
   };
 }
