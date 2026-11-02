@@ -122,13 +122,13 @@ const VisitDetailsContent = ({
         </Box>
       )}
 
-      {!!(data?.reviewedRadiologyResults && data.reviewedRadiologyResults.length > 0) && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: '8px' }}>
-          <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+      {!!data?.reviewedRadiologyResults?.length && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 1 }}>
+          <Typography variant="subtitle1" color="primary.dark">
             Radiology
           </Typography>
           {data.reviewedRadiologyResults.map((radiologyResult, idx) => (
-            <Box key={`${idx}-radiology-result`}>
+            <Box key={idx}>
               <Typography>{radiologyResult.studyType}</Typography>
               {!!radiologyResult.report && (
                 <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
@@ -136,7 +136,7 @@ const VisitDetailsContent = ({
                 </Typography>
               )}
               {radiologyResult.files.map((file, fileIdx) => (
-                <Box key={`${fileIdx}-radiology-file`}>
+                <Box key={fileIdx}>
                   <Link sx={{ cursor: 'pointer' }} onClick={() => openExternalLink(file.presignedUrl || '')}>
                     {file.description}
                   </Link>

@@ -24,11 +24,14 @@ import { getReviewedRadiologyResults } from '../../src/patient/appointment/get-v
 const oystehr = {} as Oystehr;
 const secrets = { PROJECT_ID: 'project-1', PROJECT_API: 'https://project.api' };
 const ENCOUNTER_ID = 'encounter-1';
+const TOKEN = 'token';
+const STUDY_TYPE = '73600 — Ankle, left, 2 views';
+const PRESIGNED_URL = 'https://presigned.example/result.pdf';
 
 const order = (overrides: Partial<GetRadiologyOrderListZambdaOrder>): GetRadiologyOrderListZambdaOrder =>
   ({
     serviceRequestId: 'sr-1',
-    studyType: '73600 — Ankle, left, 2 views',
+    studyType: STUDY_TYPE,
     status: RadiologyOrderStatus.reviewed,
     ...overrides,
   }) as GetRadiologyOrderListZambdaOrder;
@@ -47,13 +50,11 @@ describe('getReviewedRadiologyResults', () => {
       ],
     });
 
-    const results = await getReviewedRadiologyResults(oystehr, 'token', secrets, ENCOUNTER_ID);
+    const results = await getReviewedRadiologyResults(oystehr, TOKEN, secrets, ENCOUNTER_ID);
 
     expect(mockGetRadiologyOrders).toHaveBeenCalledWith(oystehr, { encounterIds: [ENCOUNTER_ID] });
     expect(mockSearchRadiologyResultDocRefs).not.toHaveBeenCalled();
-    expect(results).toEqual([
-      { studyType: '73600 — Ankle, left, 2 views', report: 'No acute fracture.\nSoft tissues normal.', files: [] },
-    ]);
+    expect(results).toEqual([{ studyType: STUDY_TYPE, report: 'No acute fracture.\nSoft tissues normal.', files: [] }]);
   });
 
   it('returns presigned result files for reviewed external orders', async () => {
@@ -65,17 +66,17 @@ describe('getReviewedRadiologyResults', () => {
     };
     mockGetRadiologyOrders.mockResolvedValue({ orders: [order({ external: true })] });
     mockSearchRadiologyResultDocRefs.mockResolvedValue([docRef]);
-    mockGetPresignedURL.mockResolvedValue('https://presigned.example/result.pdf');
+    mockGetPresignedURL.mockResolvedValue(PRESIGNED_URL);
 
-    const results = await getReviewedRadiologyResults(oystehr, 'token', secrets, ENCOUNTER_ID);
+    const results = await getReviewedRadiologyResults(oystehr, TOKEN, secrets, ENCOUNTER_ID);
 
     expect(mockSearchRadiologyResultDocRefs).toHaveBeenCalledWith('sr-1', oystehr);
-    expect(mockGetPresignedURL).toHaveBeenCalledWith(z3Url, 'token');
+    expect(mockGetPresignedURL).toHaveBeenCalledWith(z3Url, TOKEN);
     expect(results).toEqual([
       {
-        studyType: '73600 — Ankle, left, 2 views',
+        studyType: STUDY_TYPE,
         report: '',
-        files: [{ presignedUrl: 'https://presigned.example/result.pdf', description: 'MRI result.pdf' }],
+        files: [{ presignedUrl: PRESIGNED_URL, description: 'MRI result.pdf' }],
       },
     ]);
   });

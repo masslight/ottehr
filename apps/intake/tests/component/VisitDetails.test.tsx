@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { GetVisitDetailsResponse } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import {
+  GetVisitDetailsResponse,
+  ReviewedRadiologyResult,
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import VisitDetails from '../../src/pages/VisitDetails';
 
@@ -22,6 +25,20 @@ vi.mock('src/telemed/hooks/useOpenExternalLink', () => ({
 vi.mock('src/App', () => ({
   intakeFlowPageRoute: { PastVisits: { path: '/patient/:patientId/visits' } },
 }));
+
+const RESULT_FILE = { presignedUrl: 'https://presigned.example/result.pdf', description: 'CT result.pdf' };
+
+const IN_HOUSE_RESULT: ReviewedRadiologyResult = {
+  studyType: '73600 — Ankle, left, 2 views',
+  report: 'No acute fracture.',
+  files: [],
+};
+
+const EXTERNAL_RESULT: ReviewedRadiologyResult = {
+  studyType: '70450 — CT head',
+  report: '',
+  files: [RESULT_FILE],
+};
 
 const visitDetails = (overrides: Partial<GetVisitDetailsResponse>): GetVisitDetailsResponse => ({
   files: {},
@@ -49,16 +66,7 @@ describe('VisitDetails radiology results', () => {
 
   test('shows the read of in-house studies and opens the files of external ones', async () => {
     mockUseGetVisitDetails.mockReturnValue({
-      data: visitDetails({
-        reviewedRadiologyResults: [
-          { studyType: '73600 — Ankle, left, 2 views', report: 'No acute fracture.', files: [] },
-          {
-            studyType: '70450 — CT head',
-            report: '',
-            files: [{ presignedUrl: 'https://presigned.example/result.pdf', description: 'CT result.pdf' }],
-          },
-        ],
-      }),
+      data: visitDetails({ reviewedRadiologyResults: [IN_HOUSE_RESULT, EXTERNAL_RESULT] }),
       isLoading: false,
       error: null,
     });
@@ -66,12 +74,12 @@ describe('VisitDetails radiology results', () => {
     renderVisitDetails();
 
     expect(screen.getByText('Radiology')).toBeTruthy();
-    expect(screen.getByText('73600 — Ankle, left, 2 views')).toBeTruthy();
-    expect(screen.getByText('No acute fracture.')).toBeTruthy();
-    expect(screen.getByText('70450 — CT head')).toBeTruthy();
+    expect(screen.getByText(IN_HOUSE_RESULT.studyType)).toBeTruthy();
+    expect(screen.getByText(IN_HOUSE_RESULT.report)).toBeTruthy();
+    expect(screen.getByText(EXTERNAL_RESULT.studyType)).toBeTruthy();
 
-    await userEvent.click(screen.getByText('CT result.pdf'));
-    expect(mockOpenExternalLink).toHaveBeenCalledWith('https://presigned.example/result.pdf');
+    await userEvent.click(screen.getByText(RESULT_FILE.description));
+    expect(mockOpenExternalLink).toHaveBeenCalledWith(RESULT_FILE.presignedUrl);
   });
 
   test('hides the section when there are no reviewed radiology results', () => {

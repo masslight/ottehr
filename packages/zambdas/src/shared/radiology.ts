@@ -174,7 +174,6 @@ export const findRadiologyFinalReviewTask = (tasks: Task[], serviceRequestId: st
 export const isRadiologyOrderReviewed = (tasks: Task[], serviceRequestId: string): boolean =>
   findRadiologyFinalReviewTask(tasks, serviceRequestId)?.status === 'completed';
 
-// Same conversion as the visit note PDF (discharge-summary/radiology.ts).
 export const radiologyReportText = (stored: string | undefined): string =>
   stored ? convert(decodeRadiologyReportHtml(stored), { wordwrap: false }) : '';
 
