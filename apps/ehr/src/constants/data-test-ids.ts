@@ -218,6 +218,7 @@ export const dataTestIds = {
     roleFilter: 'employees-role-filter',
     roleCell: 'employees-role-cell',
     stateFilter: 'employees-state-filter',
+    statusFilter: 'employees-status-filter',
     gettingAlertsChip: 'employee-getting-alerts-chip',
     seenPatientRecentlyChip: 'employee-seen-patient-recently-chip',
     informationForm: 'employee-information-form',
