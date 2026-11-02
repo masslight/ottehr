@@ -37,6 +37,13 @@ vi.mock('../../src/features/visits/shared/hooks/useReasonForVisitOptions', () =>
   ],
 }));
 
+const { visit } = vi.hoisted(() => ({ visit: { scheduledFollowUp: false } }));
+
+vi.mock('utils/lib/fhir/encounter', async () => ({
+  ...((await vi.importActual('utils/lib/fhir/encounter')) as object),
+  isScheduledFollowupEncounter: () => visit.scheduledFollowUp,
+}));
+
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: vi.fn(() => ({ encounter: { id: 'encounter-123' }, appointment: { id: 'appointment-123' } })),
   useSaveChartData: vi.fn(),
@@ -84,6 +91,7 @@ const renderWithClient = (ui: ReactNode): ReturnType<typeof render> => {
 describe('Chief Complaint fields', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    visit.scheduledFollowUp = false;
     note = emptyVisitNote();
     vi.mocked(useOystehrAPIClient).mockReturnValue(apiClient as never);
     vi.mocked(useSaveChartData).mockReturnValue({
@@ -124,5 +132,27 @@ describe('Chief Complaint fields', () => {
 
     expect(screen.getByRole('checkbox')).toBeChecked();
     expect(screen.getByRole('combobox')).toHaveTextContent('Cough');
+  });
+
+  it('keeps an unsaved "Other" reason on a scheduled follow-up when verification is toggled', async () => {
+    visit.scheduledFollowUp = true;
+    renderWithClient(
+      <>
+        <VerifiedPatientInfo />
+        <ReasonForVisitField />
+      </>
+    );
+
+    const verified = screen.getByRole('checkbox');
+    await waitFor(() => expect(verified).toBeEnabled());
+    fireEvent.mouseDown(screen.getByRole('combobox'));
+    fireEvent.click(within(await screen.findByRole('listbox')).getByText('Other'));
+    fireEvent.change(await screen.findByLabelText('Other reason'), { target: { value: 'Rash check' } });
+
+    fireEvent.click(verified);
+    await waitFor(() => expect(saveMutateAsync).toHaveBeenCalledTimes(1));
+
+    expect(screen.getByRole('combobox')).toHaveTextContent('Other');
+    expect(screen.getByLabelText('Other reason')).toHaveValue('Rash check');
   });
 });

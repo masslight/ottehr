@@ -47,15 +47,16 @@ export const ReasonForVisitField: FC = () => {
     [isScheduledFollowUp, serviceCategoryRfvOptions]
   );
 
+  // Keyed on the stored text, so saves of other fields in the section don't reset an unsaved selection.
+  const storedReasonText = chartFields?.reasonForVisit?.text ?? '';
   useEffect(() => {
     if (!isChartFieldsFetched) return;
-    const storedText = chartFields?.reasonForVisit?.text ?? '';
     // A stored reason outside the fixed follow-up list is a free-text "Other".
     const isOtherStored =
-      isScheduledFollowUp && !!storedText && !SCHEDULED_FOLLOWUP_REASONS.includes(storedText as never);
-    setReasonForVisit(isOtherStored ? SCHEDULED_FOLLOWUP_OTHER_REASON : storedText);
-    setOtherReason(isOtherStored ? storedText : '');
-  }, [chartFields, isChartFieldsFetched, isScheduledFollowUp]);
+      isScheduledFollowUp && !!storedReasonText && !SCHEDULED_FOLLOWUP_REASONS.includes(storedReasonText as never);
+    setReasonForVisit(isOtherStored ? SCHEDULED_FOLLOWUP_OTHER_REASON : storedReasonText);
+    setOtherReason(isOtherStored ? storedReasonText : '');
+  }, [storedReasonText, isChartFieldsFetched, isScheduledFollowUp]);
 
   const isOtherReason = isScheduledFollowUp && reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON;
   // Free-text "Other" reason: debounced save (with cache sync / dedup) like other chart note fields.
@@ -81,6 +82,7 @@ export const ReasonForVisitField: FC = () => {
           labelId="reason-for-visit-label"
           id="reason-for-visit-select"
           value={safeValue}
+          disabled={chartFields === undefined || saveChartData.isPending}
           label="Reason for today's visit"
           onChange={(event) => {
             const value = event.target.value as string;

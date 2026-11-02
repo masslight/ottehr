@@ -12,13 +12,14 @@ export const VerifiedPatientInfo: FC = () => {
 
   const { data: chartData, isLoading: isLoadingChartData, setSectionData } = useChartSection('encounterNotes');
 
+  const isChartDataLoaded = chartData !== undefined;
+  const storedPatientInfoConfirmed = chartData?.patientInfoConfirmed?.value ?? false;
   useEffect(() => {
-    if (!chartData) {
+    if (!isChartDataLoaded) {
       return;
     }
-    const isPatientInfoConfirmed = chartData?.patientInfoConfirmed?.value ?? false;
-    setVerifiedNameAndDob(isPatientInfoConfirmed);
-  }, [chartData]);
+    setVerifiedNameAndDob(storedPatientInfoConfirmed);
+  }, [isChartDataLoaded, storedPatientInfoConfirmed]);
 
   const [isVerifiedNameAndDob, setVerifiedNameAndDob] = useState<boolean>(false);
   const { mutateAsync: updateVerificationStatusAsync, isPending: isUpdatingVerificationStatus } = useSaveChartData();
