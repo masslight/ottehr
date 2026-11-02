@@ -62,6 +62,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
+import { getConvertToFollowUpDisabledReason } from 'src/features/visits/shared/components/patient/convertToFollowUp';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -69,6 +70,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { useGetPatientVisitHistory } from 'src/hooks/useGetPatientVisitHistory';
 import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
@@ -521,6 +523,12 @@ export default function VisitDetailsPage(): ReactElement {
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
   const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
 
+  // Top-level visits are the ones the follow-up parent picker offers.
+  const { data: visitHistory, isError: isOtherInitialVisitsError } = useGetPatientVisitHistory(patientId);
+  const hasOtherInitialVisits = visitHistory?.visits.some(
+    (visit) => !!visit.encounterId && visit.encounterId !== encounter?.id
+  );
+
   const parentEncounterId = encounter?.partOf?.reference?.replace('Encounter/', '');
   const parentAppointmentQueryEnabled = Boolean(oystehr) && Boolean(parentEncounterId);
   const { data: parentAppointmentId, isPending: isParentAppointmentPending } = useQuery({
@@ -881,12 +889,13 @@ export default function VisitDetailsPage(): ReactElement {
         )
       : undefined;
 
-  const convertToFollowUpDisabledReason = ((): string | undefined => {
-    if (!appointment || !encounter || !patientId || isOwnFollowUpsUnresolved) return 'Loading the visit…';
-    if (isFollowupEncounter(encounter)) return 'This visit is already a follow-up';
-    if (hasOwnFollowUps) return 'This visit already has its own follow-ups';
-    return undefined;
-  })();
+  const convertToFollowUpDisabledReason = getConvertToFollowUpDisabledReason({
+    encounter,
+    isLoading: !appointment || !patientId || isOwnFollowUpsUnresolved,
+    hasOwnFollowUps,
+    // A failed lookup shouldn't block converting; the parent picker shows what is there.
+    hasOtherInitialVisits: isOtherInitialVisitsError || hasOtherInitialVisits,
+  });
   const isOtherFollowUpReason =
     isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
