@@ -16,7 +16,15 @@ const { getDmeQuickPicks, createDmeQuickPick, updateDmeQuickPick } = vi.hoisted(
 const refetchQuickPicks = vi.fn();
 const zambdaClient = {};
 
-const { visitAccess } = vi.hoisted(() => ({ visitAccess: { readOnly: false } }));
+const { visitAccess } = vi.hoisted(() => ({ visitAccess: { readOnly: false, visitType: 'main' } }));
+
+const KNEE_DIAGNOSES = [
+  { code: 'M25.561', display: 'Pain in right knee', isPrimary: false },
+  { code: 'S83.511A', display: 'Sprain of ACL of right knee', isPrimary: true },
+];
+const { chart } = vi.hoisted(() => ({
+  chart: { diagnosis: [] as unknown[], mainDiagnosis: [] as unknown[] },
+}));
 
 const KNEE_BRACE_QUICK_PICK = {
   id: 'qp-knee',
@@ -42,19 +50,21 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
-  useChartData: () => ({
-    chartData: {
-      diagnosis: [
-        { code: 'M25.561', display: 'Pain in right knee', isPrimary: false },
-        { code: 'S83.511A', display: 'Sprain of ACL of right knee', isPrimary: true },
-      ],
-    },
-    setPartialChartData: vi.fn(),
+  useChartData: () => ({ chartData: { diagnosis: chart.diagnosis }, setPartialChartData: vi.fn() }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useMainEncounterChartData', () => ({
+  useMainEncounterChartData: (enabled: boolean) => ({
+    data: enabled ? { diagnosis: chart.mainDiagnosis } : undefined,
+    isLoading: false,
   }),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
-  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: visitAccess.readOnly }),
+  useGetAppointmentAccessibility: () => ({
+    isAppointmentReadOnly: visitAccess.readOnly,
+    visitType: visitAccess.visitType,
+  }),
 }));
 
 vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
@@ -145,6 +155,9 @@ describe('DmeOrderForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     visitAccess.readOnly = false;
+    visitAccess.visitType = 'main';
+    chart.diagnosis = KNEE_DIAGNOSES;
+    chart.mainDiagnosis = [];
     createOrder.mockResolvedValue({ deviceRequestId: 'dr-1', cptCodesSaved: [] });
     getDmeQuickPicks.mockResolvedValue({ quickPicks: [] });
     createDmeQuickPick.mockResolvedValue({ message: 'ok', quickPick: {} });
@@ -173,6 +186,26 @@ describe('DmeOrderForm', () => {
     expect(createOrder.mock.calls[0][0].thirdParty).toBeUndefined();
     expect(saveChartData).not.toHaveBeenCalled();
     expect(onFinished).toHaveBeenCalledWith('dr-1');
+  });
+
+  it("prefills an annotation follow-up order with the main visit's diagnoses", async () => {
+    visitAccess.visitType = 'follow-up';
+    chart.diagnosis = [];
+    chart.mainDiagnosis = [
+      { code: 'R05.9', display: 'Cough, unspecified', isPrimary: false },
+      { code: 'J02.9', display: 'Acute pharyngitis, unspecified', isPrimary: true },
+    ];
+    renderForm();
+
+    await typeItemName('Nebulizer');
+    await userEvent.click(screen.getByTestId(ids.submitButton));
+
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+    expect(createOrder.mock.calls[0][0].diagnoses).toEqual([
+      { code: 'J02.9', display: 'Acute pharyngitis, unspecified' },
+      { code: 'R05.9', display: 'Cough, unspecified' },
+    ]);
+    expect(saveChartData).not.toHaveBeenCalled();
   });
 
   it('adds third party information when fulfilled externally', async () => {
