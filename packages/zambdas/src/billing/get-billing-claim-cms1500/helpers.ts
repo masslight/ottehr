@@ -181,13 +181,13 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
     insuredBirthDate: insured?.birthDate,
     insuredSex: toSex(insured?.gender),
     // Medicare asks for NONE when there is no insurance primary to Medicare.
-    insuredPolicyGroupNumber:
-      coverageClass(primary, 'group')?.value ?? (insuranceType === 'medicare' ? 'NONE' : undefined),
+    insuredPolicyGroupNumber: primary.class?.[0]?.value ?? (insuranceType === 'medicare' ? 'NONE' : undefined),
     insuredPlanName: planName(primary, payer),
     otherClaimId: claimIdentifier(claim),
     anotherHealthBenefitPlan: primary ? !!other : undefined,
     otherInsuredName: other ? toPersonName(otherInsured?.name?.[0]) : undefined,
-    otherInsuredPolicyOrGroupNumber: other ? coverageClass(other, 'group')?.value ?? other.subscriberId : undefined,
+    // Prefer policy number to group number for other insured
+    otherInsuredPolicyOrGroupNumber: other ? other.subscriberId ?? other?.class?.[0]?.value : undefined,
     otherInsuredPlanName: other ? planName(other, otherPayer) : undefined,
     conditionRelatedTo: {
       employment: accidentTypes.includes('employment') || getCoveragePlanType(primary) === 'WC',
