@@ -6,6 +6,7 @@ import {
   RADIOLOGY_REPORT_SUPPRESSED_TAG,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -126,11 +127,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (!serviceRequest.id) {
         throw new Error('ServiceRequest is missing id');
       }
-      const encounterId = serviceRequest.encounter?.reference?.split('/')[1];
+      const encounterId = getIdFromReference(serviceRequest.encounter?.reference);
       const encounter = encounters.find((e) => e.id === encounterId);
       const appointmentId = encounter?.appointment?.[0]?.reference?.split('/')[1] || '';
 
-      const patientId = serviceRequest.subject?.reference?.split('/')[1];
+      const patientId = getIdFromReference(serviceRequest.subject?.reference);
       const patient = patients.find((p) => p.id === patientId);
       const patientName = patient?.name?.[0]
         ? `${patient.name[0].family}, ${patient.name[0].given?.[0] || ''}`

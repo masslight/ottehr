@@ -29,6 +29,7 @@ import {
   getDosageUnitsAndRouteOfMedication,
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
@@ -515,7 +516,7 @@ const performEffect = async (
 
   const procedures: TemplateProcedurePlan[] = procedurePlans.map((plan) => {
     const procedureDiagnoses: TemplateCodeInfo[] = (plan.reasonReference ?? []).flatMap((ref) => {
-      const id = ref.reference?.split('/')[1];
+      const id = getIdFromReference(ref.reference);
       if (!id) return [];
       const cond = conditionById.get(id);
       if (!cond) return [];
@@ -530,7 +531,7 @@ const performEffect = async (
       return [{ code: icd?.code ?? '', display: icd?.display ?? '' }];
     });
     const procedureCptCodes: TemplateCptCodeInfo[] = (plan.supportingInfo ?? []).flatMap((ref) => {
-      const id = ref.reference?.split('/')[1];
+      const id = getIdFromReference(ref.reference);
       if (!id) return [];
       const proc = cptProcedureById.get(id);
       if (!proc) return [];

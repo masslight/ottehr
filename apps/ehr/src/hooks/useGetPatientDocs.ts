@@ -12,9 +12,9 @@ import {
   parseCustomFoldersCatalogIncludingDeleted,
   PATIENT_FOLDERS_CODE,
 } from 'utils/lib/fhir/list';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import {
@@ -340,7 +340,7 @@ const applyListableCountsToFolders = (
 
   return folders.map((folder) => {
     const documentsRefs = (folder.documentsRefs ?? []).filter((docRef) => {
-      const id = removePrefix('DocumentReference/', docRef.reference?.reference ?? '');
+      const id = getIdFromReference(docRef.reference?.reference, 'DocumentReference');
       return !!id && listableDocumentIds.has(id);
     });
     return { ...folder, documentsCount: documentsRefs.length, documentsRefs };
@@ -1055,7 +1055,7 @@ export interface UploadPatientDocumentResponse {
  */
 const extractRelatedAppointmentId = (documentReference: DocumentReference): string | undefined => {
   for (const related of documentReference.context?.related ?? []) {
-    const appointmentId = removePrefix('Appointment/', related.reference ?? '');
+    const appointmentId = getIdFromReference(related.reference, 'Appointment');
     if (appointmentId) return appointmentId;
   }
   return undefined;
@@ -1071,7 +1071,7 @@ const createDocumentInfo = (documentReference: DocumentReference): PatientDocume
     // without a second lookup. Blank where the writer recorded no author — which is most of them today.
     whoAdded: documentReference.author?.find((author) => author.display)?.display,
     attachments: extractDocumentAttachments(documentReference),
-    encounterId: removePrefix('Encounter/', documentReference.context?.encounter?.[0]?.reference ?? ''),
+    encounterId: getIdFromReference(documentReference.context?.encounter?.[0]?.reference, 'Encounter'),
     appointmentId: extractRelatedAppointmentId(documentReference),
   };
 };

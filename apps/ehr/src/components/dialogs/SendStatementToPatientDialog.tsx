@@ -21,6 +21,7 @@ import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { generateStatement, StatementDetails } from 'utils/lib/statements/generate-statement';
 import { InvoiceablePatientReport } from 'utils/lib/types/api/invoicing.types';
@@ -55,7 +56,7 @@ export default function SendStatementToPatientDialog({
 }: SendStatementToPatientDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const { patient, responsibleParty } = report ?? {};
-  const encounterId = report?.task?.encounter?.reference?.split('/')[1];
+  const encounterId = getIdFromReference(report?.task?.encounter?.reference);
   const patientCityStateZip = formatCityStateZip(patient?.city, patient?.state, patient?.fullAddress);
   const responsiblePartyCityStateZip = formatCityStateZip(
     responsibleParty?.city,

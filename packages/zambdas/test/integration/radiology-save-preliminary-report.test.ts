@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   InsertFullAppointmentDataBaseResult,
@@ -50,7 +51,7 @@ describe('radiology-save-preliminary-report integration', () => {
       resourceType: 'ServiceRequest',
       id: serviceRequestId,
     });
-    orderingPractitionerId = serviceRequest.requester?.reference?.split('/')[1] as string;
+    orderingPractitionerId = getIdFromReference(serviceRequest.requester?.reference) as string;
   }, 60_000);
 
   afterAll(async () => {

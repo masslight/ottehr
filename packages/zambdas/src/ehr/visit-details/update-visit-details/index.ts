@@ -17,6 +17,7 @@ import {
   isScheduledFollowupEncounter,
 } from 'utils/lib/fhir/encounter';
 import { cleanUpStaffHistoryTag, getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
 import { extractNioIdFromReferenceUrl } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
@@ -509,7 +510,7 @@ export async function validateVisitEmployerSelection(oystehr: Oystehr, visitEmpl
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference a non-insurance organization');
   }
 
-  const organizationId = visitEmployer.reference?.split('/')[1];
+  const organizationId = getIdFromReference(visitEmployer.reference);
 
   if (!organizationId) {
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer.reference must be Organization/{id}');
