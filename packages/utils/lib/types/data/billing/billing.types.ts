@@ -1,4 +1,5 @@
 import { Address, Task } from 'fhir/r4b';
+import type { BillingInvoiceKind } from '../../../fhir/billing-invoice';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type {
@@ -1185,9 +1186,17 @@ export interface BillingInvoiceSummary {
 }
 
 export interface BillingInvoiceListItem extends BillingInvoiceSummary {
-  patientName: string;
+  patientName?: string;
   claimId?: string;
-  serviceDate: string;
+  serviceDate?: string;
+  kind?: BillingInvoiceKind;
+  number?: string;
+  recipient?: {
+    id: string;
+    name: string;
+  };
+  balance?: number;
+  pastDue?: boolean;
 }
 
 export interface SearchBillingInvoicesResponse extends Paginated {
@@ -1200,6 +1209,34 @@ export interface GetBillingInvoiceStatementResponse {
   generatedAt?: string;
   // A short-lived link to that PDF.
   pdfUrl?: string;
+}
+
+export interface BillingInvoiceClaimLine {
+  claimId: string;
+  patientId: string;
+  patientName: string;
+  serviceDate: string;
+  arStage: string;
+  status: string;
+  amount: number;
+}
+
+export interface BillingInvoicePayment {
+  paymentNoticeId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  reference?: string;
+}
+
+export interface BillingInvoiceDetail extends BillingInvoiceListItem {
+  claims: BillingInvoiceClaimLine[];
+  payments: BillingInvoicePayment[];
+  pdfUrl?: string;
+}
+
+export interface IssueBillingInvoiceNumberResponse {
+  invoiceNumber: string;
 }
 
 export interface AddClaimAttachmentResponse {

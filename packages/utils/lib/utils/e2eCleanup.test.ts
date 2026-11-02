@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference } from 'fhir/r4b';
+import { DocumentReference, Location, Schedule } from 'fhir/r4b';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanupIntegrationTestDocumentReferences } from './e2eCleanup';
+import { cleanupIntegrationTestDocumentReferences, cleanupStaleIntegrationTestLocations } from './e2eCleanup';
 
 /**
  * The nightly sweep that removes what a crashed integration run left behind.
@@ -100,5 +100,87 @@ describe('cleanupIntegrationTestDocumentReferences', () => {
 
     expect(fetch).not.toHaveBeenCalled();
     expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('cleanupStaleIntegrationTestLocations', () => {
+  const NOW = new Date('2026-10-30T12:00:00.000Z');
+
+  const location = (id: string): Location => ({ resourceType: 'Location', id });
+  const schedule = (id: string, locationId: string): Schedule => ({
+    resourceType: 'Schedule',
+    id,
+    actor: [{ reference: `Location/${locationId}` }],
+  });
+
+  const oystehrWith = (
+    resources: (Location | Schedule)[]
+  ): { client: Oystehr; search: ReturnType<typeof vi.fn>; batch: ReturnType<typeof vi.fn> } => {
+    const search = vi.fn().mockResolvedValue({ unbundle: () => resources, total: resources.length });
+    const batch = vi.fn().mockResolvedValue({});
+    return { client: { fhir: { search, batch } } as unknown as Oystehr, search, batch };
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('only looks at tagged Locations untouched for a day, with the Schedules that act for them', async () => {
+    const { client, search } = oystehrWith([]);
+
+    await cleanupStaleIntegrationTestLocations(client);
+
+    // An hour, as the other sweeps use, could catch a Location a slow run on the shared env still needs.
+    expect(search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Location',
+        params: expect.arrayContaining([
+          { name: '_tag', value: 'INTEGRATION_TEST_PROCESS_ID_SYSTEM|' },
+          { name: '_lastUpdated', value: 'lt2026-10-29T12:00:00.000Z' },
+          { name: '_revinclude', value: 'Schedule:actor' },
+        ]),
+      })
+    );
+  });
+
+  it('deletes the Schedules before the Locations they point at', async () => {
+    const { client, batch } = oystehrWith([location('loc-1'), schedule('sch-1', 'loc-1'), location('loc-2')]);
+
+    await cleanupStaleIntegrationTestLocations(client);
+
+    expect(batch).toHaveBeenCalledWith({
+      requests: [
+        { method: 'DELETE', url: 'Schedule/sch-1' },
+        { method: 'DELETE', url: 'Location/loc-1' },
+        { method: 'DELETE', url: 'Location/loc-2' },
+      ],
+    });
+  });
+
+  it('splits a large backlog into batches and keeps going past a failed one', async () => {
+    const locations = Array.from({ length: 150 }, (_, i) => location(`loc-${i}`));
+    const { client, batch } = oystehrWith(locations);
+    batch.mockRejectedValueOnce(new Error('boom'));
+
+    await cleanupStaleIntegrationTestLocations(client);
+
+    expect(batch).toHaveBeenCalledTimes(2);
+    expect(batch.mock.calls[0][0].requests).toHaveLength(100);
+    expect(batch.mock.calls[1][0].requests).toHaveLength(50);
+  });
+
+  it('does nothing when there is nothing to sweep', async () => {
+    const { client, batch } = oystehrWith([]);
+
+    await cleanupStaleIntegrationTestLocations(client);
+
+    expect(batch).not.toHaveBeenCalled();
   });
 });

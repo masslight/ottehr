@@ -53,6 +53,22 @@ export const createFreeFormEncounter = async (
   );
 };
 
+export const getFreeFormEncounterOfPatient = async (
+  oystehr: Oystehr,
+  encounterId: string,
+  patientId: string
+): Promise<Encounter> => {
+  let encounter: Encounter;
+  try {
+    encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+  } catch (error) {
+    if (isFhirNotFoundError(error)) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
+    throw error;
+  }
+  assertFreeFormEncounterOfPatient(encounter, patientId);
+  return encounter;
+};
+
 export const updateFreeFormEncounterNote = async (
   oystehr: Oystehr,
   encounterId: string,
@@ -60,14 +76,8 @@ export const updateFreeFormEncounterNote = async (
   note: string
 ): Promise<Encounter> =>
   withVersionConflictRetries(async () => {
-    let encounter: Encounter;
-    try {
-      encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
-    } catch (error) {
-      if (isFhirNotFoundError(error)) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
-      throw error;
-    }
-    assertFreeFormEncounterOfPatient(encounter, patientId);
+    const encounter = await getFreeFormEncounterOfPatient(oystehr, encounterId, patientId);
+    if (encounter.status === 'entered-in-error') throw FHIR_RESOURCE_NOT_FOUND('Encounter');
 
     const operations = buildFreeFormNotePatchOperations(encounter, note);
     if (!operations.length) return encounter;
