@@ -14,6 +14,8 @@ import {
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { REFERRAL_ASK_LABELS, REFERRAL_URGENCY_LABELS } from 'utils/lib/types/api/referrals/referrals.types';
+import { EncounterReferral } from '../../../referrals/load-encounter-referrals';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
@@ -28,9 +30,14 @@ const formatAddendumTimestamp = (timestamp: string | undefined, timezone: string
 };
 
 export const composePlanData: DataComposer<
-  { allChartData: AllChartData; encounter?: Encounter; appointmentPackage?: FullAppointmentResourcePackage },
+  {
+    allChartData: AllChartData;
+    encounter?: Encounter;
+    appointmentPackage?: FullAppointmentResourcePackage;
+    referrals?: EncounterReferral[];
+  },
   PlanData
-> = ({ allChartData, encounter, appointmentPackage }) => {
+> = ({ allChartData, encounter, appointmentPackage, referrals: encounterReferrals }) => {
   const timezone = appointmentPackage?.timezone;
   const { chartData, additionalChartData } = allChartData;
   const patientInstructions: string[] = [];
@@ -62,6 +69,17 @@ export const composePlanData: DataComposer<
       if (followUp.type === 'other' && followUp.note) note = `: ${followUp.note}`;
       return [`${display} ${note}`];
     }) ?? [];
+
+  // Requirements item 17: specialty, recipient, reason, urgency and what is asked, beside the disposition.
+  const referrals = (encounterReferrals ?? []).map((referral) => ({
+    title: referral.specialty,
+    lines: [
+      `Recipient: ${referral.recipient?.name || 'patient to choose'}`,
+      `Reason: ${referral.reason}`,
+      `Urgency: ${REFERRAL_URGENCY_LABELS[referral.urgency]}`,
+      `Asked: ${REFERRAL_ASK_LABELS[referral.whatIsAsked]}`,
+    ],
+  }));
 
   const workSchoolExcuse: string[] = [];
   chartData.schoolWorkNotes?.forEach((ws) => {
@@ -101,6 +119,7 @@ export const composePlanData: DataComposer<
       specialty,
     },
     subSpecialtyFollowup,
+    referrals,
     workSchoolExcuse,
     addendumNote,
     addendumNotes,
@@ -124,6 +143,8 @@ const hasPatientInstructions = (data: PlanData): boolean => Boolean(data.patient
 const hasSubSpecialtyFollowUp = (data: PlanData): boolean =>
   Boolean(data.subSpecialtyFollowup && data.subSpecialtyFollowup.length);
 
+const hasReferrals = (data: PlanData): boolean => Boolean(data.referrals && data.referrals.length);
+
 const hasWorkSchoolExcuse = (data: PlanData): boolean => Boolean(data.workSchoolExcuse && data.workSchoolExcuse.length);
 
 const hasAddendum = (data: PlanData): boolean => !!data.addendumNote || (data.addendumNotes?.length ?? 0) > 0;
@@ -133,6 +154,7 @@ const hasAnyPlanBlock = (data?: PlanData): boolean =>
   (hasPatientInstructions(data) ||
     hasDisposition(data) ||
     hasSubSpecialtyFollowUp(data) ||
+    hasReferrals(data) ||
     hasWorkSchoolExcuse(data) ||
     hasAddendum(data));
 
@@ -186,6 +208,15 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
           drawRegularText(client, styles, `Reason for transfer: ${data.disposition.reason}`);
         }
 
+        client.drawSeparatedLine(styles.lineStyles.separator);
+      }
+
+      if (hasReferrals(data)) {
+        drawBlockHeader(client, styles, 'Referrals', styles.textStyles.blockSubHeader);
+        data.referrals?.forEach((referral) => {
+          drawRegularText(client, styles, referral.title);
+          referral.lines.forEach((line) => drawRegularText(client, styles, line));
+        });
         client.drawSeparatedLine(styles.lineStyles.separator);
       }
 

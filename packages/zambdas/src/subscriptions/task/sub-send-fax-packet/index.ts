@@ -13,7 +13,7 @@ import {
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { FaxPacketTooLargeError } from '../../../shared/fax/build-fax-packet';
 import { resolveFaxPacketPlan } from '../../../shared/fax/resolve-fax-source';
-import { deliverFaxPacket, savePcpIfRequested } from '../../../shared/fax/run-fax-packet';
+import { deliverFaxPacket, markReferralSentIfDelivered, savePcpIfRequested } from '../../../shared/fax/run-fax-packet';
 import { wrapTaskHandler } from '../helpers';
 
 let cachedM2MToken: string | undefined;
@@ -92,6 +92,7 @@ export const index = wrapTaskHandler(
       });
 
       await savePcpIfRequested(payload.recipients, plan.patient, oystehr);
+      if (source.type === 'referral') await markReferralSentIfDelivered(source.referralId, results, oystehr);
 
       // Per-recipient outcomes for the status poll. Written before wrapTaskHandler marks the task completed;
       // patchTaskStatus only touches /status + /statusReason, so this output survives.

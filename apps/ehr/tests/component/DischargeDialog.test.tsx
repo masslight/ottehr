@@ -66,6 +66,25 @@ vi.mock('src/features/visits/shared/components/review-tab/DischargeButton', () =
   handleDischarge: (...args: unknown[]) => handleDischarge(...args),
 }));
 
+// The unsent-referrals section and its fax dialog need react-query and the fax controller; neither is under test here.
+let visitReferrals: { id: string; specialty: string; status: string; urgency: string; givenToPatientAt?: string }[] =
+  [];
+const NOW = '2026-11-02T12:00:00.000Z';
+const getReferralPdf = vi.fn().mockResolvedValue({ presignedURL: 'https://example.test/referral' });
+vi.mock('src/features/referrals/referrals.queries', () => ({
+  useReferralsQuery: () => ({ data: { referrals: visitReferrals } }),
+  openReferralPdf: vi.fn(),
+}));
+vi.mock('src/features/referrals/referrals.api', () => ({
+  getReferralPdf: (...args: unknown[]) => getReferralPdf(...args),
+}));
+vi.mock('src/features/fax/hooks/useSendFax', () => ({
+  useSendFax: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
+}));
+vi.mock('src/features/fax/ui/SendFaxDialog', () => ({
+  SendFaxDialog: () => null,
+}));
+
 import { DischargeDialog } from '../../src/features/visits/shared/components/review-tab/DischargeDialog';
 
 const baseProps = {
@@ -101,6 +120,7 @@ describe('DischargeDialog', () => {
       { type: SCHOOL_NOTE_CODE, presignedUrl: 'https://example.test/school-note' },
     ];
     openedTabs = [];
+    visitReferrals = [];
     vi.stubGlobal(
       'open',
       vi.fn(() => {
@@ -571,5 +591,61 @@ describe('DischargeDialog', () => {
     expect(checkbox(dataTestIds.dischargeDialog.printWorkNoteCheckbox)).toBeChecked();
     expect(checkbox(dataTestIds.dischargeDialog.signProgressNoteCheckbox)).not.toBeChecked();
     expect(confirmButton()).toHaveTextContent('Discharge & Print');
+  });
+
+  it('prints the form of a referral given to the patient, ticked by default', async () => {
+    const user = userEvent.setup();
+    visitReferrals = [{ id: 'referral-1', specialty: 'Orthopedics', status: 'given-to-patient', urgency: 'routine' }];
+    render(<DischargeDialog {...baseProps} />);
+
+    const box = checkbox(dataTestIds.dischargeDialog.printReferralCheckbox('referral-1'));
+    expect(box).toBeChecked();
+    expect(screen.getByText('Referral form: Orthopedics')).toBeInTheDocument();
+
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
+    expect(getReferralPdf).toHaveBeenCalledWith({}, { referralId: 'referral-1' });
+    expect(openedTabs.map((tab) => tab.location.href)).toContain('https://example.test/referral');
+  });
+
+  it('leaves out a referral form that was cleared and lists only given-to-patient referrals', async () => {
+    const user = userEvent.setup();
+    visitReferrals = [
+      { id: 'referral-1', specialty: 'Orthopedics', status: 'given-to-patient', urgency: 'routine' },
+      { id: 'referral-2', specialty: 'ENT', status: 'sent', urgency: 'routine' },
+      { id: 'referral-3', specialty: 'Cardiology', status: 'closed', urgency: 'routine', givenToPatientAt: NOW },
+    ];
+    render(<DischargeDialog {...baseProps} />);
+
+    expect(screen.queryByTestId(dataTestIds.dischargeDialog.printReferralCheckbox('referral-2'))).toBeNull();
+    expect(screen.queryByTestId(dataTestIds.dischargeDialog.printReferralCheckbox('referral-3'))).toBeNull();
+    await user.click(checkbox(dataTestIds.dischargeDialog.printReferralCheckbox('referral-1')));
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
+    expect(getReferralPdf).not.toHaveBeenCalled();
+  });
+
+  it('prints the form of a sent referral the patient was also given', () => {
+    visitReferrals = [
+      { id: 'referral-1', specialty: 'ENT', status: 'sent', urgency: 'routine', givenToPatientAt: NOW },
+    ];
+    render(<DischargeDialog {...baseProps} />);
+
+    expect(checkbox(dataTestIds.dischargeDialog.printReferralCheckbox('referral-1'))).toBeChecked();
+  });
+
+  it('does not discharge, and closes the tab, when a referral form fails to render', async () => {
+    const user = userEvent.setup();
+    visitReferrals = [{ id: 'referral-1', specialty: 'Orthopedics', status: 'given-to-patient', urgency: 'routine' }];
+    getReferralPdf.mockRejectedValueOnce(new Error('render failed'));
+    render(<DischargeDialog {...baseProps} />);
+
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(getReferralPdf).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(openedTabs.some((tab) => tab.close.mock.calls.length > 0)).toBe(true));
+    expect(handleDischarge).not.toHaveBeenCalled();
   });
 });

@@ -158,6 +158,7 @@ export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNo
       allChartData,
       encounter,
       appointmentPackage,
+      referrals: input.referrals,
     }),
     patientInstructions: composePlanData({
       allChartData,

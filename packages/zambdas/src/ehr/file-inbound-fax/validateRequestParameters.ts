@@ -1,5 +1,6 @@
 import { Secrets } from 'utils/lib/secrets';
-import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse } from '../../shared/validation';
 
@@ -14,6 +15,9 @@ export interface FileInboundFaxInput {
   // as `folderId` when the patient has no per-patient List for the folder yet; this is the
   // explicit form of the same information (see resolvePatientDocumentFolder).
   internalName?: string;
+  // The patient's referral this fax answers. Filing then sets the referral to Response received and
+  // routes a review task to the referring provider.
+  referralId?: string;
 }
 
 export function validateRequestParameters(input: ZambdaInput): FileInboundFaxInput {
@@ -32,6 +36,9 @@ export function validateRequestParameters(input: ZambdaInput): FileInboundFaxInp
   if (missing.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missing);
   }
+  if (body.referralId !== undefined && (typeof body.referralId !== 'string' || !isValidUUID(body.referralId))) {
+    throw INVALID_INPUT_ERROR('referralId must be a UUID');
+  }
 
   // SECURITY: any client-supplied `pdfUrl` is intentionally ignored (accepted for backward
   // compatibility, never used). The authoritative pdf url is read from the verified inbound-fax
@@ -45,5 +52,6 @@ export function validateRequestParameters(input: ZambdaInput): FileInboundFaxInp
     folderId: body.folderId,
     documentName: body.documentName,
     internalName: typeof body.internalName === 'string' && body.internalName ? body.internalName : undefined,
+    referralId: body.referralId,
   };
 }

@@ -388,12 +388,19 @@ export const Tasks: React.FC = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <StatusChip
-                            status={TASK_STATUS_LABEL[task.status] ?? UNKNOWN}
-                            style={
-                              task.status === COMPLETED ? 'green' : task.status === 'in-progress' ? 'orange' : 'purple'
-                            }
-                          />
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <StatusChip
+                              status={TASK_STATUS_LABEL[task.status] ?? UNKNOWN}
+                              style={
+                                task.status === COMPLETED
+                                  ? 'green'
+                                  : task.status === 'in-progress'
+                                  ? 'orange'
+                                  : 'purple'
+                              }
+                            />
+                            {task.overdue ? <StatusChip status="Overdue" style="orange" /> : null}
+                          </Stack>
                         </TableCell>
                         <TableCell>
                           <Stack direction="row" justifyContent="space-between" spacing={1}>

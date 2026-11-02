@@ -1,17 +1,24 @@
-import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Organization, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
+import { REFERRAL_ORDER_TYPE_TAG, withReferralDetails } from 'utils/lib/fhir/referral';
 import { FaxDocumentAvailability, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import { REFERRAL_ROLES } from 'utils/lib/types/api/referrals/referrals.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildAddressBookOrganization } from '../../src/ehr/address-book/helpers';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 
 const mockFhirSearch = vi.fn();
 const mockFhirGet = vi.fn();
 const mockOystehrClient = { fhir: { search: mockFhirSearch, get: mockFhirGet } };
+const { mockRequireUserWithRole } = vi.hoisted(() => ({
+  mockRequireUserWithRole: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/prac-1' }),
+}));
 
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
   getUser: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/prac-1' }),
+  requireUserWithRole: mockRequireUserWithRole,
 }));
 
 vi.mock('../../src/shared/helpers', async (importOriginal) => ({
@@ -243,5 +250,126 @@ describe('get-fax-packet-preview', () => {
 
     expect(output.hasSavedPcp).toBe(false);
     expect(output.pcp).toBeUndefined();
+  });
+});
+
+describe('get-fax-packet-preview for a referral', () => {
+  const REFERRAL_ID = '850e8400-e29b-41d4-a716-446655440000';
+  const CONTACT_ID = '950e8400-e29b-41d4-a716-446655440000';
+
+  const contact: Organization = {
+    ...buildAddressBookOrganization({
+      firstName: 'Jane',
+      lastName: 'Doe',
+      credential: 'MD',
+      organizationName: 'Springfield Cardiology',
+      fax: '(212) 555-4321',
+      phone: '2125551234',
+    }),
+    id: CONTACT_ID,
+  };
+
+  const referral = (over: Partial<ServiceRequest> = {}): ServiceRequest =>
+    withReferralDetails(
+      {
+        resourceType: 'ServiceRequest',
+        id: REFERRAL_ID,
+        status: 'draft',
+        intent: 'order',
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }] },
+        subject: { reference: `Patient/${PATIENT_ID}` },
+        ...over,
+      },
+      { status: 'not-sent', includeDocuments: ['progress-note', 'lab-results'] }
+    );
+
+  const visitEncounter: Encounter = {
+    ...encounter,
+    subject: { reference: `Patient/${PATIENT_ID}` },
+    appointment: [{ reference: `Appointment/${APPOINTMENT_ID}` }],
+  };
+
+  const mockReads = (serviceRequest: ServiceRequest): void => {
+    mockFhirGet.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'ServiceRequest') return Promise.resolve(serviceRequest);
+      if (resourceType === 'Encounter') return Promise.resolve(visitEncounter);
+      return Promise.resolve(senderOrganization);
+    });
+    // The recipient is looked up by id through a search, so a deleted contact is simply absent.
+    mockFhirSearch.mockImplementation(({ resourceType, params }: { resourceType: string; params: any[] }) =>
+      Promise.resolve({
+        unbundle: () =>
+          resourceType === 'Organization' && params.some((p) => p.name === '_id' && p.value === CONTACT_ID)
+            ? [contact]
+            : [],
+      })
+    );
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockResolveFaxDocumentAvailability.mockResolvedValue(AVAILABILITY);
+  });
+
+  const runReferralPreview = async (): Promise<GetFaxPacketPreviewOutput> => {
+    const result: any = await (index as any)(
+      createMockZambdaInput({ referralId: REFERRAL_ID }, { secrets: createMockSecrets() })
+    );
+    expect(result.statusCode).toBe(200);
+    return JSON.parse(result.body);
+  };
+
+  it("lists the form first, then only the referral's chosen documents, and prefills its contact", async () => {
+    mockReads(
+      referral({
+        encounter: { reference: `Encounter/${ENCOUNTER_ID}` },
+        performer: [{ reference: `Organization/${CONTACT_ID}` }],
+      })
+    );
+
+    const output = await runReferralPreview();
+
+    // Lab results are chosen but the visit has none to report; the discharge summary is not chosen.
+    expect(output.documents).toEqual([{ kind: 'referral-form', available: true, count: 1 }, AVAILABILITY[0]]);
+    expect(mockResolveFaxDocumentAvailability).toHaveBeenCalledWith(
+      expect.objectContaining({ appointmentId: APPOINTMENT_ID, encounterId: ENCOUNTER_ID })
+    );
+    // The same recipient mapping every referral surface uses: the person name carries the credential.
+    expect(output.recipient).toEqual({
+      name: 'Jane Doe, MD',
+      organization: 'Springfield Cardiology',
+      faxNumber: '2125554321',
+      phoneNumber: '2125551234',
+    });
+    // The referral's contact is not the patient's PCP, so the dialog must not offer to save it as one.
+    expect(output.hasSavedPcp).toBe(true);
+    expect(output.pcp).toBeUndefined();
+    expect(output.senderFaxNumber).toBe('+12125550000');
+  });
+
+  it('SECURITY: gates a referral preview on a referral role rather than on any signed-in user', async () => {
+    mockReads(referral());
+
+    await runReferralPreview();
+
+    expect(mockRequireUserWithRole).toHaveBeenCalledWith('test-token', expect.anything(), REFERRAL_ROLES);
+  });
+
+  it('previews the form alone for a referral without a visit or a recipient', async () => {
+    mockReads(referral());
+
+    const output = await runReferralPreview();
+
+    expect(output.documents).toEqual([{ kind: 'referral-form', available: true, count: 1 }]);
+    expect(output.recipient).toBeUndefined();
+    expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+  });
+
+  it('reports a ServiceRequest that is not a referral as not found, the same as an unknown id', async () => {
+    mockReads({ ...referral(), meta: {} });
+
+    await expect(
+      (index as any)(createMockZambdaInput({ referralId: REFERRAL_ID }, { secrets: createMockSecrets() }))
+    ).rejects.toMatchObject({ message: `Referral ${REFERRAL_ID} not found` });
   });
 });

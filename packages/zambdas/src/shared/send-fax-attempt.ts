@@ -26,6 +26,8 @@ export interface SendFaxAttemptInput {
   /** Titles of the documents merged into the packet, in merge order. */
   faxPacketParts?: string[];
   parentAttemptId?: string;
+  /** `ServiceRequest/<id>` when the fax sends a referral, so the attempt shows on the referral. */
+  basedOnReference?: string;
   senderId: string;
 }
 
@@ -44,6 +46,7 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     faxPacketPageCount,
     faxPacketParts,
     parentAttemptId,
+    basedOnReference,
     senderId,
   } = input;
 
@@ -61,6 +64,7 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
     senderOrganizationReference: `Organization/${organizationId}`,
     parentAttemptId,
+    basedOnReference,
     senderId,
     senderDisplay: getFullestAvailableName(userPractitioner),
   });

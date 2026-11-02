@@ -31,10 +31,12 @@ export const FAX_STATUS_POLL_TIMEOUT_MS =
 export const nextFaxPollInterval = (completedPolls: number): number | false =>
   FAX_STATUS_POLL_INTERVALS_MS[completedPolls - 1] ?? false;
 
-export const faxHistoryQueryKey = (source: FaxPacketSource): readonly unknown[] =>
-  source.type === 'visit'
-    ? ['get-visit-fax-history', source.appointmentId]
-    : actionLogsQueryKey('fax', source.patientId);
+/** A referral names no patient, so its send refreshes every fax log rather than one patient's. */
+export const faxHistoryQueryKey = (source: FaxPacketSource): readonly unknown[] => {
+  if (source.type === 'visit') return ['get-visit-fax-history', source.appointmentId];
+  if (source.type === 'referral') return actionLogsQueryKey('fax');
+  return actionLogsQueryKey('fax', source.patientId);
+};
 
 export const faxStatusTimeoutMessage = (source: FaxPacketSource): string =>
   source.type === 'visit'

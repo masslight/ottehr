@@ -20,6 +20,7 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InputMask } from 'ui-components/lib/components/InputMask';
+import { OTHER_SPECIALTY_TRANSFER_OPTION, specialtyTransferOptions } from 'utils/lib/fhir/disposition';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { AllStates } from 'utils/lib/types/common';
 import {
@@ -42,6 +43,9 @@ export const addressBookContactLabel = (contact: AddressBookContactInput): strin
   formatAddressBookPersonName(contact) || contact.organizationName || '';
 
 const STATE_OPTIONS = AllStates.map((state) => state.value);
+const SPECIALTY_TAGS = specialtyTransferOptions
+  .filter((specialty) => specialty !== OTHER_SPECIALTY_TRANSFER_OPTION)
+  .map(normalizeAddressBookTag);
 
 interface FormValues {
   firstName: string;
@@ -113,8 +117,13 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
   const { control, getValues, setValue, handleSubmit } = methods;
   const { data } = useSearchAddressBookQuery();
 
+  // Referrals filter the directory by the specialty's tag, so the specialty list is offered as tags too.
   const tagSuggestions = Array.from(
-    new Set([...ADDRESS_BOOK_KNOWN_TAGS, ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? [])])
+    new Set([
+      ...ADDRESS_BOOK_KNOWN_TAGS,
+      ...SPECIALTY_TAGS,
+      ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? []),
+    ])
   );
 
   const createMutation = useCreateAddressBookContactMutation();

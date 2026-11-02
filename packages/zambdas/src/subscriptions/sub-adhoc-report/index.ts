@@ -18,6 +18,11 @@ import {
   PATIENT_LAYERS,
 } from 'utils/lib/types/adhoc/datasets/patients';
 import {
+  AdHocReferralsInputSchema,
+  AdHocReferralsOutputSchema,
+  REFERRAL_LAYERS,
+} from 'utils/lib/types/adhoc/datasets/referrals';
+import {
   ADHOC_REPORT_OUTPUT_URL_CODE,
   ADHOC_REPORT_PARAMS_CODE,
   ADHOC_REPORT_TASK_SYSTEM,
@@ -26,6 +31,7 @@ import { createBillingClient } from '../../billing/shared';
 import { fetchAdHocBillingRows } from '../../shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../../shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../../shared/adhoc-datasets/patients';
+import { fetchAdHocReferralRows } from '../../shared/adhoc-datasets/referrals';
 import { beginReportBudget, uploadAdHocReportJsonToZ3 } from '../../shared/adhoc-report';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
@@ -70,6 +76,15 @@ async function buildOutputJson(
       const input = AdHocPatientsInputSchema.parse({ dateRange, ...layerIncludeFlags(PATIENT_LAYERS, options) });
       const rows = await fetchAdHocPatientRows(oystehr, input);
       const json = JSON.stringify(validateOutputWithSchema(AdHocPatientsOutputSchema, { patients: rows }, ZAMBDA_NAME));
+      return { json, rowCount: rows.length };
+    }
+
+    case 'referrals': {
+      const input = AdHocReferralsInputSchema.parse({ dateRange, ...layerIncludeFlags(REFERRAL_LAYERS, options) });
+      const rows = await fetchAdHocReferralRows(oystehr, input);
+      const json = JSON.stringify(
+        validateOutputWithSchema(AdHocReferralsOutputSchema, { referrals: rows }, ZAMBDA_NAME)
+      );
       return { json, rowCount: rows.length };
     }
 

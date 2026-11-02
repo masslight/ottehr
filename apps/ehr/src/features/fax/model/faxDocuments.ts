@@ -1,4 +1,4 @@
-import { FAX_DOCUMENT_LABELS, FAX_DOCUMENT_ORDER, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
+import { FAX_PACKET_DOCUMENT_LABELS, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 
 export interface FaxDocumentLabelGroups {
   /** Documents that will go into the packet. */
@@ -7,14 +7,15 @@ export interface FaxDocumentLabelGroups {
   excluded: string[];
 }
 
-/** Splits the visit's documents into what the packet will and won't contain, for the read-only tooltip. */
+/**
+ * Splits the packet's documents into what it will and won't contain, for the read-only tooltip. The server
+ * lists them in packet order (a referral form first, then the visit documents in merge order).
+ */
 export const documentLabelGroups = (availability: FaxDocumentAvailability[]): FaxDocumentLabelGroups => {
   const included: string[] = [];
   const excluded: string[] = [];
-  for (const kind of FAX_DOCUMENT_ORDER) {
-    const entry = availability.find((item) => item.kind === kind);
-    if (!entry) continue;
-    (entry.available ? included : excluded).push(FAX_DOCUMENT_LABELS[kind]);
+  for (const entry of availability) {
+    (entry.available ? included : excluded).push(FAX_PACKET_DOCUMENT_LABELS[entry.kind]);
   }
   return { included, excluded };
 };

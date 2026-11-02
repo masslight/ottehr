@@ -1,5 +1,6 @@
 import { Stack } from '@mui/material';
 import { FC } from 'react';
+import { ReferralsCard } from 'src/features/referrals/ReferralsCard';
 import { DispositionCard } from '../../../shared/components/DispositionCard';
 import { FormsCard } from '../../../shared/components/FormsCard';
 import { PatientEducationCard } from '../../../shared/components/plan-tab/PatientEducationCard';
@@ -18,6 +19,7 @@ export const PlanBody: FC = () => {
     <Stack spacing={1}>
       {!isFollowUp && <PatientInstructionsCard />}
       {!isFollowUp && <DispositionCard />}
+      {!isFollowUp && <ReferralsCard />}
       {!isFollowUp && <PatientEducationCard />}
       <SchoolWorkExcuseCard locationName={locationName} />
       {!isFollowUp && <FormsCard />}
