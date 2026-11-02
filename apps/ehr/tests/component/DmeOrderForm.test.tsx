@@ -111,7 +111,7 @@ vi.mock('../../src/hooks/useEvolveUser', () => ({
 }));
 
 vi.mock('../../src/shared/hooks/useDebounce', () => ({
-  useDebounce: () => ({ debounce: (callback: () => void) => callback() }),
+  useDebounce: () => ({ debounce: (callback: () => void) => callback(), clear: vi.fn() }),
 }));
 
 import { enqueueSnackbar } from 'notistack';
@@ -127,7 +127,7 @@ const renderForm = (order?: DmeOrderDTO): { onFinished: ReturnType<typeof vi.fn>
   return { onFinished };
 };
 
-const itemNameInput = (): HTMLElement => within(screen.getByTestId(ids.item)).getByRole('textbox');
+const itemNameInput = (): HTMLElement => screen.getByTestId(ids.item);
 
 const typeItemName = async (name: string): Promise<void> => {
   await userEvent.type(itemNameInput(), name);
@@ -150,8 +150,20 @@ const openQuickPicks = async (): Promise<void> => {
   await userEvent.click(screen.getByRole('textbox', { name: 'Quick Picks' }));
 };
 
-const inputOf = (testId: string): HTMLInputElement =>
-  screen.getByTestId(testId).querySelector('input, textarea:not([aria-hidden])') as HTMLInputElement;
+const inputOf = (testId: string): HTMLInputElement => {
+  const element = screen.getByTestId(testId);
+  return (
+    element.matches('input, textarea') ? element : element.querySelector('input, textarea:not([aria-hidden])')
+  ) as HTMLInputElement;
+};
+
+const fulfillExternally = async (): Promise<void> => {
+  await userEvent.click(screen.getByTestId(ids.externalSwitch));
+  await userEvent.click(await screen.findByRole('option', { name: 'an external site / third party' }));
+};
+
+const fulfilledExternally = (): boolean =>
+  screen.getByTestId(ids.externalSwitch).textContent === 'an external site / third party';
 
 describe('DmeOrderForm', () => {
   beforeEach(() => {
@@ -229,7 +241,8 @@ describe('DmeOrderForm', () => {
     renderForm();
 
     await typeItemName('Walking boot');
-    await userEvent.type(within(screen.getByTestId(ids.diagnoses)).getByRole('combobox'), 'cell');
+    await userEvent.click(within(screen.getByTestId(ids.diagnoses)).getByRole('button', { name: /\+ another/ }));
+    await userEvent.type(await screen.findByRole('combobox'), 'cell');
     await userEvent.click(await screen.findByText('L03.115 Cellulitis of right lower limb'));
     await userEvent.click(screen.getByTestId(ids.submitButton));
 
@@ -245,9 +258,9 @@ describe('DmeOrderForm', () => {
     renderForm();
 
     await typeItemName('Knee brace');
-    await userEvent.click(screen.getByTestId(ids.externalSwitch));
-    await userEvent.type(within(screen.getByTestId(ids.thirdPartyName)).getByRole('textbox'), 'Acme Medical Supply');
-    await userEvent.type(within(screen.getByTestId(ids.thirdPartyAddress)).getByRole('textbox'), '1 Main St');
+    await fulfillExternally();
+    await userEvent.type(inputOf(ids.thirdPartyName), 'Acme Medical Supply');
+    await userEvent.type(inputOf(ids.thirdPartyAddress), '1 Main St');
     await userEvent.click(screen.getByTestId(ids.submitButton));
 
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
@@ -257,11 +270,36 @@ describe('DmeOrderForm', () => {
     });
   });
 
+  it('stores third-party numbers as (xxx) xxx-xxxx however they were typed', async () => {
+    renderForm();
+
+    await typeItemName('Knee brace');
+    await fulfillExternally();
+    await userEvent.type(inputOf(ids.thirdPartyPhone), '+1 212 555 0101');
+    await userEvent.type(inputOf(ids.thirdPartyFax), '212.555.0199');
+    await userEvent.click(screen.getByTestId(ids.submitButton));
+
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+    expect(createOrder.mock.calls[0][0].thirdParty).toEqual({ phone: '(212) 555-0101', fax: '(212) 555-0199' });
+  });
+
+  it('shows every problem in the order sentence at once', async () => {
+    renderForm();
+
+    await userEvent.clear(inputOf(ids.quantity));
+    await userEvent.click(screen.getByTestId(ids.submitButton));
+
+    expect(
+      await screen.findByText('Quantity dispensed must be a positive whole number DME is required')
+    ).toBeInTheDocument();
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
   it('does not submit without a DME item name', async () => {
     renderForm();
 
     await userEvent.click(screen.getByTestId(ids.submitButton));
-    expect(await screen.findByText('This field is required')).toBeInTheDocument();
+    expect(await screen.findByText('DME is required')).toBeInTheDocument();
 
     await typeItemName('   ');
     await userEvent.click(screen.getByTestId(ids.submitButton));
@@ -299,10 +337,10 @@ describe('DmeOrderForm', () => {
 
     expect(inputOf(ids.item)).toHaveValue('Knee brace');
     expect(inputOf(ids.quantity)).toHaveValue(2);
-    expect(inputOf(ids.laterality)).toHaveValue('RT (Right)');
-    expect(inputOf(ids.modifier)).toHaveValue('NU (New Purchase)');
+    expect(screen.getByTestId(ids.laterality)).toHaveTextContent('RT (right)');
+    expect(screen.getByTestId(ids.modifier)).toHaveTextContent('NU (new purchase)');
     expect(within(screen.getByTestId(ids.billingCodes)).getByText('L1810 Knee orthosis, elastic')).toBeInTheDocument();
-    expect(screen.getByTestId(ids.externalSwitch)).toBeChecked();
+    expect(fulfilledExternally()).toBe(true);
     expect(inputOf(ids.thirdPartyName)).toHaveValue('Acme Medical Supply');
     expect(inputOf(ids.thirdPartyAddress)).toHaveValue('1 Main St');
 
@@ -359,7 +397,7 @@ describe('DmeOrderForm', () => {
     await openQuickPicks();
     await userEvent.click(await screen.findByRole('menuitem', { name: COLLAR_QUICK_PICK.name }));
 
-    expect(screen.getByTestId(ids.externalSwitch)).toBeChecked();
+    expect(fulfilledExternally()).toBe(true);
     expect(inputOf(ids.thirdPartyName)).toHaveValue('');
     expect(inputOf(ids.thirdPartyAddress)).toHaveValue('');
 
@@ -376,6 +414,7 @@ describe('DmeOrderForm', () => {
     await openQuickPicks();
     await userEvent.click(await screen.findByRole('menuitem', { name: KNEE_BRACE_QUICK_PICK.name }));
     await userEvent.click(screen.getByTestId(ids.externalSwitch));
+    await userEvent.click(await screen.findByRole('option', { name: 'in-house' }));
     await userEvent.clear(itemNameInput());
     await typeItemName('Hinged knee brace');
     await userEvent.type(inputOf(ids.instructions), 'Wear while walking');
@@ -435,6 +474,13 @@ describe('DmeOrderForm', () => {
       expect.objectContaining({ name: 'Knee brace', itemName: 'Knee brace', billingCodes: [] })
     );
     expect(createDmeQuickPick).not.toHaveBeenCalled();
+  });
+
+  it('keeps the fulfillment of a dispensed order fixed', () => {
+    renderForm({ ...EXISTING_ORDER, status: DmeOrderStatus.dispensed });
+
+    expect(screen.getByText('in-house')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^fulfilled by/ })).not.toBeInTheDocument();
   });
 
   it('hides quick picks on a read-only visit', () => {

@@ -1,4 +1,5 @@
 import type { RadiologyDiagnosis } from 'src/features/radiology/components/RadiologyDiagnosisField';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { DmeDurationUnit, DmeLaterality, DmeModifier, DmeThirdParty } from 'utils/lib/types/api/dme.types';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
@@ -84,7 +85,8 @@ export function buildDmeQuickPick(values: DmeOrderFormValues, name: string): Omi
   if (values.external) {
     const thirdParty: DmeThirdParty = {};
     THIRD_PARTY_KEYS.forEach((key) => {
-      const value = trimmed(values.thirdParty[key]);
+      const raw = values.thirdParty[key];
+      const value = trimmed(key === 'phone' || key === 'fax' ? formatPhoneNumberDisplay(raw) : raw);
       if (value) thirdParty[key] = value;
     });
     if (Object.keys(thirdParty).length) quickPick.thirdParty = thirdParty;

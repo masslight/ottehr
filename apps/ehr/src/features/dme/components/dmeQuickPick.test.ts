@@ -125,7 +125,7 @@ describe('buildDmeQuickPick', () => {
       duration: { value: 10, unit: 'days' },
       instructions: 'Wear while walking',
       external: true,
-      thirdParty: { name: 'Acme Medical Supply', phone: '5559876543' },
+      thirdParty: { name: 'Acme Medical Supply', phone: '(555) 987-6543' },
     });
   });
 
