@@ -248,8 +248,9 @@ export const AddServiceLineInputSchema = z.object({
   serviceDate: DateValueSchema.optional(),
   // Blank/omitted behaves like 'primary' unless diagnosisPointers is set, in which case it behaves
   // like 'specific' — see effectiveDiagnosisMode(), which keeps rules saved before this field
-  // existed pointing at the same diagnoses instead of silently switching to 'primary'.
-  diagnosisMode: z.enum(DIAGNOSIS_POINTER_MODES).optional(),
+  // existed pointing at the same diagnoses instead of silently switching to 'primary'. Blank is ''
+  // when the rule builder's Diagnoses picker is cleared, as for the other optional fields.
+  diagnosisMode: z.enum(DIAGNOSIS_POINTER_MODES).optional().or(z.literal('')),
   // Comma-separated 1-based pointers into the claim's diagnosis list; only read when diagnosisMode
   // is 'specific'.
   diagnosisPointers: z.string().optional(),
@@ -262,7 +263,7 @@ export type AddServiceLineInput = z.output<typeof AddServiceLineInputSchema>;
 // (rules saved before diagnosisMode existed), 'primary' otherwise.
 export const effectiveDiagnosisMode = (
   line: Pick<AddServiceLineInput, 'diagnosisMode' | 'diagnosisPointers'>
-): DiagnosisPointerMode => line.diagnosisMode ?? (line.diagnosisPointers?.trim() ? 'specific' : 'primary');
+): DiagnosisPointerMode => line.diagnosisMode || (line.diagnosisPointers?.trim() ? 'specific' : 'primary');
 
 // --- Action ---
 export type RuleAction =
