@@ -1,6 +1,11 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Encounter } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Appointment, Encounter } from 'fhir/r4b';
+import { APPOINTMENT_LOCKED_META_TAG } from 'utils/lib/fhir/constants';
+import { getAppointmentStatusUpdateTags } from 'utils/lib/fhir/helpers';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getPatchOperationsForNewMetaTags } from 'utils/lib/fhir/resourcePatch';
+import { visitStatusToFhirAppointmentStatusMap } from 'utils/lib/types/api/appointment.types';
 import { canBeAssignedAsProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 import {
   canSignVisitNote,
@@ -72,3 +77,12 @@ export const assertCallerCanSign = (user: User): void => {
     };
   }
 };
+
+export const getSignedAppointmentPatchOps = (appointment: Appointment, user: User): Operation[] => [
+  { op: 'replace', path: '/status', value: visitStatusToFhirAppointmentStatusMap['completed'] },
+  // One op for all tags: each meta-tag op rewrites the whole /meta/tag array, so a second one would drop these.
+  ...getPatchOperationsForNewMetaTags(appointment, [
+    ...getAppointmentStatusUpdateTags('completed', { user }),
+    APPOINTMENT_LOCKED_META_TAG,
+  ]),
+];
