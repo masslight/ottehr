@@ -572,6 +572,21 @@ describe('InsuranceSection — eligibility date of service', () => {
     expect(dateOfServiceInput().value).toBe(DateTime.now().toFormat('MM/dd/yyyy'));
   });
 
+  it('keeps the date picker mounted (and focused) while its date is edited', async () => {
+    const user = userEvent.setup();
+    renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
+
+    await screen.findByText(/Primary insurance/i);
+    const input = dateOfServiceInput();
+    await user.click(input);
+    await user.keyboard('{ArrowUp}');
+
+    // A remount would replace the input node with a fresh, unfocused one.
+    expect(dateOfServiceInput()).toBe(input);
+    expect(input).toHaveFocus();
+    expect(input.value).not.toBe('03/04/2025');
+  });
+
   it('labels a check run for a date of service other than the day it was run', () => {
     expect(getDateOfServiceLabel('2025-03-04', '2026-01-01T12:00:00.000Z')).toBe('DOS 03/04/2025');
     expect(getDateOfServiceLabel('2026-01-01', '2026-01-01T12:00:00.000Z')).toBeUndefined();

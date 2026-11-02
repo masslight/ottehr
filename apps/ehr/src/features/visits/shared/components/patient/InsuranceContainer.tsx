@@ -9,6 +9,7 @@ import {
   IconButton,
   LinearProgress,
   Paper,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -310,7 +311,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   };
 
-  const TitleWidget = (): ReactElement => {
+  // Called, not rendered as <TitleWidget />: a component declared here is a new type on every render, which
+  // would remount the date picker (and drop its focus) each time its value changes.
+  const renderTitleWidget = (): ReactElement => {
     const chipColors = STATUS_TO_STYLE_MAP[eligibilityStatus?.status ?? 'UNKNOWN'];
     const lastRefreshDateString = (() => {
       const dateISO = eligibilityStatus?.dateISO ?? '';
@@ -386,24 +389,31 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             <Typography sx={lastCheckedTextSx}>{lastRefreshDateString}</Typography>
             {dosLabel && <Typography sx={lastCheckedTextSx}>{dosLabel}</Typography>}
           </Box>
-          <LocalizationProvider dateAdapter={AdapterLuxon}>
-            <DatePicker
-              value={serviceDate}
-              onChange={(value) => setServiceDate(value)}
-              format="MM/dd/yyyy"
-              slotProps={{
-                textField: {
-                  size: 'small',
-                  // Same height as the small refresh IconButton beside it (24px icon + 2 x 5px padding).
-                  sx: { width: 160, '& .MuiInputBase-root': { height: 34 }, '& .MuiInputBase-input': { py: 0 } },
-                  inputProps: {
-                    'aria-label': 'Date of service',
-                    'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput,
-                  },
-                },
-              }}
-            />
-          </LocalizationProvider>
+          <Tooltip
+            arrow
+            title="Date of service the eligibility check is run for. Starts on the visit date; change it to check coverage as of another day, then click refresh."
+          >
+            <Box>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <DatePicker
+                  value={serviceDate}
+                  onChange={(value) => setServiceDate(value)}
+                  format="MM/dd/yyyy"
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      // Same height as the small refresh IconButton beside it (24px icon + 2 x 5px padding).
+                      sx: { width: 160, '& .MuiInputBase-root': { height: 34 }, '& .MuiInputBase-input': { py: 0 } },
+                      inputProps: {
+                        'aria-label': 'Date of service',
+                        'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput,
+                      },
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            </Box>
+          </Tooltip>
           <IconButton
             data-testid={dataTestIds.insuranceContainer.recheckEligibilityButton}
             onClick={handleRecheckEligibility}
@@ -538,7 +548,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
             {ordinal === 1 ? 'Primary insurance' : 'Secondary insurance'}
           </Typography>
-          <TitleWidget />
+          {renderTitleWidget()}
         </Box>
       )}
       {!isNew && (
@@ -913,7 +923,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     <PatientRecordFormSection
       formSection={insuranceSection}
       ordinal={ordinal - 1}
-      titleWidget={isNew ? undefined : <TitleWidget />}
+      titleWidget={isNew ? undefined : renderTitleWidget()}
     >
       {content}
     </PatientRecordFormSection>
