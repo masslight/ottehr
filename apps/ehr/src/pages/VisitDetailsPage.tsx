@@ -70,6 +70,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { useGetPatientVisitHistory } from 'src/hooks/useGetPatientVisitHistory';
 import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
@@ -78,7 +79,6 @@ import {
 } from 'utils/lib/fhir/appointments';
 import { FHIR_EXTENSION, ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  FOLLOWUP_SYSTEMS,
   getFollowUpProgressNotePathSegment,
   getFollowupSubtype,
   getVisitOccupationalMedicineEmployerFromEncounter,
@@ -523,27 +523,11 @@ export default function VisitDetailsPage(): ReactElement {
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
   const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
 
-  const otherInitialVisitsQueryEnabled =
-    Boolean(oystehr) && Boolean(patientId) && !!encounter?.id && !isFollowupEncounter(encounter);
-  const { data: hasOtherInitialVisits, isError: isOtherInitialVisitsError } = useQuery({
-    queryKey: ['visit-details-other-initial-visits', patientId, encounter?.id],
-    queryFn: async (): Promise<boolean> =>
-      (
-        await oystehr!.fhir.search<Encounter>({
-          resourceType: 'Encounter',
-          params: [
-            { name: 'patient', value: patientId! },
-            { name: 'type:not', value: `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}` },
-            { name: '_elements', value: 'id,type' },
-            { name: '_count', value: '2' },
-          ],
-        })
-      )
-        .unbundle()
-        .some((other) => other.id !== encounter!.id && !isFollowupEncounter(other)),
-    enabled: otherInitialVisitsQueryEnabled,
-    retry: 1,
-  });
+  // Top-level visits are the ones the follow-up parent picker offers.
+  const { data: visitHistory, isError: isOtherInitialVisitsError } = useGetPatientVisitHistory(patientId);
+  const hasOtherInitialVisits = visitHistory?.visits.some(
+    (visit) => !!visit.encounterId && visit.encounterId !== encounter?.id
+  );
 
   const parentEncounterId = encounter?.partOf?.reference?.replace('Encounter/', '');
   const parentAppointmentQueryEnabled = Boolean(oystehr) && Boolean(parentEncounterId);
