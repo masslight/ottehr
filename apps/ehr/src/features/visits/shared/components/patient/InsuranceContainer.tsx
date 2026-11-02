@@ -165,6 +165,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     DateTime.fromISO(visitDate ?? DateTime.now().toISODate())
   );
 
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [dateTooltipOpen, setDateTooltipOpen] = useState(false);
+
   const serviceDateISO = (serviceDate?.isValid ? serviceDate.toISODate() : undefined) ?? undefined;
 
   const { getValues, setValue, watch } = useFormContext();
@@ -391,6 +394,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           </Box>
           <Tooltip
             arrow
+            open={dateTooltipOpen && !datePickerOpen}
+            onOpen={() => setDateTooltipOpen(true)}
+            onClose={() => setDateTooltipOpen(false)}
             title="Date of service the eligibility check is run for. Starts on the visit date; change it to check coverage as of another day, then click refresh."
           >
             <Box>
@@ -398,6 +404,14 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                 <DatePicker
                   value={serviceDate}
                   onChange={(value) => setServiceDate(value)}
+                  onOpen={() => {
+                    setDateTooltipOpen(false);
+                    setDatePickerOpen(true);
+                  }}
+                  onClose={() => {
+                    setDateTooltipOpen(false);
+                    setDatePickerOpen(false);
+                  }}
                   format="MM/dd/yyyy"
                   slotProps={{
                     textField: {

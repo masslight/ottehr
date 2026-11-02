@@ -587,6 +587,20 @@ describe('InsuranceSection — eligibility date of service', () => {
     expect(input.value).not.toBe('03/04/2025');
   });
 
+  it('explains the date picker on hover but keeps the tooltip off the open calendar', async () => {
+    const user = userEvent.setup();
+    renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
+
+    await screen.findByText(/Primary insurance/i);
+    await user.hover(dateOfServiceInput());
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Date of service the eligibility check is run for/);
+
+    await user.click(screen.getByRole('button', { name: /choose date/i }));
+    await screen.findByRole('dialog');
+    await user.hover(screen.getByRole('dialog'));
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+  });
+
   it('labels a check run for a date of service other than the day it was run', () => {
     expect(getDateOfServiceLabel('2025-03-04', '2026-01-01T12:00:00.000Z')).toBe('DOS 03/04/2025');
     expect(getDateOfServiceLabel('2026-01-01', '2026-01-01T12:00:00.000Z')).toBeUndefined();
