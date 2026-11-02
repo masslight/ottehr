@@ -74,6 +74,8 @@ export const QuickPickSaveDialogs = <T extends { id?: string; name: string }>({
                 (quickPick) => quickPick.name.toLowerCase() === name.trim().toLowerCase()
               );
               if (existing?.id) {
+                // Replacing keeps the existing pick's name, not the case/whitespace variant typed.
+                onNameChange(existing.name);
                 setOverwriteTarget(existing);
               } else {
                 onSave();

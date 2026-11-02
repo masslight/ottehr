@@ -20,7 +20,7 @@ const renderDialogs = (initialName: string, onSave = vi.fn()): ReturnType<typeof
         existingQuickPicks={EXISTING}
         saving={false}
         onClose={vi.fn()}
-        onSave={onSave}
+        onSave={(overwriteId?: string) => (overwriteId ? onSave(overwriteId, name) : onSave())}
         entityLabel="medication"
       />
     );
@@ -62,7 +62,16 @@ describe('QuickPickSaveDialogs', () => {
     expect(onSave).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole('button', { name: 'Replace' }));
-    expect(onSave).toHaveBeenCalledWith('qp-2');
+    expect(onSave).toHaveBeenCalledWith('qp-2', 'Flu shot');
+  });
+
+  it('keeps the existing name when replacing via a case or whitespace variant', async () => {
+    const onSave = renderDialogs('  albuterol ');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save Quick Pick' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Replace' }));
+
+    expect(onSave).toHaveBeenCalledWith('qp-1', 'Albuterol');
   });
 
   it('matches existing names case-insensitively and Back does not save', async () => {
