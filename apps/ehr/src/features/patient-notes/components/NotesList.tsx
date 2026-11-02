@@ -1,14 +1,14 @@
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import React from 'react';
-import { usePatientNotes } from '../hooks/usePatientNotes';
-import { PatientNoteItem } from './PatientNoteItem';
+import { noteKind, NoteTarget, useNotes } from '../hooks/useNotes';
+import { NoteItem } from './NoteItem';
 
-interface PatientNotesListProps {
-  patientId: string;
+interface NotesListProps {
+  target: NoteTarget;
 }
 
-export const PatientNotesList: React.FC<PatientNotesListProps> = ({ patientId }) => {
-  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = usePatientNotes(patientId);
+export const NotesList: React.FC<NotesListProps> = ({ target }) => {
+  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useNotes(target);
 
   if (isLoading) {
     return (
@@ -31,7 +31,7 @@ export const PatientNotesList: React.FC<PatientNotesListProps> = ({ patientId })
   if (!notes.length) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ px: 3, py: 2 }}>
-        No patient notes yet.
+        No {noteKind(target)} notes yet.
       </Typography>
     );
   }
@@ -39,7 +39,7 @@ export const PatientNotesList: React.FC<PatientNotesListProps> = ({ patientId })
   return (
     <>
       {notes.map((note, i) => (
-        <PatientNoteItem key={note.resourceId ?? i} note={note} />
+        <NoteItem key={note.resourceId ?? i} note={note} target={target} />
       ))}
       {hasNextPage && (
         <Box sx={{ px: 3, py: 1 }}>

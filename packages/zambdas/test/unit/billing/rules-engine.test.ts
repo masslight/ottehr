@@ -1081,6 +1081,18 @@ describe('service line actions', () => {
     expect(m2.claim.item![1].diagnosisSequence).toEqual([2]);
   });
 
+  it('treats a blank diagnosisMode (a cleared Diagnoses picker) like an unset one', () => {
+    const m = makeModel();
+    m.claim.diagnosis = [
+      { sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } },
+      { sequence: 2, diagnosisCodeableConcept: { coding: [{ code: 'R05' }] } },
+    ];
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '87880', charges: '45.25', diagnosisMode: '' } }, m)
+    ).toBeUndefined();
+    expect(m.claim.item![1].diagnosisSequence).toEqual([1]);
+  });
+
   it('rejects diagnosisMode "specific" with no pointers instead of silently falling back to the primary diagnosis', () => {
     const m = makeModel();
     expect(
