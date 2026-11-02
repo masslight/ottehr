@@ -29,9 +29,6 @@ const CARD_BRAND_NAMES: Record<string, string> = {
   mastercard: 'Mastercard',
   amex: 'American Express',
   discover: 'Discover',
-  unionpay: 'UnionPay',
-  jcb: 'JCB',
-  diners: 'Diners Club',
 };
 
 const PAGE_SIZE = 25;
