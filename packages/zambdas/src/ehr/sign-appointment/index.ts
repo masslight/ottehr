@@ -6,8 +6,6 @@ import { getEncounterStatusHistoryUpdateOp, isAnnotationFollowupEncounter } from
 import {
   extractExtensionValue,
   findExtensionIndex,
-  getAppointmentLockMetaTagOperations,
-  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterLockMetaTagOperations,
   getSkipEmailTaskInput,
   getTaskResource,
@@ -16,10 +14,7 @@ import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
-import {
-  visitStatusToFhirAppointmentStatusMap,
-  visitStatusToFhirEncounterStatusMap,
-} from 'utils/lib/types/api/appointment.types';
+import { visitStatusToFhirEncounterStatusMap } from 'utils/lib/types/api/appointment.types';
 import {
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -36,7 +31,7 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { assertAssignedProviderCanSign, assertCallerCanSign } from './helpers';
+import { assertAssignedProviderCanSign, assertCallerCanSign, getSignedAppointmentPatchOps } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -306,21 +301,9 @@ const changeStatusToCompleted = async (
     throw new Error('Encounter is not defined');
   }
 
-  const appointmentStatus = visitStatusToFhirAppointmentStatusMap['completed'];
   const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
 
-  const patchOps: Operation[] = [
-    {
-      op: 'replace',
-      path: '/status',
-      value: appointmentStatus,
-    },
-  ];
-
-  patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
-
-  // Add locked meta tag when appointment is signed/completed
-  patchOps.push(...getAppointmentLockMetaTagOperations(resourcesToUpdate.appointment, true));
+  const patchOps = getSignedAppointmentPatchOps(resourcesToUpdate.appointment, user);
 
   const encounterPatchOps: Operation[] = [
     {

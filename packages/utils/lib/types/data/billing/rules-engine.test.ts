@@ -21,6 +21,7 @@ import {
 import {
   AddServiceLineInputSchema,
   BillingRule,
+  effectiveDiagnosisMode,
   RuleActionSchema,
   SaveBillingRulesInputSchema,
 } from './rules-engine.schemas';
@@ -156,6 +157,21 @@ describe('addServiceLine action schema', () => {
       RuleActionSchema.safeParse({
         type: 'addServiceLine',
         line: { cptCode: '99050', charges: '30', serviceDate: { source: 'bogus' } },
+      }).success
+    ).toBe(false);
+  });
+
+  it('parses a blank diagnosisMode (a cleared Diagnoses picker) as the default, rejecting an unknown mode', () => {
+    const blank = { type: 'addServiceLine', line: { cptCode: '99050', charges: '30', diagnosisMode: '' } };
+    expect(RuleActionSchema.parse(blank)).toEqual(blank);
+    expect(effectiveDiagnosisMode({ diagnosisMode: '' })).toBe('primary');
+    // Blank is the same as omitted, so legacy pointers still select specific diagnoses.
+    expect(effectiveDiagnosisMode({ diagnosisMode: '', diagnosisPointers: '2' })).toBe('specific');
+
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'addServiceLine',
+        line: { cptCode: '99050', charges: '30', diagnosisMode: 'bogus' },
       }).success
     ).toBe(false);
   });
