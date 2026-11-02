@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { parseCoverageEligibilityResponse } from 'utils/lib/fhir/billing';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { isFullFhirDateString } from 'utils/lib/utils/date';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeCoverageEligibilityRequest } from '../../src/patient/get-eligibility/helpers';
 import { getAppointmentDateOfService, validateRequestParameters } from '../../src/patient/get-eligibility/validation';
 
@@ -87,9 +87,28 @@ describe('get-eligibility — date of service', () => {
       expect(await getAppointmentDateOfService(undefined, oystehr)).toBe(today);
     });
 
-    it('clamps a visit that has not happened yet to today', async () => {
-      const future = DateTime.now().plus({ days: 10 }).toISO()!;
-      expect(await getAppointmentDateOfService(appointmentAt(future), oystehr)).toBe(today);
+    describe('with a fixed clock', () => {
+      // 12:30 UTC on 2 Nov is already 01:30 on 3 Nov in Auckland (UTC+13).
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2025-11-02T12:30:00.000Z'));
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('clamps a visit that has not happened yet to today in the location timezone', async () => {
+        expect(await getAppointmentDateOfService(appointmentAt('2025-11-12T00:00:00.000Z'), oystehr)).toBe(
+          '2025-11-03'
+        );
+      });
+
+      it('does not clamp a visit that started today in the location timezone to the server day', async () => {
+        // Started an hour ago: 11:30 UTC on 2 Nov, which is 3 Nov in Auckland while the server (UTC) is still on 2 Nov.
+        expect(await getAppointmentDateOfService(appointmentAt('2025-11-02T11:30:00.000Z'), oystehr)).toBe(
+          '2025-11-03'
+        );
+      });
     });
   });
 

@@ -213,17 +213,19 @@ export const getAppointmentDateOfService = async (
   appointment: Appointment | undefined,
   oystehr: Oystehr
 ): Promise<string> => {
-  const today = DateTime.now().toISODate();
-  if (!appointment?.start) return today;
+  if (!appointment?.start) return DateTime.now().toISODate();
 
   const locationId = getLocationIdFromAppointment(appointment);
   const location = locationId
     ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
     : undefined;
   const visitDate = getLocalDateOfService(appointment.start, location);
+  // Both are calendar days in the location's timezone; comparing against the server's day would clamp a visit
+  // that has already started in a timezone ahead of the server to the day before.
+  const today = getLocalDateOfService(DateTime.now().toISO(), location);
 
   // Payers can't be asked about a visit that hasn't happened yet.
-  return visitDate && visitDate < today ? visitDate : today;
+  return visitDate < today ? visitDate : today;
 };
 
 export const validateInsuranceRequirements = ({
