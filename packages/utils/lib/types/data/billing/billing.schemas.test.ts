@@ -82,14 +82,18 @@ describe('RecordBillingManualPaymentInputSchema', () => {
 });
 
 describe('SearchBillingInvoicesInputSchema', () => {
-  it('reads one status as a list', () => {
-    const result = SearchBillingInvoicesInputSchema.safeParse({
-      kind: 'nio',
+  it('takes NIO filters alongside the patient invoice filters', () => {
+    const input = {
       status: 'issued',
+      searchText: 'Jane',
+      facilityId: 'facility-1',
       issuedFrom: '2026-10-01',
       issuedTo: '2026-10-31',
-    });
-    expect(result.data?.status).toEqual(['issued']);
+      kind: 'nio',
+      recipientId: '4f4c1f5e-7f2f-4b7a-9a89-2f4f3a2f1b0c',
+    };
+
+    expect(SearchBillingInvoicesInputSchema.safeParse(input).data).toEqual(input);
   });
 
   it('takes a single-day window', () => {
@@ -104,6 +108,8 @@ describe('SearchBillingInvoicesInputSchema', () => {
   it.each([
     ['an unknown kind', { kind: 'employer' }],
     ['entered-in-error', { status: 'entered-in-error' }],
+    ['drafts', { status: 'draft' }],
+    ['more than one status', { status: ['issued', 'balanced'] }],
     ['a date time', { issuedFrom: '2026-10-01T00:00:00Z' }],
     [
       'a window that ends before it starts',

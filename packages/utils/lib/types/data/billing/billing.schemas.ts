@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BILLING_INVOICE_KINDS, BILLING_INVOICE_STATUSES } from '../../../fhir/billing-invoice';
+import { BILLING_INVOICE_KINDS } from '../../../fhir/billing-invoice';
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
@@ -14,6 +14,7 @@ import { PractitionerQualificationCodesLabels } from '../../api/practitioner.typ
 import { STATE_CODES } from '../../common';
 import {
   BILLING_INVOICE_LIMITS,
+  BILLING_INVOICE_LIST_STATUSES,
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
   DRUG_UNIT_CODE_VALUES,
@@ -906,6 +907,33 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
+export const SearchBillingInvoicesInputSchema = z
+  .object({
+    status: z.enum(BILLING_INVOICE_LIST_STATUSES).optional(),
+    // A full claim ID, or the start of a patient's name.
+    searchText: nonEmptyString.optional(),
+    facilityId: nonEmptyString.optional(),
+    issuedFrom: z.string().date().optional(),
+    issuedTo: z.string().date().optional(),
+    offset: nonNegativeInt.optional(),
+    pageSize: nonNegativeInt.optional(),
+    kind: z.enum(BILLING_INVOICE_KINDS).optional(),
+    recipientId: nonEmptyString.uuid().optional(),
+  })
+  .refine((data) => dateWindowIsOrdered(data.issuedFrom, data.issuedTo), {
+    message: 'issuedFrom must not be after issuedTo',
+    path: ['issuedFrom'],
+  });
+
+export const GetBillingInvoiceInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+});
+
+export const VoidBillingInvoiceInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+  reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),
+});
+
 // EHR-facing patient payment endpoints owned by the billing app.
 export const ListBillingPatientPaymentsInputSchema = z.object({
   patientId: nonEmptyString.uuid(),
@@ -983,30 +1011,6 @@ export const VoidBillingPatientPaymentInputSchema = z.object({
   paymentNoticeId: nonEmptyString.uuid(),
   reason: z.enum(PAYMENT_REFUND_VOID_REASONS),
   notes: blankableText,
-});
-
-export const SearchBillingInvoicesInputSchema = z
-  .object({
-    kind: z.enum(BILLING_INVOICE_KINDS).optional(),
-    status: oneOrMany(z.enum(BILLING_INVOICE_STATUSES)).optional(),
-    recipientId: nonEmptyString.uuid().optional(),
-    issuedFrom: z.string().date().optional(),
-    issuedTo: z.string().date().optional(),
-    offset: nonNegativeInt.optional(),
-    pageSize: nonNegativeInt.optional(),
-  })
-  .refine((data) => dateWindowIsOrdered(data.issuedFrom, data.issuedTo), {
-    message: 'issuedFrom must not be after issuedTo',
-    path: ['issuedFrom'],
-  });
-
-export const GetBillingInvoiceInputSchema = z.object({
-  invoiceId: nonEmptyString.uuid(),
-});
-
-export const VoidBillingInvoiceInputSchema = z.object({
-  invoiceId: nonEmptyString.uuid(),
-  reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),
 });
 
 export const AddClaimWriteOffInputSchema = z
