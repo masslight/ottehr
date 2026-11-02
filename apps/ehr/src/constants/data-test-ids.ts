@@ -629,6 +629,7 @@ export const dataTestIds = {
     addFreeFormButton: 'add-free-form-button',
     freeFormRow: 'free-form-row',
     freeFormNoteInput: 'free-form-note-input',
+    freeFormDeleteButton: 'free-form-delete-button',
   },
   patientDocsPage: {
     faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,
