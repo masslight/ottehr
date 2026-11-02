@@ -7,7 +7,6 @@ import { createAllergiesSectionForDischargeSummary } from './sections/discharge-
 import { createMedicationsSectionForDischargeSummary } from './sections/discharge-summary/currentMedications';
 import { composeDiagnoses, createDiagnosesSection } from './sections/discharge-summary/diagnoses';
 import { composeDisposition, createDispositionSection } from './sections/discharge-summary/disposition';
-import { composeDmeOrdersForDischargeSummary } from './sections/discharge-summary/dmeOrders';
 import {
   composeEducationalDocuments,
   createEducationalDocumentsSection,
@@ -38,7 +37,7 @@ import {
 } from './sections/discharge-summary/workSchoolExcuse';
 import { composeUpcomingVisits, createUpcomingVisitsSection } from './sections/upcomingVisits';
 import { composeAllergies } from './sections/visit-note/allergiesInfo';
-import { createDmeOrdersSection } from './sections/visit-note/dme';
+import { composeDmeOrders, createDmeOrdersSection } from './sections/visit-note/dme';
 import { composeExternalLabs, createExternalLabsSection } from './sections/visit-note/externalLabsInfo';
 import { composeInHouseLabs, createInHouseLabsSection } from './sections/visit-note/inHouseLabsInfo';
 import { composeMedications } from './sections/visit-note/medicationsInfo';
@@ -65,7 +64,7 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     erxMedications: composeErxMedications({ allChartData, appointmentPackage, erxPharmacies: input.erxPharmacies }),
     diagnoses: composeDiagnoses({ allChartData }),
     procedures: composeProcedures({ allChartData, appointmentPackage }),
-    dmeOrders: composeDmeOrdersForDischargeSummary({ dmeOrders: input.dmeOrders }),
+    dmeOrders: composeDmeOrders({ dmeOrders: input.dmeOrders }),
     patientInstructions: composePatientInstructions({ allChartData }),
     educationDocuments: composeEducationalDocuments({ allChartData }),
     disposition: composeDisposition({ allChartData }),

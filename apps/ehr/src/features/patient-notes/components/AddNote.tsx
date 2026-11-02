@@ -2,35 +2,38 @@ import { Box, CircularProgress, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { useCreatePatientNote } from '../hooks/useCreatePatientNote';
+import { useCreateNote } from '../hooks/useCreateNote';
+import { noteKind, NoteTarget } from '../hooks/useNotes';
 
-interface AddPatientNoteProps {
-  patientId: string;
+interface AddNoteProps {
+  target: NoteTarget;
+  onCreated?: (text: string) => void;
 }
 
-export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => {
+export const AddNote: React.FC<AddNoteProps> = ({ target, onCreated }) => {
   const [text, setText] = useState('');
-  const { mutateAsync: save, isPending } = useCreatePatientNote(patientId);
+  const { mutateAsync: save, isPending } = useCreateNote(target);
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim()) return;
     try {
-      await save({ patientId, text: text.trim() });
+      await save({ ...target, text: text.trim() });
       setText('');
+      onCreated?.(text.trim());
     } catch {
       enqueueSnackbar('Failed to add note. Please try again.', { variant: 'error' });
     }
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 3 }}>
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, px: 3, py: 1 }}>
       <Box sx={{ flex: 1 }}>
         <TextField
           variant="outlined"
           fullWidth
           autoComplete="off"
           multiline
-          label="Enter patient note..."
+          label={noteKind(target) === 'task' ? 'Add a Note' : 'Enter patient note...'}
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={isPending}
@@ -55,7 +58,7 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => 
         sx={{ height: '56px', minWidth: '80px', px: 2 }}
         startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}
       >
-        {isPending ? 'Saving...' : 'Save Patient Note'}
+        {isPending ? 'Saving...' : noteKind(target) === 'task' ? 'Add Note' : 'Save Patient Note'}
       </RoundedButton>
     </Box>
   );

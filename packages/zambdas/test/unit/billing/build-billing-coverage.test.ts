@@ -53,6 +53,24 @@ describe('buildBillingCoverage', () => {
     expect(coverage.identifier?.[0]?.value).toBe('M1');
   });
 
+  it('builds a coverage with a group number', () => {
+    const coverage = buildBillingCoverage({
+      patientId: PATIENT_ID,
+      payerOrg,
+      memberId: 'M1',
+      groupNumber: '12345',
+      status: 'active',
+      relationship: 'Self',
+      subscriberReference: `Patient/${PATIENT_ID}`,
+    });
+
+    // Non-UUID payer id -> RCM payer URL.
+    expect(coverage.payor?.[0]?.reference).toContain('PAYER123');
+    expect(coverage.class?.[0]?.value).toBe('12345');
+    expect(coverage.class?.[0]?.name).toBe('Acme Health Plan');
+    expect(coverage.identifier?.[0]?.value).toBe('M1');
+  });
+
   it('references a standalone RelatedPerson subscriber for a non-self coverage', () => {
     const coverage = buildBillingCoverage({
       patientId: PATIENT_ID,

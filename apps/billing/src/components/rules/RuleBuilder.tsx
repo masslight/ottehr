@@ -40,6 +40,7 @@ import {
   serviceLineSetValueProblem,
   ServiceLineValueType,
   setFieldValueProblem,
+  settableOptions,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   DateValue,
@@ -337,11 +338,14 @@ function FieldValueInput({
   helperText,
   inputRef,
   allowEmptyOption,
+  forSetField,
 }: {
   fieldId: string;
   multiple: boolean;
   // The regex operators take a pattern: a plain text input replaces the field's usual picker.
   isRegex?: boolean;
+  // A setField value: offer only the field's settable options.
+  forSetField?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
@@ -462,7 +466,7 @@ function FieldValueInput({
   return (
     <TypedValueInput
       valueType={def?.valueType}
-      options={def?.options}
+      options={forSetField && def?.options ? settableOptions(def.options) : def?.options}
       multiple={multiple}
       value={value}
       onChange={onChange}
@@ -931,7 +935,7 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
 // same shared checks save-time validation runs), so submitting an invalid line highlights the exact
 // input; blank optional fields fall back to the claim editor's defaults, shown as helper text.
 function AddServiceLineEditor({ name }: { name: string }): ReactElement {
-  const { control } = useFormContext();
+  const { control, setValue } = useFormContext();
   // diagnosisPointers only means anything when diagnosisMode is 'specific' — hide it otherwise
   // rather than showing an input that has no effect. A rule saved before diagnosisMode existed has
   // pointers but no mode, so fall back the same way the engine does (effectiveDiagnosisMode) instead
@@ -989,7 +993,15 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
                   size="small"
                   options={options}
                   value={options.find((option) => option.value === fieldValue) ?? null}
-                  onChange={(_, option) => onChange(option?.value ?? '')}
+                  onChange={(_, option) => {
+                    onChange(option?.value ?? '');
+                    // Pointers only apply to 'Specific diagnoses'. Drop them on any other choice:
+                    // hidden leftovers would still be validated on save, and would keep a cleared
+                    // Diagnoses on specific diagnoses through effectiveDiagnosisMode's legacy fallback.
+                    if (lineField.id === 'diagnosisMode' && option?.value !== 'specific' && diagnosisPointers) {
+                      setValue(`${name}.line.diagnosisPointers`, '', { shouldDirty: true });
+                    }
+                  }}
                   getOptionLabel={(option) => option.label}
                   isOptionEqualToValue={(option, v) => option.value === v.value}
                   renderInput={(params) => (
@@ -1235,6 +1247,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
                 }
                 inputRef={ref}
                 allowEmptyOption={!!setFieldDef && !setFieldDef.requiredOnSet}
+                forSetField
               />
             )}
           />

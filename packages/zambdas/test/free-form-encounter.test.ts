@@ -2,7 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { applyPatch, deepClone, Operation } from 'fast-json-patch';
 import { Encounter } from 'fhir/r4b';
 import { buildFollowupEncounterType, FOLLOWUP_SYSTEMS, isFreeFormEncounter } from 'utils/lib/fhir/encounter';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
+import { deleteFreeFormEncounter } from '../src/ehr/delete-free-form-encounter/helpers';
 import {
   assertFreeFormEncounterOfPatient,
   buildFreeFormNotePatchOperations,
@@ -313,5 +315,101 @@ describe('updateFreeFormEncounterNote', () => {
       'FHIR is down'
     );
     expect(patch).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a deleted note without patching it', async () => {
+    const get = vi.fn().mockResolvedValue(freeFormEncounter({ status: 'entered-in-error', meta: { versionId: 'v1' } }));
+    const patch = vi.fn();
+    const oystehr = { fhir: { get, patch } } as unknown as Oystehr;
+
+    await expect(updateFreeFormEncounterNote(oystehr, 'free-form-1', PATIENT_ID, 'My text')).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+    });
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('rejects the save when a concurrent delete landed between its read and its patch', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(freeFormEncounter({ meta: { versionId: 'v1' } }))
+      .mockResolvedValueOnce(freeFormEncounter({ status: 'entered-in-error', meta: { versionId: 'v2' } }));
+    const patch = vi.fn().mockRejectedValueOnce({ code: 412, message: 'Precondition Failed' });
+    const oystehr = { fhir: { get, patch } } as unknown as Oystehr;
+
+    await expect(updateFreeFormEncounterNote(oystehr, 'free-form-1', PATIENT_ID, 'My text')).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+    });
+    expect(patch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('deleteFreeFormEncounter', () => {
+  const ENTERED_IN_ERROR_OPERATION = { op: 'replace', path: '/status', value: 'entered-in-error' };
+
+  it('marks the note entered-in-error, locked to the version it read', async () => {
+    const get = vi.fn().mockResolvedValue(freeFormEncounter({ meta: { versionId: 'v1' } }));
+    const patch = vi.fn().mockResolvedValue({});
+    const oystehr = { fhir: { get, patch } } as unknown as Oystehr;
+
+    await deleteFreeFormEncounter(oystehr, 'free-form-1', PATIENT_ID);
+
+    expect(patch).toHaveBeenCalledWith(
+      { resourceType: 'Encounter', id: 'free-form-1', operations: [ENTERED_IN_ERROR_OPERATION] },
+      { optimisticLockingVersionId: 'v1' }
+    );
+  });
+
+  it('succeeds without patching when the note is already deleted', async () => {
+    const get = vi.fn().mockResolvedValue(freeFormEncounter({ status: 'entered-in-error' }));
+    const patch = vi.fn();
+    const oystehr = { fhir: { get, patch } } as unknown as Oystehr;
+
+    await deleteFreeFormEncounter(oystehr, 'free-form-1', PATIENT_ID);
+
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it("rejects another patient's note and a follow-up attached to a visit", async () => {
+    const parented = freeFormEncounter({
+      type: buildFollowupEncounterType('annotation'),
+      partOf: { reference: 'Encounter/parent' },
+    });
+    const get = vi.fn().mockResolvedValueOnce(freeFormEncounter()).mockResolvedValueOnce(parented);
+    const patch = vi.fn();
+    const oystehr = { fhir: { get, patch } } as unknown as Oystehr;
+
+    await expect(deleteFreeFormEncounter(oystehr, 'free-form-1', 'patient-2')).rejects.toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+    });
+    await expect(deleteFreeFormEncounter(oystehr, 'free-form-1', PATIENT_ID)).rejects.toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+    });
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('reports a missing note as not found', async () => {
+    const get = vi.fn().mockRejectedValue({ code: 404, message: 'Not Found' });
+    const oystehr = { fhir: { get, patch: vi.fn() } } as unknown as Oystehr;
+
+    await expect(deleteFreeFormEncounter(oystehr, 'free-form-1', PATIENT_ID)).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+    });
+  });
+
+  it('re-reads after a version conflict and patches against the new version', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(freeFormEncounter({ meta: { versionId: 'v1' } }))
+      .mockResolvedValueOnce(freeFormEncounter({ meta: { versionId: 'v2' } }));
+    const patch = vi
+      .fn()
+      .mockRejectedValueOnce({ code: 412, message: 'Precondition Failed' })
+      .mockResolvedValueOnce({});
+    const oystehr = { fhir: { get, patch } } as unknown as Oystehr;
+
+    await deleteFreeFormEncounter(oystehr, 'free-form-1', PATIENT_ID);
+
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(patch.mock.calls[1][1]).toEqual({ optimisticLockingVersionId: 'v2' });
   });
 });

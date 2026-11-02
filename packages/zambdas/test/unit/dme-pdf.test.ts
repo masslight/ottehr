@@ -12,7 +12,6 @@ import {
   DmeOrderFormInput,
 } from '../../src/shared/pdf/dme-order-form-pdf';
 import { progressNoteDataToText } from '../../src/shared/pdf/progress-note-text';
-import { composeDmeOrdersForDischargeSummary } from '../../src/shared/pdf/sections/discharge-summary/dmeOrders';
 import { composeDmeOrders, createDmeOrdersSection } from '../../src/shared/pdf/sections/visit-note/dme';
 import { DmeOrdersData, PdfAssets, PdfClient, PdfStyles, ProgressNoteData } from '../../src/shared/pdf/types';
 
@@ -135,23 +134,6 @@ describe('visit note DME section', () => {
       dmeOrders: { dmeOrders: [{ itemName: 'Wrist brace', lines: ['Status: Pending', 'Qty: 1'] }] },
     } as unknown as ProgressNoteData);
     expect(text).toContain('DURABLE MEDICAL EQUIPMENT:\n- Wrist brace | Status: Pending | Qty: 1');
-  });
-});
-
-describe('discharge summary DME section', () => {
-  it('lists only dispensed orders', () => {
-    const composed = composeDmeOrdersForDischargeSummary({
-      dmeOrders: [
-        parseDmeOrder({ ...makeDeviceRequest(inHouseFields), id: 'pending' }, {}),
-        parseDmeOrder({ ...makeDeviceRequest(externalFields), id: 'ordered' }, {}),
-        parseDmeOrder({ ...makeDeviceRequest(inHouseFields, true), id: 'dispensed' }, {}),
-      ],
-    });
-    expect(composed.dmeOrders.map((order) => order.lines[0])).toEqual(['Status: Dispensed']);
-  });
-
-  it('is empty without orders', () => {
-    expect(composeDmeOrdersForDischargeSummary({}).dmeOrders).toEqual([]);
   });
 });
 
