@@ -902,7 +902,6 @@ export function createBillingClient(
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
 ): Oystehr {
-  // eslint-disable-next-line no-restricted-syntax -- the billing client factory
   return new Oystehr({
     accessToken: token,
     services: {
@@ -916,7 +915,6 @@ export function createBillingClient(
 
 // ERA resources are untagged by Oystehr
 export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
-  // eslint-disable-next-line no-restricted-syntax -- the unscoped client factory; its importers are restricted instead
   return new Oystehr({
     accessToken: token,
     services: {
@@ -1562,7 +1560,12 @@ export function buildSubscriberRelatedPerson(
 }
 
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
-export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
+export function setCoveragePayer(
+  coverage: Coverage,
+  payerOrg: Organization,
+  memberId: string,
+  groupNumber?: string
+): void {
   // A UUID-backed org (RCM payer with a real FHIR resource, or a custom insurance organization)
   // references itself directly and doesn't need an RCM payer id; only a pure RCM payer (no backing
   // resource) requires one, since buildPayorReference falls back to an RCM payer URL for it.
@@ -1573,7 +1576,7 @@ export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, mem
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: payerId ?? '',
+      value: groupNumber || payerId!,
       name: payerOrg.name ?? '',
     },
   ];
@@ -1584,6 +1587,7 @@ export function buildBillingCoverage(params: {
   patientId: string;
   payerOrg: Organization;
   memberId: string;
+  groupNumber?: string;
   status: Coverage['status'];
   planType?: string;
   relationship: BillingSubscriberRelationship;
@@ -1598,7 +1602,7 @@ export function buildBillingCoverage(params: {
     subscriberId: params.memberId,
     payor: [],
   };
-  setCoveragePayer(coverage, params.payerOrg, params.memberId);
+  setCoveragePayer(coverage, params.payerOrg, params.memberId, params.groupNumber);
   setCoverageRelationship(coverage, params.relationship);
   if (params.planType) {
     coverage = setCoveragePlanType(coverage, params.planType);
@@ -2113,4 +2117,27 @@ export function removeClaimSupportingInfo(
       }),
     ];
   }
+}
+
+export async function getGroupNumber(
+  oystehr: Oystehr,
+  coverage: Coverage,
+  payersByRefParam: Awaited<ReturnType<typeof resolvePayersByRef>>
+): Promise<string | undefined> {
+  if (!coverage) return undefined;
+  const payersByRef =
+    payersByRefParam ??
+    (await resolvePayersByRef(
+      oystehr,
+      [coverage].map((coverage) => coverage.payor?.[0]?.reference)
+    ));
+
+  const payorRef = coverage.payor?.[0]?.reference;
+  const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+
+  // EHR stores payer ID in the same place and we recently stopped copying it in billing app
+  let groupNumber = coverage.class?.[0]?.value;
+  if (groupNumber === payorOrg?.id) groupNumber = undefined;
+
+  return groupNumber;
 }

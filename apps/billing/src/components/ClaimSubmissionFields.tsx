@@ -1,5 +1,5 @@
 import { Box, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextField } from '@mui/material';
-import { ReactElement, useEffect } from 'react';
+import { ReactElement, useEffect, useMemo } from 'react';
 import { Controller, Form, useFormContext } from 'react-hook-form';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
@@ -24,6 +24,10 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
   const insurance = watch('insurance');
   const type = watch('type');
   const pccn = watch('payerClaimControlNumber');
+  const pccnIsDirty = useMemo(
+    () => pccn !== (getPccnForInsuranceOrdinal(claim, insurance) ?? ''),
+    [pccn, claim, insurance]
+  );
 
   // Reset pccn and type on insurance selection change
   useEffect(() => {
@@ -111,8 +115,18 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
                 onChange={(event) => field.onChange(event.target.value as RulesEngineSubmissionType)}
               >
                 <FormControlLabel value="new" control={<Radio />} label="New Submission" />
-                <FormControlLabel disabled={!pccn} value="correction" control={<Radio />} label="Correction" />
-                <FormControlLabel disabled={!pccn} value="void" control={<Radio />} label="Void Claim" />
+                <FormControlLabel
+                  disabled={!pccn && !pccnIsDirty}
+                  value="correction"
+                  control={<Radio />}
+                  label="Correction"
+                />
+                <FormControlLabel
+                  disabled={!pccn && !pccnIsDirty}
+                  value="void"
+                  control={<Radio />}
+                  label="Void Claim"
+                />
               </RadioGroup>
             </FormControl>
           )}

@@ -525,6 +525,76 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'policyHolder.lastName', 'X')).toBe(false);
   });
 
+  it('sets the relationship to Self, making the patient the subscriber and dropping the policy holder', () => {
+    const m = makeModel();
+    m.coverages[0].relationship = { coding: [{ code: 'child', display: 'Child' }] };
+    expect(readField(m, 'policyHolder.lastName')).toBe('Holder');
+
+    expect(writeField(m, 'insurance.relationship', 'Self')).toBe(true);
+    expect(readField(m, 'insurance.relationship')).toBe('Self');
+    expect(m.coverages[0].relationship?.coding?.[0]?.code).toBe('self');
+    expect(m.coverages[0].subscriber?.reference).toBe('Patient/p1');
+    expect(m.subscribers).toEqual([]);
+    expect(readField(m, 'policyHolder.lastName')).toBeUndefined();
+    // Idempotent on an already-Self coverage.
+    expect(writeField(m, 'insurance.relationship', 'Self')).toBe(true);
+  });
+
+  it('only writes the Self relationship, on any coverage slot', () => {
+    const m = makeModel();
+    expect(writeField(m, 'insurance.relationship', 'Child')).toBe(false);
+    expect(writeField(m, 'insurance.relationship', '')).toBe(false);
+    expect(m.coverages[0].subscriber?.reference).toBe('RelatedPerson/rp-1');
+
+    expect(writeField(m, 'secondaryInsurance.relationship', 'Self')).toBe(true);
+    expect(readField(m, 'secondaryInsurance.relationship')).toBe('Self');
+    expect(m.coverages[1].subscriber?.reference).toBe('Patient/p1');
+    // The primary coverage and its policy holder are untouched.
+    expect(m.coverages[0].subscriber?.reference).toBe('RelatedPerson/rp-1');
+    expect(m.subscribers.map((s) => s.id)).toEqual(['rp-1']);
+    // No tertiary coverage on the claim: nothing to write.
+    expect(writeField(m, 'tertiaryInsurance.relationship', 'Self')).toBe(false);
+  });
+
+  it('keeps a policy holder another coverage still subscribes through', () => {
+    const m = makeModel();
+    m.coverages[1].subscriber = { reference: 'RelatedPerson/rp-1' };
+    expect(writeField(m, 'insurance.relationship', 'Self')).toBe(true);
+    expect(readField(m, 'policyHolder.lastName')).toBeUndefined();
+    expect(readField(m, 'secondaryPolicyHolder.lastName')).toBe('Holder');
+  });
+
+  it('runs a "Medicaid means Self" rule end to end', () => {
+    const rule: BillingRule = {
+      id: 'r-medicaid-self',
+      name: 'Medicaid is self-subscribed',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'field', field: 'insurance.planType', operator: 'eq', value: 'MC' },
+            outcome: {
+              type: 'actions',
+              actions: [{ type: 'setField', field: 'insurance.relationship', value: 'Self' }],
+            },
+          },
+        ],
+      },
+    };
+    const notMedicaid = makeModel();
+    expect(executeRule(rule, notMedicaid).appliedActions).toHaveLength(0);
+    expect(notMedicaid.coverages[0].subscriber?.reference).toBe('RelatedPerson/rp-1');
+
+    const medicaid = makeModel();
+    expect(writeField(medicaid, 'insurance.planType', 'MC')).toBe(true);
+    const result = executeRule(rule, medicaid);
+    expect(result.error).toBeUndefined();
+    expect(result.appliedActions).toHaveLength(1);
+    expect(readField(medicaid, 'insurance.relationship')).toBe('Self');
+    expect(medicaid.coverages[0].subscriber?.reference).toBe('Patient/p1');
+  });
+
   it('writes provider and facility detail fields', () => {
     const m = makeModel();
     // First name only applies to individual providers; the billing provider is an organization.

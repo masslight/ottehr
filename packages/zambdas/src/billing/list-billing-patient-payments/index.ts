@@ -4,7 +4,6 @@ import { ListBillingPatientPaymentsInputSchema } from 'utils/lib/types/data/bill
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- reads the patient's Account and legacy clinical payment notices
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient } from '../../shared/stripeIntegration';
