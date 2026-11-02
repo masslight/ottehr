@@ -391,15 +391,9 @@ export const PATIENT_LAYERS = {
         .array(
           z.object({
             text: z.string().describe('Note text (free text).'),
-            author: z.string().describe('Original recorded author. "" when unknown.'),
-            addedAt: z
-              .string()
-              .nullable()
-              .describe(
-                'Full ISO instant it was written, falling back to last saved for legacy notes. Null when unknown.'
-              ),
+            author: z.string().describe('Who wrote it. "" when unknown.'),
+            addedAt: z.string().nullable().describe('Full ISO instant it was last saved. Null when unknown.'),
             edited: z.boolean().describe('Edited after it was first added.'),
-            editorNames: z.array(z.string()).optional().describe('Staff who edited the note, excluding its author.'),
           })
         )
         .describe('Notes on the patient record, newest first, as the patient page lists them. Empty when none.'),
