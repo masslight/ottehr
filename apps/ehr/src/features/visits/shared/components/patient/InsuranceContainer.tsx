@@ -325,19 +325,28 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
               hour12: true,
             })
             .toLowerCase();
-          const dosLabel = getDateOfServiceLabel(eligibilityStatus?.servicedDate, dateISO);
-          return `Last checked: ${dt.toLocaleDateString()} ${formattedTime}${dosLabel ? ` (${dosLabel})` : ''}`;
+          return `Last checked: ${dt.toLocaleDateString()} ${formattedTime}`;
         } catch {
           return '';
         }
       }
       return '';
     })();
+    const dosLabel = eligibilityStatus?.dateISO
+      ? getDateOfServiceLabel(eligibilityStatus.servicedDate, eligibilityStatus.dateISO)
+      : undefined;
+    const lastCheckedTextSx = {
+      fontFamily: 'Rubik',
+      color: 'rgba(0, 0, 0, 0.6)',
+      fontSize: '12px',
+      lineHeight: '15px',
+      fontWeight: '400',
+    };
 
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
         {/* Status badge and View Details button in same row */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
           <Chip
             label={eligibilityStatus?.status ?? 'UNKNOWN'}
             sx={{
@@ -373,28 +382,24 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         </Box>
         {/* Last checked date and refresh button */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography
-            sx={{
-              fontFamily: 'Rubik',
-              color: 'rgba(0, 0, 0, 0.6)',
-              fontSize: '12px',
-              lineHeight: '15px',
-              fontWeight: '400',
-            }}
-          >
-            {lastRefreshDateString}
-          </Typography>
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography sx={lastCheckedTextSx}>{lastRefreshDateString}</Typography>
+            {dosLabel && <Typography sx={lastCheckedTextSx}>{dosLabel}</Typography>}
+          </Box>
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <DatePicker
-              label="Date of service"
               value={serviceDate}
               onChange={(value) => setServiceDate(value)}
               format="MM/dd/yyyy"
               slotProps={{
                 textField: {
                   size: 'small',
-                  sx: { width: 160 },
-                  inputProps: { 'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput },
+                  // Same height as the small refresh IconButton beside it (24px icon + 2 x 5px padding).
+                  sx: { width: 160, '& .MuiInputBase-root': { height: 34 }, '& .MuiInputBase-input': { py: 0 } },
+                  inputProps: {
+                    'aria-label': 'Date of service',
+                    'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput,
+                  },
                 },
               }}
             />
