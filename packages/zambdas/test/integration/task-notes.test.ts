@@ -1,18 +1,23 @@
 import Oystehr from '@oystehr/sdk';
-import { Communication, FhirResource, Practitioner, Task } from 'fhir/r4b';
+import { Communication, FhirResource, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
-import { GetNotesOutput, SaveNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { GetNotesInput, GetNotesOutput, SaveNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { TASK_NOTE_NOTIFIED_TAG_CODE, TASK_NOTE_NOTIFIED_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getRecentTaskNotes } from '../../src/cron/notifications-updater';
-import { NOTE_EDITOR_EXTENSION_URL, TASK_NOTE_READ_BY_TAG_SYSTEM, TASK_NOTE_TAG } from '../../src/shared/notes';
+import {
+  NOTE_EDITOR_EXTENSION_URL,
+  PATIENT_NOTE_TAG,
+  TASK_NOTE_READ_BY_TAG_SYSTEM,
+  TASK_NOTE_TAG,
+} from '../../src/shared/notes';
 import { createTask } from '../../src/shared/tasks';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
-describe('task notes integration', () => {
+describe('task and patient notes integration', () => {
   const [TASK_NOTE_SYSTEM, TASK_NOTE_CODE] = TASK_NOTE_TAG.split('|');
   let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
@@ -22,11 +27,14 @@ describe('task notes integration', () => {
   let task: Task;
   let colleagueNote: Communication;
   let callerNoteId: string | undefined;
+  let patient: Patient;
+  let colleaguePatientNote: Communication;
+  let callerPatientNoteId: string | undefined;
 
   const tagged = <T extends FhirResource>(resource: T, processId: string): T =>
     addProcessIdMetaTagToResource(resource, processId) as T;
-  const getNotes = async (): Promise<GetNotesOutput> =>
-    (await oystehrZambdas.zambda.execute({ id: 'get-patient-notes', taskIds: [task.id] })).output as GetNotesOutput;
+  const getNotes = async (target: GetNotesInput = { taskIds: [task.id!] }): Promise<GetNotesOutput> =>
+    (await oystehrZambdas.zambda.execute({ id: 'get-patient-notes', ...target })).output as GetNotesOutput;
   const readNote = (id: string): Promise<Communication> =>
     oystehrAdmin.fhir.get<Communication>({ resourceType: 'Communication', id });
 
@@ -56,6 +64,24 @@ describe('task notes integration', () => {
         setup.processId
       )
     );
+    patient = await oystehrAdmin.fhir.create<Patient>(
+      tagged({ resourceType: 'Patient', name: [{ given: ['Integration'], family: 'PatientNotes' }] }, setup.processId)
+    );
+    const [system, code] = PATIENT_NOTE_TAG.split('|');
+    colleaguePatientNote = await oystehrAdmin.fhir.create<Communication>(
+      tagged(
+        {
+          resourceType: 'Communication',
+          status: 'completed',
+          meta: { tag: [{ system, code }] },
+          subject: { reference: `Patient/${patient.id}` },
+          sender: { reference: `Practitioner/${colleague.id}`, display: 'Lina Grace' },
+          sent: DateTime.utc().minus({ hours: 2 }).toISO()!,
+          payload: [{ contentString: 'Prefers afternoon calls' }],
+        },
+        setup.processId
+      )
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -63,6 +89,12 @@ describe('task notes integration', () => {
       () => (callerNoteId ? oystehrAdmin.fhir.delete({ resourceType: 'Communication', id: callerNoteId }) : undefined),
       () => oystehrAdmin.fhir.delete({ resourceType: 'Communication', id: colleagueNote.id! }),
       () => oystehrAdmin.fhir.delete({ resourceType: 'Task', id: task.id! }),
+      () =>
+        callerPatientNoteId
+          ? oystehrAdmin.fhir.delete({ resourceType: 'Communication', id: callerPatientNoteId })
+          : undefined,
+      () => oystehrAdmin.fhir.delete({ resourceType: 'Communication', id: colleaguePatientNote.id! }),
+      () => oystehrAdmin.fhir.delete({ resourceType: 'Patient', id: patient.id! }),
       () => oystehrAdmin.fhir.delete({ resourceType: 'Practitioner', id: colleague.id! }),
     ]) {
       try {
@@ -125,6 +157,70 @@ describe('task notes integration', () => {
     expect(after.extension?.filter((ext) => ext.url === NOTE_EDITOR_EXTENSION_URL)).toEqual([
       expect.objectContaining({ valueReference: expect.objectContaining({ reference: `Practitioner/${callerId}` }) }),
     ]);
+  });
+
+  it('creates, reloads, self-edits and deletes a patient note without changing its original authorship', async () => {
+    const created = await oystehrZambdas.zambda.execute({
+      id: 'create-patient-note',
+      note: { patientId: patient.id, text: 'Call in the morning' },
+    });
+    const original = (created.output as SaveNoteOutput).note;
+    callerPatientNoteId = original.resourceId;
+    expect(original).toMatchObject({ authorId: callerId, edited: false, editorNames: [] });
+    expect((await getNotes({ patientId: patient.id })).notes).toContainEqual(original);
+
+    for (const text of ['Call in the afternoon', 'Call after school']) {
+      const updated = await oystehrZambdas.zambda.execute({
+        id: 'update-patient-note',
+        note: { resourceId: callerPatientNoteId, patientId: patient.id, text },
+      });
+      const saved = (updated.output as SaveNoteOutput).note;
+      expect(saved).toMatchObject({
+        text,
+        authorId: original.authorId,
+        authorName: original.authorName,
+        sent: original.sent,
+        edited: true,
+        editorNames: [],
+      });
+      expect((await getNotes({ patientId: patient.id })).notes).toContainEqual(saved);
+      expect(await readNote(callerPatientNoteId!)).toMatchObject({
+        sender: { reference: `Practitioner/${callerId}`, display: original.authorName },
+        sent: original.sent,
+      });
+    }
+
+    await oystehrZambdas.zambda.execute({ id: 'delete-patient-note', resourceId: callerPatientNoteId });
+    expect((await readNote(callerPatientNoteId!)).status).toBe('entered-in-error');
+    expect((await getNotes({ patientId: patient.id })).notes.map((note) => note.resourceId)).not.toContain(
+      callerPatientNoteId
+    );
+  });
+
+  it('keeps a legacy patient note author and creation time when another staff member edits repeatedly', async () => {
+    const original = await readNote(colleaguePatientNote.id!);
+
+    for (const text of ['Prefers evening calls', 'Prefers calls on Monday']) {
+      const updated = await oystehrZambdas.zambda.execute({
+        id: 'update-patient-note',
+        note: { resourceId: original.id, patientId: patient.id, text },
+      });
+      const saved = (updated.output as SaveNoteOutput).note;
+      expect(saved).toMatchObject({
+        text,
+        authorId: colleague.id,
+        authorName: original.sender?.display,
+        sent: original.sent,
+        edited: true,
+      });
+      expect(saved.editorNames).toHaveLength(1);
+      expect((await getNotes({ patientId: patient.id })).notes).toContainEqual(saved);
+      const stored = await readNote(original.id!);
+      expect(stored).toMatchObject({ sender: original.sender, sent: original.sent, meta: { tag: original.meta?.tag } });
+      expect(stored.extension?.filter((extension) => extension.url === NOTE_EDITOR_EXTENSION_URL)).toEqual([
+        expect.objectContaining({ valueReference: expect.objectContaining({ reference: `Practitioner/${callerId}` }) }),
+      ]);
+    }
   });
 
   it("finds a new note with its task and the task's earlier notes, and leaves it out once marked notified", async () => {

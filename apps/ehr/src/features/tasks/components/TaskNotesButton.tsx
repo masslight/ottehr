@@ -23,7 +23,13 @@ export const TaskNotesButton: React.FC<TaskNotesButtonProps> = ({ task, notes, c
   const hasUnread = involved && notes.some((note) => note.isUnread);
 
   return (
-    <Badge variant="dot" color="warning" overlap="circular" invisible={!hasUnread}>
+    <Badge
+      variant="dot"
+      color="warning"
+      overlap="circular"
+      invisible={!hasUnread}
+      sx={{ '& .MuiBadge-badge': { width: '10px', height: '10px', borderRadius: '50%' } }}
+    >
       <GenericToolTip title="Internal Notes" placement="bottom">
         <IconButtonContained
           variant="primary"
