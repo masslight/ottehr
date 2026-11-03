@@ -318,6 +318,15 @@ export const maximumWarnings = (line: PrescriptionLine): MaximumWarning[] => {
   ];
 };
 
+/** A dose with no unit to write it in (a product whose dose form the search didn't give, a cream): the directions
+ * the blanks write read "Take 5 by mouth…". Not once the provider has typed directions of their own. */
+export const lineMissingDoseUnit = (line: PrescriptionLine): boolean =>
+  !line.compound &&
+  line.medication !== null &&
+  [line.dose, ...line.steps.map((step) => step.dose)].some((dose) => numberOrUndefined(dose) !== undefined) &&
+  prescriptionDoseUnit(line.medication) === undefined &&
+  line.patientInstructions === line.generated.patientInstructions;
+
 /** What the warning's ⓘ says the maximum is from. */
 export const maximumOriginText = (from: MaximumOrigin): string =>
   from === 'calculator' ? 'From the dose calculator' : `From the quick pick: ${from.quickPick}`;

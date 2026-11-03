@@ -11,6 +11,7 @@ import {
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
 import {
+  NO_DOSE_UNIT_WARNING,
   PrescriptionSentences,
   SAVE_QUICK_PICK_LABEL,
 } from '../../src/features/visits/in-person/components/erx/PrescriptionSentences';
@@ -686,6 +687,19 @@ describe('PrescriptionSentences: the dose', () => {
     // A dose typed over it is the provider's: the note goes.
     await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '2');
     expect(screen.queryByRole('img', { name: 'dose re-measured' })).not.toBeInTheDocument();
+  });
+
+  it('warns under the sentence when the product gives the dose no unit, until the directions are typed over', async () => {
+    const user = userEvent.setup();
+    // As the search returns a product without its dose form: nothing to write "5" in.
+    const bare = { name: 'Amoxicillin', strengths: [{ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }] };
+    render(<Harness initial={withProduct(emptyPrescriptionLine(), bare, bare.strengths[0])} />);
+    expect(screen.queryByTestId('line-dose-no-unit')).not.toBeInTheDocument();
+    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '5');
+    expect(screen.getByTestId('line-dose-no-unit')).toHaveTextContent(NO_DOSE_UNIT_WARNING);
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take 5.');
+    await user.type(screen.getByRole('textbox', { name: 'directions' }), ' mL');
+    expect(screen.queryByTestId('line-dose-no-unit')).not.toBeInTheDocument();
   });
 });
 

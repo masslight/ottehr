@@ -9,6 +9,7 @@ import {
   compoundToOrder,
   emptyPrescriptionLine,
   ingredientText,
+  lineMissingDoseUnit,
   maximumWarnings,
   mgPerMeasure,
   pickedStrength,
@@ -845,6 +846,37 @@ describe('maximumWarnings', () => {
     const typed = withCalculatorDosing(line, { dose: '10' }, 28.12);
     expect(typed.dosing).toBeUndefined();
     expect(typed.maximum).toEqual(line.maximum);
+  });
+});
+
+describe('lineMissingDoseUnit', () => {
+  // A product the search gave no dose form for: no unit for the directions to write the dose in.
+  const bare = { name: 'Amoxicillin', strengths: [{ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }] };
+  const bareLine = (): PrescriptionLine => withProduct(emptyPrescriptionLine(), bare, bare.strengths[0]);
+
+  it('is true for a dose on a product without a dose unit while the directions are the blanks’ own', () => {
+    const line = withDirections(bareLine(), { dose: '5', frequency: 'twice daily' });
+    expect(line.patientInstructions).toBe('Take 5 twice daily.');
+    expect(lineMissingDoseUnit(line)).toBe(true);
+  });
+
+  it('is true for a taper whose dose is only in a later step', () => {
+    const line = withDirections(bareLine(), {
+      frequency: 'twice daily',
+      durationDays: '3',
+      steps: [{ dose: '5', frequency: 'twice daily', durationDays: '3' }],
+    });
+    expect(line.patientInstructions).toMatch(/then 5 twice daily/);
+    expect(lineMissingDoseUnit(line)).toBe(true);
+  });
+
+  it('is false with a dose unit, typed directions, a compound or no dose', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]);
+    expect(lineMissingDoseUnit(withDirections(liquid, { dose: '5', frequency: 'twice daily' }))).toBe(false);
+    const typed = withDirections(bareLine(), { dose: '5', frequency: 'twice daily' });
+    expect(lineMissingDoseUnit({ ...typed, patientInstructions: 'Take 5 mL twice daily.' })).toBe(false);
+    expect(lineMissingDoseUnit({ ...withCompound(emptyPrescriptionLine(), {}), dose: '5' })).toBe(false);
+    expect(lineMissingDoseUnit(bareLine())).toBe(false);
   });
 });
 

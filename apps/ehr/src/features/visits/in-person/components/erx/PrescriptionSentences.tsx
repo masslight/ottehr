@@ -63,6 +63,7 @@ import {
   DoseNote,
   emptyCompoundIngredient,
   emptyPrescriptionStep,
+  lineMissingDoseUnit,
   maximumOriginText,
   maximumWarnings,
   pickedStrength,
@@ -94,6 +95,9 @@ const SUBSTITUTION_OPTIONS = [
 export const SAVE_QUICK_PICK_LABEL = 'Save as quick pick';
 
 const SEARCH_UNAVAILABLE = 'Medication search is unavailable.';
+
+/** Under the dose sentence while the blanks write a dose with no unit ("Take 5 by mouth…"). */
+export const NO_DOSE_UNIT_WARNING = 'No dose unit for this medication: add the unit to the directions.';
 
 /** The small "×" after a part of the sentence that takes it away. */
 const RemoveButton: FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
@@ -1312,6 +1316,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               </Sentence>
             )}
             {capNote && <DoseWarningBoxes warnings={[capNote]} info={[]} testId="line-dose-cap" />}
+            {/* A dose the directions can't give a unit to: orange like the others; never blocks. */}
+            {lineMissingDoseUnit(line) && (
+              <DoseWarningBoxes warnings={[NO_DOSE_UNIT_WARNING]} info={[]} testId="line-dose-no-unit" />
+            )}
             <DoseWarningBoxes warnings={warnings.map((warning) => warning.text)} info={warningInfo} />
             {line.steps.map((step, i) => (
               <Sentence
