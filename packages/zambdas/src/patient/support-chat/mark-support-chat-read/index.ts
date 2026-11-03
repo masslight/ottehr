@@ -4,7 +4,7 @@ import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../../sha
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { clearTasksUnread } from '../../../shared/support-chat/request-task';
-import { markThreadRead, resolveThread, searchThread } from '../../../shared/support-chat/thread';
+import { markThreadRead, resolveThread, searchUnread } from '../../../shared/support-chat/thread';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 
@@ -22,9 +22,9 @@ export const index = wrapHandler(
     const { threadId, viewer } = await resolveThread(user, taskId, oystehr);
 
     if (threadId) {
-      await markThreadRead(oystehr, await searchThread(oystehr, threadId), viewer);
-
       if (viewer === 'staff') await clearTasksUnread(oystehr, threadId);
+
+      await markThreadRead(oystehr, await searchUnread(oystehr, threadId), viewer);
     }
 
     return { statusCode: 200, body: JSON.stringify({}) };

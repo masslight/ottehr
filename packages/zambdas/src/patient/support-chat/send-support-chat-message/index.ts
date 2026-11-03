@@ -4,6 +4,8 @@ import { randomUUID } from 'crypto';
 import { Communication, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getAccountForUser, UserAccount } from 'utils/lib/auth/user-auth.helper';
+import { TASK_LOCATION_SYSTEM } from 'utils/lib/fhir/constants';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { SendSupportChatMessageInputSchema } from 'utils/lib/types/api/support-chat.types';
@@ -110,16 +112,23 @@ export const index = wrapHandler(
       taskReference = `Task/${taskId}`;
       patientId = visit.patient.id;
 
+      const keptTags = (task.meta?.tag ?? []).filter((tag) => tag.system !== TASK_LOCATION_SYSTEM);
+
+      const addedTags = (next.meta?.tag ?? []).filter(
+        (tag) => !keptTags.some((kept) => kept.system === tag.system && kept.code === tag.code)
+      );
+
       requests.push({
         method: 'PUT',
         url: taskReference,
+        ifMatch: makeOptimisticLockIfMatchHeader(task),
         resource: {
           ...task,
           description: next.description,
           encounter: next.encounter,
           location: next.location,
           input: next.input,
-          meta: { ...task.meta, tag: next.meta?.tag },
+          meta: { ...task.meta, tag: [...keptTags, ...addedTags] },
         },
       });
     } else if (step.task?.type === 'attach' && openTask) {
@@ -131,6 +140,7 @@ export const index = wrapHandler(
           resourceType: 'Task',
           resourceId: openTask.id!,
           patchOperations: getAttachOperations(openTask, step.task.text),
+          ifMatch: makeOptimisticLockIfMatchHeader(openTask),
         })
       );
     }

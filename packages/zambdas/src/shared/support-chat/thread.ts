@@ -61,8 +61,9 @@ export async function resolveThread(
     if (taskId) throw NOT_AUTHORIZED;
 
     const account = await getAccountForUser(user, oystehr);
+    const isAvailable = isAccountReadyForChat(account);
 
-    return { threadId: account.person?.id, viewer: 'patient', isAvailable: isAccountReadyForChat(account) };
+    return { threadId: isAvailable ? account.person?.id : undefined, viewer: 'patient', isAvailable };
   }
 
   if (!taskId) throw INVALID_INPUT_ERROR('"taskId" is required');

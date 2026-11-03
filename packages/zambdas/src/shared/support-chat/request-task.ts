@@ -3,6 +3,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Location, Patient, Resource, Schedule, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_INPUT_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
@@ -152,15 +153,16 @@ export const getTaskPatientId = (task: Task): string | undefined =>
     ?.valueReference?.reference?.replace('Patient/', '');
 
 export async function clearTasksUnread(oystehr: Oystehr, threadId: string): Promise<void> {
-  const tasks = (
-    await oystehr.fhir.search<Task>({
+  const tasks = await getAllFhirSearchPages<Task>(
+    {
       resourceType: 'Task',
       params: [
         threadTagSearchParam(threadId),
         { name: '_tag', value: `${SUPPORT_CHAT_UNREAD_TAG.system}|${SUPPORT_CHAT_UNREAD_TAG.code}` },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 
   if (!tasks.length) return;
 

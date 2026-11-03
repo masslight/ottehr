@@ -28,11 +28,13 @@ export const useTaskSupportChat = (task: Task): UseTaskSupportChat => {
   const messages = useMemo(() => data?.messages ?? [], [data]);
   const unreadId = messages.find((message) => message.author === 'patient' && !message.isRead)?.id;
 
+  const isLoaded = data !== undefined;
+
   useEffect(() => {
-    if (!unreadId && !task.chat?.hasUnread) return;
+    if (!isLoaded || (!unreadId && !task.chat?.hasUnread)) return;
     setFirstUnreadId((current) => current ?? unreadId);
     markRead();
-  }, [unreadId, task.chat?.hasUnread, markRead]);
+  }, [isLoaded, unreadId, task.chat?.hasUnread, markRead]);
 
   const complete = async (text: string): Promise<void> => {
     if (text) await sendReply(text);
