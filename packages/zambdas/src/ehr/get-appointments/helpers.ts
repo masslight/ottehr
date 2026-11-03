@@ -242,10 +242,6 @@ export const getAppointmentQueryInput = async (input: {
         value: 'Person:link',
       },
       {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
         name: '_include',
         value: 'Appointment:location',
       },
