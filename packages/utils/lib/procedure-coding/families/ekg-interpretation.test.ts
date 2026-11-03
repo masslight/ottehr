@@ -311,6 +311,31 @@ describe('suggested interpretations', () => {
       );
     });
 
+    it('uses the configured axis-deviation default independently of the template id', () => {
+      const index = EKG_TEMPLATES.findIndex((template) => template.id === 'normal');
+      const original = EKG_TEMPLATES[index];
+      EKG_TEMPLATES[index] = {
+        ...original,
+        id: 'custom-read',
+        blanks: {
+          ...original.blanks,
+          impression: {
+            title: 'Impression',
+            options: ['normal EKG', 'borderline EKG'],
+            initial: { axisDeviation: 'borderline EKG' },
+          },
+        },
+      };
+      try {
+        const [row] = suggestEkgInterpretations({ rate: 72, qt: 380, axis: -45 }, false);
+        expect(row.id).toBe('custom-read');
+        expect(text(row)).toContain('Impression: borderline EKG.');
+        expect(ekgSuggestionPicks(row, []).impression).toBe('borderline EKG');
+      } finally {
+        EKG_TEMPLATES[index] = original;
+      }
+    });
+
     it('fills the axis the row shows, so applying it leaves nothing to reconcile, and a picked word wins', () => {
       const measured = { ...facts, axisDegrees: -45 };
       const [top] = suggestEkgInterpretations(ekgMeasurements(measured), false);

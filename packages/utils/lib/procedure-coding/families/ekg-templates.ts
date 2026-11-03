@@ -21,6 +21,7 @@ export const EKG_AXIS_LABELS: Record<EkgAxis, string> = {
 };
 
 export const EKG_AXIS_RANGE = { min: -180, max: 180 };
+export const EKG_AXIS_LIMITS = { extreme: -90, left: -30, right: 90 };
 
 export const EKG_CONDUCTION = [
   'normal',
@@ -82,6 +83,7 @@ export const EKG_NORMAL_READ: EkgInterpretation = {
 };
 
 export type EkgFinding = 'slow' | 'fast' | 'longPr' | 'wideQrs' | 'longQtc';
+export type EkgTemplateCondition = EkgFinding | 'axisDeviation';
 
 export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }> = {
   slow: { limit: 60, reason: 'rate {rate} is below {limit}' },
@@ -94,7 +96,7 @@ export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }>
 export interface EkgTemplateBlank {
   title: string;
   options: string[];
-  initial?: Partial<Record<EkgFinding, string>>;
+  initial?: Partial<Record<EkgTemplateCondition, string>>;
   fieldValue?: Record<string, string>;
 }
 
@@ -128,6 +130,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
       impression: {
         title: IMPRESSION,
         options: ['normal EKG', 'otherwise normal EKG'],
+        initial: { axisDeviation: 'otherwise normal EKG' },
       },
     },
     rank: 2,

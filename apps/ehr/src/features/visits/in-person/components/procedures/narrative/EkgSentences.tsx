@@ -79,6 +79,7 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
             key={key}
             sx={{
               display: 'grid',
+              minWidth: 0,
               p: '8px 14px',
               borderRight: `1px solid ${TILE_LINE}`,
               '&:last-child': { borderRight: 0 },
@@ -96,7 +97,7 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
             >
               {label}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: degrees ? 0 : '2px' }}>
+            <Box sx={{ display: 'flex', minWidth: 0, alignItems: 'baseline', gap: degrees ? 0 : '2px' }}>
               {readOnly ? (
                 <Typography sx={{ fontSize: 20, fontWeight: 500 }}>{value ?? '—'}</Typography>
               ) : (
@@ -109,16 +110,19 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                   onBlur={degrees ? () => setAxisDraft(undefined) : undefined}
                   inputProps={{
                     'aria-label': `${label} (${unit})`,
-                    inputMode: 'numeric',
+                    inputMode: degrees ? 'text' : 'numeric',
                     ...(degrees ? EKG_AXIS_RANGE : { min: 0 }),
                     step: 1,
                     autoComplete: 'off',
                   }}
                   sx={(theme) => ({
+                    minWidth: degrees ? 0 : undefined,
+                    maxWidth: degrees ? '100%' : undefined,
                     '& input': {
                       font: `500 20px ${theme.typography.fontFamily}`,
                       fontVariantNumeric: 'tabular-nums',
                       width: degrees ? `${Math.max(axisText.length + 1, 2)}ch` : '3.2em',
+                      maxWidth: degrees ? '100%' : undefined,
                       height: 'auto',
                       padding: 0,
                       '&::placeholder': { color: 'rgba(0, 0, 0, 0.35)', fontWeight: 400, opacity: 1 },
@@ -138,7 +142,12 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                 component="span"
                 sx={
                   degrees
-                    ? { fontSize: 20, fontWeight: 500, color: value === undefined ? 'text.secondary' : 'text.primary' }
+                    ? {
+                        fontSize: 20,
+                        fontWeight: 500,
+                        flexShrink: 0,
+                        color: value === undefined ? 'text.secondary' : 'text.primary',
+                      }
                     : { fontSize: 12, color: 'text.secondary' }
                 }
               >

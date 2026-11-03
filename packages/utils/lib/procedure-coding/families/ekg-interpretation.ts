@@ -2,6 +2,7 @@ import { isSentenceBlank, parseTemplate, SentenceBlank, SentenceSegment } from '
 import { readNumber, readStrings, StructuredFacts } from '../structured-fields';
 import {
   EKG_AXIS_LABELS,
+  EKG_AXIS_LIMITS,
   EKG_AXIS_RANGE,
   EKG_FINDINGS,
   EKG_NORMAL_READ,
@@ -11,6 +12,7 @@ import {
   EkgInterpretation,
   EkgTemplate,
   EkgTemplateBlank,
+  EkgTemplateCondition,
 } from './ekg-templates';
 
 export const QTC_METHODS = ['Bazett', 'Fridericia', 'manual'] as const;
@@ -83,9 +85,9 @@ export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
 export function ekgAxis(axis: number | undefined): EkgAxis | undefined {
   if (axis === undefined || !Number.isFinite(axis) || axis < EKG_AXIS_RANGE.min || axis > EKG_AXIS_RANGE.max)
     return undefined;
-  if (axis < -90 || axis === EKG_AXIS_RANGE.max) return 'indeterminate';
-  if (axis < -30) return 'left axis deviation';
-  if (axis > 90) return 'right axis deviation';
+  if (axis < EKG_AXIS_LIMITS.extreme || axis === EKG_AXIS_RANGE.max) return 'indeterminate';
+  if (axis < EKG_AXIS_LIMITS.left) return 'left axis deviation';
+  if (axis > EKG_AXIS_LIMITS.right) return 'right axis deviation';
   return 'normal';
 }
 
@@ -121,8 +123,8 @@ const lowerFirst = (word: string): string => word.charAt(0).toLowerCase() + word
 const fieldValueOf = (blank: Pick<EkgTemplateBlank, 'fieldValue'>, word: string): string =>
   blank.fieldValue?.[word] ?? lowerFirst(word);
 
-const wordForFindings = (blank: EkgTemplateBlank, found: EkgFinding[]): string | undefined =>
-  found.map((finding) => blank.initial?.[finding]).find((word) => word !== undefined);
+const wordForConditions = (blank: EkgTemplateBlank, conditions: EkgTemplateCondition[]): string | undefined =>
+  conditions.map((condition) => blank.initial?.[condition]).find((word) => word !== undefined);
 
 function templateSegments(
   template: EkgTemplate,
@@ -130,6 +132,7 @@ function templateSegments(
   found: EkgFinding[],
   axis: EkgAxis | undefined
 ): SentenceSegment[] {
+  const conditions: EkgTemplateCondition[] = axis && axis !== 'normal' ? [...found, 'axisDeviation'] : found;
   return parseTemplate(template.text, (name) => {
     const blank = template.blanks?.[name];
     if (blank) {
@@ -138,11 +141,7 @@ function templateSegments(
         title: blank.title,
         options: blank.options,
         initial:
-          name === 'axis' && axis
-            ? EKG_AXIS_LABELS[axis]
-            : name === 'impression' && template.id === 'normal' && axis && axis !== 'normal'
-            ? 'otherwise normal EKG'
-            : wordForFindings(blank, found) ?? blank.options[0],
+          name === 'axis' && axis ? EKG_AXIS_LABELS[axis] : wordForConditions(blank, conditions) ?? blank.options[0],
         fieldValue: blank.fieldValue,
       };
       return segment;

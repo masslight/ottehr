@@ -595,7 +595,9 @@ export const TextBlank: FC<TextBlankProps> = ({
         title: placeholder === label ? undefined : label,
         // Chrome's form-history dropdown would look like an app popover inside a sentence.
         autoComplete: 'off',
-        ...(kind === 'number' ? { min, max, step: step ?? 1, inputMode: 'decimal' } : {}),
+        ...(kind === 'number'
+          ? { min, max, step: step ?? 1, inputMode: min !== undefined && min < 0 ? 'text' : 'decimal' }
+          : {}),
       }}
       sx={(theme) => {
         const inline = inlineInputSx(theme, text === '', need ?? false);

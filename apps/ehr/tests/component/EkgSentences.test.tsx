@@ -256,6 +256,8 @@ describe('EKG sentences', () => {
     const initial = { rate: 72, qt: 380, axis: 'left axis deviation', impression: 'otherwise normal EKG' };
     render(<Form initial={initial} />);
     const input = screen.getByRole('spinbutton', { name: 'Axis (°)' });
+    expect(input).toHaveAttribute('inputmode', 'text');
+    expect(screen.getByRole('spinbutton', { name: 'Rate (bpm)' })).toHaveAttribute('inputmode', 'numeric');
 
     for (const axisDegrees of [-180, 0, 110]) {
       await typeNumbers(user, { 'Axis (°)': axisDegrees });

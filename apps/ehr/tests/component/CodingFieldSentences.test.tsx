@@ -81,6 +81,7 @@ describe('coding field sentences', () => {
     const user = userEvent.setup();
     render(<Form family={ekgFamily} />);
     const axis = screen.getByRole('spinbutton', { name: 'axis (°)' });
+    expect(axis).toHaveAttribute('inputmode', 'text');
 
     for (const [value, valid] of [
       [181, false],
@@ -96,6 +97,7 @@ describe('coding field sentences', () => {
     }
 
     const rate = screen.getByRole('spinbutton', { name: 'rate (bpm)' });
+    expect(rate).toHaveAttribute('inputmode', 'decimal');
     await user.type(rate, '200');
     expect(rate).toBeValid();
     expect(rate).not.toHaveAttribute('max');
