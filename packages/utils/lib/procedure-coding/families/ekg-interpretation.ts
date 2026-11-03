@@ -1,6 +1,7 @@
 import { isSentenceBlank, parseTemplate, SentenceBlank, SentenceSegment } from '../../helpers/suggested-sentences';
 import { readNumber, readStrings, StructuredFacts } from '../structured-fields';
 import {
+  EKG_AXIS_LIMITS,
   EKG_FINDINGS,
   EKG_NORMAL_READ,
   EKG_TEMPLATES,
@@ -54,6 +55,8 @@ export const ekgMeasurements = (facts: StructuredFacts): EkgMeasurements => ({
 
 export const EKG_MEASUREMENT_KEYS = ['rate', 'pr', 'qrs', 'qt', 'qtc', 'qtcMethod', 'axisDegrees'];
 
+const signedDegrees = (degrees: number): string => `${degrees > 0 ? '+' : ''}${degrees}°`;
+
 export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
   const { rate, pr, qrs, qt, qtc } = ekgMeasurements(facts);
   const axis = readNumber(facts, 'axisDegrees');
@@ -69,7 +72,7 @@ export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
       : qtc !== undefined
       ? [`QTc ${qtc} ms${method}`]
       : []),
-    ...(axis === undefined ? [] : [`axis ${axis > 0 ? '+' : ''}${axis}°`]),
+    ...(axis === undefined ? [] : [`axis ${signedDegrees(axis)}`]),
   ];
   return parts.length ? `${parts.join(', ')}.` : undefined;
 }
@@ -82,6 +85,14 @@ export function ekgFindings({ rate, pr, qrs, qtc }: EkgMeasurements): EkgFinding
   if (qrs !== undefined && qrs >= EKG_FINDINGS.wideQrs.limit) found.push('wideQrs');
   if (qtc !== undefined && qtc > EKG_FINDINGS.longQtc.limit) found.push('longQtc');
   return found;
+}
+
+function ekgAxisDeviation(axis: number | undefined): string | undefined {
+  if (axis === undefined) return undefined;
+  const { normal, deviation } = EKG_AXIS_LIMITS;
+  if (axis >= deviation.min && axis < normal.min) return 'left axis deviation';
+  if (axis > normal.max && axis <= deviation.max) return 'right axis deviation';
+  return undefined;
 }
 
 export interface EkgSuggestionBlank extends SentenceBlank, Pick<EkgTemplateBlank, 'fieldValue'> {
@@ -215,6 +226,22 @@ export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
       reminders.push({
         message: `A QTc of ${numbers.qtc} ms is prolonged; Intervals says "normal".`,
         fixes: [{ label: 'Add prolonged QTc', apply: withFinding('prolonged QTc') }],
+      });
+  }
+  const axis = readNumber(facts, 'axisDegrees');
+  const axisDeviation = ekgAxisDeviation(axis);
+  if (axis !== undefined && axisDeviation) {
+    findings.push(axisDeviation);
+    const conflict =
+      facts.axis === 'normal'
+        ? 'Axis says "normal"'
+        : facts.axis === undefined && facts.impression === 'normal EKG'
+        ? 'Impression says "normal EKG"'
+        : undefined;
+    if (conflict)
+      reminders.push({
+        message: `An axis of ${signedDegrees(axis)} is ${axisDeviation}; ${conflict}.`,
+        fixes: [{ label: `Set axis to ${axisDeviation}`, apply: { axis: axisDeviation } }],
       });
   }
   if (findings.length && facts.impression === 'normal EKG')

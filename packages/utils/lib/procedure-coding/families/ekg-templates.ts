@@ -81,6 +81,8 @@ export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }>
   longQtc: { limit: 450, reason: 'QTc {qtc} ms is above {limit}' },
 };
 
+export const EKG_AXIS_LIMITS = { normal: { min: -30, max: 90 }, deviation: { min: -90, max: 180 } };
+
 export interface EkgTemplateBlank {
   title: string;
   options: string[];
