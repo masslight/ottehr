@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import { ListBillingPatientAccountPaymentsInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPatientAccountPayment,
@@ -109,28 +110,19 @@ export const listAccountPayments = async (params: {
           uncappedCardPayments: true,
         });
         const claim = claimForPayments(claimsByEncounter.get(encounterId) ?? [], notices);
-        return dtos.map((dto) => {
-          const notice = notices.find((candidate) => candidate.id === dto.fhirPaymentNotificationId);
-          const reconciliation = notice?.contained?.find(
-            (resource) => resource.resourceType === 'PaymentReconciliation'
-          );
-          return {
-            recordedISO: dto.dateISO,
-            payment: {
-              ...dto,
-              dateISO:
-                notice?.paymentDate ??
-                (reconciliation?.resourceType === 'PaymentReconciliation' ? reconciliation.paymentDate : undefined) ??
-                dto.dateISO,
-              method: methodOf(dto, notices),
-              encounterId,
-              appointmentId: visit.appointmentId,
-              visitDateISO: visit.visitDateISO,
-              claimId: claim?.id,
-              claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
-            },
-          };
-        });
+        return dtos.map((dto) => ({
+          recordedISO: dto.dateISO,
+          payment: {
+            ...dto,
+            dateISO: notices.find((notice) => notice.id === dto.fhirPaymentNotificationId)?.paymentDate ?? dto.dateISO,
+            method: methodOf(dto, notices),
+            encounterId,
+            appointmentId: visit.appointmentId,
+            visitDateISO: visit.visitDateISO,
+            claimId: claim?.id,
+            claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
+          },
+        }));
       })
     );
     payments.push(...batch.flat());
@@ -147,7 +139,11 @@ export const listAccountPayments = async (params: {
     .map(({ payment }) => payment);
 };
 
-const paymentDayOf = (iso: string): string => DateTime.fromISO(iso, { zone: 'utc' }).toISODate() ?? iso;
+// a manual paymentDate is already the practice's local day; a timestamp is placed on the day it fell in there
+const paymentDayOf = (iso: string): string =>
+  DATE_ONLY.test(iso) ? iso : DateTime.fromISO(iso).setZone(TIMEZONES[0]).toISODate() ?? iso;
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 // the claim the billing notices were reconciled to, else the encounter's only claim
 const claimForPayments = (claims: Claim[], notices: PaymentNotice[]): Claim | undefined => {

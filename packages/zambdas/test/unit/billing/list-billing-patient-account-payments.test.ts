@@ -178,6 +178,30 @@ describe('listAccountPayments', () => {
     ]);
   });
 
+  it("places a timestamped payment on the practice's local day, not the UTC one", async () => {
+    givenVisits([visit('enc-1')]);
+    givenBillingNotices({
+      'enc-1': [
+        // recorded two days later, backdated to Oct 5
+        notice('pn-manual-backdated', { paymentDate: '2026-10-05' }),
+        // 9pm Eastern on Oct 5, already Oct 6 in UTC
+        notice('pn-card-reader-evening'),
+      ],
+    });
+    vi.mocked(listEncounterPayments).mockResolvedValue([
+      payment('pn-card-reader-evening', '2026-10-06T01:00:00.000Z', { paymentMethod: 'card-reader' }),
+      payment('pn-manual-backdated', '2026-10-07T10:00:00.000Z'),
+    ]);
+
+    const payments = await list(searchClient({}));
+
+    // both fall on Oct 5, so the later-recorded one comes first
+    expect(payments.map((p) => [p.fhirPaymentNotificationId, p.dateISO])).toEqual([
+      ['pn-manual-backdated', '2026-10-05'],
+      ['pn-card-reader-evening', '2026-10-06T01:00:00.000Z'],
+    ]);
+  });
+
   it('returns nothing without looking up payments when the patient has no visits', async () => {
     givenVisits([]);
 
