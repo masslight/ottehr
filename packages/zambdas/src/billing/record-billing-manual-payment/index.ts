@@ -6,8 +6,9 @@ import { TIMEZONES } from 'utils/lib/types/constants';
 import { RecordBillingManualPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingManualPaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- checks the clinical encounter exists before recording money against it
+// eslint-disable-next-line no-restricted-imports -- checks the clinical encounter exists and names the submitter
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
@@ -29,22 +30,23 @@ const complexValidation = async (
   params: RecordBillingManualPaymentParams,
   token: string
 ): Promise<ComplexValidationOutput> => {
+  // The billing client cannot see Encounters, so check the ID before recording money against it.
+  const clinicalOystehr = createClinicalOystehrClient(token, params.secrets);
+  await fetchById<Encounter>(clinicalOystehr, 'Encounter', params.encounterId);
+
   // TODO: Should every payment have a submitter?
   // For now we keep going if the caller has no profile or the lookup fails.
+  // The name is stamped on the reference so payment lists show who took it without a Practitioner lookup.
   let submitterRef: Reference | undefined;
   const authorization = input.headers?.Authorization;
   if (authorization) {
     try {
       const user = await getUser(authorization.replace('Bearer ', ''), params.secrets);
-      if (user.profile) submitterRef = { reference: user.profile };
+      if (user.profile) submitterRef = await practitionerRefForUser(user, clinicalOystehr);
     } catch (error) {
       console.log('could not resolve caller profile for submitter', error);
     }
   }
-
-  // The billing client cannot see Encounters, so check the ID before recording money against it.
-  const clinicalOystehr = createClinicalOystehrClient(token, params.secrets);
-  await fetchById<Encounter>(clinicalOystehr, 'Encounter', params.encounterId);
 
   return { ...params, submitterRef };
 };

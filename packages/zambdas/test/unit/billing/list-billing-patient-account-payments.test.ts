@@ -1,39 +1,36 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Claim, Encounter, PaymentNotice } from 'fhir/r4b';
+import { Claim, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
+import { PatientPaymentVisit } from 'utils/lib/types/api/patient-payment-visits.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../src/billing/patient-payments', async (importOriginal) => ({
+vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  fetchEncounterPaymentNotices: vi.fn(),
+  fetchPatientPaymentsByEncounterIds: vi.fn(),
 }));
 vi.mock('../../../src/billing/patient-payment-dtos', () => ({
-  getPaymentsForEncounter: vi.fn(),
+  listEncounterPayments: vi.fn(),
 }));
-vi.mock('../../../src/ehr/shared/harvest', () => ({
-  getAccountAndCoverageResourcesForPatient: vi.fn().mockResolvedValue({ account: { resourceType: 'Account' } }),
+vi.mock('../../../src/billing/ehr-payment-data', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getPatientPaymentVisits: vi.fn(),
 }));
 
+import { fetchPatientPaymentsByEncounterIds } from '../../../src/billing/claim-amounts';
+import { getPatientPaymentVisits } from '../../../src/billing/ehr-payment-data';
 import { listAccountPayments } from '../../../src/billing/list-billing-patient-account-payments';
-import { getPaymentsForEncounter } from '../../../src/billing/patient-payment-dtos';
-import { fetchEncounterPaymentNotices } from '../../../src/billing/patient-payments';
+import { listEncounterPayments } from '../../../src/billing/patient-payment-dtos';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 
-const encounter = (id: string, appointmentId?: string, start?: string): Encounter =>
-  ({
-    resourceType: 'Encounter',
-    id,
-    status: 'finished',
-    ...(appointmentId ? { appointment: [{ reference: `Appointment/${appointmentId}` }] } : {}),
-    ...(start ? { period: { start } } : {}),
-  }) as Encounter;
-
-const appointment = (id: string, start: string): Appointment =>
-  ({ resourceType: 'Appointment', id, status: 'fulfilled', start, participant: [] }) as Appointment;
+const visit = (encounterId: string, extra: Partial<PatientPaymentVisit> = {}): PatientPaymentVisit => ({
+  encounterId,
+  legacyPaymentNotices: [],
+  ...extra,
+});
 
 const claim = (id: string, encounterId: string, serviceDate: string): Claim =>
   ({
@@ -72,13 +69,16 @@ const searchClient = (byType: Record<string, unknown[]>): Oystehr =>
     },
   }) as unknown as Oystehr;
 
-const list = (clinicalOystehr: Oystehr, billingOystehr: Oystehr): ReturnType<typeof listAccountPayments> =>
-  listAccountPayments({
-    clinicalOystehr,
-    billingOystehr,
-    clinicalPatientId: 'patient-1',
-    stripeClient: {} as Stripe,
-  });
+const list = (billingOystehr: Oystehr): ReturnType<typeof listAccountPayments> =>
+  listAccountPayments({ billingOystehr, clinicalPatientId: 'patient-1', stripeClient: {} as Stripe });
+
+const givenVisits = (visits: PatientPaymentVisit[]): void => {
+  vi.mocked(getPatientPaymentVisits).mockResolvedValue({ visits, stripeCustomers: [] });
+};
+
+const givenBillingNotices = (byEncounter: Record<string, PaymentNotice[]>): void => {
+  vi.mocked(fetchPatientPaymentsByEncounterIds).mockResolvedValue(new Map(Object.entries(byEncounter)));
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -86,45 +86,32 @@ beforeEach(() => {
 
 describe('listAccountPayments', () => {
   it('lists payments across visits newest first, with their visit, claim and method', async () => {
-    const clinicalOystehr = searchClient({
-      // _include brings the appointments back alongside the encounters
-      Encounter: [
-        encounter('enc-1', 'appt-1'),
-        encounter('enc-2', undefined, '2026-09-01T10:00:00.000Z'),
-        encounter('enc-unpaid', 'appt-3'),
-        appointment('appt-1', '2026-10-01T14:00:00.000Z'),
+    givenVisits([
+      visit('enc-1', { appointmentId: 'appt-1', visitDateISO: '2026-10-01T14:00:00.000Z' }),
+      // an EHR payment recorded before payments moved to billing, on a visit with no appointment
+      visit('enc-2', { visitDateISO: '2026-09-01T10:00:00.000Z', legacyPaymentNotices: [notice('pn-cash')] }),
+      visit('enc-unpaid', { appointmentId: 'appt-3' }),
+    ]);
+    givenBillingNotices({
+      'enc-1': [
+        notice('pn-card', { request: { reference: 'Claim/claim-1' } }),
+        // a charge that settled a Stripe invoice
+        notice('pn-invoice', {
+          identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+          contained: [
+            {
+              resourceType: 'PaymentReconciliation',
+              status: 'active',
+              created: '',
+              paymentDate: '',
+              paymentAmount: { value: 1 },
+              disposition: 'Stripe charge ch_1 succeeded for invoice in_123',
+            },
+          ],
+        }),
       ],
     });
-    const billingOystehr = searchClient({
-      Claim: [claim('claim-1', 'enc-1', '2026-10-01')],
-    });
-    vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
-      new Map([
-        [
-          'enc-1',
-          [
-            notice('pn-card', { request: { reference: 'Claim/claim-1' } }),
-            // a charge that settled a Stripe invoice
-            notice('pn-invoice', {
-              identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
-              contained: [
-                {
-                  resourceType: 'PaymentReconciliation',
-                  status: 'active',
-                  created: '',
-                  paymentDate: '',
-                  paymentAmount: { value: 1 },
-                  disposition: 'Stripe charge ch_1 succeeded for invoice in_123',
-                },
-              ],
-            }),
-          ],
-        ],
-        ['enc-2', [notice('pn-cash')]],
-        ['enc-unpaid', []],
-      ])
-    );
-    vi.mocked(getPaymentsForEncounter).mockImplementation(async ({ encounterId }) =>
+    vi.mocked(listEncounterPayments).mockImplementation(async ({ encounterId }) =>
       encounterId === 'enc-1'
         ? [
             payment('pn-card', '2026-10-01T15:00:00.000Z', { paymentMethod: 'card', cardLast4: '4242' }),
@@ -132,17 +119,18 @@ describe('listAccountPayments', () => {
           ]
         : [payment('pn-cash', '2026-09-01T11:00:00.000Z')]
     );
+    const billingOystehr = searchClient({ Claim: [claim('claim-1', 'enc-1', '2026-10-01')] });
 
-    const payments = await list(clinicalOystehr, billingOystehr);
+    const payments = await list(billingOystehr);
 
-    // only visits with payments are resolved against Stripe, with the notices already fetched
-    expect(
-      vi
-        .mocked(getPaymentsForEncounter)
-        .mock.calls.map(([input]) => input.encounterId)
-        .sort()
-    ).toEqual(['enc-1', 'enc-2']);
-    expect(vi.mocked(getPaymentsForEncounter).mock.calls[0][0].fhirPaymentNotices).toBeDefined();
+    // the visits come from the EHR for the clinical patient
+    expect(getPatientPaymentVisits).toHaveBeenCalledWith(billingOystehr, 'patient-1');
+    // only visits with payments are resolved against Stripe, with billing and EHR notices merged
+    const calls = vi.mocked(listEncounterPayments).mock.calls.map(([input]) => input);
+    expect(calls.map((input) => input.encounterId).sort()).toEqual(['enc-1', 'enc-2']);
+    expect(calls.find((input) => input.encounterId === 'enc-2')?.fhirPaymentNotices.map((n) => n.id)).toEqual([
+      'pn-cash',
+    ]);
 
     expect(payments.map((p) => p.fhirPaymentNotificationId)).toEqual(['pn-invoice', 'pn-card', 'pn-cash']);
     expect(payments[0]).toMatchObject({
@@ -166,26 +154,22 @@ describe('listAccountPayments', () => {
   });
 
   it("orders a manual payment's date-only paymentDate by its day, then by when it was recorded", async () => {
-    vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
-      new Map([
-        [
-          'enc-1',
-          [
-            notice('pn-manual-evening', { paymentDate: '2026-10-05' }),
-            notice('pn-stripe-morning'),
-            // recorded the next day, backdated to the day before
-            notice('pn-manual-backdated', { paymentDate: '2026-10-04' }),
-          ],
-        ],
-      ])
-    );
-    vi.mocked(getPaymentsForEncounter).mockResolvedValue([
+    givenVisits([visit('enc-1')]);
+    givenBillingNotices({
+      'enc-1': [
+        notice('pn-manual-evening', { paymentDate: '2026-10-05' }),
+        notice('pn-stripe-morning'),
+        // recorded the next day, backdated to the day before
+        notice('pn-manual-backdated', { paymentDate: '2026-10-04' }),
+      ],
+    });
+    vi.mocked(listEncounterPayments).mockResolvedValue([
       payment('pn-stripe-morning', '2026-10-05T09:00:00.000Z', { paymentMethod: 'card' }),
       payment('pn-manual-backdated', '2026-10-06T10:00:00.000Z'),
       payment('pn-manual-evening', '2026-10-05T18:00:00.000Z'),
     ]);
 
-    const payments = await list(searchClient({ Encounter: [encounter('enc-1')] }), searchClient({}));
+    const payments = await list(searchClient({}));
 
     expect(payments.map((p) => [p.fhirPaymentNotificationId, p.dateISO])).toEqual([
       ['pn-manual-evening', '2026-10-05'],
@@ -195,10 +179,12 @@ describe('listAccountPayments', () => {
   });
 
   it('returns nothing without looking up payments when the patient has no visits', async () => {
-    const payments = await list(searchClient({}), searchClient({}));
+    givenVisits([]);
+
+    const payments = await list(searchClient({}));
 
     expect(payments).toEqual([]);
-    expect(fetchEncounterPaymentNotices).not.toHaveBeenCalled();
-    expect(getPaymentsForEncounter).not.toHaveBeenCalled();
+    expect(fetchPatientPaymentsByEncounterIds).not.toHaveBeenCalled();
+    expect(listEncounterPayments).not.toHaveBeenCalled();
   });
 });
