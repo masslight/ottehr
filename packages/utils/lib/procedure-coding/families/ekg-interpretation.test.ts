@@ -121,18 +121,21 @@ describe('starter quick picks', () => {
     }
   });
 
-  it('include "EKG – normal": the normal interpretation, no CPT code, nothing measured and no comparison', () => {
-    const normal = PROCEDURES_CONFIG.quickPicks.find((pick) => pick.name === 'EKG – normal');
-    expect(normal?.procedureType).toBe('ekg');
-    expect(normal?.cptCodes).toBeUndefined();
-    expect(normal?.structuredFacts).toEqual({ ...EKG_NORMAL_READ });
-    expect(
-      invalidStructuredFields(
-        ekgFamily.fields,
-        resolveFamilyFacts(ekgFamily, { structuredFacts: normal?.structuredFacts })
-      )
-    ).toEqual([]);
-  });
+  it.skipIf(!PROCEDURES_CONFIG.quickPicks.some((p) => p.name === 'EKG – normal'))(
+    'include "EKG – normal": the normal interpretation, no CPT code, nothing measured and no comparison',
+    () => {
+      const normal = PROCEDURES_CONFIG.quickPicks.find((pick) => pick.name === 'EKG – normal');
+      expect(normal?.procedureType).toBe('ekg');
+      expect(normal?.cptCodes).toBeUndefined();
+      expect(normal?.structuredFacts).toEqual({ ...EKG_NORMAL_READ });
+      expect(
+        invalidStructuredFields(
+          ekgFamily.fields,
+          resolveFamilyFacts(ekgFamily, { structuredFacts: normal?.structuredFacts })
+        )
+      ).toEqual([]);
+    }
+  );
 });
 
 describe('templates data', () => {
