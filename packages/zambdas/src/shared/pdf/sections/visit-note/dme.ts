@@ -25,6 +25,7 @@ export const composeDmeOrders: DataComposer<{ dmeOrders?: DmeOrderDTO[] }, DmeOr
       order.billingCodes.length ? `HCPCS: ${order.billingCodes.map(formatDmeBillingCode).join('; ')}` : undefined,
       order.diagnoses.length ? `Dx: ${order.diagnoses.map((dx) => `${dx.code} ${dx.display}`).join('; ')}` : undefined,
       order.external && order.thirdParty?.name ? `Third party: ${order.thirdParty.name}` : undefined,
+      order.instructions?.trim() ? `Instructions: ${order.instructions.trim()}` : undefined,
     ].filter((line): line is string => !!line);
     return { itemName: order.itemName, lines };
   }),

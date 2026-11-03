@@ -3,7 +3,10 @@ import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { buildFollowupEncounterType, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
-import { SaveFreeFormEncounterOutput } from 'utils/lib/types/api/free-form-encounter.types';
+import {
+  DeleteFreeFormEncounterOutput,
+  SaveFreeFormEncounterOutput,
+} from 'utils/lib/types/api/free-form-encounter.types';
 import { PatientVisitListResponse } from 'utils/lib/types/api/patient-visit-history.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -120,6 +123,20 @@ describe('save-free-form-encounter integration', () => {
   const saveError = async (input: Record<string, unknown>): Promise<number | undefined> => {
     try {
       await save(input);
+      return undefined;
+    } catch (error: any) {
+      return error?.code;
+    }
+  };
+
+  const remove = async (input: Record<string, unknown>): Promise<DeleteFreeFormEncounterOutput> => {
+    const response = await oystehrProvider.zambda.execute({ id: 'delete-free-form-encounter', ...input });
+    return response.output as DeleteFreeFormEncounterOutput;
+  };
+
+  const removeError = async (input: Record<string, unknown>): Promise<number | undefined> => {
+    try {
+      await remove(input);
       return undefined;
     } catch (error: any) {
       return error?.code;
@@ -302,5 +319,40 @@ describe('save-free-form-encounter integration', () => {
     for (const noteId of noteIds) {
       expect(ids).not.toContain(noteId);
     }
+  });
+
+  it('deletes a note so it drops out of the visit history, accepts a repeat delete, and refuses later saves', async () => {
+    const created = await save({ patientId: base.patient.id, note: 'Called by mistake' });
+    await waitForHistory((output) => {
+      expect(output.freeFormEncounters.some((row) => row.encounterId === created.encounterId)).toBe(true);
+    });
+
+    expect(await remove({ patientId: base.patient.id, encounterId: created.encounterId })).toEqual({
+      encounterId: created.encounterId,
+    });
+    const stored = await oystehrAdmin.fhir.get<Encounter>({ resourceType: 'Encounter', id: created.encounterId });
+    expect(stored.status).toBe('entered-in-error');
+
+    await waitForHistory((output) => {
+      expect(output.freeFormEncounters.some((row) => row.encounterId === created.encounterId)).toBe(false);
+    });
+
+    expect(await removeError({ patientId: base.patient.id, encounterId: created.encounterId })).toBeUndefined();
+    expect(
+      await saveError({ patientId: base.patient.id, encounterId: created.encounterId, note: 'Edited after delete' })
+    ).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
+  });
+
+  it("rejects deleting a note on another patient's chart or a visit encounter", async () => {
+    const created = await save({ patientId: base.patient.id, note: 'Not deletable from another chart' });
+
+    expect(await removeError({ patientId: otherPatient.id, encounterId: created.encounterId })).toBe(
+      APIErrorCode.INVALID_INPUT
+    );
+    expect(await removeError({ patientId: base.patient.id, encounterId: base.encounter.id })).toBe(
+      APIErrorCode.INVALID_INPUT
+    );
+    const stored = await oystehrAdmin.fhir.get<Encounter>({ resourceType: 'Encounter', id: created.encounterId });
+    expect(stored.status).not.toBe('entered-in-error');
   });
 });

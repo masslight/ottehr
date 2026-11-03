@@ -14,6 +14,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { fetchErxPharmacies } from '../../shared/erx';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getEncounterDmeOrders } from '../../shared/pdf/assemble-progress-note-input';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
@@ -93,10 +94,11 @@ export const performEffect = async (
     encounter.id
   );
 
-  const [visitNote, medicationOrdersData, upcomingFollowUps] = await Promise.all([
+  const [visitNote, medicationOrdersData, upcomingFollowUps, dmeOrders] = await Promise.all([
     visitNotePromise,
     medicationOrdersPromise,
     upcomingFollowUpsPromise,
+    getEncounterDmeOrders(oystehr, encounter.id!),
   ]);
   // The discharge summary composers read the two whole-chart shapes; the adapter presents the note as both.
   const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, { module: 'in-person' });
@@ -115,6 +117,7 @@ export const performEffect = async (
       appointmentPackage: visitResources,
       upcomingFollowUps,
       erxPharmacies,
+      dmeOrders,
     },
     secrets,
     m2mToken

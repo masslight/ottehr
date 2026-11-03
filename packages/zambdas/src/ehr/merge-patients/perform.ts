@@ -38,6 +38,8 @@ import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
+  isAttorneyRelatedPerson,
+  isEmergencyContactRelatedPerson,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../shared/harvest';
@@ -508,21 +510,47 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     requests.push({ method: 'PUT', url: `/List/${listId}`, resource: list as FhirResource });
   }
 
-  const relatedPersons = (
-    await oystehr.fhir.search<RelatedPerson>({
-      resourceType: 'RelatedPerson',
-      params: [
-        { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-  const nonUserRelatedPersons = relatedPersons.filter(
-    (rp) =>
-      getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code !== 'user-relatedperson' &&
-      rp.id &&
-      !processedIds.has(`RelatedPerson/${rp.id}`)
+  const [relatedPersons, mainRelatedPersons] = await Promise.all(
+    [oldPatientRef, newPatientRef].map(async (patientRef) =>
+      (
+        await oystehr.fhir.search<RelatedPerson>({
+          resourceType: 'RelatedPerson',
+          params: [
+            { name: 'patient', value: patientRef },
+            { name: '_count', value: '1000' },
+          ],
+        })
+      ).unbundle()
+    )
   );
+  // The main patient keeps at most one emergency contact and one attorney (readers take the first found):
+  // the other patient's moves only when Step 1 left the main patient without one.
+  let mainHasEmergencyContact = mainRelatedPersons.some(isEmergencyContactRelatedPerson);
+  let mainHasAttorney = mainRelatedPersons.some(isAttorneyRelatedPerson);
+  const nonUserRelatedPersons = relatedPersons.filter((rp) => {
+    if (
+      getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson' ||
+      !rp.id ||
+      processedIds.has(`RelatedPerson/${rp.id}`)
+    ) {
+      return false;
+    }
+    if (isEmergencyContactRelatedPerson(rp)) {
+      if (mainHasEmergencyContact) {
+        console.log(`  Left emergency contact RelatedPerson/${rp.id} on ${oldPatientRef}: main patient has one`);
+        return false;
+      }
+      mainHasEmergencyContact = true;
+    }
+    if (isAttorneyRelatedPerson(rp)) {
+      if (mainHasAttorney) {
+        console.log(`  Left attorney RelatedPerson/${rp.id} on ${oldPatientRef}: main patient has one`);
+        return false;
+      }
+      mainHasAttorney = true;
+    }
+    return true;
+  });
   for (const rp of nonUserRelatedPersons) {
     processedIds.add(`RelatedPerson/${rp.id}`);
     rp.patient = { reference: newPatientRef };

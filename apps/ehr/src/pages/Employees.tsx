@@ -88,7 +88,24 @@ export interface EmployeesFilters {
   lastLoginFilterChecked: boolean;
   selectedRoles: RoleType[];
   selectedState: State | null;
+  selectedStatus: EmployeeStatusFilter;
 }
+
+type EmployeeStatusFilter = 'all' | 'active' | 'inactive';
+
+const STATUS_FILTER_OPTIONS: { value: EmployeeStatusFilter; label: string }[] = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
+
+const STATUS_BY_FILTER: Record<Exclude<EmployeeStatusFilter, 'all'>, EmployeeDetails['status']> = {
+  active: 'Active',
+  inactive: 'Deactivated',
+};
+
+const matchesStatusFilter = (employee: EmployeeDetails, status: EmployeeStatusFilter): boolean =>
+  status === 'all' || employee.status === STATUS_BY_FILTER[status];
 
 const getFiltersFromUrl = (searchParams: URLSearchParams): EmployeesFilters => {
   const stateValue = searchParams.get('state');
@@ -102,6 +119,7 @@ const getFiltersFromUrl = (searchParams: URLSearchParams): EmployeesFilters => {
       ? (searchParams.get('roles')!.split(',').filter(Boolean) as RoleType[])
       : DEFAULT_ROLE_FILTER,
     selectedState: stateValue ? AllStates.find((state) => state.value === stateValue) ?? null : null,
+    selectedStatus: STATUS_FILTER_OPTIONS.find((option) => option.value === searchParams.get('status'))?.value ?? 'all',
   };
 };
 
@@ -115,6 +133,7 @@ const writeFiltersToUrl = (params: URLSearchParams, filters: EmployeesFilters): 
   setOrDelete('name', filters.searchText || undefined);
   setOrDelete('hideStaleLogins', filters.lastLoginFilterChecked ? 'true' : undefined);
   setOrDelete('state', filters.selectedState?.value || undefined);
+  setOrDelete('status', filters.selectedStatus === 'all' ? undefined : filters.selectedStatus);
   setOrDelete(
     'roles',
     sameRoles(filters.selectedRoles, DEFAULT_ROLE_FILTER) ? undefined : filters.selectedRoles.join(',')
@@ -207,7 +226,7 @@ function EmployeesTable({
 }: EmployeesTableProps): ReactElement {
   const theme = useTheme();
   const canEditRoles = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
-  const { searchText, lastLoginFilterChecked, selectedRoles, selectedState } = filters;
+  const { searchText, lastLoginFilterChecked, selectedRoles, selectedState, selectedStatus } = filters;
 
   // The State filter only means something for roles that carry state licenses, so it appears with
   // them and is ignored when they're deselected.
@@ -234,7 +253,13 @@ function EmployeesTable({
           ? employee.licenses.some((license) => license.state === selectedState.value)
           : true;
 
-      return name.toLowerCase().includes(searchText.toLowerCase()) && roleFilter && stateFilter && lastLoginFilter;
+      return (
+        name.toLowerCase().includes(searchText.toLowerCase()) &&
+        roleFilter &&
+        stateFilter &&
+        matchesStatusFilter(employee, selectedStatus) &&
+        lastLoginFilter
+      );
     });
 
     // Surface pending-review users at the top while preserving existing order otherwise.
@@ -247,7 +272,7 @@ function EmployeesTable({
         return a.index - b.index;
       })
       .map(({ employee }) => employee);
-  }, [employees, searchText, selectedRoles, selectedState, showStateFilter, lastLoginFilterChecked]);
+  }, [employees, searchText, selectedRoles, selectedState, selectedStatus, showStateFilter, lastLoginFilterChecked]);
 
   // For pagination, only include the rows that are on the current page
   const pageEmployees: EmployeeDetails[] = React.useMemo(
@@ -297,6 +322,13 @@ function EmployeesTable({
     [onFiltersChange]
   );
 
+  const handleChangeStatusFilter = useCallback(
+    (value: EmployeeStatusFilter): void => {
+      onFiltersChange({ selectedStatus: value });
+    },
+    [onFiltersChange]
+  );
+
   const handleChangeLastLoginFilter = useCallback(
     (_event: any, value: boolean): void => {
       onFiltersChange({ lastLoginFilterChecked: value });
@@ -329,7 +361,7 @@ function EmployeesTable({
             hides the State filter — never resizes or repositions the controls around it. */}
         <Grid container direction="row" justifyContent="start" alignItems="center" spacing={2} sx={{ my: 1 }}>
           {/* Employee Name Search Box */}
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2}>
             <TextField
               id="outlined-basic"
               label="Name"
@@ -348,8 +380,11 @@ function EmployeesTable({
           </Grid>
           {/* States drop-down. The slot is held open when empty so the checkbox beside it stays put;
               on narrow screens it collapses instead, where an empty row would just be a gap. */}
-          <Grid item xs={12} md={3} sx={showStateFilter ? undefined : { display: { xs: 'none', md: 'block' } }}>
+          <Grid item xs={12} md={2} sx={showStateFilter ? undefined : { display: { xs: 'none', md: 'block' } }}>
             {showStateFilter && <StateSelect onChange={handleChangeStateSelect} selectedState={selectedState} />}
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <StatusSelect selectedStatus={selectedStatus} onChange={handleChangeStatusFilter} />
           </Grid>
           <Grid item xs={12} md={3}>
             <FormControlLabel
@@ -555,6 +590,32 @@ const roleLabel = (role: RoleType): string =>
  * keeps the row from reading as though something failed to load.
  */
 const formatRoles = (roles: RoleType[]): string => (roles.length > 0 ? roles.map(roleLabel).join(', ') : '-');
+
+interface StatusSelectProps {
+  selectedStatus: EmployeeStatusFilter;
+  onChange: (value: EmployeeStatusFilter) => void;
+}
+
+function StatusSelect({ selectedStatus, onChange }: StatusSelectProps): ReactElement {
+  return (
+    <FormControl fullWidth>
+      <InputLabel id="employees-status-filter-label">Status</InputLabel>
+      <Select
+        labelId="employees-status-filter-label"
+        label="Status"
+        value={selectedStatus}
+        inputProps={{ 'data-testid': dataTestIds.employeesPage.statusFilter }}
+        onChange={(event) => onChange(event.target.value as EmployeeStatusFilter)}
+      >
+        {STATUS_FILTER_OPTIONS.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+}
 
 interface RoleSelectProps {
   selectedRoles: RoleType[];

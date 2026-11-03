@@ -189,7 +189,7 @@ const billingModifiers = (fields: ParsedDmeOrderFields): { code: string; display
   return modifiers;
 };
 
-/** One billing Procedure per HCPCS code for in-house orders; third-party fulfillment is billed by the vendor. */
+/** One billing Procedure per HCPCS code, for in-house and third-party orders alike. */
 export const makeDmeBillingProcedures = (input: {
   fields: ParsedDmeOrderFields;
   encounterId: string;
@@ -198,7 +198,6 @@ export const makeDmeBillingProcedures = (input: {
   deviceRequestReference: string;
 }): Procedure[] => {
   const { fields, encounterId, patientId, deviceRequestReference } = input;
-  if (fields.external) return [];
   const modifier = billingModifiers(fields);
   return fields.billingCodes.map((c) => ({
     ...makeProcedureResource(

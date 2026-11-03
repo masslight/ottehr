@@ -56,7 +56,6 @@ import {
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
-  // eslint-disable-next-line no-restricted-imports -- submission ClaimResponses are never billing-tagged
   createEraReadClient,
   ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
@@ -73,6 +72,7 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getEraCheckNumber,
+  getGroupNumber,
   getTaxonomy,
   readClaimItemDrug,
   readClaimItemOrderingProvider,
@@ -92,17 +92,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const untaggedClient = createEraReadClient(m2mToken, params.secrets);
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, untaggedClient, params);
+  const response = await performEffect(oystehr, eraReadClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// untaggedClient reads only the claim's submission ClaimResponses, which never get the billing tag; its
-// ERA remits are tagged by sub-tag-era-resources, so they come through the billing client.
 export async function performEffect(
   oystehr: Oystehr,
-  untaggedClient: Oystehr,
+  eraReadClient: Oystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -139,8 +137,8 @@ export async function performEffect(
     writeOffResources,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
-    fetchClaimFirstSubmittedDate(untaggedClient, claimId),
+    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
+    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
@@ -149,7 +147,7 @@ export async function performEffect(
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
-    oystehr,
+    eraReadClient,
     claimResponses
   );
   const paymentReconciliationById = new Map(
@@ -314,6 +312,7 @@ export async function performEffect(
     payerId: resolvedPayerId(insurer) ?? '',
     payerClaimControlNumber,
     memberId: coverage?.subscriberId ?? '',
+    groupNumber: await getGroupNumber(oystehr, coverage, payersByRef),
     subscriberId: coverage?.subscriberId ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
     relationship: (coverage?.relationship?.coding?.[0]?.display as SubscriberRelationship) ?? '',
@@ -323,16 +322,19 @@ export async function performEffect(
     secondaryPayerName: secondaryInsurer?.name ?? '',
     secondaryPayerId: resolvedPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
+    secondaryGroupNumber: await getGroupNumber(oystehr, secondaryCoverage, payersByRef),
     secondaryPayerClaimControlNumber,
     tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
     tertiaryPayerName: tertiaryInsurer?.name ?? '',
     tertiaryPayerId: resolvedPayerId(tertiaryInsurer) ?? '',
     tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
+    tertiaryGroupNumber: await getGroupNumber(oystehr, tertiaryCoverage, payersByRef),
     tertiaryPayerClaimControlNumber,
     quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
     quaternaryPayerName: quaternaryInsurer?.name ?? '',
     quaternaryPayerId: resolvedPayerId(quaternaryInsurer) ?? '',
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
+    quaternaryGroupNumber: await getGroupNumber(oystehr, quaternaryCoverage, payersByRef),
     quaternaryPayerClaimControlNumber,
     nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
     nonInsurancePayerName: nonInsurancePayer.name,

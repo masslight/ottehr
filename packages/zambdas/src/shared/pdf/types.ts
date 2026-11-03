@@ -1017,6 +1017,7 @@ export interface DischargeSummaryData extends PdfData {
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
   procedures?: Procedures;
+  dmeOrders?: DmeOrdersData;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
@@ -1146,6 +1147,7 @@ export interface DischargeSummaryInput {
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
+  dmeOrders?: DmeOrderDTO[];
 }
 
 export interface DischargeSummaryData extends PdfData {
@@ -1161,6 +1163,7 @@ export interface DischargeSummaryData extends PdfData {
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
   procedures?: Procedures;
+  dmeOrders?: DmeOrdersData;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;

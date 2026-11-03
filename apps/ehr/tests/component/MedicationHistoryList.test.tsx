@@ -274,4 +274,27 @@ describe('MedicationHistoryList - Display Tests', () => {
     expect(within(row).getByTestId('medication-history-table-last-filled')).toHaveTextContent('No date available');
     expect(within(row).getByTestId('medication-history-table-refills')).toHaveTextContent('Unknown');
   });
+
+  it('shows that a prescribed medication has not been filled yet', () => {
+    mockUseMedicationHistory.mockReturnValue({
+      isLoading: false,
+      medicationHistory: [
+        {
+          resourceId: 'med-rx-1',
+          name: 'Lisinopril',
+          status: 'active',
+          type: 'prescribed-medication',
+          intakeInfo: { refills: 3 },
+          chartDataField: 'medications',
+        },
+      ],
+      refetchHistory: mockRefetchHistory,
+    } as any);
+
+    renderComponent();
+
+    const row = screen.getByTestId('medication-history-table-row');
+    expect(within(row).getByTestId('medication-history-table-last-filled')).toHaveTextContent('Not filled yet');
+    expect(within(row).getByTestId('medication-history-table-refills')).toHaveTextContent('3');
+  });
 });

@@ -91,14 +91,20 @@ export async function performEffect(
   coverage.status = 'active';
 
   const effectiveMemberId = params.memberId ?? coverage.subscriberId ?? '';
+  const effectiveGroupNumber = params.groupNumber ?? coverage.class?.[0]?.value ?? '';
   if (params.payerId) {
     // Re-pointing the payer rebuilds payor reference, coverage class, and the member-id identifier.
     const payerOrg = await resolvePayerOrganization(oystehr, params.payerId);
-    setCoveragePayer(coverage, payerOrg, effectiveMemberId);
+    setCoveragePayer(coverage, payerOrg, effectiveMemberId, effectiveGroupNumber);
     coverage.subscriberId = effectiveMemberId;
-  } else if (params.memberId !== undefined) {
-    coverage.subscriberId = params.memberId;
-    if (coverage.identifier?.[0]) coverage.identifier[0].value = params.memberId;
+  } else {
+    if (params.memberId !== undefined) {
+      coverage.subscriberId = params.memberId;
+      if (coverage.identifier?.[0]) coverage.identifier[0].value = params.memberId;
+    }
+    if (params.groupNumber !== undefined) {
+      if (coverage.class?.[0]) coverage.class[0].value = params.groupNumber;
+    }
   }
 
   // RelatedPerson create/update happens before the Coverage PUT; a delete happens after (so the

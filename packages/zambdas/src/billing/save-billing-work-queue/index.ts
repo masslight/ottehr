@@ -9,12 +9,10 @@ import {
 } from 'utils/lib/types/data/billing/work-queue.schemas';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- owners' Practitioners are the users' clinical profiles
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { createBillingClient } from '../shared';
+import { createBillingClient, createEraReadClient } from '../shared';
 import { listWorkQueueOwners } from '../work-queues/owners';
 import { findWorkQueuesLists, listToWorkQueues, withWorkQueue } from '../work-queues/serialization';
 
@@ -32,7 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  await complexValidation(oystehr, createClinicalOystehrClient(m2mToken, params.secrets), params);
+  await complexValidation(oystehr, createEraReadClient(m2mToken, params.secrets), params);
   const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });

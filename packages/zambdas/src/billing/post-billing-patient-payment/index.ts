@@ -33,7 +33,6 @@ import {
 } from 'utils/lib/types/errors';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- checks the Encounter, resolves the submitter and Stripe account, and schedules the payment Task
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
