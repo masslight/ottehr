@@ -129,7 +129,15 @@ const writtenNotice = (transaction: Mock): { resource: PaymentNotice; fullUrl: s
 
 const makeClinicalOystehr = (encounters: Encounter[]): Oystehr =>
   ({
-    fhir: { search: vi.fn().mockResolvedValue({ unbundle: () => encounters }) },
+    fhir: {
+      search: vi.fn().mockResolvedValue({ unbundle: () => encounters }),
+      // the submitter, named on the notice
+      get: vi.fn().mockResolvedValue({
+        resourceType: 'Practitioner',
+        id: 'prac-1',
+        name: [{ given: ['Ada'], family: 'Lovelace' }],
+      }),
+    },
   }) as unknown as Oystehr;
 
 const makeInput = (params: Record<string, unknown>): ZambdaInput => ({
@@ -240,7 +248,10 @@ describe('record-billing-manual-payment', () => {
     expect(reconciliation.paymentDate).toBe('2026-07-01');
     expect(reconciliation.disposition).toBe('check copay');
     expect(reconciliation.paymentIdentifier).toEqual({ system: CHECK_NUMBER_IDENTIFIER_SYSTEM, value: '1234' });
-    expect(reconciliation.detail?.[0]?.submitter).toEqual({ reference: 'Practitioner/prac-1' });
+    expect(reconciliation.detail?.[0]?.submitter).toEqual({
+      reference: 'Practitioner/prac-1',
+      display: 'Ada Lovelace',
+    });
     expect(resource.created).toBe('2026-07-22T12:00:00.000Z');
     expect(JSON.parse(result.body)).toEqual({ paymentNoticeId: 'pn-new' });
   });
