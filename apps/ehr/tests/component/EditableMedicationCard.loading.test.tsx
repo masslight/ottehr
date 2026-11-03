@@ -1,8 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { enqueueSnackbar } from 'notistack';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditableMedicationCard } from '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/EditableMedicationCard';
 import { useInHouseMedicationOrderStore } from '../../src/state/draft-data.store';
+
+vi.mock('notistack', () => ({
+  enqueueSnackbar: vi.fn(),
+}));
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -322,6 +327,9 @@ describe('EditableMedicationCard', () => {
         expect.objectContaining({ name: 'Albuterol' })
       );
       expect(createInHouseMedicationQuickPick).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Quick pick "Albuterol" updated', { variant: 'success' })
+      );
     });
 
     it('creates a new quick pick when the typed name matches no existing pick', async () => {
@@ -342,6 +350,9 @@ describe('EditableMedicationCard', () => {
         }
       );
       expect(updateInHouseMedicationQuickPick).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Quick pick "Albuterol nebulizer" created', { variant: 'success' })
+      );
     });
   });
 });
