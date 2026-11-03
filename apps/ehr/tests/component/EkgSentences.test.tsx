@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactElement, useState } from 'react';
 import { ekgFamily } from 'utils/lib/procedure-coding/families/ekg';
@@ -218,6 +218,37 @@ describe('EKG sentences', () => {
     await typeNumbers(user, { 'Axis (°)': 110 });
     expect(within(box).getAllByRole('button', { name: 'Axis: Right axis deviation' })).toHaveLength(3);
     expect(latest.facts?.axis).toBe('left axis deviation');
+    let reminders = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+    expect(within(reminders).getByText(/right axis deviation; Axis says "left axis deviation"/)).toBeInTheDocument();
+
+    await typeNumbers(user, { 'Axis (°)': 45 });
+    reminders = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+    expect(within(reminders).getByText(/is normal; Axis says "left axis deviation"/)).toBeInTheDocument();
+    expect(
+      within(reminders).queryByRole('button', { name: 'Set axis to right axis deviation' })
+    ).not.toBeInTheDocument();
+    const before = latest.facts;
+    await user.click(within(reminders).getByRole('button', { name: 'Set axis to normal' }));
+    expect(latest.facts).toEqual({ ...before, axis: 'normal' });
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['-0', -0],
+    ['007', 7],
+    ['1e2', 100],
+    ['5.5', 5.5],
+  ])('preserves the editable axis text %s while storing its numeric value', async (text, number) => {
+    const user = userEvent.setup();
+    render(<Form />);
+    const input = screen.getByRole('spinbutton', { name: 'Axis (°)' }) as HTMLInputElement;
+    await user.click(input);
+    fireEvent.change(input, { target: { value: text } });
+    expect(input.value).toBe(text);
+    expect(latest.facts?.axisDegrees).toBe(number);
+    await user.tab();
+    expect(input.value).toBe(String(number));
+    expect(latest.facts?.axisDegrees).toBe(number);
   });
 
   it('keeps signed and zero axis values editable and clears only the measurement', async () => {
@@ -238,7 +269,7 @@ describe('EKG sentences', () => {
     expect(within(tile('axisDegrees')).getByText('°')).toBeInTheDocument();
   });
 
-  it.each([-181, 181])('limits the axis to ±180° and classifies nothing at %s°', async (axisDegrees) => {
+  it.each([-181, 181])('withholds suggestions at %s° until the axis is corrected or cleared', async (axisDegrees) => {
     const user = userEvent.setup();
     render(<Form initial={{ rate: 72, pr: 160, qrs: 88, qt: 380, axis: 'normal', impression: 'normal EKG' }} />);
     const input = screen.getByRole('spinbutton', { name: 'Axis (°)' });
@@ -246,6 +277,15 @@ describe('EKG sentences', () => {
     expect(input).toHaveAttribute('max', '180');
     await typeNumbers(user, { 'Axis (°)': axisDegrees });
     const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(input).toBeInvalid();
+    expect(within(box).queryByRole('button', { name: USE })).not.toBeInTheDocument();
+    expect(within(box).getByText('enter an axis between -180° and 180° to see suggestions')).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+
+    await typeNumbers(user, { 'Axis (°)': 110 });
+    expect(within(box).getAllByRole('button', { name: 'Axis: Right axis deviation' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Set axis to right axis deviation' })).toBeInTheDocument();
+    await user.clear(input);
     expect(within(box).getAllByRole('button', { name: 'Axis: Normal axis' })).toHaveLength(2);
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
   });

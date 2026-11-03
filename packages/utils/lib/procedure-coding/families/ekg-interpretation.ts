@@ -1,11 +1,12 @@
 import { isSentenceBlank, parseTemplate, SentenceBlank, SentenceSegment } from '../../helpers/suggested-sentences';
 import { readNumber, readStrings, StructuredFacts } from '../structured-fields';
 import {
-  EKG_AXIS_BLANK,
+  EKG_AXIS_LABELS,
   EKG_AXIS_RANGE,
   EKG_FINDINGS,
   EKG_NORMAL_READ,
   EKG_TEMPLATES,
+  EkgAxis,
   EkgFinding,
   EkgInterpretation,
   EkgTemplate,
@@ -79,19 +80,22 @@ export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
   return parts.length ? `${parts.join(', ')}.` : undefined;
 }
 
-export function ekgFindings({ rate, pr, qrs, qtc, axis }: EkgMeasurements): EkgFinding[] {
+export function ekgAxis(axis: number | undefined): EkgAxis | undefined {
+  if (axis === undefined || !Number.isFinite(axis) || axis < EKG_AXIS_RANGE.min || axis > EKG_AXIS_RANGE.max)
+    return undefined;
+  if (axis < -90 || axis === EKG_AXIS_RANGE.max) return 'indeterminate';
+  if (axis < -30) return 'left axis deviation';
+  if (axis > 90) return 'right axis deviation';
+  return 'normal';
+}
+
+export function ekgFindings({ rate, pr, qrs, qtc }: EkgMeasurements): EkgFinding[] {
   const found: EkgFinding[] = [];
   if (rate !== undefined && rate < EKG_FINDINGS.slow.limit) found.push('slow');
   if (rate !== undefined && rate > EKG_FINDINGS.fast.limit) found.push('fast');
   if (pr !== undefined && pr > EKG_FINDINGS.longPr.limit) found.push('longPr');
   if (qrs !== undefined && qrs >= EKG_FINDINGS.wideQrs.limit) found.push('wideQrs');
   if (qtc !== undefined && qtc > EKG_FINDINGS.longQtc.limit) found.push('longQtc');
-  if (axis !== undefined && axis >= EKG_AXIS_RANGE.min && axis <= EKG_AXIS_RANGE.max) {
-    const frontal = axis === EKG_AXIS_RANGE.max ? EKG_AXIS_RANGE.min : axis;
-    if (frontal < EKG_FINDINGS.extremeAxis.limit) found.push('extremeAxis');
-    else if (frontal < EKG_FINDINGS.leftAxis.limit) found.push('leftAxis');
-    else if (frontal > EKG_FINDINGS.rightAxis.limit) found.push('rightAxis');
-  }
   return found;
 }
 
@@ -120,7 +124,12 @@ const fieldValueOf = (blank: Pick<EkgTemplateBlank, 'fieldValue'>, word: string)
 const wordForFindings = (blank: EkgTemplateBlank, found: EkgFinding[]): string | undefined =>
   found.map((finding) => blank.initial?.[finding]).find((word) => word !== undefined);
 
-function templateSegments(template: EkgTemplate, numbers: EkgMeasurements, found: EkgFinding[]): SentenceSegment[] {
+function templateSegments(
+  template: EkgTemplate,
+  numbers: EkgMeasurements,
+  found: EkgFinding[],
+  axis: EkgAxis | undefined
+): SentenceSegment[] {
   return parseTemplate(template.text, (name) => {
     const blank = template.blanks?.[name];
     if (blank) {
@@ -128,7 +137,12 @@ function templateSegments(template: EkgTemplate, numbers: EkgMeasurements, found
         key: name,
         title: blank.title,
         options: blank.options,
-        initial: wordForFindings(blank, found) ?? blank.options[0],
+        initial:
+          name === 'axis' && axis
+            ? EKG_AXIS_LABELS[axis]
+            : name === 'impression' && template.id === 'normal' && axis && axis !== 'normal'
+            ? 'otherwise normal EKG'
+            : wordForFindings(blank, found) ?? blank.options[0],
         fieldValue: blank.fieldValue,
       };
       return segment;
@@ -141,13 +155,15 @@ function templateSegments(template: EkgTemplate, numbers: EkgMeasurements, found
 
 export function suggestEkgInterpretations(numbers: EkgMeasurements, isChild: boolean): EkgSuggestion[] {
   if (numbers.rate === undefined || numbers.qt === undefined) return [];
+  const axis = ekgAxis(numbers.axis);
+  if (numbers.axis !== undefined && axis === undefined) return [];
   const found = ekgFindings(numbers);
   const build = (template: EkgTemplate): EkgSuggestion => {
     const finding = template.findings?.find((item) => found.includes(item));
     return {
       id: template.id,
       name: template.name,
-      segments: templateSegments(template, numbers, isChild ? [] : found),
+      segments: templateSegments(template, numbers, isChild ? [] : found, isChild ? undefined : axis),
       reason: finding && fillTokens(EKG_FINDINGS[finding].reason, { ...numbers, limit: EKG_FINDINGS[finding].limit }),
       fills: template.fills,
     };
@@ -234,19 +250,19 @@ export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
         fixes: [{ label: 'Add prolonged QTc', apply: withFinding('prolonged QTc') }],
       });
   }
-  const axisWord = wordForFindings(EKG_AXIS_BLANK, found);
-  if (numbers.axis !== undefined && axisWord) {
-    findings.push(lowerFirst(axisWord));
+  const axis = ekgAxis(numbers.axis);
+  if (numbers.axis !== undefined && axis !== undefined) {
+    const description = axis === 'indeterminate' ? 'indeterminate axis' : axis;
+    if (axis !== 'normal') findings.push(description);
     const conflict =
-      facts.axis === 'normal'
-        ? 'Axis says "normal"'
-        : facts.axis === undefined && facts.impression === 'normal EKG'
+      typeof facts.axis === 'string' && facts.axis !== '' && facts.axis !== axis
+        ? `Axis says "${facts.axis}"`
+        : facts.axis === undefined && axis !== 'normal' && facts.impression === 'normal EKG'
         ? 'Impression says "normal EKG"'
         : undefined;
-    const axis = fieldValueOf(EKG_AXIS_BLANK, axisWord);
     if (conflict)
       reminders.push({
-        message: `An axis of ${signedDegrees(numbers.axis)} is ${lowerFirst(axisWord)}; ${conflict}.`,
+        message: `An axis of ${signedDegrees(numbers.axis)} is ${description}; ${conflict}.`,
         fixes: [{ label: `Set axis to ${axis}`, apply: { axis } }],
       });
   }

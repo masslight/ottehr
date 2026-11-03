@@ -1,9 +1,10 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Box, Button, InputBase, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { FC, useMemo, useRef } from 'react';
+import { FC, useMemo, useRef, useState } from 'react';
 import { SuggestedSentences } from 'src/components/SuggestedSentences';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
+  ekgAxis,
   ekgMeasurements,
   ekgQtc,
   ekgQtcMethod,
@@ -46,8 +47,12 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
   const method = ekgQtcMethod(facts);
   const qtcInput = useRef<HTMLInputElement>(null);
   const qtc = ekgQtc(facts);
+  const [axisDraft, setAxisDraft] = useState<{ text: string; value: number | undefined }>();
+  const axisValue = readNumber(facts, 'axisDegrees');
+  const axisText = axisDraft && Object.is(axisDraft.value, axisValue) ? axisDraft.text : String(axisValue ?? '');
   const setNumber = (key: string, raw: string): void => {
     const number = raw === '' ? undefined : Number(raw);
+    if (key === 'axisDegrees') setAxisDraft({ text: raw, value: number });
     update(key === 'qtc' ? { ...facts, qtc: number, qtcMethod: 'manual' } : withEkgQtc({ ...facts, [key]: number }));
   };
   const setMethod = (next: QtcMethod | null): void => {
@@ -97,10 +102,11 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
               ) : (
                 <InputBase
                   type="number"
-                  value={value ?? ''}
+                  value={degrees ? axisText : value ?? ''}
                   placeholder="—"
                   inputRef={key === 'qtc' ? qtcInput : undefined}
                   onChange={(event) => setNumber(key, event.target.value)}
+                  onBlur={degrees ? () => setAxisDraft(undefined) : undefined}
                   inputProps={{
                     'aria-label': `${label} (${unit})`,
                     inputMode: 'numeric',
@@ -108,38 +114,24 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                     step: 1,
                     autoComplete: 'off',
                   }}
-                  data-value={degrees ? value ?? '—' : undefined}
-                  sx={(theme) => {
-                    const numberFont = {
+                  sx={(theme) => ({
+                    '& input': {
                       font: `500 20px ${theme.typography.fontFamily}`,
                       fontVariantNumeric: 'tabular-nums',
-                    };
-                    return {
-                      ...(degrees && {
-                        '&::after': {
-                          ...numberFont,
-                          content: 'attr(data-value)',
-                          visibility: 'hidden',
-                          whiteSpace: 'pre',
-                        },
-                      }),
-                      '& input': {
-                        ...numberFont,
-                        ...(degrees ? { position: 'absolute', inset: 0, width: '100%' } : { width: '3.2em' }),
-                        height: 'auto',
-                        padding: 0,
-                        '&::placeholder': { color: 'rgba(0, 0, 0, 0.35)', fontWeight: 400, opacity: 1 },
-                        borderBottom: '1px dashed transparent',
-                        '&:hover': { borderBottomColor: 'rgba(0, 0, 0, 0.3)' },
-                        '&:placeholder-shown': { borderBottomColor: TILE_EMPTY },
-                        MozAppearance: 'textfield',
-                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                          WebkitAppearance: 'none',
-                          m: 0,
-                        },
+                      width: degrees ? `${Math.max(axisText.length + 1, 2)}ch` : '3.2em',
+                      height: 'auto',
+                      padding: 0,
+                      '&::placeholder': { color: 'rgba(0, 0, 0, 0.35)', fontWeight: 400, opacity: 1 },
+                      borderBottom: '1px dashed transparent',
+                      '&:hover': { borderBottomColor: 'rgba(0, 0, 0, 0.3)' },
+                      '&:placeholder-shown': { borderBottomColor: TILE_EMPTY },
+                      MozAppearance: 'textfield',
+                      '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                        WebkitAppearance: 'none',
+                        m: 0,
                       },
-                    };
-                  }}
+                    },
+                  })}
                 />
               )}
               <Typography
@@ -220,7 +212,9 @@ const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }
     <SuggestedSentences
       title="Suggested interpretations"
       caption={
-        !rows.length
+        axis !== undefined && ekgAxis(axis) === undefined
+          ? `enter an axis between ${EKG_AXIS_RANGE.min}° and ${EKG_AXIS_RANGE.max}° to see suggestions`
+          : !rows.length
           ? 'enter the rate and QT to see suggestions'
           : isChild
           ? 'Under 18: enter abnormal interpretations manually'

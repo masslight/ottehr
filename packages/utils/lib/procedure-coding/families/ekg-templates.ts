@@ -10,7 +10,15 @@ export const EKG_RHYTHMS = [
   'paced rhythm',
 ];
 
-export const EKG_AXES = ['normal', 'left axis deviation', 'right axis deviation', 'indeterminate'];
+export const EKG_AXES = ['normal', 'left axis deviation', 'right axis deviation', 'indeterminate'] as const;
+export type EkgAxis = (typeof EKG_AXES)[number];
+
+export const EKG_AXIS_LABELS: Record<EkgAxis, string> = {
+  normal: 'Normal axis',
+  'left axis deviation': 'Left axis deviation',
+  'right axis deviation': 'Right axis deviation',
+  indeterminate: 'Indeterminate axis',
+};
 
 export const EKG_AXIS_RANGE = { min: -180, max: 180 };
 
@@ -73,7 +81,7 @@ export const EKG_NORMAL_READ: EkgInterpretation = {
   impression: 'normal EKG',
 };
 
-export type EkgFinding = 'slow' | 'fast' | 'longPr' | 'wideQrs' | 'longQtc' | 'leftAxis' | 'rightAxis' | 'extremeAxis';
+export type EkgFinding = 'slow' | 'fast' | 'longPr' | 'wideQrs' | 'longQtc';
 
 export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }> = {
   slow: { limit: 60, reason: 'rate {rate} is below {limit}' },
@@ -81,9 +89,6 @@ export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }>
   longPr: { limit: 200, reason: 'PR {pr} ms is over {limit}' },
   wideQrs: { limit: 120, reason: 'QRS {qrs} ms is {limit} or more' },
   longQtc: { limit: 450, reason: 'QTc {qtc} ms is above {limit}' },
-  leftAxis: { limit: -30, reason: 'axis {axis}° is below {limit}°' },
-  rightAxis: { limit: 90, reason: 'axis {axis}° is above {limit}°' },
-  extremeAxis: { limit: -90, reason: 'axis {axis}° is below {limit}°' },
 };
 
 export interface EkgTemplateBlank {
@@ -109,9 +114,8 @@ const IMPRESSION = 'Impression';
 
 export const EKG_AXIS_BLANK: EkgTemplateBlank = {
   title: 'Axis',
-  options: ['Normal axis', 'Left axis deviation', 'Right axis deviation', 'Indeterminate axis'],
-  initial: { leftAxis: 'Left axis deviation', rightAxis: 'Right axis deviation', extremeAxis: 'Indeterminate axis' },
-  fieldValue: { 'Normal axis': 'normal', 'Indeterminate axis': 'indeterminate' },
+  options: EKG_AXES.map((axis) => EKG_AXIS_LABELS[axis]),
+  fieldValue: Object.fromEntries(EKG_AXES.map((axis) => [EKG_AXIS_LABELS[axis], axis])),
 };
 
 export const EKG_TEMPLATES: EkgTemplate[] = [
@@ -124,11 +128,6 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
       impression: {
         title: IMPRESSION,
         options: ['normal EKG', 'otherwise normal EKG'],
-        initial: {
-          leftAxis: 'otherwise normal EKG',
-          rightAxis: 'otherwise normal EKG',
-          extremeAxis: 'otherwise normal EKG',
-        },
       },
     },
     rank: 2,
