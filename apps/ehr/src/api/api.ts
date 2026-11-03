@@ -596,7 +596,7 @@ export const getUser = async (token: string): Promise<User> => {
   return oystehr.user.me();
 };
 
-const ERX_API_URL = 'https://staging-erx-api.zapehr.com';
+const ERX_API_URL = import.meta.env.VITE_APP_ERX_API_URL ?? 'https://erx-api.zapehr.com';
 
 export const orderPrescription = async (
   token: string,
