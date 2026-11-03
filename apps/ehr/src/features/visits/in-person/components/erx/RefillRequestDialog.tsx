@@ -287,6 +287,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
         : { sendLabel: 'Send prescription' })}
       // The dialog's toast says what went out, in place of the form's.
       quietSent
+      // Shown above, in the same place whatever the answer.
+      hidePatientInfo
       onSent={(sentTo) =>
         void completeAfterSending(`${request ? SENT_LABEL.change : 'Prescription'} sent to ${sentTo.name}`)
       }
@@ -353,8 +355,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               </Typography>
             )}
             {data.patientRequest?.note && <Typography>{data.patientRequest.note}</Typography>}
-            {/* The order form shows the patient's info beside it, so it's shown once. */}
-            {!showForm && (contact.address || contact.phone) && (
+            {(contact.address || contact.phone) && (
               <Box>
                 <SectionHeading>Patient Info</SectionHeading>
                 <Rows

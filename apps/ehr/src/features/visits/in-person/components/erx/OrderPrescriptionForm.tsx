@@ -69,6 +69,8 @@ interface OrderPrescriptionFormProps {
   onSent?: (pharmacy: PharmacySearchResult) => void;
   /** No "Prescription sent" toast of its own: `onSent` says what went out. */
   quietSent?: boolean;
+  /** The patient's address and phone are shown by the caller. */
+  hidePatientInfo?: boolean;
 }
 
 export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
@@ -79,6 +81,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   sendLabel,
   onSent,
   quietSent,
+  hidePatientInfo,
 }) => {
   const theme = useTheme();
   const appointmentData = useAppointmentData();
@@ -424,7 +427,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
             <AccordionCard>
               <Stack spacing={1.5} style={{ padding: '24px' }}>
                 {/* Read-only: what the visit header doesn't show of what's sent about the patient. */}
-                {(patientContact.address || patientContact.phone) && (
+                {!hidePatientInfo && (patientContact.address || patientContact.phone) && (
                   <Box>
                     <SectionHeading>Patient Info</SectionHeading>
                     {patientContact.address && (
