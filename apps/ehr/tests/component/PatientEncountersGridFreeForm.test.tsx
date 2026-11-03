@@ -235,6 +235,19 @@ describe('PatientEncountersGrid free-form encounters', () => {
       await waitFor(() => expect(paginationText()).toBe('1–20 of 25'));
     });
 
+    it('keeps the Free Form type when a draft is added', async () => {
+      const user = userEvent.setup();
+      setHistory(PATIENT_A, historyOf(olderVisits(1)));
+      renderGrid();
+      await waitForVisits();
+
+      await chooseType(user, 'Free Form');
+      await user.click(addButton());
+
+      expect(screen.getByRole('combobox', { name: /^Type/ })).toHaveTextContent('Free Form');
+      expect(draftInput()).toHaveFocus();
+    });
+
     it('discards a fresh draft on Escape without saving', async () => {
       const user = userEvent.setup();
       setHistory(PATIENT_A, historyOf(olderVisits(1)));
@@ -1401,5 +1414,38 @@ describe('PatientEncountersGrid free-form encounters', () => {
     await chooseType(user, visitTypeToInPersonLabel['walk-in']);
 
     await waitFor(() => expect(countOf('Visible only under All')).toBe(0));
+  });
+
+  it('shows only free-form rows when Free Form is chosen, without refetching', async () => {
+    const user = userEvent.setup();
+    setHistory(
+      PATIENT_A,
+      historyOf(olderVisits(3), [freeForm('note-1', 'First note'), freeForm('note-2', 'Second note')])
+    );
+    renderGrid();
+    await waitForVisits();
+    const callsBefore = historyCalls.length;
+
+    await chooseType(user, 'Free Form');
+
+    await waitFor(() => expect(screen.queryByText('NY Office')).not.toBeInTheDocument());
+    expect(countOf('First note')).toBe(1);
+    expect(countOf('Second note')).toBe(1);
+    expect(paginationText()).toBe('1–2 of 2');
+    expect(historyCalls).toHaveLength(callsBefore);
+  });
+
+  it('hides free-form rows under Free Form when a Visit Status is chosen', async () => {
+    const user = userEvent.setup();
+    setHistory(PATIENT_A, historyOf(olderVisits(1), [freeForm('note-1', 'Has no status')]));
+    renderGrid();
+    await waitForVisits();
+
+    await chooseType(user, 'Free Form');
+    await user.click(screen.getByRole('combobox', { name: /^Visit Status/ }));
+    await user.click(await screen.findByRole('option', { name: 'Completed' }));
+
+    expect(await screen.findByText('No encounters found')).toBeInTheDocument();
+    expect(countOf('Has no status')).toBe(0);
   });
 });
