@@ -109,19 +109,26 @@ export const listAccountPayments = async (params: {
           uncappedCardPayments: true,
         });
         const claim = claimForPayments(claimsByEncounter.get(encounterId) ?? [], notices);
-        return dtos.map((dto) => ({
-          recordedISO: dto.dateISO,
-          payment: {
-            ...dto,
-            dateISO: notices.find((notice) => notice.id === dto.fhirPaymentNotificationId)?.paymentDate ?? dto.dateISO,
-            method: methodOf(dto, notices),
-            encounterId,
-            appointmentId: visit.appointmentId,
-            visitDateISO: visit.visitDateISO,
-            claimId: claim?.id,
-            claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
-          },
-        }));
+        return dtos.map((dto) => {
+          const notice = notices.find((candidate) => candidate.id === dto.fhirPaymentNotificationId);
+          const reconciliation = notice?.contained?.find((resource) => resource.resourceType === 'PaymentReconciliation');
+          return {
+            recordedISO: dto.dateISO,
+            payment: {
+              ...dto,
+              dateISO:
+                notice?.paymentDate ??
+                (reconciliation?.resourceType === 'PaymentReconciliation' ? reconciliation.paymentDate : undefined) ??
+                dto.dateISO,
+              method: methodOf(dto, notices),
+              encounterId,
+              appointmentId: visit.appointmentId,
+              visitDateISO: visit.visitDateISO,
+              claimId: claim?.id,
+              claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
+            },
+          };
+        });
       })
     );
     payments.push(...batch.flat());
