@@ -12,6 +12,8 @@ export const EKG_RHYTHMS = [
 
 export const EKG_AXES = ['normal', 'left axis deviation', 'right axis deviation', 'indeterminate'];
 
+export const EKG_AXIS_RANGE = { min: -180, max: 180 };
+
 export const EKG_CONDUCTION = [
   'normal',
   'first-degree AV block',
@@ -71,7 +73,7 @@ export const EKG_NORMAL_READ: EkgInterpretation = {
   impression: 'normal EKG',
 };
 
-export type EkgFinding = 'slow' | 'fast' | 'longPr' | 'wideQrs' | 'longQtc';
+export type EkgFinding = 'slow' | 'fast' | 'longPr' | 'wideQrs' | 'longQtc' | 'leftAxis' | 'rightAxis' | 'extremeAxis';
 
 export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }> = {
   slow: { limit: 60, reason: 'rate {rate} is below {limit}' },
@@ -79,9 +81,10 @@ export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }>
   longPr: { limit: 200, reason: 'PR {pr} ms is over {limit}' },
   wideQrs: { limit: 120, reason: 'QRS {qrs} ms is {limit} or more' },
   longQtc: { limit: 450, reason: 'QTc {qtc} ms is above {limit}' },
+  leftAxis: { limit: -30, reason: 'axis {axis}° is below {limit}°' },
+  rightAxis: { limit: 90, reason: 'axis {axis}° is above {limit}°' },
+  extremeAxis: { limit: -90, reason: 'axis {axis}° is below {limit}°' },
 };
-
-export const EKG_AXIS_LIMITS = { normal: { min: -30, max: 90 }, deviation: { min: -90, max: 180 } };
 
 export interface EkgTemplateBlank {
   title: string;
@@ -104,41 +107,63 @@ export interface EkgTemplate {
 
 const IMPRESSION = 'Impression';
 
+export const EKG_AXIS_BLANK: EkgTemplateBlank = {
+  title: 'Axis',
+  options: ['Normal axis', 'Left axis deviation', 'Right axis deviation', 'Indeterminate axis'],
+  initial: { leftAxis: 'Left axis deviation', rightAxis: 'Right axis deviation', extremeAxis: 'Indeterminate axis' },
+  fieldValue: { 'Normal axis': 'normal', 'Indeterminate axis': 'indeterminate' },
+};
+
 export const EKG_TEMPLATES: EkgTemplate[] = [
   {
     id: 'normal',
     name: 'Normal',
-    text: 'Sinus rhythm. Normal axis. Normal intervals. No acute ST-T wave changes. Impression: {impression}.',
-    blanks: { impression: { title: IMPRESSION, options: ['normal EKG', 'otherwise normal EKG'] } },
+    text: 'Sinus rhythm. {axis}. Normal intervals. No acute ST-T wave changes. Impression: {impression}.',
+    blanks: {
+      axis: EKG_AXIS_BLANK,
+      impression: {
+        title: IMPRESSION,
+        options: ['normal EKG', 'otherwise normal EKG'],
+        initial: {
+          leftAxis: 'otherwise normal EKG',
+          rightAxis: 'otherwise normal EKG',
+          extremeAxis: 'otherwise normal EKG',
+        },
+      },
+    },
     rank: 2,
     rankWhenNormal: 10,
     forChildren: true,
-    fills: { impression: '{impression}' },
+    fills: { axis: '{axis}', impression: '{impression}' },
   },
   {
     id: 'rate',
     name: 'Sinus bradycardia or tachycardia',
-    text: '{rhythm}, rate {rate}. Normal axis. Normal intervals. No acute ST-T wave changes. Impression: {impression}.',
+    text: '{rhythm}, rate {rate}. {axis}. Normal intervals. No acute ST-T wave changes. Impression: {impression}.',
     blanks: {
       rhythm: {
         title: 'Rhythm',
         options: ['Sinus bradycardia', 'Sinus tachycardia', 'Sinus arrhythmia'],
         initial: { slow: 'Sinus bradycardia', fast: 'Sinus tachycardia' },
       },
+      axis: EKG_AXIS_BLANK,
       impression: { title: IMPRESSION, options: ['otherwise normal EKG', 'borderline EKG', 'abnormal EKG'] },
     },
     findings: ['slow', 'fast'],
     rank: 9,
-    fills: { rhythm: '{rhythm}', impression: '{impression}' },
+    fills: { rhythm: '{rhythm}', axis: '{axis}', impression: '{impression}' },
   },
   {
     id: 'first-degree-block',
     name: 'First-degree AV block',
-    text: 'Sinus rhythm with first-degree AV block, PR {pr} ms. Normal axis. No acute ST-T wave changes. Impression: {impression}.',
-    blanks: { impression: { title: IMPRESSION, options: ['borderline EKG', 'abnormal EKG', 'otherwise normal EKG'] } },
+    text: 'Sinus rhythm with first-degree AV block, PR {pr} ms. {axis}. No acute ST-T wave changes. Impression: {impression}.',
+    blanks: {
+      axis: EKG_AXIS_BLANK,
+      impression: { title: IMPRESSION, options: ['borderline EKG', 'abnormal EKG', 'otherwise normal EKG'] },
+    },
     findings: ['longPr'],
     rank: 9,
-    fills: { conduction: ['first-degree AV block'], impression: '{impression}' },
+    fills: { conduction: ['first-degree AV block'], axis: '{axis}', impression: '{impression}' },
   },
   {
     id: 'wide-qrs',
@@ -149,11 +174,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
         title: 'Conduction',
         options: ['right bundle branch block', 'left bundle branch block', 'nonspecific conduction delay'],
       },
-      axis: {
-        title: 'Axis',
-        options: ['Normal axis', 'Left axis deviation', 'Right axis deviation'],
-        fieldValue: { 'Normal axis': 'normal' },
-      },
+      axis: EKG_AXIS_BLANK,
       stt: {
         title: 'ST / T',
         options: ['No acute ST-T wave changes', 'Secondary ST-T wave changes'],
@@ -167,18 +188,18 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   {
     id: 'prolonged-qtc',
     name: 'Prolonged QTc',
-    text: 'Sinus rhythm. Prolonged QTc, {qtc} ms. Normal axis. No acute ST-T wave changes. Impression: {impression}.',
-    blanks: { impression: { title: IMPRESSION, options: ['abnormal EKG', 'borderline EKG'] } },
+    text: 'Sinus rhythm. Prolonged QTc, {qtc} ms. {axis}. No acute ST-T wave changes. Impression: {impression}.',
+    blanks: { axis: EKG_AXIS_BLANK, impression: { title: IMPRESSION, options: ['abnormal EKG', 'borderline EKG'] } },
     findings: ['longQtc'],
     rank: 8,
-    fills: { conduction: ['prolonged QTc'], impression: '{impression}' },
+    fills: { conduction: ['prolonged QTc'], axis: '{axis}', impression: '{impression}' },
   },
   {
     id: 'nonspecific-st-t',
     name: 'Nonspecific ST-T changes',
-    text: 'Sinus rhythm. Nonspecific ST-T wave changes. Normal axis. Normal intervals. Impression: {impression}.',
-    blanks: { impression: { title: IMPRESSION, options: ['borderline EKG', 'abnormal EKG'] } },
+    text: 'Sinus rhythm. Nonspecific ST-T wave changes. {axis}. Normal intervals. Impression: {impression}.',
+    blanks: { axis: EKG_AXIS_BLANK, impression: { title: IMPRESSION, options: ['borderline EKG', 'abnormal EKG'] } },
     rank: 1,
-    fills: { stt: ['nonspecific ST-T wave changes'], impression: '{impression}' },
+    fills: { stt: ['nonspecific ST-T wave changes'], axis: '{axis}', impression: '{impression}' },
   },
 ];

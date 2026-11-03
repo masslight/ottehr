@@ -15,6 +15,7 @@ import {
   suggestEkgInterpretations,
   withEkgQtc,
 } from 'utils/lib/procedure-coding/families/ekg-interpretation';
+import { EKG_AXIS_RANGE } from 'utils/lib/procedure-coding/families/ekg-templates';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import { readNumber, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { CodingFieldSentences } from './CodingFieldSentences';
@@ -67,6 +68,7 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
     >
       {TILES.map(({ key, label, unit }) => {
         const value = key === 'qtc' ? qtc : readNumber(facts, key);
+        const degrees = key === 'axisDegrees';
         return (
           <Box
             key={key}
@@ -89,7 +91,7 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
             >
               {label}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: degrees ? 0 : '2px' }}>
               {readOnly ? (
                 <Typography sx={{ fontSize: 20, fontWeight: 500 }}>{value ?? '—'}</Typography>
               ) : (
@@ -102,28 +104,52 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                   inputProps={{
                     'aria-label': `${label} (${unit})`,
                     inputMode: 'numeric',
-                    min: key === 'axisDegrees' ? -180 : 0,
+                    ...(degrees ? EKG_AXIS_RANGE : { min: 0 }),
                     step: 1,
                     autoComplete: 'off',
                   }}
-                  sx={(theme) => ({
-                    '& input': {
+                  data-value={degrees ? value ?? '—' : undefined}
+                  sx={(theme) => {
+                    const numberFont = {
                       font: `500 20px ${theme.typography.fontFamily}`,
-                      width: '3.2em',
-                      height: 'auto',
                       fontVariantNumeric: 'tabular-nums',
-                      padding: 0,
-                      '&::placeholder': { color: 'rgba(0, 0, 0, 0.35)', fontWeight: 400, opacity: 1 },
-                      borderBottom: '1px dashed transparent',
-                      '&:hover': { borderBottomColor: 'rgba(0, 0, 0, 0.3)' },
-                      '&:placeholder-shown': { borderBottomColor: TILE_EMPTY },
-                      MozAppearance: 'textfield',
-                      '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { WebkitAppearance: 'none', m: 0 },
-                    },
-                  })}
+                    };
+                    return {
+                      ...(degrees && {
+                        '&::after': {
+                          ...numberFont,
+                          content: 'attr(data-value)',
+                          visibility: 'hidden',
+                          whiteSpace: 'pre',
+                        },
+                      }),
+                      '& input': {
+                        ...numberFont,
+                        ...(degrees ? { position: 'absolute', inset: 0, width: '100%' } : { width: '3.2em' }),
+                        height: 'auto',
+                        padding: 0,
+                        '&::placeholder': { color: 'rgba(0, 0, 0, 0.35)', fontWeight: 400, opacity: 1 },
+                        borderBottom: '1px dashed transparent',
+                        '&:hover': { borderBottomColor: 'rgba(0, 0, 0, 0.3)' },
+                        '&:placeholder-shown': { borderBottomColor: TILE_EMPTY },
+                        MozAppearance: 'textfield',
+                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                          WebkitAppearance: 'none',
+                          m: 0,
+                        },
+                      },
+                    };
+                  }}
                 />
               )}
-              <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
+              <Typography
+                component="span"
+                sx={
+                  degrees
+                    ? { fontSize: 20, fontWeight: 500, color: value === undefined ? 'text.secondary' : 'text.primary' }
+                    : { fontSize: 12, color: 'text.secondary' }
+                }
+              >
                 {unit}
               </Typography>
             </Box>
@@ -185,10 +211,10 @@ interface InterpretationProps {
 }
 
 const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }> = ({ facts, isChild, update }) => {
-  const { rate, pr, qrs, qt, qtc } = ekgMeasurements(facts);
+  const { rate, pr, qrs, qt, qtc, axis } = ekgMeasurements(facts);
   const rows = useMemo(
-    () => suggestEkgInterpretations({ rate, pr, qrs, qt, qtc }, isChild),
-    [rate, pr, qrs, qt, qtc, isChild]
+    () => suggestEkgInterpretations({ rate, pr, qrs, qt, qtc, axis }, isChild),
+    [rate, pr, qrs, qt, qtc, axis, isChild]
   );
   return (
     <SuggestedSentences

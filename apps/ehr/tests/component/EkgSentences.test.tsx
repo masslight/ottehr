@@ -196,6 +196,83 @@ describe('EKG sentences', () => {
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
   });
 
+  it('suggests the axis the typed number shows, so using a row raises no axis reminder', async () => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 75, pr: 160, qrs: 90, qt: 410, qtc: 458, qtcMethod: 'manual' }} />);
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getAllByRole('button', { name: 'Axis: Normal axis' })).toHaveLength(3);
+
+    await typeNumbers(user, { 'Axis (°)': -45 });
+    expect(within(box).getAllByRole('button', { name: 'Axis: Left axis deviation' })).toHaveLength(3);
+    expect(within(box).queryByRole('button', { name: 'Axis: Normal axis' })).not.toBeInTheDocument();
+
+    await user.click(within(box).getByRole('button', { name: 'Use this interpretation: Prolonged QTc' }));
+    expect(latest.facts).toMatchObject({
+      axisDegrees: -45,
+      axis: 'left axis deviation',
+      conduction: ['prolonged QTc'],
+    });
+    expect(screen.getByRole('button', { name: 'axis: left axis deviation' })).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+
+    await typeNumbers(user, { 'Axis (°)': 110 });
+    expect(within(box).getAllByRole('button', { name: 'Axis: Right axis deviation' })).toHaveLength(3);
+    expect(latest.facts?.axis).toBe('left axis deviation');
+  });
+
+  it('keeps signed and zero axis values editable and clears only the measurement', async () => {
+    const user = userEvent.setup();
+    const initial = { rate: 72, qt: 380, axis: 'left axis deviation', impression: 'otherwise normal EKG' };
+    render(<Form initial={initial} />);
+    const input = screen.getByRole('spinbutton', { name: 'Axis (°)' });
+
+    for (const axisDegrees of [-180, 0, 110]) {
+      await typeNumbers(user, { 'Axis (°)': axisDegrees });
+      expect(input).toHaveValue(axisDegrees);
+      expect(latest.facts).toMatchObject({ ...initial, axisDegrees });
+    }
+
+    await user.clear(input);
+    expect(input).toHaveValue(null);
+    expect(latest.facts).toMatchObject({ ...initial, axisDegrees: undefined });
+    expect(within(tile('axisDegrees')).getByText('°')).toBeInTheDocument();
+  });
+
+  it.each([-181, 181])('limits the axis to ±180° and classifies nothing at %s°', async (axisDegrees) => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 72, pr: 160, qrs: 88, qt: 380, axis: 'normal', impression: 'normal EKG' }} />);
+    const input = screen.getByRole('spinbutton', { name: 'Axis (°)' });
+    expect(input).toHaveAttribute('min', '-180');
+    expect(input).toHaveAttribute('max', '180');
+    await typeNumbers(user, { 'Axis (°)': axisDegrees });
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getAllByRole('button', { name: 'Axis: Normal axis' })).toHaveLength(2);
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
+
+  it('offers an otherwise normal read for an axis deviation, and the indeterminate axis for an extreme one', async () => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 72, pr: 160, qrs: 88, qt: 380, axisDegrees: -45 }} />);
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getByRole('button', { name: 'Impression: otherwise normal EKG' })).toBeInTheDocument();
+    await user.click(within(box).getByRole('button', { name: 'Use this interpretation: Normal' }));
+    expect(latest.facts).toMatchObject({ axis: 'left axis deviation', impression: 'otherwise normal EKG' });
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'axis: left axis deviation' }));
+    await user.click(screen.getByRole('option', { name: 'normal' }));
+    await typeNumbers(user, { 'Axis (°)': -120 });
+    expect(within(box).getAllByRole('button', { name: 'Axis: Indeterminate axis' })).toHaveLength(2);
+    const reminders = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+    expect(
+      within(reminders).getByText(/An axis of -120° is indeterminate axis; Axis says "normal"/)
+    ).toBeInTheDocument();
+    await user.click(within(reminders).getByRole('button', { name: 'Set axis to indeterminate' }));
+    expect(latest.facts?.axis).toBe('indeterminate');
+    expect(screen.getByRole('button', { name: 'axis: indeterminate' })).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
+
   it('reminds an adult when the typed axis contradicts a normal axis, and the fix changes only the axis', async () => {
     const user = userEvent.setup();
     render(

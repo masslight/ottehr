@@ -77,6 +77,30 @@ describe('coding field sentences', () => {
     expect(latest.facts?.overHour).toBe(true);
   });
 
+  it('enforces numeric bounds in generic fields and leaves other measurements unbounded', async () => {
+    const user = userEvent.setup();
+    render(<Form family={ekgFamily} />);
+    const axis = screen.getByRole('spinbutton', { name: 'axis (°)' });
+
+    for (const [value, valid] of [
+      [181, false],
+      [-181, false],
+      [180, true],
+      [-180, true],
+    ] as const) {
+      await user.clear(axis);
+      await user.type(axis, String(value));
+      expect(axis).toHaveValue(value);
+      if (valid) expect(axis).toBeValid();
+      else expect(axis).toBeInvalid();
+    }
+
+    const rate = screen.getByRole('spinbutton', { name: 'rate (bpm)' });
+    await user.type(rate, '200');
+    expect(rate).toBeValid();
+    expect(rate).not.toHaveAttribute('max');
+  });
+
   it('marks laterality only for locations that need it for coding', async () => {
     const user = userEvent.setup();
     render(<Form family={foreignBodyFamily} />);

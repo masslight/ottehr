@@ -552,6 +552,7 @@ interface TextBlankProps {
   readOnly: boolean;
   need?: boolean;
   min?: number;
+  max?: number;
   step?: number;
   width?: string;
   dataTestId?: string;
@@ -569,6 +570,7 @@ export const TextBlank: FC<TextBlankProps> = ({
   readOnly,
   need,
   min,
+  max,
   step,
   width,
   dataTestId,
@@ -593,7 +595,7 @@ export const TextBlank: FC<TextBlankProps> = ({
         title: placeholder === label ? undefined : label,
         // Chrome's form-history dropdown would look like an app popover inside a sentence.
         autoComplete: 'off',
-        ...(kind === 'number' ? { min, step: step ?? 1, inputMode: 'decimal' } : {}),
+        ...(kind === 'number' ? { min, max, step: step ?? 1, inputMode: 'decimal' } : {}),
       }}
       sx={(theme) => {
         const inline = inlineInputSx(theme, text === '', need ?? false);

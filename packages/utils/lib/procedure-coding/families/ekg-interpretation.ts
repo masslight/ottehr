@@ -1,7 +1,8 @@
 import { isSentenceBlank, parseTemplate, SentenceBlank, SentenceSegment } from '../../helpers/suggested-sentences';
 import { readNumber, readStrings, StructuredFacts } from '../structured-fields';
 import {
-  EKG_AXIS_LIMITS,
+  EKG_AXIS_BLANK,
+  EKG_AXIS_RANGE,
   EKG_FINDINGS,
   EKG_NORMAL_READ,
   EKG_TEMPLATES,
@@ -43,6 +44,7 @@ export interface EkgMeasurements {
   qrs?: number;
   qt?: number;
   qtc?: number;
+  axis?: number;
 }
 
 export const ekgMeasurements = (facts: StructuredFacts): EkgMeasurements => ({
@@ -51,6 +53,7 @@ export const ekgMeasurements = (facts: StructuredFacts): EkgMeasurements => ({
   qrs: readNumber(facts, 'qrs'),
   qt: readNumber(facts, 'qt'),
   qtc: ekgQtc(facts),
+  axis: readNumber(facts, 'axisDegrees'),
 });
 
 export const EKG_MEASUREMENT_KEYS = ['rate', 'pr', 'qrs', 'qt', 'qtc', 'qtcMethod', 'axisDegrees'];
@@ -58,8 +61,7 @@ export const EKG_MEASUREMENT_KEYS = ['rate', 'pr', 'qrs', 'qt', 'qtc', 'qtcMetho
 const signedDegrees = (degrees: number): string => `${degrees > 0 ? '+' : ''}${degrees}°`;
 
 export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
-  const { rate, pr, qrs, qt, qtc } = ekgMeasurements(facts);
-  const axis = readNumber(facts, 'axisDegrees');
+  const { rate, pr, qrs, qt, qtc, axis } = ekgMeasurements(facts);
   const method = qtc === undefined ? '' : ` (${ekgQtcMethod(facts)})`;
   const parts = [
     ...(rate === undefined ? [] : [`Rate ${rate} bpm`]),
@@ -77,22 +79,20 @@ export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
   return parts.length ? `${parts.join(', ')}.` : undefined;
 }
 
-export function ekgFindings({ rate, pr, qrs, qtc }: EkgMeasurements): EkgFinding[] {
+export function ekgFindings({ rate, pr, qrs, qtc, axis }: EkgMeasurements): EkgFinding[] {
   const found: EkgFinding[] = [];
   if (rate !== undefined && rate < EKG_FINDINGS.slow.limit) found.push('slow');
   if (rate !== undefined && rate > EKG_FINDINGS.fast.limit) found.push('fast');
   if (pr !== undefined && pr > EKG_FINDINGS.longPr.limit) found.push('longPr');
   if (qrs !== undefined && qrs >= EKG_FINDINGS.wideQrs.limit) found.push('wideQrs');
   if (qtc !== undefined && qtc > EKG_FINDINGS.longQtc.limit) found.push('longQtc');
+  if (axis !== undefined && axis >= EKG_AXIS_RANGE.min && axis <= EKG_AXIS_RANGE.max) {
+    const frontal = axis === EKG_AXIS_RANGE.max ? EKG_AXIS_RANGE.min : axis;
+    if (frontal < EKG_FINDINGS.extremeAxis.limit) found.push('extremeAxis');
+    else if (frontal < EKG_FINDINGS.leftAxis.limit) found.push('leftAxis');
+    else if (frontal > EKG_FINDINGS.rightAxis.limit) found.push('rightAxis');
+  }
   return found;
-}
-
-function ekgAxisDeviation(axis: number | undefined): string | undefined {
-  if (axis === undefined) return undefined;
-  const { normal, deviation } = EKG_AXIS_LIMITS;
-  if (axis >= deviation.min && axis < normal.min) return 'left axis deviation';
-  if (axis > normal.max && axis <= deviation.max) return 'right axis deviation';
-  return undefined;
 }
 
 export interface EkgSuggestionBlank extends SentenceBlank, Pick<EkgTemplateBlank, 'fieldValue'> {
@@ -112,16 +112,23 @@ const TOKEN = /\{(\w+)\}/g;
 const fillTokens = (text: string, values: Record<string, string | number | undefined>): string =>
   text.replace(TOKEN, (token, name) => (values[name] === undefined ? token : String(values[name])));
 
+const lowerFirst = (word: string): string => word.charAt(0).toLowerCase() + word.slice(1);
+
+const fieldValueOf = (blank: Pick<EkgTemplateBlank, 'fieldValue'>, word: string): string =>
+  blank.fieldValue?.[word] ?? lowerFirst(word);
+
+const wordForFindings = (blank: EkgTemplateBlank, found: EkgFinding[]): string | undefined =>
+  found.map((finding) => blank.initial?.[finding]).find((word) => word !== undefined);
+
 function templateSegments(template: EkgTemplate, numbers: EkgMeasurements, found: EkgFinding[]): SentenceSegment[] {
   return parseTemplate(template.text, (name) => {
     const blank = template.blanks?.[name];
     if (blank) {
-      const byFinding = found.map((finding) => blank.initial?.[finding]).find((initial) => initial !== undefined);
       const segment: EkgSuggestionBlank = {
         key: name,
         title: blank.title,
         options: blank.options,
-        initial: byFinding ?? blank.options[0],
+        initial: wordForFindings(blank, found) ?? blank.options[0],
         fieldValue: blank.fieldValue,
       };
       return segment;
@@ -140,7 +147,7 @@ export function suggestEkgInterpretations(numbers: EkgMeasurements, isChild: boo
     return {
       id: template.id,
       name: template.name,
-      segments: templateSegments(template, numbers, found),
+      segments: templateSegments(template, numbers, isChild ? [] : found),
       reason: finding && fillTokens(EKG_FINDINGS[finding].reason, { ...numbers, limit: EKG_FINDINGS[finding].limit }),
       fills: template.fills,
     };
@@ -166,8 +173,7 @@ export function ekgSuggestionPicks(suggestion: EkgSuggestion, picks: (string | u
   suggestion.segments.forEach((segment, i) => {
     if (!isSentenceBlank(segment)) return;
     const blank = segment as EkgSuggestionBlank;
-    const word = picks[i] ?? blank.initial ?? '';
-    choice[blank.key] = blank.fieldValue?.[word] ?? word.charAt(0).toLowerCase() + word.slice(1);
+    choice[blank.key] = fieldValueOf(blank, picks[i] ?? blank.initial ?? '');
   });
   const resolve = (value: string): string => fillTokens(value, choice);
   const read: EkgInterpretation = { ...EKG_NORMAL_READ };
@@ -228,20 +234,20 @@ export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
         fixes: [{ label: 'Add prolonged QTc', apply: withFinding('prolonged QTc') }],
       });
   }
-  const axis = readNumber(facts, 'axisDegrees');
-  const axisDeviation = ekgAxisDeviation(axis);
-  if (axis !== undefined && axisDeviation) {
-    findings.push(axisDeviation);
+  const axisWord = wordForFindings(EKG_AXIS_BLANK, found);
+  if (numbers.axis !== undefined && axisWord) {
+    findings.push(lowerFirst(axisWord));
     const conflict =
       facts.axis === 'normal'
         ? 'Axis says "normal"'
         : facts.axis === undefined && facts.impression === 'normal EKG'
         ? 'Impression says "normal EKG"'
         : undefined;
+    const axis = fieldValueOf(EKG_AXIS_BLANK, axisWord);
     if (conflict)
       reminders.push({
-        message: `An axis of ${signedDegrees(axis)} is ${axisDeviation}; ${conflict}.`,
-        fixes: [{ label: `Set axis to ${axisDeviation}`, apply: { axis: axisDeviation } }],
+        message: `An axis of ${signedDegrees(numbers.axis)} is ${lowerFirst(axisWord)}; ${conflict}.`,
+        fixes: [{ label: `Set axis to ${axis}`, apply: { axis } }],
       });
   }
   if (findings.length && facts.impression === 'normal EKG')

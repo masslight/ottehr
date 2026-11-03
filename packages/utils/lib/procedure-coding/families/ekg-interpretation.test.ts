@@ -11,6 +11,7 @@ import { ekgFamily } from './ekg';
 import {
   calculateQtc,
   ekgMeasurementLine,
+  ekgMeasurements,
   ekgQtc,
   ekgQtcMethod,
   ekgReminders,
@@ -219,6 +220,64 @@ describe('suggested interpretations', () => {
     });
   });
 
+  describe('axis', () => {
+    const facts = { rate: 75, pr: 160, qrs: 90, qt: 410, qtc: 458, qtcMethod: 'manual' };
+    const axisWords = (axisDegrees: StructuredFacts[string], isChild = false): string[] =>
+      suggestEkgInterpretations(ekgMeasurements({ ...facts, axisDegrees }), isChild).map(
+        (row) => text(row).match(/Normal axis|Left axis deviation|Right axis deviation|Indeterminate axis/)?.[0] ?? ''
+      );
+
+    it.each([
+      [-45, 'Left axis deviation'],
+      [110, 'Right axis deviation'],
+      [-120, 'Indeterminate axis'],
+    ])('starts every adult row at %s° on %s, ranked as before', (axisDegrees, word) => {
+      expect(axisWords(axisDegrees)).toEqual([word, word, word]);
+      expect(ids(ekgMeasurements({ ...facts, axisDegrees }))).toEqual(['prolonged-qtc', 'normal', 'nonspecific-st-t']);
+    });
+
+    it.each([-30, 0, 90, -181, 181, undefined])('keeps a normal axis in every row at %s°', (axisDegrees) => {
+      expect(axisWords(axisDegrees)).toEqual(['Normal axis', 'Normal axis', 'Normal axis']);
+    });
+
+    it('keeps a normal axis for a child, whose limits differ', () => {
+      expect(axisWords(-45, true)).toEqual(['Normal axis']);
+      const [normal] = suggestEkgInterpretations(ekgMeasurements({ ...facts, axisDegrees: -45 }), true);
+      expect(text(normal)).toContain('Impression: normal EKG.');
+    });
+
+    it.each([-45, 110, -120])(
+      'starts the normal row at %s° on "otherwise normal EKG", so using it raises no reminder',
+      (axisDegrees) => {
+        const measured = { rate: 72, pr: 160, qrs: 88, qt: 380, axisDegrees };
+        const [normal] = suggestEkgInterpretations(ekgMeasurements(measured), false);
+        expect(normal.id).toBe('normal');
+        expect(text(normal)).toContain('Impression: otherwise normal EKG.');
+        expect(ekgReminders({ ...measured, ...ekgSuggestionPicks(normal, []) })).toEqual([]);
+      }
+    );
+
+    it('starts the normal row on "normal EKG" while the axis is normal', () => {
+      const [normal] = suggestEkgInterpretations(ekgMeasurements({ rate: 72, qt: 380, axisDegrees: 45 }), false);
+      expect(text(normal)).toBe(
+        'Sinus rhythm. Normal axis. Normal intervals. No acute ST-T wave changes. Impression: normal EKG.'
+      );
+    });
+
+    it('fills the axis the row shows, so applying it leaves nothing to reconcile, and a picked word wins', () => {
+      const measured = { ...facts, axisDegrees: -45 };
+      const [top] = suggestEkgInterpretations(ekgMeasurements(measured), false);
+      const applied = { ...measured, ...ekgSuggestionPicks(top, []) };
+      expect(applied.axis).toBe('left axis deviation');
+      expect(ekgReminders(applied)).toEqual([]);
+
+      const picks = top.segments.map((segment) =>
+        isSentenceBlank(segment) && segment.title === 'Axis' ? 'Normal axis' : undefined
+      );
+      expect(ekgSuggestionPicks(top, picks).axis).toBe('normal');
+    });
+  });
+
   it('only suggests the normal read for a child, whatever the numbers', () => {
     expect(ids({ rate: 118, pr: 236, qrs: 136, qt: 480, qtc: 500 }, true)).toEqual(['normal']);
   });
@@ -343,14 +402,33 @@ describe('reminders', () => {
       [-31, 'left axis deviation'],
       [-90, 'left axis deviation'],
       [91, 'right axis deviation'],
-      [180, 'right axis deviation'],
-    ])('classifies %s°, just past or at the edge of a deviation, as %s', (axisDegrees, deviation) => {
-      expect(ekgReminders({ ...normalRead, axisDegrees })[0].fixes[0].apply).toEqual({ axis: deviation });
+      [179, 'right axis deviation'],
+      [-91, 'indeterminate'],
+      [-180, 'indeterminate'],
+      [180, 'indeterminate'],
+    ])('classifies %s° as %s', (axisDegrees, axis) => {
+      expect(ekgReminders({ ...normalRead, axisDegrees })[0].fixes).toEqual([
+        { label: `Set axis to ${axis}`, apply: { axis } },
+      ]);
+    });
+
+    it('names an extreme axis and resolves it with the indeterminate choice', () => {
+      const facts = { ...normalRead, axisDegrees: -120 };
+      expect(messages(facts)).toEqual([
+        'An axis of -120° is indeterminate axis; Axis says "normal".',
+        'Impression is "normal EKG", but the numbers show indeterminate axis.',
+      ]);
+      const fixed = { ...facts, ...ekgReminders(facts)[0].fixes[0].apply };
+      expect(
+        invalidStructuredFields(ekgFamily.fields, resolveFamilyFacts(ekgFamily, { structuredFacts: fixed }))
+      ).toEqual([]);
+      expect(messages(fixed)).toEqual(['Impression is "normal EKG", but the numbers show indeterminate axis.']);
     });
 
     it.each([
-      ['an extreme axis', -91],
-      ['an extreme axis', -180],
+      ['an axis below the field minimum', -181],
+      ['an axis past +180', 181],
+      ['an axis past +180', 300],
       ['a cleared axis', undefined],
       ['an empty axis', ''],
       ['a value that is not a number', 'abc'],
