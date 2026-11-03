@@ -12,24 +12,27 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { TextFieldStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/TextFieldStyled';
-import { PatientNoteDTO, UpdatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
-import { useUpdatePatientNote } from '../hooks/useUpdatePatientNote';
+import { NoteDTO, UpdateNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { noteKind, NoteTarget } from '../hooks/useNotes';
+import { useUpdateNote } from '../hooks/useUpdateNote';
 
-interface EditPatientNoteModalProps {
-  note: PatientNoteDTO;
+interface EditNoteModalProps {
+  note: NoteDTO;
+  target: NoteTarget;
   onClose: () => void;
 }
 
-export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note, onClose }) => {
+export const EditNoteModal: React.FC<EditNoteModalProps> = ({ note, target, onClose }) => {
   const theme = useTheme();
   const [text, setText] = useState(note.text);
-  const { mutateAsync: save, isPending } = useUpdatePatientNote(note.patientId);
+  const { mutateAsync: save, isPending } = useUpdateNote(target);
+  const label = noteKind(target) === 'task' ? 'Task Note' : 'Patient Note';
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim() || !note.resourceId) return;
-    const payload: UpdatePatientNoteRequest = {
+    const payload: UpdateNoteRequest = {
       resourceId: note.resourceId,
-      patientId: note.patientId,
+      ...target,
       text: text.trim(),
     };
     try {
@@ -44,7 +47,7 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box display="flex" alignItems="center" color={theme.palette.primary.dark}>
-          <Typography variant="h4">Edit Patient Note</Typography>
+          <Typography variant="h4">Edit {label}</Typography>
         </Box>
       </DialogTitle>
       <DialogContent>
@@ -52,7 +55,7 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
           autoFocus
           margin="dense"
           id="patient-note-text"
-          label="Patient Note"
+          label={label}
           type="text"
           fullWidth
           multiline
@@ -69,7 +72,7 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
           Leave
         </RoundedButton>
         <RoundedButton
-          disabled={!text.trim() || isPending}
+          disabled={!text.trim() || text.trim() === note.text || isPending}
           onClick={handleSave}
           variant="contained"
           startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}

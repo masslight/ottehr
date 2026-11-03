@@ -98,7 +98,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Follow-up visits get a differently-titled visit note and no completion email.
     const isFollowupTask = isFollowupEncounter(encounter);
 
-    const progressNoteInput = await assembleProgressNoteInput(oystehr, oystehrToken, visitResources, {
+    const progressNoteInput = await assembleProgressNoteInput(oystehr, oystehrToken, visitResources, secrets, {
       signed: true,
     });
 

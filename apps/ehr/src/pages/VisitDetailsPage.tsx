@@ -35,7 +35,7 @@ import { Appointment, Encounter, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   deleteVisitForm,
   generatePaperworkPdf,
@@ -43,6 +43,7 @@ import {
   getPatientVisitDetails,
   getVisitFaxHistory,
   listServiceCategories,
+  sendPatientForm,
   updatePatientVisitDetails,
 } from 'src/api/api';
 import CardThumbnail from 'src/components/CardThumbnail';
@@ -61,6 +62,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
+import { getConvertToFollowUpDisabledReason } from 'src/features/visits/shared/components/patient/convertToFollowUp';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -68,6 +70,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { useGetPatientVisitHistory } from 'src/hooks/useGetPatientVisitHistory';
 import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
@@ -89,6 +92,7 @@ import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/modu
 import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
+import { FormPlacement } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
@@ -118,6 +122,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
 import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
+import { formPagePath, OpenFormResponseState } from '../features/visits/shared/components/patient-forms/formNavigation';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -314,13 +319,24 @@ export default function VisitDetailsPage(): ReactElement {
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
   const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
+  // A form started from another page's dialog arrives here to be filled out.
+  const location = useLocation();
+  const openFormResponseId = (location.state as OpenFormResponseState | null)?.openFormResponseId;
+  useEffect(() => {
+    const toOpen = standAloneForms?.find((form) => form.questionnaireResponse.id === openFormResponseId);
+    if (!toOpen) return;
+    setFormToEdit(toOpen);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [standAloneForms, openFormResponseId, location.pathname, location.search, navigate]);
+
   // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms,
   // but only a manually-sent form owns its QuestionnaireResponse outright, so only it can be deleted.
   const allCustomForms = useMemo(
-    () => [
-      ...(standAloneForms ?? []).map((form) => ({ form, deletable: true })),
-      ...(intakePaperworkFlowForms ?? []).map((form) => ({ form, deletable: false })),
-    ],
+    () =>
+      [
+        ...(standAloneForms ?? []).map((form) => ({ form, deletable: true })),
+        ...(intakePaperworkFlowForms ?? []).map((form) => ({ form, deletable: false })),
+      ].filter(({ form }) => (form.placement ?? 'visit-details') === 'visit-details'),
     [standAloneForms, intakePaperworkFlowForms]
   );
 
@@ -506,6 +522,12 @@ export default function VisitDetailsPage(): ReactElement {
   });
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
   const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
+
+  // Top-level visits are the ones the follow-up parent picker offers.
+  const { data: visitHistory, isError: isOtherInitialVisitsError } = useGetPatientVisitHistory(patientId);
+  const hasOtherInitialVisits = visitHistory?.visits.some(
+    (visit) => !!visit.encounterId && visit.encounterId !== encounter?.id
+  );
 
   const parentEncounterId = encounter?.partOf?.reference?.replace('Encounter/', '');
   const parentAppointmentQueryEnabled = Boolean(oystehr) && Boolean(parentEncounterId);
@@ -867,12 +889,13 @@ export default function VisitDetailsPage(): ReactElement {
         )
       : undefined;
 
-  const convertToFollowUpDisabledReason = ((): string | undefined => {
-    if (!appointment || !encounter || !patientId || isOwnFollowUpsUnresolved) return 'Loading the visit…';
-    if (isFollowupEncounter(encounter)) return 'This visit is already a follow-up';
-    if (hasOwnFollowUps) return 'This visit already has its own follow-ups';
-    return undefined;
-  })();
+  const convertToFollowUpDisabledReason = getConvertToFollowUpDisabledReason({
+    encounter,
+    isLoading: !appointment || !patientId || isOwnFollowUpsUnresolved,
+    hasOwnFollowUps,
+    // A failed lookup shouldn't block converting; the parent picker shows what is there.
+    hasOtherInitialVisits: isOtherInitialVisitsError || hasOtherInitialVisits,
+  });
   const isOtherFollowUpReason =
     isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
@@ -902,6 +925,28 @@ export default function VisitDetailsPage(): ReactElement {
       enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
     } finally {
       setPaperworkPdfLoading(false);
+    }
+  };
+
+  // Starts (or reuses) this visit's response without texting the patient, then opens it for staff to fill out.
+  const fillOutVisitForm = async (questionnaireId: string, placement: FormPlacement): Promise<void> => {
+    if (!oystehrZambda || !appointmentID) return;
+    try {
+      const { questionnaireResponseId } = await sendPatientForm(oystehrZambda, {
+        appointmentId: appointmentID,
+        questionnaireId,
+        notifyPatient: false,
+      });
+      if (placement !== 'visit-details') {
+        const state: OpenFormResponseState = { openFormResponseId: questionnaireResponseId };
+        navigate(formPagePath(placement, appointmentID), { state });
+        return;
+      }
+      const { data } = await refetchVisitDetails();
+      setFormToEdit(data?.standAloneForms?.find((form) => form.questionnaireResponse.id === questionnaireResponseId));
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Could not start the form. Please try again.', { variant: 'error' });
     }
   };
 
@@ -1251,7 +1296,7 @@ export default function VisitDetailsPage(): ReactElement {
                     <ListItemIcon sx={MENU_ITEM_ICON_SX}>
                       <AssignmentOutlinedIcon fontSize="small" />
                     </ListItemIcon>
-                    Send Form
+                    Add Form
                   </MenuItem>
                   {convertToFollowUpMenuItem}
                   <MenuItem
@@ -1911,6 +1956,9 @@ export default function VisitDetailsPage(): ReactElement {
             open={sendFormDialogOpen}
             onClose={() => setSendFormDialogOpen(false)}
             appointmentId={appointmentID}
+            placement="visit-details"
+            onSent={() => void refetchVisitDetails()}
+            onFillOut={(questionnaireId, placement) => void fillOutVisitForm(questionnaireId, placement)}
           />
         )}
         {formToEdit && (

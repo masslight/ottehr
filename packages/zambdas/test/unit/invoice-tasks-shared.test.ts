@@ -1,5 +1,6 @@
 import { Encounter, Task, TaskInput } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
+import { ParsedInvoiceConfig } from 'utils/lib/helpers/rcm/invoice-config';
 import { parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -39,10 +40,11 @@ const encounter = (overrides: Partial<Encounter> = {}): Encounter => ({
   ...overrides,
 });
 
-const config = {
+const config: ParsedInvoiceConfig = {
   dueDaysFromGeneration: 30,
   defaultSmsTemplate: 'sms template',
   defaultInvoiceMemo: 'memo template',
+  invoiceIssuerSource: 'service-facility',
 };
 
 const buildParams = {

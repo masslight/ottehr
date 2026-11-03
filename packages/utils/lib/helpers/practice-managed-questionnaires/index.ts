@@ -1,17 +1,21 @@
 import {
+  Coding,
   Extension,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
 import { cloneDeep, isEqual } from 'lodash-es';
 import {
+  FORM_PLACEMENT_TAG_SYSTEM,
   JSON_IMPORT_QUESTIONNAIRE_TAG,
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
 } from '../../fhir/constants';
+import { flattenIntakeQuestionnaireItems } from '../../types/data/paperwork/paperwork.types';
 import {
   DataTypeSchema,
   InputWidthSchema,
@@ -22,6 +26,7 @@ import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
   StandaloneFormDTO,
+  TAGGED_FORM_PLACEMENTS,
 } from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { CalculableItem, formatCalculatedValue, isCalculatedItem } from '../paperwork/calculated-answers';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork/paperwork';
@@ -207,6 +212,27 @@ export function isPracticeManagedQ(q: Questionnaire | undefined): boolean {
   return Boolean(q.meta?.tag?.some((t) => t.code === code && t.system === system));
 }
 
+/** Where a practice-managed form's answers appear. Visit Details is the default (no tag). */
+export const FORM_PLACEMENTS = ['visit-details', ...TAGGED_FORM_PLACEMENTS] as const;
+export type FormPlacement = (typeof FORM_PLACEMENTS)[number];
+
+export const FORM_PLACEMENT_LABELS: Record<FormPlacement, string> = {
+  'visit-details': 'Visit Details',
+  screening: 'Screening',
+  questionnaires: 'Clinical Forms',
+};
+
+export function getFormPlacement(q: Pick<Questionnaire, 'meta'> | undefined): FormPlacement {
+  const code = q?.meta?.tag?.find((t) => t.system === FORM_PLACEMENT_TAG_SYSTEM)?.code;
+  return FORM_PLACEMENTS.find((placement) => placement === code) ?? 'visit-details';
+}
+
+/** Returns the form's tags with its placement replaced; Visit Details is stored as no tag. */
+export function withFormPlacement(tags: Coding[] | undefined, placement: FormPlacement): Coding[] {
+  const others = (tags ?? []).filter((t) => t.system !== FORM_PLACEMENT_TAG_SYSTEM);
+  return placement === 'visit-details' ? others : [...others, { system: FORM_PLACEMENT_TAG_SYSTEM, code: placement }];
+}
+
 export function isJsonImportedQ(q: Pick<Questionnaire, 'meta'> | undefined): boolean {
   if (!q) return false;
 
@@ -221,20 +247,7 @@ export function qrSentManually(qr: QuestionnaireResponse | undefined): boolean {
   return Boolean(qr.meta?.tag?.some((t) => t.code === code && t.system === system));
 }
 
-export const formatQuestionnaireItemValueToString = (
-  item: QuestionnaireResponseItem | undefined,
-  questions: Map<string, CalculableItem>
-): string => {
-  if (!item) return '';
-
-  const a = item.answer?.[0];
-  if (!a) return '';
-
-  const question = questions.get(item.linkId);
-  if (question && isCalculatedItem(question)) {
-    return formatCalculatedValue(a.valueBoolean ?? a.valueInteger ?? a.valueDecimal ?? a.valueString);
-  }
-
+const formatAnswer = (a: QuestionnaireResponseItemAnswer): string => {
   if (a.valueCoding?.display) return a.valueCoding.display;
   if (a.valueString !== undefined) return a.valueString;
   if (a.valueBoolean !== undefined) return a.valueBoolean ? 'Positive' : 'Negative';
@@ -244,6 +257,48 @@ export const formatQuestionnaireItemValueToString = (
   if (a.valueDateTime) return a.valueDateTime;
   return '';
 };
+
+export const formatQuestionnaireItemValueToString = (
+  item: QuestionnaireResponseItem | undefined,
+  questions: Map<string, CalculableItem>
+): string => {
+  if (!item?.answer?.length) return '';
+
+  const question = questions.get(item.linkId);
+  if (question && isCalculatedItem(question)) {
+    const a = item.answer[0];
+    return formatCalculatedValue(a.valueBoolean ?? a.valueInteger ?? a.valueDecimal ?? a.valueString);
+  }
+
+  return item.answer.map(formatAnswer).filter(Boolean).join(', ');
+};
+
+/** A filled-out form as question/answer lines, in form order; unanswered questions have an empty answer. */
+export const formResponseLines = (
+  form: StandaloneFormDTO
+): { linkId: string; question: string; answer: string; answered: boolean }[] => {
+  const answers = new Map<string, QuestionnaireResponseItem>();
+  const walk = (items: QuestionnaireResponseItem[]): void =>
+    items.forEach((item) => {
+      if (item.answer?.length) answers.set(item.linkId, item);
+      walk([...(item.item ?? []), ...(item.answer ?? []).flatMap((answer) => answer.item ?? [])]);
+    });
+  walk(form.questionnaireResponse.item ?? []);
+  const questions = flattenIntakeQuestionnaireItems(form.allItems).filter(
+    (q) => q.type !== 'group' && q.type !== 'display'
+  );
+  const questionsByLinkId = new Map(questions.map((q) => [q.linkId, q]));
+  return questions.map((q) => ({
+    linkId: q.linkId,
+    question: q.text ?? '',
+    answer: formatQuestionnaireItemValueToString(answers.get(q.linkId), questionsByLinkId),
+    // A recorded score alone doesn't mean anyone has started the form.
+    answered: answers.has(q.linkId) && !isCalculatedItem(q),
+  }));
+};
+
+/** True once at least one of the form's questions has an answer; a sent-but-unopened form has none. */
+export const hasAnyAnswer = (form: StandaloneFormDTO): boolean => formResponseLines(form).some((line) => line.answered);
 
 export const makePracticeManagedUrl = (slug: string): string => {
   return `https://ottehr.com/FHIR/Questionnaire/${slug}`;
@@ -263,5 +318,7 @@ export const makeStandaloneFormDTO = (
     questionnaireResponse,
     questionnaireTitle,
     questionnaireId,
+    placement: getFormPlacement(questionnaire),
+    questionnaireUrl: questionnaire.url,
   };
 };

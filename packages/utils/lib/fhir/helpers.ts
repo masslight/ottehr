@@ -400,6 +400,9 @@ export async function createFilesDocumentReferences(
       console.log('making DocumentReference results =>', JSON.stringify(docRefBundle, null, 2));
 
       const docRef = docRefBundle.entry?.[0]?.resource;
+      if (docRef) {
+        docRefs.push(docRef);
+      }
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
         let typeCode = type.coding[0].code;
@@ -422,7 +425,6 @@ export async function createFilesDocumentReferences(
             reference: `DocumentReference/${docRef.id}`,
           },
         });
-        docRefs.push(docRef);
       }
     }
 
@@ -653,17 +655,21 @@ export const getAppointmentMetaTagOpForStatusUpdate = (
     updatedByOverride?: string;
   }
 ): Operation[] => {
+  return getPatchOperationsForNewMetaTags(appointment, getAppointmentStatusUpdateTags(updatedStatus, updatedBy));
+};
+
+export const getAppointmentStatusUpdateTags = (
+  updatedStatus: VisitStatusWithoutUnknown,
+  updatedBy: {
+    user?: User;
+    updatedByOverride?: string;
+  }
+): Coding[] => {
   const { user, updatedByOverride } = updatedBy;
   const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus, display: updatedStatus };
   const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
   const updatedByText = updatedByOverride ? updatedByOverride : staffUpdateBy;
-  const updateTag = {
-    system: CRITICAL_CHANGE_SYSTEM,
-    display: updatedByText,
-    version: DateTime.now().toISO() || '',
-  };
-  const ops = getPatchOperationsForNewMetaTags(appointment, [statusTag, updateTag]);
-  return ops;
+  return [statusTag, createCriticalUpdateTag(updatedByText)];
 };
 
 /**
@@ -1473,8 +1479,9 @@ export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   return outcomeEntry;
 };
 
+// Organizations that pay invoices store their Stripe customers the same way as an Account.
 export const getStripeCustomerIdFromAccount = (
-  account: Account,
+  account: Pick<Account, 'identifier'>,
   stripeAccount: string | undefined
 ): string | undefined => {
   if (!stripeAccount) {

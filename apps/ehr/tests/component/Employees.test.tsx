@@ -377,4 +377,42 @@ describe('EmployeesPage', () => {
     await waitFor(() => expect(screen.getByText('Texan, Tess')).toBeInTheDocument());
     expect(screen.queryByText('Californian, Cal')).not.toBeInTheDocument();
   });
+  describe('Status filter', () => {
+    const activeAndInactive = (): EmployeeDetails[] => [
+      makeEmployee({ id: 'u-active', firstName: 'Ann', lastName: 'Active', status: 'Active' }),
+      makeEmployee({ id: 'u-inactive', firstName: 'Ivan', lastName: 'Inactive', status: 'Deactivated' }),
+    ];
+
+    it('shows active and inactive employees by default', async () => {
+      mockGetEmployees.mockResolvedValue({ message: 'ok', employees: activeAndInactive() });
+
+      render(<EmployeesPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(screen.getByText('Active, Ann')).toBeInTheDocument());
+      expect(screen.getByText('Inactive, Ivan')).toBeInTheDocument();
+    });
+
+    it('hides inactive employees when Active is selected', async () => {
+      mockGetEmployees.mockResolvedValue({ message: 'ok', employees: activeAndInactive() });
+      const user = userEvent.setup();
+
+      render(<EmployeesPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(screen.getByText('Inactive, Ivan')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('combobox', { name: /Status/ }));
+      await user.click(screen.getByRole('option', { name: 'Active' }));
+
+      expect(screen.getByText('Active, Ann')).toBeInTheDocument();
+      expect(screen.queryByText('Inactive, Ivan')).not.toBeInTheDocument();
+    });
+
+    it('reads the Inactive status filter from the URL', async () => {
+      mockGetEmployees.mockResolvedValue({ message: 'ok', employees: activeAndInactive() });
+
+      render(<EmployeesPage />, { wrapper: createWrapper('/admin/employees?status=inactive') });
+
+      await waitFor(() => expect(screen.getByText('Inactive, Ivan')).toBeInTheDocument());
+      expect(screen.queryByText('Active, Ann')).not.toBeInTheDocument();
+    });
+  });
 });

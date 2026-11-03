@@ -1,14 +1,19 @@
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import { Box, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Box, FormControlLabel, FormLabel, Grid, Paper, Radio, RadioGroup, TextField, Typography } from '@mui/material';
 import { Questionnaire } from 'fhir/r4b';
 import { FC, useMemo, useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
+  FORM_PLACEMENT_LABELS,
+  FORM_PLACEMENTS,
+  FormPlacement,
+  getFormPlacement,
   makePracticeManagedUrl,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
   practiceManagedQuestionnaireToFhir,
+  withFormPlacement,
 } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { slugify } from 'utils/lib/helpers/slugify';
 import {
@@ -84,9 +89,16 @@ function ensureUniqueLinkIds(
   });
 }
 
+const FORM_PLACEMENT_HELP: Record<FormPlacement, string> = {
+  'visit-details': "Shown on the visit's Visit Details page.",
+  screening: 'Staff fill it out on the Screening Questions page, below the built-in screening questions.',
+  questionnaires: "Shown on the chart's Clinical Forms page, together with the patient's earlier responses.",
+};
+
 export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, onSave, isSaving }) => {
   const [title, setTitle] = useState(initial?.title || '');
   const [description, setDescription] = useState(initial?.description || '');
+  const [placement, setPlacement] = useState<FormPlacement>(getFormPlacement(initial));
   const [items, dispatch] = useReducer(itemsReducer, initial?.item || []);
   const [titleError, setTitleError] = useState(false);
   const [pagesError, setPagesError] = useState(false);
@@ -101,7 +113,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
     const canonicalFields = makeCanonicalFields(initial ? { initial } : { title });
     const status: Questionnaire['status'] = initial ? initial.status : 'active';
     const version = initial?.version ?? PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION;
-    const metaTags = initial?.meta?.tag;
+    const metaTags = withFormPlacement(initial?.meta?.tag, placement);
 
     const questionnaire: PracticeManagedQuestionnaire = {
       resourceType: 'Questionnaire',
@@ -112,14 +124,14 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
       title,
       ...(description && { description }),
       item: ensureUniqueLinkIds(items),
-      ...(metaTags && { meta: { tag: metaTags } }),
+      ...(metaTags.length > 0 && { meta: { tag: metaTags } }),
     };
 
     const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(structuredClone(questionnaire), true);
     const jsonPreview = JSON.stringify(fhirQuestionnaire, null, 2);
 
     return { questionnaire, fhirQuestionnaire, jsonPreview };
-  }, [initial, title, description, items]);
+  }, [initial, title, description, placement, items]);
 
   const handleSave = async (): Promise<void> => {
     let error = false;
@@ -172,6 +184,30 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
                   minRows={2}
                   fullWidth
                 />
+              </Grid>
+              <Grid item xs={12}>
+                <FormLabel id="form-placement-label">Where answers appear</FormLabel>
+                <RadioGroup
+                  aria-labelledby="form-placement-label"
+                  value={placement}
+                  onChange={(e) => setPlacement(e.target.value as FormPlacement)}
+                >
+                  {FORM_PLACEMENTS.map((value) => (
+                    <FormControlLabel
+                      key={value}
+                      value={value}
+                      control={<Radio size="small" />}
+                      label={
+                        <Box>
+                          <Typography variant="body2">{FORM_PLACEMENT_LABELS[value]}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {FORM_PLACEMENT_HELP[value]}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  ))}
+                </RadioGroup>
               </Grid>
             </Grid>
           </Paper>

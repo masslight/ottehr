@@ -153,7 +153,7 @@ describe('search-billing-claims service date branch', () => {
     expect(scanSearches()).toHaveLength(1);
     const [{ params }] = scanSearches();
     expect(paramNamed(params, '_include')).toBeUndefined();
-    expect(paramNamed(params, '_elements')?.value).toBe('id,meta,created,item');
+    expect(paramNamed(params, '_elements')?.value).toBe('id,meta,created,item,billablePeriod');
 
     expect(hydrationSearches()).toHaveLength(1);
     expect(paramNamed(hydrationSearches()[0].params, '_id')?.value).toBe('claim-1,claim-2');
@@ -293,7 +293,7 @@ describe('search-billing-claims sort', () => {
 
     const response = await search({ sort: { field: 'serviceDate', direction: 'asc' }, offset: 1, pageSize: 1 });
 
-    expect(paramNamed(scanSearches()[0].params, '_elements')?.value).toBe('id,meta,created,item');
+    expect(paramNamed(scanSearches()[0].params, '_elements')?.value).toBe('id,meta,created,item,billablePeriod');
     expect(response.claims.map((claim) => claim.id)).toEqual(['feb']);
     expect(paramNamed(hydrationSearches()[0].params, '_id')?.value).toBe('feb');
   });

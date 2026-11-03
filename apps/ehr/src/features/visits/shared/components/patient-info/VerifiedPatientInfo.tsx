@@ -10,15 +10,16 @@ export const VerifiedPatientInfo: FC = () => {
   const theme = useTheme();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { data: chartData, isLoading: isLoadingChartData } = useChartSection('encounterNotes');
+  const { data: chartData, isLoading: isLoadingChartData, setSectionData } = useChartSection('encounterNotes');
 
+  const isChartDataLoaded = chartData !== undefined;
+  const storedPatientInfoConfirmed = chartData?.patientInfoConfirmed?.value ?? false;
   useEffect(() => {
-    if (!chartData) {
+    if (!isChartDataLoaded) {
       return;
     }
-    const isPatientInfoConfirmed = chartData?.patientInfoConfirmed?.value ?? false;
-    setVerifiedNameAndDob(isPatientInfoConfirmed);
-  }, [chartData]);
+    setVerifiedNameAndDob(storedPatientInfoConfirmed);
+  }, [isChartDataLoaded, storedPatientInfoConfirmed]);
 
   const [isVerifiedNameAndDob, setVerifiedNameAndDob] = useState<boolean>(false);
   const { mutateAsync: updateVerificationStatusAsync, isPending: isUpdatingVerificationStatus } = useSaveChartData();
@@ -28,19 +29,24 @@ export const VerifiedPatientInfo: FC = () => {
   const handlePatientInfoVerified = useCallback(
     async (isChecked: boolean): Promise<void> => {
       setVerifiedNameAndDob(isChecked);
+      // Keep the cached section current so another field's save to it doesn't restore the old value here.
+      const previous = chartData?.patientInfoConfirmed;
+      setSectionData({ patientInfoConfirmed: { ...previous, value: isChecked } });
       try {
         const data = await updateVerificationStatusAsync({ patientInfoConfirmed: { value: isChecked } });
         const patientInfoConfirmedUpdated = data.chartData.patientInfoConfirmed;
         if (patientInfoConfirmedUpdated) {
           setVerifiedNameAndDob(patientInfoConfirmedUpdated.value ?? false);
+          setSectionData({ patientInfoConfirmed: patientInfoConfirmedUpdated });
         }
       } catch {
+        setSectionData({ patientInfoConfirmed: previous });
         enqueueSnackbar('An error has occurred while saving patient info verification status. Please try again.', {
           variant: 'error',
         });
       }
     },
-    [updateVerificationStatusAsync]
+    [updateVerificationStatusAsync, setSectionData, chartData?.patientInfoConfirmed]
   );
 
   return (

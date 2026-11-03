@@ -21,6 +21,7 @@ import {
 import {
   AddServiceLineInputSchema,
   BillingRule,
+  effectiveDiagnosisMode,
   RuleActionSchema,
   SaveBillingRulesInputSchema,
 } from './rules-engine.schemas';
@@ -159,6 +160,21 @@ describe('addServiceLine action schema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('parses a blank diagnosisMode (a cleared Diagnoses picker) as the default, rejecting an unknown mode', () => {
+    const blank = { type: 'addServiceLine', line: { cptCode: '99050', charges: '30', diagnosisMode: '' } };
+    expect(RuleActionSchema.parse(blank)).toEqual(blank);
+    expect(effectiveDiagnosisMode({ diagnosisMode: '' })).toBe('primary');
+    // Blank is the same as omitted, so legacy pointers still select specific diagnoses.
+    expect(effectiveDiagnosisMode({ diagnosisMode: '', diagnosisPointers: '2' })).toBe('specific');
+
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'addServiceLine',
+        line: { cptCode: '99050', charges: '30', diagnosisMode: 'bogus' },
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('SaveBillingRulesInputSchema', () => {
@@ -240,6 +256,14 @@ describe('rule value validation', () => {
     expect(setFieldValueProblem(field('patient.state'), 'XX')).toContain('one of the listed options');
     expect(setFieldValueProblem(field('payerId'), '')).toBe('Value is required'); // requiredOnSet
     expect(setFieldValueProblem(field('payerId'), null)).toBe('Value is required');
+    // Options marked settable: false can be compared against but not written.
+    for (const prefix of ['insurance', 'secondaryInsurance', 'tertiaryInsurance', 'quaternaryInsurance']) {
+      const relationship = field(`${prefix}.relationship`);
+      expect(setFieldValueProblem(relationship, 'Self')).toBeUndefined();
+      expect(setFieldValueProblem(relationship, 'Child')).toContain('one of the listed options');
+      expect(setFieldValueProblem(relationship, '')).toBe('Value is required');
+      expect(ruleConditionValueProblem(relationship, 'eq', 'Child')).toBeUndefined();
+    }
     expect(setFieldValueProblem(field('billingProvider.taxId'), '12-3456789')).toContain('9 digits');
     expect(setFieldValueProblem(field('billingProvider.taxId'), '123456789')).toBeUndefined();
     expect(setFieldValueProblem(field('serviceFacility.clia'), '05D1234567')).toBeUndefined();

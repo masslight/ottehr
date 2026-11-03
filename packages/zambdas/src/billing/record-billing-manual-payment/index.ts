@@ -6,7 +6,6 @@ import { TIMEZONES } from 'utils/lib/types/constants';
 import { RecordBillingManualPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingManualPaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
-// eslint-disable-next-line no-restricted-imports -- checks the clinical encounter exists and names the submitter
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';

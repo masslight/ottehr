@@ -1,8 +1,15 @@
 import { Address, Task } from 'fhir/r4b';
+import type { BillingInvoiceKind } from '../../../fhir/billing-invoice';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { PatientPaymentDTO } from '../../api/patient-payment-types';
-import type { EraClaimStatusCode, EraSource, EraStatus, X12AdjustmentGroupCode } from './billing.constants';
+import type {
+  BillingInvoiceListStatus,
+  EraClaimStatusCode,
+  EraSource,
+  EraStatus,
+  X12AdjustmentGroupCode,
+} from './billing.constants';
 import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
@@ -87,6 +94,7 @@ export interface BillingCoverageOption {
   planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
+  groupNumber?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
 }
 
@@ -524,6 +532,7 @@ export interface ClaimDetailResponse {
   payerId: string;
   payerClaimControlNumber?: string;
   memberId: string;
+  groupNumber?: string;
   subscriberId: string;
   planType: string;
   relationship: SubscriberRelationship;
@@ -533,16 +542,19 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  secondaryGroupNumber?: string;
   secondaryPayerClaimControlNumber?: string;
   tertiaryCoverageFhirId: string;
   tertiaryPayerName: string;
   tertiaryPayerId: string;
   tertiaryMemberId: string;
+  tertiaryGroupNumber?: string;
   tertiaryPayerClaimControlNumber?: string;
   quaternaryCoverageFhirId: string;
   quaternaryPayerName: string;
   quaternaryPayerId: string;
   quaternaryMemberId: string;
+  quaternaryGroupNumber?: string;
   quaternaryPayerClaimControlNumber?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
@@ -1165,6 +1177,59 @@ export interface RecordBillingManualPaymentResponse {
   paymentNoticeId: string;
   // present when the notice is linked to an existing billing Claim
   claimId?: string;
+}
+
+export interface BillingInvoiceListItem {
+  id: string;
+  status: BillingInvoiceListStatus;
+  // FHIR Invoice.date as an ISO timestamp.
+  issueDate: string;
+  dueDate: string;
+  amount: number;
+  patientName?: string;
+  claimId?: string;
+  serviceDate?: string;
+  hostedInvoiceUrl?: string;
+  kind?: BillingInvoiceKind;
+  number?: string;
+  recipient?: {
+    id: string;
+    name: string;
+  };
+  balance?: number;
+  pastDue?: boolean;
+}
+
+export interface SearchBillingInvoicesResponse extends Paginated {
+  invoices: BillingInvoiceListItem[];
+}
+
+export interface BillingInvoiceClaimLine {
+  claimId: string;
+  patientId: string;
+  patientName: string;
+  serviceDate: string;
+  arStage: string;
+  status: string;
+  amount: number;
+}
+
+export interface BillingInvoicePayment {
+  paymentNoticeId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  reference?: string;
+}
+
+export interface BillingInvoiceDetail extends BillingInvoiceListItem {
+  claims: BillingInvoiceClaimLine[];
+  payments: BillingInvoicePayment[];
+  pdfUrl?: string;
+}
+
+export interface IssueBillingInvoiceNumberResponse {
+  invoiceNumber: string;
 }
 
 export interface AddClaimAttachmentResponse {

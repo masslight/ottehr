@@ -57,7 +57,7 @@ const makeDeviceRequest = (fields: DmeOrderFields, dispensed = false): DeviceReq
 };
 
 describe('visit note DME section', () => {
-  it('composes the order details, status and codes', () => {
+  it('composes the order details, status, codes and instructions', () => {
     const composed = composeDmeOrders({
       dmeOrders: [parseDmeOrder(makeDeviceRequest(inHouseFields, true), {})],
     });
@@ -69,6 +69,7 @@ describe('visit note DME section', () => {
           'Qty: 2 | Laterality: LT (Left) | Modifier: NU (New Purchase) | Duration: 2 weeks',
           'HCPCS: L3908 - Wrist hand orthosis',
           'Dx: S52.501A Fracture of right radius',
+          'Instructions: Wear at all times',
         ],
       },
     ]);

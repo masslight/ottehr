@@ -519,6 +519,9 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
+/** meta.tag system naming where a practice-managed form's answers appear; no tag means Visit Details. */
+export const FORM_PLACEMENT_TAG_SYSTEM = ottehrCodeSystemUrl('form-placement');
+
 // applied (alongside the practice-managed tag) to questionnaires uploaded as raw FHIR JSON.
 // these are read only in the admin portal: they can only be updated by uploading a new version
 export const JSON_IMPORT_QUESTIONNAIRE_TAG = {

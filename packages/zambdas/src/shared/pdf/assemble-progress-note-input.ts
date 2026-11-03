@@ -8,12 +8,14 @@ import {
   telemedProgressNoteNoteTypes,
 } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
+import { Secrets } from 'utils/lib/secrets';
 import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { getMedicationOrders } from '../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../ehr/immunization/get-orders';
 import { buildVisitNote } from '../chart-sections/visit-note';
 import { DME_ORDER_SEARCH_TAG, isDmeOrderDeleted, parseDmeOrder } from '../dme';
 import { fetchErxPharmacies } from '../erx';
+import { getEncounterFormResponses } from '../practice-forms';
 import { getEncounterSignatures } from './get-encounter-signatures';
 import { getUpcomingFollowUps } from './get-upcoming-follow-ups';
 import { ProgressNoteInput } from './types';
@@ -47,6 +49,7 @@ export async function assembleProgressNoteInput(
   oystehr: Oystehr,
   token: string,
   visitResources: FullAppointmentResourcePackage,
+  secrets: Secrets | null,
   options?: {
     signed?: boolean;
   }
@@ -60,7 +63,7 @@ export async function assembleProgressNoteInput(
   // Follow-ups hang off the top-level encounter, so resolve to the parent if this one is a follow-up.
   const followUpParentEncounterId = removePrefix('Encounter/', encounter.partOf?.reference ?? '') ?? encounterId;
 
-  const [visitNote, medicationOrdersData, upcomingFollowUps, signatures, dmeOrders] = await Promise.all([
+  const [visitNote, medicationOrdersData, upcomingFollowUps, signatures, dmeOrders, formResponses] = await Promise.all([
     buildVisitNote({ oystehr, m2mToken: token }, encounterId, {
       noteTypes: isInPersonAppointment ? progressNoteNoteTypes : telemedProgressNoteNoteTypes,
     }),
@@ -72,6 +75,7 @@ export async function assembleProgressNoteInput(
       return { signedBy: undefined, approvedBy: undefined };
     }),
     getEncounterDmeOrders(oystehr, encounterId),
+    getEncounterFormResponses(oystehr, encounterId, visitResources.questionnaireResponse, secrets),
   ]);
 
   const immunizationOrders = (await getImmunizationOrders(oystehr, { encounterIds: [encounterId] })).orders;
@@ -93,5 +97,6 @@ export async function assembleProgressNoteInput(
     dmeOrders,
     signatures,
     signed: options?.signed,
+    formResponses,
   };
 }

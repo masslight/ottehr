@@ -14,6 +14,7 @@ import {
   Stack,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -37,6 +38,7 @@ import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useImmunizationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
@@ -46,9 +48,23 @@ import {
   useCreateUpdateImmunizationOrder,
   useGetImmunizationOrders,
 } from '../../visits/in-person/hooks/useImmunization';
+import { AdministeringImmunizationFields } from '../components/AdministeringImmunizationFields';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
+
+// explicit empty values: reset() falls back to defaultValues for fields it leaves undefined
+const EMPTY_ADMINISTRATION_DETAILS = {
+  lot: '',
+  ndc: '',
+  expDate: '',
+  mvx: '',
+  cvx: '',
+  cptCodes: [],
+  administeredDateTime: null,
+  visGiven: false,
+  visGivenDate: null,
+};
 
 interface ImmunizationOrderCreateEditProps {
   orderId?: string;
@@ -60,6 +76,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   onFinished,
 }) => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const isInlineFlow = useIsInlineFlow();
   const { id: appointmentId, orderId: orderIdFromUrl } = useParams();
   const orderId = orderIdProp ?? orderIdFromUrl;
@@ -72,6 +89,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   const { setDraft, clearDraft, hasDraft, getDraft } = useImmunizationOrderStore();
   const draft = getDraft(encounterId);
+  const { administrationDetails: draftAdministrationDetails, ...draftDetails } = draft ?? {};
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
@@ -91,11 +109,21 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const finish = onFinished ?? ((): void => navigate(getImmunizationMARUrl(appointmentId!)));
 
   const onSubmit = async (data: any): Promise<void> => {
-    await createUpdateOrder({
-      encounterId: encounter?.id ?? '',
-      orderId: orderId,
-      ...(await cleanupProperties(data)),
-    });
+    const { details, administrationDetails } = (await cleanupProperties(data)) ?? {};
+    try {
+      await createUpdateOrder({
+        encounterId: encounter?.id ?? '',
+        orderId: orderId,
+        details,
+        // always sent so that clearing every field on edit clears them on the order too
+        administrationDetails: administrationDetails ?? {},
+      });
+    } catch (error) {
+      enqueueSnackbar(getApiError({ error, defaultError: 'An error occurred while saving the immunization order.' }), {
+        variant: 'error',
+      });
+      return;
+    }
     setIsOrderSaved(true);
     if (isCreating && encounterId) clearDraft(encounterId);
     finish();
@@ -128,8 +156,9 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     defaultValues: {
       details: {
         orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : undefined,
-        ...(draft ? draft : undefined),
+        ...(isCreating && draftDetails),
       },
+      administrationDetails: { ...EMPTY_ADMINISTRATION_DETAILS, ...(isCreating && draftAdministrationDetails) },
     },
   });
 
@@ -150,6 +179,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
         instructions: '',
         orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : null,
       },
+      administrationDetails: EMPTY_ADMINISTRATION_DETAILS,
     });
   };
 
@@ -178,6 +208,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   useEffect(() => {
     if (!orderId && defaultProviderId && !getDraft(encounterId)) {
       methods.reset({
+        ...methods.getValues(),
         details: {
           ...methods.getValues('details'),
           orderedProvider: {
@@ -195,7 +226,10 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
       formState: { values: true, isDirty: true },
       callback: ({ values, isDirty }) => {
         if (!isDirty) return;
-        setDraft(encounterId, { ...(values.details as InputImmunizationOrderDetails) });
+        setDraft(encounterId, {
+          ...(values.details as InputImmunizationOrderDetails),
+          administrationDetails: values.administrationDetails,
+        });
       },
     });
     return unsubscribe;
@@ -205,8 +239,8 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     (quickPick: ImmunizationQuickPickData): void => {
       onQuickPickSelect(quickPick);
       if (isCreating && encounterId) {
-        const { details } = methods.getValues();
-        setDraft(encounterId, { ...(details as InputImmunizationOrderDetails) });
+        const { details, administrationDetails } = methods.getValues();
+        setDraft(encounterId, { ...(details as InputImmunizationOrderDetails), administrationDetails });
       }
     },
     [onQuickPickSelect, isCreating, encounterId, methods, setDraft]
@@ -289,6 +323,12 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
               <Grid xs={12} item>
                 <OrderDetailsSection />
               </Grid>
+              <Grid xs={12} item>
+                <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+                  Administering immunization
+                </Typography>
+              </Grid>
+              <AdministeringImmunizationFields isReadOnly={isReadOnly} />
               <Grid xs={12} item>
                 <WarningBlock
                   title="Safety Alert"

@@ -12,6 +12,66 @@ describe('procedure quick pick data transformations', () => {
     applyProcedureQuickPick(target, { id: 'qp-1', ...saved }, 'EKG');
     expect(target).toMatchObject({ performerType: 'Both', documentedBy: 'Provider' });
   });
+
+  it('fills the interpretation from an EKG quick pick and keeps the numbers and comparison already typed', () => {
+    const target: ProcedurePageState = {
+      structuredFacts: { rate: 72, qt: 380, qtc: 416, qtcMethod: 'Bazett', comparison: 'no significant change' },
+    };
+    applyProcedureQuickPick(
+      target,
+      {
+        name: 'EKG – normal',
+        procedureType: 'ekg',
+        structuredFacts: { rhythm: 'sinus rhythm', conduction: ['normal'], impression: 'normal EKG', axis: undefined },
+      },
+      'EKG'
+    );
+    expect(target.structuredFacts).toEqual({
+      rate: 72,
+      qt: 380,
+      qtc: 416,
+      qtcMethod: 'Bazett',
+      comparison: 'no significant change',
+      rhythm: 'sinus rhythm',
+      conduction: ['normal'],
+      impression: 'normal EKG',
+    });
+  });
+
+  it("saves an EKG quick pick without this patient's measurements", () => {
+    const saved = buildProcedureQuickPick(
+      {
+        structuredFacts: {
+          component: 'tracing and report',
+          rate: 72,
+          pr: 160,
+          qrs: 88,
+          qt: 380,
+          qtc: 416,
+          qtcMethod: 'Bazett',
+          axisDegrees: 45,
+          rhythm: 'sinus rhythm',
+          conduction: ['normal'],
+          comparison: undefined,
+        },
+      },
+      'EKG – normal',
+      'EKG',
+      [{ name: 'EKG', code: 'ekg' }]
+    );
+    expect(saved.structuredFacts).toEqual({
+      component: 'tracing and report',
+      rhythm: 'sinus rhythm',
+      conduction: ['normal'],
+    });
+    const laceration = buildProcedureQuickPick(
+      { structuredFacts: { rate: 1, closure: 'simple' } },
+      'Laceration',
+      'Laceration Repair (Wound Closure)',
+      undefined
+    );
+    expect(laceration.structuredFacts).toEqual({ rate: 1, closure: 'simple' });
+  });
   it('keeps saved CPTs as selections without using them to route the family', () => {
     const target: ProcedurePageState = {};
     applyProcedureQuickPick(
