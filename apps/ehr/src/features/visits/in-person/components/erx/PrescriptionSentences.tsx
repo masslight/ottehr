@@ -828,9 +828,12 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   if (!picked && (readOnly || (hasDirections && !awaitingPick))) setPicked(true);
   // A compound has no suggestions: its blanks show straight away.
   const revealed = picked || compound !== undefined || (line.medication !== null && suggestions.length === 0);
-  // The suggestions fold to their title once one is used (or "Other"), and start folded on a line a quick pick or set
-  // filled; another medication, or a line waiting for a pick again (a new strength), opens them again.
-  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(line.pickedSuggestion !== undefined);
+  // The suggestions fold to their title once one is used (or "Other"), and start folded on a line that opens filled (a
+  // quick pick or set, a request's prescription); another medication, or a line waiting for a pick again (a new
+  // strength), opens them again.
+  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(
+    line.pickedSuggestion !== undefined || hasDirections
+  );
   const suggestionsFor = line.drug?.name ?? line.medication?.description;
   const [collapsedFor, setCollapsedFor] = useState(suggestionsFor);
   if (collapsedFor !== suggestionsFor) {

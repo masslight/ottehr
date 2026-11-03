@@ -641,6 +641,14 @@ describe('PrescriptionSentences: suggestions first', () => {
     render(<Harness initial={{ ...lineFor(LIQUIDS), dose: '5' }} />);
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(5);
   });
+
+  it(
+    'folds the suggestions on a line that opens with directions (a request’s prescription)',
+    withRows([DOSED_ROW], async () => {
+      render(<Harness initial={{ ...lineFor(LIQUIDS), patientInstructions: 'Take 6 mL by mouth twice daily.' }} />);
+      expect(screen.getByRole('button', { name: 'Show suggestions' })).toHaveAttribute('aria-expanded', 'false');
+    })
+  );
 });
 
 describe('PrescriptionSentences: the dose', () => {
