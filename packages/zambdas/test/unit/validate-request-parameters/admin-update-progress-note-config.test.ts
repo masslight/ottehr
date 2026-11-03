@@ -107,6 +107,69 @@ describe('admin-update-progress-note-config - validateRequestParameters', () => 
     expect(validateRequestParameters(input).signReviewPrompt).toBeUndefined();
   });
 
+  test('should leave specialtyTransferOptions undefined when omitted, so the stored list is left alone', () => {
+    const { specialtyTransferOptions: _specialtyTransferOptions, ...bodyWithoutSpecialties } =
+      DEFAULT_PROGRESS_NOTE_CONFIG;
+    const input = createMockZambdaInput(bodyWithoutSpecialties);
+    expect(validateRequestParameters(input).specialtyTransferOptions).toBeUndefined();
+  });
+
+  test('should trim specialtyTransferOptions entries', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      specialtyTransferOptions: ['  Urology ', 'ENT'],
+    });
+    expect(validateRequestParameters(input).specialtyTransferOptions).toEqual(['Urology', 'ENT']);
+  });
+
+  test('should collapse runs of whitespace inside specialtyTransferOptions entries', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      specialtyTransferOptions: ['Sports  Medicine', ' Ear\t\tNose \n Throat '],
+    });
+    expect(validateRequestParameters(input).specialtyTransferOptions).toEqual(['Sports Medicine', 'Ear Nose Throat']);
+  });
+
+  test('should throw when specialties differ only in inner whitespace and case', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      specialtyTransferOptions: ['Sports Medicine', 'sports  medicine'],
+    });
+    expect(() => validateRequestParameters(input)).toThrow('Specialty is already in the list');
+  });
+
+  test('should throw when a specialty is blank', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      specialtyTransferOptions: ['Urology', '  '],
+    });
+    expect(() => validateRequestParameters(input)).toThrow('Specialty is required');
+  });
+
+  test('should throw when specialtyTransferOptions is empty', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      specialtyTransferOptions: [],
+    });
+    expect(() => validateRequestParameters(input)).toThrow('At least one specialty is required');
+  });
+
+  test('should throw when a specialty is listed twice, ignoring case', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      specialtyTransferOptions: ['ENT', 'ent'],
+    });
+    expect(() => validateRequestParameters(input)).toThrow('Specialty is already in the list');
+  });
+
+  test('should throw when "Other" is listed, since it is always offered', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      specialtyTransferOptions: ['ENT', 'other'],
+    });
+    expect(() => validateRequestParameters(input)).toThrow('"Other" is always offered');
+  });
+
   test('should throw when signReviewPrompt exceeds the maximum length', () => {
     const input = createMockZambdaInput({
       ...DEFAULT_PROGRESS_NOTE_CONFIG,
