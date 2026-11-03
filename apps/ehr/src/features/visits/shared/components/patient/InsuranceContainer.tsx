@@ -18,7 +18,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, ReactNode, useEffect, useState } from 'react';
+import { FC, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout/Row';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
@@ -167,6 +167,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [dateTooltipOpen, setDateTooltipOpen] = useState(false);
+  const dateAnchorRef = useRef<HTMLButtonElement>(null);
 
   const serviceDateISO = (serviceDate?.isValid ? serviceDate.toISODate() : undefined) ?? undefined;
 
@@ -386,28 +387,49 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             </Button>
           )}
         </Box>
-        {/* Last checked date and refresh button */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ textAlign: 'right' }}>
-            <Typography sx={lastCheckedTextSx}>{lastRefreshDateString}</Typography>
-            {dosLabel && <Typography sx={lastCheckedTextSx}>{dosLabel}</Typography>}
-          </Box>
+        {lastRefreshDateString && (
+          <Typography sx={{ ...lastCheckedTextSx }}>
+            {dosLabel ? `${lastRefreshDateString} (${dosLabel})` : lastRefreshDateString}
+          </Typography>
+        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Tooltip
             arrow
             open={dateTooltipOpen && !datePickerOpen}
             onOpen={() => setDateTooltipOpen(true)}
             onClose={() => setDateTooltipOpen(false)}
-            title="Date of service the eligibility check is run for. Starts on the visit date; change it to check coverage as of another day, then click refresh."
+            title="Date of service the eligibility check is run for. Click the date to change it, then click refresh."
           >
             <Box>
+              {/* Inline text until clicked; the picker's own field is hidden and its calendar anchors to the text. */}
+              <Button
+                ref={dateAnchorRef}
+                variant="text"
+                size="small"
+                disableRipple
+                data-testid={dataTestIds.insuranceContainer.dateOfServiceButton}
+                onClick={() => {
+                  setDateTooltipOpen(false);
+                  setDatePickerOpen(true);
+                }}
+                sx={{
+                  ...lastCheckedTextSx,
+                  textTransform: 'none',
+                  minWidth: 'auto',
+                  p: 0,
+                  textDecoration: 'underline',
+                  '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' },
+                }}
+              >
+                <Typography sx={lastCheckedTextSx}>
+                  Recheck for {serviceDate?.isValid ? serviceDate.toFormat('MM/dd/yyyy') : 'Pick a date'}
+                </Typography>
+              </Button>
               <LocalizationProvider dateAdapter={AdapterLuxon}>
                 <DatePicker
                   value={serviceDate}
+                  open={datePickerOpen}
                   onChange={(value) => setServiceDate(value)}
-                  onOpen={() => {
-                    setDateTooltipOpen(false);
-                    setDatePickerOpen(true);
-                  }}
                   onClose={() => {
                     setDateTooltipOpen(false);
                     setDatePickerOpen(false);
@@ -416,13 +438,13 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                   slotProps={{
                     textField: {
                       size: 'small',
-                      // Same height as the small refresh IconButton beside it (24px icon + 2 x 5px padding).
-                      sx: { width: 160, '& .MuiInputBase-root': { height: 34 }, '& .MuiInputBase-input': { py: 0 } },
+                      sx: { display: 'none' },
                       inputProps: {
                         'aria-label': 'Date of service',
                         'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput,
                       },
                     },
+                    popper: { anchorEl: dateAnchorRef.current },
                   }}
                 />
               </LocalizationProvider>

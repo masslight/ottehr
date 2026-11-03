@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Coverage, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -558,44 +558,46 @@ describe('InsuranceSection — eligibility date of service', () => {
   const dateOfServiceInput = (): HTMLInputElement =>
     screen.getByTestId(dataTestIds.insuranceContainer.dateOfServiceInput) as HTMLInputElement;
 
-  it('starts the date picker on the visit date', async () => {
+  const dateOfServiceButton = (): HTMLElement => screen.getByTestId(dataTestIds.insuranceContainer.dateOfServiceButton);
+
+  it('shows the visit date as inline text, without a date field', async () => {
     renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
 
     await screen.findByText(/Primary insurance/i);
-    expect(dateOfServiceInput().value).toBe('03/04/2025');
+    expect(dateOfServiceButton()).toHaveTextContent('03/04/2025');
+    expect(screen.getByText('Recheck for visit date')).toBeInTheDocument();
+    expect(dateOfServiceInput()).not.toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('starts the date picker on today when there is no visit', async () => {
+  it('shows today when there is no visit', async () => {
     renderHarness({ initialCoverages: makeFullPrimaryCoverages() });
 
     await screen.findByText(/Primary insurance/i);
-    expect(dateOfServiceInput().value).toBe(DateTime.now().toFormat('MM/dd/yyyy'));
+    expect(dateOfServiceButton()).toHaveTextContent(DateTime.now().toFormat('MM/dd/yyyy'));
   });
 
-  it('keeps the date picker mounted (and focused) while its date is edited', async () => {
+  it('opens the calendar on click and updates the text when another day is picked', async () => {
     const user = userEvent.setup();
     renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
 
     await screen.findByText(/Primary insurance/i);
-    const input = dateOfServiceInput();
-    await user.click(input);
-    await user.keyboard('{ArrowUp}');
+    await user.click(dateOfServiceButton());
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('gridcell', { name: '10' }));
 
-    // A remount would replace the input node with a fresh, unfocused one.
-    expect(dateOfServiceInput()).toBe(input);
-    expect(input).toHaveFocus();
-    expect(input.value).not.toBe('03/04/2025');
+    await waitFor(() => expect(dateOfServiceButton()).toHaveTextContent('03/10/2025'));
   });
 
-  it('explains the date picker on hover but keeps the tooltip off the open calendar', async () => {
+  it('explains the date on hover but keeps the tooltip off the open calendar', async () => {
     const user = userEvent.setup();
     renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
 
     await screen.findByText(/Primary insurance/i);
-    await user.hover(dateOfServiceInput());
+    await user.hover(dateOfServiceButton());
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/Date of service the eligibility check is run for/);
 
-    await user.click(screen.getByRole('button', { name: /choose date/i }));
+    await user.click(dateOfServiceButton());
     await screen.findByRole('dialog');
     await user.hover(screen.getByRole('dialog'));
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
