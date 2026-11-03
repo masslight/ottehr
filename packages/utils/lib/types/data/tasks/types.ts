@@ -19,6 +19,9 @@ export interface Task {
   };
   alert?: TaskAlertCode;
   completable: boolean;
+  chat?: {
+    hasUnread: boolean;
+  };
 }
 export interface CreateManualTaskRequest {
   category: string;
@@ -143,5 +146,16 @@ export const ERX_TASK = {
   },
   input: {
     providerName: 'provider-name',
+  },
+} as const;
+
+export const PATIENT_REQUEST_TASK = {
+  category: 'patient-request',
+  system: 'patient-request-task',
+  code: {
+    prescriptionRefill: 'prescription-refill',
+    schoolWorkNote: 'school-work-note',
+    medicalRecord: 'medical-record',
+    followUp: 'follow-up',
   },
 } as const;

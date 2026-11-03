@@ -37,6 +37,8 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
 import { FAX_TASK, Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
+import { CompleteSupportChatTaskButton } from '../../support-chat/components/CompleteSupportChatTaskButton';
+import { SupportChatTaskButton } from '../../support-chat/components/SupportChatTaskButton';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
@@ -66,7 +68,7 @@ const CATEGORIES: Record<string, string> = Object.entries(TASK_CATEGORY_LABEL).r
 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
-  const { mutateAsync: completeTask } = useCompleteTask();
+  const { mutateAsync: completeTask, isPending: isCompleting, variables: completingTask } = useCompleteTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
   const { oystehr } = useApiClients();
@@ -105,6 +107,12 @@ export const Tasks: React.FC = () => {
 
   const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
+      if (task.chat) {
+        return <CompleteSupportChatTaskButton task={task} />;
+      }
+
+      const isCompletingTask = isCompleting && completingTask?.taskId === task.id;
+
       const complete = async (): Promise<void> => {
         try {
           await completeTask({ taskId: task.id });
@@ -114,6 +122,7 @@ export const Tasks: React.FC = () => {
           });
         }
       };
+
       // A completed fax can no longer be filed or deleted, so completing an unfiled one is confirmed first.
       if (task.category === FAX_TASK.category && task.action?.name !== VIEW_FAX) {
         return (
@@ -122,10 +131,10 @@ export const Tasks: React.FC = () => {
             title="Complete without filing?"
             description="This fax hasn't been filed to a patient's chart. Once the task is completed, the fax can no longer be filed or deleted."
             response={complete}
-            actionButtons={{ proceed: { text: 'Complete' }, back: { text: 'Cancel' } }}
+            actionButtons={{ proceed: { text: 'Complete', loading: isCompletingTask }, back: { text: 'Cancel' } }}
           >
             {(showDialog) => (
-              <RoundedButton variant="contained" onClick={showDialog}>
+              <RoundedButton variant="contained" onClick={showDialog} loading={isCompletingTask}>
                 Complete
               </RoundedButton>
             )}
@@ -133,7 +142,7 @@ export const Tasks: React.FC = () => {
         );
       }
       return (
-        <RoundedButton variant="contained" onClick={complete}>
+        <RoundedButton variant="contained" onClick={complete} loading={isCompletingTask}>
           Complete
         </RoundedButton>
       );
@@ -254,7 +263,7 @@ export const Tasks: React.FC = () => {
       <Stack spacing={2}>
         <FormProvider {...methods}>
           <Paper>
-            <Stack direction="row" spacing={2} padding="8px">
+            <Stack direction="row" alignItems="flex-start" spacing={2} padding="8px">
               <LocationSelectInput name="location" label="Location" type="in-person" />
               <SelectInput
                 name="category"
@@ -272,7 +281,12 @@ export const Tasks: React.FC = () => {
                 options={Object.keys(TASK_STATUS_LABEL)}
                 getOptionLabel={(option) => TASK_STATUS_LABEL[option]}
               />
-              <RoundedButton variant="contained" onClick={onNewTaskClick} startIcon={<AddIcon />}>
+              <RoundedButton
+                variant="contained"
+                onClick={onNewTaskClick}
+                startIcon={<AddIcon />}
+                sx={{ flexShrink: 0 }}
+              >
                 New Task
               </RoundedButton>
             </Stack>
@@ -396,8 +410,11 @@ export const Tasks: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Stack direction="row" justifyContent="space-between" spacing={1}>
-                            {renderActionButton(task)}
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              {task.chat && <SupportChatTaskButton task={task} />}
+                              {renderActionButton(task)}
+                            </Stack>
                             {renderCompleteButton(task)}
                           </Stack>
                         </TableCell>
