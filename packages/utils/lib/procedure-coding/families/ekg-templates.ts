@@ -81,7 +81,6 @@ export const EKG_FINDINGS: Record<EkgFinding, { limit: number; reason: string }>
   longQtc: { limit: 450, reason: 'QTc {qtc} ms is above {limit}' },
 };
 
-/** Adult frontal-plane axis in degrees, both ranges inclusive; beyond `deviation` (the extreme-axis quadrant) is not classified. */
 export const EKG_AXIS_LIMITS = { normal: { min: -30, max: 90 }, deviation: { min: -90, max: 180 } };
 
 export interface EkgTemplateBlank {
