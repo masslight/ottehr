@@ -60,6 +60,8 @@ import {
   getAppointmentQueryInput,
   getTimezone,
   getTimezoneResourceIdFromAppointment,
+  lambdaResultBytes,
+  MAX_RESPONSE_BYTES,
   mergeResources,
   parseAttenderProviderType,
   parseEncounterParticipants,
@@ -727,6 +729,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput, 
     cancelled,
     ...trackingBoardExtras,
   };
+  const result = { statusCode: 200, body: JSON.stringify(response) };
+  const responseBytes = lambdaResultBytes(result);
   endPhase('structure');
 
   const rows = [...preBooked, ...inOffice, ...completed, ...cancelled];
@@ -736,12 +740,13 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput, 
     // Patients with no RelatedPerson holding an SMS number: ordinary data, so counted here instead of logged per row.
     withoutSmsModel: rows.filter((row) => !row.smsModel).length,
     ...(trackingBoardExtras.ordersAndVitalsIncomplete ? { ordersAndVitalsIncomplete: true } : {}),
+    bytes: responseBytes,
   });
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+  if (responseBytes > MAX_RESPONSE_BYTES) {
+    throw APPOINTMENT_SEARCH_TOO_BROAD_ERROR;
+  }
+  return result;
 });
 
 interface AppointmentInformationInputs {
