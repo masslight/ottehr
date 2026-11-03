@@ -128,6 +128,23 @@ describe('ReferralsCard', () => {
     expect(form).toHaveTextContent('Created 11/01/2026 by J. Rivera, MD');
   });
 
+  it('disables Send fax as soon as the Fax field is emptied, even to whitespace', async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByTestId(dataTestIds.referrals.expandButton(referrals[0].id)));
+    const form = within(screen.getByTestId(dataTestIds.referrals.row(referrals[0].id))).getByTestId(
+      dataTestIds.referrals.form
+    );
+    const fax = within(form).getByTestId(dataTestIds.referrals.recipientFax);
+    expect(within(form).getByTestId(dataTestIds.referrals.sendFaxButton)).toBeEnabled();
+
+    await user.clear(fax);
+    await user.type(fax, ' ');
+
+    expect(within(form).getByTestId(dataTestIds.referrals.sendFaxButton)).toBeDisabled();
+  });
+
   it('hides "Response requested" and disables Send fax when there is no recipient', async () => {
     const user = userEvent.setup();
     renderCard();
@@ -188,6 +205,56 @@ describe('ReferralsCard', () => {
 
     await waitFor(() => expect(api.updateReferralStatus).toHaveBeenCalledTimes(1));
     expect(api.updateReferralStatus.mock.calls[0][1]).toMatchObject({ action: 'given-to-patient' });
+  });
+
+  it('saves a fax typed for a recipient without one and offers Send fax once it is there', async () => {
+    const user = userEvent.setup();
+    const { fax: _fax, ...recipientWithoutFax } = referrals[0].recipient!;
+    api.listReferrals.mockResolvedValue({ referrals: [{ ...referrals[0], recipient: recipientWithoutFax }] });
+    renderCard();
+
+    await user.click(await screen.findByTestId(dataTestIds.referrals.expandButton(referrals[0].id)));
+    const form = screen.getByTestId(dataTestIds.referrals.form);
+    const fax = within(form).getByTestId(dataTestIds.referrals.recipientFax);
+    expect(fax).toHaveValue('');
+    expect(within(form).getByTestId(dataTestIds.referrals.sendFaxButton)).toBeDisabled();
+
+    await user.type(fax, '2125559876');
+    expect(within(form).getByTestId(dataTestIds.referrals.sendFaxButton)).toBeEnabled();
+
+    await user.click(within(form).getByTestId(dataTestIds.referrals.saveButton));
+
+    await waitFor(() => expect(api.saveReferral).toHaveBeenCalledTimes(1));
+    expect(api.saveReferral.mock.calls[0][1]).toMatchObject({
+      referralId: referrals[0].id,
+      recipientContactId: 'c1',
+      recipientFax: '2125559876',
+    });
+  });
+
+  it('clearing the recipient drops its fax and disables Send fax', async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByTestId(dataTestIds.referrals.expandButton(referrals[0].id)));
+    const form = screen.getByTestId(dataTestIds.referrals.form);
+    expect(within(form).getByTestId(dataTestIds.referrals.recipientFax)).toHaveValue('+12125554321');
+    expect(within(form).getByTestId(dataTestIds.referrals.sendFaxButton)).toBeEnabled();
+
+    await user.clear(within(form).getByTestId(dataTestIds.referrals.recipient).querySelector('input')!);
+
+    // The Fax field goes with the recipient; what it held is not saved either.
+    await waitFor(() => expect(within(form).queryByTestId(dataTestIds.referrals.recipientFax)).toBeNull());
+    expect(within(form).getByTestId(dataTestIds.referrals.sendFaxButton)).toBeDisabled();
+
+    await user.click(within(form).getByTestId(dataTestIds.referrals.saveButton));
+
+    await waitFor(() => expect(api.saveReferral).toHaveBeenCalledTimes(1));
+    const input = api.saveReferral.mock.calls[0][1];
+    expect(input.referralId).toBe(referrals[0].id);
+    expect(input.recipientContactId).toBeUndefined();
+    expect(input.recipientFax).toBeUndefined();
+    expect(input.responseRequested).toBe(false);
   });
 
   it('requires a specialty and a reason before saving a new referral', async () => {

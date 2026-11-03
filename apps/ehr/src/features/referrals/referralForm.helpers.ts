@@ -83,6 +83,6 @@ export const NO_RECIPIENT_TEXT = 'No recipient: patient chooses a provider their
 
 /** Hover text on the disabled Send fax button when the recipient has no fax number. */
 export const NO_FAX_SEND_TEXT =
-  'No fax number. Enter one in the Fax field, or add it to the contact in the Directory so it is remembered.';
+  'No fax number. Enter one in the Fax field, or add it to the contact in the Directory for future referrals.';
 /** Hover text on the disabled Send fax button when no recipient was picked. */
 export const NO_RECIPIENT_SEND_TEXT = 'Pick a recipient with a fax number to send by fax.';

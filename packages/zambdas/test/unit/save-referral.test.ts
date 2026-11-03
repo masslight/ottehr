@@ -115,6 +115,20 @@ describe('save-referral', () => {
     });
   };
 
+  it('rejects a fax that is not a phone number before reading anything', async () => {
+    reads({ encounter: encounterOf(PATIENT_ID) });
+
+    const result = await run({ recipientContactId: '33333333-3333-4333-8333-333333333333', recipientFax: 'call me' });
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body)).toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+      message: '"call me" is not a valid fax number',
+    });
+    expect(mockOystehr.fhir.get).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+  });
+
   it('SECURITY: refuses a visit that belongs to another patient before writing anything', async () => {
     reads({ encounter: encounterOf(OTHER_PATIENT_ID) });
 

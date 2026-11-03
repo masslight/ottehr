@@ -107,8 +107,8 @@ const composeReferralFormData: DataComposer<ReferralFormInput, ReferralFormData>
       ? {
           nameLines: [recipient.organizationName, recipient.personName].filter((line): line is string => !!line),
           address: recipient.address,
-          fax: recipient.fax,
-          phone: recipient.phone,
+          fax: standardizePhoneNumber(recipient.fax) ?? recipient.fax,
+          phone: standardizePhoneNumber(recipient.phone) ?? recipient.phone,
         }
       : { nameLines: [`Any ${specialty}`] },
     provider: {

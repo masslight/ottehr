@@ -156,7 +156,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   const hasRecipient = !!recipientContactId;
   // A referral made from the patient record has no visit documents to include.
   const hasVisit = !!(encounterId ?? referral?.encounterId);
-  const canFax = hasRecipient && !!recipientFax;
+  const canFax = hasRecipient && !!recipientFax.trim();
 
   const save = async (values: ReferralFormValues): Promise<ReferralDTO | undefined> => {
     // Locked fields have nothing to save; the actions work on the referral as it is.
@@ -325,7 +325,8 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                   disabled={disabled}
                   error={!!error}
                   helperText={
-                    error?.message ?? (field.value ? undefined : 'None on file; typed here it stays on this referral')
+                    error?.message ??
+                    (field.value ? undefined : 'None on file. The number here is the one this referral faxes to.')
                   }
                   sx={{ minWidth: 200 }}
                   inputProps={{ 'data-testid': dataTestIds.referrals.recipientFax }}

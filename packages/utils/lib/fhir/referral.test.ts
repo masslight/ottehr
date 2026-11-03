@@ -104,6 +104,24 @@ describe('makeReferralServiceRequest', () => {
     ).toBeUndefined();
   });
 
+  it('drops a stored fax when an edit saves the referral without one', () => {
+    const typed = makeReferralServiceRequest(
+      { ...input, recipientFax: '(555) 010-2000' },
+      { patientId: PATIENT_ID, requester: REQUESTER, now: NOW }
+    );
+    expect(getReferralRecipientFax(typed)).toBe('(555) 010-2000');
+
+    const edited = makeReferralServiceRequest(input, {
+      patientId: PATIENT_ID,
+      requester: REQUESTER,
+      now: '2026-11-02T10:00:00.000Z',
+      existing: { ...typed, id: 'sr-1' },
+    });
+
+    expect(getReferralRecipientFax(edited)).toBeUndefined();
+    expect(getReferralDetails(edited)).not.toHaveProperty('recipientFax');
+  });
+
   it('keeps id, authoredOn, requester and status from the stored referral on edit', () => {
     const created = makeReferralServiceRequest(input, { patientId: PATIENT_ID, requester: REQUESTER, now: NOW });
     const sent = withReferralDetails(

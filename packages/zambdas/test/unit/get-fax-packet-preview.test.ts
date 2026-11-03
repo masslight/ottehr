@@ -333,6 +333,16 @@ describe('get-fax-packet-preview for a referral', () => {
     }),
     id: CONTACT_ID,
   };
+  const contactWithoutFax: Organization = {
+    ...buildAddressBookOrganization({
+      firstName: 'Jane',
+      lastName: 'Doe',
+      credential: 'MD',
+      organizationName: 'Springfield Cardiology',
+      phone: '2125551234',
+    }),
+    id: CONTACT_ID,
+  };
 
   const referral = (over: Partial<ServiceRequest> = {}): ServiceRequest =>
     withReferralDetails(
@@ -354,7 +364,7 @@ describe('get-fax-packet-preview for a referral', () => {
     appointment: [{ reference: `Appointment/${APPOINTMENT_ID}` }],
   };
 
-  const mockReads = (serviceRequest: ServiceRequest): void => {
+  const mockReads = (serviceRequest: ServiceRequest, recipientContact: Organization = contact): void => {
     mockFhirGet.mockImplementation(({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'ServiceRequest') return Promise.resolve(serviceRequest);
       if (resourceType === 'Encounter') return Promise.resolve(visitEncounter);
@@ -365,7 +375,7 @@ describe('get-fax-packet-preview for a referral', () => {
       Promise.resolve({
         unbundle: () =>
           resourceType === 'Organization' && params.some((p) => p.name === '_id' && p.value === CONTACT_ID)
-            ? [contact]
+            ? [recipientContact]
             : [],
       })
     );
@@ -410,6 +420,37 @@ describe('get-fax-packet-preview for a referral', () => {
     expect(output.hasSavedPcp).toBe(true);
     expect(output.pcp).toBeUndefined();
     expect(output.senderFaxNumber).toBe('+12125550000');
+  });
+
+  it("prefills the fax number saved on the referral in place of the contact's", async () => {
+    mockReads(
+      withReferralDetails(referral({ performer: [{ reference: `Organization/${CONTACT_ID}` }] }), {
+        recipientFax: '(555) 010-2000',
+      })
+    );
+
+    const output = await runReferralPreview();
+
+    // The contact's own fax is +1 212 555 4321; the referral faxes to the number typed at save.
+    expect(output.recipient).toEqual({
+      name: 'Jane Doe, MD',
+      organization: 'Springfield Cardiology',
+      faxNumber: '5550102000',
+      phoneNumber: '2125551234',
+    });
+  });
+
+  it('still prefills a recipient with no fax number anywhere, leaving only the number to type', async () => {
+    mockReads(referral({ performer: [{ reference: `Organization/${CONTACT_ID}` }] }), contactWithoutFax);
+
+    const output = await runReferralPreview();
+
+    expect(output.recipient).toEqual({
+      name: 'Jane Doe, MD',
+      organization: 'Springfield Cardiology',
+      faxNumber: '',
+      phoneNumber: '2125551234',
+    });
   });
 
   it('SECURITY: gates a referral preview on a referral role rather than on any signed-in user', async () => {

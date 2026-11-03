@@ -145,7 +145,7 @@ export const SaveReferralInputSchema = z.object({
   specialty: trimmedRequired,
   /** Address-book Organization id. Omitted when the patient will choose the specialist. */
   recipientContactId: z.string().uuid().optional(),
-  /** Fax number typed on the referral; kept on the referral only, the directory contact is not changed. */
+  /** The form's Fax field (copied from the contact or typed); saved on the referral only, the directory contact is not changed. */
   recipientFax: z.string().trim().optional(),
   reason: trimmedRequired,
   urgency: ReferralUrgencySchema,
@@ -191,7 +191,7 @@ export interface ReferralRecipient {
   name: string;
   organizationName?: string;
   personName?: string;
-  /** The number typed on the referral when there is one, else the contact's. */
+  /** The number saved on the referral when there is one, else the contact's current number. */
   fax?: string;
   phone?: string;
   /** One line, as the discharge summary and form print it. */

@@ -1,10 +1,12 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { DocumentReference, Encounter, Location, Organization, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { REFERRAL_FORM_DOC_REF_DOCTYPE, REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/referral';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { isFhirNotFoundError } from '../errors';
 import { DEFAULT_TIMEZONE } from '../fax/run-fax-packet';
 import { createReferralFormPDF } from '../pdf/referral-form-pdf';
 import { loadReferralRecipient } from './recipient';
@@ -70,12 +72,15 @@ export const getOrCreateReferralForm = async (
   const practitionerId = referenceId(serviceRequest.requester?.reference, 'Practitioner/');
   const [patient, practice, encounter, practitioner, recipient] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
-    // The practice fills the From block; without it the form still renders from the visit's office, the way the
-    // fax packet preview tolerates a missing sending organization.
+    // The practice fills the From block; when ORGANIZATION_ID names no Organization the form still renders from
+    // the visit's office, the way the fax packet preview tolerates a missing sending organization. That is a
+    // misconfiguration worth seeing in Sentry, and any other failure (auth, outage) fails the form as usual.
     oystehr.fhir
       .get<Organization>({ resourceType: 'Organization', id: getSecret(SecretsKeys.ORGANIZATION_ID, secrets) })
       .catch((error: unknown) => {
-        console.error('[referral-form] could not load the practice Organization (ORGANIZATION_ID)', error);
+        if (!isFhirNotFoundError(error)) throw error;
+        console.error('[referral-form] ORGANIZATION_ID names no Organization; From block falls back to the office');
+        captureException(error);
         return undefined;
       }),
     encounterId ? oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }) : undefined,

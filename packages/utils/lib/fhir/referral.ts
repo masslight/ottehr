@@ -54,7 +54,10 @@ export interface ReferralDetails {
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
   includeDocuments: FaxDocumentKind[];
-  /** Fax number typed on the referral; wins over the recipient contact's fax. */
+  /**
+   * The number in the form's Fax field at save, whether the picker copied it from the contact or staff typed it.
+   * The referral faxes to this number; later edits to the directory contact do not change it.
+   */
   recipientFax?: string;
   sentAt?: string;
   /** When the patient was given a printed copy; a fax still sets the status, so this outlives `given-to-patient`. */
@@ -92,7 +95,7 @@ export const getReferralRecipientContactId = (serviceRequest: ServiceRequest): s
   serviceRequest.performer?.[0]?.reference?.replace('Organization/', '');
 export const getReferralStatus = (serviceRequest: ServiceRequest): ReferralStatus =>
   getReferralDetails(serviceRequest)?.status ?? 'not-sent';
-/** The fax number typed on the referral, when one was. */
+/** The fax number saved on the referral, when one was. */
 export const getReferralRecipientFax = (serviceRequest: ServiceRequest): string | undefined =>
   getReferralDetails(serviceRequest)?.recipientFax || undefined;
 
