@@ -6,7 +6,7 @@ import { detectProcedureFamily } from '../evaluate';
 import { resolveFamilyFacts } from '../family-support';
 import { formatStructuredFacts } from '../format';
 import { PROCEDURE_NAMES } from '../procedure-names';
-import { invalidStructuredFields } from '../structured-fields';
+import { invalidStructuredFields, StructuredFacts } from '../structured-fields';
 import { ekgFamily } from './ekg';
 import {
   calculateQtc,
@@ -289,6 +289,85 @@ describe('reminders', () => {
     const reminders = ekgReminders({ ...read, qtc: 420, ...past });
     expect(reminders).toHaveLength(2);
     expect(reminders[1].message).toContain(finding);
+  });
+
+  describe('axis', () => {
+    const normalRead = { ...EKG_NORMAL_READ, rate: 72, pr: 160, qrs: 88, qt: 380 };
+    const messages = (facts: StructuredFacts): string[] => ekgReminders(facts).map((reminder) => reminder.message);
+
+    it.each([
+      [-45, 'left axis deviation', 'An axis of -45° is left axis deviation; Axis says "normal".'],
+      [110, 'right axis deviation', 'An axis of +110° is right axis deviation; Axis says "normal".'],
+    ])('reminds when the normal read meets an axis of %s°', (axisDegrees, deviation, message) => {
+      const facts = { ...normalRead, axisDegrees };
+      const reminders = ekgReminders(facts);
+      expect(reminders.map((reminder) => reminder.message)).toEqual([
+        message,
+        `Impression is "normal EKG", but the numbers show ${deviation}.`,
+      ]);
+      expect(reminders[0].fixes).toEqual([{ label: `Set axis to ${deviation}`, apply: { axis: deviation } }]);
+
+      const fixed = { ...facts, ...reminders[0].fixes[0].apply };
+      expect(
+        invalidStructuredFields(ekgFamily.fields, resolveFamilyFacts(ekgFamily, { structuredFacts: fixed }))
+      ).toEqual([]);
+      expect(fixed).toMatchObject({ axisDegrees, conduction: ['normal'], stt: ['no acute ST-T wave changes'] });
+      const note = formatStructuredFacts(fixed, PROCEDURE_NAMES.ekg[0]);
+      expect(note).toContain(`axis ${axisDegrees > 0 ? '+' : ''}${axisDegrees}°.`);
+      expect(note).toContain(`Axis: ${deviation}`);
+      expect(note).not.toContain('Axis: normal');
+      expect(messages(fixed)).toEqual([`Impression is "normal EKG", but the numbers show ${deviation}.`]);
+      expect(messages({ ...fixed, ...reminders[0].fixes[0].apply })).toEqual(messages(fixed));
+      expect(messages({ ...fixed, ...reminders[1].fixes[0].apply })).toEqual([]);
+    });
+
+    it('reminds whether the axis or only the impression says normal, and not when the axis matches the number', () => {
+      expect(messages({ axisDegrees: -45, axis: 'normal' })).toEqual([
+        'An axis of -45° is left axis deviation; Axis says "normal".',
+      ]);
+      expect(messages({ axisDegrees: -45, impression: 'normal EKG' })).toEqual([
+        'An axis of -45° is left axis deviation; Impression says "normal EKG".',
+        'Impression is "normal EKG", but the numbers show left axis deviation.',
+      ]);
+      expect(messages({ axisDegrees: -45, axis: 'left axis deviation' })).toEqual([]);
+      expect(messages({ axisDegrees: 110, axis: 'right axis deviation', impression: 'abnormal EKG' })).toEqual([]);
+      expect(messages({ axisDegrees: -45, axis: 'indeterminate', impression: 'abnormal EKG' })).toEqual([]);
+      expect(messages({ axisDegrees: -45 })).toEqual([]);
+    });
+
+    it.each([-30, 0, 45, 90])('keeps %s° within the normal range', (axisDegrees) => {
+      expect(messages({ ...normalRead, axisDegrees })).toEqual([]);
+    });
+
+    it.each([
+      [-31, 'left axis deviation'],
+      [-90, 'left axis deviation'],
+      [91, 'right axis deviation'],
+      [180, 'right axis deviation'],
+    ])('classifies %s°, just past or at the edge of a deviation, as %s', (axisDegrees, deviation) => {
+      expect(ekgReminders({ ...normalRead, axisDegrees })[0].fixes[0].apply).toEqual({ axis: deviation });
+    });
+
+    it.each([
+      ['an extreme axis', -91],
+      ['an extreme axis', -180],
+      ['a cleared axis', undefined],
+      ['an empty axis', ''],
+      ['a value that is not a number', 'abc'],
+      ['an unfinished number', Number.NaN],
+    ])('leaves %s (%s) alone', (_name, axisDegrees) => {
+      expect(messages({ ...normalRead, axisDegrees })).toEqual([]);
+    });
+
+    it('keeps the PR and QTc reminders alongside the axis', () => {
+      const facts = { ...normalRead, pr: 236, qtc: 495, qtcMethod: 'manual', axisDegrees: -45 };
+      expect(messages(facts)).toEqual([
+        'A PR of 236 ms meets the definition of first-degree AV block; Intervals says "normal".',
+        'A QTc of 495 ms is prolonged; Intervals says "normal".',
+        'An axis of -45° is left axis deviation; Axis says "normal".',
+        'Impression is "normal EKG", but the numbers show first-degree AV block, prolonged QTc, left axis deviation.',
+      ]);
+    });
   });
 
   it('ranks the suggestions by the rate cut-offs exactly at 60 and 100', () => {

@@ -196,6 +196,69 @@ describe('EKG sentences', () => {
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
   });
 
+  it('reminds an adult when the typed axis contradicts a normal axis, and the fix changes only the axis', async () => {
+    const user = userEvent.setup();
+    render(
+      <Form
+        initial={{
+          rate: 72,
+          pr: 160,
+          qrs: 88,
+          qt: 380,
+          axis: 'normal',
+          conduction: ['normal'],
+          stt: ['no acute ST-T wave changes'],
+          otherFindings: ['left ventricular hypertrophy'],
+          impression: 'otherwise normal EKG',
+        }}
+      />
+    );
+    const axis = screen.getByRole('spinbutton', { name: 'Axis (°)' });
+    const reminders = (): HTMLElement | null => screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+
+    await user.type(axis, '-');
+    expect(reminders()).not.toBeInTheDocument();
+    await user.type(axis, '45');
+    expect(
+      within(reminders()!)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['An axis of -45° is left axis deviation; Axis says "normal".Set axis to left axis deviation']);
+
+    await user.click(within(reminders()!).getByRole('button', { name: 'Set axis to left axis deviation' }));
+    expect(latest.facts).toMatchObject({
+      axisDegrees: -45,
+      axis: 'left axis deviation',
+      conduction: ['normal'],
+      stt: ['no acute ST-T wave changes'],
+      otherFindings: ['left ventricular hypertrophy'],
+      impression: 'otherwise normal EKG',
+    });
+    expect(screen.getByRole('button', { name: 'axis: left axis deviation' })).toBeInTheDocument();
+    expect(reminders()).not.toBeInTheDocument();
+
+    await user.clear(axis);
+    expect(latest.facts?.axisDegrees).toBeUndefined();
+    expect(latest.facts?.axis).toBe('left axis deviation');
+    await user.click(screen.getByRole('button', { name: 'axis: left axis deviation' }));
+    await user.click(screen.getByRole('option', { name: 'normal' }));
+    expect(reminders()).not.toBeInTheDocument();
+
+    await user.type(axis, '110');
+    expect(
+      within(reminders()!).getByText(/An axis of \+110° is right axis deviation; Axis says "normal"/)
+    ).toBeInTheDocument();
+    await user.clear(axis);
+    await user.type(axis, '90');
+    expect(reminders()).not.toBeInTheDocument();
+    await user.clear(axis);
+    await user.type(axis, '91');
+    expect(within(reminders()!).getAllByRole('listitem')).toHaveLength(1);
+    await user.click(within(reminders()!).getByRole('button', { name: 'Set axis to right axis deviation' }));
+    expect(latest.facts).toMatchObject({ axisDegrees: 91, axis: 'right axis deviation' });
+    expect(reminders()).not.toBeInTheDocument();
+  });
+
   it('offers the impression scale in its own order and the measurements as plain text when read-only', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<Form />);
