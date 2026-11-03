@@ -1,4 +1,5 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ScheduleStrategy } from 'utils/lib/fhir/constants';
@@ -17,6 +18,12 @@ const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
 });
 
 export const APPOINTMENT_SEARCH_PAGE_SIZE = 100;
+
+// Lambda refuses to return a result whose JSON exceeds 6 MiB (6,291,456 bytes); this keeps headroom below it.
+export const MAX_RESPONSE_BYTES = 6_000_000;
+
+export const lambdaResultBytes = (result: APIGatewayProxyResult): number => Buffer.byteLength(JSON.stringify(result));
+
 // WARNING: this list must cover every field read from resources returned by the appointment search bundle.
 // If you access a new field on any of these resource types downstream (including via utils helpers),
 // you MUST add it here — otherwise the server strips it via _elements and it arrives as undefined.
@@ -240,10 +247,6 @@ export const getAppointmentQueryInput = async (input: {
       {
         name: '_revinclude:iterate',
         value: 'Person:link',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
       },
       {
         name: '_include',
