@@ -9,7 +9,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 
 const buttonSx = { borderRadius: 25, textTransform: 'none', fontWeight: 'bold' } as const;
 const titleSx = { color: 'primary.dark', fontWeight: 600 } as const;
@@ -37,18 +37,39 @@ export const QuickPickSaveDialogs = <T extends { id?: string; name: string }>({
   entityLabel,
 }: QuickPickSaveDialogsProps<T>): ReactElement => {
   const [overwriteTarget, setOverwriteTarget] = useState<T | null>(null);
+  // The pick chosen from the dropdown, so Replace targets it by id even when two picks share a name.
+  const [selected, setSelected] = useState<T | null>(null);
+
+  useEffect(() => {
+    if (open) setSelected(null);
+  }, [open]);
 
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={titleSx}>Add to Quick Picks</DialogTitle>
         <DialogContent>
-          <Autocomplete
+          <Autocomplete<T, false, false, true>
             freeSolo
-            options={existingQuickPicks.map((quickPick) => quickPick.name)}
-            value={name}
-            onChange={(_e, newValue) => onNameChange(newValue ?? '')}
-            onInputChange={(_e, newInputValue) => onNameChange(newInputValue)}
+            options={existingQuickPicks}
+            getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+            getOptionKey={(option) => (typeof option === 'string' ? option : option.id ?? option.name)}
+            value={selected ?? name}
+            inputValue={name}
+            onChange={(_e, newValue) => {
+              if (typeof newValue === 'string' || newValue == null) {
+                setSelected(null);
+                onNameChange(newValue ?? '');
+              } else {
+                setSelected(newValue);
+                onNameChange(newValue.name);
+              }
+            }}
+            onInputChange={(_e, newInputValue, reason) => {
+              if (reason === 'reset') return;
+              setSelected(null);
+              onNameChange(newInputValue);
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -70,9 +91,11 @@ export const QuickPickSaveDialogs = <T extends { id?: string; name: string }>({
             disabled={!name.trim() || saving}
             sx={buttonSx}
             onClick={() => {
-              const existing = existingQuickPicks.find(
-                (quickPick) => quickPick.name.toLowerCase() === name.trim().toLowerCase()
-              );
+              const typed = name.trim().toLowerCase();
+              const existing =
+                selected?.name.toLowerCase() === typed
+                  ? selected
+                  : existingQuickPicks.find((quickPick) => quickPick.name.toLowerCase() === typed);
               if (existing?.id) {
                 // Replacing keeps the existing pick's name, not the case/whitespace variant typed.
                 onNameChange(existing.name);

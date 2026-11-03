@@ -9,7 +9,11 @@ const EXISTING = [
   { id: 'qp-2', name: 'Flu shot' },
 ];
 
-const renderDialogs = (initialName: string, onSave = vi.fn()): ReturnType<typeof vi.fn> => {
+const renderDialogs = (
+  initialName: string,
+  onSave = vi.fn(),
+  existing: { id: string; name: string }[] = EXISTING
+): ReturnType<typeof vi.fn> => {
   const Harness = (): JSX.Element => {
     const [name, setName] = useState(initialName);
     return (
@@ -17,7 +21,7 @@ const renderDialogs = (initialName: string, onSave = vi.fn()): ReturnType<typeof
         open
         name={name}
         onNameChange={setName}
-        existingQuickPicks={EXISTING}
+        existingQuickPicks={existing}
         saving={false}
         onClose={vi.fn()}
         onSave={(overwriteId?: string) => (overwriteId ? onSave(overwriteId, name) : onSave())}
@@ -81,6 +85,20 @@ describe('QuickPickSaveDialogs', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Back' }));
 
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('replaces the duplicate-named quick pick that was picked from the dropdown', async () => {
+    const onSave = renderDialogs('', vi.fn(), [
+      { id: 'qp-1', name: 'Albuterol' },
+      { id: 'qp-1b', name: 'Albuterol' },
+    ]);
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Quick Pick Name' }));
+    await userEvent.click((await screen.findAllByRole('option', { name: 'Albuterol' }))[1]);
+    await userEvent.click(screen.getByRole('button', { name: 'Save Quick Pick' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Replace' }));
+
+    expect(onSave).toHaveBeenCalledWith('qp-1b', 'Albuterol');
   });
 
   it('disables saving when the name is blank', () => {
