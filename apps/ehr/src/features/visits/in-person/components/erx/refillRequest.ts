@@ -11,8 +11,10 @@ import {
   applyPrescriptionQuickPick,
   asciiFractions,
   emptyPrescriptionLine,
+  hasDirectionsBlanks,
   isQuantityUnit,
   PrescriptionLine,
+  prescriptionLineMetadata,
   prescriptionLineToOrder,
   quantityText,
   withPrescriptionMetadata,
@@ -101,9 +103,10 @@ export const refillLine = (
   const unit = request ? request.quantityUnit : order.quantityUnit;
   const compound = request ? undefined : order.compound;
   // The blanks were written for the original's product and directions: another product (or none named), or a sig of
-  // the pharmacy's own, starts from the sig alone.
+  // the pharmacy's own, starts from the sig alone. A compound's directions are typed, with no blanks.
   const blanks =
     metadata &&
+    !compound &&
     (!request ||
       (request.ndc !== undefined &&
         request.ndc === order.ndc &&
@@ -140,11 +143,15 @@ export const refillLine = (
       : undefined,
   });
   const started = { ...line, quickPicked: null };
-  return blanks ? withPrescriptionMetadata(started, blanks) : started;
+  // With the blanks, the directions are ours as sent (the pharmacy's matched them).
+  return blanks
+    ? withPrescriptionMetadata({ ...started, patientInstructions: prescription.instructions ?? '' }, blanks)
+    : started;
 };
 
 /** "Change and approve": the renewal response approving the prescription the order form holds. Its fills are the
- * first fill plus the refills written; the eRx service sends what differs from the request as the changes. */
+ * first fill plus the refills written; the eRx service sends what differs from the request as the changes, and keeps
+ * the order's blanks (`metadata`) on the new prescription as it would a new order's. */
 export const renewalApproval = (
   renewalTaskId: string,
   line: PrescriptionLine
@@ -156,8 +163,15 @@ export const renewalApproval = (
     decision: 'approve',
     numberOfRefills: order.numberOfRefills + 1,
     changes: orderChanges(order),
+    ...(order.metadata ? { metadata: order.metadata } : {}),
   };
 };
+
+/** The blanks a plain approval keeps on the new prescription, as "Change and approve" and a new order do: the
+ * line's (the original's, filled again), also when its directions were typed over them; none when the blanks are
+ * empty (the pharmacy's own directions), or for a compound. */
+export const approvalMetadata = (line: PrescriptionLine): PrescriptionOrderMetadata | undefined =>
+  line.medication && hasDirectionsBlanks(line) ? prescriptionLineMetadata(line) : undefined;
 
 /** The prescription the order form holds, in answer to a pharmacy's request, which can't be a compound. */
 const answerOrder = (line: PrescriptionLine): OrderPrescriptionInput => {
@@ -198,16 +212,17 @@ export const changeApproval = (
     decision: 'approve',
     requestedMedicationIndex: suggestion,
     changes: { ...orderChanges(order), numberOfRefills: order.numberOfRefills },
+    ...(order.metadata ? { metadata: order.metadata } : {}),
   };
 };
 
 /** A change request's answer given in the dialog: the selected suggestion approved as the pharmacy sent it (none
  * for a drug-use alert approved as written), a prior authorization request approved with its number, or a denial or
- * pending answer with its reason. */
+ * pending answer with its reason. An approval keeps the blanks given (`approvalMetadata`) on the new prescription. */
 export const changeResponse = (
   changeTaskId: string,
   decision: 'approve' | 'deny' | 'pending',
-  { suggestion, priorAuthorization, reason, note }: ChangeAnswerDetails
+  { suggestion, priorAuthorization, reason, note, metadata }: ChangeAnswerDetails
 ): ChangeResponseInput => {
   if (decision === 'approve') {
     return {
@@ -219,6 +234,7 @@ export const changeResponse = (
         : suggestion !== undefined
         ? { requestedMedicationIndex: suggestion }
         : {}),
+      ...(metadata ? { metadata } : {}),
     };
   }
   return {
@@ -235,6 +251,8 @@ interface ChangeAnswerDetails {
   priorAuthorization?: string;
   reason?: string;
   note?: string;
+  /** The blanks the new prescription keeps, for an approval */
+  metadata?: PrescriptionOrderMetadata;
 }
 
 /** A suggestion's line under its name, only what the pharmacy sent: "30 capsules · Take 1 … · 30 days · 2 refills". */

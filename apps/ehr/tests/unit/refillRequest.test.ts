@@ -2,6 +2,12 @@ import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-da
 import { PrescriptionOrderMetadata } from 'utils/lib/types/api/erx.types';
 import { describe, expect, it } from 'vitest';
 import {
+  applyPrescriptionQuickPick,
+  directionsFromBlanks,
+  emptyPrescriptionLine,
+} from '../../src/features/visits/in-person/components/erx/prescriptionLines';
+import {
+  approvalMetadata,
   changeApproval,
   changeResponse,
   refillLine,
@@ -265,14 +271,15 @@ describe('refill request: the original’s blanks fill the order form again', ()
     durationDays: '30',
   };
 
-  it('fills the blanks for the original’s product and writes the directions from them', () => {
+  it('fills the blanks for the original’s product and keeps its directions as sent', () => {
     const line = refillLine(ORIGINAL, undefined, METADATA);
     expect(line).toMatchObject({
       route: 'by mouth',
       dose: '1',
       frequency: 'once daily',
       durationDays: '30',
-      patientInstructions: 'Take 1 tablet by mouth once daily for 30 days.',
+      // The sig as sent, though the blanks write "... for 30 days.": typed over them.
+      patientInstructions: 'Take 1 tablet by mouth once daily',
       quantityValue: '30',
       daysSupply: '30',
       numberOfRefills: '1',
@@ -292,13 +299,27 @@ describe('refill request: the original’s blanks fill the order form again', ()
     ).toMatchObject({ dose: '1', frequency: 'once daily', quantityValue: '90', numberOfRefills: '2' });
   });
 
+  it('follows the blanks when they write the directions as sent, and keeps a typed note when they don’t', () => {
+    const asWritten = { ...ORIGINAL, instructions: 'Take 1 tablet by mouth once daily for 30 days.' };
+    const line = refillLine(asWritten, undefined, METADATA);
+    expect(line.patientInstructions).toBe('Take 1 tablet by mouth once daily for 30 days.');
+    expect(directionsFromBlanks(line)).toBe(true);
+    const noted = { ...ORIGINAL, instructions: 'Take 1 tablet by mouth once daily for 30 days. Typed note.' };
+    expect(refillLine(noted, undefined, METADATA)).toMatchObject({
+      dose: '1',
+      frequency: 'once daily',
+      patientInstructions: 'Take 1 tablet by mouth once daily for 30 days. Typed note.',
+    });
+  });
+
   it('fills them when the pharmacy sent our directions back, in any case and spacing', () => {
     const line = refillLine(ORIGINAL, { ndc: '00093111101', sig: 'TAKE 1 TABLET  BY MOUTH ONCE DAILY ' }, METADATA);
     expect(line).toMatchObject({
       dose: '1',
       route: 'by mouth',
       frequency: 'once daily',
-      patientInstructions: 'Take 1 tablet by mouth once daily for 30 days.',
+      // Ours as sent, not the pharmacy's copy.
+      patientInstructions: 'Take 1 tablet by mouth once daily',
     });
     // "½" on screen, "1/2" as sent and as the pharmacy has it.
     const half = { ...ORIGINAL, instructions: 'Take ½ tablet by mouth once daily' };
@@ -333,5 +354,60 @@ describe('refill request: the original’s blanks fill the order form again', ()
       )
     ).toMatchObject({ ...asBefore, patientInstructions: 'Take 1 tablet by mouth once daily' });
     expect(refillLine(ORIGINAL, { description: 'Lisinopril 10 mg tablet' }, METADATA)).toMatchObject(asBefore);
+  });
+
+  it('keeps the blanks on the approved prescription, also under typed directions, as a new order does', () => {
+    const filled = refillLine(
+      ORIGINAL,
+      { ndc: '00093111101', quantityValue: 90, quantityUnit: 'Tablet', requestedRefills: 3 },
+      METADATA
+    );
+    expect(renewalApproval('renewal-1', filled).metadata).toEqual(METADATA);
+    expect(changeApproval('change-1', 0, filled).metadata).toEqual(METADATA);
+    expect(approvalMetadata(filled)).toEqual(METADATA);
+    // Typed over: still the blanks. The pharmacy's own directions: none.
+    const typed = { ...filled, patientInstructions: `${filled.patientInstructions} With water.` };
+    expect(renewalApproval('renewal-1', typed).metadata).toEqual(METADATA);
+    expect(changeApproval('change-1', 0, typed).metadata).toEqual(METADATA);
+    expect(approvalMetadata(typed)).toEqual(METADATA);
+    expect(
+      approvalMetadata(refillLine(ORIGINAL, { ndc: '00093111101', sig: 'Take 1 tablet twice daily' }, METADATA))
+    ).toBeUndefined();
+    expect(approvalMetadata(refillLine(ORIGINAL))).toBeUndefined();
+  });
+
+  it('never keeps blanks for a compound', () => {
+    const compound = applyPrescriptionQuickPick(emptyPrescriptionLine(), {
+      id: 'qp-cream',
+      name: 'Pain cream',
+      compound: {
+        description: 'Ketoprofen cream',
+        dosageForm: 'Cream',
+        ingredients: [{ description: 'Ketoprofen Powder', ndc: '00000000001', strength: { value: 10, unit: '%' } }],
+      },
+      quantityValue: 60,
+      quantityUnit: 'Gram',
+      patientInstructions: 'Apply twice daily.',
+    });
+    expect(approvalMetadata(compound)).toBeUndefined();
+    expect(() => renewalApproval('renewal-1', compound)).toThrow('compound');
+  });
+
+  it('sends the blanks given with a plain approval only, never with a denial or pending answer', () => {
+    expect(changeResponse('change-1', 'approve', { suggestion: 0, metadata: METADATA })).toEqual({
+      taskId: 'change-1',
+      decision: 'approve',
+      requestedMedicationIndex: 0,
+      metadata: METADATA,
+    });
+    expect(changeResponse('change-1', 'approve', { priorAuthorization: 'PA-1', metadata: METADATA })).toMatchObject({
+      metadata: METADATA,
+    });
+    expect(
+      changeResponse('change-1', 'deny', { reason: 'Change not appropriate', metadata: METADATA })
+    ).not.toHaveProperty('metadata');
+    expect(
+      changeResponse('change-1', 'pending', { reason: 'Patient has labs/tests pending', metadata: METADATA })
+    ).not.toHaveProperty('metadata');
   });
 });

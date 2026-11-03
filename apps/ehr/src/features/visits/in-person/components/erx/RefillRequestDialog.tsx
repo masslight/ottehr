@@ -42,6 +42,7 @@ import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
 import { isPrescriptionCancellable, prescriptionActionUnavailableText } from './prescriptionStatus';
 import {
+  approvalMetadata,
   changeApproval,
   changeResponse,
   refillLine,
@@ -163,6 +164,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
         : 'Approve selected'
       : ANSWER_LABEL[key];
   const prescription = data?.prescription;
+  // The prescription the request is answered with, as the order form starts: the pharmacy's over the original's
+  // blanks. A plain approval keeps those blanks on the new prescription too, while they still write its directions.
+  const line = prescription && refillLine(prescription, change ? selected : refill?.medication, data?.metadata);
   const pharmacyName = request?.pharmacy.name ?? 'the pharmacy';
   const contact = patientAddressAndPhone(data?.patient);
   const closed = !!request && (request.withdrawn || request.closed);
@@ -192,6 +196,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     if (!request) return;
     const trimmed = note.trim() || undefined;
     if (answer === 'change') return;
+    const metadata = answer === 'approve' && line ? approvalMetadata(line) : undefined;
     try {
       await respond.mutateAsync(
         change
@@ -200,12 +205,13 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               priorAuthorization: priorAuth ? priorAuthorization.trim() : undefined,
               reason,
               note: trimmed,
+              metadata,
             })
           : ({
               taskId: refill!.renewalTaskId,
               decision: answer,
               ...(answer === 'approve'
-                ? { numberOfRefills: fillsNumber, note: trimmed }
+                ? { numberOfRefills: fillsNumber, note: trimmed, ...(metadata ? { metadata } : {}) }
                 : { reason, [answer === 'deny' ? 'denialReason' : 'note']: trimmed }),
             } as RenewalResponseInput)
       );
@@ -242,7 +248,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       // Picking another suggestion starts the form again from it.
       key={suggestion}
       visit={{ patient: data.patient, encounterId: prescription.encounterId! }}
-      initialLine={refillLine(prescription, change ? selected : refill?.medication, data.metadata)}
+      initialLine={line}
       {...(request
         ? {
             pharmacy: {

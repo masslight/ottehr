@@ -1304,9 +1304,9 @@ describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
     ]);
   });
 
-  it('sends none for directions typed over, a quick pick’s written ones, or a compound', () => {
+  it('sends them for directions typed over the blanks, and none for a quick pick’s written ones or a compound', () => {
     const typed = { ...written, patientInstructions: `${written.patientInstructions} Finish the course.` };
-    expect(prescriptionLineToOrder(typed, context)).not.toHaveProperty('metadata');
+    expect(prescriptionLineToOrder(typed, context).metadata).toEqual(prescriptionLineMetadata(written));
     const picked = applyPrescriptionQuickPick(written, { id: 'qp', name: 'Amox', patientInstructions: 'Take 1 daily' });
     expect(prescriptionLineToOrder({ ...picked, quantityUnit: 'Capsule' }, context)).not.toHaveProperty('metadata');
     const compound = applyPrescriptionQuickPick(emptyPrescriptionLine(), {

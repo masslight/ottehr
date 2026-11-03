@@ -708,8 +708,15 @@ export const withSuggestion = (line: PrescriptionLine, fields: SuggestedPrescrip
   },
 });
 
+/** Whether the blanks wrote the directions and they're still as written, not typed over. */
+export const directionsFromBlanks = (line: PrescriptionLine): boolean =>
+  line.generated.patientInstructions !== '' && line.patientInstructions === line.generated.patientInstructions;
+
+/** Whether the blanks were filled in, whether or not the directions were typed over afterwards. */
+export const hasDirectionsBlanks = (line: PrescriptionLine): boolean => line.generated.patientInstructions !== '';
+
 /** The blanks behind the line's directions, as the order keeps them on the prescription for a re-fill
- * (`withPrescriptionMetadata` is the way back). The caller sends them only while the directions are the blanks'. */
+ * (`withPrescriptionMetadata` is the way back). The caller sends them while `hasDirectionsBlanks`. */
 export const prescriptionLineMetadata = (line: PrescriptionLine): PrescriptionOrderMetadata => ({
   version: 1,
   ...(line.medication ? { product: productDetailsOf(line.medication) } : {}),
@@ -725,8 +732,9 @@ export const prescriptionLineMetadata = (line: PrescriptionLine): PrescriptionOr
 });
 
 /** The line with the blanks a sent prescription was written from (`prescriptionLineMetadata`), filled as a suggestion
- * fills them: the directions are written again from the blanks, for the line's product, so the Directions box reads as
- * it was sent and follows the blanks from here. The quantity, unit, days supply and refills stay the line's. */
+ * fills them. The Directions box keeps the line's directions as sent: when the blanks write them, it follows the blanks
+ * from here; when they were typed over, it stays typed over. The quantity, unit, days supply and refills stay the
+ * line's. */
 export const withPrescriptionMetadata = (
   line: PrescriptionLine,
   metadata: PrescriptionOrderMetadata
@@ -739,6 +747,11 @@ export const withPrescriptionMetadata = (
     steps: metadata.steps ?? [],
     instructions: metadata.instructions ?? '',
   };
+  const written = withAdditionalInstructions(
+    prescriptionDirectionsText(line.medication, directions),
+    metadata.additionalInstructions
+  );
+  const sent = line.patientInstructions.trim();
   return {
     ...withSuggestion(line, {
       ...directions,
@@ -746,11 +759,10 @@ export const withPrescriptionMetadata = (
       quantityUnit: line.quantityUnit,
       daysSupply: line.daysSupply,
       numberOfRefills: line.numberOfRefills,
-      patientInstructions: withAdditionalInstructions(
-        prescriptionDirectionsText(line.medication, directions),
-        metadata.additionalInstructions
-      ),
+      patientInstructions: written,
     }),
+    // Sent with ASCII fractions; the screen keeps "½" while the blanks still write them.
+    patientInstructions: !sent || asciiFractions(written).trim() === asciiFractions(sent) ? written : sent,
     additionalInstructions: metadata.additionalInstructions,
     dosing: metadata.dosing,
     maximum: lineMaximumOf(metadata.dosing, 'calculator'),
@@ -887,8 +899,7 @@ export const asciiFractions = (text: string): string =>
 export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderContext): OrderPrescriptionInput => {
   const { medication, compound } = line;
   if (!line.quantityUnit) throw new Error('Prescription line is incomplete');
-  // Directions still as the blanks wrote them, not typed over.
-  const fromBlanks = line.patientInstructions === line.generated.patientInstructions;
+  const fromBlanks = directionsFromBlanks(line);
   const common = {
     patientId: context.patientId,
     practitionerId: context.practitionerId,
@@ -937,8 +948,8 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     ndc: medication.ndc,
     medicationDescription: medication.description.trim(),
     substitutionAllowed: line.substitutionAllowed,
-    // The blanks, kept on the prescription for a re-fill; typed directions have none behind them.
-    ...(fromBlanks ? { metadata: prescriptionLineMetadata(line) } : {}),
+    // The blanks, kept on the prescription for a re-fill, also when the directions were typed over them.
+    ...(hasDirectionsBlanks(line) ? { metadata: prescriptionLineMetadata(line) } : {}),
   };
 };
 

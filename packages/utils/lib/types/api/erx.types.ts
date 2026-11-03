@@ -39,8 +39,9 @@ export const RENEWAL_PENDING_REASONS = [
   'Provider wishes to delay for reasons not otherwise indicated',
 ] as const;
 
-/** What the renewal-response endpoint takes: an approval (the number of fills, 1–99, and what the provider changed),
- * a denial or a pending answer. */
+/** What the renewal-response endpoint takes: an approval (the number of fills, 1–99, what the provider changed, and
+ * the blanks the new prescription keeps for a re-fill, as order-prescription takes them), a denial or a pending
+ * answer. */
 export type RenewalResponseInput = { taskId: string } & (
   | {
       decision: 'approve';
@@ -56,6 +57,7 @@ export type RenewalResponseInput = { taskId: string } & (
         patientInstructions?: string;
         noteToPharmacy?: string;
       };
+      metadata?: PrescriptionOrderMetadata;
     }
   | { decision: 'deny'; reason: (typeof RENEWAL_DENIAL_REASONS)[number]; denialReason?: string }
   | { decision: 'pending'; reason: (typeof RENEWAL_PENDING_REASONS)[number]; note?: string }
@@ -96,6 +98,7 @@ export type ChangeResponseInput = { taskId: string } & (
       requestedMedicationIndex?: number;
       note?: string;
       changes?: Extract<RenewalResponseInput, { decision: 'approve' }>['changes'] & { numberOfRefills?: number };
+      metadata?: PrescriptionOrderMetadata;
       // Requested from the eRx service (Jon item 4): the prior authorization a P request is approved with, its number
       // (NCPDP PriorAuthorization, up to 35 characters) and status (PriorAuthorizationStatus A, approved)
       priorAuthorization?: { number: string; status: 'approved' };
