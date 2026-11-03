@@ -111,7 +111,9 @@ export const listAccountPayments = async (params: {
         const claim = claimForPayments(claimsByEncounter.get(encounterId) ?? [], notices);
         return dtos.map((dto) => {
           const notice = notices.find((candidate) => candidate.id === dto.fhirPaymentNotificationId);
-          const reconciliation = notice?.contained?.find((resource) => resource.resourceType === 'PaymentReconciliation');
+          const reconciliation = notice?.contained?.find(
+            (resource) => resource.resourceType === 'PaymentReconciliation'
+          );
           return {
             recordedISO: dto.dateISO,
             payment: {
