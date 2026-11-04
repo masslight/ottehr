@@ -1,5 +1,6 @@
 import { Location, PractitionerRole } from 'fhir/r4b';
 import { isLocationBookable } from 'utils/lib/fhir/location';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 
 /** Just enough of a schedule-list entry to decide where it can be delivered. */
 interface ScheduleOwnerEntry {
@@ -31,7 +32,7 @@ export const isEntryAtBookableLocation = (
     // Location-less provider schedules already behave; dropping it here would quietly break them.
     if (locationRefs.length === 0) return true;
     return locationRefs.some((ref) => {
-      const id = ref.reference?.split('/')[1];
+      const id = getIdFromReference(ref.reference);
       return id ? bookableLocationById.has(id) : false;
     });
   }

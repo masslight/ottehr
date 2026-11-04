@@ -87,6 +87,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getEmCodes } from 'utils/lib/helpers/em-codes';
 import {
   findOrgMatchingReference,
@@ -352,7 +353,7 @@ export function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition
   const orderedDiagnoses = [...(encounter.diagnosis ?? [])].sort((a, b) => Number(isPrimary(b)) - Number(isPrimary(a)));
   const seenCodes = new Set<string>();
   return orderedDiagnoses.flatMap<DiagnosisCreate>((encounterDiagnosis) => {
-    const diagnosisResourceId = encounterDiagnosis.condition.reference?.split('/')[1];
+    const diagnosisResourceId = getIdFromReference(encounterDiagnosis.condition.reference);
     const diagnosisResource = diagnoses.find((resource) => resource.id === diagnosisResourceId);
     const diagnosisCode = diagnosisResource?.code?.coding?.[0].code;
     if (diagnosisCode == null || seenCodes.has(diagnosisCode)) {
@@ -696,7 +697,7 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
       `Occupational Medicine employer is a billing-app NIO (${occupationalMedicineAccount.owner?.reference}); sending the Candid claim without a non-insurance payer.`
     );
   } else if (occupationalMedicineAccount) {
-    const ownerOrganizationId = occupationalMedicineAccount.owner?.reference?.split('/')[1];
+    const ownerOrganizationId = getIdFromReference(occupationalMedicineAccount.owner?.reference);
     if (ownerOrganizationId) {
       const occupationalMedicineEmployerOrganization = await oystehr.fhir.get<Organization>({
         id: occupationalMedicineAccount.owner?.reference?.split('/')[1] || '',

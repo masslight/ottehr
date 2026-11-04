@@ -1,7 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { ArrowDropDown } from '@mui/icons-material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import CollectionsOutlinedIcon from '@mui/icons-material/CollectionsOutlined';
 import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
@@ -64,7 +63,7 @@ import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/r
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { getConvertToFollowUpDisabledReason } from 'src/features/visits/shared/components/patient/convertToFollowUp';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
-import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
+import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
@@ -120,7 +119,6 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
-import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
 import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
 import { formPagePath, OpenFormResponseState } from '../features/visits/shared/components/patient-forms/formNavigation';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
@@ -624,6 +622,7 @@ export default function VisitDetailsPage(): ReactElement {
     });
     if (editDialogConfig.type === 'dob') {
       await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+      await queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources', patientId] });
     }
   };
 
@@ -1153,7 +1152,22 @@ export default function VisitDetailsPage(): ReactElement {
   );
 
   return (
-    <PageContainer>
+    <PageContainer
+      header={
+        <Header
+          key={patientId}
+          handleDiscard={() =>
+            // Opened in a new tab (e.g. from Outstanding Balance) there is no in-app page to go back to.
+            (window.history.state as { idx?: number } | null)?.idx
+              ? navigate(-1)
+              : navigate(patientId ? `/patient/${patientId}` : '/visits')
+          }
+          id={patientId}
+          encounterId={encounter?.id}
+          fallbackPatient={patient}
+        />
+      }
+    >
       <>
         {/* /* page */}
         <Grid container direction="row">
@@ -1163,7 +1177,8 @@ export default function VisitDetailsPage(): ReactElement {
               <Grid item xs={6}>
                 <CustomBreadcrumbs
                   chain={[
-                    { link: `/patient/${patientId}`, children: 'Visit Details' },
+                    { link: '/patients', children: 'Patients' },
+                    { link: `/patient/${patientId}`, children: fullName || <Skeleton width={150} /> },
                     { link: '#', children: appointment?.id || <Skeleton width={150} /> },
                   ]}
                 />
@@ -1342,71 +1357,11 @@ export default function VisitDetailsPage(): ReactElement {
             </Grid>
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
-              {loading || activityLogsLoading || !patient ? (
-                <Skeleton aria-busy="true" width={200} height="" />
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box
-                    onClick={() => navigate(`/patient/${patientId}/info`)}
-                    sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
-                  >
-                    <AssignmentIndOutlinedIcon
-                      sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
-                    ></AssignmentIndOutlinedIcon>
-                    <Typography
-                      variant="h2"
-                      color="primary.dark"
-                      data-testid={dataTestIds.appointmentPage.patientFullName}
-                    >
-                      {fullName}
-                    </Typography>
-                  </Box>
-                  <PatientNotesButton patientId={patientId} />
-                </Box>
-              )}
+              {/* The patient is in the header above, so the page is titled by what it shows. */}
+              <Typography variant="h2" color="primary.dark">
+                Visit Details
+              </Typography>
 
-              {/* appointment start time as AM/PM and then date */}
-              {loading || !appointment ? (
-                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
-              ) : (
-                <>
-                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 4 }}>
-                    {isInPerson ? 'In-Person' : 'Virtual'}
-                    {' | '}
-                    {resolveServiceCategoryAbbreviation(serviceCategory, fhirBackedCats)}
-                  </Typography>
-                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
-                    {getAppointmentType(appointmentType)}
-                  </Typography>
-                  <Typography sx={{ alignSelf: 'center', marginLeft: 1 }} fontWeight="bold">
-                    {appointmentTime}
-                  </Typography>
-                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>{appointmentDate}</Typography>
-                </>
-              )}
-
-              {loading || !status ? (
-                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
-              ) : (
-                <>
-                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
-                    {visitDetailsData?.visitLocationName ?? ''}
-                  </Typography>
-                  <span
-                    style={{
-                      marginLeft: 20,
-                      alignSelf: 'center',
-                    }}
-                  >
-                    <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
-                  </span>
-                  {appointment && appointment.status === 'cancelled' && (
-                    <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
-                      {getCancellationReasonDisplay(appointment)}
-                    </Typography>
-                  )}
-                </>
-              )}
               {appointment && encounter && appointment?.status !== 'cancelled' ? (
                 <CancellationReasonDialog
                   handleClose={handleCancelDialogClose}
@@ -1453,14 +1408,56 @@ export default function VisitDetailsPage(): ReactElement {
               ) : null}
             </Grid>
 
-            {(patient || nameLastModifiedOld || nameLastModified) && (
-              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
-                {patient && <IdentifiersRow patient={patient} />}
-                {(nameLastModifiedOld || nameLastModified) && (
-                  <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
-                    Name Last Modified {nameLastModifiedOld || nameLastModified}
+            <Grid container direction="row">
+              {/* appointment start time as AM/PM and then date */}
+              {loading || !appointment ? (
+                <Skeleton aria-busy="true" width={200} />
+              ) : (
+                <>
+                  <Typography variant="body1" sx={{ alignSelf: 'center' }}>
+                    {isInPerson ? 'In-Person' : 'Virtual'}
+                    {' | '}
+                    {resolveServiceCategoryAbbreviation(serviceCategory, fhirBackedCats)}
                   </Typography>
-                )}
+                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
+                    {getAppointmentType(appointmentType)}
+                  </Typography>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 1 }} fontWeight="bold">
+                    {appointmentTime}
+                  </Typography>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>{appointmentDate}</Typography>
+                </>
+              )}
+
+              {loading || !status ? (
+                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
+              ) : (
+                <>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
+                    {visitDetailsData?.visitLocationName ?? ''}
+                  </Typography>
+                  <span
+                    style={{
+                      marginLeft: 20,
+                      alignSelf: 'center',
+                    }}
+                  >
+                    <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
+                  </span>
+                  {appointment && appointment.status === 'cancelled' && (
+                    <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
+                      {getCancellationReasonDisplay(appointment)}
+                    </Typography>
+                  )}
+                </>
+              )}
+            </Grid>
+
+            {(nameLastModifiedOld || nameLastModified) && (
+              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
+                <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
+                  Name Last Modified {nameLastModifiedOld || nameLastModified}
+                </Typography>
               </Grid>
             )}
 

@@ -7,6 +7,7 @@ import {
   FollowupReason,
   formatFhirEncounterToPatientFollowupDetails,
 } from 'utils/lib/fhir/encounter';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { PatientFollowupDetails } from 'utils/lib/types/api/encounter.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 
@@ -110,7 +111,7 @@ export async function updateEncounterResource(
 
   const curFhirEncounter = fhirResources.find((resource) => resource.resourceType === 'Encounter') as Encounter;
   const curFhirLocation = fhirResources.find((resource) => resource.resourceType === 'Location') as Location;
-  const patientId = curFhirEncounter?.subject?.reference?.split('/')[1];
+  const patientId = getIdFromReference(curFhirEncounter?.subject?.reference);
   if (!curFhirEncounter || !patientId)
     throw new Error('Could not find the encounter or patient id when updating the follow up encounter');
   const curEncounterDetails = formatFhirEncounterToPatientFollowupDetails(curFhirEncounter, patientId, curFhirLocation);

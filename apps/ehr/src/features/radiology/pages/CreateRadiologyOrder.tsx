@@ -1,19 +1,12 @@
 import {
-  Autocomplete,
   Box,
   Button,
   Checkbox,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControlLabel,
   Grid,
   Paper,
   Stack,
   Switch,
-  TextField,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -24,6 +17,7 @@ import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
+import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -149,8 +143,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = ({ onF
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<RadiologyQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const [overwriteTarget, setOverwriteTarget] = useState<RadiologyQuickPickData | null>(null);
-  const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
@@ -208,7 +200,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = ({ onF
     if (orderCpt) parts.push(orderCpt.display);
     if (laterality) parts.push(LATERALITY_SELECTORS[laterality].uiDisplay);
     setQuickPickName(parts.join(' | '));
-    setOverwriteTarget(null);
     setQuickPickDialogOpen(true);
   };
 
@@ -408,96 +399,16 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = ({ onF
 
   const dialogs = (
     <>
-      {/* Save as Quick Pick dialog */}
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle
-          sx={{
-            color: 'primary.dark',
-            fontWeight: 600,
-          }}
-        >
-          Add to Quick Picks
-        </DialogTitle>
-        <DialogContent>
-          <Autocomplete
-            freeSolo
-            options={existingQuickPicks.map((qp) => qp.name)}
-            value={quickPickName}
-            onChange={(_e, newValue) => setQuickPickName(newValue ?? '')}
-            onInputChange={(_e, newInputValue) => setQuickPickName(newInputValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Quick Pick Name"
-                fullWidth
-                sx={{ mt: 1 }}
-                autoFocus
-                placeholder="Enter a name or select an existing quick pick"
-              />
-            )}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            onClick={() => setQuickPickDialogOpen(false)}
-            disabled={quickPickSaving}
-            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            disabled={!quickPickName.trim() || quickPickSaving}
-            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
-            onClick={() => {
-              const existing = existingQuickPicks.find(
-                (qp) => qp.name.toLowerCase() === quickPickName.trim().toLowerCase()
-              );
-              if (existing?.id) {
-                setOverwriteTarget(existing);
-                setConfirmOverwriteOpen(true);
-              } else {
-                void onSaveAsQuickPick();
-              }
-            }}
-          >
-            {quickPickSaving ? <CircularProgress size={20} /> : 'Save Quick Pick'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Overwrite confirmation dialog */}
-      <Dialog open={confirmOverwriteOpen} onClose={() => setConfirmOverwriteOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ color: 'primary.dark', fontWeight: 600 }}>Update Existing Quick Pick?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            A quick pick named "{overwriteTarget?.name}" already exists. Do you want to replace it with the current
-            radiology order data?
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            onClick={() => setConfirmOverwriteOpen(false)}
-            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
-          >
-            Back
-          </Button>
-          <Button
-            variant="contained"
-            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
-            onClick={() => {
-              setConfirmOverwriteOpen(false);
-              if (overwriteTarget?.id) {
-                void onSaveAsQuickPick(overwriteTarget.id);
-              }
-            }}
-          >
-            Replace
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <QuickPickSaveDialogs
+        open={quickPickDialogOpen}
+        name={quickPickName}
+        onNameChange={setQuickPickName}
+        existingQuickPicks={existingQuickPicks}
+        saving={quickPickSaving}
+        onClose={() => setQuickPickDialogOpen(false)}
+        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="radiology order"
+      />
     </>
   );
 

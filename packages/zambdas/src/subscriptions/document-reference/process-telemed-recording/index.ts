@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Encounter } from 'fhir/r4b';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { transcribeAndCreateResourcesFromZ3Audio } from '../../../shared/ai';
@@ -43,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const encounterReference = documentReference.context?.encounter?.[0]?.reference;
-  const encounterID = encounterReference?.startsWith('Encounter/') ? encounterReference.split('/')[1] : undefined;
+  const encounterID = getIdFromReference(encounterReference, 'Encounter');
   if (!encounterID) {
     console.log(
       `DocumentReference/${documentReference.id} has no Encounter context reference; cannot create AI resources. Skipping.`
