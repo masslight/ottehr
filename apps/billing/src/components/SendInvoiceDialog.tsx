@@ -189,7 +189,7 @@ export function SendInvoiceDialog({ claim, onClose, onSent }: SendInvoiceDialogP
                   <Typography variant="body2">{responsibleParty.email}</Typography>
                 ) : (
                   <Typography variant="body2" color="text.disabled">
-                    Doesn&apos;t have email
+                    Doesn't have email
                   </Typography>
                 )}
                 <Typography variant="body2">{responsibleParty?.phoneNumber}</Typography>

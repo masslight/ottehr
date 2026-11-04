@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Patient } from 'fhir/r4b';
 import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
@@ -17,7 +18,9 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateWithSchema } from '../../shared/validation';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+
+type SendBillingInvoiceSmsParams = ValidatedZambdaInput<typeof SendBillingInvoiceSmsInputSchema>;
 
 let m2mToken: string;
 
@@ -27,7 +30,8 @@ const ZAMBDA_NAME = SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY;
 // The existing chat reads messages linked to clinical recipients.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const { encounterId, message, secrets } = validateWithSchema(SendBillingInvoiceSmsInputSchema, input);
+  const params = validateWithSchema(SendBillingInvoiceSmsInputSchema, input);
+  const { secrets } = params;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -38,6 +42,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
+  await performEffect(oystehr, params);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Invoice SMS requests accepted' }),
+  };
+});
+
+export async function performEffect(
+  oystehr: Oystehr,
+  { encounterId, message, secrets }: SendBillingInvoiceSmsParams
+): Promise<void> {
   const resources = (
     await oystehr.fhir.search<Encounter | Patient>({
       resourceType: 'Encounter',
@@ -62,9 +78,4 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehr,
     env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
   });
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'Invoice SMS requests accepted' }),
-  };
-});
+}

@@ -7,6 +7,7 @@ import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SLUG_SYSTEM } from 'utils/lib/fhir
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
 import { isLocationInPerson, isLocationVirtual, LOCATION_BOOKABLE_SEARCH_PARAM } from 'utils/lib/fhir/location';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { useApiClients } from '../hooks/useAppClients';
 import {
   buildLocationInventories,
@@ -295,7 +296,7 @@ export default function BookableSelect({
           if (r.resourceType !== 'PractitionerRole') continue;
           const slug = getSlugForBookableResource(r);
           if (!r.id || !slug) continue;
-          const pracId = r.practitioner?.reference?.split('/')[1];
+          const pracId = getIdFromReference(r.practitioner?.reference);
           const practitioner = pracId ? practitionersById.get(pracId) : undefined;
           const providerName = formatHumanName(practitioner);
 
@@ -307,7 +308,7 @@ export default function BookableSelect({
           //   3. Nothing — display just the provider name.
           const explicitName = (r.extension ?? []).find((e) => e.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
             ?.valueString;
-          const prLocationId = r.location?.[0]?.reference?.split('/')[1];
+          const prLocationId = getIdFromReference(r.location?.[0]?.reference);
           const prLocationName = prLocationId ? prLocationsById.get(prLocationId)?.name : undefined;
           const scheduleName = explicitName?.trim() || prLocationName;
           const label = scheduleName ? `${providerName}: ${scheduleName}` : providerName;

@@ -9,6 +9,7 @@ import {
   getPhoneNumberForIndividual,
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GET_BILLING_INVOICE_VISIT_ZAMBDA_KEY,
   GetBillingInvoiceVisitInputSchema,
@@ -76,10 +77,10 @@ async function getResponsibleParty(
   account: Account,
   patient: Patient
 ): Promise<Patient | RelatedPerson | undefined> {
-  const reference = getActiveAccountGuarantorReference(account);
-  if (!reference?.startsWith('RelatedPerson/')) return getResponsiblePartyFromAccount(account, [patient]);
+  const relatedPersonId = getIdFromReference(getActiveAccountGuarantorReference(account), 'RelatedPerson');
+  if (!relatedPersonId) return getResponsiblePartyFromAccount(account, [patient]);
   return oystehr.fhir.get<RelatedPerson>({
     resourceType: 'RelatedPerson',
-    id: reference.slice('RelatedPerson/'.length),
+    id: relatedPersonId,
   });
 }

@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 import { PATIENT_BILLING_ACCOUNT_TYPE } from 'utils/lib/fhir/constants';
 import { getPatientReferenceFromAccount, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { FHIR_RESOURCE_NOT_FOUND, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { accountMatchesType } from '../ehr/shared/harvest';
 import { ensureStripeCustomerId } from './stripeIntegration';
@@ -55,7 +55,7 @@ export async function getInvoiceVisitResources(oystehr: Oystehr, encounterId: st
   const encounter = response.find((resource) => resource.resourceType === 'Encounter') as Encounter;
   if (!encounter) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
 
-  const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+  const patientId = getIdFromReference(encounter.subject?.reference, 'Patient');
   if (!patientId) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Encounter doesn't have patient reference");
 
   const patient = response.find(
@@ -71,9 +71,10 @@ export async function getInvoiceVisitResources(oystehr: Oystehr, encounterId: st
 
   const appointment = response.find((res) => res.resourceType === 'Appointment') as Appointment;
   if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
-  const locationId = appointment.participant
-    ?.find((p) => p.actor?.reference?.startsWith('Location/'))
-    ?.actor?.reference?.split('/')[1];
+  const locationId = getIdFromReference(
+    appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference,
+    'Location'
+  );
   let location: Location | undefined;
   if (locationId) {
     location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;

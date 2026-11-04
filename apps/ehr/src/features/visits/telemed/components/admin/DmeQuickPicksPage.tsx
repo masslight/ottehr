@@ -24,6 +24,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useDmeQuickPicksQuery, useRemoveDmeQuickPickMutation, useRenameDmeQuickPickMutation } from './admin.queries';
@@ -88,7 +89,7 @@ export default function DmeQuickPicksPage(): ReactElement {
   };
 
   const handleDelete = (qp: DmeQuickPickData): void => {
-    if (!qp.id || !window.confirm(`Remove quick pick "${qp.name}"?`)) return;
+    if (!qp.id) return;
     removeMutation.mutate(qp.id, {
       onSuccess: () => enqueueSnackbar('Quick pick removed successfully', { variant: 'success' }),
       onError: (error) => {
@@ -171,15 +172,24 @@ export default function DmeQuickPicksPage(): ReactElement {
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDelete(qp)}
-                    title="Remove"
-                    aria-label={`Remove ${qp.name}`}
-                    sx={{ color: theme.palette.error.main }}
+                  <ConfirmationDialog
+                    title="Remove Quick Pick"
+                    description={`Remove quick pick "${qp.name}"?`}
+                    response={() => handleDelete(qp)}
+                    actionButtons={{ proceed: { text: 'Remove', color: 'error' }, back: { text: 'Cancel' } }}
                   >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
+                    {(showDialog) => (
+                      <IconButton
+                        size="small"
+                        onClick={showDialog}
+                        title="Remove"
+                        aria-label={`Remove ${qp.name}`}
+                        sx={{ color: theme.palette.error.main }}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </ConfirmationDialog>
                 </TableCell>
               </TableRow>
             ))}

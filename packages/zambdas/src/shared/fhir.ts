@@ -25,6 +25,7 @@ import { withResponseSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getGroupAllLocations, walkGroupMemberPractitionerRoleSchedules } from 'utils/lib/fhir/healthcareService';
 import { scheduleStrategyForHealthcareService, unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 import { LOCATION_BOOKABLE_SEARCH_PARAM } from 'utils/lib/fhir/location';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { checkResourceHasSlug } from 'utils/lib/helpers/helpers';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import {
@@ -214,7 +215,7 @@ export async function getSchedules(
   // active-Practitioner state is enforced in the walker branch below.
   if (scheduleOwner?.resourceType === 'PractitionerRole') {
     const pr = scheduleOwner as PractitionerRole;
-    const practitionerId = pr.practitioner?.reference?.split('/')[1];
+    const practitionerId = getIdFromReference(pr.practitioner?.reference);
     const practitionerActive = practitionerId
       ? scheduleResources.some((r) => r.resourceType === 'Practitioner' && r.id === practitionerId)
       : false;
@@ -327,7 +328,7 @@ export async function getSchedules(
       if (r.resourceType === 'Practitioner' && r.id) activePractitionerIds.add(r.id);
     }
     for (const { schedule: sched, role } of memberPairs) {
-      const pId = role.practitioner?.reference?.split('/')[1];
+      const pId = getIdFromReference(role.practitioner?.reference);
       if (!pId || !activePractitionerIds.has(pId)) continue;
       scheduleList.push({ schedule: sched, owner: role });
     }
@@ -494,11 +495,11 @@ export async function updateAppointmentTime(
             },
           ],
         });
-        const currenSlotId = currentSlotRef?.split('/')[1];
+        const currenSlotId = getIdFromReference(currentSlotRef);
         if (currenSlotId) {
           deleteSlotRequests.push({
             method: 'DELETE',
-            url: `Slot/${currentSlotRef?.split('/')[1]}`,
+            url: `Slot/${getIdFromReference(currentSlotRef)}`,
           });
         }
       } else if (slot) {

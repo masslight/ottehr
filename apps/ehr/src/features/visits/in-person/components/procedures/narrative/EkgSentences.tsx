@@ -1,9 +1,10 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Box, Button, InputBase, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { FC, useMemo, useRef } from 'react';
+import { FC, useMemo, useRef, useState } from 'react';
 import { SuggestedSentences } from 'src/components/SuggestedSentences';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
+  ekgAxis,
   ekgMeasurements,
   ekgQtc,
   ekgQtcMethod,
@@ -12,9 +13,11 @@ import {
   isEkgInterpretationApplied,
   QTC_METHODS,
   QtcMethod,
+  resolveEkgSuggestionValues,
   suggestEkgInterpretations,
   withEkgQtc,
 } from 'utils/lib/procedure-coding/families/ekg-interpretation';
+import { EKG_AXIS_RANGE } from 'utils/lib/procedure-coding/families/ekg-templates';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import { readNumber, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { CodingFieldSentences } from './CodingFieldSentences';
@@ -45,8 +48,12 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
   const method = ekgQtcMethod(facts);
   const qtcInput = useRef<HTMLInputElement>(null);
   const qtc = ekgQtc(facts);
+  const [axisDraft, setAxisDraft] = useState<{ text: string; value: number | undefined }>();
+  const axisValue = readNumber(facts, 'axisDegrees');
+  const axisText = axisDraft && Object.is(axisDraft.value, axisValue) ? axisDraft.text : String(axisValue ?? '');
   const setNumber = (key: string, raw: string): void => {
     const number = raw === '' ? undefined : Number(raw);
+    if (key === 'axisDegrees') setAxisDraft({ text: raw, value: number });
     update(key === 'qtc' ? { ...facts, qtc: number, qtcMethod: 'manual' } : withEkgQtc({ ...facts, [key]: number }));
   };
   const setMethod = (next: QtcMethod | null): void => {
@@ -67,11 +74,13 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
     >
       {TILES.map(({ key, label, unit }) => {
         const value = key === 'qtc' ? qtc : readNumber(facts, key);
+        const degrees = key === 'axisDegrees';
         return (
           <Box
             key={key}
             sx={{
               display: 'grid',
+              minWidth: 0,
               p: '8px 14px',
               borderRight: `1px solid ${TILE_LINE}`,
               '&:last-child': { borderRight: 0 },
@@ -89,41 +98,60 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
             >
               {label}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+            <Box sx={{ display: 'flex', minWidth: 0, alignItems: 'baseline', gap: degrees ? 0 : '2px' }}>
               {readOnly ? (
                 <Typography sx={{ fontSize: 20, fontWeight: 500 }}>{value ?? '—'}</Typography>
               ) : (
                 <InputBase
                   type="number"
-                  value={value ?? ''}
+                  value={degrees ? axisText : value ?? ''}
                   placeholder="—"
                   inputRef={key === 'qtc' ? qtcInput : undefined}
                   onChange={(event) => setNumber(key, event.target.value)}
+                  onBlur={degrees ? () => setAxisDraft(undefined) : undefined}
                   inputProps={{
                     'aria-label': `${label} (${unit})`,
-                    inputMode: 'numeric',
-                    min: key === 'axisDegrees' ? -180 : 0,
+                    inputMode: degrees ? 'text' : 'numeric',
+                    ...(degrees ? EKG_AXIS_RANGE : { min: 0 }),
                     step: 1,
                     autoComplete: 'off',
                   }}
                   sx={(theme) => ({
+                    minWidth: degrees ? 0 : undefined,
+                    maxWidth: degrees ? '100%' : undefined,
                     '& input': {
                       font: `500 20px ${theme.typography.fontFamily}`,
-                      width: '3.2em',
-                      height: 'auto',
                       fontVariantNumeric: 'tabular-nums',
+                      width: degrees ? `${Math.max(axisText.length + 1, 2)}ch` : '3.2em',
+                      maxWidth: degrees ? '100%' : undefined,
+                      height: 'auto',
                       padding: 0,
                       '&::placeholder': { color: 'rgba(0, 0, 0, 0.35)', fontWeight: 400, opacity: 1 },
                       borderBottom: '1px dashed transparent',
                       '&:hover': { borderBottomColor: 'rgba(0, 0, 0, 0.3)' },
                       '&:placeholder-shown': { borderBottomColor: TILE_EMPTY },
                       MozAppearance: 'textfield',
-                      '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { WebkitAppearance: 'none', m: 0 },
+                      '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                        WebkitAppearance: 'none',
+                        m: 0,
+                      },
                     },
                   })}
                 />
               )}
-              <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
+              <Typography
+                component="span"
+                sx={
+                  degrees
+                    ? {
+                        fontSize: 20,
+                        fontWeight: 500,
+                        flexShrink: 0,
+                        color: value === undefined ? 'text.secondary' : 'text.primary',
+                      }
+                    : { fontSize: 12, color: 'text.secondary' }
+                }
+              >
                 {unit}
               </Typography>
             </Box>
@@ -185,22 +213,25 @@ interface InterpretationProps {
 }
 
 const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }> = ({ facts, isChild, update }) => {
-  const { rate, pr, qrs, qt, qtc } = ekgMeasurements(facts);
+  const { rate, pr, qrs, qt, qtc, axis } = ekgMeasurements(facts);
   const rows = useMemo(
-    () => suggestEkgInterpretations({ rate, pr, qrs, qt, qtc }, isChild),
-    [rate, pr, qrs, qt, qtc, isChild]
+    () => suggestEkgInterpretations({ rate, pr, qrs, qt, qtc, axis }, isChild),
+    [rate, pr, qrs, qt, qtc, axis, isChild]
   );
   return (
     <SuggestedSentences
       title="Suggested interpretations"
       caption={
-        !rows.length
+        axis !== undefined && ekgAxis(axis) === undefined
+          ? `enter an axis between ${EKG_AXIS_RANGE.min}° and ${EKG_AXIS_RANGE.max}° to see suggestions`
+          : !rows.length
           ? 'enter the rate and QT to see suggestions'
           : isChild
           ? 'Under 18: enter abnormal interpretations manually'
           : 'ranked for these numbers · pick one, change any highlighted word'
       }
       rows={rows}
+      resolveValues={resolveEkgSuggestionValues}
       isAdded={(row, picks) => isEkgInterpretationApplied(facts, ekgSuggestionPicks(row, picks))}
       onAdd={(row, picks) => update({ ...facts, ...ekgSuggestionPicks(row, picks) })}
       addLabel="Use this interpretation"

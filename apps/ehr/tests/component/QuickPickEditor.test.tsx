@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
@@ -307,14 +307,14 @@ describe('QuickPickEditor', () => {
   });
 
   describe('delete', () => {
-    it('should call removeItem when delete is confirmed', async () => {
+    it('should call removeItem when delete is confirmed in the styled dialog', async () => {
       mockFetchItems.mockResolvedValue([
         { id: '1', name: 'Penicillin' },
         { id: '2', name: 'Aspirin' },
       ]);
       mockRemoveItem.mockResolvedValue(undefined);
-      // Mock window.confirm to return true
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const confirmSpy = vi.spyOn(window, 'confirm');
+      const user = userEvent.setup();
 
       render(<QuickPickEditor {...defaultProps} />, { wrapper: createWrapper() });
 
@@ -323,21 +323,24 @@ describe('QuickPickEditor', () => {
       });
 
       // Items are sorted alphabetically, so first Remove button is for Aspirin (id: '2')
-      const removeButtons = screen.getAllByTitle('Remove');
-      await act(async () => {
-        removeButtons[0].click();
-      });
+      await user.click(screen.getAllByTitle('Remove')[0]);
+
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByText('Remove Quick Pick "Aspirin"?')).toBeInTheDocument();
+      await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
 
       await waitFor(() => {
         expect(mockRemoveItem).toHaveBeenCalledWith('2');
       });
+      expect(confirmSpy).not.toHaveBeenCalled();
 
       confirmSpy.mockRestore();
     });
 
     it('should not call removeItem when delete is cancelled', async () => {
       mockFetchItems.mockResolvedValue([{ id: '1', name: 'Penicillin' }]);
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const confirmSpy = vi.spyOn(window, 'confirm');
+      const user = userEvent.setup();
 
       render(<QuickPickEditor {...defaultProps} />, { wrapper: createWrapper() });
 
@@ -345,12 +348,14 @@ describe('QuickPickEditor', () => {
         expect(screen.getByText('Penicillin')).toBeInTheDocument();
       });
 
-      const removeButton = screen.getByTitle('Remove');
-      await act(async () => {
-        removeButton.click();
-      });
+      await user.click(screen.getByTitle('Remove'));
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
 
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
       expect(mockRemoveItem).not.toHaveBeenCalled();
+      expect(confirmSpy).not.toHaveBeenCalled();
 
       confirmSpy.mockRestore();
     });

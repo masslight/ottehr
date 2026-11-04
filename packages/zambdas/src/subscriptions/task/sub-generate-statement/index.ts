@@ -9,6 +9,7 @@ import pdfmakeModule from 'pdfmake';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { STATEMENT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
@@ -82,7 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
   const fileName = `Statement-${encounterId}-${timestamp}.pdf`;
-  const patientId = encounter.subject?.reference?.split('/')[1];
+  const patientId = getIdFromReference(encounter.subject?.reference);
   if (!patientId) {
     throw new Error(`Patient id not found in "${encounterReference}"`);
   }
@@ -199,7 +200,7 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
       ...task,
       id: taskId,
     },
-    encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
+    encounterId: validateString(getIdFromReference(task.encounter?.reference), 'encounterId'),
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
 }

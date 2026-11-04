@@ -75,6 +75,7 @@ import {
   getTaxID,
   setNpi,
 } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
@@ -89,6 +90,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
+import { zambdaApiUrlOverride } from 'utils/lib/helpers/zambda-api-url-override';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, ERA_SOURCE, EraSource, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
@@ -907,6 +909,7 @@ export function createBillingClient(
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
@@ -920,6 +923,7 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
   });
 }
@@ -1076,9 +1080,9 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
       )
       .map(
         (supportingInfo) =>
-          `/${supportingInfo.valueReference.reference?.split(
-            '/'
-          )[0]}?_id=${supportingInfo.valueReference.reference?.split('/')[1]}`
+          `/${supportingInfo.valueReference.reference?.split('/')[0]}?_id=${getIdFromReference(
+            supportingInfo.valueReference.reference
+          )}`
       )
   );
 
@@ -1087,7 +1091,7 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
   const coverages = coverageRefs
     .map((ref) => followUp.find((r) => r.resourceType === 'Coverage' && r.id === ref.replace('Coverage/', '')))
     .filter((c): c is Coverage => !!c);
-  const renderingId = renderingRef?.split('/')[1];
+  const renderingId = getIdFromReference(renderingRef);
   const renderingProvider = renderingId
     ? (followUp.find(
         (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')

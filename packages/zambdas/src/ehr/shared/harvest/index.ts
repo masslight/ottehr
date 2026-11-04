@@ -98,6 +98,7 @@ import {
   PatientMasterRecordResource,
   relatedPersonFieldPaths,
 } from 'utils/lib/fhir/patientMasterRecord';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   consolidateOperations,
   ContactTelecomConfig,
@@ -2332,7 +2333,7 @@ export const buildEmployerAccountResource = (params: BuildEmployerAccountResourc
   const guarantor = mergeGuarantors(baseAccount.guarantor, organizationReference);
 
   const organizationIdFromReference = organizationReference.startsWith('Organization/')
-    ? organizationReference.split('/')[1]
+    ? getIdFromReference(organizationReference, 'Organization')
     : undefined;
 
   return {
@@ -3540,7 +3541,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
   // we should only split if it's an actual reference, and not a bare id like urn:uuid etc
   const getNewCoverageRefId = (coverageRef: Reference | undefined): string | undefined => {
     const ref = coverageRef?.reference;
-    return ref?.startsWith('Coverage/') ? ref.split('/')[1] : ref;
+    return ref?.startsWith('Coverage/') ? getIdFromReference(ref, 'Coverage') : ref;
   };
 
   const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
@@ -4023,7 +4024,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
       existingGuarantorResource = takeContainedOrFind(guarantorReference, resources, existingAccount);
     }
     existingAccount.coverage?.forEach((cov) => {
-      const coverage = coverageResources.find((c) => c.id === cov.coverage?.reference?.split('/')[1]);
+      const coverage = coverageResources.find((c) => c.id === getIdFromReference(cov.coverage?.reference));
       if (coverage) {
         if (cov.priority === 1) {
           existingCoverages.primary = coverage;
@@ -4073,7 +4074,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 
   if (workersCompAccount?.coverage) {
     existingCoverages.workersComp = coverageResources.find((coverage) => {
-      return coverage.id === workersCompAccount?.coverage?.[0]?.coverage?.reference?.split('/')[1];
+      return coverage.id === getIdFromReference(workersCompAccount?.coverage?.[0]?.coverage?.reference);
     });
   }
 

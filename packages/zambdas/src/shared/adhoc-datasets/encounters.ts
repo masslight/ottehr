@@ -71,6 +71,7 @@ import {
 import { getAdmitterPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
@@ -168,7 +169,7 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
 
     for (const u of users) {
       const email = (u.email || '').toLowerCase().trim();
-      const pid = u.profile?.startsWith('Practitioner/') ? u.profile.split('/')[1] : undefined;
+      const pid = getIdFromReference(u.profile, 'Practitioner');
 
       if (email && pid) {
         pidByEmail.set(email, pid);
@@ -844,7 +845,10 @@ export async function fetchAdHocEncounterRows(
       .filter((loc) => loc.id)
       .map((loc) => `Location/${loc.id}`)
   )) {
-    const locationId = schedule.actor?.find((a) => a.reference?.startsWith('Location/'))?.reference?.split('/')[1];
+    const locationId = getIdFromReference(
+      schedule.actor?.find((a) => a.reference?.startsWith('Location/'))?.reference,
+      'Location'
+    );
 
     if (locationId && !scheduleByLocationId.has(locationId) && getScheduleExtension(schedule)) {
       scheduleByLocationId.set(locationId, schedule);
