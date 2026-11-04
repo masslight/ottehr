@@ -99,12 +99,12 @@ export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParam
     case 'invoice.paid': {
       const invoice = event.data.object as Stripe.Invoice;
       console.log(`Invoice paid event for ${invoice.id}, charge: ${invoice.charge ?? 'none'}`);
+      await updateBillingInvoiceStatus(oystehr, invoice, 'balanced');
       if (!recordsAr) {
         console.log(`BILLING_INTEGRATION does not include ottehr; not recording invoice ${invoice.id}`);
         break;
       }
       await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, stripeAccount, secrets);
-      await updateBillingInvoiceStatus(oystehr, invoice, 'balanced');
       break;
     }
     case 'invoice.voided': {

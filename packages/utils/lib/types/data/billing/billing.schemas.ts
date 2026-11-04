@@ -932,7 +932,7 @@ export const CreateBillingInvoiceInputSchema = z.object({
 export const SearchBillingInvoicesInputSchema = z
   .object({
     status: z.enum(BILLING_INVOICE_LIST_STATUSES).optional(),
-    // A full claim ID, or the start of a patient's name.
+    // A full billing patient or claim ID, or the start of a patient's name.
     searchText: nonEmptyString.optional(),
     facilityId: nonEmptyString.optional(),
     issuedFrom: z.string().date().optional(),
