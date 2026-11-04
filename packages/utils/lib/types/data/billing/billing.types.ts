@@ -1186,6 +1186,7 @@ export interface BillingInvoiceSummary {
 }
 
 export interface BillingInvoiceListItem extends BillingInvoiceSummary {
+  patientId?: string;
   patientName?: string;
   claimId?: string;
   serviceDate?: string;
