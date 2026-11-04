@@ -266,13 +266,45 @@ describe('remitDesignation', () => {
       remit({ eraStatusCode: '21' }),
     ];
 
-    expect(remits.map((candidate) => remitDesignation(candidate, remits))).toEqual([
+    expect(remits.map((candidate) => remitDesignation(candidate, remits, []))).toEqual([
       'Primary',
       'Primary',
       'Secondary',
       'Secondary',
       'Tertiary',
       'Tertiary',
+    ]);
+  });
+
+  it("ranks a remit by the claim coverage its payer is on, over the payer's own CLP02 status", () => {
+    // payers send CLP02 "processed as primary" on secondary remits
+    const secondary = remit({ claimResponseId: 'cr-cigna', eraStatusCode: '1', payerName: 'CIGNA' });
+    const primary = remit({
+      claimResponseId: 'cr-bcbs',
+      eraStatusCode: '1',
+      payerName: 'TN BCBS',
+      paymentReconciliationId: 'payment-reconciliation-other',
+    });
+    const claimPayers = ['TN BCBS', 'Cigna', '', ''];
+
+    expect(remitDesignation(secondary, [primary, secondary], claimPayers)).toBe('Secondary');
+    expect(remitDesignation(primary, [primary, secondary], claimPayers)).toBe('Primary');
+  });
+
+  it('keeps the CLP02 rank when the payer is on more than one of the claim coverages', () => {
+    const secondary = remit({ claimResponseId: 'cr-secondary', eraStatusCode: '2', payerName: 'BCBS' });
+
+    expect(remitDesignation(secondary, [secondary], ['BCBS', 'BCBS', '', ''])).toBe('Secondary');
+  });
+
+  it("ranks a reversal like its ERA peer's claim coverage, not the peer's CLP02", () => {
+    const correction = remit({ claimResponseId: 'cr-correction', eraStatusCode: '1', payerName: 'CIGNA', paid: 60 });
+    const reversal = remit({ claimResponseId: 'cr-reversal', eraStatusCode: '22', payerName: 'Cigna Corp', paid: -60 });
+    const remits = [correction, reversal];
+
+    expect(remitDesignation(reversal, remits, ['TN BCBS', 'Cigna', '', ''])).toBe('Secondary');
+    expect(insurancePaidByDesignation(remits, ['TN BCBS', 'Cigna', '', ''])).toEqual([
+      { designation: 'Secondary', amount: 0 },
     ]);
   });
 
@@ -286,7 +318,7 @@ describe('remitDesignation', () => {
       paymentReconciliationId: 'payment-reconciliation-other',
     });
 
-    expect(remitDesignation(reversal, [correction, reversal, primary])).toBe('Secondary');
+    expect(remitDesignation(reversal, [correction, reversal, primary], [])).toBe('Secondary');
   });
 
   it("ranks a denial like the same payer's other remit when no ERA peer has a rank", () => {
@@ -301,15 +333,15 @@ describe('remitDesignation', () => {
       paymentReconciliationId: 'payment-reconciliation-1',
     });
 
-    expect(remitDesignation(denial, [paid, denial])).toBe('Primary');
+    expect(remitDesignation(denial, [paid, denial], [])).toBe('Primary');
   });
 
   it('falls back to the ERA status label, then Other', () => {
     const denial = remit({ eraStatusCode: '4' });
     const unknown = remit({ eraStatusCode: '' });
 
-    expect(remitDesignation(denial, [denial])).toBe('Denied');
-    expect(remitDesignation(unknown, [unknown])).toBe('Other');
+    expect(remitDesignation(denial, [denial], [])).toBe('Denied');
+    expect(remitDesignation(unknown, [unknown], [])).toBe('Other');
   });
 });
 
@@ -327,7 +359,7 @@ describe('insurancePaidByDesignation', () => {
       remit({ claimResponseId: 'cr-original', eraStatusCode: '1', paid: 60 }),
     ];
 
-    const split = insurancePaidByDesignation(remits);
+    const split = insurancePaidByDesignation(remits, []);
 
     expect(split).toEqual([
       { designation: 'Primary', amount: 70 },
@@ -338,21 +370,24 @@ describe('insurancePaidByDesignation', () => {
 
   it('lists unranked money after the ranks', () => {
     expect(
-      insurancePaidByDesignation([
-        remit({ claimResponseId: 'cr-unknown', eraStatusCode: '', payerName: 'Other Payer', paid: 5 }),
-        remit({
-          claimResponseId: 'cr-primary',
-          eraStatusCode: '1',
-          paid: 0.1,
-          paymentReconciliationId: 'payment-reconciliation-2',
-        }),
-        remit({
-          claimResponseId: 'cr-primary-2',
-          eraStatusCode: '1',
-          paid: 0.2,
-          paymentReconciliationId: 'payment-reconciliation-3',
-        }),
-      ])
+      insurancePaidByDesignation(
+        [
+          remit({ claimResponseId: 'cr-unknown', eraStatusCode: '', payerName: 'Other Payer', paid: 5 }),
+          remit({
+            claimResponseId: 'cr-primary',
+            eraStatusCode: '1',
+            paid: 0.1,
+            paymentReconciliationId: 'payment-reconciliation-2',
+          }),
+          remit({
+            claimResponseId: 'cr-primary-2',
+            eraStatusCode: '1',
+            paid: 0.2,
+            paymentReconciliationId: 'payment-reconciliation-3',
+          }),
+        ],
+        []
+      )
     ).toEqual([
       { designation: 'Primary', amount: 0.3 },
       { designation: 'Other', amount: 5 },

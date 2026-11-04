@@ -2,6 +2,7 @@ import { Alert, AlertTitle, Link as MuiLink } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { FC } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { getMergedIntoPatientReference } from 'utils/lib/fhir/patient';
 
 interface PatientMergedBannerProps {
   patient: Patient | undefined;
@@ -14,11 +15,10 @@ interface PatientMergedBannerProps {
 export const PatientMergedBanner: FC<PatientMergedBannerProps> = ({ patient }) => {
   if (!patient) return null;
 
-  const replacedByLink = patient.link?.find((l) => l.type === 'replaced-by');
-  if (patient.active !== false || !replacedByLink) return null;
+  const targetRef = getMergedIntoPatientReference(patient); // e.g. "Patient/<id>"
+  if (!targetRef) return null;
 
-  const targetRef = replacedByLink.other?.reference; // e.g. "Patient/<id>"
-  const targetId = targetRef?.replace('Patient/', '');
+  const targetId = targetRef.replace('Patient/', '');
 
   return (
     <Alert severity="info" variant="filled" sx={{ alignItems: 'center' }}>

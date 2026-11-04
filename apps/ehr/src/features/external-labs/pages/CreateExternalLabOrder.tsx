@@ -106,6 +106,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
     selectedPaymentMethod: CreateLabPaymentMethod | '';
     clinicalInfoNote: string | undefined;
     psc: boolean;
+    isStat: boolean;
   } = {
     dx: primaryDiagnosis ? [primaryDiagnosis] : [],
     orderableItems: [],
@@ -113,6 +114,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
     selectedPaymentMethod: '',
     clinicalInfoNote: undefined,
     psc: false,
+    isStat: false,
   };
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(() => {
     if (draft.dx) return draft.dx;
@@ -122,6 +124,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
     draft.orderableItems ?? formStateDefaults.orderableItems
   );
   const [psc, setPsc] = useState<boolean>(draft.psc ?? formStateDefaults.psc);
+  const [isStat, setIsStat] = useState<boolean>(draft.isStat ?? formStateDefaults.isStat);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>(
     draft.orderingLocationId ?? formStateDefaults.orderingLocationId
   );
@@ -165,6 +168,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
   const handlePscUpdate = (psc: boolean): void => {
     setPsc(psc);
     if (encounter.id) setDraft(encounter.id, { psc });
+  };
+
+  const handleStatUpdate = (isStat: boolean): void => {
+    setIsStat(isStat);
+    if (encounter.id) setDraft(encounter.id, { isStat });
   };
 
   const handleClinicalInfoUpdate = (note: string | undefined): void => {
@@ -242,6 +250,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
     setSelectedPaymentMethod(determineInitialPaymentMethod() ?? formStateDefaults.selectedPaymentMethod);
     setSelectedLabs(formStateDefaults.orderableItems);
     setPsc(formStateDefaults.psc);
+    setIsStat(formStateDefaults.isStat);
     setClinicalInfoNotes(formStateDefaults.clinicalInfoNote);
   };
 
@@ -308,6 +317,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
           orderingLocation: orderingLocationIdToLocationAndLabOrgIdsMap.get(selectedOfficeId)!.location,
           selectedPaymentMethod: selectedPaymentMethod,
           clinicalInfoNoteByUser: clinicalInfoNotes,
+          isStat,
         });
         // clear out the zustand store once the lab is created
         clearDraft(encounter.id);
@@ -743,11 +753,18 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
                 </Grid>
               )}
               <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <FormControlLabel
-                  sx={{ fontSize: '14px' }}
-                  control={<Switch checked={psc} onChange={() => handlePscUpdate(!psc)} />}
-                  label={<Typography variant="body2">{PSC_HOLD_LOCALE}</Typography>}
-                />
+                <Box>
+                  <FormControlLabel
+                    sx={{ fontSize: '14px' }}
+                    control={<Switch checked={psc} onChange={() => handlePscUpdate(!psc)} />}
+                    label={<Typography variant="body2">{PSC_HOLD_LOCALE}</Typography>}
+                  />
+                  <FormControlLabel
+                    sx={{ fontSize: '14px' }}
+                    control={<Switch checked={isStat} onChange={() => handleStatUpdate(!isStat)} />}
+                    label={<Typography variant="body2">Stat</Typography>}
+                  />
+                </Box>
                 <Button
                   data-testid={dataTestIds.externalLabs.createPg.addClinicalInfoNote}
                   sx={{ textTransform: 'none' }}

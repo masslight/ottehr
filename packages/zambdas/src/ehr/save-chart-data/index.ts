@@ -29,6 +29,7 @@ import {
   createAccidentCondition,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
+  deleteEncounterDiagnoses,
   findAccidentConditions,
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
@@ -55,7 +56,9 @@ import {
   updateEncounterPatientInfoConfirmed,
   updateEncounterReasonForVisit,
 } from '../../shared/chart-data';
+import { getEncounterAndRelatedResources } from '../../shared/chart-data/encounter-resources';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { orphanedProcedureDiagnoses } from '../../shared/chart-data/procedure-diagnoses';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
@@ -71,7 +74,6 @@ import {
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
   filterServiceRequestsFromFhir,
-  getEncounterAndRelatedResources,
   getEncounterClinicAddress,
   validateBundleAndExtractSavedChartData,
 } from './helpers';
@@ -86,6 +88,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Validating input');
   const {
     encounterId,
+    cleanupProcedureDiagnoses,
     chiefComplaint,
     historyOfPresentIllness,
     mechanismOfInjury,
@@ -137,7 +140,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const hasVitalObservations = [...(vitalsObservations ?? []), ...(observations ?? [])].some(isVitalObservation);
 
   const [allResources, currentPractitioner, vitalsAlertConfig] = await Promise.all([
-    getEncounterAndRelatedResources(oystehr, encounterId),
+    getEncounterAndRelatedResources(oystehr, encounterId, {
+      includeChartData: true,
+      includeProcedureDependencies:
+        cleanupProcedureDiagnoses && procedures?.some((procedure) => Boolean(procedure.resourceId)),
+    }),
     getUserPractitioner(oystehr, userToken, secrets),
     hasVitalObservations ? getVitalsEngineConfig(oystehr) : undefined,
   ]);
@@ -453,6 +460,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   }
 
+  const deletedDiagnoses = orphanedProcedureDiagnoses(
+    encounter,
+    allResources,
+    cleanupProcedureDiagnoses ? procedures ?? [] : []
+  ).filter((condition) => !diagnosis?.some((edited) => edited.resourceId === condition.id));
+  const deletedDiagnosisIds = deletedDiagnoses.map((condition) => condition.id!);
+  for (const condition of deletedDiagnoses) {
+    saveOrUpdateRequests.push(deleteResourceRequest('Condition', condition.id!));
+  }
+  updateEncounterOperations.push(...deleteEncounterDiagnoses(encounter, deletedDiagnosisIds));
+
   if (updateEncounterOperations.length > 0) {
     saveOrUpdateRequests.push(
       getPatchBinary({
@@ -549,7 +567,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.timeEnd('time');
   return {
-    body: JSON.stringify(output),
+    body: JSON.stringify({ ...output, ...(deletedDiagnosisIds.length ? { deletedDiagnosisIds } : {}) }),
     statusCode: 200,
   };
 });

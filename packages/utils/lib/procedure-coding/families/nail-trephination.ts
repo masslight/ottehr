@@ -23,7 +23,7 @@ export const nailTrephinationFamily: ProcedureFamilyModel<NailTrephinationCode> 
   procedureNames: PROCEDURE_NAMES['nail-trephination'],
   displayName: 'Nail trephination',
   fields: [
-    { key: 'count', label: 'Digits treated', kind: 'number', defaultValue: 1, min: 0, step: 1 },
+    { key: 'count', neededForCoding: true, label: 'Digits treated', kind: 'number', defaultValue: 1, min: 0, step: 1 },
     { key: 'nailRemoved', label: 'Nail removed', kind: 'checkbox', defaultValue: false },
     { key: 'nailBedRepaired', label: 'Nail bed repaired', kind: 'checkbox', defaultValue: false },
   ],

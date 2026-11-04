@@ -4,6 +4,7 @@ import { Patient } from 'fhir/r4b';
 import {
   getEmailForIndividual,
   getFormattedPatientFullName,
+  getPatientFriendlyId,
   getPhoneNumberForIndividual,
 } from 'utils/lib/fhir/patient';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -19,6 +20,7 @@ let m2mToken = '';
 
 export interface SearchPatientsResult {
   id: string;
+  patientFriendlyId?: string;
   name?: string;
   firstName?: string;
   lastName?: string;
@@ -63,6 +65,7 @@ export async function performEffect(
   const bundle = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params });
   const patients: SearchPatientsResult[] = bundle.unbundle().map((patient) => ({
     id: patient.id!,
+    patientFriendlyId: getPatientFriendlyId(patient) || undefined,
     name: getFormattedPatientFullName(patient),
     firstName: patient.name?.[0]?.given?.[0],
     lastName: patient.name?.[0]?.family,

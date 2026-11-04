@@ -7,7 +7,26 @@ import { buildEvaluation, coder, CPT_MODIFIERS, missing, MueAdjudication, noCode
 import { LACERATION_PTP_EDITS } from '../medicare-ptp';
 import { CodeSuggestion, LegacyProcedureFields, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
-import { CodingField, readNumber, readRows, ScalarCodingField, StructuredRow } from '../structured-fields';
+import {
+  CodingField,
+  readNumber,
+  readRows,
+  ScalarCodingField,
+  StructuredFacts,
+  StructuredRow,
+} from '../structured-fields';
+
+export const LACERATION_CLOSURE = {
+  SingleLayer: 'single layer',
+  Layered: 'layered',
+  AdhesiveOnly: 'adhesive only',
+  StripsOnly: 'strips only',
+  Open: 'open',
+} as const;
+
+const UNCODED_CLOSURES: readonly unknown[] = [LACERATION_CLOSURE.StripsOnly, LACERATION_CLOSURE.Open];
+const NON_SUTURED_CLOSURES: readonly unknown[] = [LACERATION_CLOSURE.AdhesiveOnly, ...UNCODED_CLOSURES];
+const isCodedClosure = (wound: StructuredFacts): boolean => !UNCODED_CLOSURES.includes(wound.closure);
 
 const LACERATION_CODES = {
   SimpleBodyUpTo2Point5Cm: '12001',
@@ -97,12 +116,20 @@ const sites = [
 const woundFields: ScalarCodingField[] = [
   { key: 'site', label: 'Site', kind: 'select', options: sites, defaultValue: undefined },
   { key: 'side', label: 'Side', kind: 'select', options: ['left', 'right', 'midline'], defaultValue: undefined },
-  { key: 'length', label: 'Length (cm)', kind: 'number', defaultValue: undefined, min: 0, step: LENGTH_STEP_CM },
+  {
+    key: 'length',
+    label: 'Length (cm)',
+    kind: 'number',
+    defaultValue: undefined,
+    min: 0,
+    step: LENGTH_STEP_CM,
+    neededForCoding: isCodedClosure,
+  },
   {
     key: 'closure',
     label: 'Closure',
     kind: 'select',
-    options: ['single layer', 'layered', 'adhesive only', 'strips only', 'open'],
+    options: Object.values(LACERATION_CLOSURE),
   },
   {
     key: 'contaminated',
@@ -140,11 +167,22 @@ const woundFields: ScalarCodingField[] = [
     defaultValue: false,
   },
   { key: 'material', label: 'Closure material', kind: 'text' },
-  { key: 'sutureCount', label: 'Suture/staple count', kind: 'number', defaultValue: undefined, min: 0, step: 1 },
+  {
+    key: 'sutureCount',
+    label: 'Suture/staple count',
+    kind: 'number',
+    defaultValue: undefined,
+    min: 0,
+    step: 1,
+    visible: (wound) => !NON_SUTURED_CLOSURES.includes(wound.closure),
+  },
   { key: 'irrigation', label: 'Irrigation performed', kind: 'checkbox', defaultValue: false },
 ];
 
-for (const field of woundFields) if (!['site', 'side', 'length', 'closure'].includes(field.key)) field.details = true;
+for (const field of woundFields) {
+  if (!['site', 'side', 'length', 'closure'].includes(field.key)) field.details = true;
+  field.neededForCoding ??= ['site', 'closure'].includes(field.key);
+}
 
 const fields: CodingField[] = [
   { key: 'wounds', label: 'Wounds', rowLabel: 'Wound', kind: 'rows', fields: woundFields },
@@ -290,7 +328,7 @@ export const lacerationFamily: ProcedureFamilyModel<LacerationCode> = {
       // NCCI distinguishes deliberately developed tissue transfer from incidental Z-plasty-shaped closure.
       if (wound.plannedTransfer) return coder('Use reconstructive tissue-transfer codes.');
 
-      if (wound.surgicalIncision || wound.closure === 'strips only' || wound.closure === 'open') continue;
+      if (wound.surgicalIncision || !isCodedClosure(wound)) continue;
 
       const cm = readNumber(wound, 'length');
 
@@ -302,7 +340,7 @@ export const lacerationFamily: ProcedureFamilyModel<LacerationCode> = {
         return missing(inWound('Length (cm)'));
 
       // ACEP §§4–5: complex repair requires intermediate components plus a qualifying complex finding.
-      const intermediate = wound.closure === 'layered' || wound.contaminated;
+      const intermediate = wound.closure === LACERATION_CLOSURE.Layered || wound.contaminated;
 
       const complexFinding =
         wound.exposedStructure ||
@@ -399,7 +437,7 @@ export const lacerationFamily: ProcedureFamilyModel<LacerationCode> = {
     // so they must not make an otherwise adhesive-only record look mixed.
     const codedWounds = [...groups.values()].flatMap((repairGroup) => repairGroup.wounds);
 
-    if (codedWounds.every((w) => w.closure === 'adhesive only')) {
+    if (codedWounds.every((w) => w.closure === LACERATION_CLOSURE.AdhesiveOnly)) {
       lines.forEach((line) => {
         line.alternative = 'standard';
       });
@@ -425,7 +463,7 @@ export const lacerationFamily: ProcedureFamilyModel<LacerationCode> = {
     return buildEvaluation({
       suggestions: lines,
       findings: [],
-      payerNotes: codedWounds.some((wound) => wound.closure === 'adhesive only')
+      payerNotes: codedWounds.some((wound) => wound.closure === LACERATION_CLOSURE.AdhesiveOnly)
         ? [
             'For separate adhesive-only and sutured wounds, these repair codes show the standard option. Medicare may require G0168 for the adhesive-only wound and repair coding based only on the sutured wounds; review the separate sites before choosing codes.',
           ]
@@ -623,12 +661,12 @@ export const lacerationFamily: ProcedureFamilyModel<LacerationCode> = {
     };
 
     const closure: Partial<Record<string, string>> = {
-      'superficial-single': 'single layer',
-      'subcutaneous-single': 'single layer',
-      'subcutaneous-layered': 'layered',
-      'fascia-muscle-layered': 'layered',
-      'tissue-adhesive-only': 'adhesive only',
-      'strips-only': 'strips only',
+      'superficial-single': LACERATION_CLOSURE.SingleLayer,
+      'subcutaneous-single': LACERATION_CLOSURE.SingleLayer,
+      'subcutaneous-layered': LACERATION_CLOSURE.Layered,
+      'fascia-muscle-layered': LACERATION_CLOSURE.Layered,
+      'tissue-adhesive-only': LACERATION_CLOSURE.AdhesiveOnly,
+      'strips-only': LACERATION_CLOSURE.StripsOnly,
     };
 
     return {

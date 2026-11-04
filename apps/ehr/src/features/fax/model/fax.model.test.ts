@@ -26,6 +26,11 @@ const availability = (overrides: Partial<Record<string, boolean>> = {}): FaxDocu
   );
 
 const visitSource = { type: 'visit', appointmentId: 'appointment-1' } as const;
+const medicalRecordSource = {
+  type: 'medical-record',
+  patientId: 'patient-1',
+  dateRange: { from: '2026-01-01T00:00:00.000-05:00', to: '2026-10-12T23:59:59.999-04:00' },
+} as const;
 
 const recipient = (overrides: Partial<FaxRecipientFormValue> = {}): FaxRecipientFormValue => ({
   ...emptyRecipient(),
@@ -104,8 +109,9 @@ describe('faxRecipients', () => {
   });
 
   it('leaves a source without a visit choice exactly as requested', () => {
-    const source = { type: 'medical-record', patientId: 'patient-1' } as const;
-    expect(toSendFaxPacketInput(source, { recipients: [recipient()] }).source).toEqual(source);
+    expect(toSendFaxPacketInput(medicalRecordSource, { recipients: [recipient()] }).source).toEqual(
+      medicalRecordSource
+    );
   });
 
   it('maps the form to the wire contract, dropping blank optional fields and the documents list', () => {
@@ -144,10 +150,7 @@ describe('faxRecipients', () => {
   });
 
   it('drops stale saveAsPcp state from patient-level sources', () => {
-    const input = toSendFaxPacketInput(
-      { type: 'medical-record', patientId: 'patient-1' },
-      { recipients: [recipient({ saveAsPcp: true })] }
-    );
+    const input = toSendFaxPacketInput(medicalRecordSource, { recipients: [recipient({ saveAsPcp: true })] });
 
     expect(input.recipients[0].saveAsPcp).toBeUndefined();
   });
@@ -178,8 +181,7 @@ describe('faxPolling', () => {
     expect(faxStatusTimeoutMessage(visitSource)).toContain("visit's fax history");
     expect(faxHistoryQueryKey(visitSource)).toEqual(['get-visit-fax-history', 'appointment-1']);
 
-    const patientSource = { type: 'medical-record', patientId: 'patient-1' } as const;
-    expect(faxStatusTimeoutMessage(patientSource)).toContain("patient's fax history");
-    expect(faxHistoryQueryKey(patientSource)).toEqual(actionLogsQueryKey('fax', 'patient-1'));
+    expect(faxStatusTimeoutMessage(medicalRecordSource)).toContain("patient's fax history");
+    expect(faxHistoryQueryKey(medicalRecordSource)).toEqual(actionLogsQueryKey('fax', 'patient-1'));
   });
 });

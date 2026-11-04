@@ -1,41 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import React, { ReactElement } from 'react';
 import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
-
-// ---------------------------------------------------------------------------
-// GSM-7 / UCS-2 character counting helpers
-// ---------------------------------------------------------------------------
-
-/** Characters that use 2 slots in the GSM-7 extended table. */
-const GSM_EXTENDED = new Set('|^{}[]~\\'.split(''));
-
-/** Returns true if every character in the string is representable in GSM-7. */
-function isGsm7(text: string): boolean {
-  // GSM basic charset covers ASCII printable (0x20-0x7E), plus a few control chars.
-  // For simplicity: if every char is in the printable-ASCII + newline/CR/tab range
-  // then it's GSM-7 compatible.
-  return !/[^\x20-\x7E\n\r\t]/.test(text);
-}
-
-function countGsmChars(text: string): number {
-  let count = 0;
-  for (const ch of text) {
-    count += GSM_EXTENDED.has(ch) ? 2 : 1;
-  }
-  return count;
-}
-
-function getSmsSegmentInfo(text: string): { charCount: number; segments: number; encoding: 'GSM-7' | 'UCS-2' } {
-  if (isGsm7(text)) {
-    const charCount = countGsmChars(text);
-    const segments = charCount <= 160 ? 1 : Math.ceil(charCount / 153);
-    return { charCount, segments, encoding: 'GSM-7' };
-  }
-  // UCS-2: each character counts as 1 (but emoji may be 2 via surrogate pairs)
-  const charCount = [...text].length;
-  const segments = charCount <= 70 ? 1 : Math.ceil(charCount / 67);
-  return { charCount, segments, encoding: 'UCS-2' };
-}
+import { getSmsSegmentInfo } from 'utils/lib/helpers/rcm/sms-segment-info';
 
 function computeSmsStats(
   template: string,

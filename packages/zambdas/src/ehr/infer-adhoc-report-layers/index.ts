@@ -6,8 +6,9 @@ import {
   InferDatasetFeedback,
 } from 'utils/lib/types/adhoc/generation/infer.types';
 import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { VERTEX_AI_MODEL } from 'utils/lib/types/api/ai-models.constants';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
-import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { invokeChatbotVertexAI } from '../../shared/ai';
 import { getUserToken, requireUserWithRole } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -167,20 +168,27 @@ only LAYER ids of that dataset and is an empty array when no optional layer is n
 
 export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferAdHocLayersOutput['datasets'] => {
   if (!Array.isArray(value)) return [];
+
   const picked = new Map<string, Set<string>>();
+
   for (const entry of value) {
     const { id, layerIds } = (entry ?? {}) as { id?: unknown; layerIds?: unknown };
     const dataset = catalog.find((d) => d.id === id);
+
     if (!dataset) continue;
+
     const validLayerIds = new Set(dataset.layers.map((l) => l.id));
     const layers = picked.get(dataset.id) ?? new Set<string>();
+
     if (Array.isArray(layerIds)) {
       layerIds.forEach((layerId) => {
         if (typeof layerId === 'string' && validLayerIds.has(layerId)) layers.add(layerId);
       });
     }
+
     picked.set(dataset.id, layers);
   }
+
   return Array.from(picked, ([id, layerIds]) => ({ id, layerIds: Array.from(layerIds) }));
 };
 
@@ -194,7 +202,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets,
     'infer-adhoc-report-layers',
     responseSchema(datasets),
-    VERTEX_AI_MODEL
+    VERTEX_AI_MODEL.id
   );
 
   const parsed = fixAndParseJsonObjectFromString(raw) as {
@@ -204,9 +212,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 
   const picked = parseDatasets(parsed?.datasets, datasets);
+
   const unavailable = Array.isArray(parsed.unavailable)
     ? parsed.unavailable.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
     : [];
+
   const hint = typeof parsed.hint === 'string' && parsed.hint.trim() ? parsed.hint.trim() : undefined;
 
   if (!picked.length && !unavailable.length) {
@@ -222,5 +232,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     },
     ZAMBDA_NAME
   );
+
   return { statusCode: 200, body: JSON.stringify(output) };
 });

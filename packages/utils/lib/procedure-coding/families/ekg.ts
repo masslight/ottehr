@@ -7,7 +7,18 @@ import { buildEvaluation, CPT_MODIFIERS, missing, MueAdjudication, noCode } from
 import { EKG_PTP_EDITS } from '../medicare-ptp';
 import { CodeSuggestion, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
-import { CodingField, readNumber } from '../structured-fields';
+import { CodingField, readNumber, StructuredFacts } from '../structured-fields';
+import { EKG_MEASUREMENT_KEYS, ekgMeasurementLine, QTC_METHODS } from './ekg-interpretation';
+import {
+  EKG_AXES,
+  EKG_AXIS_RANGE,
+  EKG_COMPARISONS,
+  EKG_CONDUCTION,
+  EKG_IMPRESSIONS,
+  EKG_OTHER_FINDINGS,
+  EKG_RHYTHMS,
+  EKG_ST_T,
+} from './ekg-templates';
 
 const EKG_CODES = {
   TracingAndReport: '93000',
@@ -17,16 +28,28 @@ const EKG_CODES = {
 
 type EkgCode = (typeof EKG_CODES)[keyof typeof EKG_CODES];
 
+const neededForReport = (facts: StructuredFacts): boolean => facts.component !== 'tracing only';
+
 const fields: readonly CodingField[] = [
   {
     key: 'component',
+    neededForCoding: true,
     label: 'Component furnished',
     kind: 'select',
     options: ['tracing and report', 'tracing only', 'interpretation/report only'],
   },
-  { key: 'count', label: 'Same-day recordings', kind: 'number', defaultValue: 1, min: 0, step: 1 },
+  {
+    key: 'count',
+    neededForCoding: true,
+    label: 'Same-day recordings',
+    kind: 'number',
+    defaultValue: 1,
+    min: 0,
+    step: 1,
+  },
   {
     key: 'repeatClinician',
+    neededForCoding: true,
     label: 'Repeat clinician',
     kind: 'select',
     options: ['same', 'different'],
@@ -42,6 +65,63 @@ const fields: readonly CodingField[] = [
     defaultValue: false,
     details: true,
   },
+  { key: 'rate', neededForCoding: neededForReport, label: 'Rate (bpm)', kind: 'number', min: 0, step: 1 },
+  { key: 'pr', neededForCoding: neededForReport, label: 'PR (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qrs', neededForCoding: neededForReport, label: 'QRS (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qt', neededForCoding: neededForReport, label: 'QT (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qtc', label: 'QTc (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qtcMethod', label: 'QTc method', kind: 'select', options: QTC_METHODS },
+  { key: 'axisDegrees', label: 'Axis (°)', kind: 'number', ...EKG_AXIS_RANGE, step: 1 },
+  { key: 'rhythm', neededForCoding: neededForReport, label: 'Rhythm', kind: 'select', options: EKG_RHYTHMS },
+  { key: 'axis', neededForCoding: neededForReport, label: 'Axis', kind: 'select', options: EKG_AXES },
+  {
+    key: 'conduction',
+    neededForCoding: neededForReport,
+    label: 'Intervals and conduction',
+    kind: 'multi',
+    options: EKG_CONDUCTION,
+    exclusive: 'normal',
+  },
+  {
+    key: 'stt',
+    neededForCoding: neededForReport,
+    label: 'ST / T',
+    kind: 'multi',
+    options: EKG_ST_T,
+    exclusive: 'no acute ST-T wave changes',
+  },
+  {
+    key: 'otherFindings',
+    label: 'Other findings',
+    kind: 'multi',
+    options: EKG_OTHER_FINDINGS,
+    exclusive: 'none',
+    details: true,
+  },
+  {
+    key: 'comparison',
+    neededForCoding: neededForReport,
+    label: 'Comparison with prior',
+    kind: 'select',
+    options: EKG_COMPARISONS,
+  },
+  {
+    key: 'impression',
+    neededForCoding: neededForReport,
+    label: 'Impression',
+    kind: 'select',
+    options: EKG_IMPRESSIONS,
+  },
+];
+
+const REPORT_FIELDS = ['rhythm', 'axis', 'conduction', 'stt', 'comparison', 'impression'];
+
+const label = (key: string): string => fields.find((field) => field.key === key)?.label ?? key;
+
+const reportGaps = (facts: StructuredFacts): string[] => [
+  ...(readNumber(facts, 'rate') === undefined ? [label('rate')] : []),
+  ...(['pr', 'qrs', 'qt'].some((key) => readNumber(facts, key) === undefined) ? ['PR, QRS and QT intervals'] : []),
+  ...REPORT_FIELDS.filter((key) => facts[key] === undefined).map(label),
 ];
 
 export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
@@ -62,7 +142,22 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   id: 'ekg',
   procedureNames: PROCEDURE_NAMES['ekg'],
   displayName: 'EKG',
+  omitsStandardFields: [
+    'site',
+    'anesthesia',
+    'technique',
+    'supplies',
+    'specimen',
+    'complications',
+    'patientResponse',
+    'timeSpent',
+  ],
   fields,
+  quickPickExcludes: EKG_MEASUREMENT_KEYS,
+  noteLines: (facts) => ({
+    lines: [ekgMeasurementLine(facts)].filter((line): line is string => line !== undefined),
+    covers: EKG_MEASUREMENT_KEYS,
+  }),
   codes: Object.values(EKG_CODES),
   suggest: (facts) => {
     if (facts.integralEcg) return noCode('The ECG is included in the stress test or monitoring service.');
@@ -71,6 +166,11 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
     const count = readNumber(facts, 'count');
 
     if (!count || !Number.isInteger(count)) return missing('Same-day recordings');
+
+    if (facts.component !== 'tracing only') {
+      const gaps = reportGaps(facts);
+      if (gaps.length) return missing(...gaps);
+    }
     let cpt: EkgCode = EKG_CODES.InterpretationAndReportOnly;
     if (facts.component === 'tracing and report') cpt = EKG_CODES.TracingAndReport;
     else if (facts.component === 'tracing only') cpt = EKG_CODES.TracingOnly;

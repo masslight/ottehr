@@ -34,18 +34,20 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
-  deleteEncounterDiagnosis,
+  deleteEncounterDiagnoses,
   findAccidentConditions,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
+import { getEncounterAndRelatedResources } from '../../shared/chart-data/encounter-resources';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { orphanedProcedureDiagnoses } from '../../shared/chart-data/procedure-diagnoses';
 import { createFindResourceRequestByPatientField } from '../../shared/chart-data/search-requests';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { parseCreatedResourcesBundle } from '../../shared/resources.helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { deleteZ3Object } from '../../shared/z3Utils';
-import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
+import { deleteResourceRequest } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -93,6 +95,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       notes,
       vitalsObservations,
       procedures,
+      cleanupProcedureDiagnoses,
       accident,
     } = validateRequestParameters(input);
 
@@ -102,7 +105,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);
-    const allResources = await getEncounterAndRelatedResources(oystehr, encounterId);
+    const allResources = await getEncounterAndRelatedResources(oystehr, encounterId, {
+      includeProcedureDependencies: cleanupProcedureDiagnoses && Boolean(procedures?.length),
+    });
     const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
     if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
     console.log(`Got encounter with id ${encounter.id}`);
@@ -207,10 +212,21 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     }
 
     // 13. delete diagnosis Conditions and Encounter properties
-    diagnosis?.forEach((element) => {
-      updateEncounterOperations.push(...deleteEncounterDiagnosis(encounter, element.resourceId!));
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', element.resourceId!));
-    });
+    const orphanedDiagnoses = cleanupProcedureDiagnoses
+      ? orphanedProcedureDiagnoses(
+          encounter,
+          allResources,
+          (procedures ?? []).map((procedure) => ({ ...procedure, diagnoses: [] }))
+        )
+      : [];
+    const deletedDiagnosisIds = [
+      ...new Set([
+        ...(diagnosis ?? []).flatMap((element) => (element.resourceId ? [element.resourceId] : [])),
+        ...orphanedDiagnoses.map((condition) => condition.id!),
+      ]),
+    ];
+    updateEncounterOperations.push(...deleteEncounterDiagnoses(encounter, deletedDiagnosisIds));
+    deletedDiagnosisIds.forEach((id) => deleteOrUpdateRequests.push(deleteResourceRequest('Condition', id)));
 
     if (addendumNote) {
       updateEncounterOperations.push(...deleteEncounterAddendumNote(encounter));

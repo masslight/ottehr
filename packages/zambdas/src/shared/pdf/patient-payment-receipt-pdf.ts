@@ -18,18 +18,24 @@ import { capitalize } from 'lodash';
 import { DateTime } from 'luxon';
 import { PageSizes, PDFImage } from 'pdf-lib';
 import Stripe from 'stripe';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullName, getPatientAddress, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import { formatZipcodeForDisplay, removePrefix } from 'utils/lib/helpers/helpers';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
+import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
 import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import {
+  createStripeAccountResolver,
+  fetchEncounterPaymentNotices,
+  paymentMethodForNotice,
+  stripePaymentIntentIdForNotice,
+} from '../../billing/patient-payments';
+import { createBillingClient } from '../../billing/shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
-import { STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadataQuery } from '../stripeIntegration';
+import { stripeEncounterMetadataQuery } from '../stripeIntegration';
 import { createPresignedUrl } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
@@ -37,7 +43,8 @@ import { ImageStyle, PdfClientStyles, TextStyle } from './types';
 
 interface PaymentData {
   amount: number;
-  method: CashOrCardPayment['paymentMethod'];
+  // any recorded payment, including 'other' ones the EHR cannot submit
+  method: PatientPaymentDTO['paymentMethod'];
   paymentDate?: string;
   last4?: string;
   brand?: string;
@@ -108,6 +115,7 @@ export async function createPatientPaymentReceiptPdf(input: CreatePatientPayment
     patientId,
     organizationId: billingOrganizationId,
     oystehr,
+    billingOystehr: createBillingClient(oystehrToken, secrets),
     stripeClient,
     stripeAccountId,
     lastOperationPaymentIntent,
@@ -140,51 +148,61 @@ async function getReceiptData(input: {
   patientId: string;
   organizationId: string;
   oystehr: Oystehr;
+  billingOystehr: Oystehr;
   stripeClient: Stripe;
   stripeAccountId?: string;
   lastOperationPaymentIntent?: Stripe.PaymentIntent;
 }): Promise<PatientPaymentReceiptData> {
-  const { encounterId, patientId, organizationId, oystehr, stripeClient, lastOperationPaymentIntent, stripeAccountId } =
-    input;
+  const {
+    encounterId,
+    patientId,
+    organizationId,
+    oystehr,
+    billingOystehr,
+    stripeClient,
+    lastOperationPaymentIntent,
+    stripeAccountId,
+  } = input;
   const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   const account: Account | undefined = accountResources.account;
 
   const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccountId) : undefined;
   if (!customerId) throw new Error('No stripe customer id found');
 
-  const [fhirBundle, listResourcesBundle, organization, paymentIntents, customer] = await Promise.all([
-    oystehr.fhir.search<FhirResource>({
-      resourceType: 'Encounter',
-      params: [
-        { name: '_id', value: encounterId },
-        { name: '_revinclude', value: 'PaymentNotice:request' },
-        { name: '_include', value: 'Encounter:subject' },
-        { name: '_include', value: 'Encounter:appointment' },
-      ],
-    }),
-    oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [{ name: 'patient', value: `Patient/${patientId}` }],
-    }),
-    oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
-    stripeClient.paymentIntents.search(
-      {
-        query: stripeEncounterMetadataQuery(encounterId),
-        limit: 100, // default is 10
-      },
-      { stripeAccount: stripeAccountId }
-    ),
-    stripeClient.customers.retrieve(
-      customerId,
-      {
-        expand: ['invoice_settings.default_payment_method', 'sources'],
-      },
-      { stripeAccount: stripeAccountId }
-    ),
-  ]);
+  const [fhirBundle, paymentNoticesByEncounter, listResourcesBundle, organization, paymentIntents, customer] =
+    await Promise.all([
+      oystehr.fhir.search<FhirResource>({
+        resourceType: 'Encounter',
+        params: [
+          { name: '_id', value: encounterId },
+          { name: '_include', value: 'Encounter:subject' },
+          { name: '_include', value: 'Encounter:appointment' },
+        ],
+      }),
+      fetchEncounterPaymentNotices({ clinicalOystehr: oystehr, billingOystehr, encounterIds: [encounterId] }),
+      oystehr.fhir.search<List>({
+        resourceType: 'List',
+        params: [{ name: 'patient', value: `Patient/${patientId}` }],
+      }),
+      oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
+      stripeClient.paymentIntents.search(
+        {
+          query: stripeEncounterMetadataQuery(encounterId),
+          limit: 100, // default is 10
+        },
+        { stripeAccount: stripeAccountId }
+      ),
+      stripeClient.customers.retrieve(
+        customerId,
+        {
+          expand: ['invoice_settings.default_payment_method', 'sources'],
+        },
+        { stripeAccount: stripeAccountId }
+      ),
+    ]);
   // find resources
   const resources = fhirBundle.unbundle();
-  const paymentNotices = resources.filter((r) => r.resourceType === 'PaymentNotice') as PaymentNotice[];
+  const paymentNotices = paymentNoticesByEncounter.get(encounterId) ?? [];
   const patient = resources.find((r) => r.resourceType === 'Patient') as Patient;
   const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
   const encounter = resources.find((r) => r.resourceType === 'Encounter') as Encounter;
@@ -199,12 +217,20 @@ async function getReceiptData(input: {
 
   // parse data
   if (customer.deleted) throw new Error('Customer is deleted');
+  // the receipt can list payments taken on other accounts than the schedule's, e.g. platform
+  // outreach invoices, so each payment's Stripe lookups use its own
+  const stripeAccountFor = createStripeAccountResolver({
+    billingOystehr,
+    clinicalOystehr: oystehr,
+    encounterId,
+    scheduleAccount: Promise.resolve(stripeAccountId),
+  });
   const payments = await parsePaymentsList(
     paymentNotices,
     paymentIntents.data,
     customer,
     stripeClient,
-    stripeAccountId,
+    stripeAccountFor,
     lastOperationPaymentIntent
   );
 
@@ -245,12 +271,12 @@ async function getReceiptData(input: {
   };
 }
 
-async function parsePaymentsList(
+export async function parsePaymentsList(
   paymentNotices: PaymentNotice[],
   paymentIntents: Stripe.PaymentIntent[],
   customer: Stripe.Customer,
   stripeClient: Stripe,
-  stripeAccountId: string | undefined,
+  stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
   lastOperationPaymentIntent?: Stripe.PaymentIntent
 ): Promise<PaymentData[]> {
   if (lastOperationPaymentIntent) paymentIntents.push(lastOperationPaymentIntent);
@@ -259,8 +285,12 @@ async function parsePaymentsList(
 
   const payments = await Promise.all(
     paymentNotices.map(async (paymentNotice): Promise<PaymentData> => {
-      const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
-      const stripeIntent = paymentIntents.find((pi) => pi.id === pnStripeId);
+      const pnStripeId = stripePaymentIntentIdForNotice(paymentNotice);
+      const stripeAccount = pnStripeId ? await stripeAccountFor(paymentNotice) : undefined;
+      // the encounter search covers the schedule account only
+      const stripeIntent =
+        paymentIntents.find((pi) => pi.id === pnStripeId) ??
+        (pnStripeId ? await retrievePaymentIntent(stripeClient, pnStripeId, stripeAccount) : undefined);
       const stripePaymentMethodId =
         typeof stripeIntent?.payment_method === 'string'
           ? stripeIntent.payment_method
@@ -269,11 +299,7 @@ async function parsePaymentsList(
       let stripeMethod: Stripe.PaymentMethod | undefined;
       if (stripePaymentMethodId) {
         try {
-          stripeMethod = await stripeClient.paymentMethods.retrieve(
-            stripePaymentMethodId,
-            {},
-            { stripeAccount: stripeAccountId }
-          );
+          stripeMethod = await stripeClient.paymentMethods.retrieve(stripePaymentMethodId, {}, { stripeAccount });
         } catch (error) {
           console.error(
             `Failed to retrieve Stripe payment method ${stripePaymentMethodId} for payment notice ${paymentNotice.id}`,
@@ -285,8 +311,7 @@ async function parsePaymentsList(
       const stripeCardDetails = getStripeCardDetails(stripeMethod);
 
       const amount = paymentNotice.amount.value;
-      const method = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
-        ?.valueString as CashOrCardPayment['paymentMethod'];
+      const method = paymentMethodForNotice(paymentNotice) as PatientPaymentDTO['paymentMethod'];
 
       if (!amount) throw new Error('No amount found');
       return {
@@ -311,6 +336,19 @@ async function parsePaymentsList(
   );
   return payments;
 }
+
+const retrievePaymentIntent = async (
+  stripeClient: Stripe,
+  paymentIntentId: string,
+  stripeAccount: string | undefined
+): Promise<Stripe.PaymentIntent | undefined> => {
+  try {
+    return await stripeClient.paymentIntents.retrieve(paymentIntentId, undefined, { stripeAccount });
+  } catch (error) {
+    console.error(`Failed to retrieve Stripe payment intent ${paymentIntentId}`, error);
+    return undefined;
+  }
+};
 
 function getStripeCardDetails(paymentMethod?: Stripe.PaymentMethod): Pick<PaymentData, 'last4' | 'brand'> | undefined {
   if (!paymentMethod) return undefined;

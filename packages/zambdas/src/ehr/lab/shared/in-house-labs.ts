@@ -81,7 +81,6 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
           coding.system === IN_HOUSE_LAB_TASK.system && coding.code === IN_HOUSE_LAB_TASK.code.collectSampleTask
       )
   );
-  console.log('collectSampleTask', collectSampleTask?.id, collectSampleTask?.status);
 
   const interpretResultsTask = tasks.find(
     (task) =>
@@ -91,7 +90,6 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
           coding.system === IN_HOUSE_LAB_TASK.system && coding.code === IN_HOUSE_LAB_TASK.code.inputResultsTask // todo: is it valid?
       )
   );
-  console.log('interpretResultsTask', interpretResultsTask?.id, interpretResultsTask?.status);
 
   // Status Derivation:
   // Ordered: SR.status = draft & Task(CST).status = ready

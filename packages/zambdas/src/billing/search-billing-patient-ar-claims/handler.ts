@@ -20,6 +20,7 @@ import {
   summarizeClaimPayments,
 } from '../claim-amounts';
 import { fhirName } from '../shared';
+import { fetchWriteOffsByClaimIds, sumWriteOffs } from '../write-offs';
 
 const CLAIM_SCAN_PAGE_SIZE = 200;
 const PATIENT_BATCH = 100;
@@ -85,13 +86,15 @@ async function collectPatientArMatches(params: {
     encounterIds,
     claimIds,
   });
-  const [claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
+  const [claimResponsesByClaimId, patientPaidByClaimId, writeOffs] = await Promise.all([
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
     fetchPatientPaidByClaimId({ oystehr, claims }),
+    fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
   ]);
 
   const candidates: PatientArMatch[] = claims.map((claim) => {
     const claimId = claim.id ?? '';
+    const writeOffsTotal = sumWriteOffs(writeOffs.get(claim.id ?? '') ?? []);
     return {
       claim,
       claimId,
@@ -100,7 +103,8 @@ async function collectPatientArMatches(params: {
       payments: summarizeClaimPayments(
         claimResponsesByClaimId.get(claimId) ?? [],
         claim.total?.value ?? 0,
-        patientPaidByClaimId.get(claimId) ?? 0
+        patientPaidByClaimId.get(claimId) ?? 0,
+        writeOffsTotal
       ),
     };
   });

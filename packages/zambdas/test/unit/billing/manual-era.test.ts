@@ -355,8 +355,10 @@ describe('helpers', () => {
   it('tells manual, imported and clearing-house ERAs apart', () => {
     expect(getEraSource({ extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: 'manual' }] })).toBe('manual');
     expect(getEraSource({ extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: 'x12-import' }] })).toBe('x12-import');
-    // Claim.MD stamps the searchable check identifier; process-era imports never do
-    expect(getEraSource({ identifier: [{ system: ERA_CHECK_SYSTEM, value: 'CHK1' }] })).toBe('clearing-house');
-    expect(getEraSource({})).toBe('x12-import');
+    // unmarked ERAs are clearing-house deliveries, whatever extensions Oystehr put on them
+    expect(getEraSource({})).toBe('clearing-house');
+    expect(getEraSource({ extension: [{ url: 'https://extensions.fhir.oystehr.com/rcm-raw-x12' }] })).toBe(
+      'clearing-house'
+    );
   });
 });

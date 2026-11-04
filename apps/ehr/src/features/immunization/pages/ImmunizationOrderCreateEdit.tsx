@@ -1,20 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
@@ -28,14 +13,17 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
 import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
+import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useImmunizationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
@@ -45,9 +33,23 @@ import {
   useCreateUpdateImmunizationOrder,
   useGetImmunizationOrders,
 } from '../../visits/in-person/hooks/useImmunization';
+import { AdministeringImmunizationFields } from '../components/AdministeringImmunizationFields';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
+
+// explicit empty values: reset() falls back to defaultValues for fields it leaves undefined
+const EMPTY_ADMINISTRATION_DETAILS = {
+  lot: '',
+  ndc: '',
+  expDate: '',
+  mvx: '',
+  cvx: '',
+  cptCodes: [],
+  administeredDateTime: null,
+  visGiven: false,
+  visGivenDate: null,
+};
 
 interface ImmunizationOrderCreateEditProps {
   orderId?: string;
@@ -59,6 +61,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   onFinished,
 }) => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const isInlineFlow = useIsInlineFlow();
   const { id: appointmentId, orderId: orderIdFromUrl } = useParams();
   const orderId = orderIdProp ?? orderIdFromUrl;
@@ -71,13 +74,14 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   const { setDraft, clearDraft, hasDraft, getDraft } = useImmunizationOrderStore();
   const draft = getDraft(encounterId);
+  const { administrationDetails: draftAdministrationDetails, ...draftDetails } = draft ?? {};
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const [isOrderSaved, setIsOrderSaved] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
-  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(encounterId);
 
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
@@ -90,11 +94,21 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const finish = onFinished ?? ((): void => navigate(getImmunizationMARUrl(appointmentId!)));
 
   const onSubmit = async (data: any): Promise<void> => {
-    await createUpdateOrder({
-      encounterId: encounter?.id ?? '',
-      orderId: orderId,
-      ...(await cleanupProperties(data)),
-    });
+    const { details, administrationDetails } = (await cleanupProperties(data)) ?? {};
+    try {
+      await createUpdateOrder({
+        encounterId: encounter?.id ?? '',
+        orderId: orderId,
+        details,
+        // always sent so that clearing every field on edit clears them on the order too
+        administrationDetails: administrationDetails ?? {},
+      });
+    } catch (error) {
+      enqueueSnackbar(getApiError({ error, defaultError: 'An error occurred while saving the immunization order.' }), {
+        variant: 'error',
+      });
+      return;
+    }
     setIsOrderSaved(true);
     if (isCreating && encounterId) clearDraft(encounterId);
     finish();
@@ -103,7 +117,8 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const handleDeleteOrder = async (): Promise<void> => {
     if (!orderId) return;
     try {
-      await cancelOrder({ orderId });
+      const response = await cancelOrder({ orderId });
+      enqueueOrderDeleteWarnings(response);
       finish();
     } catch {
       setIsDeleteDialogOpen(false);
@@ -126,8 +141,9 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     defaultValues: {
       details: {
         orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : undefined,
-        ...(draft ? draft : undefined),
+        ...(isCreating && draftDetails),
       },
+      administrationDetails: { ...EMPTY_ADMINISTRATION_DETAILS, ...(isCreating && draftAdministrationDetails) },
     },
   });
 
@@ -148,6 +164,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
         instructions: '',
         orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : null,
       },
+      administrationDetails: EMPTY_ADMINISTRATION_DETAILS,
     });
   };
 
@@ -160,8 +177,6 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     setQuickPickName,
     existingQuickPicks,
     quickPickSaving,
-    overwriteTarget,
-    setOverwriteTarget,
     onQuickPickSelect,
     openQuickPickDialog,
     onSaveAsQuickPick,
@@ -176,6 +191,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   useEffect(() => {
     if (!orderId && defaultProviderId && !getDraft(encounterId)) {
       methods.reset({
+        ...methods.getValues(),
         details: {
           ...methods.getValues('details'),
           orderedProvider: {
@@ -193,7 +209,10 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
       formState: { values: true, isDirty: true },
       callback: ({ values, isDirty }) => {
         if (!isDirty) return;
-        setDraft(encounterId, { ...(values.details as InputImmunizationOrderDetails) });
+        setDraft(encounterId, {
+          ...(values.details as InputImmunizationOrderDetails),
+          administrationDetails: values.administrationDetails,
+        });
       },
     });
     return unsubscribe;
@@ -203,8 +222,8 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     (quickPick: ImmunizationQuickPickData): void => {
       onQuickPickSelect(quickPick);
       if (isCreating && encounterId) {
-        const { details } = methods.getValues();
-        setDraft(encounterId, { ...(details as InputImmunizationOrderDetails) });
+        const { details, administrationDetails } = methods.getValues();
+        setDraft(encounterId, { ...(details as InputImmunizationOrderDetails), administrationDetails });
       }
     },
     [onQuickPickSelect, isCreating, encounterId, methods, setDraft]
@@ -288,6 +307,12 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                 <OrderDetailsSection />
               </Grid>
               <Grid xs={12} item>
+                <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+                  Administering immunization
+                </Typography>
+              </Grid>
+              <AdministeringImmunizationFields isReadOnly={isReadOnly} />
+              <Grid xs={12} item>
                 <WarningBlock
                   title="Safety Alert"
                   text="Vaccine orders do not automatically check for patient allergies (unlike medication orders). Before proceeding, please manually review the patient's allergies and confirm there is no risk of allergy to the vaccine or its components."
@@ -363,52 +388,16 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
         </Stack>
       </form>
 
-      {/* Save as Quick Pick Dialog */}
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Save as Quick Pick</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            label="Quick pick name"
-            fullWidth
-            value={quickPickName}
-            onChange={(e) => setQuickPickName(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-          {existingQuickPicks.length > 0 && (
-            <>
-              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-                Or overwrite an existing quick pick:
-              </Typography>
-              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                {existingQuickPicks.map((qp) => (
-                  <ListItem key={qp.id} disablePadding>
-                    <ListItemButton
-                      selected={overwriteTarget?.id === qp.id}
-                      onClick={() => {
-                        setOverwriteTarget(qp);
-                        setQuickPickName(qp.name);
-                      }}
-                    >
-                      <ListItemText primary={qp.name} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <LoadingButton
-            loading={quickPickSaving}
-            variant="contained"
-            onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
-          >
-            {overwriteTarget ? 'Overwrite' : 'Save'}
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <QuickPickSaveDialogs
+        open={quickPickDialogOpen}
+        name={quickPickName}
+        onNameChange={setQuickPickName}
+        existingQuickPicks={existingQuickPicks}
+        saving={quickPickSaving}
+        onClose={() => setQuickPickDialogOpen(false)}
+        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="immunization"
+      />
     </FormProvider>
   );
 };

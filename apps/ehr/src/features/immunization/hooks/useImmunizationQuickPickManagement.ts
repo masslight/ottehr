@@ -22,8 +22,6 @@ interface UseImmunizationQuickPickManagementReturn {
   setQuickPickName: (name: string) => void;
   existingQuickPicks: ImmunizationQuickPickData[];
   quickPickSaving: boolean;
-  overwriteTarget: ImmunizationQuickPickData | null;
-  setOverwriteTarget: (target: ImmunizationQuickPickData | null) => void;
   onQuickPickSelect: (quickPick: ImmunizationQuickPickData) => void;
   openQuickPickDialog: () => Promise<void>;
   onSaveAsQuickPick: (overwriteId?: string) => Promise<void>;
@@ -43,7 +41,6 @@ export const useImmunizationQuickPickManagement = ({
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const [overwriteTarget, setOverwriteTarget] = useState<ImmunizationQuickPickData | null>(null);
 
   const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
     const currentValues = methods.getValues();
@@ -95,7 +92,6 @@ export const useImmunizationQuickPickManagement = ({
     if (values.administrationDetails?.lot) parts.push(`lot: ${values.administrationDetails.lot}`);
     if (values.administrationDetails?.expDate) parts.push(`exp: ${values.administrationDetails.expDate}`);
     setQuickPickName(parts.join(' | '));
-    setOverwriteTarget(null);
     setQuickPickDialogOpen(true);
   };
 
@@ -152,8 +148,6 @@ export const useImmunizationQuickPickManagement = ({
     setQuickPickName,
     existingQuickPicks,
     quickPickSaving,
-    overwriteTarget,
-    setOverwriteTarget,
     onQuickPickSelect,
     openQuickPickDialog,
     onSaveAsQuickPick,

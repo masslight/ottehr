@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import {
   deconstructCanonicalUrl,
   getCanonicalQuestionnaire,
   getQuestionnaireForQR,
 } from 'utils/lib/fhir/questionnaires';
+import { validateCalculatedAnswers } from 'utils/lib/helpers/paperwork/calculated-answers';
 import { isPracticeManagedQ } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { Secrets } from 'utils/lib/secrets';
 import { UpdateVisitFormInput } from 'utils/lib/types/api/update-visit-details.types';
@@ -26,6 +27,8 @@ export interface ValidatedInput {
 
 export interface EffectInput extends ValidatedInput {
   questionnaireResponse: QuestionnaireResponse;
+  // the form's own pages as the questionnaire defines them, by page linkId
+  editablePages: Map<string, QuestionnaireItem>;
 }
 
 export function validateSecrets(secrets: Secrets | null): Secrets {
@@ -71,6 +74,7 @@ const UpdateVisitFormInputSchema = z.object({
   questionnaireId: z.string().uuid('"questionnaireId" must be a valid UUID.'),
   patientId: z.string().uuid('"patientId" must be a valid UUID.'),
   pages: z.array(QuestionnaireResponseItemSchema).min(1, '"pages" must contain at least one page.'),
+  calculatedAnswers: z.array(QuestionnaireResponseItemSchema).optional(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedInput {
@@ -135,15 +139,23 @@ export async function complexValidation(
     throw INVALID_INPUT_ERROR(`A form that has been deleted cannot be edited.`);
   }
 
-  const editablePageLinkIds = await getEditablePageLinkIds(questionnaireResponse, questionnaireId, oystehr);
-  const forbiddenPage = input.body.pages.find((page) => !editablePageLinkIds.has(page.linkId));
+  const editablePages = await getEditablePages(questionnaireResponse, questionnaireId, oystehr);
+  const calculatedAnswers = input.body.calculatedAnswers ?? [];
+  const forbiddenPage = [...input.body.pages, ...calculatedAnswers].find((page) => !editablePages.has(page.linkId));
   if (forbiddenPage) {
     throw INVALID_INPUT_ERROR(
       `Page "${forbiddenPage.linkId}" does not belong to Questionnaire/${questionnaireId} on this response.`
     );
   }
 
-  return { ...input, questionnaireResponse };
+  // The values of calculated items were worked out in the browser (the questionnaire's javascript is never run on the
+  // server), so all that can be checked is that each one is a calculated item on the page it names, typed as declared.
+  const calculatedIssues = validateCalculatedAnswers([...editablePages.values()], calculatedAnswers);
+  if (calculatedIssues.length > 0) {
+    throw INVALID_INPUT_ERROR(`"calculatedAnswers" is not valid. ${calculatedIssues.join(' ')}`);
+  }
+
+  return { ...input, questionnaireResponse, editablePages };
 }
 
 // The pages of `questionnaireId` that this response actually stores, which is the only thing a save
@@ -151,17 +163,17 @@ export async function complexValidation(
 // keeps only the last of any repeated page linkId (see handleFlowQuestionnaireItem), so a page
 // linkId in the response belongs to exactly one form: the last one that declares it. Answering "any
 // page of any form in the flow" instead would let a form's card overwrite another form's answers.
-async function getEditablePageLinkIds(
+async function getEditablePages(
   questionnaireResponse: QuestionnaireResponse,
   questionnaireId: string,
   oystehr: Oystehr
-): Promise<Set<string>> {
+): Promise<Map<string, QuestionnaireItem>> {
   const questionnaire = await getQuestionnaireForQR(questionnaireResponse, oystehr);
   const flowMembers = questionnaire.derivedFrom ?? [];
 
   if (flowMembers.length === 0) {
-    if (questionnaire.id !== questionnaireId) return new Set();
-    return new Set((questionnaire.item ?? []).map((page) => page.linkId));
+    if (questionnaire.id !== questionnaireId) return new Map();
+    return new Map((questionnaire.item ?? []).map((page) => [page.linkId, page]));
   }
 
   // Matches how get-visit-details builds the cards: a constituent form that cannot be resolved is
@@ -186,13 +198,14 @@ async function getEditablePageLinkIds(
     (result.value.item ?? []).forEach((page) => ownerByPage.set(page.linkId, { form: result.value, index }));
   });
 
-  const editable = new Set<string>();
+  const editable = new Map<string, QuestionnaireItem>();
   ownerByPage.forEach(({ form, index }, linkId) => {
     // A member that did not resolve may declare this page too, and the later declaration is the one
     // the flow kept, so ownership is only knowable for pages declared after the last failure.
     if (index < lastUnresolvedIndex) return;
     if (form.id === questionnaireId && isPracticeManagedQ(form)) {
-      editable.add(linkId);
+      const definition = (form.item ?? []).find((page) => page.linkId === linkId);
+      if (definition) editable.set(linkId, definition);
     }
   });
   return editable;

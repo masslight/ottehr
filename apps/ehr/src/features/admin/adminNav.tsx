@@ -241,16 +241,22 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     label: 'Communications',
     items: [
-      {
-        label: FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED ? 'Patient Invoicing — Candid' : 'Patient Invoicing',
-        path: '/admin/outreach/patient-invoices',
-        icon: <EmailOutlinedIcon />,
-        render: () => <InvoiceablePatients source="candid" />,
-      },
-      ...(FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED
+      ...(FEATURE_FLAGS.CANDID_INVOICING_ENABLED
         ? [
             {
               label: FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED
+                ? 'Patient Invoicing — Candid'
+                : 'Patient Invoicing',
+              path: '/admin/outreach/patient-invoices',
+              icon: <EmailOutlinedIcon />,
+              render: () => <InvoiceablePatients source="candid" />,
+            },
+          ]
+        : []),
+      ...(FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED
+        ? [
+            {
+              label: FEATURE_FLAGS.CANDID_INVOICING_ENABLED
                 ? 'Patient Invoicing — Ottehr Billing'
                 : 'Patient Invoicing',
               path: '/admin/outreach/patient-invoices-billing',

@@ -17,16 +17,11 @@ import {
   CardContent,
   Chip,
   CircularProgress,
-  FormControl,
   FormControlLabel,
-  FormLabel,
   IconButton,
   Link as MuiLink,
   MenuItem,
-  Radio,
-  RadioGroup,
   Select,
-  Stack,
   Switch,
   Tab,
   Table,
@@ -41,6 +36,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { isCustomInsuranceOrgBusinessId } from 'utils/lib/helpers/helpers';
@@ -81,6 +77,7 @@ import {
   RULES_ENGINES,
   RulesEngineDef,
   RulesEngineSubmissionType,
+  RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import z from 'zod';
@@ -105,6 +102,7 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { AccidentInfoFields } from '../components/AccidentInfoFields';
+import { Amount } from '../components/Amount';
 import { AttachmentsSection } from '../components/attachments/AttachmentsSection';
 import { ClaimDownloadsMenu } from '../components/claim/ClaimDownloadsMenu';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
@@ -120,6 +118,11 @@ import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
+import {
+  ClaimSubmissionFields,
+  ClaimSubmissionForm,
+  ClaimSubmissionFormDefaults,
+} from '../components/ClaimSubmissionFields';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
@@ -134,7 +137,7 @@ import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
-import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { WriteOffsSection } from '../components/WriteOffsSection';
 import { AccidentInfoData } from '../constants/accidentInfo';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
@@ -149,6 +152,7 @@ import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/use
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
+import { claimPayerNames } from '../utils/claimRemits';
 import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
@@ -194,8 +198,13 @@ export default function ClaimDetail(): ReactElement {
   const [serviceDate, setServiceDate] = useState('');
   const [claimType, setClaimType] = useState('');
   const [service, setService] = useState('');
+  const submitMethods = useForm<ClaimSubmissionForm>({ defaultValues: ClaimSubmissionFormDefaults });
+  const submissionType = submitMethods.watch('type');
   const [skipRules, setSkipRules] = useState(false);
-  const [submissionType, setSubmissionType] = useState<RulesEngineSubmissionType>('new');
+  const rulesEngine = useMemo<RulesEngineType | undefined>(() => {
+    if (!claim) return;
+    return applicableRulesEngine(claim)?.type;
+  }, [claim]);
   const [showCoverageMap, setShowCoverageMap] = useState<Record<string, boolean>>({
     primary: true,
     secondary: !!claim?.secondaryCoverageFhirId,
@@ -317,21 +326,33 @@ export default function ClaimDetail(): ReactElement {
   // Submit claim / Prepare for invoice both run the claim's rules engine: it applies the configured
   // rules, then performs the engine's success effect — or holds the claim — in the background.
   const handleRunRulesEngine = useCallback(async (): Promise<void> => {
-    if (!oystehrZambda || !id) return;
-    const engine = claim ? applicableRulesEngine(claim) : undefined;
-    if (!engine) {
+    if (!oystehrZambda || !id || !claim) return;
+    if (!rulesEngine) {
       enqueueSnackbar('No rules engine applies to this claim, so the rules were not run.', { variant: 'error' });
       setConfirmingSubmit(false);
       return;
     }
+    const engine = RULES_ENGINES[rulesEngine];
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, {
-        claimIds: [id],
-        skipRules,
-        submissionType: skipRules ? submissionType : undefined,
-        payerClaimControlNumber: skipRules && submissionType !== 'new' ? claim?.payerClaimControlNumber : undefined,
-      });
+      const values = submitMethods.getValues();
+      await runBillingRulesEngine(
+        oystehrZambda,
+        rulesEngine === 'claim-submission'
+          ? {
+              claimIds: [id],
+              skipRules,
+              submissionType: values.type,
+              submissionInsurance: values.insurance,
+              payerClaimControlNumber: values.type === 'new' ? undefined : values.payerClaimControlNumber,
+            }
+          : {
+              claimIds: [id],
+              skipRules,
+              submissionType: 'new',
+              submissionInsurance: 'primary',
+            }
+      );
       const messageSegment = skipRules
         ? 'Claim submitted.'
         : `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review.`;
@@ -349,7 +370,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [oystehrZambda, id, claim, skipRules, submissionType, fetchDetail]);
+  }, [oystehrZambda, id, claim, rulesEngine, submitMethods, skipRules, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -372,7 +393,7 @@ export default function ClaimDetail(): ReactElement {
 
   const arStageCode = claim.statuses.arStage;
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
-  const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
+  const dos = claim.dos;
   // Which engine the run button triggers for this claim (none -> no button).
   const runEngine = applicableRulesEngine(claim);
 
@@ -407,7 +428,7 @@ export default function ClaimDetail(): ReactElement {
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-        <IconButton onClick={() => navigate('/claims')} size="small" sx={{ mt: 0.5 }}>
+        <IconButton onClick={() => navigate(-1)} size="small" sx={{ mt: 0.5 }}>
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flexGrow: 1 }}>
@@ -543,10 +564,19 @@ export default function ClaimDetail(): ReactElement {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           fileName={`claim-${claim.id}-${(claim.type === 'professional' ? '837P' : '837I').toLowerCase()}.txt`}
-          x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
+          type="claim"
+          x12Provider={(params: ClaimSubmissionForm) =>
+            exportClaimX12(oystehrZambda, {
+              claimId: claim.id,
+              submissionType: params.type,
+              submissionInsurance: params.insurance,
+              payerClaimControlNumber: params.type !== 'new' ? params.payerClaimControlNumber : undefined,
+            }).then((data) => data.x12)
+          }
+          claim={claim}
         />
       )}
-      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
+      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claim={claim} />
 
       <ClaimNotesDrawer
         key={claim.id}
@@ -589,6 +619,7 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Allowed" value={claim.allowed} />
             <Amount label="Payments" sublabel="Insurance Paid" value={claim.insurancePaid} />
             <Amount label="Patient Paid" value={claim.patientPaid} />
+            {claim.writeOffsTotal > 0 ? <Amount label="Write-offs" value={claim.writeOffsTotal} /> : <></>}
             <Amount
               label="Balance"
               value={claim.balance}
@@ -618,8 +649,8 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Claim Properties" value="1" />
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Attachments" value="3" />
-            <Tab label="Write offs & Patient payments" value="4" />
-            <Tab label="Other claims" value="5" />
+            <Tab label="Patient Payments & Write-offs" value="4" />
+            <Tab label="Other Claims" value="5" />
             <Tab label="History" value="6" />
           </TabList>
 
@@ -704,7 +735,7 @@ export default function ClaimDetail(): ReactElement {
             <RemitHighlightProvider>
               <DiagnosesSection claim={claim} updateResource={updateResource} />
               <ServiceLinesSection claim={claim} updateResource={updateResource} />
-              <RemitsSection remits={claim.remits} />
+              <RemitsSection remits={claim.remits} claimPayers={claimPayerNames(claim)} />
               <InsurancePaymentsSection payments={claim.insurancePayments} />
             </RemitHighlightProvider>
           </TabPanel>
@@ -714,8 +745,21 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
-            <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
             <PatientPaymentsSection payments={claim.patientPayments} />
+            <WriteOffsSection
+              claimId={claim.id}
+              refetchClaim={fetchDetail}
+              writeOffs={claim.writeOffs}
+              balance={claim.balance}
+              payerName={claim.payerName}
+              payerId={claim.payerId}
+              secondaryPayerName={claim.secondaryPayerName}
+              secondaryPayerId={claim.secondaryPayerId}
+              tertiaryPayerName={claim.tertiaryPayerName}
+              tertiaryPayerId={claim.tertiaryPayerId}
+              quaternaryPayerName={claim.quaternaryPayerName}
+              quaternaryPayerId={claim.quaternaryPayerId}
+            />
           </TabPanel>
 
           <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
@@ -732,7 +776,7 @@ export default function ClaimDetail(): ReactElement {
         <ConfirmDialog
           open={confirmingSubmit}
           title={runEngine.runButtonLabel}
-          confirmLabel={getSubmitClaimLabel(skipRules, submissionType)}
+          confirmLabel={getSubmitClaimLabel(skipRules, rulesEngine, submissionType)}
           loading={submitting}
           onConfirm={() => void handleRunRulesEngine()}
           onCancel={() => setConfirmingSubmit(false)}
@@ -742,6 +786,13 @@ export default function ClaimDetail(): ReactElement {
               Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
               {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
             </Typography>
+            {rulesEngine === 'claim-submission' ? (
+              <FormProvider {...submitMethods}>
+                <ClaimSubmissionFields claim={claim} />
+              </FormProvider>
+            ) : (
+              <></>
+            )}
             <FormControlLabel
               control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
               label="Skip rules"
@@ -751,33 +802,6 @@ export default function ClaimDetail(): ReactElement {
                 },
               }}
             />
-            {skipRules ? (
-              <FormControl>
-                <FormLabel id="submission-type-label">Submission Type</FormLabel>
-                <RadioGroup
-                  aria-labelledby="submission-type-label"
-                  name="submission-type-group"
-                  value={submissionType}
-                  onChange={(event) => setSubmissionType(event.target.value as RulesEngineSubmissionType)}
-                >
-                  <FormControlLabel value="new" control={<Radio />} label="New Submission" />
-                  <FormControlLabel
-                    disabled={!claim.payerClaimControlNumber}
-                    value="correction"
-                    control={<Radio />}
-                    label="Correction"
-                  />
-                  <FormControlLabel
-                    disabled={!claim.payerClaimControlNumber}
-                    value="void"
-                    control={<Radio />}
-                    label="Void Claim"
-                  />
-                </RadioGroup>
-              </FormControl>
-            ) : (
-              <></>
-            )}
           </Box>
         </ConfirmDialog>
       )}
@@ -785,16 +809,24 @@ export default function ClaimDetail(): ReactElement {
   );
 }
 
-function getSubmitClaimLabel(skipRules: boolean, submissionType: RulesEngineSubmissionType): string {
+function getSubmitClaimLabel(
+  skipRules: boolean,
+  rulesEngine: RulesEngineType | undefined,
+  submissionType: RulesEngineSubmissionType
+): string {
   let action = 'Submit claim';
-  switch (submissionType) {
-    case 'new':
+  switch (true) {
+    case rulesEngine === 'non-insurance-payer-pre-invoice':
+    case rulesEngine === 'patient-ar-pre-invoice':
+      action = 'Prepare for invoice';
+      break;
+    case submissionType === 'new':
       action = 'Submit claim';
       break;
-    case 'correction':
+    case submissionType === 'correction':
       action = 'Correct claim';
       break;
-    case 'void':
+    case submissionType === 'void':
       action = 'Void claim';
       break;
   }
@@ -999,6 +1031,7 @@ export function InsuranceSection({
           />
           <Row label="Payer ID" value={coverage.payorId} />
           <Row label="Member ID" value={coverage.memberId ?? ''} />
+          <Row label="Group Number" value={coverage.groupNumber} />
           <Row label="Relationship to insured" value={coverage.relationship ?? ''} />
           {coverage.policyHolder && (
             <Row
@@ -1892,7 +1925,7 @@ function OtherClaimsSection({
 
 function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['patientPayments'] }): ReactElement {
   return (
-    <ReadOnlySection title="Patient payments">
+    <ReadOnlySection title="Patient Payments">
       {payments.length === 0 ? (
         'No patient payments yet'
       ) : (
@@ -1948,39 +1981,6 @@ export function Meta({ label, value, copyable }: { label: string; value: string;
       ) : (
         displayedValue
       )}
-    </Box>
-  );
-}
-
-function Amount({
-  label,
-  sublabel,
-  value,
-  hint,
-}: {
-  label: string;
-  sublabel?: string;
-  value: number;
-  hint?: string;
-}): ReactElement {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 48 }}>
-      <Box>
-        <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
-          {label}
-        </Typography>
-        {sublabel && (
-          <Typography variant="caption" display="block" color="text.secondary" fontSize={10} lineHeight={1.2}>
-            {sublabel}
-          </Typography>
-        )}
-      </Box>
-      <Stack direction="row" alignItems="center" gap={0.5}>
-        <Typography variant="body1" fontWeight={600}>
-          {formatCurrency(value)}
-        </Typography>
-        {hint && <WarningIconWithTooltip tooltipText={hint} />}
-      </Stack>
     </Box>
   );
 }

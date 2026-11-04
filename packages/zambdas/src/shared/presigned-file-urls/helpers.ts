@@ -2,6 +2,20 @@ import { DateTime } from 'luxon';
 import { SAFE_FOLDER_PATH_SEGMENT_REGEX } from 'utils/lib/fhir/list';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 
+export const assertZ3UrlInProject = (url: string, secrets: Secrets | null): void => {
+  const base = `${getSecret(SecretsKeys.PROJECT_API, secrets)}/z3/${getSecret(SecretsKeys.PROJECT_ID, secrets)}-`;
+  let normalized: string;
+  try {
+    const parsed = new URL(url);
+    normalized = `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    throw new Error('Refusing to presign malformed URL');
+  }
+  if (!normalized.startsWith(base)) {
+    throw new Error('Refusing to presign URL not from this project');
+  }
+};
+
 type Z3UrlAudioInput = {
   secrets: Secrets | null;
   bucketName: string;

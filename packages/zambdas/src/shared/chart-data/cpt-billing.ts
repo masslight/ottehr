@@ -6,6 +6,7 @@ import {
   getMedicationCptEntryFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
+  isInHouseMedicationOrder,
   MedicationCptCodeEntry,
 } from 'utils/lib/fhir/medication-administration';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -57,7 +58,7 @@ export async function enrichCptCodesWithMedicationAdministration(
   >();
   procedureMaIdMap.forEach((maId, procedureId) => {
     const ma = maMap.get(maId);
-    if (!ma) return;
+    if (!ma || !isInHouseMedicationOrder(ma)) return;
     const med = getMedicationFromMA(ma);
     const ndc = med ? getNdcCodeFromMedication(med) : undefined;
     const dosage = getDosageFromMA(ma);

@@ -54,7 +54,7 @@ const PatientDocumentsExplorerPage: FC = () => {
           </Typography>
 
           <Paper sx={{ padding: 3 }}>
-            <PatientDocumentsExplorer patientId={patientId!} initialFolderName={initialFolderName} />
+            <PatientDocumentsExplorer patientId={patientId!} patient={patient} initialFolderName={initialFolderName} />
           </Paper>
         </Box>
       </Box>

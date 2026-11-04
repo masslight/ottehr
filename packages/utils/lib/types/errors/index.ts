@@ -58,6 +58,7 @@ export enum APIErrorCode {
   PRACTITIONER_SCHEDULE_CONFLICT = 4342,
   APPOINTMENT_SEARCH_TOO_BROAD = 4343,
   CLAIM_SEARCH_TOO_BROAD = 4344,
+  VERSION_HISTORY_UNAVAILABLE = 4345,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -86,6 +87,8 @@ export enum APIErrorCode {
   MANUAL_PAYMENT_CONFLICT = 4503,
   STATEMENT_BILLING_CLAIM_NOT_FOUND = 4504,
   MANUAL_ERA_VERSION_CONFLICT = 4505,
+  ERA_VOID_CONFLICT = 4506,
+  ERA_VOID_INCOMPLETE = 4507,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -354,6 +357,12 @@ export const CLAIM_SEARCH_TOO_BROAD_ERROR: APIError = {
     'This search returned too much data to load. Please lower the rows per page, or narrow the date range or other filters, and try again.',
 };
 
+export const VERSION_HISTORY_UNAVAILABLE_ERROR: APIError = {
+  code: APIErrorCode.VERSION_HISTORY_UNAVAILABLE,
+  statusCode: 503,
+  message: 'The version history is temporarily unavailable. Please try again in a few seconds.',
+};
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -493,6 +502,18 @@ export const MANUAL_ERA_VERSION_CONFLICT_ERROR: APIError = {
   code: APIErrorCode.MANUAL_ERA_VERSION_CONFLICT,
   statusCode: 409,
   message: 'This remit was changed by someone else since you opened it. Reload the page to see the latest version.',
+};
+// Raised when an ERA changes while it is being voided.
+export const ERA_VOID_CONFLICT_ERROR: APIError = {
+  code: APIErrorCode.ERA_VOID_CONFLICT,
+  statusCode: 409,
+  message: 'This ERA has changed. Reload the page before voiding it.',
+};
+// Raised when an ERA is voided before all of its claim responses can be read, usually right after it arrives.
+export const ERA_VOID_INCOMPLETE_ERROR: APIError = {
+  code: APIErrorCode.ERA_VOID_INCOMPLETE,
+  statusCode: 409,
+  message: 'ERA claim responses are not fully available. Reload the page and try again.',
 };
 // Raised when a statement is requested for a visit that was never billed through Ottehr billing.
 export const STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR = (encounterId: string): APIError => ({

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
+import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -417,5 +418,66 @@ describe('save-billing-rules complexValidation (payers must exist)', () => {
     await expect(complexValidation(oystehr, params([rule('Plain')]))).resolves.toBeUndefined();
     expect(batch).not.toHaveBeenCalled();
     expect(getPayer).not.toHaveBeenCalled();
+  });
+});
+
+describe('save-billing-rules complexValidation (set services must be services on claims)', () => {
+  const serviceRule = (name: string, value: string): BillingRuleInput => ({
+    name,
+    description: '',
+    enabled: true,
+    conditional: {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'service', value }] },
+        },
+      ],
+    },
+  });
+
+  const serviceBasic = (code: string): Basic => ({
+    resourceType: 'Basic',
+    id: `service-${code}`,
+    code: { text: code, coding: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code }] },
+  });
+
+  const basicSearches = (): unknown[] => search.mock.calls.filter(([q]) => q.resourceType === 'Basic');
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    search.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () => (resourceType === 'Basic' ? [serviceBasic('urgent-care'), serviceBasic('workers-comp')] : []),
+    }));
+  });
+
+  it('passes when each set service is the code of a listed one', async () => {
+    await expect(
+      complexValidation(oystehr, params([serviceRule('WC', 'workers-comp'), serviceRule('UC', 'urgent-care')]))
+    ).resolves.toBeUndefined();
+    expect(basicSearches()).toHaveLength(1);
+  });
+
+  it('rejects anything else, including a listed service written as its name or padded', async () => {
+    await expect(
+      complexValidation(
+        oystehr,
+        params([
+          serviceRule('New', 'sports-physicals'),
+          serviceRule('By name', 'Workers Comp'),
+          // The engine writes the value as saved, so a padded code would stamp claims with an unlisted one.
+          serviceRule('Padded', ' workers-comp '),
+        ])
+      )
+    ).rejects.toThrow(
+      /rule "New" sets the service to "sports-physicals".*rule "By name" sets the service to "Workers Comp".*rule "Padded" sets the service to " workers-comp "/
+    );
+  });
+
+  it('skips the lookup for clearing actions and rules that set nothing', async () => {
+    await expect(
+      complexValidation(oystehr, params([serviceRule('Clear it', ''), rule('Plain')]))
+    ).resolves.toBeUndefined();
+    expect(basicSearches()).toHaveLength(0);
   });
 });

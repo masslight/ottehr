@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { describe, expect, it, Mock, vi } from 'vitest';
-import { fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../../../src/billing/claim-amounts';
+import {
+  fetchClaimEraLinks,
+  fetchClaimResponsesByClaimIds,
+  fetchClaimResponsesByPaymentReconciliations,
+} from '../../../src/billing/claim-amounts';
 import {
   ERA_PROCESSING_ACTIVITY_CODE,
   isEraProcessingProvenance,
@@ -117,7 +121,8 @@ describe('isEraProcessingProvenance', () => {
 });
 
 describe('fetchClaimResponsesByPaymentReconciliations', () => {
-  it("groups a payment reconciliation's ClaimResponses from its era-processing Provenance", async () => {
+  // OTR-3330: the archived ERA must retain its original adjudications, even after voiding.
+  it.each(['active', 'cancelled'] as const)('retains the responses of a %s ERA for detail reads', async (status) => {
     const prov = provenance('prov1', [
       'PaymentReconciliation/payment-reconciliation-1',
       'ClaimResponse/cr1',
@@ -130,7 +135,7 @@ describe('fetchClaimResponsesByPaymentReconciliations', () => {
     });
 
     const grouped = await fetchClaimResponsesByPaymentReconciliations(oystehr, [
-      makePaymentReconciliation('payment-reconciliation-1'),
+      { ...makePaymentReconciliation('payment-reconciliation-1'), status },
     ]);
 
     expect(grouped.get('payment-reconciliation-1')).toEqual(crs);
@@ -166,6 +171,15 @@ describe('fetchClaimResponsesByPaymentReconciliations', () => {
     ]);
 
     expect(grouped.has('payment-reconciliation-1')).toBe(false);
+  });
+});
+
+describe('fetchClaimResponsesByClaimIds', () => {
+  it('leaves out the responses of voided ERAs in the search itself', async () => {
+    const { oystehr, search } = makeOystehr({ ClaimResponse: [claimResponse('cr1')] });
+    await fetchClaimResponsesByClaimIds(oystehr, ['claim-1']);
+    expect(searchParamFor(search, 'ClaimResponse', 'status:not')).toBe('cancelled');
+    expect(search).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -61,12 +61,7 @@ export const RosSelectAllRow: FC<RosSelectAllRowProps> = ({ items }) => {
   }, [allDenied, baseKeys, items, observationMap, update]);
 
   return (
-    <TableRow sx={{ '& td': { borderBottom: 'none', py: 0 } }}>
-      <TableCell sx={{ pl: 1.5, pr: 0 }}>
-        <Typography variant="body2" sx={{ fontSize: 13 }}>
-          Select all
-        </Typography>
-      </TableCell>
+    <TableRow sx={{ '& td': { borderBottom: '1px solid', borderColor: 'divider', py: 0.25 } }}>
       <TableCell align="center" sx={{ px: 0 }} data-testid={dataTestIds.reviewOfSystemsPage.selectAllDeniesCell}>
         <Checkbox
           checked={allDenied}
@@ -81,7 +76,11 @@ export const RosSelectAllRow: FC<RosSelectAllRowProps> = ({ items }) => {
           }}
         />
       </TableCell>
-      <TableCell sx={{ px: 0 }} />
+      <TableCell colSpan={2} sx={{ pl: 0.5, pr: 0 }}>
+        <Typography variant="body2" sx={{ fontSize: 13 }}>
+          Denies all
+        </Typography>
+      </TableCell>
     </TableRow>
   );
 };

@@ -16,8 +16,8 @@ import { ReactElement } from 'react';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { ClaimInsurancePayment, ClaimRemit } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
-import { adjustmentCode, formatAdjustment } from '../../constants/era';
-import { aggregateAdjustments, eraHref } from '../../utils/claimRemits';
+import { adjustmentCode, formatAdjustment, isAdverseRemitStatus } from '../../constants/era';
+import { aggregateAdjustments, eraHref, remitLabel } from '../../utils/claimRemits';
 import { formatDate } from '../../utils/format';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';
 import { ReadOnlySection, thSx } from '../ReadOnlySection';
@@ -71,7 +71,7 @@ function CheckLink({
   );
 }
 
-export function RemitsSection({ remits }: { remits: ClaimRemit[] }): ReactElement {
+export function RemitsSection({ remits, claimPayers }: { remits: ClaimRemit[]; claimPayers: string[] }): ReactElement {
   const highlight = useRemitHighlight();
   return (
     <ReadOnlySection title="Remits">
@@ -102,6 +102,7 @@ export function RemitsSection({ remits }: { remits: ClaimRemit[] }): ReactElemen
               {remits.map((remit) => {
                 const eraId = remit.paymentReconciliationId;
                 const highlighted = !!highlight?.claimResponseId && highlight.claimResponseId === remit.claimResponseId;
+                const label = remitLabel(remit, remits, claimPayers);
                 return (
                   <TableRow
                     key={remit.claimResponseId}
@@ -114,7 +115,11 @@ export function RemitsSection({ remits }: { remits: ClaimRemit[] }): ReactElemen
                     <TableCell>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <span>{remit.payerName || '-'}</span>
-                        {remit.eraStatusCode && <EraStatusChip statusCode={remit.eraStatusCode} />}
+                        {remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode) ? (
+                          <EraStatusChip statusCode={remit.eraStatusCode} />
+                        ) : (
+                          label !== 'Other' && <AmountChip label={label} color="default" />
+                        )}
                       </Stack>
                     </TableCell>
                     <TableCell>
@@ -181,6 +186,7 @@ export function InsurancePaymentsSection({ payments }: { payments: ClaimInsuranc
                 <TableCell sx={thSx}>Check Date</TableCell>
                 <TableCell sx={thSx}>Payer</TableCell>
                 <TableCell sx={thSx}>Check Number</TableCell>
+                <TableCell sx={thSx}>Payer Claim #</TableCell>
                 <TableCell sx={thSx} align="right">
                   Check Amount
                 </TableCell>
@@ -203,6 +209,7 @@ export function InsurancePaymentsSection({ payments }: { payments: ClaimInsuranc
                     <TableCell>
                       <CheckLink paymentReconciliationId={eraId} checkNumber={payment.checkNumber} />
                     </TableCell>
+                    <TableCell>{payment.payerClaimControlNumber || '-'}</TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" fontWeight={700} component="span">
                         {formatCurrency(payment.paymentAmount)}

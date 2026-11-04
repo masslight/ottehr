@@ -2,7 +2,17 @@
 // is already computed, so these only add units/separators — no expression evaluation.
 // The format NAMES come from the runtime-scope catalog (the same list the prompt shows the model);
 // type-only deep import ⇒ nothing is added to the iframe bundle.
+import { isValidElement } from 'react';
 import type { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
+
+const elementText = (node: unknown): string => {
+  if (isValidElement(node)) {
+    const { children, label } = node.props as { children?: unknown; label?: unknown };
+    return elementText(children ?? label);
+  }
+  if (Array.isArray(node)) return node.map(elementText).join('');
+  return node == null || typeof node === 'boolean' ? '' : String(node);
+};
 
 export function cellText(value: unknown): string {
   if (value == null) return '';
@@ -12,6 +22,7 @@ export function cellText(value: unknown): string {
       .filter((text) => text !== '')
       .join(', ');
   }
+  if (isValidElement(value)) return elementText(value);
   if (typeof value === 'object') {
     return Object.entries(value as Record<string, unknown>)
       .map(([key, item]) => [key, cellText(item)] as const)
@@ -20,6 +31,12 @@ export function cellText(value: unknown): string {
       .join(', ');
   }
   return String(value);
+}
+
+// A number exactly as the report computed it, for CSV export. The grid's default number formatter
+// (toLocaleString) rounds to 3 decimals and adds thousands separators.
+export function exactNumberText(value: unknown): string {
+  return typeof value === 'number' && !Number.isNaN(value) ? String(value) : '';
 }
 
 export function formatValue(value: unknown, format?: ValueFormat): string {

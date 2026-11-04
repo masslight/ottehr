@@ -4,6 +4,7 @@ export interface StatementServiceLine {
   charged: string;
   insurancePaid: string;
   patientPaid: string;
+  writeOffs: string;
   patientOwes: string;
 }
 
@@ -67,6 +68,7 @@ export interface StatementDetails {
     charged: string;
     insurancePaid: string;
     patientPaid: string;
+    writeOffs: string;
     balanceDue: string;
     deductible: string;
   };
@@ -74,6 +76,15 @@ export interface StatementDetails {
   payment: {
     url: string;
   };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -86,16 +97,12 @@ export interface StatementDetails {
  *   {{facility.name}}, {{biller.website}}, {{biller.logoBase64}},
  *   {{totals.balanceDue}}, {{payment.url}}, etc.
  *
- * The {{service}} placeholder is replaced with the raw JSON string of service
- * lines as-is (it should already be a serialised JSON array when passed in).
+ * The {{serviceRows}} placeholder is replaced with the service lines rendered
+ * as <tr> table rows.
  */
 export function generateStatement(template: string, details: StatementDetails): string {
+  const { service, ...detailsWithoutService } = details;
   const flat: Record<string, string> = {};
-
-  const detailsWithSerializedService = {
-    ...details,
-    service: JSON.stringify(details.service),
-  };
 
   function flatten(obj: Record<string, unknown>, prefix: string): void {
     for (const [key, value] of Object.entries(obj)) {
@@ -112,11 +119,31 @@ export function generateStatement(template: string, details: StatementDetails): 
     }
   }
 
-  flatten(detailsWithSerializedService as unknown as Record<string, unknown>, '');
+  flatten(detailsWithoutService as unknown as Record<string, unknown>, '');
+
+  const serviceRows = service
+    .map(
+      (line) =>
+        '<tr>' +
+        [
+          line.cpt,
+          line.description,
+          line.charged,
+          line.insurancePaid,
+          line.patientPaid,
+          line.writeOffs,
+          line.patientOwes,
+        ]
+          .map((cell) => `<td>${escapeHtml(cell ?? '')}</td>`)
+          .join('') +
+        '</tr>'
+    )
+    .join('');
 
   let html = template;
   for (const [key, value] of Object.entries(flat)) {
-    html = html.split(`{{${key}}}`).join(value);
+    html = html.split(`{{${key}}}`).join(escapeHtml(value));
   }
+  html = html.split('{{serviceRows}}').join(serviceRows);
   return html;
 }

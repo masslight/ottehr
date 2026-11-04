@@ -25,6 +25,7 @@ export interface QuestionnaireItemConditionDefinition {
   question: string;
   operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'exists';
   answerString?: string;
+  answerCoding?: { system?: string; code?: string; display?: string };
   answerBoolean?: boolean;
   answerDate?: string;
   answerInteger?: number | string;
@@ -73,6 +74,11 @@ export enum QuestionnaireItemGroupType {
   PharmacyCollection = 'pharmacy-collection',
 }
 
+export interface CalculatedExpression {
+  language?: string;
+  expression?: string;
+}
+
 export type InputWidthOption = 's' | 'm' | 'l' | 'max';
 export interface QuestionnaireItemExtension {
   acceptsMultipleAnswers: boolean;
@@ -81,6 +87,12 @@ export interface QuestionnaireItemExtension {
   answerLoadingOptions?: AnswerLoadingOptions;
   attachmentText?: string;
   autofillFromWhenDisabled?: string;
+  /**
+   * The item's value is derived from other answers. The expression is only ever evaluated in the browser, which
+   * records the result on the QuestionnaireResponse (see `PatchPaperworkParameters.calculatedAnswers`).
+   * See `helpers/paperwork/calculated-expressions.ts`.
+   */
+  calculatedExpression?: CalculatedExpression;
   categoryTag?: string;
   dataType?: QuestionnaireDataType;
   disabledDisplay?: 'hidden' | 'protected';
@@ -214,6 +226,13 @@ export interface SubmitPaperworkParameters {
 }
 export interface PatchPaperworkParameters {
   answers: QuestionnaireResponseItem;
+  /**
+   * The values of the form's calculated items, worked out in the browser (the server never runs the questionnaire's
+   * javascript), as page-shaped items with group nesting preserved. Covers every page, including hidden ones that are
+   * never saved themselves, and the page in `answers`. An entry without an `answer` clears the stored value.
+   * See `helpers/paperwork/calculated-answers.ts`.
+   */
+  calculatedAnswers?: QuestionnaireResponseItem[];
   questionnaireResponseId: string;
   appointmentId?: string;
 }
@@ -239,4 +258,9 @@ export enum InsuranceEligibilityCheckStatus {
   eligibilityCheckNotSupported = 'eligibility-check-not-supported', // not done because not supported by payer
   eligibilityNotChecked = 'eligibility-not-checked', // not done or some system failure occurred
   eligibilityNotConfirmed = 'eligibility-not-confirmed', // eligibility check was done and the patient's insurance info was deemed not eligible
+}
+
+export interface InsurancePriorityChanges {
+  primaryBecameSecondary: boolean;
+  secondaryBecamePrimary: boolean;
 }

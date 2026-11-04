@@ -1,11 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  getInvoiceConfig,
-  InvoiceConfigResponse,
-  saveInvoiceConfig,
-  SaveInvoiceConfigInput,
-} from './invoice-config.api';
+import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
+import { getInvoiceConfig, saveInvoiceConfig } from './invoice-config.api';
 
 const INVOICE_CONFIG_QUERY_KEY = ['invoice-config'];
 

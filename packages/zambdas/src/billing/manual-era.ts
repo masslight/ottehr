@@ -129,7 +129,7 @@ export function parsePatientName(text: string): HumanName {
   return { text: trimmed, family: lastPart || trimmed, ...(given.length ? { given } : {}) };
 }
 
-function patientNameText(patient: Patient | undefined): string | undefined {
+export function patientNameText(patient: Patient | undefined): string | undefined {
   const name = patient?.name?.[0];
   if (!name) return undefined;
   return name.text ?? ([...(name.given ?? []), name.family].filter(Boolean).join(' ') || undefined);

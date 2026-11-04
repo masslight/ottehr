@@ -123,6 +123,7 @@ module "ottehr_apps" {
     PATIENT_APP_URL                  = var.patient_portal_domain == null ? one(module.infra[*].patient_portal_domain) == null ? "http://localhost:3002" : "https://${one(module.infra[*].patient_portal_domain)}" : "https://${var.patient_portal_domain}"
     STRIPE_PUBLIC_KEY                = module.oystehr.stripe_public_key
     DYNAMSOFT_LICENSE_KEY            = module.oystehr.DYNAMSOFT_LICENSE_KEY
+    BILLING_INTEGRATION              = module.oystehr.BILLING_INTEGRATION
     SENTRY_AUTH_TOKEN                = module.oystehr.sentry_auth_token
     SENTRY_ORG                       = module.oystehr.sentry_org
     SENTRY_PROJECT                   = module.oystehr.sentry_apps_project

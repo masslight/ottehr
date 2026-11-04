@@ -104,6 +104,22 @@ const claimColumns: GridColDef[] = [
     headerAlign: 'right',
     valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
+  {
+    field: 'writeOffsTotal',
+    headerName: 'Write-offs',
+    width: 110,
+    align: 'right',
+    headerAlign: 'right',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  },
+  {
+    field: 'claimBalance',
+    headerName: 'Balance',
+    width: 110,
+    align: 'right',
+    headerAlign: 'right',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  },
 ];
 
 export default function PatientDetail(): ReactElement {
@@ -407,6 +423,7 @@ export function CoverageCard({
       <Row label="Payer" value={coverage.payorName} />
       <Row label="Payer ID" value={coverage.payorId} />
       <Row label="Member ID" value={coverage.memberId ?? coverage.subscriberId} />
+      <Row label="Group Number" value={coverage.groupNumber} />
       {coverage.planType ? <Row label="Plan type" value={planTypeLabel(coverage.planType)} /> : <></>}
       <Row label="Relationship to insured" value={coverage.relationship ?? ''} hideBorder={!policyHolderName} />
       {policyHolderName && <Row label="Policy holder" value={policyHolderName} hideBorder />}

@@ -339,6 +339,9 @@ export function getLastName(
   return individual?.name?.[0]?.family;
 }
 
+export const getMergedIntoPatientReference = (patient: Patient): string | undefined =>
+  patient.active === false ? patient.link?.find((link) => link.type === 'replaced-by')?.other?.reference : undefined;
+
 export function getNickname(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
   return individual.name?.[1]?.given?.[0];
 }

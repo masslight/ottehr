@@ -138,6 +138,36 @@ describe('choice items', () => {
   });
 });
 
+describe('choice items with coded answer options', () => {
+  const cut = item({
+    linkId: 'q1',
+    type: 'choice',
+    required: true,
+    answerOption: [{ valueCoding: { code: '0', display: 'No' } }, { valueCoding: { code: '1', display: 'Yes' } }],
+  });
+
+  it('accepts a valueCoding whose code is a listed option', async () => {
+    await expect(
+      validatePage([cut], answered('q1', [{ valueCoding: { code: '1', display: 'Yes' } }]))
+    ).resolves.toBeDefined();
+  });
+
+  it('rejects a code that is not a listed option', async () => {
+    await expect(
+      validatePage([cut], answered('q1', [{ valueCoding: { code: '7', display: 'Maybe' } }]))
+    ).rejects.toThrow(/must be one of the provided answer options/);
+  });
+
+  it('rejects a plain valueString for a coded choice', async () => {
+    await expect(validatePage([cut], answered('q1', [{ valueString: 'Yes' }]))).rejects.toBeDefined();
+  });
+
+  it('rejects a missing required choice, and accepts a missing optional one', async () => {
+    await expect(validatePage([cut], {})).rejects.toBeDefined();
+    await expect(validatePage([{ ...cut, required: false }], {})).resolves.toBeDefined();
+  });
+});
+
 describe('dynamic answer options', () => {
   it('a value-set-backed choice accepts any string (options resolve at runtime)', async () => {
     const dynamicChoice = item({

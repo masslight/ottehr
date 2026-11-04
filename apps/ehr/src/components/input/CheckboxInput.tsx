@@ -23,7 +23,7 @@ export const CheckboxInput: React.FC<Props> = ({ name, label, required, validate
         <Box sx={{ width: '100%' }}>
           <Stack direction="row" alignItems="center">
             <Checkbox
-              checked={field.value}
+              checked={field.value ?? false}
               onChange={(event) => field.onChange(event.target.checked)}
               data-testid={dataTestId}
               disabled={disabled}

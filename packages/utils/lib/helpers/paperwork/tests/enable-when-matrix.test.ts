@@ -8,7 +8,7 @@ import {
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir/constants';
 import { IntakeQuestionnaireItem } from '../../../types/data/paperwork/paperwork.types';
-import { mapQuestionnaireAndValueSetsToItemsList, structureExtension } from '../paperwork';
+import { mapQuestionnaireAndValueSetsToItemsList, pickAnyValueFromAnswerItem, structureExtension } from '../paperwork';
 import { evalEnableWhen, evalRequired } from '../validation';
 
 /**
@@ -216,6 +216,21 @@ describe('evalEnableWhen operator matrix', () => {
       expect(evalDependent(enableWhen, valuesFor({ [TRIGGER.string]: [{ valueString: 'foo' }] }))).toBe(true);
       expect(evalDependent(enableWhen, valuesFor({ [TRIGGER.string]: undefined }))).toBe(false);
     });
+
+    // exists reads whichever value[x] the answer is stored in, not just valueString/valueBoolean
+    const existsAnswers: [string, string, NonNullable<AnswerList>][] = [
+      ['a coded choice', TRIGGER.choice, [{ valueCoding: { code: '1', display: 'Yes' } }]],
+      ['a reference', TRIGGER.openChoice, [{ valueReference: { reference: 'Practitioner/123' } }]],
+      ['an integer of 0', TRIGGER.string, [{ valueInteger: 0 }]],
+    ];
+    for (const [label, question, response] of existsAnswers) {
+      it(`exists true matches ${label} answer, and exists false rejects it`, () => {
+        const existsTrue = [{ question, operator: 'exists', answerBoolean: true } as QuestionnaireItemEnableWhen];
+        const existsFalse = [{ question, operator: 'exists', answerBoolean: false } as QuestionnaireItemEnableWhen];
+        expect(evalDependent(existsTrue, valuesFor({ [question]: response }))).toBe(true);
+        expect(evalDependent(existsFalse, valuesFor({ [question]: response }))).toBe(false);
+      });
+    }
 
     it('throws on a comparison operator when a string answer is present', () => {
       const enableWhen = [
@@ -560,5 +575,48 @@ describe('evalRequired', () => {
       answerInteger: undefined,
       answerDate: undefined,
     });
+  });
+});
+
+describe('pickAnyValueFromAnswerItem', () => {
+  const withAnswer = (answer: AnswerList): QuestionnaireResponseItem => ({ linkId: 'q', answer });
+
+  it('returns the value whichever value[x] it is stored in', () => {
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueString: 'foo' }]))).toBe('foo');
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueBoolean: true }]))).toBe(true);
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueInteger: 3 }]))).toBe(3);
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueDecimal: 3.5 }]))).toBe(3.5);
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueDate: '2026-01-02' }]))).toBe('2026-01-02');
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueCoding: { code: '1', display: 'Yes' } }]))).toEqual({
+      code: '1',
+      display: 'Yes',
+    });
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueReference: { reference: 'Practitioner/123' } }]))).toEqual({
+      reference: 'Practitioner/123',
+    });
+  });
+
+  it('returns falsy values as they are, so they still count as answered', () => {
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueBoolean: false }]))).toBe(false);
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueInteger: 0 }]))).toBe(0);
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueString: '' }]))).toBe('');
+  });
+
+  it('reads only the first answer', () => {
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ valueString: 'first' }, { valueString: 'second' }]))).toBe('first');
+  });
+
+  it('skips keys that are not a value[x]', () => {
+    const answer = { id: 'a1', extension: [{ url: 'https://example.com/ext', valueString: 'x' }], valueInteger: 7 };
+    expect(pickAnyValueFromAnswerItem(withAnswer([answer]))).toBe(7);
+  });
+
+  it('returns undefined when there is no value to pick', () => {
+    expect(pickAnyValueFromAnswerItem(undefined)).toBeUndefined();
+    expect(pickAnyValueFromAnswerItem({ linkId: 'q' })).toBeUndefined();
+    expect(pickAnyValueFromAnswerItem(withAnswer([]))).toBeUndefined();
+    expect(pickAnyValueFromAnswerItem(withAnswer([{ id: 'a1' }]))).toBeUndefined();
+    // form state can hold an empty `answer: [null]` for an item that was never answered
+    expect(pickAnyValueFromAnswerItem(withAnswer([null as never]))).toBeUndefined();
   });
 });

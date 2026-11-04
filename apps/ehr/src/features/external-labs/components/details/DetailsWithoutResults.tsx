@@ -1,4 +1,4 @@
-import { Alert, Button, Grid, Stack, Typography } from '@mui/material';
+import { Alert, Button, Chip, Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
@@ -35,6 +35,7 @@ export const DetailsWithoutResults: React.FC<{
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold', mr: 1 }}>
               {labOrder.isPSC ? PSC_LOCALE : ''}
             </Typography>
+            {labOrder.isStat && <Chip size="small" color="error" variant="outlined" label="STAT" />}
           </Grid>
           <Grid item>
             <LabsOrderStatusChip status={labOrder.orderStatus} />

@@ -2,6 +2,11 @@ import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ADHOC_BILLING_DATASET_TASK_CODE,
+  ADHOC_REPORT_OUTPUT_URL_CODE,
+  ADHOC_REPORT_TASK_SYSTEM,
+} from 'utils/lib/types/adhoc/generation/report-task';
+import {
   EXPORT_CSV_OUTPUT_URL_CODE,
   EXPORT_FILE_CLEANED_TAG,
   EXPORT_TASK_SYSTEM,
@@ -82,17 +87,27 @@ const finishedTask = (id: string, lastUpdated: string, objectPath?: string): Tas
       : undefined,
   }) as Task;
 
-const stubTasks = (tasks: Task[]): void => {
-  mockOystehrClient.fhir.search.mockResolvedValue({
-    unbundle: () => tasks,
+const CLAIM_EXPORT_CODE = `${EXPORT_TASK_SYSTEM}|${EXPORT_CLAIMS_CSV_TASK_CODE}`;
+const ADHOC_DATASET_CODE = `${ADHOC_REPORT_TASK_SYSTEM}|${ADHOC_BILLING_DATASET_TASK_CODE}`;
+
+const searchedCode = (args: { params: { name: string; value: string }[] }): string | undefined =>
+  args.params.find((param) => param.name === 'code')?.value;
+
+// The cron searches each Task kind it cleans by its code; answer each kind with its own tasks.
+const stubTasks = (tasks: Task[], adHocTasks: Task[] = []): void => {
+  mockOystehrClient.fhir.search.mockImplementation(async (args) => {
+    const found = searchedCode(args) === ADHOC_DATASET_CODE ? adHocTasks : tasks;
+    return {
+      unbundle: () => found,
+    };
   });
 };
 
 const stubTaskPages = (pages: Task[][]): void => {
   const total = pages.flat().length;
   const queue = [...pages];
-  mockOystehrClient.fhir.search.mockImplementation(async () => {
-    const page = queue.shift() ?? [];
+  mockOystehrClient.fhir.search.mockImplementation(async (args) => {
+    const page = searchedCode(args) === CLAIM_EXPORT_CODE ? queue.shift() ?? [] : [];
     return {
       total,
       entry: page.map((task) => ({
@@ -248,5 +263,55 @@ describe('cleanup-billing-claim-exports', () => {
     expect(JSON.parse(result.body).deletedFiles).toBe(1);
     expect(mockOystehrClient.fhir.patch).toHaveBeenCalledTimes(1);
     expect(mockOystehrClient.fhir.patch.mock.calls[0][0].id).toBe('task-2');
+  });
+
+  describe('ad-hoc billing dataset files', () => {
+    const adHocTask = (id: string, lastUpdated: string): Task => ({
+      ...finishedTask(id, lastUpdated),
+      output: [
+        {
+          type: { coding: [{ system: ADHOC_REPORT_TASK_SYSTEM, code: ADHOC_REPORT_OUTPUT_URL_CODE }] },
+          valueString: `https://api.example.com/z3/${BUCKET_NAME}/adhoc-billing-dataset-${id}.json`,
+        },
+      ],
+    });
+
+    it('also searches finished ad-hoc billing dataset tasks', async () => {
+      stubTasks([]);
+
+      await handler(makeInput());
+
+      const codes = mockOystehrClient.fhir.search.mock.calls.map(([args]) => searchedCode(args));
+      expect(codes).toEqual([CLAIM_EXPORT_CODE, ADHOC_DATASET_CODE]);
+    });
+
+    it('deletes a dataset file an hour after its task finished, and counts it with the CSVs', async () => {
+      stubTasks(
+        [finishedTask('task-1', minutesAgo(30), 'billing-claims-export-task-1.csv')],
+        [adHocTask('task-2', minutesAgo(61))]
+      );
+
+      const result = await handler(makeInput());
+
+      expect(mockOystehrClient.z3.deleteObject).toHaveBeenCalledWith({
+        bucketName: BUCKET_NAME,
+        'objectPath+': 'adhoc-billing-dataset-task-2.json',
+      });
+      expect(mockOystehrClient.fhir.patch).toHaveBeenCalledWith({
+        resourceType: 'Task',
+        id: 'task-2',
+        operations: [{ op: 'remove', path: '/output/0' }, cleanedTagOperation],
+      });
+      expect(JSON.parse(result.body).deletedFiles).toBe(2);
+    });
+
+    it('leaves a dataset file the report page may still be downloading', async () => {
+      stubTasks([], [adHocTask('task-2', minutesAgo(30))]);
+
+      const result = await handler(makeInput());
+
+      expect(mockOystehrClient.z3.deleteObject).not.toHaveBeenCalled();
+      expect(JSON.parse(result.body).deletedFiles).toBe(0);
+    });
   });
 });

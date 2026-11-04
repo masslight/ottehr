@@ -2,7 +2,6 @@ import {
   Add as AddIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
-  DeleteForever as DeleteForeverIcon,
   Download as DownloadIcon,
   EditOutlined as EditOutlinedIcon,
   MoreVert as MoreVertIcon,
@@ -43,6 +42,7 @@ import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { formatDateTime } from '../../utils/format';
+import { DeleteDialog } from '../DeleteDialog';
 import { DropzoneField } from '../DropzoneField';
 import { ReadOnlySection, thSx } from '../ReadOnlySection';
 
@@ -113,7 +113,6 @@ export function AttachmentsSection({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [renaming, setRenaming] = useState<AttachmentRow | null>(null);
   const [deleting, setDeleting] = useState<AttachmentRow | null>(null);
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [menu, setMenu] = useState<{ anchor: HTMLElement; row: AttachmentRow } | null>(null);
 
@@ -190,16 +189,7 @@ export function AttachmentsSection({
 
   const handleDelete = async (): Promise<void> => {
     if (!onDelete || !deleting) return;
-    setDeleteSubmitting(true);
-    try {
-      setSubmitError('');
-      await onDelete(deleting.id);
-      closeDeleteDialog();
-    } catch (err) {
-      setSubmitError(getApiError({ error: err, defaultError: 'Failed to delete attachment' }));
-    } finally {
-      setDeleteSubmitting(false);
-    }
+    await onDelete(deleting.id);
   };
 
   // The tab opens within the click itself: one opened only once the URL comes back counts as a popup,
@@ -452,37 +442,13 @@ export function AttachmentsSection({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!deleting} onClose={closeDeleteDialog} maxWidth="sm" fullWidth>
-        <DialogTitle
-          sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-        >
-          <Typography component="span" variant="h5">
-            Delete Attachment
-          </Typography>
-          <IconButton size="small" onClick={closeDeleteDialog} aria-label="Close">
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          {submitError && (
-            <Alert severity="error" sx={{ mb: 1 }}>
-              {submitError}
-            </Alert>
-          )}
-          Are you sure you want to delete "{deleting?.fileName}"? This cannot be undone.
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDeleteDialog}>Cancel</Button>
-          <Button
-            variant="contained"
-            startIcon={deleteSubmitting ? <CircularProgress size={14} /> : <DeleteForeverIcon fontSize="small" />}
-            onClick={handleDelete}
-            disabled={deleteSubmitting}
-          >
-            {deleteSubmitting ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <DeleteDialog
+        open={!!deleting}
+        title="Delete Attachment"
+        message={`Are you sure you want to delete "${deleting?.fileName}"? This cannot be undone.`}
+        onClose={closeDeleteDialog}
+        onDelete={handleDelete}
+      />
     </>
   );
 }

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Patient } from 'fhir/r4b';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,6 +23,7 @@ vi.mock('../../src/shared/fax/build-fax-packet', async (importOriginal) => ({
 import { resolveFaxPacketPlan } from '../../src/shared/fax/resolve-fax-source';
 
 const PATIENT_ID = 'patient-1';
+const MAY = { from: '2026-05-01T00:00:00.000Z', to: '2026-05-31T23:59:59.999Z' };
 
 const patient: Patient = {
   resourceType: 'Patient',
@@ -57,6 +59,8 @@ const docRef = (id: string, url: string, over: Partial<DocumentReference> = {}):
 });
 
 let searchResults: unknown[] = [];
+let visitSearchResults: unknown[] = [];
+let encounterSearchResults: unknown[] = [];
 let documentsById: Record<string, DocumentReference> = {};
 
 const oystehr = {
@@ -64,7 +68,17 @@ const oystehr = {
     get: vi.fn(({ resourceType, id }: { resourceType: string; id: string }) =>
       Promise.resolve(resourceType === 'Patient' ? patient : documentsById[id])
     ),
-    search: vi.fn(() => Promise.resolve({ unbundle: () => searchResults, link: [] } as unknown as never)),
+    search: vi.fn(({ resourceType }: { resourceType: string }) =>
+      Promise.resolve({
+        unbundle: () =>
+          resourceType === 'Appointment'
+            ? visitSearchResults
+            : resourceType === 'Encounter'
+            ? encounterSearchResults
+            : searchResults,
+        link: [],
+      } as unknown as never)
+    ),
   },
 } as unknown as Oystehr;
 
@@ -75,6 +89,8 @@ describe('resolveFaxPacketPlan', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchResults = [];
+    visitSearchResults = [];
+    encounterSearchResults = [];
     documentsById = {};
     mockGetAppointmentAndRelatedResources.mockImplementation((_oystehr, appointmentId: string) =>
       Promise.resolve(visitResources(appointmentId))
@@ -220,7 +236,7 @@ describe('resolveFaxPacketPlan', () => {
       }),
     ];
 
-    const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID });
+    const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID, dateRange: MAY });
 
     expect(plan.sourceType).toBe('medical-record');
     expect(plan.sections[0].subject).toMatchObject({ visitTypeLabel: 'Medical Record', patientId: PATIENT_ID });
@@ -232,6 +248,73 @@ describe('resolveFaxPacketPlan', () => {
     ]);
   });
 
+  it('faxes only the documents inside the requested date range, placing visit paperwork on its visit', async () => {
+    searchResults = [
+      docRef('doc-1', 'https://z3.example/doc-1.pdf'),
+      docRef('doc-2', 'https://z3.example/doc-2.pdf'),
+      docRef('doc-3', 'https://z3.example/doc-3.pdf'),
+      docRef('doc-4', 'https://z3.example/paperwork.pdf', {
+        context: { related: [{ reference: 'Appointment/appointment-may-2' }] },
+      }),
+    ];
+    visitSearchResults = [{ resourceType: 'Appointment', id: 'appointment-may-2', start: '2026-05-02T15:00:00.000Z' }];
+
+    await resolve({
+      type: 'medical-record',
+      patientId: PATIENT_ID,
+      dateRange: { from: '2026-05-02T00:00:00.000Z', to: '2026-05-02T23:59:59.999Z' },
+    });
+
+    expect(mockBuildFaxPacketSection.mock.calls[0][0].parts.map((part: any) => part.z3Url)).toEqual([
+      'https://z3.example/doc-2.pdf',
+      'https://z3.example/paperwork.pdf',
+    ]);
+  });
+
+  it("faxes a follow-up's documents with the follow-up's month, not the main visit's", async () => {
+    searchResults = [
+      docRef('doc-1', 'https://z3.example/main.pdf', {
+        context: {
+          related: [{ reference: 'Appointment/appointment-main' }],
+          encounter: [{ reference: 'Encounter/encounter-main' }],
+        },
+      }),
+      docRef('doc-2', 'https://z3.example/follow-up.pdf', {
+        context: { encounter: [{ reference: 'Encounter/encounter-follow-up' }] },
+      }),
+    ];
+    visitSearchResults = [{ resourceType: 'Appointment', id: 'appointment-main', start: '2026-09-14T14:00:00.000Z' }];
+    encounterSearchResults = [
+      {
+        resourceType: 'Encounter',
+        id: 'encounter-main',
+        status: 'finished',
+        class: { code: 'AMB' },
+        appointment: [{ reference: 'Appointment/appointment-main' }],
+      },
+      {
+        resourceType: 'Encounter',
+        id: 'encounter-follow-up',
+        status: 'finished',
+        class: { code: 'VR' },
+        type: buildFollowupEncounterType('annotation'),
+        partOf: { reference: 'Encounter/encounter-main' },
+        appointment: [{ reference: 'Appointment/appointment-main' }],
+        period: { start: '2026-10-23T15:00:00.000Z' },
+      },
+    ];
+
+    await resolve({
+      type: 'medical-record',
+      patientId: PATIENT_ID,
+      dateRange: { from: '2026-10-01T00:00:00.000-04:00', to: '2026-10-31T23:59:59.999-04:00' },
+    });
+
+    expect(mockBuildFaxPacketSection.mock.calls[0][0].parts.map((part: any) => part.z3Url)).toEqual([
+      'https://z3.example/follow-up.pdf',
+    ]);
+  });
+
   it('preserves the content type needed to render image documents', async () => {
     searchResults = [
       docRef('doc-1', 'https://z3.example/photo.png', {
@@ -239,7 +322,7 @@ describe('resolveFaxPacketPlan', () => {
       }),
     ];
 
-    await resolve({ type: 'medical-record', patientId: PATIENT_ID });
+    await resolve({ type: 'medical-record', patientId: PATIENT_ID, dateRange: MAY });
 
     expect(mockBuildFaxPacketSection.mock.calls[0][0].parts[0]).toMatchObject({
       z3Url: 'https://z3.example/photo.png',
@@ -282,7 +365,7 @@ describe('resolveFaxPacketPlan', () => {
   it('produces no sections when the patient has nothing faxable', async () => {
     searchResults = [docRef('doc-1', 'https://z3.example/medical_record.zip')];
 
-    const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID });
+    const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID, dateRange: MAY });
 
     expect(plan.sections).toHaveLength(0);
   });

@@ -1,6 +1,7 @@
 import {
   formatInfusionTimeRange,
   formatStructuredFacts,
+  performerTypeDisplayLabel,
   repairDepthDisplayLabel,
 } from 'utils/lib/procedure-coding/format';
 import { TemplateCptCodeInfo, TemplateProcedurePlan } from 'utils/lib/types/data/admin-template.types';
@@ -29,7 +30,7 @@ export interface ProcedureDisplayField {
 export const getProcedureDisplayFields = (plan: TemplateProcedurePlan): ProcedureDisplayField[] => {
   const yesNo = (v: boolean | undefined): string | undefined => (v === undefined ? undefined : v ? 'Yes' : 'No');
   return [
-    { label: 'Performer type', value: plan.performerType ?? '' },
+    { label: 'Performer type', value: plan.performerType != null ? performerTypeDisplayLabel(plan.performerType) : '' },
     { label: 'Body site', value: plan.bodySite ?? '' },
     { label: 'Body side', value: plan.bodySide ?? '' },
     {

@@ -1,7 +1,14 @@
 import { Address, Task } from 'fhir/r4b';
+import type { BillingInvoiceKind } from '../../../fhir/billing-invoice';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
-import type { EraClaimStatusCode, EraSource, X12AdjustmentGroupCode } from './billing.constants';
+import type {
+  BillingInvoiceListStatus,
+  EraClaimStatusCode,
+  EraSource,
+  EraStatus,
+  X12AdjustmentGroupCode,
+} from './billing.constants';
 import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
@@ -86,6 +93,7 @@ export interface BillingCoverageOption {
   planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
+  groupNumber?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
 }
 
@@ -298,6 +306,7 @@ export interface SaveManualEraResponse {
 export interface EraDetailResponse {
   id: string;
   source: EraSource;
+  status: EraStatus;
   // PaymentReconciliation version, sent back when saving a manual ERA so stale edits are refused
   versionId: string;
   checkNumber: string;
@@ -345,6 +354,7 @@ export interface BillingClaimItem {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   claimBalance: number;
   adjudicated: boolean;
   responsibleParty: string;
@@ -387,6 +397,8 @@ export interface PatientDetailResponse {
     | 'insurancePaid'
     | 'patientResp'
     | 'patientPaid'
+    | 'writeOffsTotal'
+    | 'claimBalance'
   >[];
 }
 
@@ -408,6 +420,21 @@ export interface ClaimPatientPayment {
   status: string;
 }
 
+export interface ClaimWriteOff {
+  id: string;
+  date: string;
+  amount: number;
+  party: string;
+  payer?: string;
+  reason: string;
+  note: string;
+  status: string;
+  voidDate?: string;
+  voidReason?: string;
+  voidNote?: string;
+  voidActor?: string;
+}
+
 // One ERA payment (PaymentReconciliation) behind a claim's remits.
 export interface ClaimInsurancePayment {
   paymentReconciliationId: string;
@@ -419,6 +446,8 @@ export interface ClaimInsurancePayment {
   // the whole check's amount, not this claim's share (that's the remit's paid)
   paymentAmount: number;
   payerName: string;
+  // CLP07/ICN from this claim's remit on the ERA; '' when the converter stamps none
+  payerClaimControlNumber: string;
 }
 
 // One ERA adjudication (ClaimResponse) posted against a claim.
@@ -461,6 +490,7 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
+  dos: string;
   service?: string;
   patientName: string;
   patientDob: string;
@@ -480,7 +510,9 @@ export interface ClaimDetailResponse {
   payorFhirId: string;
   payerName: string;
   payerId: string;
+  payerClaimControlNumber?: string;
   memberId: string;
+  groupNumber?: string;
   subscriberId: string;
   planType: string;
   relationship: SubscriberRelationship;
@@ -490,14 +522,20 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  secondaryGroupNumber?: string;
+  secondaryPayerClaimControlNumber?: string;
   tertiaryCoverageFhirId: string;
   tertiaryPayerName: string;
   tertiaryPayerId: string;
   tertiaryMemberId: string;
+  tertiaryGroupNumber?: string;
+  tertiaryPayerClaimControlNumber?: string;
   quaternaryCoverageFhirId: string;
   quaternaryPayerName: string;
   quaternaryPayerId: string;
   quaternaryMemberId: string;
+  quaternaryGroupNumber?: string;
+  quaternaryPayerClaimControlNumber?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
@@ -544,6 +582,7 @@ export interface ClaimDetailResponse {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
   // when Oystehr first sent the claim to the payer; '' when it was never submitted from Ottehr
@@ -572,7 +611,7 @@ export interface ClaimDetailResponse {
   accidentState: string;
   accidentDate: string;
   attachments: ClaimAttachment[];
-  payerClaimControlNumber?: string;
+  writeOffs: ClaimWriteOff[];
 }
 
 interface Paginated {
@@ -1120,13 +1159,57 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
-export interface RecordBillingRefundResponse {
-  billingNoticesStamped: number;
-  candidRefundsRecorded: number;
+export interface BillingInvoiceListItem {
+  id: string;
+  status: BillingInvoiceListStatus;
+  // FHIR Invoice.date as an ISO timestamp.
+  issueDate: string;
+  dueDate: string;
+  amount: number;
+  patientName?: string;
+  claimId?: string;
+  serviceDate?: string;
+  hostedInvoiceUrl?: string;
+  kind?: BillingInvoiceKind;
+  number?: string;
+  recipient?: {
+    id: string;
+    name: string;
+  };
+  balance?: number;
+  pastDue?: boolean;
 }
 
-export interface RecordBillingVoidResponse {
-  billingNoticesVoided: number;
+export interface SearchBillingInvoicesResponse extends Paginated {
+  invoices: BillingInvoiceListItem[];
+}
+
+export interface BillingInvoiceClaimLine {
+  claimId: string;
+  patientId: string;
+  patientName: string;
+  serviceDate: string;
+  arStage: string;
+  status: string;
+  amount: number;
+}
+
+export interface BillingInvoicePayment {
+  paymentNoticeId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  reference?: string;
+}
+
+export interface BillingInvoiceDetail extends BillingInvoiceListItem {
+  claims: BillingInvoiceClaimLine[];
+  payments: BillingInvoicePayment[];
+  pdfUrl?: string;
+}
+
+export interface IssueBillingInvoiceNumberResponse {
+  invoiceNumber: string;
 }
 
 export interface AddClaimAttachmentResponse {

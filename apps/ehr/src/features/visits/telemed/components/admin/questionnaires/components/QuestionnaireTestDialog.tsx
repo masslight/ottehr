@@ -1,24 +1,20 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton } from '@mui/material';
 import { Questionnaire } from 'fhir/r4b';
-import { FC, useCallback, useState } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
+import { countPreviewPages } from '../questionnaire-utils';
 import { QuestionnairePreview } from './QuestionnairePreview';
 
 interface QuestionnaireTestDialogProps {
   open: boolean;
   onClose: () => void;
   questionnaire: Questionnaire;
-  totalPages: number;
 }
 
-export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({
-  open,
-  onClose,
-  questionnaire,
-  totalPages,
-}) => {
+export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open, onClose, questionnaire }) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [completed, setCompleted] = useState(false);
+  const totalPages = useMemo(() => countPreviewPages(questionnaire), [questionnaire]);
 
   const handleClose = useCallback(() => {
     setCurrentPageIndex(0);

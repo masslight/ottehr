@@ -13,11 +13,13 @@ import { composeAllergies, createAllergiesSection } from './sections/visit-note/
 import { composeAssessment, createAssessmentSection } from './sections/visit-note/assessment';
 import { composeChiefComplaint, createChiefComplaintSection } from './sections/visit-note/chiefComplaint';
 import { composeCptCodes, createCptCodesSection } from './sections/visit-note/cptCodes';
+import { composeDmeOrders, createDmeOrdersSection } from './sections/visit-note/dme';
 import { composeEmCode, createEmCodeSection } from './sections/visit-note/emCode';
 import { composeEncounterData } from './sections/visit-note/encounterInfo';
 import { composeExamination, createExaminationSection } from './sections/visit-note/examination';
 import { composeExternalLabs, createExternalLabsSection } from './sections/visit-note/externalLabsInfo';
 import { composeFollowupCompleted, createFollowupCompletedSection } from './sections/visit-note/followupCompleted';
+import { composeFormResponses, createQuestionnairesSection } from './sections/visit-note/formResponses';
 import {
   composeHistoryOfPresentIllness,
   createHistoryOfPresentIllnessSection,
@@ -113,7 +115,9 @@ export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNo
     }),
     screening: composeAdditionalQuestions({
       allChartData,
+      formResponses: input.formResponses,
     }),
+    questionnaires: { forms: composeFormResponses(input.formResponses, 'questionnaires') },
     intakeNotes: composeIntakeNotes({
       allChartData,
     }),
@@ -145,6 +149,7 @@ export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNo
       allChartData,
       appointmentPackage,
     }),
+    dmeOrders: composeDmeOrders({ dmeOrders: input.dmeOrders }),
     prescriptions: composePrescriptions({
       allChartData,
       erxPharmacies: input.erxPharmacies,
@@ -342,6 +347,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createExternalLabsSection(),
     createRadiologySection(),
     createAdditionalQuestionsSection(),
+    createQuestionnairesSection(),
     createIntakeNotesSection(),
     createVitalsSection(),
     createExaminationSection(),
@@ -350,6 +356,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createEmCodeSection(),
     createCptCodesSection(),
     createProceduresSection(),
+    createDmeOrdersSection(),
     createPrescriptionsSection(),
     createPlanSection(),
     createUpcomingVisitsSection(),

@@ -1,7 +1,8 @@
-import { alpha, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, useTheme } from '@mui/material';
+import { alpha, Box, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { RosCard, RosItemConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { RosCommentField } from './RosCommentField';
 import { RosSelectAllRow } from './RosSelectAllRow';
 import { RosTableRow } from './RosTableRow';
 
@@ -22,7 +23,7 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
   const theme = useTheme();
 
   const renderSystem = ([systemKey, system]: [string, RosCard]): React.ReactNode => (
-    <Paper key={systemKey} variant="outlined" sx={{ height: '100%' }}>
+    <Paper key={systemKey} variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Table size="small" sx={{ tableLayout: 'fixed' }} data-testid={dataTestIds.reviewOfSystemsPage.rosTable}>
         <TableHead>
           <TableRow
@@ -30,17 +31,6 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
               backgroundColor: alpha(theme.palette.primary.main, 0.05),
             }}
           >
-            <TableCell
-              sx={{
-                fontWeight: 500,
-                fontSize: 13,
-                py: 0.5,
-                borderBottom: '2px solid #e0e0e0',
-                color: theme.palette.primary.dark,
-              }}
-            >
-              {system.label}
-            </TableCell>
             <TableCell
               align="center"
               sx={{
@@ -59,6 +49,18 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
             >
               R
             </TableCell>
+            <TableCell
+              sx={{
+                fontWeight: 500,
+                fontSize: 13,
+                py: 0.5,
+                pl: 1,
+                borderBottom: '2px solid #e0e0e0',
+                color: theme.palette.primary.dark,
+              }}
+            >
+              {system.label}
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -68,6 +70,9 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
           ))}
         </TableBody>
       </Table>
+      <Box sx={{ p: 1 }}>
+        <RosCommentField systemKey={systemKey} systemLabel={system.label} />
+      </Box>
     </Paper>
   );
 

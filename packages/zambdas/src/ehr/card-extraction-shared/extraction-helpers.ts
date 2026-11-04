@@ -2,6 +2,8 @@ import { captureException } from '@sentry/node-core/light';
 import { Operation } from 'fast-json-patch';
 import { Extension } from 'fhir/r4b';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { assertZ3UrlInProject } from '../../shared/presigned-file-urls/helpers';
 
 /**
  * Generic helpers shared by the OCR-extraction endpoints (extract-insurance-card,
@@ -128,9 +130,11 @@ export function extractFieldsWithAllNullFold<TFields>(
 export async function downloadOcrSourceImage(input: {
   attachmentUrl: string;
   token: string;
+  secrets: Secrets | null;
   fallbackContentType: string | undefined;
 }): Promise<{ bytes: Buffer; mimeType: string }> {
-  const { attachmentUrl, token, fallbackContentType } = input;
+  const { attachmentUrl, token, secrets, fallbackContentType } = input;
+  assertZ3UrlInProject(attachmentUrl, secrets);
   const presignedUrl = await getPresignedURL(attachmentUrl, token);
   const imageResponse = await fetch(presignedUrl);
   if (!imageResponse.ok) {

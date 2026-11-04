@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { RULES_ENGINE_SUBMISSION_TYPES, RULES_ENGINE_TYPES, RulesEngineType } from './rules-engine.constants';
+import {
+  RULES_ENGINE_SUBMISSION_INSURANCES,
+  RULES_ENGINE_SUBMISSION_TYPES,
+  RULES_ENGINE_TYPES,
+  RulesEngineType,
+} from './rules-engine.constants';
 import { HOLD_TAG_NAME } from './system-tags';
 
 // ---------------------------------------------------------------------------
@@ -243,8 +248,9 @@ export const AddServiceLineInputSchema = z.object({
   serviceDate: DateValueSchema.optional(),
   // Blank/omitted behaves like 'primary' unless diagnosisPointers is set, in which case it behaves
   // like 'specific' — see effectiveDiagnosisMode(), which keeps rules saved before this field
-  // existed pointing at the same diagnoses instead of silently switching to 'primary'.
-  diagnosisMode: z.enum(DIAGNOSIS_POINTER_MODES).optional(),
+  // existed pointing at the same diagnoses instead of silently switching to 'primary'. Blank is ''
+  // when the rule builder's Diagnoses picker is cleared, as for the other optional fields.
+  diagnosisMode: z.enum(DIAGNOSIS_POINTER_MODES).optional().or(z.literal('')),
   // Comma-separated 1-based pointers into the claim's diagnosis list; only read when diagnosisMode
   // is 'specific'.
   diagnosisPointers: z.string().optional(),
@@ -257,7 +263,7 @@ export type AddServiceLineInput = z.output<typeof AddServiceLineInputSchema>;
 // (rules saved before diagnosisMode existed), 'primary' otherwise.
 export const effectiveDiagnosisMode = (
   line: Pick<AddServiceLineInput, 'diagnosisMode' | 'diagnosisPointers'>
-): DiagnosisPointerMode => line.diagnosisMode ?? (line.diagnosisPointers?.trim() ? 'specific' : 'primary');
+): DiagnosisPointerMode => line.diagnosisMode || (line.diagnosisPointers?.trim() ? 'specific' : 'primary');
 
 // --- Action ---
 export type RuleAction =
@@ -406,28 +412,35 @@ export const MAX_RUN_RULES_ENGINE_CLAIMS = 20;
 // claim's engine from its AR stage and enqueues that engine's Task; a Subscription then runs it
 // asynchronously.
 export const RunBillingRulesEngineInputSchema = z
-  .object({
-    claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
-    skipRules: z.boolean().default(false),
-    submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES).optional(),
-    payerClaimControlNumber: z.string().min(1).optional(),
-  })
+  .union([
+    z.object({
+      claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+      skipRules: z.boolean().default(false),
+      submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES),
+      submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES),
+      payerClaimControlNumber: z.string().min(1).optional(),
+    }),
+    z.object({
+      claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+      skipRules: z.boolean().default(false),
+      submissionType: z.literal('new'),
+      submissionInsurance: z.literal('primary'),
+      payerClaimControlNumber: z.string().min(1).optional(),
+    }),
+  ])
   .superRefine((data, ctx) => {
-    if (!data.skipRules && data.submissionType && data.submissionType !== 'new') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['submissionType'],
-        message: `"submissionType" must be "new" when "skipRules" is "false"`,
-      });
-    }
-    if (data.submissionType === 'new' && data.payerClaimControlNumber) {
+    if ('submissionType' in data && data.submissionType === 'new' && data.payerClaimControlNumber) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['payerClaimControlNumber'],
         message: `"payerClaimControlNumber" must not be present when "submissionType" is "new"`,
       });
     }
-    if ((data.submissionType === 'correction' || data.submissionType === 'void') && !data.payerClaimControlNumber) {
+    if (
+      'submissionType' in data &&
+      (data.submissionType === 'correction' || data.submissionType === 'void') &&
+      !data.payerClaimControlNumber
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['payerClaimControlNumber'],

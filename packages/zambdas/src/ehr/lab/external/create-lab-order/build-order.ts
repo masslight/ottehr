@@ -78,6 +78,7 @@ export interface BuildExternalLabOrderRequestsInput {
   currentUserPractitioner: Practitioner;
   attendingPractitionerId: string;
   clientOrgId: string;
+  isStat: boolean;
 }
 
 /**
@@ -108,6 +109,7 @@ export async function buildExternalLabOrderRequests(
     currentUserPractitioner,
     attendingPractitionerId,
     clientOrgId,
+    isStat,
   } = input;
 
   const testsGroupedByKey = groupTestsByKey(orderableItems);
@@ -149,6 +151,7 @@ export async function buildExternalLabOrderRequests(
         clinicalInfoNoteByUser,
         selectedPaymentMethod,
         currentUserPractitioner,
+        isStat,
       });
       return requestsForThisTest;
     });

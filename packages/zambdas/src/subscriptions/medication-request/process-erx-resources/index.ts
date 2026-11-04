@@ -60,6 +60,7 @@ export function makeMedicationStatementFromErxMedicationRequest(
       id: medData?.code,
       intakeInfo: {
         dose: quantity?.value != null ? `${quantity.value}${quantity.unit ? ` ${quantity.unit}` : ''}` : undefined,
+        refills: medicationRequest.dispenseRequest?.numberOfRepeatsAllowed,
       },
       type: 'scheduled',
       isRenewal: getBooleanExtensionValue(medicationRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),

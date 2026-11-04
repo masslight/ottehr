@@ -19,7 +19,7 @@ import { PdfInfo } from './pdf-utils';
  * `createFilesDocumentReferences` supersedes an existing current DocumentReference when it finds one
  * whose `content[0].attachment.title` equals the new file's title (and reuses it outright when both
  * title and url match). Callers must therefore pass a `pdfInfo.title` that is unique per packet —
- * `buildAndUploadPacketForRecipient` derives it from the upload filename, which carries a timestamp
+ * `uploadFaxPacket` derives it from the upload filename, which carries a timestamp
  * and a random UUID. With a unique title nothing older is ever patched to `superseded`.
  */
 export async function makeFaxPacketDocumentReference(args: {

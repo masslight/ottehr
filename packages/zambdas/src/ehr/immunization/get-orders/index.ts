@@ -29,8 +29,10 @@ import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CONTAINED_MANUFACTURER_ORG_ID,
   getContainedMedication,
+  IMMUNIZATION_ORDER_ADMINISTERED_DATETIME_EXTENSION_URL,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
   IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
+  IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL,
 } from '../common';
 
 let m2mToken: string;
@@ -122,6 +124,20 @@ export function mapMedicationAdministrationToImmunizationOrder(
     (resource) => resource.id === CONTAINED_MANUFACTURER_ORG_ID
   ) as Organization | undefined;
   const locationCoding = getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM);
+  const visGivenDate = medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
+    ?.valueDate;
+  const orderAdministeredDateTime = medicationAdministration.extension?.find(
+    (e) => e.url === IMMUNIZATION_ORDER_ADMINISTERED_DATETIME_EXTENSION_URL
+  )?.valueDateTime;
+  const orderVisGiven = medicationAdministration.extension?.some(
+    (e) => e.url === IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL && e.valueBoolean
+  );
+  const hasOrderTimeAdministrationDetails =
+    administrationCodesExtensions.length > 0 ||
+    medication?.batch != null ||
+    visGivenDate != null ||
+    orderAdministeredDateTime != null ||
+    orderVisGiven;
   return {
     id: medicationAdministration.id!,
     status: status,
@@ -156,7 +172,7 @@ export function mapMedicationAdministrationToImmunizationOrder(
       manufacturer: manufacturerOrg?.name,
     },
     administrationDetails:
-      isAdministered && medication
+      medication && (isAdministered || hasOrderTimeAdministrationDetails)
         ? {
             lot: medication.batch?.lotNumber ?? '',
             expDate: medication.batch?.expirationDate ?? '',
@@ -171,9 +187,11 @@ export function mapMedicationAdministrationToImmunizationOrder(
               .filter((c) => c.code !== ''),
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
-            administeredDateTime: medicationAdministration.effectiveDateTime ?? '',
-            visGivenDate: medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
-              ?.valueDate,
+            administeredDateTime: isAdministered
+              ? medicationAdministration.effectiveDateTime ?? ''
+              : orderAdministeredDateTime ?? '',
+            visGiven: isAdministered ? visGivenDate != null : orderVisGiven,
+            visGivenDate,
             emergencyContact: emergencyContactRelatedPerson
               ? {
                   fullName: emergencyContactRelatedPerson.name?.[0].text ?? '',

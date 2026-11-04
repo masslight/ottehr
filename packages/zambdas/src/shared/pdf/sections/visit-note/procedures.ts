@@ -1,5 +1,9 @@
 import { DateTime } from 'luxon';
-import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils/lib/procedure-coding/format';
+import {
+  formatInfusionTimeRange,
+  performerTypeDisplayLabel,
+  repairDepthDisplayLabel,
+} from 'utils/lib/procedure-coding/format';
 import { formatProcedureCptCode, formatStructuredFacts } from 'utils/lib/procedure-coding/format';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
@@ -18,9 +22,9 @@ export const composeProcedures: DataComposer<ProgressNoteVisitDataInput, Procedu
     diagnoses: procedure?.diagnoses?.map((diagnosis) => diagnosis.code + ' ' + diagnosis.display),
     procedureDateTime:
       procedure.procedureDateTime != null
-        ? DateTime.fromISO(procedure.procedureDateTime).setZone(timezone).toFormat('MM/dd/yyyy, HH:mm a')
+        ? DateTime.fromISO(procedure.procedureDateTime).setZone(timezone).toFormat('MM/dd/yyyy, hh:mm a')
         : undefined,
-    performerType: procedure.performerType,
+    performerType: procedure.performerType != null ? performerTypeDisplayLabel(procedure.performerType) : undefined,
     medicationUsed: procedure.medicationUsed,
     bodySite: procedure.bodySite,
     bodySide: procedure.bodySide,

@@ -1,7 +1,9 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { Claim, ClaimSupportingInfo, DocumentReference } from 'fhir/r4b';
+import { Claim, ClaimSupportingInfo, DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import {
   buildAttachmentDocumentReference,
   CLAIM_ATTACHMENT_PATH_PREFIX,
@@ -9,6 +11,7 @@ import {
   presignAttachment,
   resolveAttachmentContentType,
 } from './attachments';
+import { claimEventProvenanceRequest } from './provenance';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM } from './shared';
 
 const CLAIM_INFORMATION_CATEGORY_SYSTEM = 'http://terminology.hl7.org/CodeSystem/claiminformationcategory';
@@ -27,6 +30,7 @@ export async function attachClaimDocument({
   reportTypeCode,
   contentType,
   secrets,
+  agent,
 }: {
   oystehr: Oystehr;
   claim: Claim & { id: string };
@@ -35,6 +39,7 @@ export async function attachClaimDocument({
   reportTypeCode?: string;
   contentType?: string;
   secrets: Secrets;
+  agent: ProvenanceAgent;
 }): Promise<{ documentReferenceId: string; uploadUrl: string }> {
   const location = newAttachmentLocation(secrets['PROJECT_ID'], CLAIM_ATTACHMENT_PATH_PREFIX, claim.id, fileName);
   const uploadUrl = await presignAttachment(oystehr, location, 'upload');
@@ -68,8 +73,15 @@ export async function attachClaimDocument({
     contentType: resolveAttachmentContentType(fileName, contentType),
     relatedReference: `Claim/${claim.id}`,
   });
+  const provenance = claimEventProvenanceRequest({
+    targetReference: DOCUMENT_REFERENCE_PLACEHOLDER,
+    claimId: claim.id,
+    after: docRef,
+    agent,
+    activity: 'create',
+  });
 
-  const requests: BatchInputRequest<Claim | DocumentReference>[] = [
+  const requests: BatchInputRequest<FhirResource>[] = [
     {
       method: 'POST',
       url: `/DocumentReference`,
@@ -87,11 +99,20 @@ export async function attachClaimDocument({
         },
       ],
     },
+    ...(provenance ? [provenance] : []),
   ];
 
-  const result = await oystehr.fhir.transaction<Claim | DocumentReference>({ requests });
+  const result = await oystehr.fhir.transaction<FhirResource>({ requests });
   const documentReferenceId = result.unbundle().find((resource) => resource.resourceType === 'DocumentReference')?.id;
   if (!documentReferenceId) throw new Error('The claim attachment was created without an id');
 
   return { documentReferenceId, uploadUrl };
+}
+
+export function attachedClaimId(documentReference: DocumentReference): string {
+  const claimId = (documentReference.context?.related ?? [])
+    .map((related) => removePrefix('Claim/', related.reference ?? ''))
+    .find(Boolean);
+  if (!claimId) throw INVALID_INPUT_ERROR(`DocumentReference ${documentReference.id} is not attached to a claim`);
+  return claimId;
 }
