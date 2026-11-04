@@ -51,6 +51,15 @@ import {
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils/lib/types/data/screening-questions/constants';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+
+// Pin the screening-questions config to the base set so COVID questions are always
+// present regardless of which project overlay is active on disk.
+vi.mock('utils/lib/ottehr-config/screening-questions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/screening-questions')>();
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { ...original, patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
+
 import { CONTAINED_MEDICATION_ID } from '../src/ehr/immunization/common';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
