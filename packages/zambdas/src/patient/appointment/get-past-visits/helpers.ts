@@ -42,10 +42,6 @@ export async function getFhirResources(
       },
       {
         name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
-        name: '_revinclude:iterate',
         value: 'Encounter:appointment',
       },
       {
