@@ -144,7 +144,7 @@ export const createVitalsSectionForDischargeSummary = <
           },
           {
             leftBound: rightX + label2Width,
-            rightBound: rightX + label2Width + colWidth,
+            rightBound: rightX + colWidth,
           }
         );
 

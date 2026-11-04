@@ -28,7 +28,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.groupEnd();
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- finds untagged ERA resources and tags them
   const oystehr = createEraReadClient(m2mToken, secrets);
 
   console.group('complexValidation');

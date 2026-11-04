@@ -22,6 +22,7 @@ import {
   isSyntheticFolderId,
   makeSyntheticFolderId,
 } from 'utils/lib/types/data/custom-folder.types';
+import { STATEMENT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { getFileNameFromUrl, getMimeType } from 'utils/lib/utils/file';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
@@ -149,7 +150,7 @@ export type UseGetPatientDocsReturn = {
 export const QUERY_KEYS = {
   GET_PATIENT_DOCS_FOLDERS: 'get-patient-docs-folders',
   GET_SEARCH_PATIENT_DOCUMENTS: 'get-search-patient-documents',
-  GET_VISIT_DOCUMENT_IDS: 'get-visit-document-ids',
+  GET_LISTABLE_DOCUMENT_IDS: 'get-listable-document-ids',
 };
 
 const DOCUMENT_SEARCH_PAGE_SIZE = 200;
@@ -172,6 +173,14 @@ const isHiddenDraft = (docRef: DocumentReference): boolean =>
   (docRef.meta?.tag ?? []).some(
     (tag) => tag.system === HIDE_WHILE_PRELIMINARY_TAG.system && tag.code === HIDE_WHILE_PRELIMINARY_TAG.code
   );
+
+const isStatement = (docRef: DocumentReference): boolean =>
+  (docRef.type?.coding ?? []).some((coding) => coding.code === STATEMENT_CODE);
+
+// `superseded` usually marks a stale copy (or a soft delete), but each regenerated statement is one the patient may
+// have been sent, so every statement stays listed.
+const isListableDocumentReference = (docRef: DocumentReference): boolean =>
+  (docRef.status !== 'superseded' || isStatement(docRef)) && !isHiddenDraft(docRef);
 
 /**
  * Every page of a DocumentReference search, concatenated.
@@ -268,40 +277,39 @@ const searchDocumentReferencesForVisit = async <T extends FhirResource>(
 };
 
 /**
- * Ids of every document filed against one visit, regardless of folder.
+ * Ids of every document the table can list (the patient's, or one visit's), regardless of folder.
  *
- * The folder counters come from `List.entry` lengths, which are patient-wide. When a visit filter
- * is active the sidebar has to show per-visit counts instead, and the main document search can't
- * supply them (it is itself narrowed to the selected folder). So fetch the visit's document ids
- * once and intersect them with each folder's entries.
+ * The folder `List.entry` lengths are patient-wide and also hold superseded copies, hidden drafts and
+ * deleted documents the table never shows, and the main document search can't supply counts (it is
+ * itself narrowed to the selected folder). So fetch the listable document ids once and intersect them
+ * with each folder's entries.
  *
  * Pages exhaustively — these ids drive the counters, so a truncated result silently undercounts and
- * can show 0 for a folder that holds documents. Only ids are requested (`_elements`), which keeps
- * each page cheap.
+ * can show 0 for a folder that holds documents. Only the elements the visibility check needs are
+ * requested (`_elements`), which keeps each page cheap.
  */
-const useVisitDocumentIds = (patientId: string, visit: DocumentVisitRef | undefined): Set<string> | undefined => {
+const useListableDocumentIds = (patientId: string, visit: DocumentVisitRef | undefined): Set<string> | undefined => {
   const { oystehr } = useApiClients();
-  const isVisitScoped = hasVisitRef(visit);
+  const visitRef = hasVisitRef(visit) ? visit : undefined;
 
   const { data } = useQuery({
     queryKey: [
-      QUERY_KEYS.GET_VISIT_DOCUMENT_IDS,
-      { patientId, encounterId: visit?.encounterId, appointmentId: visit?.appointmentId },
+      QUERY_KEYS.GET_LISTABLE_DOCUMENT_IDS,
+      { patientId, encounterId: visitRef?.encounterId, appointmentId: visitRef?.appointmentId },
     ],
-    enabled: !!oystehr && !!patientId && isVisitScoped,
+    enabled: !!oystehr && !!patientId,
     queryFn: async (): Promise<string[]> => {
-      if (!oystehr) throw new Error('useVisitDocumentIds() oystehr not defined');
+      if (!oystehr) throw new Error('useListableDocumentIds() oystehr not defined');
 
       const docRefs = await searchDocumentReferencesForVisit<DocumentReference>(
         oystehr,
         [
           { name: 'subject', value: `Patient/${patientId}` },
-          // Only ids are needed to intersect with folder entries, which keeps each page cheap.
-          { name: '_elements', value: 'id' },
+          { name: '_elements', value: 'id,status,docStatus,meta,type' },
         ],
-        visit,
+        visitRef,
         {
-          site: 'useVisitDocumentIds',
+          site: 'useListableDocumentIds',
           tags: {
             patientId,
             encounterId: visit?.encounterId ?? '',
@@ -310,27 +318,30 @@ const useVisitDocumentIds = (patientId: string, visit: DocumentVisitRef | undefi
         }
       );
 
-      return docRefs.map((docRef) => docRef.id).filter((id): id is string => !!id);
+      return docRefs
+        .filter(isListableDocumentReference)
+        .map((docRef) => docRef.id)
+        .filter((id): id is string => !!id);
     },
   });
 
-  return useMemo(() => (isVisitScoped && data ? new Set(data) : undefined), [isVisitScoped, data]);
+  return useMemo(() => (data ? new Set(data) : undefined), [data]);
 };
 
 /**
- * Rewrites folder counters to only count documents belonging to the given visit. Folders are kept
- * even at zero so a user can still open one and upload into it (matching the patient-level view).
+ * Rewrites folder counters to only count documents the table can list. Folders are kept even at
+ * zero so a user can still open one and upload into it.
  */
-const applyVisitCountsToFolders = (
+const applyListableCountsToFolders = (
   folders: PatientDocumentsFolder[],
-  visitDocumentIds: Set<string> | undefined
+  listableDocumentIds: Set<string> | undefined
 ): PatientDocumentsFolder[] => {
-  if (!visitDocumentIds) return folders;
+  if (!listableDocumentIds) return folders;
 
   return folders.map((folder) => {
     const documentsRefs = (folder.documentsRefs ?? []).filter((docRef) => {
       const id = removePrefix('DocumentReference/', docRef.reference?.reference ?? '');
-      return !!id && visitDocumentIds.has(id);
+      return !!id && listableDocumentIds.has(id);
     });
     return { ...folder, documentsCount: documentsRefs.length, documentsRefs };
   });
@@ -373,10 +384,10 @@ export const useGetPatientDocs = (
     }
   );
 
-  const visitDocumentIds = useVisitDocumentIds(patientId, currentFilters?.visit);
+  const listableDocumentIds = useListableDocumentIds(patientId, currentFilters?.visit);
   const visibleFolders = useMemo(
-    () => applyVisitCountsToFolders(documentsFolders, visitDocumentIds),
-    [documentsFolders, visitDocumentIds]
+    () => applyListableCountsToFolders(documentsFolders, listableDocumentIds),
+    [documentsFolders, listableDocumentIds]
   );
 
   const documentActions = usePatientDocsActions({ patientId, encounterId: options?.uploadEncounterId });
@@ -809,11 +820,7 @@ const useSearchPatientDocuments = (
       const docRefsResources =
         searchResultsResources?.filter(
           (resource: FhirResource): resource is DocumentReference =>
-            resource.resourceType === 'DocumentReference' &&
-            // `superseded` says a newer copy of this same document exists, so listing it only offers a
-            // way to open the stale one.
-            resource.status !== 'superseded' &&
-            !isHiddenDraft(resource)
+            resource.resourceType === 'DocumentReference' && isListableDocumentReference(resource)
         ) ?? [];
 
       const documents = docRefsResources.map((docRef) => createDocumentInfo(docRef));
@@ -934,7 +941,7 @@ const usePatientDocsActions = ({
             queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
           }),
           queryClient.refetchQueries({
-            queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId }],
+            queryKey: [QUERY_KEYS.GET_LISTABLE_DOCUMENT_IDS, { patientId }],
           }),
         ]);
 
@@ -972,7 +979,7 @@ const usePatientDocsActions = ({
           queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
         }),
         queryClient.refetchQueries({
-          queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId }],
+          queryKey: [QUERY_KEYS.GET_LISTABLE_DOCUMENT_IDS, { patientId }],
         }),
       ]);
     },

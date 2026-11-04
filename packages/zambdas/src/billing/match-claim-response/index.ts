@@ -16,7 +16,7 @@ import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, MATCH_FIELDS, matchFieldsPatchOperations } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient } from '../shared';
+import { createBillingClient, createEraReadClient } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'match-claim-response';
@@ -27,7 +27,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, {
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const response = await performEffect(oystehr, eraReadClient, {
     ...params,
     agent,
   });
@@ -40,6 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect(
   oystehr: Oystehr,
+  eraReadClient: Oystehr,
   params: Params & { agent: ProvenanceAgent }
 ): Promise<ClaimResponse> {
   const claim = await oystehr.fhir.get<Claim>({
@@ -50,7 +52,7 @@ export async function performEffect(
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
-  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
+  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
   const matched: ClaimResponse = {
     ...claimResponse,
     request: {

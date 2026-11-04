@@ -1,4 +1,5 @@
 import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { FaxDocumentAvailability, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -153,6 +154,70 @@ describe('get-fax-packet-preview', () => {
     });
     expect((await preview({ from: '2026-07-01T00:00:00.000Z', to: '2026-07-31T23:59:59.999Z' })).documentCount).toBe(0);
     expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+  });
+
+  it("counts a follow-up's documents in the follow-up's range rather than the main visit's", async () => {
+    const byType: Record<string, unknown[]> = {
+      DocumentReference: [
+        {
+          resourceType: 'DocumentReference',
+          id: 'main-note',
+          status: 'current',
+          date: '2026-10-05T09:00:00.000Z',
+          context: {
+            related: [{ reference: 'Appointment/appointment-main' }],
+            encounter: [{ reference: 'Encounter/encounter-main' }],
+          },
+          content: [{ attachment: { url: 'https://z3.example/main-note.pdf', contentType: 'application/pdf' } }],
+        },
+        {
+          resourceType: 'DocumentReference',
+          id: 'follow-up-note',
+          status: 'current',
+          date: '2026-11-02T09:00:00.000Z',
+          context: {
+            related: [{ reference: 'Appointment/appointment-main' }],
+            encounter: [{ reference: 'Encounter/encounter-follow-up' }],
+          },
+          content: [{ attachment: { url: 'https://z3.example/follow-up-note.pdf', contentType: 'application/pdf' } }],
+        },
+      ],
+      Appointment: [{ resourceType: 'Appointment', id: 'appointment-main', start: '2026-09-14T14:00:00.000Z' }],
+      Encounter: [
+        {
+          resourceType: 'Encounter',
+          id: 'encounter-main',
+          status: 'finished',
+          class: { code: 'AMB' },
+          appointment: [{ reference: 'Appointment/appointment-main' }],
+        },
+        {
+          resourceType: 'Encounter',
+          id: 'encounter-follow-up',
+          status: 'finished',
+          class: { code: 'VR' },
+          type: buildFollowupEncounterType('annotation'),
+          partOf: { reference: 'Encounter/encounter-main' },
+          appointment: [{ reference: 'Appointment/appointment-main' }],
+          period: { start: '2026-10-23T15:00:00.000Z' },
+        },
+      ],
+    };
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) =>
+      Promise.resolve({ unbundle: () => byType[resourceType] ?? [] })
+    );
+
+    const countWithin = async (dateRange: Record<string, string>): Promise<number | undefined> => {
+      const result: any = await (index as any)(
+        createMockZambdaInput({ medicalRecord: { patientId: PATIENT_ID, dateRange } }, { secrets: createMockSecrets() })
+      );
+      expect(result.statusCode).toBe(200);
+      return (JSON.parse(result.body) as GetFaxPacketPreviewOutput).documentCount;
+    };
+
+    expect(await countWithin({ from: '2026-10-01T00:00:00.000-04:00', to: '2026-10-31T23:59:59.999-04:00' })).toBe(1);
+    expect(await countWithin({ from: '2026-09-01T00:00:00.000-04:00', to: '2026-09-30T23:59:59.999-04:00' })).toBe(1);
+    expect(await countWithin({ from: '2026-09-01T00:00:00.000-04:00', to: '2026-10-31T23:59:59.999-04:00' })).toBe(2);
   });
 
   it('refuses a medical-record preview whose range is missing a bound', async () => {

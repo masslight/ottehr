@@ -18,7 +18,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- marks the ERA Oystehr just wrote, before sub-tag-era-resources tags it
   const eraReadClient = createEraReadClient(m2mToken, params.secrets);
 
   const response = await performEffect(oystehr, eraReadClient, params);
