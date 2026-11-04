@@ -17,6 +17,7 @@ import {
   withStripeInvoiceLink,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { fillInvoiceTemplate, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import {
@@ -188,7 +189,7 @@ async function createDraftUnlessClaimHasInvoice(
 
 // The claim points at its own copy of the service facility. The copy records which facility it came from.
 async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
-  const copyId = claim.facility?.reference?.replace('Location/', '');
+  const copyId = getIdFromReference(claim.facility?.reference, 'Location');
   return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
 }
 
