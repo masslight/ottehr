@@ -1,23 +1,23 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VaccineDetailsCard } from '../../src/features/immunization/components/VaccineDetailsCard';
 import { ImmunizationOrderCreateEdit } from '../../src/features/immunization/pages/ImmunizationOrderCreateEdit';
 
-const quickPickState = {
+const defaultQuickPickState = {
   mergedQuickPicks: [],
   mergedQuickPicksLoading: true,
   quickPickDialogOpen: false,
   setQuickPickDialogOpen: vi.fn(),
   quickPickName: '',
   setQuickPickName: vi.fn(),
-  existingQuickPicks: [],
+  existingQuickPicks: [] as { id: string; name: string }[],
   quickPickSaving: false,
-  overwriteTarget: null,
-  setOverwriteTarget: vi.fn(),
   onQuickPickSelect: vi.fn(),
   openQuickPickDialog: vi.fn(),
   onSaveAsQuickPick: vi.fn(),
 };
+const quickPickState = { ...defaultQuickPickState };
 
 const appointmentData = {
   mappedData: {},
@@ -239,5 +239,36 @@ describe('immunization quick pick loading propagation', () => {
     render(<ImmunizationOrderCreateEdit />);
 
     expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
+  });
+});
+
+describe('immunization save quick pick dialog', () => {
+  afterEach(() => {
+    Object.assign(quickPickState, defaultQuickPickState);
+  });
+
+  it.each([
+    [
+      'VaccineDetailsCard',
+      () => render(<VaccineDetailsCard order={{ id: 'order-1', administrationDetails: {} } as any} />),
+    ],
+    ['ImmunizationOrderCreateEdit', () => render(<ImmunizationOrderCreateEdit />)],
+  ])('%s uses the Add to Quick Picks dialog and confirms before replacing', async (_name, renderComponent) => {
+    const onSaveAsQuickPick = vi.fn();
+    Object.assign(quickPickState, {
+      quickPickDialogOpen: true,
+      quickPickName: 'flu shot',
+      existingQuickPicks: [{ id: 'qp-flu', name: 'Flu shot' }],
+      onSaveAsQuickPick,
+    });
+    renderComponent();
+
+    expect(screen.getByRole('combobox', { name: 'Quick Pick Name' })).toHaveValue('flu shot');
+    expect(screen.queryByText('Or overwrite an existing quick pick:')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save Quick Pick' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Replace' }));
+
+    expect(onSaveAsQuickPick).toHaveBeenCalledWith('qp-flu');
   });
 });

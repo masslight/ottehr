@@ -1,6 +1,11 @@
+import {
+  isValidSupplementalO2FlowRate,
+  SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH,
+} from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { isStructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
+import { VitalsSupplementalO2DeliveryType } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { z } from 'zod';
@@ -27,11 +32,25 @@ const procedureSchema = z
   })
   .passthrough();
 
+const supplementalO2Schema = z.object({
+  flowRate: z.number().refine(isValidSupplementalO2FlowRate, { message: 'must be a non-negative number' }).optional(),
+  deliveryType: z.nativeEnum(VitalsSupplementalO2DeliveryType).optional(),
+  deliveryTypeOther: z.string().max(SUPPLEMENTAL_O2_DELIVERY_TYPE_OTHER_MAX_LENGTH).optional(),
+});
+
+const observationSchema = z
+  .object({
+    supplementalO2: supplementalO2Schema.optional(),
+  })
+  .passthrough();
+
 const SaveChartDataBodySchema = z
   .object({
     encounterId: z.string().uuid(),
     procedures: z.array(procedureSchema).optional(),
     cleanupProcedureDiagnoses: z.boolean().optional(),
+    observations: z.array(observationSchema).optional(),
+    vitalsObservations: z.array(observationSchema).optional(),
   })
   .passthrough();
 

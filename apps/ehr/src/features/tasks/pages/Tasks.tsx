@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { Stack } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useEffect, useState } from 'react';
+import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
@@ -25,26 +25,31 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import Loading from 'src/components/Loading';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
+import { useTaskNotes } from 'src/features/patient-notes/hooks/useTaskNotes';
 import {
   formatDate,
-  OPEN_DOSESPOT,
   TASKS_PAGE_SIZE,
   useCompleteTask,
   useGetTasks,
   VIEW_FAX,
 } from 'src/features/visits/in-person/hooks/useTasks';
-import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
+import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FAX_TASK, Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
 import { MoreTaskActions } from '../components/MoreTaskActions';
+import { TaskActionButton } from '../components/TaskActionButton';
+import { TaskNotesButton } from '../components/TaskNotesButton';
+import { TaskNotesDialog } from '../components/TaskNotesDialog';
+import { TaskTitle } from '../components/TaskTitle';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
 const COMPLETED = 'completed';
+const NOTE_CREATED_PREVIEW_LENGTH = 80;
 const TASK_STATUS_LABEL: Record<string, string> = {
   ready: 'pending',
   'in-progress': 'in progress',
@@ -69,39 +74,6 @@ export const Tasks: React.FC = () => {
   const { mutateAsync: completeTask } = useCompleteTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
-  const { oystehr } = useApiClients();
-
-  const renderActionButton = (task: Task): ReactElement | null => {
-    // Completed tasks normally have no action, except read-only "View" actions (e.g. a completed
-    // inbound fax, where the PDF can still be opened) which fall through to the generic button.
-    if (task.status === COMPLETED && task.action?.name !== VIEW_FAX) {
-      return null;
-    }
-    if (task.action) {
-      if (task.action.name === OPEN_DOSESPOT) {
-        return (
-          <RoundedButton
-            variant="contained"
-            onClick={async () => {
-              if (!oystehr) {
-                return;
-              }
-              const { ssoLink } = await oystehr.erx.connectPractitioner();
-              window.open(ssoLink, '_blank');
-            }}
-          >
-            {task.action.name}
-          </RoundedButton>
-        );
-      }
-      return (
-        <RoundedButton variant="contained" onClick={() => window.open(task.action?.link, '_blank')}>
-          {task.action.name}
-        </RoundedButton>
-      );
-    }
-    return null;
-  };
 
   const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
@@ -235,6 +207,19 @@ export const Tasks: React.FC = () => {
     }
   );
 
+  const { data: taskNotes } = useTaskNotes((tasksData?.tasks ?? []).map((task) => task.id));
+  const notesByTaskId = useMemo(() => {
+    const grouped = new Map<string, NoteDTO[]>();
+    for (const note of taskNotes ?? []) {
+      if (!note.taskId) continue;
+      const notes = grouped.get(note.taskId);
+      if (notes) notes.push(note);
+      else grouped.set(note.taskId, [note]);
+    }
+    return grouped;
+  }, [taskNotes]);
+  const [notesTaskId, setNotesTaskId] = useState<string | undefined>();
+
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const onNewTaskClick = (): void => {
     setShowCreateTaskDialog(true);
@@ -339,6 +324,7 @@ export const Tasks: React.FC = () => {
                 ) : null}
                 {!isTasksLoading &&
                   (tasksData?.tasks ?? []).map((task) => {
+                    const notes = notesByTaskId.get(task.id) ?? [];
                     return (
                       <TableRow key={task.id}>
                         <TableCell>
@@ -353,17 +339,7 @@ export const Tasks: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Box>
-                            <Typography
-                              variant="body1"
-                              display="inline"
-                              style={{
-                                color: '#000000DE',
-                                fontWeight: 500,
-                                textDecoration: task.status === COMPLETED ? 'line-through' : 'none',
-                              }}
-                            >
-                              {task.title}
-                            </Typography>
+                            <TaskTitle task={task} notes={notes} onOpenNotes={() => setNotesTaskId(task.id)} />
                             {task.alert ? renderAlertIcon(task.alert) : null}
                           </Box>
                           {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
@@ -396,8 +372,14 @@ export const Tasks: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Stack direction="row" justifyContent="space-between" spacing={1}>
-                            {renderActionButton(task)}
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <TaskNotesButton
+                              task={task}
+                              notes={notes}
+                              currentUserId={currentUserProviderId}
+                              onOpenNotes={() => setNotesTaskId(task.id)}
+                            />
+                            <TaskActionButton task={task} />
                             {renderCompleteButton(task)}
                           </Stack>
                         </TableCell>
@@ -421,6 +403,18 @@ export const Tasks: React.FC = () => {
             }}
           />
         </Paper>
+        {notesTaskId ? (
+          <TaskNotesDialog
+            taskId={notesTaskId}
+            onClose={() => setNotesTaskId(undefined)}
+            onNoteCreated={(text) => {
+              setNotesTaskId((current) => (current === notesTaskId ? undefined : current));
+              const preview =
+                text.length > NOTE_CREATED_PREVIEW_LENGTH ? `${text.slice(0, NOTE_CREATED_PREVIEW_LENGTH)}…` : text;
+              enqueueSnackbar(`Note created: ${preview}`, { variant: 'success' });
+            }}
+          />
+        ) : null}
         <CreateTaskDialog
           open={showCreateTaskDialog}
           handleClose={(): void => {

@@ -129,7 +129,14 @@ export type RuleFieldValueType =
 export interface RuleFieldOption {
   value: string;
   label: string;
+  // Whether a setField action may write this value (default true). False marks a value conditions
+  // can compare against but rules cannot set — e.g. a relationship can be set to Self only.
+  settable?: boolean;
 }
+
+// The options a setField action may write: every option not marked settable: false.
+export const settableOptions = (options: RuleFieldOption[]): RuleFieldOption[] =>
+  options.filter((option) => option.settable !== false);
 
 // Value formats a text-typed field can declare. Formats with a `validate` are enforced on
 // exact-match condition values and written values (fragment operators like contains/startsWith
@@ -238,9 +245,11 @@ const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map
   label: `${option.candidCode} - ${option.label}`,
 }));
 
+// Only Self is settable: every other relationship needs a policy-holder record rules cannot create.
 const RELATIONSHIP_OPTIONS: RuleFieldOption[] = SUBSCRIBER_RELATIONSHIPS.map((relationship) => ({
   value: relationship,
   label: relationship,
+  settable: relationship === 'Self',
 }));
 
 // The patient-coverage slots (primary / secondary / workers comp on the patient's billing
@@ -466,9 +475,13 @@ const coverageFields = (
       group,
       valueType: 'select',
       operators: ENUM_OPS,
-      // Explicitly false, since this requires also mutating another resource
-      settable: false,
-      description: `The patient's relationship to the ${countingWord} policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead.`,
+      settable,
+      description:
+        `The patient's relationship to the ${countingWord} policy holder. Rules can only set it to Self, which makes ` +
+        `the patient the ${countingWord} coverage's subscriber and drops its separate policy holder (the ` +
+        `${countingWord} policy holder properties then read empty); any other relationship needs a policy-holder ` +
+        "record, which rules cannot create — edit the claim's insurance instead.",
+      requiredOnSet: true,
       options: RELATIONSHIP_OPTIONS,
     },
   ];
@@ -1293,7 +1306,7 @@ export function setFieldValueProblem(
 ): string | undefined {
   const trimmed = value?.trim() ?? '';
   if (trimmed === '') return def.requiredOnSet ? VALUE_REQUIRED_PROBLEM : undefined;
-  return strictValueProblem(def, trimmed);
+  return strictValueProblem({ ...def, options: def.options && settableOptions(def.options) }, trimmed);
 }
 
 // A service-line match value's problem — same operator-aware logic over a line property def.

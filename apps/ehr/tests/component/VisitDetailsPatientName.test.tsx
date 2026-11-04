@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
@@ -32,7 +32,8 @@ const { getPatientVisitDetailsMock, getVisitFaxHistoryMock, getAppointmentAndPat
   getAppointmentAndPatientHistoryMock: vi.fn(),
 }));
 
-vi.mock('src/api/api', () => ({
+vi.mock('src/api/api', async () => ({
+  ...(await vi.importActual<typeof import('src/api/api')>('src/api/api')),
   getPatientVisitDetails: (...args: unknown[]) => getPatientVisitDetailsMock(...args),
   updatePatientVisitDetails: vi.fn().mockResolvedValue(undefined),
   getVisitFaxHistory: (...args: unknown[]) => getVisitFaxHistoryMock(...args),
@@ -90,7 +91,14 @@ vi.mock('src/helpers/activityLogsUtils', async () => {
 });
 
 vi.mock('src/pages/PatientInformationPage', () => ({ PatientAccountComponent: () => <div /> }));
-vi.mock('src/layout/PageContainer', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
+vi.mock('src/layout/PageContainer', () => ({
+  default: ({ header, children }: { header?: ReactNode; children: ReactNode }) => (
+    <>
+      {header}
+      {children}
+    </>
+  ),
+}));
 vi.mock('src/components/CardThumbnail', () => ({ default: () => <div /> }));
 vi.mock('src/components/PatientPaymentsList', () => ({ default: () => <div /> }));
 vi.mock('src/components/AppointmentNotesHistory', () => ({ default: () => <div /> }));
@@ -155,7 +163,9 @@ describe("the patient's name on a visit details page", () => {
 
     renderPage();
 
-    expect(await screen.findByTestId(dataTestIds.appointmentPage.patientFullName)).toHaveTextContent('Patient, Test');
+    await waitFor(() =>
+      expect(screen.getByTestId(dataTestIds.patientHeader.patientName)).toHaveTextContent('Patient, Test')
+    );
   });
 
   it('renders while the activity log history is still pending after fax history loads', async () => {
@@ -163,12 +173,16 @@ describe("the patient's name on a visit details page", () => {
 
     renderPage();
 
-    expect(await screen.findByTestId(dataTestIds.appointmentPage.patientFullName)).toHaveTextContent('Patient, Test');
+    await waitFor(() =>
+      expect(screen.getByTestId(dataTestIds.patientHeader.patientName)).toHaveTextContent('Patient, Test')
+    );
   });
 
   it('renders once everything has loaded', async () => {
     renderPage();
 
-    expect(await screen.findByTestId(dataTestIds.appointmentPage.patientFullName)).toHaveTextContent('Patient, Test');
+    await waitFor(() =>
+      expect(screen.getByTestId(dataTestIds.patientHeader.patientName)).toHaveTextContent('Patient, Test')
+    );
   });
 });

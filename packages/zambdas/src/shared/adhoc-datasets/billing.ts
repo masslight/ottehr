@@ -391,7 +391,10 @@ export async function fetchAdHocBillingRows(
 
   // Pick the primary (lowest .order, else first) and secondary coverage from a patient's coverages.
   const planName = (c?: Coverage): string =>
-    c?.class?.find((cl) => cl.type?.coding?.some((t) => t.code === 'plan'))?.name || c?.class?.[0]?.name || '';
+    c?.payor?.[0]?.display ||
+    c?.class?.find((cl) => cl.type?.coding?.some((t) => t.code === 'plan'))?.name ||
+    c?.class?.[0]?.name ||
+    '';
   const SELF_PAY_TYPE_CODES = new Set(['pay', 'PAY', 'SELF', 'self', '81']);
 
   const rows: AdHocBillingRow[] = [];
