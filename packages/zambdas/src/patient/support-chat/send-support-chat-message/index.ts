@@ -7,8 +7,8 @@ import { getAccountForUser, UserAccount } from 'utils/lib/auth/user-auth.helper'
 import { TASK_LOCATION_SYSTEM } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
-import { SendSupportChatMessageInputSchema } from 'utils/lib/types/api/support-chat.types';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { SendSupportChatMessageInputSchema, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
 import { INVALID_INPUT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../../shared/auth';
@@ -17,10 +17,11 @@ import { wrapHandler } from '../../../shared/sentry';
 import { resolveStep } from '../../../shared/support-chat/bot';
 import {
   buildRequestTask,
-  findOpenTask,
+  findOpenTasks,
   getAttachOperations,
   getTaskPatientId,
   getVisits,
+  hasUnreadTag,
 } from '../../../shared/support-chat/request-task';
 import {
   buildThreadMessage,
@@ -56,11 +57,13 @@ export const index = wrapHandler(
 
     if (!threadId || !isAccountReadyForChat(account)) throw NOT_AUTHORIZED;
 
-    const [thread, visits, openTask] = await Promise.all([
+    const [thread, visits, openTasks] = await Promise.all([
       searchThread(oystehr, threadId),
       getVisits(oystehr, account.patients),
-      findOpenTask(oystehr, threadId),
+      findOpenTasks(oystehr, threadId),
     ]);
+
+    const openTask = openTasks.at(0);
 
     const lastMessage = thread.at(-1);
 
@@ -143,6 +146,21 @@ export const index = wrapHandler(
           ifMatch: makeOptimisticLockIfMatchHeader(openTask),
         })
       );
+    }
+
+    if (action.action === 'text') {
+      openTasks
+        .filter((task) => `Task/${task.id}` !== taskReference && !hasUnreadTag(task))
+        .forEach((task) =>
+          requests.push(
+            getPatchBinary({
+              resourceType: 'Task',
+              resourceId: task.id!,
+              patchOperations: [getPatchOperationForNewMetaTag(task, SUPPORT_CHAT_UNREAD_TAG)],
+              ifMatch: makeOptimisticLockIfMatchHeader(task),
+            })
+          )
+        );
     }
 
     const sender = getPatientSender(account, patientId);

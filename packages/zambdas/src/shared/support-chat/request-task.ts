@@ -84,21 +84,26 @@ export function buildRequestTitle(code: PatientRequestCode, subject: string, tex
   return `“${quoted}” for ${subject}`;
 }
 
-export async function findOpenTask(oystehr: Oystehr, threadId: string): Promise<Task | undefined> {
-  const tasks = (
-    await oystehr.fhir.search<Task>({
+export async function findOpenTasks(oystehr: Oystehr, threadId: string): Promise<Task[]> {
+  return getAllFhirSearchPages<Task>(
+    {
       resourceType: 'Task',
       params: [
         threadTagSearchParam(threadId),
         { name: 'status', value: 'ready,in-progress' },
         { name: '_sort', value: '-authored-on' },
-        { name: '_count', value: 1 },
       ],
-    })
-  ).unbundle();
-
-  return tasks[0];
+    },
+    oystehr
+  );
 }
+
+export const hasUnreadTag = (task: Task): boolean =>
+  Boolean(
+    task.meta?.tag?.some(
+      (tag) => tag.system === SUPPORT_CHAT_UNREAD_TAG.system && tag.code === SUPPORT_CHAT_UNREAD_TAG.code
+    )
+  );
 
 export function buildRequestTask(input: {
   code: PatientRequestCode;
