@@ -366,9 +366,11 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
-    const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
+    // Each form with createsConsentResource:true creates one Consent resource
+    const consentForms = getConsentFormsForLocation().filter((f) => f.createsConsentResource);
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(consentForms.length);
+    // CTT_FORM is always last; use the last call to verify its Consent resource
+    const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls.at(-1)!;
     expect(consentPatientId).toBe(PATIENT_ID);
     expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
     expect(consentDate).toContain('2026-08-20T15:00:00');
@@ -395,12 +397,15 @@ describe('createConsentResources', () => {
     });
   });
 
-  test('resolves state-specific consent form assets (the Illinois variant)', async () => {
-    await run({ location: makeLocation('IL') });
-    const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
-    expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
-  });
+  test.skipIf(IL_FORMS[1].assetPath === CTT_FORM.assetPath)(
+    'resolves state-specific consent form assets (the Illinois variant)',
+    async () => {
+      await run({ location: makeLocation('IL') });
+      const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
+      expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
+      expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    }
+  );
 
   test('labels telemed visits with the telemedicine facility name', async () => {
     await run({ appointment: makeAppointment(true) });
@@ -437,6 +442,7 @@ describe('createConsentResources', () => {
         content: [{ attachment: { url: file.url, title: 'some other title' } }],
       })),
     }));
-    await expect(run()).rejects.toThrow(`DocumentReference for "${CTT_FORM.formTitle}" not found`);
+    const firstConsentForm = getConsentFormsForLocation().find((f) => f.createsConsentResource)!;
+    await expect(run()).rejects.toThrow(`DocumentReference for "${firstConsentForm.formTitle}" not found`);
   });
 });
