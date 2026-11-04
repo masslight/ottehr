@@ -27,6 +27,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { sortQuickPicks, useMergedDmeQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -211,7 +212,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
   const [quickPickSaving, setQuickPickSaving] = useState(false);
 
   const currentUser = useEvolveUser();
-  const currentPractitionerId = currentUser?.profile?.split('/')[1];
+  const currentPractitionerId = getIdFromReference(currentUser?.profile);
   const isProvider = !!currentUser?.hasRole([RoleType.Provider]);
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
   const currentUserName = currentUser?.userName;

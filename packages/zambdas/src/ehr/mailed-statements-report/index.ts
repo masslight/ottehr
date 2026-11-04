@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { getPatientFirstName, getPatientLastName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { MailedStatementItem } from 'utils/lib/types/api/mailed-statements-report.types';
 import { z } from 'zod';
@@ -84,11 +85,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const patientIds = new Set<string>();
   const encounterIds = new Set<string>();
   for (const comm of allCommunications) {
-    const patientId = comm.subject?.reference?.split('/')[1];
+    const patientId = getIdFromReference(comm.subject?.reference);
     if (patientId) {
       patientIds.add(patientId);
     }
-    const encounterId = comm.encounter?.reference?.split('/')[1];
+    const encounterId = getIdFromReference(comm.encounter?.reference);
     if (encounterId) {
       encounterIds.add(encounterId);
     }
@@ -140,7 +141,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     for (const encounter of encounters) {
       if (!encounter.id) continue;
-      const appointmentRef = encounter.appointment?.[0]?.reference?.split('/')[1];
+      const appointmentRef = getIdFromReference(encounter.appointment?.[0]?.reference);
       const appointment = appointmentRef ? appointments.get(appointmentRef) : undefined;
       encounterAppointmentData.set(encounter.id, {
         appointmentDate: appointment?.start ?? encounter.period?.start ?? '',

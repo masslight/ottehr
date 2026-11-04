@@ -4,6 +4,7 @@ import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Loc
 import { DateTime } from 'luxon';
 import { ScheduleStrategy } from 'utils/lib/fhir/constants';
 import { scheduleStrategyForHealthcareService } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
 import {
@@ -368,19 +369,19 @@ export const getTimezoneResourceIdFromAppointment = (appointment: Appointment): 
   const locationRef = appointment.participant.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
     ?.reference;
   if (locationRef) {
-    return locationRef.split('/')[1];
+    return getIdFromReference(locationRef, 'Location');
   }
 
   const practitionerRef = appointment.participant.find((p) => p.actor?.reference?.startsWith('Practitioner/'))?.actor
     ?.reference;
   if (practitionerRef) {
-    return practitionerRef.split('/')[1];
+    return getIdFromReference(practitionerRef, 'Practitioner');
   }
 
   const healthcareServiceRef = appointment.participant.find((p) => p.actor?.reference?.startsWith('HealthcareService/'))
     ?.actor?.reference;
   if (healthcareServiceRef) {
-    return healthcareServiceRef.split('/')[1];
+    return getIdFromReference(healthcareServiceRef, 'HealthcareService');
   }
 
   return undefined;

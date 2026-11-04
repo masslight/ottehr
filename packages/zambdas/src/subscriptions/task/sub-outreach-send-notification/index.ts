@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   convertOutreachTextToHtml,
   isEmailValid,
@@ -405,7 +406,7 @@ async function sendPaperMail(
   });
 
   const appointmentRef = encounter.appointment?.[0]?.reference;
-  const appointmentId = appointmentRef?.split('/')[1];
+  const appointmentId = getIdFromReference(appointmentRef);
   if (!appointmentId) throw new Error(`No appointment reference in Encounter/${encounterId}`);
 
   const appointment = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId });
