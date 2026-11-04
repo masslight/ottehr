@@ -18,6 +18,7 @@ import {
   EkgSuggestion,
   ekgSuggestionPicks,
   isEkgInterpretationApplied,
+  resolveEkgSuggestionValues,
   suggestEkgInterpretations,
   withEkgQtc,
 } from './ekg-interpretation';
@@ -309,6 +310,27 @@ describe('suggested interpretations', () => {
       expect(text(normal)).toBe(
         'Sinus rhythm. Normal axis. Normal intervals. No acute ST-T wave changes. Impression: normal EKG.'
       );
+    });
+
+    it('moves the default impression with the axis picked in the row, but keeps a picked impression', () => {
+      const pickAt = (row: EkgSuggestion, title: string, word: string): (string | undefined)[] =>
+        row.segments.map((segment) => (isSentenceBlank(segment) && segment.title === title ? word : undefined));
+      const [normal] = suggestEkgInterpretations({ rate: 72, qt: 380 }, false);
+      const deviation = pickAt(normal, 'Axis', 'Left axis deviation');
+      expect(resolveEkgSuggestionValues(normal, deviation)).toContain('otherwise normal EKG');
+      expect(ekgSuggestionPicks(normal, deviation)).toMatchObject({
+        axis: 'left axis deviation',
+        impression: 'otherwise normal EKG',
+      });
+
+      const both = deviation.map((word, i) => word ?? pickAt(normal, 'Impression', 'normal EKG')[i]);
+      expect(ekgSuggestionPicks(normal, both).impression).toBe('normal EKG');
+
+      const [measured] = suggestEkgInterpretations({ rate: 72, qt: 380, axis: -45 }, false);
+      expect(ekgSuggestionPicks(measured, pickAt(measured, 'Axis', 'Normal axis'))).toMatchObject({
+        axis: 'normal',
+        impression: 'normal EKG',
+      });
     });
 
     it('uses the configured axis-deviation default independently of the template id', () => {

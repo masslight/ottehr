@@ -13,6 +13,7 @@ import {
   isEkgInterpretationApplied,
   QTC_METHODS,
   QtcMethod,
+  resolveEkgSuggestionValues,
   suggestEkgInterpretations,
   withEkgQtc,
 } from 'utils/lib/procedure-coding/families/ekg-interpretation';
@@ -230,6 +231,7 @@ const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }
           : 'ranked for these numbers · pick one, change any highlighted word'
       }
       rows={rows}
+      resolveValues={resolveEkgSuggestionValues}
       isAdded={(row, picks) => isEkgInterpretationApplied(facts, ekgSuggestionPicks(row, picks))}
       onAdd={(row, picks) => update({ ...facts, ...ekgSuggestionPicks(row, picks) })}
       addLabel="Use this interpretation"

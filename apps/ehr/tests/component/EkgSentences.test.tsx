@@ -196,6 +196,26 @@ describe('EKG sentences', () => {
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
   });
 
+  it('moves the normal row off "normal EKG" when its axis is changed to a deviation with no axis typed', async () => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 72, pr: 160, qrs: 88, qt: 380 }} />);
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getAllByRole('button', { name: USE })[0]).toHaveAccessibleName(
+      'Use this interpretation: Normal'
+    );
+    expect(within(box).getAllByRole('button', { name: /^Impression: / })[0]).toHaveAccessibleName(
+      'Impression: normal EKG'
+    );
+    await user.click(within(box).getAllByRole('button', { name: 'Axis: Normal axis' })[0]);
+    await user.click(screen.getByRole('option', { name: 'Left axis deviation' }));
+    expect(within(box).getAllByRole('button', { name: /^Impression: / })[0]).toHaveAccessibleName(
+      'Impression: otherwise normal EKG'
+    );
+
+    await user.click(within(box).getAllByRole('button', { name: USE })[0]);
+    expect(latest.facts).toMatchObject({ axis: 'left axis deviation', impression: 'otherwise normal EKG' });
+  });
+
   it('suggests the axis the typed number shows, so using a row raises no axis reminder', async () => {
     const user = userEvent.setup();
     render(<Form initial={{ rate: 75, pr: 160, qrs: 90, qt: 410, qtc: 458, qtcMethod: 'manual' }} />);

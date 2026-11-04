@@ -103,6 +103,7 @@ export function ekgFindings({ rate, pr, qrs, qtc }: EkgMeasurements): EkgFinding
 
 export interface EkgSuggestionBlank extends SentenceBlank, Pick<EkgTemplateBlank, 'fieldValue'> {
   key: string;
+  initialByAxis?: Record<'normal' | 'deviation', string>;
 }
 
 export interface EkgSuggestion {
@@ -132,16 +133,17 @@ function templateSegments(
   found: EkgFinding[],
   axis: EkgAxis | undefined
 ): SentenceSegment[] {
-  const conditions: EkgTemplateCondition[] = axis && axis !== 'normal' ? [...found, 'axisDeviation'] : found;
   return parseTemplate(template.text, (name) => {
     const blank = template.blanks?.[name];
     if (blank) {
+      const wordFor = (deviates: boolean): string =>
+        wordForConditions(blank, deviates ? [...found, 'axisDeviation'] : found) ?? blank.options[0];
       const segment: EkgSuggestionBlank = {
         key: name,
         title: blank.title,
         options: blank.options,
-        initial:
-          name === 'axis' && axis ? EKG_AXIS_LABELS[axis] : wordForConditions(blank, conditions) ?? blank.options[0],
+        initial: name === 'axis' && axis ? EKG_AXIS_LABELS[axis] : wordFor(axis !== undefined && axis !== 'normal'),
+        ...(name !== 'axis' && { initialByAxis: { normal: wordFor(false), deviation: wordFor(true) } }),
         fieldValue: blank.fieldValue,
       };
       return segment;
@@ -183,12 +185,30 @@ export function suggestEkgInterpretations(numbers: EkgMeasurements, isChild: boo
     .map((entry) => build(entry.template));
 }
 
+// Unpicked blanks follow the axis the row shows, so picking a deviation moves a default "normal EKG" off normal.
+export function resolveEkgSuggestionValues(
+  suggestion: EkgSuggestion,
+  picks: (string | undefined)[]
+): (string | undefined)[] {
+  const blanks = suggestion.segments.map((segment) =>
+    isSentenceBlank(segment) ? (segment as EkgSuggestionBlank) : undefined
+  );
+  const axisAt = blanks.findIndex((blank) => blank?.key === 'axis');
+  const axisBlank = blanks[axisAt];
+  const axisWord = axisBlank && (picks[axisAt] ?? axisBlank.initial);
+  if (axisBlank === undefined || axisWord === undefined)
+    return blanks.map((blank, i) => blank && (picks[i] ?? blank.initial));
+  const axis = fieldValueOf(axisBlank, axisWord) === 'normal' ? 'normal' : 'deviation';
+  return blanks.map((blank, i) => blank && (picks[i] ?? blank.initialByAxis?.[axis] ?? blank.initial));
+}
+
 export function ekgSuggestionPicks(suggestion: EkgSuggestion, picks: (string | undefined)[]): EkgInterpretation {
   const choice: Record<string, string> = {};
+  const values = resolveEkgSuggestionValues(suggestion, picks);
   suggestion.segments.forEach((segment, i) => {
     if (!isSentenceBlank(segment)) return;
     const blank = segment as EkgSuggestionBlank;
-    choice[blank.key] = fieldValueOf(blank, picks[i] ?? blank.initial ?? '');
+    choice[blank.key] = fieldValueOf(blank, values[i] ?? '');
   });
   const resolve = (value: string): string => fillTokens(value, choice);
   const read: EkgInterpretation = { ...EKG_NORMAL_READ };
