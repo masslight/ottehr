@@ -10,13 +10,20 @@ export const EKG_RHYTHMS = [
   'paced rhythm',
 ];
 
-export const EKG_AXES = ['normal', 'left axis deviation', 'right axis deviation', 'indeterminate'] as const;
+export const EKG_AXES = [
+  'normal',
+  'left axis deviation',
+  'right axis deviation',
+  'extreme axis deviation',
+  'indeterminate',
+] as const;
 export type EkgAxis = (typeof EKG_AXES)[number];
 
 export const EKG_AXIS_LABELS: Record<EkgAxis, string> = {
   normal: 'Normal axis',
   'left axis deviation': 'Left axis deviation',
   'right axis deviation': 'Right axis deviation',
+  'extreme axis deviation': 'Extreme axis deviation',
   indeterminate: 'Indeterminate axis',
 };
 

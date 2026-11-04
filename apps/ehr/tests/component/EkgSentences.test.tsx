@@ -312,7 +312,7 @@ describe('EKG sentences', () => {
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
   });
 
-  it('offers an otherwise normal read for an axis deviation, and the indeterminate axis for an extreme one', async () => {
+  it('offers an otherwise normal read for an axis deviation, and extreme axis deviation for an extreme one', async () => {
     const user = userEvent.setup();
     render(<Form initial={{ rate: 72, pr: 160, qrs: 88, qt: 380, axisDegrees: -45 }} />);
     const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
@@ -324,14 +324,14 @@ describe('EKG sentences', () => {
     await user.click(screen.getByRole('button', { name: 'axis: left axis deviation' }));
     await user.click(screen.getByRole('option', { name: 'normal' }));
     await typeNumbers(user, { 'Axis (°)': -120 });
-    expect(within(box).getAllByRole('button', { name: 'Axis: Indeterminate axis' })).toHaveLength(2);
+    expect(within(box).getAllByRole('button', { name: 'Axis: Extreme axis deviation' })).toHaveLength(2);
     const reminders = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
     expect(
-      within(reminders).getByText(/An axis of -120° is indeterminate axis; Axis says "normal"/)
+      within(reminders).getByText(/An axis of -120° is extreme axis deviation; Axis says "normal"/)
     ).toBeInTheDocument();
-    await user.click(within(reminders).getByRole('button', { name: 'Set axis to indeterminate' }));
-    expect(latest.facts?.axis).toBe('indeterminate');
-    expect(screen.getByRole('button', { name: 'axis: indeterminate' })).toBeInTheDocument();
+    await user.click(within(reminders).getByRole('button', { name: 'Set axis to extreme axis deviation' }));
+    expect(latest.facts?.axis).toBe('extreme axis deviation');
+    expect(screen.getByRole('button', { name: 'axis: extreme axis deviation' })).toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
   });
 

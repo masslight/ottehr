@@ -85,7 +85,7 @@ export function ekgMeasurementLine(facts: StructuredFacts): string | undefined {
 export function ekgAxis(axis: number | undefined): EkgAxis | undefined {
   if (axis === undefined || !Number.isFinite(axis) || axis < EKG_AXIS_RANGE.min || axis > EKG_AXIS_RANGE.max)
     return undefined;
-  if (axis < EKG_AXIS_LIMITS.extreme || axis === EKG_AXIS_RANGE.max) return 'indeterminate';
+  if (axis < EKG_AXIS_LIMITS.extreme || axis === EKG_AXIS_RANGE.max) return 'extreme axis deviation';
   if (axis < EKG_AXIS_LIMITS.left) return 'left axis deviation';
   if (axis > EKG_AXIS_LIMITS.right) return 'right axis deviation';
   return 'normal';
@@ -271,8 +271,7 @@ export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
   }
   const axis = ekgAxis(numbers.axis);
   if (numbers.axis !== undefined && axis !== undefined) {
-    const description = axis === 'indeterminate' ? 'indeterminate axis' : axis;
-    if (axis !== 'normal') findings.push(description);
+    if (axis !== 'normal') findings.push(axis);
     const conflict =
       typeof facts.axis === 'string' && facts.axis !== '' && facts.axis !== axis
         ? `Axis says "${facts.axis}"`
@@ -281,7 +280,7 @@ export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
         : undefined;
     if (conflict)
       reminders.push({
-        message: `An axis of ${signedDegrees(numbers.axis)} is ${description}; ${conflict}.`,
+        message: `An axis of ${signedDegrees(numbers.axis)} is ${axis}; ${conflict}.`,
         fixes: [{ label: `Set axis to ${axis}`, apply: { axis } }],
       });
   }
