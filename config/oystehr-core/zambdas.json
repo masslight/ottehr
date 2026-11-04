@@ -2368,7 +2368,7 @@
       "src": "src/rcm/scheduled-outreach/producers/cron-outreach-invoice-due/index",
       "zip": ".dist/zips/cron-outreach-invoice-due.zip",
       "schedule": {
-        "expression": "cron(0 6 * * ? *)"
+        "expression": "cron(0 15 * * ? *)"
       }
     },
     "CRON-OUTREACH-BIRTHDAY": {

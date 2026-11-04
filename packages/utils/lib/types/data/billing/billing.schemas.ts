@@ -82,6 +82,9 @@ export const ExportClaimX12InputSchema = z.object({
 
 export const GetClaimCms1500InputSchema = z.object({
   claimId: z.string().uuid(),
+  submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES).optional(),
+  submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES).optional(),
+  payerClaimControlNumber: z.string().min(1).optional(),
 });
 
 export const GetEraDetailInputSchema = z.object({

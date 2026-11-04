@@ -27,6 +27,7 @@ export interface NumberCodingField extends CodingFieldBase {
   kind: 'number';
   defaultValue?: number;
   min?: number;
+  max?: number;
   step?: number;
 }
 
@@ -123,7 +124,12 @@ export function invalidStructuredFields(fields: readonly CodingField[], facts: S
     if (field.kind === 'checkbox') return typeof value === 'boolean' ? [] : [field.label];
 
     if (field.kind === 'number')
-      return typeof value === 'number' && Number.isFinite(value) && value >= (field.min ?? 0) ? [] : [field.label];
+      return typeof value === 'number' &&
+        Number.isFinite(value) &&
+        value >= (field.min ?? 0) &&
+        value <= (field.max ?? Infinity)
+        ? []
+        : [field.label];
 
     if (field.kind === 'select')
       return typeof value === 'string' && field.options?.includes(value) ? [] : [field.label];

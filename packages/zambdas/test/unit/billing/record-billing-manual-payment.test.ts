@@ -21,6 +21,11 @@ vi.mock('../../../src/shared/auth', async (importOriginal) => ({
   getUser: vi.fn(),
 }));
 
+vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  createClinicalOystehrClient: vi.fn(),
+}));
+
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createBillingClient: vi.fn(),
@@ -39,6 +44,7 @@ import { CHECK_NUMBER_IDENTIFIER_SYSTEM, MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM }
 import { index as _index } from '../../../src/billing/record-billing-manual-payment';
 import { createBillingClient } from '../../../src/billing/shared';
 import { getUser } from '../../../src/shared/auth';
+import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 const index = _index as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
@@ -114,6 +120,18 @@ const makeBillingOystehr = (
 const writtenNotice = (transaction: Mock): { resource: PaymentNotice; fullUrl: string; ifNoneExist: unknown } =>
   transaction.mock.calls[0][0].requests.find((request: { url: string }) => request.url === '/PaymentNotice');
 
+const makeClinicalOystehr = (): Oystehr =>
+  ({
+    fhir: {
+      // the submitter, named on the notice
+      get: vi.fn().mockResolvedValue({
+        resourceType: 'Practitioner',
+        id: 'prac-1',
+        name: [{ given: ['Ada'], family: 'Lovelace' }],
+      }),
+    },
+  }) as unknown as Oystehr;
+
 const makeInput = (params: Record<string, unknown>): ZambdaInput => ({
   body: JSON.stringify(params),
   headers: { Authorization: 'Bearer user-token' },
@@ -161,6 +179,7 @@ describe('record-billing-manual-payment', () => {
     vi.setSystemTime(new Date('2026-07-22T12:00:00Z'));
     vi.clearAllMocks();
     (getUser as Mock).mockResolvedValue({ profile: 'Practitioner/prac-1' });
+    (createClinicalOystehrClient as Mock).mockReturnValue(makeClinicalOystehr());
   });
 
   afterEach(() => {
@@ -210,7 +229,10 @@ describe('record-billing-manual-payment', () => {
     expect(reconciliation.paymentDate).toBe('2026-07-01');
     expect(reconciliation.disposition).toBe('check copay');
     expect(reconciliation.paymentIdentifier).toEqual({ system: CHECK_NUMBER_IDENTIFIER_SYSTEM, value: '1234' });
-    expect(reconciliation.detail?.[0]?.submitter).toEqual({ reference: 'Practitioner/prac-1' });
+    expect(reconciliation.detail?.[0]?.submitter).toEqual({
+      reference: 'Practitioner/prac-1',
+      display: 'Ada Lovelace',
+    });
     expect(resource.created).toBe('2026-07-22T12:00:00.000Z');
     expect(JSON.parse(result.body)).toEqual({ paymentNoticeId: 'pn-new' });
   });
