@@ -1,11 +1,11 @@
 import { QuestionnaireResponse } from 'fhir/r4b';
+import { SaveInvoiceConfigBodySchema } from 'utils/lib/types/api/invoice-config.types';
 import { describe, expect, test, vi } from 'vitest';
 import {
   getOrCreateInvoicingConfig,
   INVOICING_CONFIG_QUESTIONNAIRE_URL,
   parseInvoicingConfig,
 } from '../../src/rcm/invoice-config/helpers';
-import { SaveInvoiceConfigBodySchema } from '../../src/rcm/invoice-config/save-invoice-config/index';
 import { ZambdaInput } from '../../src/shared/types/common';
 import { validateWithSchema } from '../../src/shared/validation';
 

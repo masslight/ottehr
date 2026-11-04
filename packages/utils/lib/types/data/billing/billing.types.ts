@@ -1,7 +1,7 @@
 import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
-import type { EraClaimStatusCode, EraSource, X12AdjustmentGroupCode } from './billing.constants';
+import type { EraClaimStatusCode, EraSource, EraStatus, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
@@ -86,6 +86,7 @@ export interface BillingCoverageOption {
   planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
+  groupNumber?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
 }
 
@@ -298,6 +299,7 @@ export interface SaveManualEraResponse {
 export interface EraDetailResponse {
   id: string;
   source: EraSource;
+  status: EraStatus;
   // PaymentReconciliation version, sent back when saving a manual ERA so stale edits are refused
   versionId: string;
   checkNumber: string;
@@ -481,6 +483,7 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
+  dos: string;
   service?: string;
   patientName: string;
   patientDob: string;
@@ -500,7 +503,9 @@ export interface ClaimDetailResponse {
   payorFhirId: string;
   payerName: string;
   payerId: string;
+  payerClaimControlNumber?: string;
   memberId: string;
+  groupNumber?: string;
   subscriberId: string;
   planType: string;
   relationship: SubscriberRelationship;
@@ -510,14 +515,20 @@ export interface ClaimDetailResponse {
   secondaryPayerName: string;
   secondaryPayerId: string;
   secondaryMemberId: string;
+  secondaryGroupNumber?: string;
+  secondaryPayerClaimControlNumber?: string;
   tertiaryCoverageFhirId: string;
   tertiaryPayerName: string;
   tertiaryPayerId: string;
   tertiaryMemberId: string;
+  tertiaryGroupNumber?: string;
+  tertiaryPayerClaimControlNumber?: string;
   quaternaryCoverageFhirId: string;
   quaternaryPayerName: string;
   quaternaryPayerId: string;
   quaternaryMemberId: string;
+  quaternaryGroupNumber?: string;
+  quaternaryPayerClaimControlNumber?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
@@ -593,7 +604,6 @@ export interface ClaimDetailResponse {
   accidentState: string;
   accidentDate: string;
   attachments: ClaimAttachment[];
-  payerClaimControlNumber?: string;
   writeOffs: ClaimWriteOff[];
 }
 
@@ -1140,15 +1150,6 @@ export interface RecordBillingManualPaymentResponse {
   paymentNoticeId: string;
   // present when the notice is linked to an existing billing Claim
   claimId?: string;
-}
-
-export interface RecordBillingRefundResponse {
-  billingNoticesStamped: number;
-  candidRefundsRecorded: number;
-}
-
-export interface RecordBillingVoidResponse {
-  billingNoticesVoided: number;
 }
 
 export interface AddClaimAttachmentResponse {

@@ -1650,7 +1650,8 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
     (paymentMethod !== 'cash' &&
       paymentMethod !== 'check' &&
       paymentMethod !== 'card-reader' &&
-      paymentMethod !== 'external-card-reader')
+      paymentMethod !== 'external-card-reader' &&
+      paymentMethod !== 'other')
   ) {
     return undefined;
   }
@@ -1662,7 +1663,7 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
   const takenBy = getPaymentNoticeSubmitterRef(paymentNotice)?.display;
 
   return {
-    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader' | 'external-card-reader',
+    paymentMethod: paymentMethod as CashPaymentDTO['paymentMethod'],
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,

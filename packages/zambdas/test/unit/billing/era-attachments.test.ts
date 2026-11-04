@@ -15,6 +15,7 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 
 const SECRETS = { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' };
 const STORED_URL = 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/era-attachments/era-1/abc-Remit.pdf';
+const ERA = { resourceType: 'PaymentReconciliation', id: 'era-1', status: 'active' };
 
 const scan = (overrides: Partial<DocumentReference> = {}): DocumentReference => ({
   resourceType: 'DocumentReference',
@@ -40,7 +41,10 @@ function makeClient(): Oystehr {
 }
 
 describe('ERA attachments', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (fetchById as Mock).mockResolvedValue(ERA);
+  });
 
   it('records a remit scan against the ERA and presigns its upload', async () => {
     (fetchById as Mock).mockResolvedValueOnce({ resourceType: 'PaymentReconciliation', id: 'era-1' });
@@ -200,6 +204,32 @@ describe('ERA attachments', () => {
         },
       ],
     });
+  });
+
+  it('refuses to change the attachments of a voided ERA but still downloads them', async () => {
+    (fetchById as Mock).mockImplementation(async (_client, type) =>
+      type === 'PaymentReconciliation' ? { ...ERA, status: 'cancelled' } : scan()
+    );
+    const oystehr = makeClient();
+    const file = { eraId: 'era-1', documentReferenceId: 'doc-1', secrets: SECRETS };
+    const error = { message: 'Voided ERAs cannot be changed' };
+    await expect(
+      addEraAttachment(oystehr, {
+        eraId: 'era-1',
+        name: 'Remit',
+        fileName: 'remit.pdf',
+        mimeType: 'application/pdf',
+        secrets: SECRETS,
+      })
+    ).rejects.toMatchObject(error);
+    await expect(renameEraAttachment(oystehr, { ...file, name: 'new' })).rejects.toMatchObject(error);
+    await expect(deleteEraAttachment(oystehr, file)).rejects.toMatchObject(error);
+    expect(oystehr.fhir.create).not.toHaveBeenCalled();
+    expect(oystehr.fhir.patch).not.toHaveBeenCalled();
+    expect(oystehr.fhir.delete).not.toHaveBeenCalled();
+    expect(oystehr.z3.getPresignedUrl).not.toHaveBeenCalled();
+    expect(oystehr.z3.deleteObject).not.toHaveBeenCalled();
+    await expect(downloadEraAttachment(oystehr, file)).resolves.toEqual({ downloadUrl: 'signed-url' });
   });
 });
 

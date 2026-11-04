@@ -6,6 +6,18 @@ import {
   BILLING_LAYERS,
   BillingBaseRowSchema,
 } from './datasets/billing';
+import {
+  BILLING_CLAIMS_DOMAIN_FIELDS,
+  BILLING_CLAIMS_INTERNAL_FIELDS,
+  BILLING_CLAIMS_LAYERS,
+  BillingClaimsBaseRowSchema,
+} from './datasets/billing-claims';
+import {
+  BILLING_RULES_DOMAIN_FIELDS,
+  BILLING_RULES_INTERNAL_FIELDS,
+  BILLING_RULES_LAYERS,
+  BillingRulesBaseRowSchema,
+} from './datasets/billing-rules';
 import { AdHocLayerMap, layerIncludeFlags, layerOptions, layerSchemas, unloadedLayers } from './datasets/dataset';
 import {
   AdHocEncountersInputSchema,
@@ -319,6 +331,20 @@ describe('data leak boundary — only whitelisted domain fields emit sampled val
       domain: BILLING_DOMAIN_FIELDS,
     },
     {
+      name: 'billing-claims',
+      base: BillingClaimsBaseRowSchema,
+      layers: BILLING_CLAIMS_LAYERS,
+      internal: BILLING_CLAIMS_INTERNAL_FIELDS,
+      domain: BILLING_CLAIMS_DOMAIN_FIELDS,
+    },
+    {
+      name: 'billing-rules',
+      base: BillingRulesBaseRowSchema,
+      layers: BILLING_RULES_LAYERS,
+      internal: BILLING_RULES_INTERNAL_FIELDS,
+      domain: BILLING_RULES_DOMAIN_FIELDS,
+    },
+    {
       name: 'patients',
       base: PatientBaseRowSchema,
       layers: PATIENT_LAYERS,
@@ -357,5 +383,24 @@ describe('data leak boundary — only whitelisted domain fields emit sampled val
 
     // Explicit spot check: a non-whitelisted identifier never carries data values.
     if (byName.patientName) expect(byName.patientName.values).toBeUndefined();
+  });
+});
+
+describe('billing-claims dataset contract', () => {
+  it('keeps internal fields out of the prompt and describes every field the model sees', () => {
+    const allSelected = Object.fromEntries(Object.keys(BILLING_CLAIMS_LAYERS).map((id) => [id, true]));
+    const fields = llmFieldsForLayers(
+      BillingClaimsBaseRowSchema,
+      layerSchemas(BILLING_CLAIMS_LAYERS),
+      allSelected,
+      BILLING_CLAIMS_INTERNAL_FIELDS
+    );
+    const names = fields.map((f) => f.name);
+    for (const internal of BILLING_CLAIMS_INTERNAL_FIELDS) expect(names).not.toContain(internal);
+
+    for (const field of fields) {
+      expect(field.description, field.name).toBeTruthy();
+      for (const nested of field.fields ?? []) expect(nested.description, `${field.name}.${nested.name}`).toBeTruthy();
+    }
   });
 });

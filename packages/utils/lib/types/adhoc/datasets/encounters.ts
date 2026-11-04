@@ -11,6 +11,7 @@ import {
   VitalBloodPressureObservationMethod,
   VitalHeartbeatObservationMethod,
   VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
   VitalTemperatureObservationMethod,
 } from '../../api/chart-data/chart-data.constants';
 import { DispositionType, NOTE_TYPE, VitalsVisionOption } from '../../api/chart-data/chart-data.types';
@@ -63,6 +64,7 @@ const TEMPERATURE_METHOD_VALUES = enumValues(Object.values(VitalTemperatureObser
 const HEARTBEAT_METHOD_VALUES = enumValues(Object.values(VitalHeartbeatObservationMethod));
 const BLOOD_PRESSURE_METHOD_VALUES = enumValues(Object.values(VitalBloodPressureObservationMethod));
 const OXYGEN_SAT_METHOD_VALUES = enumValues(Object.values(VitalsOxygenSatObservationMethod));
+const SUPPLEMENTAL_O2_DELIVERY_TYPE_VALUES = enumValues(Object.values(VitalsSupplementalO2DeliveryType));
 
 // Record<…, true> requires every chart vision option as a key.
 const VISION_OPTIONS = { child_too_young: true, with_glasses: true, without_glasses: true } satisfies Record<
@@ -459,7 +461,8 @@ export const ENCOUNTER_LAYERS = {
     label: 'Vital signs',
     description:
       'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
-      'inches, feet/inches), BMI, how each was taken (route / position / room air), weight refused, vision ' +
+      'inches, feet/inches), BMI, how each was taken (route / position / room air or supplemental O₂ with its ' +
+      'flow rate and delivery type), weight refused, vision ' +
       '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when.',
     schema: z.object({
       temperatureF: z
@@ -564,6 +567,17 @@ export const ENCOUNTER_LAYERS = {
         .enum(OXYGEN_SAT_METHOD_VALUES)
         .nullable()
         .describe('Room air or supplemental O₂ for the most recent SpO₂. Null when not recorded / not taken.'),
+      oxygenSaturationFlowRate: z
+        .number()
+        .nullable()
+        .describe('Supplemental O₂ flow rate, L/min, for the most recent SpO₂. Null when not recorded / not on O₂.'),
+      oxygenSaturationDeliveryType: z
+        .enum(SUPPLEMENTAL_O2_DELIVERY_TYPE_VALUES)
+        .nullable()
+        .describe('How supplemental O₂ was delivered for the most recent SpO₂. Null when not recorded / not on O₂.'),
+      oxygenSaturationDeliveryTypeOther: z
+        .string()
+        .describe('The delivery type as charted when oxygenSaturationDeliveryType is Other. "" otherwise.'),
       weightRefused: z
         .boolean()
         .describe('The most recent weight entry is "patient refused" (no value). False when weighed or not entered.'),
@@ -765,15 +779,16 @@ export const ENCOUNTER_LAYERS = {
               .string()
               .nullable()
               .describe(
-                'Full ISO instant a user pressed "Send for Final Read", sending the study to the OUTSIDE ' +
-                  'teleradiologist (an over-read, billed by the teleradiology vendor). Stays set after the final ' +
-                  'read arrives. Null = never sent out. Use THIS for "sent for a final read" / over-read counts.'
+                'Full ISO instant a user pressed "Teleradiology Final Read", ' +
+                  'sending the study to the OUTSIDE teleradiologist (an over-read, billed by the teleradiology ' +
+                  'vendor). Stays set after the final read arrives. Null = never sent out. Use THIS for "sent for ' +
+                  'a final read" / over-read counts.'
               ),
             pendingFinalBy: z
               .string()
               .nullable()
               .describe(
-                'Who pressed "Send for Final Read" (may differ from orderedBy). Not recorded on older studies — ' +
+                'Who pressed "Teleradiology Final Read" (may differ from orderedBy). Not recorded on older studies — ' +
                   'null there even when pendingFinalAt is set.'
               ),
             finalAt: z
@@ -787,9 +802,9 @@ export const ENCOUNTER_LAYERS = {
               .enum(['teleradiology', 'in-house'])
               .nullable()
               .describe(
-                'Where the final read came from: "teleradiology" = the study was sent with "Send for Final Read" ' +
-                  '(an over-read; pendingFinalAt is set), "in-house" = finalized without being sent (the provider\'s ' +
-                  'own final read). Null until finalized.'
+                'Where the final read came from: "teleradiology" = the study was sent with "Teleradiology Final Read" ' +
+                  '(an over-read; pendingFinalAt is set), "in-house" = finalized without being sent ("Internal Final ' +
+                  'Read", the provider\'s own final read). Null until finalized.'
               ),
             finalReadBy: z
               .string()

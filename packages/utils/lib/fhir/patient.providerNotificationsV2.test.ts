@@ -24,6 +24,7 @@ describe('getUiTaskCategoryForCode', () => {
     expect(getUiTaskCategoryForCode('radiology')).toBe('radiology');
     expect(getUiTaskCategoryForCode('manual-radiology')).toBe('radiology');
     expect(getUiTaskCategoryForCode('erx')).toBe('erx');
+    expect(getUiTaskCategoryForCode('dme')).toBe('dme');
   });
 
   it('returns undefined for unknown or missing codes', () => {

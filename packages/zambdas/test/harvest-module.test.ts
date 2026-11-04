@@ -1754,6 +1754,26 @@ describe('Harvest Module', () => {
         const suggestedPrimary = result.suggestedNewCoverageObject?.find((c) => c.priority === 1)?.coverage;
         expect(suggestedPrimary?.reference).toBe(`Coverage/${primary.id}`);
       });
+
+      it('moves a sole primary coverage to secondary without keeping it in the primary slot', () => {
+        // Insurance section save of a sole coverage whose type was changed from Primary to Secondary.
+        // The form's coverage for the same policy, now submitted as secondary.
+        const submittedCoverage = coverages.primary!;
+        const existingPrimary: Coverage = { ...submittedCoverage, id: uuidV4() };
+        const existingCoverages = { primary: existingPrimary, primarySubscriber };
+
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages,
+          newCoverages: { secondary: submittedCoverage },
+          preserveOmittedCoverages: true,
+        });
+
+        expect(result.suggestedNewCoverageObject).toEqual([
+          { coverage: { reference: `Coverage/${existingPrimary.id}` }, priority: 2 },
+        ]);
+        expect(result.deactivatedCoverages).toHaveLength(0);
+      });
     });
 
     describe('should generate the right output when comparing guarantor from questionnaire with existing guarantor', () => {

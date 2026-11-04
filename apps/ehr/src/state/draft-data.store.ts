@@ -16,7 +16,10 @@ import {
 import { MedicationData } from 'utils/lib/types/api/medication-administration.types';
 import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
 import { CreateRadiologyZambdaOrderInput } from 'utils/lib/types/api/radiology';
-import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
+import {
+  InputImmunizationOrderAdministrationDetails,
+  InputImmunizationOrderDetails,
+} from 'utils/lib/types/data/immunization/types';
 import { CreateInHouseLabOrderParameters } from 'utils/lib/types/data/in-house/in-house.types';
 import { CreateLabOrderParameters } from 'utils/lib/types/data/labs/labs.types';
 import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
@@ -69,7 +72,10 @@ type CreateRadiologyOrderDraft = Partial<
 >;
 type CreateProcedureDraft = Partial<ProcedurePageState & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
-type CreateImmunizationOrderDraft = Partial<InputImmunizationOrderDetails & GenericStateDraft>;
+type CreateImmunizationOrderDraft = Partial<
+  InputImmunizationOrderDetails &
+    GenericStateDraft & { administrationDetails: InputImmunizationOrderAdministrationDetails }
+>;
 type CreateInHouseMedicationOrderDraft = Partial<MedicationData & GenericStateDraft>;
 type VitalsDraft = Partial<
   {

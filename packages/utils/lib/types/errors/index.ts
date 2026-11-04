@@ -87,6 +87,8 @@ export enum APIErrorCode {
   MANUAL_PAYMENT_CONFLICT = 4503,
   STATEMENT_BILLING_CLAIM_NOT_FOUND = 4504,
   MANUAL_ERA_VERSION_CONFLICT = 4505,
+  ERA_VOID_CONFLICT = 4506,
+  ERA_VOID_INCOMPLETE = 4507,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -500,6 +502,18 @@ export const MANUAL_ERA_VERSION_CONFLICT_ERROR: APIError = {
   code: APIErrorCode.MANUAL_ERA_VERSION_CONFLICT,
   statusCode: 409,
   message: 'This remit was changed by someone else since you opened it. Reload the page to see the latest version.',
+};
+// Raised when an ERA changes while it is being voided.
+export const ERA_VOID_CONFLICT_ERROR: APIError = {
+  code: APIErrorCode.ERA_VOID_CONFLICT,
+  statusCode: 409,
+  message: 'This ERA has changed. Reload the page before voiding it.',
+};
+// Raised when an ERA is voided before all of its claim responses can be read, usually right after it arrives.
+export const ERA_VOID_INCOMPLETE_ERROR: APIError = {
+  code: APIErrorCode.ERA_VOID_INCOMPLETE,
+  statusCode: 409,
+  message: 'ERA claim responses are not fully available. Reload the page and try again.',
 };
 // Raised when a statement is requested for a visit that was never billed through Ottehr billing.
 export const STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR = (encounterId: string): APIError => ({

@@ -118,7 +118,7 @@ export interface TemplateInHouseLabPlanDetail {
 // Each external lab plan saved on a template carries the inputs the external
 // create-lab-order flow needs at apply time: the lab + test combo (lab GUID,
 // lab name, and the orderable item code), the Dx reason codes, the optional
-// clinical info note, and the PSC flag. The ordering office and payment
+// clinical info note, and the PSC and stat flags. The ordering office and payment
 // method are NOT stored - both are visit-specific: the office is derived from
 // the encounter the template is applied to, and the payment method defaults
 // from that visit's payment details in the preview dialog.
@@ -136,6 +136,7 @@ export interface TemplateExternalLabPlanDetail {
   diagnoses: TemplateCodeInfo[];
   note: string | null;
   psc: boolean;
+  isStat: boolean;
   missing: boolean;
   cptCodes: TemplateCptCodeInfo[];
 }

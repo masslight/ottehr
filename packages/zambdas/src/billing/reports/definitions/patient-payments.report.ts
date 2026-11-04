@@ -28,8 +28,8 @@ import {
 import { ZambdaInput } from '../../../shared/types/common';
 import {
   CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
-  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
-  MANUAL_REFUND_ID_SYSTEM,
+  PATIENT_PAYMENT_IDENTIFIER_FILTER,
+  stampedStripeAccount,
 } from '../../payments';
 import { BILLING_WORKING_COPY_TAG, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
 import { ReportDefinition } from '../framework/types';
@@ -223,7 +223,7 @@ async function loadWindowNotices(
             { name: '_offset', value: String(offset) },
             {
               name: 'identifier',
-              value: `${MANUAL_REFUND_ID_SYSTEM}|,${STRIPE_PAYMENT_ID_SYSTEM}|,${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|,${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|`,
+              value: PATIENT_PAYMENT_IDENTIFIER_FILTER,
             },
           ],
         });
@@ -683,6 +683,9 @@ async function resolveStripeStatuses(
   const invoiceCache = new Map<string, Stripe.Invoice | undefined>();
 
   const stripeAccountFor = async (notice: PaymentNotice): Promise<string | undefined> => {
+    // the account the payment was taken on, when its writer stamped it
+    const stamped = stampedStripeAccount(notice);
+    if (stamped) return stamped.stripeAccount;
     const orgId = notice.payee?.reference?.replace('Organization/', '');
     if (!orgId || !isValidUUID(orgId)) return undefined;
     if (!stripeAccountByOrgId.has(orgId)) {

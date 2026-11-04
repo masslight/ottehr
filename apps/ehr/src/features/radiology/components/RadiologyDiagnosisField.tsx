@@ -21,7 +21,8 @@ export const RadiologyDiagnosisField: React.FC<{
   disabled?: boolean;
   error?: boolean;
   helperText?: string;
-}> = ({ value, onChange, quickPickOptions, disabled, error, helperText }) => {
+  label?: string;
+}> = ({ value, onChange, quickPickOptions, disabled, error, helperText, label = 'Diagnosis' }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { isFetching, data } = useICD10SearchNew({ search: searchTerm });
   const options: RadiologyDiagnosis[] = searchTerm === '' && quickPickOptions ? quickPickOptions : data?.codes ?? [];
@@ -55,7 +56,7 @@ export const RadiologyDiagnosisField: React.FC<{
         <TextField
           {...params}
           onChange={(e) => onInputChange(e.target.value)}
-          label="Diagnosis"
+          label={label}
           placeholder="Select diagnosis from list or search"
           multiline
           error={error}

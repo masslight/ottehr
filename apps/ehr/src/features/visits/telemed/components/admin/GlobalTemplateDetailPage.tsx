@@ -527,6 +527,9 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
                       <strong>PSC Hold:</strong> {plan.psc ? 'Yes' : 'No'}
                     </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      <strong>Stat:</strong> {plan.isStat ? 'Yes' : 'No'}
+                    </Typography>
                     {plan.note ? (
                       <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                         <strong>Note:</strong> {plan.note}

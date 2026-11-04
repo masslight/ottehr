@@ -224,7 +224,7 @@ const searchAllDocumentReferencePages = async <T extends FhirResource>(
   return resources;
 };
 
-export const hasVisitRef = (visit: DocumentVisitRef | undefined): boolean =>
+const hasVisitRef = (visit: DocumentVisitRef | undefined): boolean =>
   !!visit && (!!visit.encounterId || !!visit.appointmentId);
 
 /**
@@ -340,7 +340,7 @@ export type UseGetPatientDocsOptions = {
   /**
    * Visit that documents uploaded through this hook are filed against. Deliberately separate from
    * `filters.visit`: filtering by a visit is a browsing action and must not silently retarget
-   * uploads. Only visit-scoped surfaces (Progress Note, Visit Details) set this.
+   * uploads. Only visit surfaces (Progress Note, Visit Details) set this.
    *
    * An encounter id, because uploads write `context.encounter` — the `related`-to-Appointment
    * linkage is only read, never written here.

@@ -350,6 +350,10 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     id: 'claim-1',
     status: 'active',
     created: '2026-07-21',
+    billablePeriod: {
+      start: '2026-07-18',
+      end: '2026-07-19',
+    },
     type: {
       coding: [
         {
@@ -571,7 +575,7 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     );
     expect(fromNarrowed).toEqual(fromFull);
     // Guard against a list so narrow that everything collapses to defaults and the rows still match.
-    expect(fromFull.serviceDate).toBe('2026-07-19');
+    expect(fromFull.serviceDate).toBe('2026-07-18');
     expect(fromFull.memberId).toBe('MEM-1');
     expect(fromFull.rulesEngine).toBe('claim-submission');
     expect(fromFull.payerName).toBe('Acme Health');

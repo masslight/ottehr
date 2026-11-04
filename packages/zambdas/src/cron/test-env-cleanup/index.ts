@@ -11,6 +11,7 @@ import {
   cleanupIntegrationTestPatients,
   cleanupIntegrationTestQuestionnaires,
   cleanupOrphanedInProgressEncounters,
+  cleanupStaleIntegrationTestLocations,
 } from 'utils/lib/utils/e2eCleanup';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -38,6 +39,7 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
   await cleanupIntegrationTestAppointments(oystehr);
   await cleanupIntegrationTestPatients(oystehr);
   await cleanupIntegrationTestLocations(oystehr);
+  await cleanupStaleIntegrationTestLocations(oystehr);
   await cleanupIntegrationTestHealthcareServices(oystehr);
   await cleanupIntegrationTestQuestionnaires(oystehr);
   // Tag-anchored rather than reachable from an appointment: a form template belongs to the project, not

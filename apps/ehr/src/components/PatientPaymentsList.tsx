@@ -567,7 +567,7 @@ export default function PatientPaymentList({
       if (!oystehrZambda) throw new Error('Oystehr client is not available');
 
       await oystehrZambda.zambda.execute({
-        id: 'patient-payments-post',
+        id: 'post-billing-patient-payment',
         ...input,
       });
     },

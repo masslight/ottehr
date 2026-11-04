@@ -15,5 +15,12 @@ export const getItemDisplayStrategy = (
     return item.disabledDisplay ?? 'hidden';
   }
   const enabled = evalEnableWhen(item, items, values, questionnaireResponse);
-  return enabled ? 'enabled' : item.disabledDisplay ?? 'hidden';
+  if (!enabled) {
+    return item.disabledDisplay ?? 'hidden';
+  }
+  // a calculated item is a formula field: it is shown (read only) unless it asks to be hidden
+  if (item.calculatedExpression) {
+    return item.disabledDisplay ?? 'protected';
+  }
+  return 'enabled';
 };

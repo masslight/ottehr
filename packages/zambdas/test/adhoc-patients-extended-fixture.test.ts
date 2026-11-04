@@ -534,6 +534,14 @@ const fakeOystehr = {
   user: { list: async () => [] },
 } as unknown as Oystehr;
 
+// the billing app holds no payments in these fixtures; every payment is a legacy EHR notice
+const emptyBillingOystehr = {
+  fhir: {
+    search: async () => ({ jobId: 'billing', contentLocation: '', mode: 'bulk' }),
+    waitForAsyncJob: async () => ({ status: 200, mode: 'bulk', manifest: { output: [], requiresAccessToken: false } }),
+  },
+} as unknown as Oystehr;
+
 const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
 
 const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): unknown[] =>
@@ -541,7 +549,7 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
 
 describe('ad-hoc Billing: coverage and codes as the patient record and the chart have them (fixture)', () => {
   it("base: the visit's payment option, a follow-up note carrying its visit's", async () => {
-    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange });
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange }, emptyBillingOystehr);
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     expect(rows.find((r) => r.encounterId === 'enc-1')?.paymentVariant).toBe('insurance');
     expect(rows.find((r) => r.encounterId === 'enc-1-fu')?.paymentVariant).toBe('insurance');
@@ -549,7 +557,7 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
   });
 
   it("coverage: the account's primary coverage, resolved payer, MB member id", async () => {
-    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCoverage: true });
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCoverage: true }, emptyBillingOystehr);
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
       payerType: 'Insured',
@@ -563,7 +571,7 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
   });
 
   it("charges: priced as the EHR's patient payments prices the visit", async () => {
-    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCharges: true });
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCharges: true }, emptyBillingOystehr);
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     // Insurance visit → the payer's fee schedule; 99000 with modifier 25 × 2 units = $80; 99999 is not listed.
     expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
@@ -599,7 +607,11 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
     ];
 
     try {
-      const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCharges: true, includePayments: true });
+      const rows = await fetchAdHocBillingRows(
+        fakeOystehr,
+        { dateRange, includeCharges: true, includePayments: true },
+        emptyBillingOystehr
+      );
       expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
       expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
         caseRate: 150,
@@ -612,7 +624,7 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
   });
 
   it("eligibility: the latest check of the patient's insurance, as the visit's Payments panel shows it", async () => {
-    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeEligibility: true });
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeEligibility: true }, emptyBillingOystehr);
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     // The latest check, even one after the visit: the panel shows the insurance's current check on every visit.
     expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
@@ -644,7 +656,11 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
     ];
 
     try {
-      const billing = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeEligibility: true });
+      const billing = await fetchAdHocBillingRows(
+        fakeOystehr,
+        { dateRange, includeEligibility: true },
+        emptyBillingOystehr
+      );
       expect(billing.find((r) => r.appointmentId === 'appt-1')).toMatchObject({ eligibilityStatus: null });
 
       const patients = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeEligibility: true });
@@ -655,7 +671,7 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
   });
 
   it('codes: CPT modifiers and units, primary diagnosis first', async () => {
-    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCodes: true });
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCodes: true }, emptyBillingOystehr);
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
       cptCodes: ['99000', '99999'],

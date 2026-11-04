@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  MEDICAL_RECORD_EXPORT_DATE_RANGE_CODE,
   MEDICAL_RECORD_EXPORT_DEADLINE_CODE,
   MEDICAL_RECORD_EXPORT_FAILURE_CODE,
   MEDICAL_RECORD_EXPORT_FILE_NAME_CODE,
@@ -14,12 +15,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildExportStatusResponse,
   cancelAbandonedExportTask,
+  createExportTask,
   createExportTaskWriter,
   findActiveExportTask,
   isAbandonedExportTask,
   isMedicalRecordExportTask,
   patientIdFromTask,
   PROGRESS_PATCH_INTERVAL_MS,
+  readExportDateRange,
   readExportProgress,
   STUCK_IN_PROGRESS_THRESHOLD_MS,
   STUCK_REQUESTED_THRESHOLD_MS,
@@ -71,6 +74,33 @@ describe('medical record export Task encoding', () => {
     it('refuses a task that does not name a patient', () => {
       expect(() => patientIdFromTask(task({ for: undefined }))).toThrow(/does not name a Patient/);
       expect(() => patientIdFromTask(task({ for: { reference: 'Group/g1' } }))).toThrow(/does not name a Patient/);
+    });
+  });
+
+  describe('export date range', () => {
+    const RANGE = { from: '2026-01-01T00:00:00.000-05:00', to: '2026-09-25T23:59:59.999-04:00' };
+
+    const createWith = (): Oystehr =>
+      ({
+        fhir: { create: vi.fn((resource: Task) => Promise.resolve({ ...resource, id: 'task-new' })) },
+      }) as unknown as Oystehr;
+
+    const storedRange = (valueString: string): NonNullable<Task['input']>[number] => ({
+      type: { coding: [{ system: MEDICAL_RECORD_EXPORT_TASK_SYSTEM, code: MEDICAL_RECORD_EXPORT_DATE_RANGE_CODE }] },
+      valueString,
+    });
+
+    it('stores the requested range on the Task so the worker exports the same window', async () => {
+      expect(readExportDateRange(await createExportTask(createWith(), 'patient-1', RANGE))).toEqual(RANGE);
+    });
+
+    it('refuses a Task that carries no range', () => {
+      expect(() => readExportDateRange(task())).toThrow('Missing medical record export date range');
+    });
+
+    it('refuses a stored range that is missing a bound', () => {
+      expect(() => readExportDateRange(task({ input: [storedRange(JSON.stringify({ from: RANGE.from }))] }))).toThrow();
+      expect(() => readExportDateRange(task({ input: [storedRange(JSON.stringify({ to: RANGE.to }))] }))).toThrow();
     });
   });
 

@@ -1,4 +1,5 @@
 import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { FaxDocumentAvailability, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -33,6 +34,7 @@ vi.mock('../../src/shared/fax/collect-visit-documents', async (importOriginal) =
 import { index } from '../../src/ehr/get-fax-packet-preview';
 
 const APPOINTMENT_ID = '650e8400-e29b-41d4-a716-446655440000';
+const PATIENT_ID = '750e8400-e29b-41d4-a716-446655440000';
 const ENCOUNTER_ID = 'encounter-1';
 
 const AVAILABILITY: FaxDocumentAvailability[] = [
@@ -112,6 +114,121 @@ describe('get-fax-packet-preview', () => {
     expect(JSON.parse(result.body)).toEqual({ documents: [], hasSavedPcp: false, senderFaxNumber: '+12125550000' });
     // Nothing visit-specific is resolved, so no document availability work is done either.
     expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+    expect(mockFhirSearch).not.toHaveBeenCalled();
+  });
+
+  it('counts the faxable documents a medical-record packet would carry for the requested range', async () => {
+    const document = (id: string, date: string, url: string): Record<string, unknown> => ({
+      resourceType: 'DocumentReference',
+      id,
+      status: 'current',
+      date,
+      content: [{ attachment: { url, contentType: url.endsWith('.zip') ? 'application/zip' : 'application/pdf' } }],
+    });
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) =>
+      Promise.resolve({
+        unbundle: () =>
+          resourceType === 'DocumentReference'
+            ? [
+                document('in-range', '2026-03-15T12:00:00.000Z', 'https://z3.example/in-range.pdf'),
+                document('archive', '2026-03-16T12:00:00.000Z', 'https://z3.example/archive.zip'),
+                document('later', '2026-06-01T12:00:00.000Z', 'https://z3.example/later.pdf'),
+              ]
+            : [],
+      })
+    );
+
+    const preview = async (dateRange: Record<string, string>): Promise<GetFaxPacketPreviewOutput> => {
+      const result: any = await (index as any)(
+        createMockZambdaInput({ medicalRecord: { patientId: PATIENT_ID, dateRange } }, { secrets: createMockSecrets() })
+      );
+      expect(result.statusCode).toBe(200);
+      return JSON.parse(result.body);
+    };
+
+    expect(await preview({ from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T23:59:59.999Z' })).toEqual({
+      documents: [],
+      hasSavedPcp: false,
+      senderFaxNumber: '+12125550000',
+      documentCount: 1,
+    });
+    expect((await preview({ from: '2026-07-01T00:00:00.000Z', to: '2026-07-31T23:59:59.999Z' })).documentCount).toBe(0);
+    expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+  });
+
+  it("counts a follow-up's documents in the follow-up's range rather than the main visit's", async () => {
+    const byType: Record<string, unknown[]> = {
+      DocumentReference: [
+        {
+          resourceType: 'DocumentReference',
+          id: 'main-note',
+          status: 'current',
+          date: '2026-10-05T09:00:00.000Z',
+          context: {
+            related: [{ reference: 'Appointment/appointment-main' }],
+            encounter: [{ reference: 'Encounter/encounter-main' }],
+          },
+          content: [{ attachment: { url: 'https://z3.example/main-note.pdf', contentType: 'application/pdf' } }],
+        },
+        {
+          resourceType: 'DocumentReference',
+          id: 'follow-up-note',
+          status: 'current',
+          date: '2026-11-02T09:00:00.000Z',
+          context: {
+            related: [{ reference: 'Appointment/appointment-main' }],
+            encounter: [{ reference: 'Encounter/encounter-follow-up' }],
+          },
+          content: [{ attachment: { url: 'https://z3.example/follow-up-note.pdf', contentType: 'application/pdf' } }],
+        },
+      ],
+      Appointment: [{ resourceType: 'Appointment', id: 'appointment-main', start: '2026-09-14T14:00:00.000Z' }],
+      Encounter: [
+        {
+          resourceType: 'Encounter',
+          id: 'encounter-main',
+          status: 'finished',
+          class: { code: 'AMB' },
+          appointment: [{ reference: 'Appointment/appointment-main' }],
+        },
+        {
+          resourceType: 'Encounter',
+          id: 'encounter-follow-up',
+          status: 'finished',
+          class: { code: 'VR' },
+          type: buildFollowupEncounterType('annotation'),
+          partOf: { reference: 'Encounter/encounter-main' },
+          appointment: [{ reference: 'Appointment/appointment-main' }],
+          period: { start: '2026-10-23T15:00:00.000Z' },
+        },
+      ],
+    };
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) =>
+      Promise.resolve({ unbundle: () => byType[resourceType] ?? [] })
+    );
+
+    const countWithin = async (dateRange: Record<string, string>): Promise<number | undefined> => {
+      const result: any = await (index as any)(
+        createMockZambdaInput({ medicalRecord: { patientId: PATIENT_ID, dateRange } }, { secrets: createMockSecrets() })
+      );
+      expect(result.statusCode).toBe(200);
+      return (JSON.parse(result.body) as GetFaxPacketPreviewOutput).documentCount;
+    };
+
+    expect(await countWithin({ from: '2026-10-01T00:00:00.000-04:00', to: '2026-10-31T23:59:59.999-04:00' })).toBe(1);
+    expect(await countWithin({ from: '2026-09-01T00:00:00.000-04:00', to: '2026-09-30T23:59:59.999-04:00' })).toBe(1);
+    expect(await countWithin({ from: '2026-09-01T00:00:00.000-04:00', to: '2026-10-31T23:59:59.999-04:00' })).toBe(2);
+  });
+
+  it('refuses a medical-record preview whose range is missing a bound', async () => {
+    await expect(
+      (index as any)(
+        createMockZambdaInput(
+          { medicalRecord: { patientId: PATIENT_ID, dateRange: { from: '2026-07-01T00:00:00.000Z' } } },
+          { secrets: createMockSecrets() }
+        )
+      )
+    ).rejects.toMatchObject({ message: expect.stringContaining('dateRange.to') });
     expect(mockFhirSearch).not.toHaveBeenCalled();
   });
 

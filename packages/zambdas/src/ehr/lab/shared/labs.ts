@@ -1166,7 +1166,6 @@ export const parseAppointmentIdForServiceRequest = (
   serviceRequest: ServiceRequest,
   encounters: Encounter[]
 ): string | undefined => {
-  console.log('getting appointment id for service request', serviceRequest.id);
   const encounterId = serviceRequest.encounter?.reference?.split('/').pop();
   const NOT_FOUND = undefined;
 
@@ -1539,6 +1538,7 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     fillerLab: labOrg?.name || '',
     orderStatus: parseLabOrderStatusWithSpecificTask(diagnosticReport, task, undefined, null),
     isPSC: false,
+    isStat: false,
     lastResultReceivedDate: diagnosticReport.effectiveDateTime || '',
     accessionNumbers: [parseAccessionNumberFromDr(diagnosticReport)],
     history: [], // todo post mvp

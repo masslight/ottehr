@@ -14,6 +14,9 @@ import { BILLING_APP_BUCKET, getClaimAttachmentBucketAndPathFromZ3Url } from './
 export const CLAIM_ATTACHMENT_PATH_PREFIX = 'claim-attachments';
 export const ERA_ATTACHMENT_PATH_PREFIX = 'era-attachments';
 
+// A deleted claim attachment's status until the document itself is removed.
+export const RETIRED_ATTACHMENT_STATUS = 'entered-in-error';
+
 // What a paper remit scan can be.
 export const ERA_ATTACHMENT_CONTENT_TYPES: readonly string[] = [
   MIME_TYPES.PDF,

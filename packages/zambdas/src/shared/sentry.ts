@@ -101,10 +101,12 @@ function scheduleTimeoutWarning(context: Context): ReturnType<typeof setTimeout>
  * Each invocation gets its own Sentry isolation scope, so a warm container doesn't carry one
  * request's context or breadcrumbs into the next, and is recorded as a transaction that continues
  * the caller's trace. Queued events are flushed before the invocation returns.
+ *
+ * The handler receives the Lambda context when there is one, and `undefined` under the local server.
  */
 export function wrapHandler(
   zambdaName: string,
-  handler: (input: ZambdaInput) => Promise<APIGatewayProxyResult>
+  handler: (input: ZambdaInput, context?: Context) => Promise<APIGatewayProxyResult>
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return async (input: ZambdaInput, context?: Context): Promise<APIGatewayProxyResult> => {
     // Respond as soon as the handler settles instead of waiting for open sockets and timers to drain.
@@ -129,7 +131,7 @@ export function wrapHandler(
             },
             async () => {
               try {
-                return await handler(input);
+                return await handler(input, isLambdaContext(context) ? context : undefined);
               } catch (error) {
                 console.error(`Error in handler for ${zambdaName}:`, error);
                 return topLevelCatch(zambdaName, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
