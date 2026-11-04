@@ -75,7 +75,7 @@ Solid arrow: a FHIR reference. Dashed arrow: no reference, the `Person` id is st
 - **Bot messages are stored** without `sender`. The history is complete. Old chips stay visible but disabled.
 - **The active prompt is the last message of the thread**, if it is a prompt. There is no separate dialog state. A free-text message disables the chips.
 - **Unread** uses `Communication.status`: a new message is `in-progress`, mark-read sets `completed`. Bot messages are stored as `completed`.
-- **Unread dot in the EHR** uses the tag `support-chat-unread` on open tasks. A patient text sets it on all open tasks of the thread, so no request is missed; the text itself is linked to the newest open task. Staff mark-read in any task removes it from all tasks of the thread, because each task shows the full thread. The Tasks list and the Tasks tab need no extra data.
+- **Unread dot in the EHR** uses the tag `support-chat-unread` on open tasks. A patient text sets it on all open tasks of the thread, so no request is missed; the text itself is linked to the newest open task. Staff mark-read removes it only from the opened task: other tasks can have other assignees, so their dots stay until each task is opened. The Tasks list and the Tasks tab need no extra data.
 - **Task category** `patient-request`, one code per request type. Title: `{Request Type} for {Patient} {Visit Date}`. Unassigned. Location of the selected visit (also the `task-location` tag). In the Tasks list, the existing Category filter shows "Patient Request", and the Location filter shows the task to the staff of that clinic.
 - **Visit prompt** is shown after a topic or after free text that starts a request, only if the account has more than one completed visit. With one visit, the bot uses it. The selection is echoed as a recap.
 - **Free text with no open task**, or right after a greeting ("+"), creates a `follow-up` task at once. Title: the message text in quotes. Until a visit is selected, the task uses the default visit: the most recent visit of the patient of the last task in the thread, else the most recent visit of the account. A visit selection then updates the task: visit, patient, title, location.
@@ -107,7 +107,7 @@ All four zambdas are new (`http_auth`). The patient ones are added to the PATIEN
 | Zambda | Caller | Input | Logic |
 |---|---|---|---|
 | `get-support-chat` | patient, staff | `taskId?`, `unreadOnly?` | Patient: own thread. Staff: thread of the task. Returns the last 1000 messages, `unreadCount` and `isAvailable`. An empty thread returns a greeting that is not stored. `unreadOnly` reads only unread messages and returns only `unreadCount` and `isAvailable`. |
-| `mark-support-chat-read` | patient, staff | `taskId?` | Sets incoming messages to `completed`. Staff: also removes `support-chat-unread` from the thread tasks. |
+| `mark-support-chat-read` | patient, staff | `taskId?` | Sets incoming messages to `completed`. Staff: also removes `support-chat-unread` from the opened task only. |
 | `send-support-chat-message` | patient | `new-request`, `select-topic`, `select-visit`, `text` | Runs the bot step. Creates or updates the task. Returns the thread. |
 | `reply-support-chat` | staff | `taskId`, `text` | Stores the message (shown to the patient as "Support Team") and notifies the patient. Works also for a completed task. |
 

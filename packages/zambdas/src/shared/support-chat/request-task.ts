@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { TASK_INPUT_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
 import { SUPPORT_CHAT_TOPIC_LABEL, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
@@ -157,35 +157,23 @@ export const getTaskPatientId = (task: Task): string | undefined =>
     ?.find((input) => input.type.coding?.some((coding) => coding.code === MANUAL_TASK.input.patient))
     ?.valueReference?.reference?.replace('Patient/', '');
 
-export async function clearTasksUnread(oystehr: Oystehr, threadId: string): Promise<void> {
-  const tasks = await getAllFhirSearchPages<Task>(
-    {
-      resourceType: 'Task',
-      params: [
-        threadTagSearchParam(threadId),
-        { name: '_tag', value: `${SUPPORT_CHAT_UNREAD_TAG.system}|${SUPPORT_CHAT_UNREAD_TAG.code}` },
-      ],
-    },
-    oystehr
-  );
+export async function clearTaskUnread(oystehr: Oystehr, taskId: string): Promise<void> {
+  const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
+  const index =
+    task.meta?.tag?.findIndex(
+      (tag) => tag.system === SUPPORT_CHAT_UNREAD_TAG.system && tag.code === SUPPORT_CHAT_UNREAD_TAG.code
+    ) ?? -1;
 
-  if (!tasks.length) return;
+  if (index < 0) return;
 
-  await oystehr.fhir.batch({
-    requests: tasks.map((task) => {
-      const index = task.meta!.tag!.findIndex(
-        (tag) => tag.system === SUPPORT_CHAT_UNREAD_TAG.system && tag.code === SUPPORT_CHAT_UNREAD_TAG.code
-      );
-      const path = `/meta/tag/${index}`;
+  const path = `/meta/tag/${index}`;
 
-      return getPatchBinary({
-        resourceType: 'Task',
-        resourceId: task.id!,
-        patchOperations: [
-          { op: 'test', path, value: task.meta!.tag![index] },
-          { op: 'remove', path },
-        ],
-      });
-    }),
+  await oystehr.fhir.patch<Task>({
+    resourceType: 'Task',
+    id: taskId,
+    operations: [
+      { op: 'test', path, value: task.meta!.tag![index] },
+      { op: 'remove', path },
+    ],
   });
 }
