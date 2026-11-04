@@ -154,7 +154,7 @@ Post-booking flows distributed across scenarios for comprehensive coverage:
 
 **P1 - Critical User Journeys:**
 ```typescript
-- executeReturningPatientFlow() → patient selection, prefilled data
+- executeReturningPatientFlow() → patient selection, known patient on patient information
 - executeModificationFlow() → reschedule appointment
 - executeCancellationFlow() → cancel and book again
 ```
@@ -162,7 +162,7 @@ Post-booking flows distributed across scenarios for comprehensive coverage:
 **P2 - Important Features:**
 ```typescript
 - executeWaitingRoomParticipantsFlow() → invite/cancel participants (virtual)
-- executePastVisitsFlow() → view appointment history
+- executePastVisitsFlow(page, appointmentResponse, { cancelled }) → view appointment history
 - executeReviewPageVerification(page, appointmentId, serviceMode, paperworkHelper)
   → Config-aware verification using paperworkHelper.getVisiblePages()
   → Only checks sections visible based on enableWhen evaluation against collected responses
