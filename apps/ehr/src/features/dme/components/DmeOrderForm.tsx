@@ -14,6 +14,7 @@ import {
   TextBlank,
 } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
 import { ProcedureDiagnosesSentence } from 'src/features/visits/in-person/components/procedures/narrative/ProcedureDiagnosesSentence';
+import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -54,7 +55,6 @@ import {
   normalizePhone,
   toCodeDisplay,
 } from './dmeQuickPick';
-import { DmeQuickPickDialogs } from './DmeQuickPickDialogs';
 
 const DME_ITEM_NAME_MAX_LENGTH = 200;
 
@@ -693,7 +693,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
           </Stack>
         </Paper>
       </form>
-      <DmeQuickPickDialogs
+      <QuickPickSaveDialogs
         open={quickPickDialogOpen}
         name={quickPickName}
         onNameChange={setQuickPickName}
@@ -701,6 +701,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
         saving={quickPickSaving}
         onClose={() => setQuickPickDialogOpen(false)}
         onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="DME order"
       />
     </FormProvider>
   );

@@ -89,6 +89,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
+import { zambdaApiUrlOverride } from 'utils/lib/helpers/zambda-api-url-override';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, ERA_SOURCE, EraSource, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
@@ -907,6 +908,7 @@ export function createBillingClient(
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
@@ -920,6 +922,7 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
   });
 }
@@ -1267,6 +1270,9 @@ export function setClia(resource: Location, clia: string | null): void {
     resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
   }
 }
+
+export const getStripeAccountId = (resource: Practitioner | Organization): string | undefined =>
+  resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value;
 
 export function setStripeAccountId(resource: Practitioner | Organization, stripeAccountId: string): void {
   const identifier = resource.identifier ?? [];
@@ -2029,7 +2035,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     ...common,
     kind: 'organization',
     name: resource.name ?? '',
-    stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
+    stripeAccountId: getStripeAccountId(resource) ?? '',
   };
 }
 export const CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM =

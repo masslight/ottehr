@@ -23,6 +23,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RadiologyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   useRadiologyQuickPicksQuery,
@@ -57,7 +58,7 @@ const RadiologyQuickPicksPage: React.FC = () => {
   };
 
   const handleDelete = (qp: RadiologyQuickPickData): void => {
-    if (!qp.id || !window.confirm(`Delete quick pick "${qp.name}"?`)) return;
+    if (!qp.id) return;
     removeMutation.mutate(qp.id, {
       onSuccess: () => enqueueSnackbar('Quick pick deleted', { variant: 'success' }),
       onError: (error) => {
@@ -123,11 +124,20 @@ const RadiologyQuickPicksPage: React.FC = () => {
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(qp)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <ConfirmationDialog
+                      title="Delete Quick Pick"
+                      description={`Delete quick pick "${qp.name}"?`}
+                      response={() => handleDelete(qp)}
+                      actionButtons={{ proceed: { text: 'Delete', color: 'error' }, back: { text: 'Cancel' } }}
+                    >
+                      {(showDialog) => (
+                        <Tooltip title="Delete">
+                          <IconButton size="small" color="error" onClick={showDialog}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </ConfirmationDialog>
                   </TableCell>
                 </TableRow>
               ))}

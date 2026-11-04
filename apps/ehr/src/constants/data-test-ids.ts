@@ -106,6 +106,7 @@ export const dataTestIds = {
   patientHeader: {
     patientId: 'header-patient-id',
     patientName: 'header-patient-name',
+    nameRow: 'header-patient-name-row',
     patientBirthSex: 'header-patient-birth-sex',
     patientBirthday: 'header-patient-birthday',
     patientAddress: 'header-patient-address',
@@ -218,6 +219,7 @@ export const dataTestIds = {
     roleFilter: 'employees-role-filter',
     roleCell: 'employees-role-cell',
     stateFilter: 'employees-state-filter',
+    statusFilter: 'employees-status-filter',
     gettingAlertsChip: 'employee-getting-alerts-chip',
     seenPatientRecentlyChip: 'employee-seen-patient-recently-chip',
     informationForm: 'employee-information-form',
