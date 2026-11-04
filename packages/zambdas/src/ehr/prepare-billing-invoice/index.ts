@@ -2,27 +2,19 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { Secrets } from 'utils/lib/secrets';
-import {
-  PREPARE_BILLING_INVOICE_ZAMBDA_KEY,
-  PrepareBillingInvoiceInputSchema,
-  PrepareBillingInvoiceResponse,
-} from 'utils/lib/types/api/invoicing.types';
-import { BILLING_INVOICE_CONFLICT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
+import { PREPARE_BILLING_INVOICE_ZAMBDA_KEY, PrepareBillingInvoiceResponse } from 'utils/lib/types/api/invoicing.types';
+import { BILLING_INVOICE_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient, resolveTimezone } from '../../shared/helpers';
-import {
-  isOttehrBillingInvoicingInBillingApp,
-  markInvoicedFromBillingApp,
-  sendInvoiceTaskDedupeQuery,
-} from '../../shared/invoice-tasks';
+import { markInvoicedFromBillingApp, sendInvoiceTaskDedupeQuery } from '../../shared/invoice-tasks';
 import { getInvoiceVisitResources, resolveInvoiceStripeCustomerId } from '../../shared/invoice-visit';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient } from '../../shared/stripeIntegration';
 import { resolveTemplatePlaceholders } from '../../shared/template-placeholders';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateWithSchema } from '../../shared/validation';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
@@ -32,13 +24,9 @@ const ZAMBDA_NAME = PREPARE_BILLING_INVOICE_ZAMBDA_KEY;
 // Create missing customers here so their IDs stay on the clinical Account.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const { encounterId, secrets } = validateWithSchema(PrepareBillingInvoiceInputSchema, input);
+  const { encounterId, secrets } = validateRequestParameters(input);
   console.groupEnd();
   console.debug('validateRequestParameters success');
-
-  if (!isOttehrBillingInvoicingInBillingApp(secrets)) {
-    throw MISCONFIGURED_ENVIRONMENT_ERROR('Invoicing is not enabled in the billing app');
-  }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
