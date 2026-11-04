@@ -25,13 +25,11 @@ import {
   PrepareBillingInvoiceResponse,
   SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY,
 } from 'utils/lib/types/api/invoicing.types';
-import { CreateBillingInvoiceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { CreateBillingInvoiceResponse } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import {
   BILLING_INVOICE_CONFLICT_ERROR,
   FHIR_RESOURCE_NOT_FOUND,
-  MISCONFIGURED_ENVIRONMENT_ERROR,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
 import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
@@ -39,17 +37,14 @@ import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
 import { getOrCreateInvoicingConfig } from '../../rcm/invoice-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { nextInvoiceNumber } from '../../shared/invoice-number';
-import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
-import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from '../invoice-issuer';
 import { getInvoiceableEncounterId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
 import { copySourceId, createBillingClient, findById } from '../shared';
-
-type CreateBillingInvoiceParams = ValidatedZambdaInput<typeof CreateBillingInvoiceInputSchema>;
+import { CreateBillingInvoiceParams, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'create-billing-invoice';
 
@@ -58,10 +53,7 @@ const CLAIM_ALREADY_INVOICED = 'This claim already has an invoice.';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateWithSchema(CreateBillingInvoiceInputSchema, input);
-  if (!isOttehrBillingInvoicingInBillingApp(params.secrets)) {
-    throw MISCONFIGURED_ENVIRONMENT_ERROR('Invoicing is not enabled in the billing app');
-  }
+  const params = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);

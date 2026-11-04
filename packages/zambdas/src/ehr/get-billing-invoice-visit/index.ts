@@ -10,21 +10,16 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
-import {
-  GET_BILLING_INVOICE_VISIT_ZAMBDA_KEY,
-  GetBillingInvoiceVisitInputSchema,
-} from 'utils/lib/types/api/invoicing.types';
+import { GET_BILLING_INVOICE_VISIT_ZAMBDA_KEY } from 'utils/lib/types/api/invoicing.types';
 import { GetBillingInvoiceRecipientResponse } from 'utils/lib/types/data/billing/billing.types';
-import { MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient, resolveTimezone } from '../../shared/helpers';
-import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { getInvoiceVisitResources } from '../../shared/invoice-visit';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateWithSchema } from '../../shared/validation';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
@@ -33,10 +28,7 @@ const ZAMBDA_NAME = GET_BILLING_INVOICE_VISIT_ZAMBDA_KEY;
 // Read only. The billing app's Send Invoice dialog shows who the invoice and SMS will go to.
 // The patient, the responsible party and the portal users are clinical records, so they are read here.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { encounterId, secrets } = validateWithSchema(GetBillingInvoiceVisitInputSchema, input);
-  if (!isOttehrBillingInvoicingInBillingApp(secrets)) {
-    throw MISCONFIGURED_ENVIRONMENT_ERROR('Invoicing is not enabled in the billing app');
-  }
+  const { encounterId, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
