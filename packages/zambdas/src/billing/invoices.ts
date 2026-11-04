@@ -6,6 +6,7 @@ import {
   getHostedInvoiceUrl,
   INVOICE_CLAIM_TAG_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   BILLING_INVOICE_LIST_STATUSES,
@@ -18,7 +19,7 @@ import { copySourceId, fetchById, findById } from './shared';
 
 // The claim points at its own copy of the service facility. The copy records which facility it came from.
 export async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
-  const copyId = claim.facility?.reference?.replace('Location/', '');
+  const copyId = getIdFromReference(claim.facility?.reference, 'Location');
   return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
 }
 
