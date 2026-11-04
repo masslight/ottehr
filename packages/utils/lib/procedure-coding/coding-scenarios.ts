@@ -1139,6 +1139,18 @@ export const UNFINISHED_FORMS: { visit: string; procedure: string; answers: Form
     asksFor: ['ST / T'],
   },
   {
+    visit: 'The axis is below -180°',
+    procedure: EKG,
+    answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT, 'Axis (°)': -181 },
+    asksFor: ['Axis (°)'],
+  },
+  {
+    visit: 'The axis is above +180°',
+    procedure: EKG,
+    answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT, 'Axis (°)': 181 },
+    asksFor: ['Axis (°)'],
+  },
+  {
     visit: 'The catheter type has not been chosen',
     procedure: CATHETER,
     answers: {},

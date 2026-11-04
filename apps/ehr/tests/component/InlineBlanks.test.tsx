@@ -388,6 +388,7 @@ describe('inline blanks', () => {
     }
     render(<Length />);
     const input = screen.getByRole('spinbutton', { name: 'length (cm)' });
+    expect(input).toHaveAttribute('inputmode', 'decimal');
     // Number boxes share the text-input look: centred, dashed while empty, and the label as tooltip.
     expect(input).toHaveAttribute('placeholder', 'length (cm)');
     expect(input).not.toHaveAttribute('title');
