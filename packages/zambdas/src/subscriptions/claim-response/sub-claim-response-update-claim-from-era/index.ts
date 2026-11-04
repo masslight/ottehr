@@ -237,19 +237,17 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
               system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
               value: claimResponseIcn,
               ...(insuranceOrdinal
-                ? [
-                    {
-                      type: {
-                        coding: [
-                          {
-                            system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
-                            coe: insuranceOrdinal,
-                          },
-                        ],
-                      },
+                ? {
+                    type: {
+                      coding: [
+                        {
+                          system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
+                          code: insuranceOrdinal,
+                        },
+                      ],
                     },
-                  ]
-                : []),
+                  }
+                : {}),
             },
           ],
         }
