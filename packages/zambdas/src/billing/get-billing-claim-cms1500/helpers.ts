@@ -102,11 +102,6 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
   const { claim, patient, coverages, billingProvider, serviceFacility, renderingProvider, referringProvider } =
     resources;
   const coverage = getCoverageForSubmissionParams(resources);
-  // if (!coverage) {
-  //   throw INVALID_INPUT_ERROR(
-  //     `"${resources.submissionInsurance}" coverage requested, but claim does not have a matching coverage.`
-  //   );
-  // }
   const other = coverages.find((cov) => cov.id !== coverage?.id);
   const payer = resources.payers.get(coverage?.payor?.[0]?.reference ?? '');
   const otherPayer = resources.payers.get(other?.payor?.[0]?.reference ?? '');
