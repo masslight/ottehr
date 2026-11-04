@@ -6,7 +6,7 @@ import type { AddressInfo } from 'net';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import type { TestProject } from 'vitest/node';
-import app, { routeZambdaCallsToLocalServer } from '../../src/local-server/index';
+import app, { localServerZambdaApiUrl, routeZambdaCallsToLocalServer } from '../../src/local-server/index';
 import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import { assertNoLeakedResourcesForRun } from './integration-leak-gate';
@@ -218,7 +218,7 @@ export default async function setup(project: TestProject): Promise<() => Promise
     });
   });
 
-  project.provide('EXECUTE_ZAMBDA_URL', `http://localhost:${port}/local`);
+  project.provide('EXECUTE_ZAMBDA_URL', localServerZambdaApiUrl(port));
   routeZambdaCallsToLocalServer(port);
 
   // Provision shared auth once for the whole suite.

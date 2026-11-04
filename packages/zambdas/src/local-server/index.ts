@@ -7,6 +7,12 @@ import { expressLambda } from './utils';
 
 const app = express();
 
+// zambdas are served under this path, as the zambda API serves them under its /v1
+const ZAMBDA_API_PATH = '/local';
+
+// the base URL Oystehr clients use to call zambdas on the local server listening on `port`
+export const localServerZambdaApiUrl = (port: number): string => `http://localhost:${port}${ZAMBDA_API_PATH}`;
+
 app.use(express.text({ type: '*/*', limit: '6mb' }));
 
 // Upgrade lower-cased authorization into capitalized one the way API Gateway does
@@ -21,7 +27,7 @@ app.use(cors());
 function registerRoutes(): void {
   Object.entries({ ...zambdasSpec.zambdas, ...billingZambdasSpec.zambdas }).forEach(([_key, spec]) => {
     const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
-    const path = `/local/zambda/${spec.name}/${executeOrExecutePublic}`;
+    const path = `${ZAMBDA_API_PATH}/zambda/${spec.name}/${executeOrExecutePublic}`;
     app.post(path, async (req, res) => {
       const { index } = await import(`../../${spec.src}`);
       await expressLambda(index, req, res);
@@ -41,7 +47,7 @@ registerRoutes();
 // Zambdas run here call other zambdas through the Oystehr clients, which read this to call this
 // server instead of the deployed project.
 export function routeZambdaCallsToLocalServer(port: number): void {
-  process.env[LOCAL_ZAMBDA_API_URL_ENV] = `http://localhost:${port}/local`;
+  process.env[LOCAL_ZAMBDA_API_URL_ENV] = localServerZambdaApiUrl(port);
 }
 
 // Only start the server if not in test environment
