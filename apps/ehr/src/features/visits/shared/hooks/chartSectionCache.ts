@@ -226,6 +226,13 @@ export async function markChartStale(queryClient: QueryClient, encounterId: stri
   ]);
 }
 
+/** Drops the cached chart of an encounter whose data was replaced, so the next screen can't show the old rows first. */
+export function discardChart(queryClient: QueryClient, encounterId: string | undefined): void {
+  if (!encounterId) return;
+  queryClient.removeQueries({ queryKey: chartSectionsQueryKey(encounterId) });
+  queryClient.removeQueries({ queryKey: visitNoteQueryKey(encounterId) });
+}
+
 /**
  * The notes section is the one section whose option set selects a subset of its data: the server scopes each
  * note type on its own, so a list of some types is exactly the matching rows of a list of more types. That

@@ -93,8 +93,6 @@ vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagemen
     setQuickPickName: vi.fn(),
     existingQuickPicks: [],
     quickPickSaving: false,
-    overwriteTarget: null,
-    setOverwriteTarget: vi.fn(),
     onQuickPickSelect: vi.fn(),
     openQuickPickDialog: vi.fn(),
     onSaveAsQuickPick: vi.fn(),

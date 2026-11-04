@@ -6,7 +6,7 @@ import Stripe from 'stripe';
 import { RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { fillInvoiceTemplate } from 'utils/lib/helpers/rcm/invoice-config';
 import { getInvoiceTaskSource, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -80,7 +80,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     console.log('Creating invoice and invoice item');
-    const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+    const patientId = getIdFromReference(encounter.subject?.reference, 'Patient');
     if (!patientId) throw new Error("Encounter doesn't have patient reference");
     const filledMemo = memo ? fillInvoiceTemplate(memo, basePlaceholderInput) : undefined;
     const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {

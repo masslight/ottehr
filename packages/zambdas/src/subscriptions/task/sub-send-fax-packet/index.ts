@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization, Practitioner, Task } from 'fhir/r4b';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
   FAX_PACKET_FAILURE_TASK_OUTPUT,
@@ -39,7 +39,7 @@ const readPayload = (task: Task): FaxPacketTaskPayload => {
 
 /** Tasks queued before the payload carried a source are single-visit sends named by `Task.focus`. */
 const faxSourceFromTaskFocus = (task: Task): FaxPacketSource => {
-  const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '');
+  const appointmentId = getIdFromReference(task.focus?.reference, 'Appointment');
   if (!appointmentId) throw new Error('Fax packet task has neither a source nor an Appointment focus');
   return { type: 'visit', appointmentId };
 };

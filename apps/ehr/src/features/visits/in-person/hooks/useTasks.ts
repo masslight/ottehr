@@ -13,9 +13,9 @@ import {
 } from 'utils/lib/fhir/constants';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getCoding, getExtension, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
@@ -624,7 +624,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
               date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
             }
           : undefined,
-        createdById: removePrefix('Practitioner/', task.requester?.reference ?? ''),
+        createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
         completable,
       };
     }
@@ -770,7 +770,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
         }
       : undefined,
-    createdById: removePrefix('Practitioner/', task.requester?.reference ?? ''),
+    createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
     alert: getAlertCode(task),
     completable: completable,
   };

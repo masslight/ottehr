@@ -577,7 +577,7 @@ export default function ClaimDetail(): ReactElement {
           claim={claim}
         />
       )}
-      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
+      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claim={claim} />
 
       <ClaimNotesDrawer
         key={claim.id}

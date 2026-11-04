@@ -31,9 +31,10 @@ const PrintOutlined: FC = () => {
 
 type Props = {
   encounterId?: string;
+  color?: string;
 };
 
-export const PrintVisitLabelButton: FC<Props> = ({ encounterId }) => {
+export const PrintVisitLabelButton: FC<Props> = ({ encounterId, color = '#0F347C' }) => {
   const { oystehrZambda } = useApiClients();
   const { printVisitLabel } = usePrintVisitLabel();
 
@@ -98,7 +99,7 @@ export const PrintVisitLabelButton: FC<Props> = ({ encounterId }) => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          color: '#0F347C',
+          color,
         }}
       >
         {icon}

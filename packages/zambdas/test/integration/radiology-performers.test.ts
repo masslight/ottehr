@@ -5,6 +5,7 @@ import {
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { GetRadiologyOrderListZambdaOutput, RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -57,7 +58,7 @@ describe('radiology history performers integration', () => {
       resourceType: 'ServiceRequest',
       id: serviceRequestId,
     });
-    orderingPractitionerId = serviceRequest.requester?.reference?.split('/')[1] as string;
+    orderingPractitionerId = getIdFromReference(serviceRequest.requester?.reference) as string;
     // What the PACS webhook does once the study has been performed: flip the status and stamp the time,
     // which is what puts a "performed" row in the history at all.
     await oystehrAdmin.fhir.patch<ServiceRequest>({

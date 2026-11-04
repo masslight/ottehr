@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, MedicationRequest, MedicationStatement } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE, FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { getBooleanExtensionValue } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -86,11 +87,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Medication request id: ${medicationRequest.id}`);
 
   const encounterReference = medicationRequest.encounter?.reference;
-  const encounterId = encounterReference?.split('/')[1];
+  const encounterId = getIdFromReference(encounterReference);
   const patientReference = medicationRequest.subject?.reference;
-  const patientId = patientReference?.split('/')[1];
+  const patientId = getIdFromReference(patientReference);
   const practitionerReference = medicationRequest.requester?.reference;
-  const practitionerId = practitionerReference?.split('/')[1];
+  const practitionerId = getIdFromReference(practitionerReference);
 
   console.log(`Encounter ref: ${encounterReference}`);
   console.log(`Patient ref: ${patientReference}`);

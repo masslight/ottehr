@@ -156,6 +156,8 @@ type SortDirection = 'asc' | 'desc';
 
 export const FREE_FORM_RECONCILE_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 
+const FREE_FORM_TYPE = 'free-form';
+
 interface FreeFormDraft {
   draftId: string;
   patientId: string;
@@ -216,12 +218,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
+  const visitHistoryType = type === FREE_FORM_TYPE ? 'all' : type;
   const {
     data: visitHistory,
     isLoading: visitHistoryIsLoading,
     refetch: refetchVisitHistory,
   } = useQuery({
-    queryKey: [`get-patient-visit-history`, { patientId: currentPatientId, status, type, period }],
+    queryKey: [`get-patient-visit-history`, { patientId: currentPatientId, status, type: visitHistoryType, period }],
     queryFn: async (): Promise<PatientVisitListResponse> => {
       let from: string | undefined;
       if (period > 0) {
@@ -229,8 +232,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       }
       let typeParam: AppointmentType[] | undefined = undefined;
       let serviceMode: ServiceMode | undefined = undefined;
-      if (type !== 'all') {
-        const [typeStr, serviceModeStr] = type.split('|');
+      if (visitHistoryType !== 'all') {
+        const [typeStr, serviceModeStr] = visitHistoryType.split('|');
         typeParam = [typeStr as AppointmentType];
         serviceMode = serviceModeStr as ServiceMode;
       }
@@ -290,6 +293,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   }, [currentPatientId, updateDraft]);
 
   const filteredVisits = useMemo(() => {
+    if (type === FREE_FORM_TYPE) return [];
+
     let visits = visitHistory?.visits ?? [];
 
     if (hideCancelled) {
@@ -306,7 +311,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     }
 
     return visits;
-  }, [visitHistory, hideCancelled, hideNoShow, serviceCategory]);
+  }, [type, visitHistory, hideCancelled, hideNoShow, serviceCategory]);
 
   const serverFreeFormEncounters = visitHistory?.freeFormEncounters;
   const periodStart = useMemo(
@@ -324,7 +329,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     [serverFreeFormEncounters, localSaves, currentPatientId, periodStart, deletedFreeFormIds]
   );
 
-  const includeFreeForm = type === 'all' && status === 'all' && serviceCategory === 'all';
+  const includeFreeForm = (type === 'all' || type === FREE_FORM_TYPE) && status === 'all' && serviceCategory === 'all';
   const allRows = useMemo(
     () => mergeEncounterGridRows(filteredVisits, freeFormEncounters, { includeFreeForm, sortDirection }),
     [filteredVisits, freeFormEncounters, includeFreeForm, sortDirection]
@@ -414,7 +419,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
 
   const handleAddFreeForm = (): void => {
     if (!currentPatientId) return;
-    setType('all');
+    setType((current) => (current === FREE_FORM_TYPE ? current : 'all'));
     setStatus('all');
     setServiceCategory('all');
     setPage(0);
@@ -626,6 +631,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <MenuItem value={'pre-booked|in-person'}>{visitTypeToInPersonLabel['pre-booked']}</MenuItem>
           <MenuItem value={'pre-booked|virtual'}>{visitTypeToTelemedLabel['pre-booked']}</MenuItem>
           <MenuItem value={'walk-in|virtual'}>{visitTypeToTelemedLabel['walk-in']}</MenuItem>
+          <MenuItem value={FREE_FORM_TYPE}>Free Form</MenuItem>
         </TextField>
 
         <TextField

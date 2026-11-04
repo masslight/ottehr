@@ -289,7 +289,7 @@ describe('ClaimsList — submit claims', () => {
 });
 
 describe('ClaimsList — send invoice', () => {
-  it('offers Send Invoice for one claim that can be invoiced and reloads the claims once it is sent', async () => {
+  it('offers Send Patient Invoice for one claim that can be invoiced and reloads the claims once it is sent', async () => {
     const patientArRow = (id: string, patientName: string, patientArStatus: string): BillingClaimItem => ({
       ...makeRow(id, patientName, AR_STAGE.patient, 'patient-ar-pre-invoice'),
       statuses: { ...emptyClaimStatusValues(), arStage: AR_STAGE.patient, patientArStatus },
@@ -305,7 +305,7 @@ describe('ClaimsList — send invoice', () => {
 
     fireEvent.click(await screen.findByLabelText('select New Patient'));
     fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
-    const sendInvoice = screen.getByRole('menuitem', { name: 'Send Invoice' });
+    const sendInvoice = screen.getByRole('menuitem', { name: 'Send Patient Invoice' });
     expect(sendInvoice).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(screen.getByLabelText('select Ready Patient'));
     expect(sendInvoice).toHaveAttribute('aria-disabled', 'true');

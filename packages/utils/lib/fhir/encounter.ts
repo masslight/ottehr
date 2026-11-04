@@ -14,6 +14,7 @@ import {
   FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG,
   FHIR_EXTENSION,
 } from './constants';
+import { getIdFromReference } from './reference';
 import { getPatchOperationForNewMetaTag } from './resourcePatch';
 
 // follow up encounter consts
@@ -414,7 +415,7 @@ export const getInteractionModeForEncounter = (
 
 export const getEncounterLocationId = (encounter: Encounter | undefined): string | undefined => {
   const locationRef = encounter?.location?.[0]?.location?.reference;
-  return locationRef?.split('/')[1];
+  return getIdFromReference(locationRef);
 };
 
 /**
