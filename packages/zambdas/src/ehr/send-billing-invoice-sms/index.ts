@@ -3,24 +3,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Patient } from 'fhir/r4b';
 import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import {
-  SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY,
-  SendBillingInvoiceSmsInputSchema,
-} from 'utils/lib/types/api/invoicing.types';
-import {
-  FHIR_RESOURCE_NOT_FOUND,
-  MISCONFIGURED_ENVIRONMENT_ERROR,
-  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
-} from 'utils/lib/types/errors';
+import { SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY } from 'utils/lib/types/api/invoicing.types';
+import { FHIR_RESOURCE_NOT_FOUND, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendSmsToRelatedPersons } from '../../shared/communication';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-
-type SendBillingInvoiceSmsParams = ValidatedZambdaInput<typeof SendBillingInvoiceSmsInputSchema>;
+import { SendBillingInvoiceSmsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
@@ -30,14 +20,10 @@ const ZAMBDA_NAME = SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY;
 // The existing chat reads messages linked to clinical recipients.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateWithSchema(SendBillingInvoiceSmsInputSchema, input);
+  const params = validateRequestParameters(input);
   const { secrets } = params;
   console.groupEnd();
   console.debug('validateRequestParameters success');
-
-  if (!isOttehrBillingInvoicingInBillingApp(secrets)) {
-    throw MISCONFIGURED_ENVIRONMENT_ERROR('Invoicing is not enabled in the billing app');
-  }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
