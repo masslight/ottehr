@@ -1,4 +1,5 @@
-import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Organization, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
+import { getReferralDetails, REFERRAL_ORDER_TYPE_TAG, withReferralDetails } from 'utils/lib/fhir/referral';
 import { FAX_PACKET_MAX_PAGES } from 'utils/lib/types/api/fax.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,6 +26,7 @@ import { FaxPacketTooLargeError } from '../../src/shared/fax/build-fax-packet';
 import {
   buildSharedCoverSheetFields,
   deliverFaxPacket,
+  markReferralSentIfDelivered,
   resolvePatientDisplayId,
   resolveVisitTypeLabel,
   savePcpIfRequested,
@@ -138,6 +140,14 @@ describe('deliverFaxPacket', () => {
       )
     ).rejects.toThrow(`Fax packet is ${FAX_PACKET_MAX_PAGES + 2} pages`);
     expect(mockBuildPacketForRecipient).not.toHaveBeenCalled();
+  });
+
+  it('records what a referral packet fulfils on every delivery attempt', async () => {
+    await deliverFaxPacket(
+      deliverArgs([{ faxNumber: '+12125551234' }], { plan: plan({ basedOnReference: 'ServiceRequest/referral-1' }) })
+    );
+
+    expect(mockSendFaxAttempt.mock.calls[0][0].basedOnReference).toBe('ServiceRequest/referral-1');
   });
 
   it('sends a patient-level packet that names no visit', async () => {
@@ -414,5 +424,117 @@ describe('savePcpIfRequested', () => {
     await expect(
       savePcpIfRequested([{ name: 'Olivia Green', faxNumber: '+12125551234', saveAsPcp: true }], basePatient(), oystehr)
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('markReferralSentIfDelivered', () => {
+  const referral = (status: 'not-sent' | 'given-to-patient' | 'response-received'): ServiceRequest =>
+    withReferralDetails(
+      {
+        resourceType: 'ServiceRequest',
+        id: 'referral-1',
+        status: 'draft',
+        intent: 'order',
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }], versionId: '3' },
+        subject: { reference: 'Patient/patient-1' },
+      },
+      { status }
+    );
+
+  const sent = [{ faxNumber: '+12125551234', status: 'sent' as const }];
+  const failed = [{ faxNumber: '+12125551234', status: 'failed' as const }];
+  const conflict = Object.assign(new Error('version conflict'), { code: 412 });
+
+  // The referral's open "awaiting response" task, found by the task-overdue helper after the referral is marked sent.
+  const awaitingTask = {
+    resourceType: 'Task',
+    id: 'task-1',
+    status: 'in-progress',
+    intent: 'order',
+    input: [{ type: { coding: [{ code: 'urgency' }] }, valueString: 'urgent' }],
+  };
+
+  const oystehrFor = (
+    serviceRequest: ServiceRequest
+  ): { get: any; update: any; search: any; patch: any; oystehr: any } => {
+    const get = vi.fn().mockResolvedValue(serviceRequest);
+    const update = vi.fn().mockImplementation((resource: ServiceRequest) => Promise.resolve(resource));
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [awaitingTask] });
+    const patch = vi.fn().mockResolvedValue(awaitingTask);
+    return { get, update, search, patch, oystehr: { fhir: { get, update, search, patch } } };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('moves a referral to Sent once any recipient received it, guarding against concurrent edits', async () => {
+    const { update, oystehr } = oystehrFor(referral('given-to-patient'));
+
+    await markReferralSentIfDelivered('referral-1', [...failed, ...sent], oystehr);
+
+    const [updated, options] = update.mock.calls[0];
+    expect(updated.status).toBe('active');
+    expect(getReferralDetails(updated)).toMatchObject({ status: 'sent', sentAt: expect.any(String) });
+    expect(options).toEqual({ optimisticLockingVersionId: '3' });
+  });
+
+  it('starts the overdue clock on the open task from the moment the referral was sent', async () => {
+    const { update, patch, oystehr } = oystehrFor(referral('not-sent'));
+
+    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+
+    const sentAt = getReferralDetails(update.mock.calls[0][0])!.sentAt!;
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch.mock.calls[0][0]).toEqual({
+      resourceType: 'Task',
+      id: 'task-1',
+      operations: [
+        {
+          op: 'add',
+          path: '/restriction',
+          // urgent = 7 days after the send
+          value: { period: { end: new Date(Date.parse(sentAt) + 7 * 24 * 60 * 60 * 1000).toISOString() } },
+        },
+      ],
+    });
+  });
+
+  it('leaves the referral alone when nobody received the fax', async () => {
+    const { get, update, oystehr } = oystehrFor(referral('not-sent'));
+
+    await markReferralSentIfDelivered('referral-1', failed, oystehr);
+
+    expect(get).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('keeps a referral that already has a response as Response received', async () => {
+    const { update, oystehr } = oystehrFor(referral('response-received'));
+
+    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('re-reads and retries when the referral changed underneath it, at most three times', async () => {
+    const { get, update, oystehr } = oystehrFor(referral('not-sent'));
+    update.mockRejectedValueOnce(conflict).mockRejectedValueOnce(conflict);
+
+    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(update).toHaveBeenCalledTimes(3);
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it('never fails the send: a persistent failure is captured instead', async () => {
+    const { update, oystehr } = oystehrFor(referral('not-sent'));
+    update.mockRejectedValue(conflict);
+
+    await expect(markReferralSentIfDelivered('referral-1', sent, oystehr)).resolves.toBeUndefined();
+
+    expect(update).toHaveBeenCalledTimes(3);
+    expect(mockCaptureException).toHaveBeenCalledWith(conflict);
   });
 });

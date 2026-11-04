@@ -10,6 +10,7 @@ import {
   FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
   FaxDocumentAvailability,
   FaxDocumentKind,
+  FaxPacketDocumentKind,
 } from 'utils/lib/types/api/fax.types';
 import { LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
 import {
@@ -27,7 +28,7 @@ import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
  */
 export interface FaxPacketPart {
   /** Absent for patient-level documents, which are not one of the visit document kinds. */
-  kind?: FaxDocumentKind;
+  kind?: FaxPacketDocumentKind;
   /** Human label, used for logging and for the Task.input snapshot of what was faxed. */
   title: string;
   documentReferenceId?: string;

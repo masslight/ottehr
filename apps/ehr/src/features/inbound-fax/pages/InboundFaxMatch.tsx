@@ -6,6 +6,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { LoadingButton } from '@mui/lab';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -23,11 +24,13 @@ import {
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { deleteInboundFax, fileInboundFax } from 'src/api/api';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { REFERRALS_QUERY_KEY, useReferralsQuery } from 'src/features/referrals/referrals.queries';
 import { formatDate, GET_TASKS_KEY } from 'src/features/visits/in-person/hooks/useTasks';
 import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -39,6 +42,7 @@ import {
 } from 'src/hooks/useGetPatientDocs';
 import PageContainer from 'src/layout/PageContainer';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { isReferralOpen, REFERRAL_STATUS_LABELS, ReferralDTO } from 'utils/lib/types/api/referrals/referrals.types';
 import { FAX_TASK, isInboundFaxDeleting, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
@@ -50,6 +54,15 @@ const isStaleFaxError = (e: unknown): boolean => {
   return (error?.code ?? error?.output?.code) === APIErrorCode.PRECONDITION_FAILED;
 };
 const STALE_FAX_MESSAGE = 'This fax was changed by someone else. The page has been refreshed.';
+
+/** "Orthopedics, Riverside Orthopedic Associates, Sent, created 11/01/2026" — the date in the browser's zone. */
+const referralOptionLabel = (referral: ReferralDTO): string =>
+  [
+    referral.specialty,
+    referral.recipient?.name ?? 'no recipient',
+    REFERRAL_STATUS_LABELS[referral.status],
+    `created ${DateTime.fromISO(referral.createdAt).toLocal().toFormat('MM/dd/yyyy')}`,
+  ].join(', ');
 
 export const InboundFaxMatch: React.FC = () => {
   const { communicationId } = useParams();
@@ -80,6 +93,7 @@ export const InboundFaxMatch: React.FC = () => {
 
   const [confirmedSelectedPatient, setConfirmedSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>();
+  const [selectedReferral, setSelectedReferral] = useState<ReferralDTO | null>(null);
   const [documentName, setDocumentName] = useState('');
 
   if (!communicationId) {
@@ -197,10 +211,20 @@ export const InboundFaxMatch: React.FC = () => {
     [foldersData, confirmedPatientId]
   );
 
+  // The patient's referrals still waiting on something: a fax may be the answer to one of them.
+  const { data: referralsData, isLoading: referralsLoading } = useReferralsQuery(
+    confirmedPatientId ? { patientId: confirmedPatientId } : undefined
+  );
+  const openReferrals: ReferralDTO[] = useMemo(
+    () => (referralsData?.referrals ?? []).filter((referral) => isReferralOpen(referral.status)),
+    [referralsData]
+  );
+
   // Auto-confirm on radio select — no intermediate "Select" button step needed
   const handlePatientSelect = useCallback((patient: SearchResultParsedPatient | undefined): void => {
     setConfirmedSelectedPatient(patient);
     setSelectedFolder(undefined);
+    setSelectedReferral(null);
   }, []);
 
   const handleFile = async (): Promise<void> => {
@@ -218,12 +242,14 @@ export const InboundFaxMatch: React.FC = () => {
         folderId: selectedFolder.id,
         internalName: selectedFolder.internalName,
         documentName,
+        referralId: selectedReferral?.id,
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
         queryClient.invalidateQueries({
           queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId: confirmedSelectedPatient.id }],
         }),
+        queryClient.invalidateQueries({ queryKey: [REFERRALS_QUERY_KEY] }),
       ]);
       enqueueSnackbar('Fax filed successfully', { variant: 'success' });
       navigate('/tasks');
@@ -393,14 +419,7 @@ export const InboundFaxMatch: React.FC = () => {
                           InputProps={{
                             readOnly: true,
                             endAdornment: (
-                              <IconButton
-                                onClick={() => {
-                                  setConfirmedSelectedPatient(undefined);
-                                  setSelectedFolder(undefined);
-                                }}
-                                edge="end"
-                                size="small"
-                              >
+                              <IconButton onClick={() => handlePatientSelect(undefined)} edge="end" size="small">
                                 <ClearIcon />
                               </IconButton>
                             ),
@@ -415,6 +434,29 @@ export const InboundFaxMatch: React.FC = () => {
                         />
                       )}
                     </Stack>
+
+                    {/* Response to one of the patient's open referrals */}
+                    {confirmedSelectedPatient && (referralsLoading || openReferrals.length > 0) && (
+                      <Autocomplete
+                        options={openReferrals}
+                        value={selectedReferral}
+                        onChange={(_event, value) => setSelectedReferral(value)}
+                        getOptionLabel={referralOptionLabel}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        loading={referralsLoading}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Response to referral (optional)"
+                            helperText={
+                              selectedReferral
+                                ? `Sets the referral to Response received and routes a review task to ${selectedReferral.referringProvider.name}`
+                                : undefined
+                            }
+                          />
+                        )}
+                      />
+                    )}
 
                     {/* Folder selection */}
                     {confirmedSelectedPatient && (

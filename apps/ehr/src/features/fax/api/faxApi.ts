@@ -16,10 +16,13 @@ export interface FaxApiClient {
   getFaxPacketStatus: (input: GetFaxPacketStatusInput) => Promise<GetFaxPacketStatusOutput>;
 }
 
+/** What the preview is keyed on: the visit whose documents are listed, or the referral being sent. */
+export type FaxPacketPreviewInput = Pick<GetFaxPacketPreviewInput, 'appointmentId' | 'referralId'>;
+
 export const fetchFaxPacketPreview = async (
   apiClient: FaxApiClient,
-  appointmentId: string
-): Promise<GetFaxPacketPreviewOutput> => apiClient.getFaxPacketPreview({ appointmentId });
+  input: FaxPacketPreviewInput
+): Promise<GetFaxPacketPreviewOutput> => apiClient.getFaxPacketPreview(input);
 
 /**
  * The number outbound faxes are sent from. It is the one part of the preview that does not depend on a

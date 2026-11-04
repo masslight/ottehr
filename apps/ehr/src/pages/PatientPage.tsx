@@ -38,6 +38,7 @@ import { FaxVisitOption } from 'src/features/fax/model/types';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { MedicalRecordDateRangeDialog } from 'src/features/medical-record-export/components/MedicalRecordDateRangeDialog';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
+import { PatientReferralsTab } from 'src/features/referrals/PatientReferralsTab';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
 import Contacts from 'src/features/visits/shared/components/patient/info/Contacts';
@@ -577,6 +578,14 @@ export default function PatientPage(): JSX.Element {
                         }
                       />
                     )}
+                    <Tab
+                      value="referrals"
+                      label={
+                        <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                          Referrals
+                        </Typography>
+                      }
+                    />
                   </TabList>
                 </Box>
 
@@ -607,6 +616,9 @@ export default function PatientPage(): JSX.Element {
                     <PatientRadiologyTab patientId={id || ''} />
                   </TabPanel>
                 )}
+                <TabPanel value="referrals" sx={{ p: 0 }}>
+                  <PatientReferralsTab patientId={id || ''} />
+                </TabPanel>
               </TabContext>
               {showAccountSettingsDialog ? (
                 <AccountSettingsDialog

@@ -120,9 +120,17 @@ category (auto-generated + manual variants). `getUiTaskCategoryForCode(code)` pe
 | `charting` | Charting | `manual-charting` |
 | `coding` | Coding | `manual-coding` |
 | `billing` | Billing | `manual-billing` |
+| `inboundFax` | Inbound Fax | `inbound-fax` |
+| `referrals` | Referrals | `referral` |
 | `other` | Other | `manual-other` |
 
 A task whose code is not in this map is uncategorized → the category engine skips it.
+
+Referral tasks also get an **overdue** notification: each run scans every open `referral` task, and one past its
+`restriction.period.end` is tagged `overdue-notified` (system `…/r4/provider-notifications-referral-overdue-tag`)
+and its owner notified once through their Referrals row ("Referral overdue: …"); the bell lands on the visit, or
+on the patient record (`{ type: 'patient', patientId }`) for a referral made without a visit. A response-received
+handoff is the ordinary assignment notification ([§4.3](#43-task-assignment-engine)).
 
 The category list is expected to grow: adding a category is a matter of extending `UI_TASK_CATEGORY_IDS`,
 `UI_TASK_CATEGORY_LABELS`, and `TASK_CODE_TO_UI_CATEGORY`; the settings table and both cron engines then pick

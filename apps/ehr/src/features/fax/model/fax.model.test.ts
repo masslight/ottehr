@@ -55,6 +55,16 @@ describe('faxDocuments', () => {
     });
   });
 
+  it('labels a referral form ahead of the visit documents it travels with', () => {
+    expect(
+      documentLabelGroups([
+        { kind: 'referral-form', available: true },
+        { kind: 'progress-note', available: true },
+        { kind: 'lab-results', available: false },
+      ])
+    ).toEqual({ included: ['Referral form', 'Visit/Progress Note'], excluded: ['Lab Results'] });
+  });
+
   it('detects a visit with nothing to send', () => {
     const nothing = {
       'progress-note': false,
@@ -78,6 +88,19 @@ describe('faxRecipients', () => {
     expect(initialRecipients(pcp, false)[0]).toMatchObject({ ...pcp, saveAsPcp: true });
     expect(initialRecipients(pcp, true)[0].saveAsPcp).toBe(false);
     expect(initialRecipients(undefined, false)[0]).toMatchObject({ name: '', faxNumber: '', saveAsPcp: true });
+  });
+
+  it("prefills a referral's contact ahead of the PCP, without offering to save it as the PCP", () => {
+    const recipient = { name: 'Jane Doe', organization: 'Springfield Cardiology', faxNumber: '2125554321' };
+    const pcp = { name: 'Tomas Jhonson', faxNumber: '2027139680' };
+    expect(buildDefaultFormValues({ documents: [], recipient, hasSavedPcp: true }).recipients[0]).toMatchObject({
+      ...recipient,
+      saveAsPcp: false,
+    });
+    expect(buildDefaultFormValues({ documents: [], recipient, pcp, hasSavedPcp: true }).recipients[0].name).toBe(
+      'Jane Doe'
+    );
+    expect(buildDefaultFormValues({ documents: [], pcp, hasSavedPcp: true }).recipients[0].name).toBe('Tomas Jhonson');
   });
 
   it('treats "save as PCP" as a radio: the record holds exactly one PCP', () => {
@@ -183,5 +206,8 @@ describe('faxPolling', () => {
 
     expect(faxStatusTimeoutMessage(medicalRecordSource)).toContain("patient's fax history");
     expect(faxHistoryQueryKey(medicalRecordSource)).toEqual(actionLogsQueryKey('fax', 'patient-1'));
+
+    // A referral names no patient, so every fax log is refreshed.
+    expect(faxHistoryQueryKey({ type: 'referral', referralId: 'referral-1' })).toEqual(actionLogsQueryKey('fax'));
   });
 });

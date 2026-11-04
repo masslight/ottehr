@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, List, Task } from 'fhir/r4b';
+import { Communication, List, ServiceRequest, Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -19,6 +19,7 @@ const { mockOystehr, mockDeleteZ3Object, mockCaptureException } = vi.hoisted(() 
       search: vi.fn(),
       create: vi.fn(),
       patch: vi.fn(),
+      update: vi.fn(),
       transaction: vi.fn(),
     },
   },
@@ -74,7 +75,9 @@ vi.mock('@sentry/node-core/light', async (importOriginal) => {
   };
 });
 
-import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL, TASK_CATEGORY_IDENTIFIER } from 'utils/lib/fhir/constants';
+import { getReferralDetails, REFERRAL_ORDER_TYPE_TAG, withReferralDetails } from 'utils/lib/fhir/referral';
+import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { getUiTaskCategoryForCode } from 'utils/lib/types/api/provider-notifications';
 import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
@@ -425,6 +428,171 @@ describe('file-inbound-fax handler', () => {
 
       expect(result.statusCode).toBe(404);
       expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('referral responses', () => {
+    const REFERRAL_ID = '850e8400-e29b-41d4-a716-446655440000';
+    const referralBody = { ...fileBody, referralId: REFERRAL_ID };
+
+    const makeReferral = (over: Partial<ServiceRequest> = {}, status: 'sent' | 'closed' = 'sent'): ServiceRequest =>
+      withReferralDetails(
+        {
+          resourceType: 'ServiceRequest',
+          id: REFERRAL_ID,
+          status: 'active',
+          intent: 'order',
+          meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }] },
+          subject: { reference: 'Patient/patient-789' },
+          encounter: { reference: 'Encounter/enc-1' },
+          requester: { reference: 'Practitioner/prac-1', display: 'J. Rivera, MD' },
+          performerType: { text: 'Orthopedics' },
+          performer: [{ reference: 'Organization/contact-1', display: 'Riverside Orthopedic Associates' }],
+          ...over,
+        },
+        { status }
+      );
+
+    const makeReferralTask = (): Task => ({
+      resourceType: 'Task',
+      id: 'referral-task-1',
+      meta: { versionId: '4', tag: [{ system: PROVIDER_NOTIFICATION_TAG_SYSTEM, code: 'notified' }, { code: 'task' }] },
+      status: 'ready',
+      intent: 'order',
+      groupIdentifier: { system: TASK_CATEGORY_IDENTIFIER, value: 'referral' },
+      basedOn: [{ reference: `ServiceRequest/${REFERRAL_ID}` }],
+      restriction: { period: { end: '2026-11-10T00:00:00.000Z' } },
+      input: [{ type: { coding: [{ code: 'referral-id' }] }, valueString: REFERRAL_ID }],
+    });
+
+    const transactionRequests = (): any[] => mockOystehr.fhir.transaction.mock.calls[0][0].requests;
+
+    function mockReferralReads(referral: ServiceRequest, openTask?: Task): void {
+      mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+        if (resourceType === 'Task') return makeFaxTask();
+        if (resourceType === 'ServiceRequest') return referral;
+        if (resourceType === 'Patient') {
+          return { resourceType: 'Patient', id: 'patient-789', name: [{ given: ['Maya'], family: 'Example' }] };
+        }
+        throw new Error(`unexpected get for ${resourceType}`);
+      });
+      mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+        if (resourceType === 'List') return makeSearchBundle([makeFolderList()]);
+        if (resourceType === 'Task') return makeSearchBundle(openTask ? [openTask] : []);
+        throw new Error(`unexpected search for ${resourceType}`);
+      });
+      mockOystehr.fhir.transaction.mockResolvedValue({
+        entry: [{ resource: { resourceType: 'DocumentReference', id: 'docref-1' } }],
+      });
+      mockOystehr.fhir.update.mockImplementation(async (resource: ServiceRequest) => resource);
+      mockOystehr.fhir.patch.mockResolvedValue({});
+      mockOystehr.fhir.create.mockImplementation(async (task: Task) => ({ ...task, id: 'review-task-1' }));
+    }
+
+    it('links the document to the referral, marks it Response received and routes its open task, all in the filing transaction', async () => {
+      mockReferralReads(
+        makeReferral({ meta: { versionId: '7', tag: [{ ...REFERRAL_ORDER_TYPE_TAG }] } }),
+        makeReferralTask()
+      );
+
+      const result = await fileInboundFax(makeInput(referralBody));
+
+      expect(result.statusCode).toBe(200);
+      const requests = transactionRequests();
+      expect(requests).toHaveLength(5);
+      const docRefPost = requests.find((r: any) => r.method === 'POST' && r.url === '/DocumentReference');
+      expect(docRefPost.resource.context.related).toEqual([{ reference: `ServiceRequest/${REFERRAL_ID}` }]);
+
+      // The referral is answered in the same transaction, locked to the version that was checked.
+      const referralPut = requests.find((r: any) => r.method === 'PUT' && r.url === `/ServiceRequest/${REFERRAL_ID}`);
+      expect(referralPut.ifMatch).toBe('W/"7"');
+      expect(getReferralDetails(referralPut.resource)).toMatchObject({ status: 'response-received' });
+      expect(referralPut.resource.status).toBe('active');
+
+      // The referral's own task is retitled, handed to the referring provider, told which document to read (by the
+      // transaction-local id the server rewrites), stops being overdue, and loses its notified markers.
+      const taskPut = requests.find((r: any) => r.method === 'PUT' && r.url === '/Task/referral-task-1');
+      expect(taskPut.ifMatch).toBe('W/"4"');
+      expect(taskPut.resource).toMatchObject({
+        id: 'referral-task-1',
+        description: 'Review response: Orthopedics, Riverside Orthopedic Associates referral',
+        owner: expect.objectContaining({ reference: 'Practitioner/prac-1', display: 'J. Rivera, MD' }),
+        status: 'in-progress',
+        meta: { versionId: '4', tag: [{ code: 'task' }] },
+        input: [
+          { type: { coding: [{ code: 'referral-id' }] }, valueString: REFERRAL_ID },
+          {
+            type: { coding: [expect.objectContaining({ code: 'response-document-reference-id' })] },
+            valueReference: { reference: docRefPost.fullUrl },
+          },
+        ],
+      });
+      expect(taskPut.resource.restriction).toBeUndefined();
+
+      // Nothing is written outside the transaction.
+      expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.patch).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a review task for the referring provider in the transaction when the referral has no task', async () => {
+      mockReferralReads(makeReferral());
+
+      await fileInboundFax(makeInput(referralBody));
+
+      const requests = transactionRequests();
+      expect(requests).toHaveLength(5);
+      const docRefPost = requests.find((r: any) => r.method === 'POST' && r.url === '/DocumentReference');
+      const taskPost = requests.find((r: any) => r.method === 'POST' && r.url === '/Task');
+      expect(taskPost.resource).toMatchObject({
+        resourceType: 'Task',
+        status: 'in-progress',
+        description: 'Review response: Orthopedics, Riverside Orthopedic Associates referral',
+        groupIdentifier: { value: 'referral' },
+        code: { coding: [{ system: 'referral-task', code: 'review-referral-response' }] },
+        encounter: { reference: 'Encounter/enc-1' },
+        owner: expect.objectContaining({ reference: 'Practitioner/prac-1' }),
+        basedOn: [{ reference: `ServiceRequest/${REFERRAL_ID}` }, { reference: docRefPost.fullUrl }],
+      });
+      const inputs = Object.fromEntries(
+        taskPost.resource.input.map((input: any) => [
+          input.type.coding[0].code,
+          input.valueString ?? input.valueReference,
+        ])
+      );
+      expect(inputs).toEqual({
+        'referral-id': REFERRAL_ID,
+        patient: { reference: 'Patient/patient-789', display: 'Maya Example' },
+        specialty: 'Orthopedics',
+        'recipient-name': 'Riverside Orthopedic Associates',
+        'response-document-reference-id': { reference: docRefPost.fullUrl },
+      });
+      expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+    });
+
+    it('SECURITY: refuses a referral that belongs to another patient before anything is written, as not found', async () => {
+      mockReferralReads(makeReferral({ subject: { reference: 'Patient/someone-else' } }));
+
+      const result = await fileInboundFax(makeInput(referralBody));
+
+      expect(result.statusCode).toBe(400);
+      // Indistinguishable from an unknown id, so the response never confirms another patient's referral exists.
+      expect(JSON.parse(result.body)).toEqual({
+        code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+        message: `Referral ${REFERRAL_ID} not found`,
+      });
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses a referral that is already closed', async () => {
+      mockReferralReads(makeReferral({}, 'closed'));
+
+      const result = await fileInboundFax(makeInput(referralBody));
+
+      expect(result.statusCode).toBe(400);
       expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
     });
   });

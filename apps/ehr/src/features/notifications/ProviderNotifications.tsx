@@ -24,7 +24,14 @@ type ProviderNotificationDisplay = {
  */
 const pathForTarget = (target: ProviderNotificationTarget | undefined): string | undefined => {
   if (!target) return undefined;
-  return target.type === 'visit' ? `/visit/${target.appointmentId}` : inboundFaxMatchPath(target.faxCommunicationId);
+  switch (target.type) {
+    case 'visit':
+      return `/visit/${target.appointmentId}`;
+    case 'inboundFax':
+      return inboundFaxMatchPath(target.faxCommunicationId);
+    case 'patient':
+      return `/patient/${target.patientId}`;
+  }
 };
 
 export const ProviderNotifications: FC = memo(() => {

@@ -3,6 +3,7 @@ import { FC, Fragment } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useReferralsQuery } from 'src/features/referrals/referrals.queries';
 import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
@@ -20,19 +21,23 @@ import {
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { REFERRAL_ASK_LABELS, REFERRAL_URGENCY_LABELS } from 'utils/lib/types/api/referrals/referrals.types';
 import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstructionsVisibility';
 import { useVisitNote } from '../../../hooks/useVisitNote';
 
 export const PatientInstructionsContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: note } = useVisitNote();
+  const { data: note, encounterId } = useVisitNote();
+  const { data: referralsData } = useReferralsQuery(encounterId ? { encounterId } : undefined);
+  // Cancelled referrals are not part of the plan.
+  const referrals = (referralsData?.referrals ?? []).filter((referral) => referral.status !== 'cancelled');
 
   const instructions = note?.plan.instructions;
   const disposition = note?.plan.disposition;
   // Entries whose presigning failed come back without a URL and cannot be linked.
   const schoolWorkExcuses = useExcusePresignedFiles(note?.plan.schoolWorkNotes).filter((excuse) => excuse.presignedUrl);
 
-  const { showInstructions, showDischargeInstructions, showFollowUp, showSchoolWorkExcuse } =
+  const { showInstructions, showDischargeInstructions, showFollowUp, showSchoolWorkExcuse, showReferrals } =
     usePatientInstructionsVisibility();
 
   const sections = [
@@ -83,6 +88,23 @@ export const PatientInstructionsContainer: FC = () => {
           {disposition?.reason && disposition.reason.length > 0 && (
             <Typography>Reason for transfer: {disposition.reason}</Typography>
           )}
+        </Box>
+      </>
+    ),
+    showReferrals && (
+      <>
+        <AssessmentTitle>Referrals</AssessmentTitle>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }} data-testid={dataTestIds.referrals.noteBlock}>
+          {referrals.map((referral) => (
+            <Typography key={referral.id}>
+              {[
+                `${referral.specialty}: ${referral.recipient?.name ?? 'patient to choose'}`,
+                referral.reason,
+                REFERRAL_URGENCY_LABELS[referral.urgency],
+                REFERRAL_ASK_LABELS[referral.whatIsAsked],
+              ].join('; ')}
+            </Typography>
+          ))}
         </Box>
       </>
     ),

@@ -20,6 +20,8 @@ export interface Task {
   createdById?: string;
   alert?: TaskAlertCode;
   completable: boolean;
+  /** Past its `restriction.period.end` and still open (referral tasks waiting on a response). */
+  overdue?: boolean;
 }
 export interface CreateManualTaskRequest {
   category: string;

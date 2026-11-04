@@ -19,7 +19,7 @@ import { FC } from 'react';
 import { Controller, FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
-import { FAX_MAX_VISITS, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import { FAX_MAX_VISITS, FaxPacketSource, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { documentLabelGroups, hasNothingToSend } from '../model/faxDocuments';
 import { buildDefaultFormValues } from '../model/faxForm';
 import { applySaveAsPcp, canAddRecipient, canSend, emptyRecipient } from '../model/faxRecipients';
@@ -27,8 +27,10 @@ import { FaxFormValues, FaxVisitOption } from '../model/types';
 import { RecipientFields } from './RecipientFields';
 
 interface SendFaxFormProps {
-  /** Only a single-visit packet has a document checklist; other sources send a fixed set. */
+  /** Only a single-visit or referral packet has a document checklist; other sources send a fixed set. */
   preview?: GetFaxPacketPreviewOutput;
+  /** Absent for callers that predate sources; treated as the original single-visit flow. */
+  sourceType?: FaxPacketSource['type'];
   /** The number the packet is sent from. Omitted from the dialog when it cannot be resolved. */
   senderFaxNumber?: string;
   /** When given, the user picks which visits to fax; shown only when there is more than one. */
@@ -40,6 +42,7 @@ interface SendFaxFormProps {
 
 export const SendFaxForm: FC<SendFaxFormProps> = ({
   preview,
+  sourceType,
   senderFaxNumber,
   visits,
   isSending,
@@ -62,6 +65,9 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
   const visitSelectionValid = !visits?.length || selectedAppointmentIds.length > 0;
   const tooManyVisits = selectedAppointmentIds.length > FAX_MAX_VISITS;
   const { included, excluded } = documentLabelGroups(preview?.documents ?? []);
+  const isReferral = sourceType === 'referral';
+  // PCP management belongs to the single-visit flow alone; a referral's recipient is its own contact.
+  const managesPcp = Boolean(preview) && !isReferral;
   const sendEnabled =
     canSend(recipients, preview ? included.length > 0 : true) && visitSelectionValid && !tooManyVisits;
 
@@ -104,7 +110,9 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
         <DialogContent>
           {preview && (
             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
-              <Typography>Fax all visit-related documents</Typography>
+              <Typography>
+                {isReferral ? 'Fax the referral form and its documents' : 'Fax all visit-related documents'}
+              </Typography>
               <Tooltip title={documentsTooltip} placement="top">
                 <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
               </Tooltip>
@@ -162,7 +170,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
               // Only a single-visit preview offers PCP management. The record holds exactly one PCP,
               // so selecting one recipient clears the flag from the others.
               onSaveAsPcpChange={
-                preview
+                managesPcp
                   ? (value) => recipientsArray.replace(applySaveAsPcp(getValues('recipients'), index, value))
                   : undefined
               }

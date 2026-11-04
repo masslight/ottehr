@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { Location, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { Location, Organization, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAddressString, getCoding, getNPI, getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getReferralStatus, withReferralDetails } from 'utils/lib/fhir/referral';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -16,8 +17,10 @@ import {
   formatFaxRecipientName,
 } from 'utils/lib/types/api/fax.types';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
+import { isFhirVersionConflictError } from '../errors';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
+import { setReferralTaskOverdue } from '../referrals/referral-task';
 import { sendFaxAttempt } from '../send-fax-attempt';
 import {
   buildPacketForRecipient,
@@ -28,8 +31,11 @@ import {
 } from './build-fax-packet';
 import { FaxPacketPlan } from './resolve-fax-source';
 
-const DEFAULT_TIMEZONE = 'America/New_York';
+/** When neither the visit's office nor the practice names a timezone. */
+export const DEFAULT_TIMEZONE = 'America/New_York';
 const DEFAULT_VISIT_TYPE_LABEL = 'Visit';
+/** Attempts to mark a referral sent when another write lands on it between the read and the update. */
+const MARK_REFERRAL_SENT_RETRIES = 3;
 
 /**
  * Builds the packet body once and sends it to every recipient. One recipient's failure never blocks the
@@ -131,6 +137,7 @@ export const deliverFaxPacket = async (args: {
           recipientPhone: recipient.phoneNumber,
           faxPacketPageCount: uploaded.pageCount,
           faxPacketParts: body.parts.map((part) => part.title),
+          basedOnReference: plan.basedOnReference,
           senderId: senderUserId,
         },
         oystehr
@@ -271,6 +278,44 @@ export const savePcpIfRequested = async (
     console.log(`[fax-packet] saved recipient ${recipient.faxNumber} as PCP for Patient/${patient.id}`);
   } catch (error) {
     console.error('[fax-packet] failed to save the recipient as the patient PCP', error);
+    captureException(error);
+  }
+};
+
+/**
+ * Moves a referral to Sent once its packet reached at least one recipient, and starts the overdue clock on its
+ * "awaiting response" task from that moment. Only a referral still waiting to go out changes: one already
+ * answered keeps Response received. Never throws — the fax has gone out, so a failure here is captured rather
+ * than failing the job.
+ */
+export const markReferralSentIfDelivered = async (
+  referralId: string,
+  results: FaxRecipientResult[],
+  oystehr: Oystehr
+): Promise<void> => {
+  if (!results.some((result) => result.status === 'sent')) return;
+
+  try {
+    for (let attempt = 1; attempt <= MARK_REFERRAL_SENT_RETRIES; attempt++) {
+      const serviceRequest = await oystehr.fhir.get<ServiceRequest>({ resourceType: 'ServiceRequest', id: referralId });
+      const status = getReferralStatus(serviceRequest);
+      if (status !== 'not-sent' && status !== 'given-to-patient') return;
+      const sentAt = DateTime.now().toUTC().toISO() ?? new Date().toISOString();
+      try {
+        await oystehr.fhir.update<ServiceRequest>(withReferralDetails(serviceRequest, { status: 'sent', sentAt }), {
+          optimisticLockingVersionId: serviceRequest.meta?.versionId,
+        });
+      } catch (error) {
+        if (!isFhirVersionConflictError(error) || attempt === MARK_REFERRAL_SENT_RETRIES) throw error;
+        console.warn(`[fax-packet] referral ServiceRequest/${referralId} changed while marking it sent; retrying`);
+        continue;
+      }
+      console.log(`[fax-packet] marked referral ServiceRequest/${referralId} sent`);
+      await setReferralTaskOverdue(oystehr, referralId, sentAt);
+      return;
+    }
+  } catch (error) {
+    console.error(`[fax-packet] failed to mark referral ServiceRequest/${referralId} sent`, error);
     captureException(error);
   }
 };

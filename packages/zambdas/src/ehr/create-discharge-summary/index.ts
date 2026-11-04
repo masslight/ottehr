@@ -20,6 +20,7 @@ import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
 import { countPdfPages, downloadFileBytes, mergePdfDocuments } from '../../shared/pdf/merge-pdfs';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { loadEncounterReferrals } from '../../shared/referrals/load-encounter-referrals';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -94,11 +95,12 @@ export const performEffect = async (
     encounter.id
   );
 
-  const [visitNote, medicationOrdersData, upcomingFollowUps, dmeOrders] = await Promise.all([
+  const [visitNote, medicationOrdersData, upcomingFollowUps, dmeOrders, referrals] = await Promise.all([
     visitNotePromise,
     medicationOrdersPromise,
     upcomingFollowUpsPromise,
     getEncounterDmeOrders(oystehr, encounter.id!),
+    loadEncounterReferrals(oystehr, encounter.id!),
   ]);
   // The discharge summary composers read the two whole-chart shapes; the adapter presents the note as both.
   const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, { module: 'in-person' });
@@ -118,6 +120,7 @@ export const performEffect = async (
       upcomingFollowUps,
       erxPharmacies,
       dmeOrders,
+      referrals,
     },
     secrets,
     m2mToken

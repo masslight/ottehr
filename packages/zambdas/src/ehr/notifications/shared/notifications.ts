@@ -21,6 +21,7 @@ import {
 const COMMUNICATION_REFERENCE_PREFIX = 'Communication/';
 const ENCOUNTER_REFERENCE_PREFIX = 'Encounter/';
 const APPOINTMENT_REFERENCE_PREFIX = 'Appointment/';
+const PATIENT_REFERENCE_PREFIX = 'Patient/';
 
 /**
  * The `category` search value matching every provider-notification type.
@@ -58,9 +59,18 @@ export const resolveNotificationTarget = (
   // the producer wrote, and this way renaming the id is a compile error instead of a target that
   // stops resolving.
   const inboundFaxCategory: UiTaskCategoryId = 'inboundFax';
+  const referralsCategory: UiTaskCategoryId = 'referrals';
   const categoryCode = communication.category
     ?.flatMap((concept) => concept.coding ?? [])
     .find((coding) => coding.system === PROVIDER_NOTIFICATION_CATEGORY_SYSTEM)?.code;
+
+  // A referral task made from the patient record has no visit; the cron stamps the patient on `about`.
+  if (categoryCode === referralsCategory) {
+    const patientId = communication.about
+      ?.map((about) => removePrefix(PATIENT_REFERENCE_PREFIX, about.reference ?? ''))
+      .find((id): id is string => !!id);
+    return patientId ? { type: 'patient', patientId } : undefined;
+  }
   if (categoryCode !== inboundFaxCategory) return undefined;
 
   // A `Communication/<id>` reference is what names a fax we can route to, so the prefix strip is also

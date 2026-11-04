@@ -150,7 +150,11 @@ export const DispositionCard: FC = () => {
   // Guard against a saved disposition type outside the known union (bad/legacy data) —
   // an undefined lookup here would crash the whole card on `fields.includes(...)`.
   const fields = dispositionFieldsPerType[currentType] ?? [];
-  const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed', 'specialty'];
+  // Specialty Transfer is retired in favour of referrals; visits saved with it before then keep showing it.
+  const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed'];
+  if (chartFields?.disposition?.type === 'specialty') {
+    tabs.push('specialty');
+  }
 
   if (isChartFieldsLoading || !chartFields?.disposition) {
     return (

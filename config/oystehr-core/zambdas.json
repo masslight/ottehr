@@ -2234,6 +2234,34 @@
       "src": "src/ehr/address-book/delete-address-book-contact/index",
       "zip": ".dist/zips/delete-address-book-contact.zip"
     },
+    "SAVE-REFERRAL": {
+      "name": "save-referral",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/referrals/save-referral/index",
+      "zip": ".dist/zips/save-referral.zip"
+    },
+    "LIST-REFERRALS": {
+      "name": "list-referrals",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/referrals/list-referrals/index",
+      "zip": ".dist/zips/list-referrals.zip"
+    },
+    "UPDATE-REFERRAL-STATUS": {
+      "name": "update-referral-status",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/referrals/update-referral-status/index",
+      "zip": ".dist/zips/update-referral-status.zip"
+    },
+    "GET-REFERRAL-PDF": {
+      "name": "get-referral-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/referrals/get-referral-pdf/index",
+      "zip": ".dist/zips/get-referral-pdf.zip"
+    },
     "DESIGNATE-CHARGE-MASTER-ENTRY": {
       "name": "designate-charge-master-entry",
       "type": "http_auth",
