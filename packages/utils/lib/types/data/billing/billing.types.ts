@@ -1181,6 +1181,7 @@ export interface BillingInvoiceListItem {
   issueDate: string;
   dueDate: string;
   amount: number;
+  patientId?: string;
   patientName?: string;
   claimId?: string;
   serviceDate?: string;

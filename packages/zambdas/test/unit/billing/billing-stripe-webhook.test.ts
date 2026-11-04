@@ -1327,6 +1327,22 @@ describe('billing-stripe-webhook billing app invoices', () => {
     expect(update.mock.calls[0][0].status).toBe('cancelled');
   });
 
+  it('marks the invoice paid without recording AR when billing integration is Candid only', async () => {
+    const { oystehr, search, update } = makeInvoiceOystehr([billingInvoice('issued')]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', makeInvoice({ paid_out_of_band: true })),
+      secrets: { ...secrets, BILLING_INTEGRATION: 'candid', INVOICING_IN_BILLING_APP: 'true' },
+    });
+
+    expect(update.mock.calls[0][0].status).toBe('balanced');
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Invoice',
+      params: [{ name: 'identifier', value: `${STRIPE_INVOICE_ID_SYSTEM}|in_1` }],
+    });
+  });
+
   it('leaves an invoice that is already paid when a late event arrives', async () => {
     const { oystehr, update } = makeInvoiceOystehr([billingInvoice('balanced')]);
 

@@ -13,30 +13,22 @@ import {
   BILLING_INVOICE_LIST_STATUSES,
   BillingInvoiceListStatus,
 } from 'utils/lib/types/data/billing/billing.constants';
-import { SearchBillingInvoicesInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingInvoiceListItem, SearchBillingInvoicesResponse } from 'utils/lib/types/data/billing/billing.types';
-import { MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { getClaimServiceDate } from '../claim-search';
-import { createBillingClient, fhirName } from '../shared';
+import { createBillingClient, fhirName, findById, patientSearchParam, resolveLinkedPatientIds } from '../shared';
+import { SearchBillingInvoicesParams, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'search-billing-invoices';
 const DEFAULT_PAGE_SIZE = 25;
 
-type SearchBillingInvoicesParams = ValidatedZambdaInput<typeof SearchBillingInvoicesInputSchema>;
-
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateWithSchema(SearchBillingInvoicesInputSchema, input);
-  if (!isOttehrBillingInvoicingInBillingApp(params.secrets)) {
-    throw MISCONFIGURED_ENVIRONMENT_ERROR('Invoicing is not enabled in the billing app');
-  }
+  const params = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
@@ -60,12 +52,17 @@ export async function performEffect(
     { name: '_offset', value: String(offset) },
   ];
   if (params.searchText) {
-    const claimId = params.searchText.toLowerCase();
-    searchParams.push(
-      isValidUUID(claimId)
-        ? { name: '_tag', value: `${INVOICE_CLAIM_TAG_SYSTEM}|${claimId}` }
-        : { name: 'patient.name', value: params.searchText }
-    );
+    const text = params.searchText.trim();
+    const uuid = isValidUUID(text.toLowerCase()) ? text.toLowerCase() : undefined;
+    const patient = uuid ? await findById<Patient>(oystehr, 'Patient', uuid) : undefined;
+    if (patient) {
+      const patientIds = await resolveLinkedPatientIds({ oystehr, patientId: patient.id! });
+      searchParams.push(patientSearchParam(patientIds));
+    } else {
+      searchParams.push(
+        uuid ? { name: '_tag', value: `${INVOICE_CLAIM_TAG_SYSTEM}|${uuid}` } : { name: 'patient.name', value: text }
+      );
+    }
   }
   if (params.facilityId) {
     searchParams.push({ name: '_tag', value: `${INVOICE_FACILITY_TAG_SYSTEM}|${params.facilityId}` });
@@ -118,13 +115,15 @@ function toListItem(
   const [line] = getBillingInvoiceClaims(invoice);
   const claim = line && claimsById.get(line.claimId);
   const serviceDate = claim && getClaimServiceDate(claim);
+  const patient = patientsByRef.get(invoice.subject?.reference ?? '');
   return {
     id: invoice.id!,
     status: invoice.status as BillingInvoiceListStatus,
     issueDate: invoice.date ?? '',
     dueDate: getBillingInvoiceDueDate(invoice) ?? '',
     amount: invoice.totalGross?.value ?? 0,
-    patientName: fhirName(patientsByRef.get(invoice.subject?.reference ?? '')),
+    patientId: patient?.id,
+    patientName: fhirName(patient),
     claimId: line?.claimId,
     serviceDate: serviceDate ? DateTime.fromISO(serviceDate, { setZone: true }).toISODate() ?? '' : '',
     hostedInvoiceUrl: getHostedInvoiceUrl(invoice),

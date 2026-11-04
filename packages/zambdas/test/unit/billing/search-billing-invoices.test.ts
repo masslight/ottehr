@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Invoice, Patient } from 'fhir/r4b';
+import { Claim, Invoice, Patient, Person } from 'fhir/r4b';
 import { buildBillingInvoice, withHostedInvoiceUrl } from 'utils/lib/fhir/billing-invoice';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/search-billing-invoices';
@@ -31,11 +31,19 @@ const sentInvoice = (id: string): Invoice => ({
   id,
 });
 
-const makeOystehr = (invoices: Invoice[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
-  const search = vi.fn(async ({ resourceType }: { resourceType: string }) =>
-    resourceType === 'Invoice'
-      ? { total: invoices.length, unbundle: () => [...invoices, patient] }
-      : { unbundle: () => [claim] }
+const makeOystehr = (
+  invoices: Invoice[],
+  patients: Patient[] = [],
+  persons: Person[] = []
+): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+  const search = vi.fn(
+    async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
+      if (resourceType === 'Invoice') return { total: invoices.length, unbundle: () => [...invoices, patient] };
+      if (resourceType === 'Claim') return { unbundle: () => [claim] };
+      if (resourceType === 'Person') return { unbundle: () => persons };
+      const id = params.find((param) => param.name === '_id')?.value;
+      return { unbundle: () => patients.filter((patient) => patient.id === id) };
+    }
   );
   return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
 };
@@ -54,6 +62,7 @@ describe('search-billing-invoices', () => {
           issueDate: '2026-10-29T15:00:00.000Z',
           dueDate: '2026-11-05',
           amount: 3.5,
+          patientId: 'pat-1',
           patientName: 'Patientlastname, Sam',
           claimId: 'claim-1',
           serviceDate: '2026-09-20',
@@ -115,11 +124,35 @@ describe('search-billing-invoices', () => {
 
     await performEffect(oystehr, { searchText: '1BABF4BA-EA5D-480E-AD6C-3F3C3F5B30E3', secrets: {} });
 
-    const [{ params }] = search.mock.calls[0];
+    const [{ params }] = search.mock.calls.find(([input]) => input.resourceType === 'Invoice')!;
     expect(params).toContainEqual({
       name: '_tag',
       value: 'https://fhir.ottehr.com/billing/invoice-claim-id|1babf4ba-ea5d-480e-ad6c-3f3c3f5b30e3',
     });
     expect(params).not.toContainEqual(expect.objectContaining({ name: 'patient.name' }));
+  });
+
+  it('finds invoices across billing patient copies by Billing patient UUID', async () => {
+    const mainPatientId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const mainPatient: Patient = {
+      resourceType: 'Patient',
+      id: mainPatientId,
+    };
+    const linkedPatient: Person = {
+      resourceType: 'Person',
+      link: [{ target: { reference: `Patient/${mainPatientId}` } }, { target: { reference: 'Patient/pat-1' } }],
+    };
+    const { oystehr, search } = makeOystehr([sentInvoice('inv-1')], [mainPatient], [linkedPatient]);
+
+    const result = await performEffect(oystehr, { searchText: mainPatientId.toUpperCase(), secrets: {} });
+
+    expect(result.invoices).toHaveLength(1);
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Invoice',
+      params: expect.arrayContaining([{ name: 'patient', value: `Patient/${mainPatientId},Patient/pat-1` }]),
+    });
+    const [{ params }] = search.mock.calls.find(([input]) => input.resourceType === 'Invoice')!;
+    expect(params).not.toContainEqual(expect.objectContaining({ name: 'patient.name' }));
+    expect(params).not.toContainEqual(expect.objectContaining({ name: '_tag' }));
   });
 });
