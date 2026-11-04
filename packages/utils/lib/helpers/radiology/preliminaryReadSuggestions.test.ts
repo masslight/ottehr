@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { findUnpickedBlank } from '../suggested-sentences';
 import {
   appendToPreliminaryRead,
   assemblePreliminaryRead,
   buildPreliminaryReadSuggestions,
   findConflictingValue,
   findPreliminaryReadRegion,
-  findUnpickedBlank,
   PreliminaryReadBlank,
   PreliminaryReadSegment,
   resolvePreliminaryReadValues,

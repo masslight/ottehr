@@ -10,9 +10,11 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { RadiologyDiagnosis, RadiologyDiagnosisField } from 'src/features/radiology/components/RadiologyDiagnosisField';
+import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
@@ -46,7 +48,6 @@ import {
   DmeQuickPickPatch,
   toCodeDisplay,
 } from './dmeQuickPick';
-import { DmeQuickPickDialogs } from './DmeQuickPickDialogs';
 
 const DME_ITEM_NAME_MAX_LENGTH = 200;
 
@@ -113,8 +114,10 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
   const theme = useTheme();
   const { encounter } = useAppointmentData();
   const encounterId = order?.encounterId ?? encounter?.id;
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { isAppointmentReadOnly: isReadOnly, visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
   const { chartData, setPartialChartData } = useChartData();
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
   const { mutate: saveChartData } = useSaveChartData();
   const { mutateAsync: createOrder } = useCreateDmeOrder();
   const { mutateAsync: updateOrder } = useUpdateDmeOrder(encounterId);
@@ -140,7 +143,12 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
     [currentPractitionerId, isProvider, currentUserName]
   );
 
-  const chartDiagnoses = useMemo(() => chartData?.diagnosis ?? [], [chartData?.diagnosis]);
+  const encounterDiagnoses = useMemo(() => chartData?.diagnosis ?? [], [chartData?.diagnosis]);
+  // An annotation follow-up has no assessment of its own; its orders use the main visit's diagnoses.
+  const chartDiagnoses = useMemo(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis ?? [] : encounterDiagnoses),
+    [isFollowup, mainEncounterChartData?.diagnosis, encounterDiagnoses]
+  );
 
   const methods = useForm<DmeOrderFormValues>({
     defaultValues: order
@@ -252,7 +260,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
   };
 
   const addAdditionalDxToEncounter = async (orderDx: RadiologyDiagnosis[]): Promise<void> => {
-    const newDx = orderDx.filter((dx) => !chartDiagnoses.some((d) => d.code === dx.code));
+    const newDx = orderDx.filter((dx) => ![...chartDiagnoses, ...encounterDiagnoses].some((d) => d.code === dx.code));
     if (newDx.length === 0) return;
 
     await new Promise<void>((resolve, reject) => {
@@ -261,7 +269,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
         {
           onSuccess: (data) => {
             const returnedDiagnosis = data.chartData.diagnosis || [];
-            setPartialChartData({ diagnosis: [...returnedDiagnosis, ...chartDiagnoses] });
+            setPartialChartData({ diagnosis: [...returnedDiagnosis, ...encounterDiagnoses] });
             resolve();
           },
           onError: (err) => reject(err),
@@ -488,7 +496,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
           </Grid>
         </Paper>
       </form>
-      <DmeQuickPickDialogs
+      <QuickPickSaveDialogs
         open={quickPickDialogOpen}
         name={quickPickName}
         onNameChange={setQuickPickName}
@@ -496,6 +504,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
         saving={quickPickSaving}
         onClose={() => setQuickPickDialogOpen(false)}
         onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="DME order"
       />
     </FormProvider>
   );
