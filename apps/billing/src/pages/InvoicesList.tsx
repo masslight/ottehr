@@ -18,6 +18,7 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   BILLING_INVOICE_LIST_STATUSES,
@@ -130,7 +131,7 @@ export default function InvoicesList(): ReactElement {
         const data = await searchBillingInvoices(oystehrZambda, {
           status: next.status || undefined,
           searchText: next.searchText.trim() || undefined,
-          facilityId: next.facility.replace('Location/', '') || undefined,
+          facilityId: getIdFromReference(next.facility, 'Location'),
           issuedFrom: next.issuedFrom || undefined,
           issuedTo: next.issuedTo || undefined,
           offset: pagination.page * pagination.pageSize,
