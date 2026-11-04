@@ -17,6 +17,7 @@ import {
 } from 'fhir/r4b';
 import { chunkThings } from '../fhir/chat';
 import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
+import { getIdFromReference } from '../fhir/reference';
 import { removePrefix, sleep } from '../helpers/helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
@@ -945,7 +946,7 @@ export const cleanupOrphanedInProgressEncounters = async (oystehr: Oystehr, dead
     const candidatePatientIds = [
       ...new Set(
         encounters
-          .map((encounter) => removePrefix('Patient/', encounter.subject?.reference ?? ''))
+          .map((encounter) => getIdFromReference(encounter.subject?.reference, 'Patient'))
           .filter((id): id is string => id !== undefined && !livePatientIds.has(id))
       ),
     ];

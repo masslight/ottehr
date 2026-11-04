@@ -75,6 +75,7 @@ import {
   getTaxID,
   setNpi,
 } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
@@ -1079,9 +1080,9 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
       )
       .map(
         (supportingInfo) =>
-          `/${supportingInfo.valueReference.reference?.split(
-            '/'
-          )[0]}?_id=${supportingInfo.valueReference.reference?.split('/')[1]}`
+          `/${supportingInfo.valueReference.reference?.split('/')[0]}?_id=${getIdFromReference(
+            supportingInfo.valueReference.reference
+          )}`
       )
   );
 
@@ -1090,7 +1091,7 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
   const coverages = coverageRefs
     .map((ref) => followUp.find((r) => r.resourceType === 'Coverage' && r.id === ref.replace('Coverage/', '')))
     .filter((c): c is Coverage => !!c);
-  const renderingId = renderingRef?.split('/')[1];
+  const renderingId = getIdFromReference(renderingRef);
   const renderingProvider = renderingId
     ? (followUp.find(
         (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')

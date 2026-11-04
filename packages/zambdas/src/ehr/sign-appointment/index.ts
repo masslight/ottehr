@@ -11,8 +11,8 @@ import {
   getTaskResource,
 } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import { visitStatusToFhirEncounterStatusMap } from 'utils/lib/types/api/appointment.types';
 import {
@@ -103,7 +103,7 @@ export const performEffect = async (
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      const userId = removePrefix('Practitioner/', user.profile);
+      const userId = getIdFromReference(user.profile, 'Practitioner');
       if (!userId) throw new Error("Can't receive practitioner resource id attached to current user");
       await changeFollowupEncounterStatusToCompleted(oystehr, userId, visitResources, supervisorApprovalEnabled);
     }
