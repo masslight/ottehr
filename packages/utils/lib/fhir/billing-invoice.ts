@@ -22,6 +22,7 @@ export const INVOICE_CLAIM_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invo
 export const INVOICE_CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-claim-id';
 export const INVOICE_DUE_DATE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-due-date';
 export const INVOICE_NUMBER_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-number';
+export const BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('billing-invoice-idempotency-key');
 export const INVOICE_PAYMENT_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-payment';
 export const INVOICE_PAYMENT_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-payment-id';
 // On the contained PaymentReconciliation of an invoice payment, for every payment method.

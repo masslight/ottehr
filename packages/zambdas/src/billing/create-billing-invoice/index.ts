@@ -1,20 +1,23 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Invoice, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Invoice, Location, Organization, Practitioner, ProvenanceAgent, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM,
   buildBillingInvoice,
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
+  getInvoiceNumber,
   getStripeInvoiceLink,
   INVOICE_CLAIM_TAG_SYSTEM,
+  INVOICE_NUMBER_IDENTIFIER_SYSTEM,
+  invoiceStatusFromStripe,
   withStripeInvoiceLink,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { fillInvoiceTemplate } from 'utils/lib/helpers/rcm/invoice-config';
+import { fillInvoiceTemplate, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import {
   PREPARE_BILLING_INVOICE_ZAMBDA_KEY,
   PrepareBillingInvoiceResponse,
@@ -25,26 +28,29 @@ import { CreateBillingInvoiceResponse } from 'utils/lib/types/data/billing/billi
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import {
   BILLING_INVOICE_CONFLICT_ERROR,
+  FHIR_RESOURCE_NOT_FOUND,
   MISCONFIGURED_ENVIRONMENT_ERROR,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
 import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
+import { getOrCreateInvoicingConfig } from '../../rcm/invoice-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { nextInvoiceNumber } from '../../shared/invoice-number';
 import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from '../invoice-issuer';
 import { getInvoiceableEncounterId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { createBillingClient } from '../shared';
 
 type CreateBillingInvoiceParams = ValidatedZambdaInput<typeof CreateBillingInvoiceInputSchema>;
 
 const ZAMBDA_NAME = 'create-billing-invoice';
 
-const IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('billing-invoice-idempotency-key');
 const CLAIM_ALREADY_INVOICED = 'This claim already has an invoice.';
 
 let m2mToken: string;
@@ -69,19 +75,38 @@ export async function performEffect(
   params: CreateBillingInvoiceParams,
   agent: ProvenanceAgent
 ): Promise<CreateBillingInvoiceResponse> {
-  const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
+  const resources = (
+    await oystehr.fhir.search<Claim | Location | Organization | Practitioner>({
+      resourceType: 'Claim',
+      params: [{ name: '_id', value: params.claimId }, ...INVOICE_ISSUER_CLAIM_INCLUDES],
+    })
+  ).unbundle();
+  const claim = resources.find((resource): resource is Claim => resource.resourceType === 'Claim');
+  if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
   const encounterId = getInvoiceableEncounterId(claim);
+  const { questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);
+  const config = parseInvoiceConfigFromQR(questionnaireResponse);
+  const issuer = resolveClaimInvoiceIssuer(claim, resources, config.invoiceIssuerSource);
 
-  // Runs before the draft exists, so a visit the EHR invoices or a patient without a usable Stripe
-  // customer leaves nothing behind.
+  // Check EHR ownership and the Stripe customer before creating a billing invoice.
   const visit = chooseJson<PrepareBillingInvoiceResponse>(
     await oystehr.zambda.execute({ id: PREPARE_BILLING_INVOICE_ZAMBDA_KEY, encounterId })
   );
 
-  let invoice = await findOrCreateDraft(oystehr, stripe, claim, params);
+  let invoice = await findOrCreateDraft(oystehr, stripe, claim, params, issuer.organization);
   // Only the request that sends the invoice knows whether its SMS went out.
   let smsSent: boolean | undefined;
   if (invoice.status === 'draft') {
+    // Number the saved draft so retries reuse its number.
+    if (!getInvoiceNumber(invoice)) {
+      invoice = await updateInvoice(oystehr, {
+        ...invoice,
+        identifier: [
+          ...(invoice.identifier ?? []),
+          { system: INVOICE_NUMBER_IDENTIFIER_SYSTEM, value: await nextInvoiceNumber(oystehr) },
+        ],
+      });
+    }
     ({ invoice, smsSent } = await sendDraft(oystehr, stripe, invoice, { encounterId, visit, params }));
   }
 
@@ -97,20 +122,21 @@ export async function performEffect(
 }
 
 const idempotencyKeyOf = (invoice: Invoice): string | undefined =>
-  invoice.identifier?.find((identifier) => identifier.system === IDEMPOTENCY_KEY_SYSTEM)?.value;
+  invoice.identifier?.find((identifier) => identifier.system === BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM)?.value;
 
 async function findOrCreateDraft(
   oystehr: Oystehr,
   stripe: Stripe,
   claim: Claim,
-  params: CreateBillingInvoiceParams
+  params: CreateBillingInvoiceParams,
+  issuer: Reference
 ): Promise<Invoice> {
-  const invoice = await createDraftUnlessClaimHasInvoice(oystehr, claim, params);
+  const invoice = await createDraftUnlessClaimHasInvoice(oystehr, claim, params, issuer);
   if (idempotencyKeyOf(invoice) !== params.idempotencyKey) {
     // The invoice was started by another request.
     if (invoice.status !== 'draft') throw BILLING_INVOICE_CONFLICT_ERROR(CLAIM_ALREADY_INVOICED);
     if (await discardUnsentDraft(oystehr, stripe, invoice)) {
-      const replacement = await createDraftUnlessClaimHasInvoice(oystehr, claim, params);
+      const replacement = await createDraftUnlessClaimHasInvoice(oystehr, claim, params, issuer);
       if (idempotencyKeyOf(replacement) !== params.idempotencyKey) {
         throw BILLING_INVOICE_CONFLICT_ERROR(CLAIM_ALREADY_INVOICED);
       }
@@ -135,20 +161,20 @@ async function findOrCreateDraft(
 async function createDraftUnlessClaimHasInvoice(
   oystehr: Oystehr,
   claim: Claim,
-  params: CreateBillingInvoiceParams
+  params: CreateBillingInvoiceParams,
+  issuer: Reference
 ): Promise<Invoice> {
   if (!claim.patient) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR('Claim has no patient');
-  const draft: Invoice = {
-    ...buildBillingInvoice({
-      status: 'draft',
-      date: DateTime.now().toUTC().toISO()!,
-      dueDate: params.dueDate,
-      recipient: claim.patient,
-      subject: claim.patient,
-      claims: [{ claimId: claim.id!, amountCents: params.amountCents }],
-    }),
-    identifier: [{ system: IDEMPOTENCY_KEY_SYSTEM, value: params.idempotencyKey }],
-  };
+  const draft = buildBillingInvoice({
+    status: 'draft',
+    date: DateTime.now().toUTC().toISO()!,
+    dueDate: params.dueDate,
+    issuer,
+    recipient: claim.patient,
+    subject: claim.patient,
+    claims: [{ claimId: claim.id!, amountCents: params.amountCents }],
+  });
+  draft.identifier = [{ system: BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM, value: params.idempotencyKey }];
   return oystehr.fhir.create<Invoice>(draft, {
     ifNoneExist: [
       { name: '_tag', value: `${INVOICE_CLAIM_TAG_SYSTEM}|${claim.id}` },
@@ -236,7 +262,8 @@ async function sendDraft(
       ...options,
       idempotencyKey: `billing-invoice-send-${invoice.id}`,
     });
-  } else if (stripeInvoice.status !== 'paid') {
+  }
+  if (stripeInvoice.status !== 'open' && stripeInvoice.status !== 'paid') {
     throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}, expected open`);
   }
 
@@ -244,7 +271,7 @@ async function sendDraft(
   // The patient may have paid between attempts, and nothing updates the status after that.
   invoice = await updateInvoice(oystehr, {
     ...invoice,
-    status: stripeInvoice.status === 'paid' ? 'balanced' : 'issued',
+    status: invoiceStatusFromStripe(stripeInvoice.status),
   });
   if (stripeInvoice.status === 'paid') return { invoice };
 
