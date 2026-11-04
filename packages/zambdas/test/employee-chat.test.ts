@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, FhirResource, Group, Practitioner } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { EMPLOYEE_CHAT_PAIR_SYSTEM } from 'utils/lib/types/api/employee-chat.types';
 import { APIErrorCode, isApiError } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
@@ -51,7 +52,7 @@ describe('pairKey', () => {
 describe('buildPairGroup / toSummary', () => {
   const alicePractitioner: Practitioner = {
     resourceType: 'Practitioner',
-    id: ALICE.split('/')[1],
+    id: getIdFromReference(ALICE),
     name: [{ given: ['Alice'], family: 'Smith' }],
   };
 
@@ -861,7 +862,11 @@ describe('resolveEmployeeChat with duplicate pair Groups', () => {
 
   it('lists a duplicated pair once with the canonical conversation and the merged history', async () => {
     const fake = createFakeOystehr();
-    fake.seed({ resourceType: 'Practitioner', id: BOB.split('/')[1], name: [{ given: ['Bob'], family: 'Jones' }] });
+    fake.seed({
+      resourceType: 'Practitioner',
+      id: getIdFromReference(BOB),
+      name: [{ given: ['Bob'], family: 'Jones' }],
+    });
     seedGroup(fake, 'group-b', 'CHB');
     seedGroup(fake, 'group-a', 'CHA');
     const carolGroup = withConversation({ ...buildPairGroup(ALICE, CHARLIE), id: 'group-c' }, 'CHC', 'enc-c');

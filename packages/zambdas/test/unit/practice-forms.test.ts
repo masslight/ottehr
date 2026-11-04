@@ -133,6 +133,16 @@ describe('getPatientFormResponses', () => {
     ]);
   });
 
+  it('keeps each flow distinct by asking for its id along with the trimmed elements', async () => {
+    await getPatientFormResponses({ patientId: 'patient-1', placements: ['questionnaires'], oystehr: {} as Oystehr });
+
+    const flowSearch = mockGetAllPages.mock.calls
+      .map(([search]) => search as FhirSearchParams<FhirResource>)
+      .find((search) => tagged(search.params, `${PAPERWORK_FLOW_TAG.system}|${PAPERWORK_FLOW_TAG.code}`));
+    const elements = flowSearch?.params?.find((p) => p.name === '_elements')?.value;
+    expect(String(elements).split(',')).toContain('id');
+  });
+
   it('skips the response search when the practice has no forms with the placement', async () => {
     mockGetAllPages.mockImplementation(async () => []);
 

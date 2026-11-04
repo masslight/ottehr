@@ -36,6 +36,7 @@ import {
   getPractitionerRoleAllCategories,
 } from 'utils/lib/fhir/healthcareService';
 import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
@@ -271,10 +272,10 @@ function GroupPageContent(): ReactElement {
     for (const role of practitionerRoles || []) {
       if (role.active === false) continue;
       if (!role.id) continue;
-      const pracId = role.practitioner?.reference?.split('/')[1];
+      const pracId = getIdFromReference(role.practitioner?.reference);
       if (!pracId) continue;
       for (const locRef of role.location || []) {
-        const locId = locRef.reference?.split('/')[1];
+        const locId = getIdFromReference(locRef.reference);
         if (!locId || !targetLocationIdSet.has(locId)) continue;
         if (!byLocation.has(locId)) byLocation.set(locId, new Map());
         const byPrac = byLocation.get(locId)!;
@@ -297,7 +298,7 @@ function GroupPageContent(): ReactElement {
           }
         } else {
           for (const hsRef of role.healthcareService || []) {
-            const hsId = hsRef.reference?.split('/')[1];
+            const hsId = getIdFromReference(hsRef.reference);
             if (!hsId || !relevantHsIdSet.has(hsId)) continue;
             const catName = categoryByHsId.get(hsId)?.name;
             if (catName) entry.services.add(catName);
@@ -384,7 +385,7 @@ function GroupPageContent(): ReactElement {
       id: groupID,
     });
     const attachedLocationIds = (groupTemp.location ?? [])
-      .map((ref) => ref.reference?.split('/')[1])
+      .map((ref) => getIdFromReference(ref.reference))
       .filter((id): id is string => !!id);
 
     // Phase 2 (parallel): paginated PRs (with their Practitioners _included),
@@ -716,7 +717,7 @@ function GroupPageContent(): ReactElement {
                           role.healthcareService?.some((ref) => ref.reference === `HealthcareService/${hsId}`);
                         if (!offers) continue;
                         for (const locRef of role.location || []) {
-                          const locId = locRef.reference?.split('/')[1];
+                          const locId = getIdFromReference(locRef.reference);
                           if (!locId || !targetLocationIdSet.has(locId)) continue;
                           const loc = (locations || []).find((l) => l.id === locId);
                           if (loc?.name) offeringLocationNames.add(loc.name);

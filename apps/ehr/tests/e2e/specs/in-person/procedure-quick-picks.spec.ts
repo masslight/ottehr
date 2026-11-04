@@ -1,5 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
@@ -113,8 +114,8 @@ test.afterAll(async () => {
     await expect(page.getByRole('tab', { name: 'Procedures' })).toBeVisible({ timeout: 10000 });
     const row = page.locator('tr', { hasText: QUICK_PICK_NAME });
     if (await row.isVisible({ timeout: 3000 }).catch(() => false)) {
-      page.on('dialog', (dialog) => dialog.accept());
       await row.getByRole('button', { name: /remove/i }).click();
+      await page.getByTestId(dataTestIds.dialog.proceedButton).click();
       await page
         .locator('div[id=notistack-snackbar]')
         .waitFor({ state: 'visible', timeout: 5000 })
@@ -184,11 +185,12 @@ test.describe('Procedure Quick Picks E2E', () => {
       const row = page.locator('tr', { hasText: QUICK_PICK_NAME });
       await expect(row).toBeVisible(DEFAULT_TIMEOUT);
 
-      // Accept the window.confirm dialog that appears when clicking Remove
-      page.on('dialog', (dialog) => dialog.accept());
-
       const removeButton = row.getByRole('button', { name: /remove/i });
       await removeButton.click();
+
+      const confirmDialog = page.getByRole('dialog');
+      await expect(confirmDialog).toContainText(`Remove quick pick "${QUICK_PICK_NAME}"?`, DEFAULT_TIMEOUT);
+      await confirmDialog.getByTestId(dataTestIds.dialog.proceedButton).click();
 
       // Wait for success snackbar
       const snackbar = page.locator('div[id=notistack-snackbar]');

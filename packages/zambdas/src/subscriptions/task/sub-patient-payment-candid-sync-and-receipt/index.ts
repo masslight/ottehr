@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import {
@@ -65,7 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         throw new Error('no payment notice ID found on task focus');
       }
 
-      const encounterId = task.encounter?.reference?.split('/')[1];
+      const encounterId = getIdFromReference(task.encounter?.reference);
       if (!encounterId) {
         console.log('no encounter ID found on task');
         throw new Error('no encounter ID found on task encounter');

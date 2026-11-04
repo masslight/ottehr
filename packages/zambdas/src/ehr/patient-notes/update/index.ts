@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Communication, Extension, Practitioner } from 'fhir/r4b';
 import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { SaveNoteOutput, UpdateNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FHIR_RESOURCE_NOT_FOUND, FHIR_RESOURCE_VALIDATION_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -27,7 +28,7 @@ const assertNoteEditable = (resource: Communication, note: UpdateNoteRequest): v
 
   const belongs = note.taskId
     ? isTaskNote(resource) && getNoteTaskId(resource) === note.taskId
-    : !isTaskNote(resource) && resource.subject?.reference?.split('/')[1] === note.patientId;
+    : !isTaskNote(resource) && getIdFromReference(resource.subject?.reference) === note.patientId;
   if (!belongs) {
     throw FHIR_RESOURCE_VALIDATION_ERROR(`Note does not belong to the specified ${note.taskId ? 'task' : 'patient'}`);
   }

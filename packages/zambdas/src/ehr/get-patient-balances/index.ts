@@ -4,6 +4,7 @@ import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { GetBillingPatientBalanceResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -69,7 +70,7 @@ export async function performBillingEffect(
 
   const encounterDataMap = new Map<string, { encounterDate: string; appointmentId: string }>();
   encounters.forEach((encounter) => {
-    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const appointmentId = getIdFromReference(encounter.appointment?.[0].reference);
     const encounterDate = appointments.find((app) => app.id === appointmentId)?.start;
     if (!appointmentId || !encounterDate) {
       console.warn(
@@ -155,7 +156,7 @@ export async function performEffect(
   const claimIdToEncounterIdMap = new Map<string, string>();
 
   encounters.forEach((encounter) => {
-    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const appointmentId = getIdFromReference(encounter.appointment?.[0].reference);
     const appointment = appointments.find((app) => app.id === appointmentId);
     const encounterDate = appointment?.start;
     const candidId = encounter.identifier?.find(
