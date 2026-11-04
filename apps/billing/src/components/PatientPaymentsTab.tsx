@@ -5,6 +5,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
 import { BillingPatientAccountPayment, BillingPatientPaymentMethod } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { listBillingPatientAccountPayments } from '../api/api';
@@ -76,7 +77,7 @@ const columns: GridColDef<PaymentRow>[] = [
     field: 'dateISO',
     headerName: 'Payment Date',
     width: 150,
-    valueFormatter: (params: { value: string }) => formatDate(params.value),
+    valueFormatter: (params: { value: string }) => formatDate(paymentDayOf(params.value)),
   },
   {
     field: 'amountInCents',

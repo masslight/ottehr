@@ -4,8 +4,8 @@ import { Claim, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
-import { TIMEZONES } from 'utils/lib/types/constants';
 import { ListBillingPatientAccountPaymentsInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPatientAccountPayment,
@@ -138,12 +138,6 @@ export const listAccountPayments = async (params: {
     )
     .map(({ payment }) => payment);
 };
-
-// a manual paymentDate is already the practice's local day; a timestamp is placed on the day it fell in there
-const paymentDayOf = (iso: string): string =>
-  DATE_ONLY.test(iso) ? iso : DateTime.fromISO(iso).setZone(TIMEZONES[0]).toISODate() ?? iso;
-
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 // the claim the billing notices were reconciled to, else the encounter's only claim
 const claimForPayments = (claims: Claim[], notices: PaymentNotice[]): Claim | undefined => {
