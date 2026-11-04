@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCopyChartDataToFollowup } from '../../src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
+import { chartSectionQueryKey, visitNoteQueryKey } from '../../src/features/visits/shared/hooks/chartSectionCache';
 import {
   useExamObservationsInitializationStore,
   useExamObservationsStore,
@@ -235,6 +236,27 @@ describe('useCopyChartDataToFollowup', () => {
       ).rejects.toThrow();
       // The save landed, so the store is out of date whether or not the leftovers were swept.
       expect(useExamObservationsStore.getState()).toEqual({});
+    });
+
+    it("drops the target's cached chart, which would reseed the stores with the replaced exam", async () => {
+      const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+      queryClient.setQueryData(visitNoteQueryKey('enc-target'), visitNoteFor(TARGET));
+      queryClient.setQueryData(chartSectionQueryKey('enc-target', 'exam'), { examObservations: [] });
+      const { result } = renderHook(() => useCopyChartDataToFollowup(), {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      });
+
+      await result.current.mutateAsync({
+        sourceEncounterId: 'enc-source',
+        targetEncounterId: 'enc-target',
+        fields: ['examObservations'],
+        overwriteExisting: true,
+      });
+
+      expect(queryClient.getQueryData(visitNoteQueryKey('enc-target'))).toBeUndefined();
+      expect(queryClient.getQueryData(chartSectionQueryKey('enc-target', 'exam'))).toBeUndefined();
     });
 
     it('leaves both stores alone when neither section was copied', async () => {

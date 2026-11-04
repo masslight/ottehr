@@ -1,6 +1,7 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { captureException, captureMessage } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets } from 'utils/lib/secrets';
 import {
@@ -183,7 +184,7 @@ async function unenrollPractitionerFromErx(user: User, oystehr: Oystehr): Promis
     console.log('user has no Practitioner profile; skipping eRx unenrollment', { userId: user.id, profile });
     return 'no-practitioner';
   }
-  const practitionerId = profile.split('/')[1];
+  const practitionerId = getIdFromReference(profile, 'Practitioner');
   if (!practitionerId) {
     console.log('malformed Practitioner profile reference; skipping eRx unenrollment', { userId: user.id, profile });
     return 'no-practitioner';
@@ -257,7 +258,7 @@ async function setPractitionerActive(user: User, active: boolean, oystehr: Oyste
     });
     return;
   }
-  const practitionerId = profile.split('/')[1];
+  const practitionerId = getIdFromReference(profile, 'Practitioner');
   if (!practitionerId) {
     const msg = `user-activation: malformed Practitioner profile reference; skipping .active sync`;
     console.warn(msg, { userId: user.id, profile });

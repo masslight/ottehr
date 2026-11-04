@@ -19,6 +19,7 @@ import { DateTime } from 'luxon';
 import { BILLING_RESOURCE_TAG, PRIVATE_EXTENSION_BASE_URL, PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { undefinedIfEmptyArray } from 'utils/lib/fhir/helpers';
 import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
+import { zambdaApiUrlOverride } from 'utils/lib/helpers/zambda-api-url-override';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TELEMED_VIDEO_ROOM_CODE, TIMEZONES } from 'utils/lib/types/constants';
 import { EncounterVirtualServiceExtension } from 'utils/lib/types/data/oystehr-api.types.ts/telemed.types';
@@ -73,6 +74,7 @@ export function createClinicalOystehrClient(
     services: {
       fhirApiUrl: fhirApiUrlFromAuth0Audience(getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets)),
       projectApiUrl: projectApiUrlFromAuth0Audience(getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets)),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
     ...overrides,
     ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],

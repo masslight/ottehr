@@ -1,4 +1,4 @@
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { AllChartValuesKeys, MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useChartSection } from '../../shared/hooks/useChartSection';
 
@@ -34,7 +34,9 @@ export const useMedicationHistory = ({
     const reference =
       medication.practitioner && 'reference' in medication.practitioner ? medication.practitioner.reference : undefined;
     if (!reference) return medication;
-    const practitioner = practitioners.find((candidate) => candidate.id === removePrefix('Practitioner/', reference));
+    const practitioner = practitioners.find(
+      (candidate) => candidate.id === getIdFromReference(reference, 'Practitioner')
+    );
     return practitioner ? { ...medication, practitioner } : medication;
   };
 

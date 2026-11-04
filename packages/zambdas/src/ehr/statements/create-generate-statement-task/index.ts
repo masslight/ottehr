@@ -3,6 +3,7 @@ import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { TaskIndicator } from 'utils/lib/types/common';
 import {
   INVALID_INPUT_ERROR,
@@ -54,13 +55,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR(`Patient reference not found in Encounter/${validatedInput.encounterId}`);
   }
 
-  const patientId = patientReference.split('/')[1];
+  const patientId = getIdFromReference(patientReference);
   if (!patientId) {
     throw INVALID_INPUT_ERROR(`Patient id not found in Encounter/${validatedInput.encounterId}`);
   }
 
   const appointmentReference = encounter.appointment?.[0]?.reference;
-  const appointmentId = appointmentReference?.split('/')[1];
+  const appointmentId = getIdFromReference(appointmentReference);
   if (!appointmentId) {
     throw INVALID_INPUT_ERROR(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
   }

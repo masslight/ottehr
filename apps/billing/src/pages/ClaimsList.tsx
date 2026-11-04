@@ -917,7 +917,7 @@ export function ClaimsListView({
                     }}
                     disableRipple
                   >
-                    Send Invoice
+                    Send Patient Invoice
                   </MenuItem>
                 )}
               </Menu>

@@ -8,6 +8,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { FOLLOWUP_REASONS, FOLLOWUP_SYSTEMS, FollowupReason } from 'utils/lib/fhir/encounter';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { PatientFollowupDetails } from 'utils/lib/types/api/encounter.types';
 import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
@@ -123,7 +124,7 @@ export const FollowUpSummaryCard: React.FC = () => {
   useEffect(() => {
     if (locations.length > 0) {
       const currentLocation = locations.find(
-        (location) => location.id === encounter.location?.[0]?.location?.reference?.split('/')[1]
+        (location) => location.id === getIdFromReference(encounter.location?.[0]?.location?.reference)
       );
       setFormData((prev) => ({ ...prev, location: currentLocation }));
     }

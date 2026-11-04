@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   FAX_PACKET_REQUEST_TASK_INPUT,
   FaxPacketSource,
@@ -32,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`send-fax-packet queue: source=${source.type} recipients=${recipients.length}`);
 
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
-  const senderPractitionerId = removePrefix('Practitioner/', user.profile);
+  const senderPractitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!senderPractitionerId) throw new Error('User practitioner reference is invalid');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
