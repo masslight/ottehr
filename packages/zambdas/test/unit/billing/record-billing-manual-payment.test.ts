@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Claim, Encounter, FhirResource, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, FhirResource, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Secrets } from 'utils/lib/secrets';
@@ -19,11 +19,6 @@ vi.mock('../../../src/shared/auth', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('m2m-token'),
   getUser: vi.fn(),
-}));
-
-vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  createClinicalOystehrClient: vi.fn(),
 }));
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -44,7 +39,6 @@ import { CHECK_NUMBER_IDENTIFIER_SYSTEM, MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM }
 import { index as _index } from '../../../src/billing/record-billing-manual-payment';
 import { createBillingClient } from '../../../src/billing/shared';
 import { getUser } from '../../../src/shared/auth';
-import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 const index = _index as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
@@ -65,13 +59,6 @@ const baseParams = {
   checkNumber: '1234',
   description: 'check copay',
   idempotencyKey: 'key-12345678',
-};
-
-const encounter: Encounter = {
-  resourceType: 'Encounter',
-  id: ENCOUNTER_ID,
-  status: 'finished',
-  class: { code: 'AMB' },
 };
 
 const claimWithProvider: Claim = {
@@ -127,11 +114,6 @@ const makeBillingOystehr = (
 const writtenNotice = (transaction: Mock): { resource: PaymentNotice; fullUrl: string; ifNoneExist: unknown } =>
   transaction.mock.calls[0][0].requests.find((request: { url: string }) => request.url === '/PaymentNotice');
 
-const makeClinicalOystehr = (encounters: Encounter[]): Oystehr =>
-  ({
-    fhir: { search: vi.fn().mockResolvedValue({ unbundle: () => encounters }) },
-  }) as unknown as Oystehr;
-
 const makeInput = (params: Record<string, unknown>): ZambdaInput => ({
   body: JSON.stringify(params),
   headers: { Authorization: 'Bearer user-token' },
@@ -178,7 +160,6 @@ describe('record-billing-manual-payment', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-22T12:00:00Z'));
     vi.clearAllMocks();
-    (createClinicalOystehrClient as Mock).mockReturnValue(makeClinicalOystehr([encounter]));
     (getUser as Mock).mockResolvedValue({ profile: 'Practitioner/prac-1' });
   });
 
@@ -198,17 +179,6 @@ describe('record-billing-manual-payment', () => {
 
     await expect(index(makeInput({ ...baseParams, ...override }))).rejects.toMatchObject({
       code: APIErrorCode.INVALID_INPUT,
-    });
-    expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('throws when the encounter does not exist', async () => {
-    (createClinicalOystehrClient as Mock).mockReturnValue(makeClinicalOystehr([]));
-    const { oystehr, transaction } = makeBillingOystehr([]);
-    (createBillingClient as Mock).mockReturnValue(oystehr);
-
-    await expect(index(makeInput(baseParams))).rejects.toMatchObject({
-      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
     });
     expect(transaction).not.toHaveBeenCalled();
   });
