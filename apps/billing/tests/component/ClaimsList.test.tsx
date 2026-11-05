@@ -215,6 +215,7 @@ describe('ClaimsList — submit claims', () => {
       claims: [
         makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer, 'claim-submission'),
         makeRow('c-self', 'Self-Pay Patient', AR_STAGE.patient, 'patient-ar-pre-invoice'),
+        makeRow('c-adj', 'Adjudicated', AR_STAGE.insurancePayer, 'post-adjudication'),
         makeRow('c-cov', 'Covered Patient AR', AR_STAGE.patient),
       ],
       total: 3,
@@ -223,31 +224,35 @@ describe('ClaimsList — submit claims', () => {
       results: [
         { claimId: 'c-ins', taskId: 'task-1', engine: 'claim-submission' },
         { claimId: 'c-self', taskId: 'task-2', engine: 'patient-ar-pre-invoice' },
+        { claimId: 'c-adj', taskId: 'task-3', engine: 'post-adjudication' },
       ],
     });
     renderList();
 
     const insurable = await screen.findByLabelText('select Insurable Patient');
     const selfPay = screen.getByLabelText('select Self-Pay Patient');
+    const adjudicated = screen.getByLabelText('select Adjudicated');
     expect(insurable).toBeEnabled();
     expect(selfPay).toBeEnabled();
+    expect(adjudicated).toBeEnabled();
     // A row no engine applies to (Patient AR with coverage) stays unselectable.
     expect(screen.getByLabelText('select Covered Patient AR')).toBeDisabled();
 
     fireEvent.click(insurable);
     fireEvent.click(selfPay);
+    fireEvent.click(adjudicated);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (3)' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
     await waitFor(() =>
       expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
         {},
-        { claimIds: ['c-ins', 'c-self'], submissionType: 'new', submissionInsurance: 'primary' }
+        { claimIds: ['c-ins', 'c-self', 'c-adj'], submissionType: 'new', submissionInsurance: 'primary' }
       )
     );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
-      'Rules started for 2 claim(s) — each claim will be submitted, made ready to invoice, or held shortly. ' +
+      'Rules started for 3 claim(s) — each claim will be submitted, made ready to invoice, or held shortly. ' +
         'Refresh to see the results.',
       { variant: 'info' }
     );

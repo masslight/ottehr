@@ -120,9 +120,14 @@ function RulesForEngine({ engine }: { engine: RulesEngineType }): ReactElement {
             {engineDef.label}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Rules run top to bottom {engineDef.runsWhen}. Drag to reorder. A rule that applies the Hold tag stops the
-            engine and holds the claim.
+            Rules run top to bottom {engineDef.runsWhen}. Drag to reorder. When every rule passes, {engineDef.onPass}.
           </Typography>
+          {engineDef.showHoldRuleHint && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              To stop the default behavior, create a rule that applies the Hold tag to stop the engine and hold the
+              claim.
+            </Typography>
+          )}
         </Box>
 
         <Button
