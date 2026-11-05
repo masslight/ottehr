@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Claim, Invoice, Location } from 'fhir/r4b';
 import {
   getBillingInvoiceClaims,
@@ -7,6 +7,7 @@ import {
   INVOICE_CLAIM_TAG_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -24,24 +25,36 @@ export async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Prom
   return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
 }
 
+const activeClaimInvoiceParams = (claimIds: string[]): SearchParam[] => [
+  {
+    name: '_tag',
+    value: claimIds.map((claimId) => `${INVOICE_CLAIM_TAG_SYSTEM}|${claimId}`).join(','),
+  },
+  {
+    name: '_tag',
+    value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`,
+  },
+  {
+    name: 'status',
+    value: 'draft,issued,balanced',
+  },
+];
+
 export async function createInvoiceUnlessClaimsHaveOne(oystehr: Oystehr, invoice: Invoice): Promise<Invoice> {
-  const claimTags = getBillingInvoiceClaims(invoice).map(({ claimId }) => `${INVOICE_CLAIM_TAG_SYSTEM}|${claimId}`);
+  const claimIds = getBillingInvoiceClaims(invoice).map(({ claimId }) => claimId);
   return oystehr.fhir.create<Invoice>(invoice, {
-    ifNoneExist: [
-      {
-        name: '_tag',
-        value: claimTags.join(','),
-      },
-      {
-        name: '_tag',
-        value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`,
-      },
-      {
-        name: 'status',
-        value: 'draft,issued,balanced',
-      },
-    ],
+    ifNoneExist: activeClaimInvoiceParams(claimIds),
   });
+}
+
+export async function fetchActiveClaimInvoices(oystehr: Oystehr, claimIds: string[]): Promise<Invoice[]> {
+  return getAllFhirSearchPages<Invoice>(
+    {
+      resourceType: 'Invoice',
+      params: activeClaimInvoiceParams(claimIds),
+    },
+    oystehr
+  );
 }
 
 export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Promise<Invoice[]> {

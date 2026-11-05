@@ -897,6 +897,13 @@ export const NetCollectionsDrilldownParamsSchema = z.object({
   payerKey: nonEmptyString,
 });
 
+// Same key on a retry resumes what that request started. Embedded in a FHIR token search
+// (`system|value`), so no `|` or whitespace.
+const idempotencyKey = z
+  .string()
+  .max(128)
+  .regex(/^[A-Za-z0-9._-]+$/);
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -905,11 +912,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
   paymentDateISO: z.string().datetime({ offset: true }).optional(),
   checkNumber: nonEmptyString.optional(),
   description: nonEmptyString.optional(),
-  // embedded in a FHIR token search (`system|value`), so no `|` or whitespace
-  idempotencyKey: z
-    .string()
-    .max(128)
-    .regex(/^[A-Za-z0-9._-]+$/),
+  idempotencyKey,
 });
 
 export const GetBillingInvoiceRecipientInputSchema = z.object({
@@ -922,11 +925,21 @@ export const CreateBillingInvoiceInputSchema = z.object({
   dueDate: z.string().date(),
   smsMessage: nonEmptyString,
   memo: nonEmptyString,
-  // Same key on a retry resumes the invoice that request started.
-  idempotencyKey: z
-    .string()
-    .max(128)
-    .regex(/^[A-Za-z0-9._-]+$/),
+  idempotencyKey,
+});
+
+export const PreviewBillingNioInvoiceInputSchema = z.object({
+  claimIds: z
+    .array(nonEmptyString.uuid())
+    .min(1)
+    .max(BILLING_INVOICE_LIMITS.nioInvoiceClaimCount)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: 'claimIds must not repeat a claim',
+    }),
+});
+
+export const CreateBillingNioInvoiceInputSchema = PreviewBillingNioInvoiceInputSchema.extend({
+  idempotencyKey,
 });
 
 export const SearchBillingInvoicesInputSchema = z
@@ -971,13 +984,8 @@ export const ListBillingPatientAccountPaymentsInputSchema = z.object({
   patientId: nonEmptyString,
 });
 
-// client key, stable across retries of one logical payment; embedded in a FHIR token search
-// (`system|value`), so no `|` or whitespace
-const patientPaymentIdempotencyKey = z
-  .string()
-  .max(128)
-  .regex(/^[A-Za-z0-9._-]+$/)
-  .optional();
+// client key, stable across retries of one logical payment
+const patientPaymentIdempotencyKey = idempotencyKey.optional();
 // blank free text is treated as absent
 const blankableText = z
   .string()
@@ -1317,6 +1325,8 @@ export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseT
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
 export type CreateBillingInvoiceInput = z.output<typeof CreateBillingInvoiceInputSchema>;
+export type PreviewBillingNioInvoiceInput = z.output<typeof PreviewBillingNioInvoiceInputSchema>;
+export type CreateBillingNioInvoiceInput = z.output<typeof CreateBillingNioInvoiceInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
 export type SearchBillingInvoicesInput = z.output<typeof SearchBillingInvoicesInputSchema>;
 export type GetBillingInvoiceInput = z.output<typeof GetBillingInvoiceInputSchema>;
