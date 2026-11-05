@@ -71,7 +71,7 @@ Solid arrow: a FHIR reference. Dashed arrow: no reference, the `Person` id is st
   - The father sees the thread of `P2`. New requests about Sarah create tasks in this thread.
   - Old tasks about Sarah stay in the thread of `P1`. A staff reply on such a task appears in the mother's chat. The notification goes by patient: to Sarah's email, or by SMS to phone B if there is no email. The father then opens the chat and does not see the message.
   - If `P1` has no patients left, its chat is not available, and nobody sees replies on the old tasks in the portal.
-- **The chat is available only to a logged-in account with at least one patient.** Other users see the old support dialog.
+- **The chat is available only when `supportChatEnabled` is on, and only to a logged-in account with at least one patient.** The flag is checked in the portal, the EHR and the patient zambdas. Other users see the old support dialog.
 - **Bot messages are stored** without `sender`. The history is complete. Old chips stay visible but disabled.
 - **The active prompt is the last message of the thread**, if it is a prompt. There is no separate dialog state. A free-text message disables the chips.
 - **Unread** uses `Communication.status`: a new message is `in-progress`, mark-read sets `completed`. Bot messages are stored as `completed`.

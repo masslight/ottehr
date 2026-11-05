@@ -3,6 +3,7 @@ import { Coding, Communication, Extension, Reference, Task } from 'fhir/r4b';
 import { getAccountForUser, UserAccount } from 'utils/lib/auth/user-auth.helper';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import {
   GetSupportChatResponse,
   SUPPORT_CHAT_BOT_NAME,
@@ -79,7 +80,10 @@ export const isStaffUser = (user: User): boolean =>
   checkIsEHRUser(user) && Boolean(user.profile?.startsWith('Practitioner/'));
 
 export const isAccountReadyForChat = (account: UserAccount): boolean =>
-  Boolean(account.person) && account.patients.length > 0 && account.relatedPersons.length > 0;
+  Boolean(FEATURE_FLAGS_CONFIG.supportChatEnabled) &&
+  Boolean(account.person) &&
+  account.patients.length > 0 &&
+  account.relatedPersons.length > 0;
 
 const MAX_THREAD_MESSAGES = 1000;
 
