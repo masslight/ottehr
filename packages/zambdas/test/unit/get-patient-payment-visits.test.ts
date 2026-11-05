@@ -5,7 +5,6 @@ import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
-import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/ehr/shared/harvest', () => ({
@@ -106,7 +105,6 @@ describe('getPatientPaymentVisits', () => {
           recipient: {},
           amount: { value: 10 },
         },
-        // recorded before the submitter's name was stamped on its reference
         {
           resourceType: 'PaymentNotice',
           id: 'pn-2',
@@ -116,19 +114,8 @@ describe('getPatientPaymentVisits', () => {
           payment: {},
           recipient: {},
           amount: { value: 5 },
-          contained: [
-            {
-              resourceType: 'PaymentReconciliation',
-              status: 'active',
-              created: '',
-              paymentDate: '',
-              paymentAmount: { value: 5 },
-              detail: [{ type: {}, submitter: { reference: 'Practitioner/fd' } }],
-            },
-          ],
         },
       ],
-      Practitioner: [{ resourceType: 'Practitioner', id: 'fd', name: [{ given: ['Front'], family: 'Desk' }] }],
     });
 
     const { visits, stripeCustomers } = await getPatientPaymentVisits(oystehr, 'patient-1');
@@ -155,10 +142,6 @@ describe('getPatientPaymentVisits', () => {
         legacyPaymentNotices: [],
       },
     ]);
-    expect(getPaymentNoticeSubmitterRef(visits[0].legacyPaymentNotices[1])).toEqual({
-      reference: 'Practitioner/fd',
-      display: 'Front Desk',
-    });
     expect(stripeCustomers).toEqual([
       { stripeAccount: undefined, customerId: 'cus_platform' },
       { stripeAccount: 'acct_clinic', customerId: 'cus_clinic' },

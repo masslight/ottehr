@@ -1,10 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, FhirResource, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, PaymentNotice } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getAllStripeCustomerAccountPairs, scheduleOwnerAmong } from 'utils/lib/fhir/helpers';
-import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
-import { getPaymentNoticeSubmitterRef, getStripeAccountForScheduleOwner } from 'utils/lib/fhir/payments';
+import { getStripeAccountForScheduleOwner } from 'utils/lib/fhir/payments';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GetPatientPaymentVisitsInputSchema,
@@ -23,7 +22,6 @@ import { getAllFhirEncountersAndAppointmentsForPatient } from '../shared/patient
 const ZAMBDA_NAME = 'get-patient-payment-visits';
 // keeps each request= OR list within URL limits
 const ENCOUNTER_BATCH_SIZE = 50;
-const PRACTITIONER_BATCH_SIZE = 100;
 
 let m2mToken: string;
 
@@ -51,11 +49,10 @@ export const getPatientPaymentVisits = async (
     oystehr,
     visits.map((visit) => visit.encounterId)
   );
-  const nameSubmitter = await submitterNamer(oystehr, [...legacyNoticesByEncounter.values()].flat());
   return {
     visits: visits.map((visit) => ({
       ...visit,
-      legacyPaymentNotices: (legacyNoticesByEncounter.get(visit.encounterId) ?? []).map(nameSubmitter),
+      legacyPaymentNotices: legacyNoticesByEncounter.get(visit.encounterId) ?? [],
     })),
     stripeCustomers: account ? getAllStripeCustomerAccountPairs(account).filter((customer) => customer.customerId) : [],
   };
@@ -143,61 +140,4 @@ const fetchLegacyPaymentNotices = async (
     }, 100);
   }
   return noticesByEncounter;
-};
-
-// Notices written before the submitter's name was stamped on its reference name it here, so billing
-// shows who took a payment without reading Practitioners.
-const submitterNamer = async (
-  oystehr: Oystehr,
-  notices: PaymentNotice[]
-): Promise<(notice: PaymentNotice) => PaymentNotice> => {
-  const unnamedIds = [
-    ...new Set(
-      notices
-        .map(getPaymentNoticeSubmitterRef)
-        .filter((submitter) => !submitter?.display)
-        .flatMap((submitter) => getIdFromReference(submitter?.reference, 'Practitioner') ?? [])
-    ),
-  ];
-  const nameByReference = new Map<string, string>();
-  for (const batch of chunkThings(unnamedIds, PRACTITIONER_BATCH_SIZE)) {
-    try {
-      const practitioners = (
-        await oystehr.fhir.search<Practitioner>({
-          resourceType: 'Practitioner',
-          params: [
-            { name: '_id', value: batch.join(',') },
-            { name: '_count', value: String(batch.length) },
-          ],
-        })
-      ).unbundle();
-      for (const practitioner of practitioners) {
-        // first + last only, matching the display stamped at write time
-        const name = [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
-        if (practitioner.id && name) nameByReference.set(`Practitioner/${practitioner.id}`, name);
-      }
-    } catch (error) {
-      // a payment still lists without its submitter's name
-      console.error('Error resolving payment submitter names', error);
-    }
-  }
-
-  return (notice) => {
-    const submitter = getPaymentNoticeSubmitterRef(notice);
-    const display = !submitter?.display && nameByReference.get(submitter?.reference ?? '');
-    if (!display) return notice;
-    return {
-      ...notice,
-      contained: notice.contained?.map((resource) =>
-        resource.resourceType === 'PaymentReconciliation'
-          ? {
-              ...resource,
-              detail: resource.detail?.map((detail) =>
-                detail.submitter === submitter ? { ...detail, submitter: { ...submitter, display } } : detail
-              ),
-            }
-          : resource
-      ),
-    };
-  };
 };

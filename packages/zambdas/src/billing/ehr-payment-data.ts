@@ -15,8 +15,9 @@ export const getPatientPaymentVisits = async (
     await oystehr.zambda.execute({ id: 'get-patient-payment-visits', patientId: clinicalPatientId })
   );
 
-// Payment lookups answered from what the EHR returned for the patient's visits. Submitter names are
-// stamped on the notices (the EHR names its legacy ones), so there is no Practitioner lookup.
+// Payment lookups answered from what the EHR returned for the patient's visits. There is no
+// Practitioner lookup: billing doesn't show who took a payment, so takenBy is only set where the
+// submitter's name is already stamped on the notice.
 export const ehrClinicalPaymentLookups = ({
   visits,
   stripeCustomers,
