@@ -256,6 +256,12 @@ export function hasReachedPatientAr(claim: Pick<Claim, 'meta'> | undefined): boo
   return getClaimStatusValues(claim).arStage === AR_STAGE.patient;
 }
 
+const INVOICEABLE_PATIENT_AR_STATUSES = ['ready-to-invoice', 'invoiced', 'finalized'];
+
+export function isInvoiceableClaimStatus({ arStage, patientArStatus }: ClaimStatusValues): boolean {
+  return arStage === AR_STAGE.patient && INVOICEABLE_PATIENT_AR_STATUSES.includes(patientArStatus);
+}
+
 export function hasReachedClaimStatus(fieldKey: ClaimStatusFieldKey, code: string, target: string): boolean {
   const { options } = CLAIM_STATUS_FIELDS_BY_KEY[fieldKey];
   const currentIndex = options.findIndex((option) => option.code === code);

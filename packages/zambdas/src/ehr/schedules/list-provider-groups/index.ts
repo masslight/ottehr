@@ -8,6 +8,7 @@ import {
   isPractitionerRoleMemberOfGroup,
   isServiceCategoryHealthcareService,
 } from 'utils/lib/fhir/healthcareService';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ListProviderGroupsResponse, ProviderGroupListItem } from 'utils/lib/types/api/schedules';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -65,7 +66,7 @@ const performEffect = async (oystehr: Oystehr): Promise<ListProviderGroupsRespon
     .map((group) => {
       const poolsAllProviders = getGroupAllLocations(group) === true;
       const groupLocationIds = (group.location ?? [])
-        .map((ref) => ref.reference?.split('/')[1])
+        .map((ref) => getIdFromReference(ref.reference))
         .filter((id): id is string => !!id);
 
       const locationNames = poolsAllProviders ? [] : groupLocationIds.map((id) => locationNameById.get(id) ?? id);
@@ -83,7 +84,7 @@ const performEffect = async (oystehr: Oystehr): Promise<ListProviderGroupsRespon
         ) {
           continue;
         }
-        const practitionerId = role.practitioner?.reference?.split('/')[1];
+        const practitionerId = getIdFromReference(role.practitioner?.reference);
         if (practitionerId) pooledProviderIds.add(practitionerId);
       }
       const providerCount = pooledProviderIds.size;

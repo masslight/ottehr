@@ -1,8 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { enqueueSnackbar } from 'notistack';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditableMedicationCard } from '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/EditableMedicationCard';
 import { useInHouseMedicationOrderStore } from '../../src/state/draft-data.store';
+
+vi.mock('notistack', () => ({
+  enqueueSnackbar: vi.fn(),
+}));
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -14,9 +19,25 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: ({ loading }: { loading?: boolean }) => (
-    <div data-testid="quick-picks-button">{String(Boolean(loading))}</div>
+  QuickPicksButton: ({ loading, onAddOrUpdate }: { loading?: boolean; onAddOrUpdate?: () => void }) => (
+    <>
+      <div data-testid="quick-picks-button">{String(Boolean(loading))}</div>
+      {onAddOrUpdate && <button onClick={onAddOrUpdate}>Add or Update Quick Pick</button>}
+    </>
   ),
+}));
+
+const { getInHouseMedicationQuickPicks, createInHouseMedicationQuickPick, updateInHouseMedicationQuickPick } =
+  vi.hoisted(() => ({
+    getInHouseMedicationQuickPicks: vi.fn(),
+    createInHouseMedicationQuickPick: vi.fn(),
+    updateInHouseMedicationQuickPick: vi.fn(),
+  }));
+
+vi.mock('src/api/api', () => ({
+  getInHouseMedicationQuickPicks,
+  createInHouseMedicationQuickPick,
+  updateInHouseMedicationQuickPick,
 }));
 
 vi.mock('../../src/features/visits/in-person/components/RoundedButton', () => ({
@@ -115,8 +136,10 @@ vi.mock('../../src/hooks/useCommandPaletteSource', () => ({
   useCommandPaletteSource: vi.fn(),
 }));
 
+const currentUser = vi.hoisted(() => ({ isAdmin: false }));
+
 vi.mock('../../src/hooks/useEvolveUser', () => ({
-  default: () => ({ hasRole: () => false }),
+  default: () => ({ hasRole: () => currentUser.isAdmin }),
 }));
 
 vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
@@ -282,6 +305,73 @@ describe('EditableMedicationCard', () => {
       // erxEnabled is seeded true from the draft, so the component enters the
       // eRx loading state. The banner shows "checking..." rather than a stale "not found".
       expect(screen.getByText(/checking\.\.\./)).toBeInTheDocument();
+    });
+  });
+
+  describe('save as quick pick', () => {
+    beforeEach(() => {
+      currentUser.isAdmin = true; // only admins can save quick picks
+      useInHouseMedicationOrderStore.setState({ draftsByEncounterId: {} });
+      vi.clearAllMocks();
+      getInHouseMedicationQuickPicks.mockResolvedValue({
+        quickPicks: [{ id: 'qp-albuterol', name: 'Albuterol' }],
+      });
+      updateInHouseMedicationQuickPick.mockResolvedValue({});
+      createInHouseMedicationQuickPick.mockResolvedValue({});
+    });
+
+    afterEach(() => {
+      currentUser.isAdmin = false;
+    });
+
+    it('uses the Add to Quick Picks name dropdown and confirms before replacing an existing pick', async () => {
+      const user = userEvent.setup();
+      render(<EditableMedicationCard type="order-new" />);
+
+      await user.click(screen.getByRole('button', { name: 'Save as quick pick' }));
+
+      const nameInput = await screen.findByRole('combobox', { name: 'Quick Pick Name' });
+      expect(screen.getByText('Add to Quick Picks')).toBeInTheDocument();
+      expect(screen.queryByText('Or overwrite an existing quick pick:')).not.toBeInTheDocument();
+
+      await user.click(nameInput);
+      await user.click(await screen.findByRole('option', { name: 'Albuterol' }));
+      await user.click(screen.getByRole('button', { name: 'Save Quick Pick' }));
+      await user.click(await screen.findByRole('button', { name: 'Replace' }));
+
+      await waitFor(() => expect(updateInHouseMedicationQuickPick).toHaveBeenCalledTimes(1));
+      expect(updateInHouseMedicationQuickPick).toHaveBeenCalledWith(
+        {},
+        'qp-albuterol',
+        expect.objectContaining({ name: 'Albuterol' })
+      );
+      expect(createInHouseMedicationQuickPick).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Quick pick "Albuterol" updated', { variant: 'success' })
+      );
+    });
+
+    it('creates a new quick pick when the typed name matches no existing pick', async () => {
+      const user = userEvent.setup();
+      render(<EditableMedicationCard type="order-new" />);
+
+      await user.click(screen.getByRole('button', { name: 'Save as quick pick' }));
+      const nameInput = await screen.findByRole('combobox', { name: 'Quick Pick Name' });
+      await user.clear(nameInput);
+      await user.type(nameInput, 'Albuterol nebulizer');
+      await user.click(screen.getByRole('button', { name: 'Save Quick Pick' }));
+
+      await waitFor(() => expect(createInHouseMedicationQuickPick).toHaveBeenCalledTimes(1));
+      expect(createInHouseMedicationQuickPick).toHaveBeenCalledWith(
+        {},
+        {
+          quickPick: expect.objectContaining({ name: 'Albuterol nebulizer' }),
+        }
+      );
+      expect(updateInHouseMedicationQuickPick).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Quick pick "Albuterol nebulizer" created', { variant: 'success' })
+      );
     });
   });
 });

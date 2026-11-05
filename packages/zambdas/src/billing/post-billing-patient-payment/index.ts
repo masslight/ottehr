@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
   Claim,
-  Encounter,
   FhirResource,
   Identifier,
   Money,
@@ -51,7 +50,7 @@ import {
   stripeAccountExtension,
 } from '../payments';
 import { humanClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { createBillingClient } from '../shared';
 
 type PostBillingPatientPaymentParams = ValidatedZambdaInput<typeof PostBillingPatientPaymentInputSchema>;
 
@@ -71,12 +70,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- checks the Encounter, resolves the submitter and Stripe account, and schedules the payment Task
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
-  // the billing client cannot see Encounters, so check the id before recording money against it
-  await fetchById<Encounter>(clinicalOystehr, 'Encounter', encounterId);
   const submitterRef = await practitionerRefForUser(user, clinicalOystehr);
 
   const notice = await performEffect({ ...params, submitterRef }, clinicalOystehr, billingOystehr);

@@ -75,6 +75,7 @@ import {
   getTaxID,
   setNpi,
 } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
@@ -89,6 +90,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
+import { zambdaApiUrlOverride } from 'utils/lib/helpers/zambda-api-url-override';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, ERA_SOURCE, EraSource, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
@@ -902,12 +904,12 @@ export function createBillingClient(
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
 ): Oystehr {
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client factory
   return new Oystehr({
     accessToken: token,
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
@@ -916,12 +918,12 @@ export function createBillingClient(
 
 // ERA resources are untagged by Oystehr
 export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the unscoped client factory; each call to it needs its own exception
   return new Oystehr({
     accessToken: token,
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
   });
 }
@@ -1078,9 +1080,9 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
       )
       .map(
         (supportingInfo) =>
-          `/${supportingInfo.valueReference.reference?.split(
-            '/'
-          )[0]}?_id=${supportingInfo.valueReference.reference?.split('/')[1]}`
+          `/${supportingInfo.valueReference.reference?.split('/')[0]}?_id=${getIdFromReference(
+            supportingInfo.valueReference.reference
+          )}`
       )
   );
 
@@ -1089,7 +1091,7 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
   const coverages = coverageRefs
     .map((ref) => followUp.find((r) => r.resourceType === 'Coverage' && r.id === ref.replace('Coverage/', '')))
     .filter((c): c is Coverage => !!c);
-  const renderingId = renderingRef?.split('/')[1];
+  const renderingId = getIdFromReference(renderingRef);
   const renderingProvider = renderingId
     ? (followUp.find(
         (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
@@ -1269,6 +1271,9 @@ export function setClia(resource: Location, clia: string | null): void {
     resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
   }
 }
+
+export const getStripeAccountId = (resource: Practitioner | Organization): string | undefined =>
+  resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value;
 
 export function setStripeAccountId(resource: Practitioner | Organization, stripeAccountId: string): void {
   const identifier = resource.identifier ?? [];
@@ -1562,7 +1567,12 @@ export function buildSubscriberRelatedPerson(
 }
 
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
-export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
+export function setCoveragePayer(
+  coverage: Coverage,
+  payerOrg: Organization,
+  memberId: string,
+  groupNumber?: string
+): void {
   // A UUID-backed org (RCM payer with a real FHIR resource, or a custom insurance organization)
   // references itself directly and doesn't need an RCM payer id; only a pure RCM payer (no backing
   // resource) requires one, since buildPayorReference falls back to an RCM payer URL for it.
@@ -1573,7 +1583,7 @@ export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, mem
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: payerId ?? '',
+      value: groupNumber || payerId!,
       name: payerOrg.name ?? '',
     },
   ];
@@ -1584,6 +1594,7 @@ export function buildBillingCoverage(params: {
   patientId: string;
   payerOrg: Organization;
   memberId: string;
+  groupNumber?: string;
   status: Coverage['status'];
   planType?: string;
   relationship: BillingSubscriberRelationship;
@@ -1598,7 +1609,7 @@ export function buildBillingCoverage(params: {
     subscriberId: params.memberId,
     payor: [],
   };
-  setCoveragePayer(coverage, params.payerOrg, params.memberId);
+  setCoveragePayer(coverage, params.payerOrg, params.memberId, params.groupNumber);
   setCoverageRelationship(coverage, params.relationship);
   if (params.planType) {
     coverage = setCoveragePlanType(coverage, params.planType);
@@ -2025,7 +2036,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     ...common,
     kind: 'organization',
     name: resource.name ?? '',
-    stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
+    stripeAccountId: getStripeAccountId(resource) ?? '',
   };
 }
 export const CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM =
@@ -2113,4 +2124,27 @@ export function removeClaimSupportingInfo(
       }),
     ];
   }
+}
+
+export async function getGroupNumber(
+  oystehr: Oystehr,
+  coverage: Coverage,
+  payersByRefParam: Awaited<ReturnType<typeof resolvePayersByRef>>
+): Promise<string | undefined> {
+  if (!coverage) return undefined;
+  const payersByRef =
+    payersByRefParam ??
+    (await resolvePayersByRef(
+      oystehr,
+      [coverage].map((coverage) => coverage.payor?.[0]?.reference)
+    ));
+
+  const payorRef = coverage.payor?.[0]?.reference;
+  const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+
+  // EHR stores payer ID in the same place and we recently stopped copying it in billing app
+  let groupNumber = coverage.class?.[0]?.value;
+  if (groupNumber === payorOrg?.id) groupNumber = undefined;
+
+  return groupNumber;
 }

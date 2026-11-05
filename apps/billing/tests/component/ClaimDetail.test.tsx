@@ -66,6 +66,7 @@ vi.mock('../../src/hooks/useAppClients', () => ({
     oystehrZambda: oystehrZambdaStub,
   }),
 }));
+vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({ useInvoicingInBillingApp: () => false }));
 
 const { enqueueSnackbarMock } = vi.hoisted(() => ({ enqueueSnackbarMock: vi.fn() }));
 
@@ -82,7 +83,7 @@ const emptyAddressParts = {
   postalCode: '',
 };
 
-const makeClaim = (arStage: string): ClaimDetailResponse => ({
+export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   id: 'claim-1',
   encounterId: '',
   appointmentId: '',
@@ -157,6 +158,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePayments: [],
   patientPayments: [],
   writeOffs: [],
+  invoices: [],
   otherClaims: [],
   tags: [],
   pcn: '',
@@ -1013,7 +1015,10 @@ describe('ClaimDetail — run rules engine button', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
     await waitFor(() =>
-      expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'], skipRules: false })
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+        {},
+        { claimIds: ['claim-1'], skipRules: false, submissionType: 'new', submissionInsurance: 'primary' }
+      )
     );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Non-Insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',

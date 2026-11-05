@@ -14,6 +14,7 @@ import {
   settledRefundTotalInCents,
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -61,13 +62,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads legacy clinical payment notices, the Stripe account and Candid client, and syncs refunds to Candid
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
   const stripeClient = getStripeClient(secrets);
 
   const notice = await resolvePaymentNoticeForWrite({
-    clinicalOystehr,
     billingOystehr,
     getStripe: () => stripeClient,
     paymentNoticeId: validatedParameters.paymentNoticeId,
@@ -80,8 +79,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const stripeAccount = stripePaymentIntentIdForNotice(notice)
     ? await createStripeAccountResolver({
         billingOystehr,
-        clinicalOystehr,
-        encounterId: validatedParameters.encounterId,
+        lookUpScheduleAccount: () =>
+          getStripeAccountForAppointmentOrEncounter({ encounterId: validatedParameters.encounterId }, clinicalOystehr),
       })(notice)
     : undefined;
   const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);

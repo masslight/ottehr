@@ -68,7 +68,6 @@ const PRONOUNS_NOT_LISTED = ['My pronounces are not listed', 'My pronouns are no
 
 const uniq = (values: string[]): string[] => Array.from(new Set(values.filter(Boolean)));
 
-// The patient page's notes tag (get-patient-notes).
 const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 
 // An address as the face sheet composers split it, on one line.

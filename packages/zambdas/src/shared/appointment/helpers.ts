@@ -15,6 +15,7 @@ import {
   getPatientResourceWithVerifiedPhoneNumber,
   makeSSNIdentifier,
 } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
 import { formatPhoneNumber } from 'utils/lib/helpers/helpers';
 import { User } from 'utils/lib/types/api/user.types';
@@ -26,9 +27,11 @@ import { checkIsEHRUser } from '../auth';
 import { assertDefined } from '../helpers';
 
 export function getPatientFromAppointment(appointment: Appointment): string | undefined {
-  return appointment.participant
-    .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
-    ?.actor?.reference?.split('/')[1];
+  return getIdFromReference(
+    appointment.participant.find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))?.actor
+      ?.reference,
+    'Patient'
+  );
 }
 
 export async function patchAppointmentResource(

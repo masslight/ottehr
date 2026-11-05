@@ -77,6 +77,8 @@ export interface AdminNavItem {
   beta?: boolean;
   /** Explicit access policy; items without one stay admin-tier only. */
   allowedRoles?: RoleType[];
+  /** Hidden once Ottehr billing invoicing moves to the billing app, which a secret can do without a deploy. */
+  ottehrBillingInvoicing?: boolean;
   render: (ctx: AdminNavContext) => ReactNode;
 }
 
@@ -270,6 +272,7 @@ export const adminNavGroups: AdminNavGroup[] = [
                 : 'Patient Invoicing',
               path: '/admin/outreach/patient-invoices-billing',
               icon: <EmailOutlinedIcon />,
+              ottehrBillingInvoicing: true,
               render: () => <InvoiceablePatients source="ottehr-billing" />,
             },
           ]
@@ -330,11 +333,18 @@ export const DEFAULT_ADMIN_PATH = allAdminNavItems[0].path;
 /** Roles with access to every admin page unless an item supplies a narrower explicit policy. */
 
 /** Nav groups the given user may see, dropping groups left with no accessible items. */
-export function resolveAccessibleAdminNavGroups(hasRole: (roles: RoleType[]) => boolean): AdminNavGroup[] {
+export function resolveAccessibleAdminNavGroups(
+  hasRole: (roles: RoleType[]) => boolean,
+  ottehrBillingInvoicingInEhr: boolean
+): AdminNavGroup[] {
   return adminNavGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => hasRole(item.allowedRoles ?? ADMIN_TIER_ROLES)),
+      items: group.items.filter(
+        (item) =>
+          hasRole(item.allowedRoles ?? ADMIN_TIER_ROLES) &&
+          (!item.ottehrBillingInvoicing || ottehrBillingInvoicingInEhr)
+      ),
     }))
     .filter((group) => group.items.length > 0);
 }

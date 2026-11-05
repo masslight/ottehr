@@ -92,6 +92,8 @@ export function ExportX12Dialog({
   const handleGenerate = useCallback(
     async (values: ClaimSubmissionForm) => {
       setLoading(true);
+      setX12(null);
+      setCopied(false);
       try {
         const x12 = await x12Provider(values);
         setX12(x12);

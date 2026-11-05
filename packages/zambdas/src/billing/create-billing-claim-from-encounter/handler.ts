@@ -55,6 +55,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   extractCustomInsuranceOrgIdFromReferenceUrl,
@@ -216,7 +217,6 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 export async function createClaimFromEncounter(params: CreateClaimFromEncounterParams): Promise<{ claimId: string }> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the claim is built from the clinical encounter and its resources
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
@@ -669,6 +669,7 @@ export function copyCoverageAndSubscriber(
   let copy = workingCopy
     ? prepareWorkingCopy<Coverage>(coverage, coverage.id!)
     : prepareCopy<Coverage>(coverage, coverage.id!);
+  // Replace beneficiary reference
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
   // Subscriber is patient by default, check for contained RelatedPerson
   let subscriberId = patientUuidOrUrn;
@@ -1210,7 +1211,7 @@ function buildClaim(resources: ClaimResources): Claim {
 
   // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
-  const nonInsurancePayerId = resources.nonInsurancePayer?.reference?.split('/')[1];
+  const nonInsurancePayerId = getIdFromReference(resources.nonInsurancePayer?.reference);
 
   const claim: Claim = {
     resourceType: 'Claim',

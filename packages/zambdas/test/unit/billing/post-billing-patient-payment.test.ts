@@ -28,7 +28,6 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createBillingClient: vi.fn(),
-  fetchById: vi.fn().mockResolvedValue({ resourceType: 'Encounter', id: 'enc' }),
 }));
 vi.mock('../../../src/billing/payments', async (importOriginal) => ({
   ...(await importOriginal<object>()),

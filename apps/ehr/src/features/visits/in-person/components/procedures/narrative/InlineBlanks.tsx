@@ -104,6 +104,9 @@ interface BlankButtonProps {
   hint?: string;
   expanded?: boolean;
   popupId?: string;
+  /** Marks the blank invalid for assistive tech; `describedBy` points at the error text. */
+  invalid?: boolean;
+  describedBy?: string;
 }
 
 /** The clickable value inside a sentence. Read-only surfaces get the same words as plain text. */
@@ -118,6 +121,8 @@ export const BlankButton: FC<BlankButtonProps> = ({
   hint,
   expanded,
   popupId,
+  invalid,
+  describedBy,
 }) => {
   if (readOnly) return <ReadOnlyBlank label={label} value={value} dataTestId={dataTestId} />;
   // An inline span rather than <button>: a long value then wraps across lines like the surrounding text.
@@ -131,6 +136,8 @@ export const BlankButton: FC<BlankButtonProps> = ({
       aria-haspopup={popupId ? 'dialog' : undefined}
       title={hint}
       aria-label={`${label}${value ? `: ${value}` : ' (empty)'}`}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
       data-testid={dataTestId}
       data-needed={!value && need ? true : undefined}
       onClick={(event: MouseEvent<HTMLElement>) => onClick(event.currentTarget)}
@@ -461,6 +468,7 @@ interface MultiBlankProps {
   values: readonly string[] | undefined;
   onChange: (values: string[]) => void;
   readOnly: boolean;
+  need?: boolean;
   dataTestId?: string;
   ghost?: boolean;
 }
@@ -473,6 +481,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   values = [],
   onChange,
   readOnly,
+  need,
   dataTestId,
   otherValue,
   onOtherChange,
@@ -493,6 +502,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
       title={title ?? label}
       value={display || undefined}
       ghost={ghost}
+      need={need}
       readOnly={readOnly}
       dataTestId={dataTestId}
     >
@@ -577,9 +587,12 @@ interface TextBlankProps {
   readOnly: boolean;
   need?: boolean;
   min?: number;
+  max?: number;
   step?: number;
   width?: string;
   dataTestId?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }
 
 /** Borderless input that sits in the sentence: numbers and short free text. */
@@ -592,9 +605,12 @@ export const TextBlank: FC<TextBlankProps> = ({
   readOnly,
   need,
   min,
+  max,
   step,
   width,
   dataTestId,
+  invalid,
+  describedBy,
 }) => {
   const text = value === undefined ? '' : String(value);
   if (readOnly) return <ReadOnlyBlank label={label} value={text} dataTestId={dataTestId} />;
@@ -607,12 +623,16 @@ export const TextBlank: FC<TextBlankProps> = ({
       onChange={(event) => onChange(event.target.value)}
       inputProps={{
         'aria-label': label,
+        'aria-invalid': invalid || undefined,
+        'aria-describedby': describedBy,
         'data-testid': dataTestId,
         'data-needed': !text && need ? true : undefined,
         title: placeholder === label ? undefined : label,
         // Chrome's form-history dropdown would look like an app popover inside a sentence.
         autoComplete: 'off',
-        ...(kind === 'number' ? { min, step: step ?? 1, inputMode: 'decimal' } : {}),
+        ...(kind === 'number'
+          ? { min, max, step: step ?? 1, inputMode: min !== undefined && min < 0 ? 'text' : 'decimal' }
+          : {}),
       }}
       sx={(theme) => {
         const inline = inlineInputSx(theme, text === '', need ?? false);

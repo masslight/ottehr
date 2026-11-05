@@ -4,6 +4,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
 } from 'utils/lib/fhir/constants';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { encounterScopedSearch } from '../../chart-data/search-requests';
@@ -31,11 +32,11 @@ export const aiChatSection: ChartSectionDefinition<'aiChat'> = {
     const practitionerIds = [
       ...new Set(
         aiChat.documents
-          .map(
-            (document) =>
-              document.extension
-                ?.find((extension) => extension.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)
-                ?.valueReference?.reference?.split('/')[1]
+          .map((document) =>
+            getIdFromReference(
+              document.extension?.find((extension) => extension.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)
+                ?.valueReference?.reference
+            )
           )
           .filter((practitionerId): practitionerId is string => practitionerId != null)
       ),

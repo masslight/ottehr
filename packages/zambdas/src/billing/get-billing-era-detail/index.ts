@@ -12,7 +12,7 @@ import {
 } from 'fhir/r4b';
 import { RAW_X12_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { codeableConcept, getExtension, getNPI, getTaxID } from 'utils/lib/fhir/helpers';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_PROCESS_PRIORITY } from 'utils/lib/helpers/rcm/constants';
 import { ERA_SOURCE, ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants';
 import { GetEraDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -37,6 +37,7 @@ import { buildEraClaimRemit, eraContainedMemberId, eraPatientAccountNumber, reso
 import { manualEraEntryFromFhir } from '../manual-era';
 import {
   createBillingClient,
+  createEraReadClient,
   fhirName,
   findById,
   findRef,
@@ -55,13 +56,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateWithSchema(GetEraDetailInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, eraReadClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Promise<EraDetailResponse> {
-  const bundle = await oystehr.fhir.search<PaymentReconciliation>({
+export async function performEffect(
+  oystehr: Oystehr,
+  eraReadClient: Oystehr,
+  params: GetEraDetailParams
+): Promise<EraDetailResponse> {
+  const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [{ name: '_id', value: params.eraId }],
   });
@@ -70,7 +76,7 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
 
   // ClaimResponses linked to this ERA via its era-processing Provenance
   const claimResponses: ClaimResponse[] =
-    (await fetchClaimResponsesByPaymentReconciliations(oystehr, [pr])).get(params.eraId) ?? [];
+    (await fetchClaimResponsesByPaymentReconciliations(eraReadClient, [pr])).get(params.eraId) ?? [];
 
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on the
   // ClaimResponses
@@ -117,7 +123,7 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
     oystehr,
     resourceType: 'Patient',
     ids: unmatchedResponses
-      .map((claimResponse) => removePrefix('Patient/', claimResponse.patient?.reference ?? ''))
+      .map((claimResponse) => getIdFromReference(claimResponse.patient?.reference, 'Patient'))
       .filter((id): id is string => !!id),
     buildParam: (batch) => [
       {

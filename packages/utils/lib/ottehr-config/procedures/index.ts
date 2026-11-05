@@ -103,6 +103,18 @@ const PROCEDURES_DATA: ProceduresConfig = {
       patientResponse: 'Tolerated Well',
       postInstructions: ['Return if worsening'],
     },
+    {
+      name: 'EKG – normal',
+      procedureType: 'ekg',
+      structuredFacts: {
+        rhythm: 'sinus rhythm',
+        axis: 'normal',
+        conduction: ['normal'],
+        stt: ['no acute ST-T wave changes'],
+        otherFindings: ['none'],
+        impression: 'normal EKG',
+      },
+    },
   ],
 };
 
