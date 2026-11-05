@@ -78,6 +78,9 @@ const columns: GridColDef<PaymentRow>[] = [
     headerName: 'Payment Date',
     width: 150,
     valueFormatter: (params: { value: string }) => formatDate(paymentDayOf(params.value)),
+    // Sort by the displayed practice-local day, not the raw ISO string: date-only manual payments and
+    // UTC timestamps would otherwise interleave across day boundaries.
+    sortComparator: (a: string, b: string) => paymentDayOf(a).localeCompare(paymentDayOf(b)),
   },
   {
     field: 'amountInCents',
