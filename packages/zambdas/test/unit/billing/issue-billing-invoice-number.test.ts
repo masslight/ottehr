@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import billingZambdasSpec from '../../../../../config/billing-app-core/zambdas.json';
-import { INVOICE_NUMBER_COUNTER_KEY, performEffect } from '../../../src/billing/issue-billing-invoice-number/index';
+import { INVOICE_NUMBER_COUNTER_KEY } from '../../../src/billing/invoice-number';
+import { performEffect } from '../../../src/billing/issue-billing-invoice-number/index';
 import {
   FHIR_COUNTER_CODE_SYSTEM,
   FHIR_COUNTER_LAST_ISSUED_EXTENSION_URL,
