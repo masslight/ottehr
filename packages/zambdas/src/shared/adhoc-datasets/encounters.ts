@@ -150,6 +150,7 @@ import { mapChartResources } from '../chart-sections/map';
 import { getOccupationalMedicineEmployerName, getVisitEmployerOrganizationId } from '../occupational-medicine-employer';
 import { getPaperworkCompleteness } from '../paperwork-completeness';
 import { resolveEncounterSignatures } from '../pdf/get-encounter-signatures';
+import { composeEmployerData } from '../pdf/sections/employerInfo';
 import { parseExamFieldsFromExamObservations } from '../pdf/sections/visit-note/examination';
 import {
   erxDrugRecord,
@@ -1757,6 +1758,15 @@ export async function fetchAdHocEncounterRows(
           occupationalMedicineAccount: account?.occupationalMedicineAccount,
           visitEmployerOrganization: visitEmployerOrgId ? visitEmployerOrgById.get(visitEmployerOrgId) : undefined,
         }) ?? '';
+
+      const workersComp = composeEmployerData({
+        employer: account?.employerOrganization,
+        workersCompCoverage: account?.coverages.workersComp,
+        insuranceOrgs: account?.insuranceOrgs,
+      });
+
+      row.workersCompEmployer = workersComp.employerName;
+      row.workersCompCarrier = workersComp.workersCompInsuranceCarrier;
     }
 
     if (includeFollowUp) {
