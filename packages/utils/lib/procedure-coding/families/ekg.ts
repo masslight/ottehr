@@ -11,6 +11,7 @@ import { CodingField, readNumber, StructuredFacts } from '../structured-fields';
 import { EKG_MEASUREMENT_KEYS, ekgMeasurementLine, QTC_METHODS } from './ekg-interpretation';
 import {
   EKG_AXES,
+  EKG_AXIS_RANGE,
   EKG_COMPARISONS,
   EKG_CONDUCTION,
   EKG_IMPRESSIONS,
@@ -70,7 +71,7 @@ const fields: readonly CodingField[] = [
   { key: 'qt', neededForCoding: neededForReport, label: 'QT (ms)', kind: 'number', min: 0, step: 1 },
   { key: 'qtc', label: 'QTc (ms)', kind: 'number', min: 0, step: 1 },
   { key: 'qtcMethod', label: 'QTc method', kind: 'select', options: QTC_METHODS },
-  { key: 'axisDegrees', label: 'Axis (°)', kind: 'number', min: -180, step: 1 },
+  { key: 'axisDegrees', label: 'Axis (°)', kind: 'number', ...EKG_AXIS_RANGE, step: 1 },
   { key: 'rhythm', neededForCoding: neededForReport, label: 'Rhythm', kind: 'select', options: EKG_RHYTHMS },
   { key: 'axis', neededForCoding: neededForReport, label: 'Axis', kind: 'select', options: EKG_AXES },
   {

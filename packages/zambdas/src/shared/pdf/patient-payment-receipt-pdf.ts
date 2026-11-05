@@ -21,7 +21,8 @@ import Stripe from 'stripe';
 import { createFilesDocumentReferences, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullName, getPatientAddress, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
-import { formatZipcodeForDisplay, removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -107,7 +108,7 @@ export async function createPatientPaymentReceiptPdf(input: CreatePatientPayment
     lastOperationPaymentIntent,
   } = input;
   const billingOrganizationRef = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets);
-  const billingOrganizationId = removePrefix('Organization/', billingOrganizationRef);
+  const billingOrganizationId = getIdFromReference(billingOrganizationRef, 'Organization');
   if (!billingOrganizationId) throw new Error('No DEFAULT_BILLING_RESOURCE organization id found');
 
   const receiptData = await getReceiptData({
@@ -209,7 +210,7 @@ async function getReceiptData(input: {
   if (!organization || !patient || !appointment || !encounter)
     throw new Error('One of the required resources is not found');
 
-  const locationId = removePrefix('Location/', encounter.location?.[0].location.reference ?? '');
+  const locationId = getIdFromReference(encounter.location?.[0].location.reference, 'Location');
   const location: Location | undefined = locationId
     ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
     : undefined;

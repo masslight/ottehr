@@ -11,7 +11,7 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { fillInvoiceTemplate } from 'utils/lib/helpers/rcm/invoice-config';
 import { getInvoiceTaskSource, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -101,7 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     console.log('Creating invoice and invoice item');
-    const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+    const patientId = getIdFromReference(encounter.subject?.reference, 'Patient');
     if (!patientId) throw new Error("Encounter doesn't have patient reference");
     const filledMemo = memo ? fillInvoiceTemplate(memo, basePlaceholderInput) : undefined;
     const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
@@ -323,7 +323,7 @@ async function getFhirResources(
   const encounter = response.find((resource) => resource.resourceType === 'Encounter') as Encounter;
   if (!encounter) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
 
-  const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+  const patientId = getIdFromReference(encounter.subject?.reference, 'Patient');
   if (!patientId) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR("Encounter doesn't have patient reference");
 
   const patient = response.find(
@@ -339,9 +339,10 @@ async function getFhirResources(
 
   const appointment = response.find((res) => res.resourceType === 'Appointment') as Appointment;
   if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
-  const locationId = appointment.participant
-    ?.find((p) => p.actor?.reference?.startsWith('Location/'))
-    ?.actor?.reference?.split('/')[1];
+  const locationId = getIdFromReference(
+    appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference,
+    'Location'
+  );
   let location: Location | undefined;
   if (locationId) {
     location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;

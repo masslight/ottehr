@@ -67,7 +67,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const stripeClient = getStripeClient(secrets);
 
   const notice = await resolvePaymentNoticeForWrite({
-    clinicalOystehr,
     billingOystehr,
     getStripe: () => stripeClient,
     paymentNoticeId: validatedParameters.paymentNoticeId,

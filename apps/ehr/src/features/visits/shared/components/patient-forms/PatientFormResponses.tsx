@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useState } from 'react';
@@ -11,6 +11,7 @@ import { EditFormResponseDialog } from 'src/components/dialogs/EditFormResponseD
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import { Section } from 'src/components/layout/Section';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { FormPlacement, hasAnyAnswer } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
@@ -44,9 +45,10 @@ interface PatientFormResponsesProps {
   placement: FormPlacement;
   /** Only this visit's responses (Screening), or every visit's grouped by form (Questionnaires). */
   scope: 'this-visit' | 'all-visits';
+  pageTitle?: React.ReactNode;
 }
 
-export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement, scope }) => {
+export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement, scope, pageTitle }) => {
   const { oystehrZambda } = useApiClients();
   const { appointment, encounter, patient } = useAppointmentData();
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
@@ -140,11 +142,14 @@ export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement,
 
   return (
     <Stack spacing={2}>
-      {canChange && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button variant="contained" onClick={() => setSendOpen(true)}>
-            Add form
-          </Button>
+      {(canChange || pageTitle != null) && (
+        <Box display="flex" justifyContent={pageTitle != null ? 'space-between' : 'flex-end'} alignItems="center">
+          {pageTitle}
+          {canChange && (
+            <RoundedButton variant="contained" onClick={() => setSendOpen(true)}>
+              Add Form
+            </RoundedButton>
+          )}
         </Box>
       )}
 

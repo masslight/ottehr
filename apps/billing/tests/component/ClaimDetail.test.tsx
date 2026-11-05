@@ -82,7 +82,7 @@ const emptyAddressParts = {
   postalCode: '',
 };
 
-const makeClaim = (arStage: string): ClaimDetailResponse => ({
+export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   id: 'claim-1',
   encounterId: '',
   appointmentId: '',

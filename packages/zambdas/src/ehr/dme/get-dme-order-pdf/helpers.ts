@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DeviceRequest, DocumentReference, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { DME_ORDER_TAG_CODE, DME_ORDER_TAG_SYSTEM } from 'utils/lib/types/api/dme.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -30,8 +31,8 @@ export const gatherDmeOrderFormInput = async (
   if (!isDmeOrder(deviceRequest)) throw FHIR_RESOURCE_NOT_FOUND('DeviceRequest');
   if (isDmeOrderDeleted(deviceRequest)) throw INVALID_INPUT_ERROR('DME order has been deleted');
 
-  const patientId = deviceRequest.subject?.reference?.split('/')[1];
-  const encounterId = deviceRequest.encounter?.reference?.split('/')[1];
+  const patientId = getIdFromReference(deviceRequest.subject?.reference);
+  const encounterId = getIdFromReference(deviceRequest.encounter?.reference);
   if (!patientId || !encounterId) {
     throw new Error('DeviceRequest is missing subject or encounter reference');
   }
@@ -50,7 +51,7 @@ export const gatherDmeOrderFormInput = async (
       : Promise.resolve([]),
   ]);
 
-  const locationId = encounter.location?.[0]?.location?.reference?.split('/')[1];
+  const locationId = getIdFromReference(encounter.location?.[0]?.location?.reference);
   const location = locationId
     ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
     : undefined;

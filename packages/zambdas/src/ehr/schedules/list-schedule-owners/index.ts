@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getPractitionerRoleAllCategories, isServiceCategoryHealthcareService } from 'utils/lib/fhir/healthcareService';
 import { getFullName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import {
   ListScheduleOwnersParams,
@@ -208,7 +209,7 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
 
   const scheduleOwnerMap = schedules.reduce((acc, schedule) => {
     const ownerRef = schedule.actor?.find((actor) => actor.reference)?.reference;
-    const ownerId = ownerRef?.split('/')[1];
+    const ownerId = getIdFromReference(ownerRef);
     if (ownerId) {
       const current = acc.get(ownerId) || [];
       current.push(schedule);
@@ -292,7 +293,7 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
   // blocking the only surface where the rest of the catalog can be repaired.
   const rolesByPractitionerId = new Map<string, PractitionerRole[]>();
   for (const role of roles) {
-    const practitionerId = role.practitioner?.reference?.split('/')[1];
+    const practitionerId = getIdFromReference(role.practitioner?.reference);
     if (!practitionerId) {
       console.error(`Skipping malformed PractitionerRole ${role.id}: no practitioner reference.`);
       continue;
@@ -314,7 +315,7 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
       for (const role of practitionerRoles) {
         const locationRef = role.location?.[0]?.reference;
         const location = locations.find((l) => `Location/${l.id}` === locationRef);
-        const locationId = location?.id ?? locationRef?.split('/')[1];
+        const locationId = location?.id ?? getIdFromReference(locationRef);
         const locationName = location?.name;
         if (locationName) locationNames.add(locationName);
         // A PR with the all-categories toggle on offers every service in the
@@ -329,7 +330,7 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
         } else {
           const labels = new Set<string>();
           for (const ref of role.healthcareService ?? []) {
-            const hsId = ref.reference?.split('/')[1];
+            const hsId = getIdFromReference(ref.reference);
             const hs = healthcareServices.find((h) => h.id === hsId);
             if (hs && isServiceCategoryHealthcareService(hs) && hs.name) labels.add(hs.name);
           }
