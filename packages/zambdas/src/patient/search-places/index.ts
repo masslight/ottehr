@@ -28,6 +28,8 @@ export const bodySchema = z
       })
       .optional(),
     placesId: z.string().optional(),
+    skipErxMatch: z.boolean().optional(),
+    pharmaciesOnly: z.boolean().optional(),
   })
   .refine((data) => data.searchTerm || data.placesId, {
     message: 'searchTerm or placesId must be sent',
@@ -43,7 +45,7 @@ let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedInput = validateWithSchema(bodySchema, input);
-  const { searchTerm, locationBias, placesId, secrets } = validatedInput;
+  const { searchTerm, locationBias, placesId, skipErxMatch, pharmaciesOnly, secrets } = validatedInput;
 
   console.log('locationBias: ', JSON.stringify(locationBias));
 
@@ -58,7 +60,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
-  const output = await performEffect({ searchTerm, locationBias, placesId, googleApiKey, oystehr });
+  const output = await performEffect({
+    searchTerm,
+    locationBias,
+    placesId,
+    skipErxMatch,
+    pharmaciesOnly,
+    googleApiKey,
+    oystehr,
+  });
 
   return {
     statusCode: 200,
@@ -69,14 +79,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (
   input: SearchPlacesInput & { googleApiKey: string; oystehr: Oystehr }
 ): Promise<SearchPlacesOutput> => {
-  const { searchTerm, locationBias, placesId, googleApiKey, oystehr } = input;
+  const { searchTerm, locationBias, placesId, skipErxMatch, pharmaciesOnly, googleApiKey, oystehr } = input;
 
   const result: SearchPlacesOutput = { pharmacyPlaces: [] };
 
   if (searchTerm) {
-    result.pharmacyPlaces = await searchPharmaciesWithPlaces(searchTerm, locationBias, googleApiKey);
+    result.pharmacyPlaces = await searchPharmaciesWithPlaces(searchTerm, locationBias, googleApiKey, pharmaciesOnly);
   } else if (placesId) {
-    result.pharmacyPlaces = await getPharmacyDetail(placesId, googleApiKey, oystehr);
+    result.pharmacyPlaces = await getPharmacyDetail(placesId, googleApiKey, oystehr, skipErxMatch);
   }
 
   return result;
@@ -91,7 +101,8 @@ const performEffect = async (
 const searchPharmaciesWithPlaces = async (
   searchTerm: string,
   locationBias: { latitude: number; longitude: number } | undefined,
-  googleApiKey: string
+  googleApiKey: string,
+  pharmaciesOnly?: boolean
 ): Promise<PlacesResult[]> => {
   console.log('calling google places api with searchTerm', searchTerm);
 
@@ -107,7 +118,9 @@ const searchPharmaciesWithPlaces = async (
   // the downside to this is if someone inputs just the address, nothing will be returned
   // we could include "street_address" as a type but I think we want to discourage typing JUST the address
   // because with the current logic we won't be able to match against the erx pharmacy search
-  const includedPrimaryTypes = ['drugstore', 'pharmacy', 'hospital', 'doctor', 'health']; // there can be 5 max
+  const includedPrimaryTypes = pharmaciesOnly
+    ? ['drugstore', 'pharmacy']
+    : ['drugstore', 'pharmacy', 'hospital', 'doctor', 'health']; // there can be 5 max
 
   const body: any = {
     input: adjustedSearchTerm,
@@ -156,7 +169,12 @@ const searchPharmaciesWithPlaces = async (
  * @param oystehr
  * @returns name, address and possibly an erxPharmacyId
  */
-const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr: Oystehr): Promise<PlacesResult[]> => {
+const getPharmacyDetail = async (
+  placesId: string,
+  googleApiKey: string,
+  oystehr: Oystehr,
+  skipErxMatch?: boolean
+): Promise<PlacesResult[]> => {
   console.log('calling google places api with placesId', placesId);
 
   // in order to get the full address we need to call places for the place detail information
@@ -184,7 +202,7 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
 
   let erxPharmacyMatch: ErxSearchPharmaciesResponse['data'][number] | undefined;
   let i = 0;
-  while (!erxPharmacyMatch && i < pharmacySearchParams.length) {
+  while (!skipErxMatch && !erxPharmacyMatch && i < pharmacySearchParams.length) {
     const addressParams = pharmacySearchParams[i];
     const res = await searchErxPharmacy(addressParams, oystehr);
     erxPharmacyMatch = findMatchingErxPharmacy(placesName, addressParsed, res);

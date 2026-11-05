@@ -1,4 +1,5 @@
 import { useQueries, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { searchPharmacyDirectory } from 'src/api/api';
 import { useAuthToken } from 'src/hooks/useAuthToken';
 import {
@@ -38,7 +39,7 @@ export interface CheckedPlace {
 
 /** A Google place checked against the directory: its details give its address parts, which are matched there. */
 const checkPlace = async (token: string, searchPlaces: SearchPlaces, placesId: string): Promise<CheckedPlace> => {
-  const [details] = (await searchPlaces({ placesId })).pharmacyPlaces;
+  const [details] = (await searchPlaces({ placesId, skipErxMatch: true })).pharmacyPlaces;
   const name = details?.name ?? '';
   const parts = details?.addressComponents;
   if (!parts) return { name };
@@ -53,12 +54,29 @@ export const useCheckPlace = (): ((placesId: string) => Promise<CheckedPlace>) |
   return token && apiClient ? (placesId) => checkPlace(token, apiClient.searchPlaces, placesId) : undefined;
 };
 
-/** Google's suggestions for what's typed. */
+type Location = NonNullable<SearchPlacesInput['locationBias']>;
+
+/** The browser's location, as the patient paperwork's Google search asks for it; undefined when denied. */
+const useBrowserLocation = (): Location | undefined => {
+  const [location, setLocation] = useState<Location>();
+  useEffect(() => {
+    navigator.geolocation?.getCurrentPosition(
+      ({ coords }) => setLocation({ latitude: coords.latitude, longitude: coords.longitude }),
+      () => undefined,
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+  return location;
+};
+
+/** Google's suggestions for what's typed, nearest the browser's location first. */
 export const usePharmacyPlaces = (query: string): UseQueryResult<PlacesResult[], Error> => {
   const apiClient = useOystehrAPIClient();
+  const locationBias = useBrowserLocation();
   return useQuery({
-    queryKey: ['erx-pharmacy-places', query],
-    queryFn: async () => (await apiClient!.searchPlaces({ searchTerm: query })).pharmacyPlaces,
+    queryKey: ['erx-pharmacy-places', query, locationBias],
+    queryFn: async () =>
+      (await apiClient!.searchPlaces({ searchTerm: query, locationBias, pharmaciesOnly: true })).pharmacyPlaces,
     enabled: Boolean(apiClient) && query.trim().length >= MIN_PLACES_QUERY_LENGTH,
   });
 };

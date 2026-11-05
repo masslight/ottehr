@@ -37,6 +37,10 @@ export interface SearchPlacesInput {
   searchTerm?: string;
   locationBias?: { latitude: number; longitude: number };
   placesId?: string;
+  /** Leave out the DoseSpot pharmacy match (erxPharmacyId) from a place's details. */
+  skipErxMatch?: boolean;
+  /** Search only drugstores and pharmacies, leaving out hospitals, doctors and other health places. */
+  pharmaciesOnly?: boolean;
 }
 
 export interface SearchPlacesOutput {

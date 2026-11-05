@@ -262,7 +262,7 @@ describe('preferred pharmacy lookup', () => {
     };
     const { result: hook } = renderHook(() => usePreferredPharmacy('patient-1', saved), { wrapper });
     await waitFor(() => expect(hook.current.data).toEqual(result(CVS)));
-    expect(mocks.searchPlaces).toHaveBeenCalledWith({ placesId: 'place-cvs' });
+    expect(mocks.searchPlaces).toHaveBeenCalledWith({ placesId: 'place-cvs', skipErxMatch: true });
   });
 
   it('matches a pharmacy entered by hand by its saved address', async () => {
