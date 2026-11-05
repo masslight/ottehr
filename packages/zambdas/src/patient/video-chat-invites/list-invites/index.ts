@@ -9,6 +9,7 @@ import {
   ListInvitedParticipantsInput,
   ListInvitedParticipantsResponse,
 } from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { getUser } from '../../../shared/auth';
 import { getVideoEncounterForAppointment } from '../../../shared/encounters';
 import { searchInvitedParticipantResourcesByEncounterId } from '../../../shared/fhir';
@@ -68,7 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentId, oystehr);
   if (!appointment) {
     console.log('Appointment is not found');
-    return lambdaResponse(404, { message: 'Appointment is not found' });
+    return lambdaResponse(404, APPOINTMENT_NOT_FOUND_ERROR);
   }
 
   if (!appointment.id) {
@@ -76,8 +77,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const encounter = await getVideoEncounterForAppointment(appointment.id, oystehr);
+  // e.g. an in-person appointment opened in the telemed waiting room
   if (!encounter || !encounter.id) {
-    throw new Error('Encounter not found.'); // 500
+    console.log('Video encounter is not found');
+    return lambdaResponse(404, APPOINTMENT_NOT_FOUND_ERROR);
   }
 
   const relatedPersons = await searchInvitedParticipantResourcesByEncounterId(encounter.id, oystehr);

@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, FhirResource, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
 import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
@@ -14,6 +15,7 @@ import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/r
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { OttehrTaskSystem } from 'utils/lib/types/common';
+import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
 import { VideoChatNotificationResponse } from 'utils/lib/types/data/telemed/video-chat-invites.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -26,6 +28,9 @@ import { ValidatedInput, validateInput, validateSecrets } from './validateReques
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'video-chat-waiting-room-notification';
+
+const INACTIVE_APPOINTMENT_STATUSES: Appointment['status'][] = ['fulfilled', 'cancelled', 'noshow', 'entered-in-error'];
+const INACTIVE_ENCOUNTER_STATUSES: Encounter['status'][] = ['finished', 'cancelled', 'entered-in-error'];
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -60,8 +65,16 @@ export async function performEffect(
   const { appointment, encounter, patient } = await getFhirResources(oystehr, appointmentId);
   console.groupEnd();
   console.debug('getFhirResources success');
-  if (!appointment.id || !encounter.id || !patient.id) {
-    failureResponse.taskNotCreatedReason = 'Appointment, encounter, or patient not found';
+  if (!appointment?.id || !encounter?.id || !patient?.id) {
+    failureResponse.taskNotCreatedReason = 'Appointment, video encounter, or patient not found';
+    return failureResponse;
+  }
+
+  if (
+    INACTIVE_APPOINTMENT_STATUSES.includes(appointment.status) ||
+    INACTIVE_ENCOUNTER_STATUSES.includes(encounter.status)
+  ) {
+    failureResponse.taskNotCreatedReason = 'Visit is no longer active';
     return failureResponse;
   }
 
@@ -160,7 +173,7 @@ type ReturnedResources = {
 async function getFhirResources(
   oystehr: Oystehr,
   appointmentId: string
-): Promise<{ appointment: Appointment; encounter: Encounter; patient: Patient }> {
+): Promise<{ appointment?: Appointment; encounter?: Encounter; patient?: Patient }> {
   const resourcesResponse = await oystehr.fhir.search<Appointment | Encounter | Patient>({
     resourceType: 'Appointment',
     params: [
@@ -180,7 +193,10 @@ async function getFhirResources(
   });
   const resources = resourcesResponse.unbundle();
   const appointment = resources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
-  const encounter = resources.find((resource) => resource.resourceType === 'Encounter') as Encounter;
+  const encounter = resources.find(
+    (resource) =>
+      resource.resourceType === 'Encounter' && getVirtualServiceResourceExtension(resource, TELEMED_VIDEO_ROOM_CODE)
+  ) as Encounter | undefined;
   const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
   return {
     appointment,
