@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -814,7 +815,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     alert: getAlertCode(task),
     completable: completable,
     chat:
-      category === PATIENT_REQUEST_TASK.category
+      FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && category === PATIENT_REQUEST_TASK.category
         ? {
             hasUnread: !!task.meta?.tag?.some(
               (tag) => tag.system === SUPPORT_CHAT_UNREAD_TAG.system && tag.code === SUPPORT_CHAT_UNREAD_TAG.code

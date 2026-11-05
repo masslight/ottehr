@@ -167,6 +167,13 @@ describe('support chat bot', () => {
   });
 });
 
+describe('visit selection', () => {
+  it('rejects a chip whose visit is no longer available', () => {
+    const action = { action: 'select-visit' as const, appointmentId: 'appointment-1' };
+    expect(() => resolveStep({ last: visitPrompt, action, visits: [visits[1]], hasOpenTask: false })).toThrow();
+  });
+});
+
 describe('buildRequestTitle', () => {
   it('builds a structured title', () => {
     expect(buildRequestTitle(SupportChatTopic.prescriptionRefill, 'Sarah Black 07/11/2026')).toBe(

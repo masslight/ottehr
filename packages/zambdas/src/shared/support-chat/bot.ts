@@ -135,7 +135,8 @@ export function resolveStep(input: ResolveStepInput): BotStep {
     }
 
     case 'select-visit': {
-      const visit = last?.kind === 'visit-prompt' ? last.options.find((o) => o.id === action.appointmentId) : undefined;
+      const isOffered = last?.kind === 'visit-prompt' && last.options.some((o) => o.id === action.appointmentId);
+      const visit = isOffered ? visits.find((o) => o.id === action.appointmentId) : undefined;
       if (!visit) throw INVALID_INPUT_ERROR('The visit is not available for selection');
       if (pendingTopic) return createRequest({ topic: pendingTopic }, visit);
       if (!requestText) throw INVALID_INPUT_ERROR('The visit is not available for selection');

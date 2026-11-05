@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { ReplySupportChatInputSchema } from 'utils/lib/types/api/support-chat.types';
 import { INVALID_INPUT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../../shared/auth';
@@ -28,7 +29,7 @@ export const index = wrapHandler('reply-support-chat', async (input: ZambdaInput
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const user = await getUser(userToken, secrets);
 
-  if (!isStaffUser(user)) throw NOT_AUTHORIZED;
+  if (!isStaffUser(user) || !FEATURE_FLAGS_CONFIG.supportChatEnabled) throw NOT_AUTHORIZED;
 
   const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
   const threadId = getThreadIdFromTask(task);

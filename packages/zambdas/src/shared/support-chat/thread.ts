@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputRequest, SearchParam, User } from '@oystehr/sdk';
+import { captureMessage } from '@sentry/node-core/light';
 import { Coding, Communication, Extension, Reference, Task } from 'fhir/r4b';
 import { getAccountForUser, UserAccount } from 'utils/lib/auth/user-auth.helper';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -98,6 +99,10 @@ export async function searchThread(oystehr: Oystehr, threadId: string): Promise<
       ],
     })
   ).unbundle();
+
+  if (messages.length >= MAX_THREAD_MESSAGES) {
+    captureMessage('Support chat thread reached the message limit', { level: 'warning', extra: { threadId } });
+  }
 
   return messages.reverse();
 }
