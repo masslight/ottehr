@@ -5,6 +5,39 @@
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Mock the overlay-replaceable screening-questions config so the golden snapshot
+// is stable regardless of which overlay is active. The golden fixture includes
+// obs-screening-covid (covid-symptoms) and obs-screening-travel (travel-usa);
+// both must be in the config for composeAdditionalQuestions to pick them up.
+vi.mock('utils/lib/ottehr-config/screening-questions', () => ({
+  patientScreeningQuestionsConfig: {
+    title: 'ASK THE PATIENT',
+    fields: [
+      {
+        id: 'covid_symptoms',
+        type: 'radio',
+        question: 'Do you have any COVID symptoms?',
+        fhirField: 'covid-symptoms',
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+          { value: 'no', label: 'No', fhirValue: 'No' },
+        ],
+      },
+      {
+        id: 'travel_usa',
+        type: 'radio',
+        question: 'Have you traveled out of the USA in the last 2 weeks?',
+        fhirField: 'travel-usa',
+        existsInQuestionnaire: true,
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+          { value: 'no', label: 'No', fhirValue: 'No' },
+        ],
+      },
+    ],
+  },
+}));
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';

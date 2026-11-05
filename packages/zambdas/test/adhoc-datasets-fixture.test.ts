@@ -56,6 +56,60 @@ import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
+// Mock the overlay-replaceable screening-questions config so the test's expected
+// 4-answer resolution holds regardless of which overlay is active.
+vi.mock('utils/lib/ottehr-config/screening-questions', () => ({
+  patientScreeningQuestionsConfig: {
+    title: 'ASK THE PATIENT',
+    fields: [
+      {
+        id: 'office_visit',
+        type: 'radio',
+        question: 'Has the patient been seen in one of our offices / telemed in last 3 years?',
+        fhirField: 'seen-in-last-three-years',
+        existsInQuestionnaire: true,
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'yes' },
+          { value: 'no', label: 'No', fhirValue: 'no' },
+        ],
+      },
+      {
+        id: 'covid_symptoms',
+        type: 'radio',
+        question: 'Do you have any COVID symptoms?',
+        fhirField: 'covid-symptoms',
+        existsInQuestionnaire: true,
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+          { value: 'no', label: 'No', fhirValue: 'No' },
+        ],
+      },
+      {
+        id: 'breastfeeding_status',
+        type: 'radio',
+        question: 'Are you currently breastfeeding?',
+        fhirField: 'patient-breastfeeding-status',
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'yes' },
+          { value: 'no', label: 'No', fhirValue: 'no' },
+          { value: 'not_applicable', label: 'Not applicable', fhirValue: 'not-applicable' },
+        ],
+      },
+      {
+        id: 'tested_positive_covid',
+        type: 'radio',
+        question: 'Have you tested positive for COVID?',
+        fhirField: 'tested-positive-covid',
+        existsInQuestionnaire: true,
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+          { value: 'no', label: 'No', fhirValue: 'No' },
+        ],
+      },
+    ],
+  },
+}));
+
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
 // uses." The fetch+map pipeline runs against a stubbed Oystehr client returning a small FHIR graph;
