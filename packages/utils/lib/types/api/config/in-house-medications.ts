@@ -158,6 +158,8 @@ export interface InventoryStockEntry {
   components?: { code: InventoryEntryComponent; value: number; unit: string }[];
   /** On a received entry: the vendor of that shipment (the lot keeps only the latest). */
   vendor?: string;
+  /** On an administration-reversed entry: the order was deleted; absent, it was changed. */
+  administrationDeleted?: true;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -255,8 +257,7 @@ export type InventoryAdjustmentReason = (typeof INVENTORY_ADJUSTMENT_REASONS)[nu
 export const INVENTORY_EXPIRING_SOON_DAYS = 30;
 
 /** What the inventory screen marks (requirement 7). `low` is on hand below the location's reorder level. */
-export const INVENTORY_MARKERS = ['low', 'expiring', 'expired', 'below-zero'] as const;
-export type InventoryMarker = (typeof INVENTORY_MARKERS)[number];
+export type InventoryMarker = 'low' | 'expiring' | 'expired' | 'below-zero';
 export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
   low: 'Low',
   expiring: 'Expiring',
@@ -264,9 +265,12 @@ export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
   'below-zero': 'Below Zero',
 };
 
+/** The user's date (YYYY-MM-DD), so "expired" on the screen agrees with the MAR; the server's date when absent. */
+const TodaySchema = z.string().regex(ISO_DATE, 'today must be YYYY-MM-DD').optional();
+
 export const ListMedicationInventoryInputSchema = z.discriminatedUnion('view', [
-  z.object({ view: z.literal('all-locations') }),
-  z.object({ view: z.literal('location'), locationId: z.string().uuid() }),
+  z.object({ view: z.literal('all-locations'), today: TodaySchema }),
+  z.object({ view: z.literal('location'), locationId: z.string().uuid(), today: TodaySchema }),
   z.object({ view: z.literal('lot-history'), lotId: z.string().uuid() }),
 ]);
 export type ListMedicationInventoryInput = z.infer<typeof ListMedicationInventoryInputSchema>;

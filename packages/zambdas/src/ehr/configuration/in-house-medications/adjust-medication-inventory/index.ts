@@ -3,20 +3,21 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { parseInventoryLot, parseInventoryStockEntry } from 'utils/lib/fhir/medication-inventory';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   AdjustMedicationInventoryInput,
+  AdjustMedicationInventoryInputSchema,
   AdjustMedicationInventoryResponse,
   InventoryLot,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { StockEntryWrite, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
-import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../../shared/validation';
 
 let m2mToken: string;
 
@@ -24,14 +25,15 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-adjust-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { userToken, secrets, ...params } = validateRequestParameters(input);
+    const { secrets, ...params } = validateWithSchema(AdjustMedicationInventoryInputSchema, input);
 
-    await requireUserWithRole(userToken, secrets, INVENTORY_STAFF_ROLES);
+    const user = await requireUserWithRole(getUserToken(input), secrets, INVENTORY_STAFF_ROLES);
+    const practitionerId = getIdFromReference(user.profile, 'Practitioner');
+    if (!practitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-    const practitionerId = await getMyPractitionerId(userToken, secrets);
 
     const response = await performEffect(oystehr, params, `Practitioner/${practitionerId}`);
     return {

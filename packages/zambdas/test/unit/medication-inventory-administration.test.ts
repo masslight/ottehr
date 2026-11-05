@@ -251,7 +251,7 @@ describe('stockTakenForDose', () => {
     expect(stockTakenForDose(singleUseVial, 1, 'unit')).toEqual({ items: 1 });
   });
 
-  it('takes nothing from a multi-use drug (measured or not) or for a zero dose', () => {
+  it('takes nothing from a multi-use drug or for a zero dose', () => {
     expect(stockTakenForDose(multiUseBottle, 2, 'ml')).toBeUndefined();
     expect(stockTakenForDose(multiUseTube, 1, 'application')).toBeUndefined();
     expect(stockTakenForDose(singleUseVial, 0, 'mg')).toBeUndefined();
@@ -275,7 +275,7 @@ describe('planAdministrationStockChanges', () => {
     ).toEqual([]);
   });
 
-  it('puts the lot back on delete or when the status is no longer administered', () => {
+  it('puts the lot back on delete or when the status is no longer administered, marking the order deleted', () => {
     expect(planAdministrationStockChanges(undefined, [administeredA])).toEqual([
       {
         lotId: 'lot-1',
@@ -283,6 +283,7 @@ describe('planAdministrationStockChanges', () => {
         quantity: 1,
         waste: { amount: -2, unit: 'mg' },
         reversesEntryId: 'e-1',
+        administrationDeleted: true,
       },
     ]);
   });
@@ -302,17 +303,17 @@ describe('planAdministrationStockChanges', () => {
     ]);
   });
 
-  it('adjusts by the difference on a dose change', () => {
+  it('adjusts by the difference on a dose change, as a change and not a delete', () => {
     // 2 mg → 4 mg: still one vial, no waste any more
-    expect(planAdministrationStockChanges({ lotId: 'lot-1', items: 1 }, [administeredA])).toEqual([
-      {
-        lotId: 'lot-1',
-        type: 'administration-reversed',
-        quantity: 0,
-        waste: { amount: -2, unit: 'mg' },
-        reversesEntryId: 'e-1',
-      },
-    ]);
+    const [reversal] = planAdministrationStockChanges({ lotId: 'lot-1', items: 1 }, [administeredA]);
+    expect(reversal).toEqual({
+      lotId: 'lot-1',
+      type: 'administration-reversed',
+      quantity: 0,
+      waste: { amount: -2, unit: 'mg' },
+      reversesEntryId: 'e-1',
+    });
+    expect(reversal.administrationDeleted).toBeUndefined();
     // 2 mg → 6 mg: a second vial, same 2 mg waste
     expect(
       planAdministrationStockChanges({ lotId: 'lot-1', items: 2, waste: { amount: 2, unit: 'mg' } }, [administeredA])
@@ -424,6 +425,7 @@ describe('reconcileAdministrationStock', () => {
     expect(entry.valueQuantity).toEqual({ value: 1, unit: 'vial' });
     expect(entry.derivedFrom).toEqual([{ reference: 'Observation/e-1' }]);
     expect(entry.component?.[0]?.valueQuantity).toEqual({ value: -2, unit: 'mg' });
+    expect(parseInventoryStockEntry({ ...entry, id: 'x' })).toMatchObject({ administrationDeleted: true });
   });
 
   it('moves the vial between lots when the lot on the order changes', async () => {
@@ -488,12 +490,20 @@ describe('get-medication-inventory with a location', () => {
     );
   });
 
-  it('sorts expired lots last for picking', () => {
-    const lots = [{ expirationDate: '2027-06-30' }, { expirationDate: '2026-09-30' }, { expirationDate: '2026-11-15' }];
-    expect(sortInventoryLotsForPicking(lots, '2026-10-30')).toEqual([
-      { lot: { expirationDate: '2026-11-15' }, expired: false },
-      { lot: { expirationDate: '2027-06-30' }, expired: false },
-      { lot: { expirationDate: '2026-09-30' }, expired: true },
-    ]);
+  it('sorts expired lots last for picking, and by lot number within a date', () => {
+    const lots = [
+      { lotNumber: 'B', expirationDate: '2027-06-30' },
+      { lotNumber: 'X', expirationDate: '2026-09-30' },
+      { lotNumber: 'A', expirationDate: '2027-06-30' },
+      { lotNumber: 'C', expirationDate: '2026-11-15' },
+    ];
+    expect(sortInventoryLotsForPicking(lots, '2026-10-30').map(({ lot, expired }) => [lot.lotNumber, expired])).toEqual(
+      [
+        ['C', false],
+        ['A', false],
+        ['B', false],
+        ['X', true],
+      ]
+    );
   });
 });

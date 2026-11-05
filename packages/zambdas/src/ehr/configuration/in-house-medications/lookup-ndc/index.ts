@@ -3,20 +3,24 @@ import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication } from 'fhir/r4b';
 import { isCatalogMedication } from 'utils/lib/fhir/medication-inventory';
-import { LookupNdcInput, LookupNdcResponse } from 'utils/lib/types/api/config/in-house-medications';
+import {
+  LookupNdcInput,
+  LookupNdcInputSchema,
+  LookupNdcResponse,
+} from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
+import { validateWithSchema } from '../../../../shared/validation';
 import { compareNdcProduct, fetchNdcProduct, ndcPackageCandidates } from './helpers';
-import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
 export const index = wrapHandler('admin-lookup-ndc', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, ...params } = validateRequestParameters(input);
+  const { secrets, ...params } = validateWithSchema(LookupNdcInputSchema, input);
 
   await requireUserWithRole(getUserToken(input), secrets, INVENTORY_STAFF_ROLES);
 

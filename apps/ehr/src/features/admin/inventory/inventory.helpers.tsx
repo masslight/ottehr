@@ -15,7 +15,7 @@ import {
 import { DISPLAY_DATE_FORMAT, formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 
 // Display helpers for the inventory screen and its dialogs. Quantities are shown in the lot's unit: counted-as
-// items ("vial"/"vials"), or the unit as stored when it is not one (measured multi-use drugs).
+// items ("vial"/"vials"), or the unit as stored when it is not one.
 
 const MINUS = '−';
 
@@ -38,13 +38,9 @@ export const unitLabel = (unit: string, count: number): string => {
   return Math.abs(count) === 1 ? labels.singular.toLowerCase() : labels.plural;
 };
 
-/** "22 vials", "−2 vials". */
-export const formatOnHand = (count: number, unit: string): string =>
-  `${count < 0 ? MINUS : ''}${Math.abs(count)} ${unitLabel(unit, count)}`;
-
-/** "+25 vials", "−1 vial", "0 vials". */
-export const formatChange = (quantity: number, unit: string): string =>
-  `${quantity > 0 ? '+' : quantity < 0 ? MINUS : ''}${Math.abs(quantity)} ${unitLabel(unit, quantity)}`;
+/** "22 vials", "−2 vials"; `signed` shows a change: "+25 vials", "−1 vial", "0 vials". */
+export const formatQuantity = (count: number, unit: string, { signed = false } = {}): string =>
+  `${count < 0 ? MINUS : signed && count > 0 ? '+' : ''}${Math.abs(count)} ${unitLabel(unit, count)}`;
 
 export const formatExpiration = (date: string | undefined): string => (date ? formatDateForDisplay(date) : 'none');
 
@@ -55,7 +51,7 @@ export const formatWhen = (dateTime: string): string =>
 const ENTRY_TYPE_LABELS: Record<InventoryEntryType, string> = {
   received: 'Received',
   administered: 'Administered',
-  'administration-reversed': 'Administration deleted',
+  'administration-reversed': 'Administration changed',
   adjustment: 'Adjustment',
   count: 'Count',
 };
@@ -63,14 +59,18 @@ const ENTRY_TYPE_LABELS: Record<InventoryEntryType, string> = {
 /** The Change column: the signed quantity plus any waste the entry recorded. */
 export const describeChange = (entry: InventoryHistoryEntry): string => {
   const waste = entry.components?.find((component) => component.code === 'waste-amount');
-  return [formatChange(entry.quantity, entry.unit), waste ? `${waste.value} ${waste.unit} waste` : undefined]
+  return [
+    formatQuantity(entry.quantity, entry.unit, { signed: true }),
+    waste ? `${waste.value} ${waste.unit} waste` : undefined,
+  ]
     .filter(Boolean)
     .join(' · ');
 };
 
 /**
  * The Reason column. Receipts show that shipment's vendor (the lot's latest for entries written before it was
- * recorded per entry); counts show what was counted and expected.
+ * recorded per entry); counts show what was counted and expected; a reversal says whether the order was
+ * deleted or changed.
  */
 export const describeReason = (entry: InventoryHistoryEntry, lot: InventoryLot): string => {
   const counted = entry.components?.find((component) => component.code === 'counted')?.value;
@@ -89,6 +89,8 @@ export const describeReason = (entry: InventoryHistoryEntry, lot: InventoryLot):
       return [entry.reason ? INVENTORY_ENTRY_REASON_LABELS[entry.reason] : ENTRY_TYPE_LABELS.adjustment, entry.note]
         .filter(Boolean)
         .join(': ');
+    case 'administration-reversed':
+      return entry.administrationDeleted ? 'Administration deleted' : ENTRY_TYPE_LABELS[entry.type];
     default:
       return entry.reason ? INVENTORY_ENTRY_REASON_LABELS[entry.reason] : ENTRY_TYPE_LABELS[entry.type];
   }

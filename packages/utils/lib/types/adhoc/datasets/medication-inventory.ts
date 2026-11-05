@@ -47,12 +47,7 @@ export const MedicationInventoryBaseRowSchema = z.object({
       'Signed change in stock, in unit: positive adds stock (received, administration reversed, count up), negative ' +
         "takes it off the shelf. Usage = the negative administered quantities; the sum of a lot's entries is its on hand."
     ),
-  unit: z
-    .string()
-    .describe(
-      "Stock unit: the drug's counting unit (vial, tablet, tube …), or the volume unit (ml) for a multi-use drug " +
-        'measured by volume.'
-    ),
+  unit: z.string().describe("Stock unit: the drug's counting unit (vial, tablet, tube …)."),
   wasteAmount: z
     .number()
     .nullable()

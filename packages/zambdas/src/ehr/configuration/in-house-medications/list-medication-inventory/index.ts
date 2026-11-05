@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Medication, MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
+import { Encounter, FhirResource, Medication, MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
@@ -15,15 +15,15 @@ import {
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import {
   InventoryLot,
-  InventoryStockEntry,
   ListMedicationInventoryInput,
+  ListMedicationInventoryInputSchema,
   ListMedicationInventoryResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { getInventoryLotEntries } from '../../../../shared/medication-inventory';
+import { getInventoryLotHistoryResources } from '../../../../shared/medication-inventory';
 import {
   buildAllLocationsRows,
   buildHistory,
@@ -33,8 +33,8 @@ import {
 } from '../../../../shared/medication-inventory-screen';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
+import { validateWithSchema } from '../../../../shared/validation';
 import { performEffect as listActiveLocations } from '../../../locations/list-active-locations';
-import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
@@ -42,7 +42,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-list-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { secrets, ...params } = validateRequestParameters(input);
+    const { secrets, ...params } = validateWithSchema(ListMedicationInventoryInputSchema, input);
 
     await requireUserWithRole(getUserToken(input), secrets, INVENTORY_STAFF_ROLES);
 
@@ -60,17 +60,17 @@ export const index = wrapHandler(
 
 export const performEffect = async (
   oystehr: Oystehr,
-  params: ListMedicationInventoryInput,
-  today: DateTime = DateTime.now()
+  params: ListMedicationInventoryInput
 ): Promise<ListMedicationInventoryResponse> => {
   if (params.view === 'lot-history') {
-    const entries = (await getInventoryLotEntries(oystehr, params.lotId)).flatMap((observation) => {
-      const entry = parseInventoryStockEntry(observation);
-      return entry ? [entry] : [];
-    });
-    return { drugs: [], entries: buildHistory(entries, await resolveHistoryNames(oystehr, entries)) };
+    const resources = await getInventoryLotHistoryResources(oystehr, params.lotId);
+    const entries = resources.flatMap((resource) =>
+      resource.resourceType === 'Observation' ? parseInventoryStockEntry(resource) ?? [] : []
+    );
+    return { drugs: [], entries: buildHistory(entries, resolveHistoryNames(resources)) };
   }
 
+  const today = params.today ?? DateTime.now().toISODate();
   const [drugs, lots] = await Promise.all([getTrackedDrugs(oystehr), getLots(oystehr, params)]);
   if (params.view === 'location') {
     return { drugs: buildLocationRows(drugs, lots, params.locationId, today), entries: [] };
@@ -119,80 +119,31 @@ const getLots = async (
   });
 };
 
-/** Who made each entry and, for administrations, which visit it came from. */
-const resolveHistoryNames = async (oystehr: Oystehr, entries: InventoryStockEntry[]): Promise<HistoryNames> => {
-  const practitionerIds = [
-    ...new Set(
-      entries.flatMap((entry) =>
-        entry.performerReference?.startsWith('Practitioner/')
-          ? [entry.performerReference.replace('Practitioner/', '')]
-          : []
-      )
-    ),
-  ];
-  const administrationIds = [
-    ...new Set(
-      entries.flatMap((entry) => (entry.medicationAdministrationId ? [entry.medicationAdministrationId] : []))
-    ),
-  ];
+/** Who made each entry and, for administrations, which visit it came from, out of the resources the ledger search included. */
+const resolveHistoryNames = (resources: FhirResource[]): HistoryNames => {
+  const byRef = new Map<string, FhirResource>();
+  for (const resource of resources) if (resource.id) byRef.set(`${resource.resourceType}/${resource.id}`, resource);
 
-  const [practitioners, visitResources] = await Promise.all([
-    practitionerIds.length
-      ? getAllFhirSearchPages<Practitioner>(
-          { resourceType: 'Practitioner', params: [{ name: '_id', value: practitionerIds.join(',') }] },
-          oystehr
-        )
-      : [],
-    administrationIds.length
-      ? getAllFhirSearchPages<MedicationAdministration | Patient | Encounter>(
-          {
-            resourceType: 'MedicationAdministration',
-            params: [
-              { name: '_id', value: administrationIds.join(',') },
-              { name: '_include', value: 'MedicationAdministration:subject' },
-              { name: '_include', value: 'MedicationAdministration:context' },
-            ],
-          },
-          oystehr
-        )
-      : [],
-  ]);
-
-  const performers = new Map(
-    practitioners.flatMap((practitioner) => {
-      const name = getFullestAvailableName(practitioner);
-      return practitioner.id && name ? [[`Practitioner/${practitioner.id}`, name] as const] : [];
-    })
-  );
-  const patients = new Map(
-    visitResources.flatMap((resource) =>
-      resource.resourceType === 'Patient' && resource.id ? [[resource.id, resource] as const] : []
-    )
-  );
-  const encounters = new Map(
-    visitResources.flatMap((resource) =>
-      resource.resourceType === 'Encounter' && resource.id ? [[resource.id, resource] as const] : []
-    )
-  );
-  const visits: HistoryNames['visits'] = new Map(
-    visitResources.flatMap((resource) => {
-      if (resource.resourceType !== 'MedicationAdministration' || !resource.id) return [];
-      const patient = patients.get(resource.subject?.reference?.replace('Patient/', '') ?? '');
-      const encounter = encounters.get(resource.context?.reference?.replace('Encounter/', '') ?? '');
+  const performers = new Map<string, string>();
+  const visits: HistoryNames['visits'] = new Map();
+  for (const resource of resources) {
+    if (resource.resourceType === 'Practitioner' && resource.id) {
+      const name = getFullestAvailableName(resource as Practitioner);
+      if (name) performers.set(`Practitioner/${resource.id}`, name);
+    }
+    if (resource.resourceType === 'MedicationAdministration' && resource.id) {
+      const administration = resource as MedicationAdministration;
+      const patient = byRef.get(administration.subject?.reference ?? '') as Patient | undefined;
+      const encounter = byRef.get(administration.context?.reference ?? '') as Encounter | undefined;
       const appointmentId = encounter?.appointment?.[0]?.reference?.replace('Appointment/', '');
       const patientName = patient ? getFullestAvailableName(patient) : undefined;
       const date = encounter?.period?.start;
-      return [
-        [
-          resource.id,
-          {
-            ...(appointmentId ? { appointmentId } : {}),
-            ...(patientName ? { patientName } : {}),
-            ...(date ? { date } : {}),
-          },
-        ] as const,
-      ];
-    })
-  );
+      visits.set(resource.id, {
+        ...(appointmentId ? { appointmentId } : {}),
+        ...(patientName ? { patientName } : {}),
+        ...(date ? { date } : {}),
+      });
+    }
+  }
   return { performers, visits };
 };

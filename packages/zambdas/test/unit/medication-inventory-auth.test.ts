@@ -9,10 +9,9 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-const { mockOystehr, mockRequireUserWithRole, mockGetMyPractitionerId } = vi.hoisted(() => ({
+const { mockOystehr, mockRequireUserWithRole } = vi.hoisted(() => ({
   mockOystehr: { fhir: { get: vi.fn(), search: vi.fn(), transaction: vi.fn(), patch: vi.fn() } },
   mockRequireUserWithRole: vi.fn(),
-  mockGetMyPractitionerId: vi.fn(),
 }));
 
 vi.mock('../../src/shared/helpers', async (importOriginal) => ({
@@ -25,8 +24,6 @@ vi.mock('../../src/shared/auth', async (importOriginal) => ({
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('m2m-token'),
   requireUserWithRole: mockRequireUserWithRole,
 }));
-
-vi.mock('../../src/shared/practitioners', () => ({ getMyPractitionerId: mockGetMyPractitionerId }));
 
 vi.mock('@sentry/node-core/light', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -85,7 +82,6 @@ const expectNothingTouched = (): void => {
   expect(mockOystehr.fhir.search).not.toHaveBeenCalled();
   expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   expect(mockOystehr.fhir.patch).not.toHaveBeenCalled();
-  expect(mockGetMyPractitionerId).not.toHaveBeenCalled();
 };
 
 describe('inventory endpoints - caller role', () => {

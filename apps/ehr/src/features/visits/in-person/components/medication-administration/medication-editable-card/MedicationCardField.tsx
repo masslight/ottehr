@@ -21,7 +21,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
 import React from 'react';
-import { formatOnHand } from 'src/features/admin/inventory/inventory.helpers';
+import { formatQuantity } from 'src/features/admin/inventory/inventory.helpers';
 import { LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
 import { INVENTORY_MARKER_LABELS, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
@@ -65,7 +65,7 @@ const LotSuggestionsPaper = ({ children, ...props }: PaperProps): React.ReactEle
 );
 
 const lotOnHandLabel = (lot: InventoryLot): string =>
-  [formatOnHand(lot.onHand, lot.unit), lot.manufacturer].filter(Boolean).join(' · ');
+  [formatQuantity(lot.onHand, lot.unit), lot.manufacturer].filter(Boolean).join(' · ');
 
 interface MedicationCardFieldProps {
   field: MedicationFieldType;

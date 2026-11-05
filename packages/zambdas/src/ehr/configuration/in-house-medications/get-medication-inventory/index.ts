@@ -4,6 +4,7 @@ import { Medication } from 'fhir/r4b';
 import { getMedicationInventoryConfig, parseInventoryLot } from 'utils/lib/fhir/medication-inventory';
 import {
   GetMedicationInventoryInput,
+  GetMedicationInventoryInputSchema,
   GetMedicationInventoryResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
@@ -12,7 +13,7 @@ import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { getInventoryLotsOnHand, getLastReceivedLot } from '../../../../shared/medication-inventory';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../../shared/validation';
 
 let m2mToken: string;
 
@@ -23,7 +24,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-get-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { secrets, ...params } = validateRequestParameters(input);
+    const { secrets, ...params } = validateWithSchema(GetMedicationInventoryInputSchema, input);
 
     await requireUserWithRole(getUserToken(input), secrets, INVENTORY_STAFF_ROLES);
 

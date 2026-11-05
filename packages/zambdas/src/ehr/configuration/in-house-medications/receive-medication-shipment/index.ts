@@ -10,35 +10,37 @@ import {
   parseInventoryStockEntry,
   withLotDetails,
 } from 'utils/lib/fhir/medication-inventory';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   ReceiveMedicationShipmentInput,
+  ReceiveMedicationShipmentInputSchema,
   ReceiveMedicationShipmentResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
-import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { findInventoryLotsByNumber, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
-import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
+import { validateWithSchema } from '../../../../shared/validation';
 import { performEffect as listActiveLocations } from '../../../locations/list-active-locations';
-import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
 export const index = wrapHandler(
   'admin-receive-medication-shipment',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { userToken, secrets, ...params } = validateRequestParameters(input);
+    const { secrets, ...params } = validateWithSchema(ReceiveMedicationShipmentInputSchema, input);
 
-    await requireUserWithRole(userToken, secrets, INVENTORY_STAFF_ROLES);
+    const user = await requireUserWithRole(getUserToken(input), secrets, INVENTORY_STAFF_ROLES);
+    const practitionerId = getIdFromReference(user.profile, 'Practitioner');
+    if (!practitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-    const practitionerId = await getMyPractitionerId(userToken, secrets);
 
     const response = await performEffect(oystehr, params, `Practitioner/${practitionerId}`);
     return {
@@ -55,7 +57,7 @@ export const performEffect = async (
 ): Promise<ReceiveMedicationShipmentResponse> => {
   const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, manufacturer, vendor } = params;
 
-  const catalog = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: medicationId });
+  const catalog = await oystehr.fhir.get<Medication & { id: string }>({ resourceType: 'Medication', id: medicationId });
   if (!catalog.id || !isCatalogMedication(catalog)) throw FHIR_RESOURCE_NOT_FOUND('Medication');
   const inventory = getMedicationInventoryConfig(catalog);
   if (!inventory) {
@@ -103,7 +105,7 @@ export const performEffect = async (
 
   const lot = existingLot
     ? withLotDetails(existingLot, { vendor })
-    : makeInventoryLot(catalog as Medication & { id: string }, {
+    : makeInventoryLot(catalog, {
         locationId,
         lotNumber,
         expirationDate,

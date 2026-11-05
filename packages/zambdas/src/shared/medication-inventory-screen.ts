@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { isExpirationDatePast, sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
 import {
   InHouseMedicationInventory,
   INVENTORY_EXPIRING_SOON_DAYS,
@@ -10,9 +11,11 @@ import {
   InventoryMarker,
   InventoryStockEntry,
 } from 'utils/lib/types/api/config/in-house-medications';
+import { ListActiveLocationsOutput } from 'utils/lib/types/api/locations';
 
 // The inventory screen's read model (requirement 7), built from the lots' cached on-hand numbers so the
-// all-locations view never reads the ledger. Pure functions: the zambda does the searches.
+// all-locations view never reads the ledger. Pure functions: the zambda does the searches. `today` is the
+// user's date (YYYY-MM-DD); expiration dates are calendar dates, so they compare as strings.
 
 /** A catalog drug that is set up for inventory. */
 export interface TrackedDrug {
@@ -21,28 +24,14 @@ export interface TrackedDrug {
   inventory: InHouseMedicationInventory;
 }
 
-export interface ActiveLocation {
-  id: string;
-  name: string;
-}
-
 const byName = <T extends { name: string }>(a: T, b: T): number => a.name.localeCompare(b.name);
 
-// Expiration dates are calendar dates (YYYY-MM-DD, no zone), so they compare as strings against today's date.
-const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}/;
-const isoDate = (date: string): string | undefined => (ISO_DATE_PREFIX.test(date) ? date.slice(0, 10) : undefined);
-
-const isExpired = (expirationDate: string, today: DateTime): boolean => {
-  const date = isoDate(expirationDate);
-  return date !== undefined && date < (today.toISODate() ?? '');
-};
-
 /** `expired` when the date is past, `expiring` when it is within the next 30 days. */
-export const expirationMarkers = (expirationDate: string | undefined, today: DateTime): InventoryMarker[] => {
-  const date = expirationDate ? isoDate(expirationDate) : undefined;
-  if (!date) return [];
-  if (isExpired(date, today)) return ['expired'];
-  return date <= (today.plus({ days: INVENTORY_EXPIRING_SOON_DAYS }).toISODate() ?? '') ? ['expiring'] : [];
+export const expirationMarkers = (expirationDate: string | undefined, today: string): InventoryMarker[] => {
+  if (!expirationDate) return [];
+  if (isExpirationDatePast(expirationDate, today)) return ['expired'];
+  const soon = DateTime.fromISO(today).plus({ days: INVENTORY_EXPIRING_SOON_DAYS }).toISODate() ?? '';
+  return expirationDate.slice(0, 10) <= soon ? ['expiring'] : [];
 };
 
 const stockMarkers = (onHand: number, reorderLevel: number | undefined): InventoryMarker[] => [
@@ -59,29 +48,23 @@ const earliestExpiration = (lots: InventoryLot[]): string | undefined =>
 
 const sumOnHand = (lots: InventoryLot[]): number => lots.reduce((total, lot) => total + lot.onHand, 0);
 
-/** Soonest expiration first; expired lots last (the MAR orders them the same way). */
-export const sortLots = (lots: InventoryLot[], today: DateTime): InventoryLot[] =>
-  [...lots].sort((a, b) => {
-    const expiredA = isExpired(a.expirationDate, today);
-    const expiredB = isExpired(b.expirationDate, today);
-    if (expiredA !== expiredB) return expiredA ? 1 : -1;
-    return a.expirationDate.localeCompare(b.expirationDate) || a.lotNumber.localeCompare(b.lotNumber);
-  });
-
-const lotRow = (lot: InventoryLot, today: DateTime): InventoryLotRow => ({
+const lotRow = (lot: InventoryLot, today: string): InventoryLotRow => ({
   ...lot,
   markers: [...expirationMarkers(lot.expirationDate, today), ...stockMarkers(lot.onHand, undefined)],
 });
 
-/** One row per tracked drug with a line per location (all-locations view). */
+/** One row per tracked drug with a line per location (all-locations view); only lots at `locations` count. */
 export const buildAllLocationsRows = (
   drugs: TrackedDrug[],
   lots: InventoryLot[],
-  locations: ActiveLocation[],
-  today: DateTime
+  locations: ListActiveLocationsOutput['locations'],
+  today: string
 ): InventoryDrugRow[] =>
   [...drugs].sort(byName).map((drug) => {
-    const drugLots = lots.filter((lot) => lot.catalogMedicationId === drug.medicationId);
+    const drugLots = lots.filter(
+      (lot) =>
+        lot.catalogMedicationId === drug.medicationId && locations.some((location) => location.id === lot.locationId)
+    );
     const lines: InventoryLocationLine[] = [...locations].sort(byName).map((location) => {
       const locationLots = drugLots.filter((lot) => lot.locationId === location.id);
       const onHand = sumOnHand(locationLots);
@@ -118,18 +101,18 @@ export const buildAllLocationsRows = (
     };
   });
 
-/** One row per tracked drug with its lots at `locationId` (location view). */
+/** One row per tracked drug with its lots at `locationId` (location view), ordered as the MAR Lot field is. */
 export const buildLocationRows = (
   drugs: TrackedDrug[],
   lots: InventoryLot[],
   locationId: string,
-  today: DateTime
+  today: string
 ): InventoryDrugRow[] =>
   [...drugs].sort(byName).map((drug) => {
-    const drugLots = sortLots(
+    const drugLots = sortInventoryLotsForPicking(
       lots.filter((lot) => lot.catalogMedicationId === drug.medicationId && lot.locationId === locationId),
       today
-    );
+    ).map((option) => option.lot);
     const onHand = sumOnHand(drugLots);
     const reorderLevel = drug.inventory.reorderLevels.find((level) => level.locationId === locationId)?.level;
     const expiration = earliestExpiration(drugLots);

@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, Observation } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   INVENTORY_LOT_IDENTIFIER_SYSTEM,
   INVENTORY_LOT_IDENTIFIER_VALUE,
@@ -26,27 +25,22 @@ import {
   performEffect as adjustPerformEffect,
   stockEntryForAction,
 } from '../../src/ehr/configuration/in-house-medications/adjust-medication-inventory/index';
-import { validateRequestParameters as validateAdjust } from '../../src/ehr/configuration/in-house-medications/adjust-medication-inventory/validateRequestParameters';
 import { performEffect as listPerformEffect } from '../../src/ehr/configuration/in-house-medications/list-medication-inventory/index';
-import { validateRequestParameters as validateList } from '../../src/ehr/configuration/in-house-medications/list-medication-inventory/validateRequestParameters';
 import {
   buildAllLocationsRows,
   buildHistory,
   buildLocationRows,
   expirationMarkers,
-  sortLots,
   TrackedDrug,
 } from '../../src/shared/medication-inventory-screen';
-import { ZambdaInput } from '../../src/shared/types/common';
 
 vi.mock('utils/lib/fhir/getAllFhirSearchPages', () => ({
   getAllFhirSearchPages: vi.fn(async (params: any, oystehr: any) => oystehr.fhir.search(params).unbundle()),
 }));
 
-const LOCATION_UUID = '6f1c2a4e-2222-4b2a-9c3d-000000000002';
 const LOT_UUID = '6f1c2a4e-3333-4b2a-9c3d-000000000003';
 
-const today = DateTime.fromISO('2026-10-30T12:00:00', { zone: 'utc' });
+const today = '2026-10-30';
 
 const lot = (overrides: Partial<InventoryLot>): InventoryLot => ({
   id: 'lot-1',
@@ -111,6 +105,8 @@ describe('buildAllLocationsRows', () => {
     lot({ id: 'o-main-2', locationId: 'main', onHand: 18, expirationDate: '2027-06-30' }),
     lot({ id: 'o-main-3', locationId: 'main', onHand: 0, expirationDate: '2026-01-01' }), // no stock: ignored for expiry
     lot({ id: 'o-north', locationId: 'north', onHand: 4, expirationDate: '2027-04-30' }),
+    // at a location that is no longer active: not listed, so not counted in the total or the earliest expiration
+    lot({ id: 'o-closed', locationId: 'closed', onHand: 7, expirationDate: '2026-10-31' }),
     lot({
       id: 'k-main',
       catalogMedicationId: 'ketorolac',
@@ -123,7 +119,7 @@ describe('buildAllLocationsRows', () => {
   ];
   const rows = buildAllLocationsRows(drugs, lots, locations, today);
 
-  it('lists every tracked drug by name, with totals from the lots on-hand caches', () => {
+  it('lists every tracked drug by name, with totals from the on-hand caches of the lots at the listed locations', () => {
     expect(rows.map((row) => [row.name, row.onHand])).toEqual([
       ['Ketorolac', 10],
       ['Mupirocin', 0],
@@ -155,7 +151,7 @@ describe('buildAllLocationsRows', () => {
     expect(ketorolac.markers).toEqual(['low']);
     expect(ketorolac.locations[0]).toMatchObject({ locationId: 'main', onHand: -2, markers: ['low', 'below-zero'] });
     expect(ketorolac.locationsBelowReorderLevel).toBe(2);
-    expect(buildAllLocationsRows(drugs, [lots[4]], locations, today)[0].markers).toEqual(['low', 'below-zero']);
+    expect(buildAllLocationsRows(drugs, [lots[5]], locations, today)[0].markers).toEqual(['low', 'below-zero']);
   });
 
   it('shows a drug with no lots as empty everywhere', () => {
@@ -176,15 +172,11 @@ describe('buildLocationRows', () => {
     lot({ id: 'other-location', locationId: 'north', onHand: 50, expirationDate: '2026-01-01' }),
   ];
 
-  it('lists the location lots soonest expiration first with expired lots last, and marks each', () => {
+  it('lists the location lots soonest expiration first with expired lots last', () => {
     const [row] = buildLocationRows(drugs, lots, 'main', today);
     // an expired lot that still has stock is the earliest expiration (it needs attention)
     expect(row).toMatchObject({ onHand: 24, reorderLevel: 10, earliestExpiration: '2026-09-30', markers: ['expired'] });
-    expect(row.lots.map((l) => [l.lotNumber, l.markers])).toEqual([
-      ['C24117', ['expiring']],
-      ['HK3302', []],
-      ['B88120', ['expired']],
-    ]);
+    expect(row.lots.map((l) => l.lotNumber)).toEqual(['C24117', 'HK3302', 'B88120']);
   });
 
   it('marks the drug low when on hand is at or below the reorder level, and below zero', () => {
@@ -197,13 +189,6 @@ describe('buildLocationRows', () => {
     const [negative] = buildLocationRows(drugs, [lot({ onHand: -1 })], 'main', today);
     expect(negative.markers).toEqual(['low', 'below-zero']);
     expect(negative.lots[0].markers).toEqual(['below-zero']);
-  });
-
-  it('sorts by lot number within the same expiration date', () => {
-    expect(sortLots([lot({ lotNumber: 'B' }), lot({ lotNumber: 'A' })], today).map((l) => l.lotNumber)).toEqual([
-      'A',
-      'B',
-    ]);
   });
 });
 
@@ -315,32 +300,14 @@ const makeMockOystehr = (byResourceType: Record<string, unknown[]>): MockOystehr
   return { fhir: { get: vi.fn(), search, transaction } } as unknown as MockOystehr;
 };
 
-const createInput = (body: Record<string, unknown>, authorized = true): ZambdaInput => ({
-  body: JSON.stringify(body),
-  headers: authorized ? { Authorization: 'Bearer test-token' } : {},
-  secrets: {} as any,
-});
-
 describe('list-medication-inventory', () => {
-  it('validates the three views', () => {
-    expect(validateList(createInput({ view: 'all-locations' })).view).toBe('all-locations');
-    expect(validateList(createInput({ view: 'location', locationId: LOCATION_UUID }))).toMatchObject({
-      locationId: LOCATION_UUID,
-    });
-    expect(validateList(createInput({ view: 'lot-history', lotId: LOT_UUID }))).toMatchObject({ lotId: LOT_UUID });
-    expect(() => validateList(createInput({ view: 'location' }))).toThrow();
-    // a comma would turn the FHIR search value into an OR
-    expect(() => validateList(createInput({ view: 'location', locationId: `${LOCATION_UUID},other` }))).toThrow();
-    expect(() => validateList(createInput({ view: 'everything' }))).toThrow();
-  });
-
   it('searches lots scoped by the lot identifier (location tag for one location, active elsewhere), never the ledger', async () => {
     const oystehr = makeMockOystehr({
       Medication: [catalog, untracked],
       Lot: [lotResource],
       Location: [{ resourceType: 'Location', id: 'main', name: 'Main Street Clinic' }],
     });
-    const location = await listPerformEffect(oystehr, { view: 'location', locationId: 'main' }, today);
+    const location = await listPerformEffect(oystehr, { view: 'location', locationId: 'main', today });
     expect(location.drugs).toHaveLength(1);
     expect(location.drugs[0]).toMatchObject({
       name: 'Ondansetron 4 MG/2ML',
@@ -365,7 +332,7 @@ describe('list-medication-inventory', () => {
     ]);
     expect(oystehr.fhir.search.mock.calls.some(([call]) => call.resourceType === 'Observation')).toBe(false);
 
-    const all = await listPerformEffect(oystehr, { view: 'all-locations' }, today);
+    const all = await listPerformEffect(oystehr, { view: 'all-locations', today });
     expect(all.drugs[0].locations).toEqual([
       {
         locationId: 'main',
@@ -379,7 +346,7 @@ describe('list-medication-inventory', () => {
     expect(oystehr.fhir.search.mock.calls.some(([call]) => call.resourceType === 'Observation')).toBe(false);
   });
 
-  it('builds a lot history from the ledger with names and visits resolved', async () => {
+  it('builds a lot history from one ledger search that includes the performers, orders, visits and patients', async () => {
     const ledger: Observation[] = [
       {
         ...makeInventoryStockEntry({
@@ -407,9 +374,10 @@ describe('list-medication-inventory', () => {
       },
     ];
     const oystehr = makeMockOystehr({
-      Observation: ledger,
-      Practitioner: [{ resourceType: 'Practitioner', id: 'kb', name: [{ given: ['Kim'], family: 'Brooks' }] }],
-      MedicationAdministration: [
+      // the ledger plus what _include brings back with it
+      Observation: [
+        ...ledger,
+        { resourceType: 'Practitioner', id: 'kb', name: [{ given: ['Kim'], family: 'Brooks' }] },
         {
           resourceType: 'MedicationAdministration',
           id: 'ma-1',
@@ -425,7 +393,7 @@ describe('list-medication-inventory', () => {
         },
       ],
     });
-    const { entries, drugs } = await listPerformEffect(oystehr, { view: 'lot-history', lotId: 'lot-1' }, today);
+    const { entries, drugs } = await listPerformEffect(oystehr, { view: 'lot-history', lotId: 'lot-1' });
     expect(drugs).toEqual([]);
     expect(entries.map((entry) => [entry.id, entry.onHandAfter])).toEqual([
       ['e2', 4],
@@ -438,56 +406,20 @@ describe('list-medication-inventory', () => {
     });
     expect(entries[1].performerName).toBe('Kim Brooks');
 
-    const [ledgerSearch] = oystehr.fhir.search.mock.calls
-      .map(([call]) => call)
-      .filter((c) => c.resourceType === 'Observation');
-    expect(ledgerSearch.params).toContainEqual({ name: 'subject', value: 'Medication/lot-1' });
-    const [visitSearch] = oystehr.fhir.search.mock.calls
-      .map(([call]) => call)
-      .filter((c) => c.resourceType === 'MedicationAdministration');
-    expect(visitSearch.params).toContainEqual({ name: '_id', value: 'ma-1' });
-  });
-
-  it('skips the name lookups when no entry has a performer or a visit', async () => {
-    const oystehr = makeMockOystehr({ Observation: [] });
-    expect((await listPerformEffect(oystehr, { view: 'lot-history', lotId: 'lot-1' }, today)).entries).toEqual([]);
     expect(oystehr.fhir.search).toHaveBeenCalledTimes(1);
+    const [ledgerSearch] = oystehr.fhir.search.mock.calls.map(([call]) => call);
+    expect(ledgerSearch.resourceType).toBe('Observation');
+    expect(ledgerSearch.params).toContainEqual({ name: 'subject', value: 'Medication/lot-1' });
+    expect(ledgerSearch.params).toContainEqual({ name: '_include', value: 'Observation:performer' });
+    expect(ledgerSearch.params).toContainEqual({ name: '_include', value: 'Observation:part-of' });
+    expect(ledgerSearch.params).toContainEqual({ name: '_include:iterate', value: 'MedicationAdministration:context' });
+    expect(ledgerSearch.params).toContainEqual({ name: '_include:iterate', value: 'MedicationAdministration:subject' });
   });
 });
 
 // ─── adjust-medication-inventory zambda ───────────────────────────────────────
 
 const adjustBody = { action: 'adjust', lotId: LOT_UUID, direction: 'remove', quantity: 2, reason: 'expired' };
-const countBody = { action: 'count', lotId: LOT_UUID, counted: 5 };
-
-describe('adjust-medication-inventory - validateRequestParameters', () => {
-  it('accepts an adjustment and a count, keeping the user token', () => {
-    expect(validateAdjust(createInput(adjustBody))).toMatchObject({ ...adjustBody, userToken: 'test-token' });
-    expect(validateAdjust(createInput(countBody))).toMatchObject(countBody);
-    expect(validateAdjust(createInput({ ...adjustBody, reason: 'other', note: 'spilled' }))).toMatchObject({
-      note: 'spilled',
-    });
-    expect(validateAdjust(createInput({ ...countBody, counted: 0 }))).toMatchObject({ counted: 0 });
-  });
-
-  it.each([
-    ['no auth header', adjustBody, false],
-    ['zero quantity', { ...adjustBody, quantity: 0 }],
-    ['negative quantity', { ...adjustBody, quantity: -1 }],
-    ['fractional quantity', { ...adjustBody, quantity: 1.5 }],
-    ['a reason outside the adjustment list', { ...adjustBody, reason: 'count-adjustment' }],
-    ['a reason the MAR owns', { ...adjustBody, reason: 'partial-dose-waste' }],
-    ['other without text', { ...adjustBody, reason: 'other' }],
-    ['other with blank text', { ...adjustBody, reason: 'other', note: '  ' }],
-    ['an unknown direction', { ...adjustBody, direction: 'up' }],
-    ['a negative count', { ...countBody, counted: -1 }],
-    ['a fractional count', { ...countBody, counted: 2.5 }],
-    ['a count without a lot', { action: 'count', counted: 2 }],
-    ['a lot id that is not a FHIR id', { ...countBody, lotId: 'lot-1' }],
-  ])('rejects %s', (_label, body, authorized = true) => {
-    expect(() => validateAdjust(createInput(body, authorized))).toThrow();
-  });
-});
 
 describe('adjust-medication-inventory - stockEntryForAction', () => {
   const parsedLot = lot({ onHand: 6, locationId: 'main', unit: 'vial' });

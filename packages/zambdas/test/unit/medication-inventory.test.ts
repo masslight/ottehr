@@ -33,9 +33,7 @@ import {
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect as receivePerformEffect } from '../../src/ehr/configuration/in-house-medications/receive-medication-shipment/index';
-import { validateRequestParameters } from '../../src/ehr/configuration/in-house-medications/receive-medication-shipment/validateRequestParameters';
 import { writeInventoryStockEntry } from '../../src/shared/medication-inventory';
-import { ZambdaInput } from '../../src/shared/types/common';
 
 const inventory: InHouseMedicationInventory = {
   countedAs: 'vial',
@@ -333,12 +331,6 @@ describe('writeInventoryStockEntry', () => {
 
 // ─── receive-medication-shipment ──────────────────────────────────────────────
 
-const createInput = (body: Record<string, unknown>): ZambdaInput => ({
-  body: JSON.stringify(body),
-  headers: { Authorization: 'Bearer test-token' },
-  secrets: {} as any,
-});
-
 const receiveBody = {
   medicationId: 'med-catalog',
   locationId: 'loc-a',
@@ -349,46 +341,6 @@ const receiveBody = {
   manufacturer: 'Civica',
   vendor: 'McKesson',
 };
-
-describe('receive-medication-shipment - validateRequestParameters', () => {
-  // Requests carry FHIR ids; performEffect is called directly below with readable ones.
-  const requestBody = {
-    ...receiveBody,
-    medicationId: '6f1c2a4e-1111-4b2a-9c3d-000000000001',
-    locationId: '6f1c2a4e-2222-4b2a-9c3d-000000000002',
-  };
-
-  it('accepts a full request and keeps the user token', () => {
-    const result = validateRequestParameters(createInput(requestBody));
-    expect(result).toMatchObject({ ...requestBody, userToken: 'test-token' });
-  });
-
-  it('accepts a choice for a lot number already on hand with another expiration date', () => {
-    expect(
-      validateRequestParameters(createInput({ ...requestBody, expirationConflict: 'correct-existing' }))
-        .expirationConflict
-    ).toBe('correct-existing');
-    expect(() => validateRequestParameters(createInput({ ...requestBody, expirationConflict: 'overwrite' }))).toThrow();
-  });
-
-  it('accepts a request without the optional fields', () => {
-    const { manufacturer: _m, vendor: _v, ...required } = requestBody;
-    expect(validateRequestParameters(createInput(required))).toMatchObject({ ...required, userToken: 'test-token' });
-  });
-
-  it.each([
-    ['no auth header', { ...requestBody }, { Authorization: '' }],
-    ['missing lot number', { ...requestBody, lotNumber: ' ' }],
-    ['expiration not a date', { ...requestBody, expirationDate: '03/31/2027' }],
-    ['zero quantity', { ...requestBody, quantity: 0 }],
-    ['fractional quantity', { ...requestBody, quantity: 1.5 }],
-    ['missing ndc', { ...requestBody, ndc: undefined }],
-    ['missing location', { ...requestBody, locationId: '' }],
-    ['a location id that is not a FHIR id', { ...requestBody, locationId: 'loc-a' }],
-  ])('rejects %s', (_label, body, headers?) => {
-    expect(() => validateRequestParameters({ ...createInput(body), ...(headers ? { headers } : {}) })).toThrow();
-  });
-});
 
 describe('receive-medication-shipment - performEffect', () => {
   const performer = 'Practitioner/nurse-1';
@@ -458,50 +410,24 @@ describe('receive-medication-shipment - performEffect', () => {
     expect(result.entry.effectiveDateTime).toBeTruthy();
   });
 
-  it('adds to the existing lot, updating vendor when given', async () => {
+  // the lot (received from McKesson) gets another 10; the receipt keeps its own vendor, the lot the latest
+  it.each([
+    ['a new vendor', 'Henry Schein', 'Henry Schein'],
+    ['the same vendor', 'McKesson', 'McKesson'],
+    ['no vendor', undefined, 'McKesson'],
+  ])('adds to the existing lot when received with %s', async (_label, vendor, lotVendor) => {
     const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
     oystehr.fhir.get.mockResolvedValue(catalog);
-    const result = written(
-      await receivePerformEffect(oystehr, { ...receiveBody, quantity: 10, vendor: 'Henry Schein' }, performer)
-    );
+    const result = written(await receivePerformEffect(oystehr, { ...receiveBody, quantity: 10, vendor }, performer));
 
     const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
     expect(requests.map((r: any) => r.method)).toEqual(['POST', 'PUT']);
     expect(requests[1].ifMatch).toBe('W/"3"');
-    expect(result.lot).toMatchObject({ id: 'lot-1', vendor: 'Henry Schein', onHand: 35 });
-  });
-
-  it('keeps the existing lot vendor when the request has none', async () => {
-    const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
-    oystehr.fhir.get.mockResolvedValue(catalog);
-    const { vendor: _v, ...body } = receiveBody;
-    const result = written(await receivePerformEffect(oystehr, { ...body, quantity: 5 }, performer));
-    expect(result.lot).toMatchObject({ vendor: 'McKesson', onHand: 30 });
-  });
-
-  it('records each receipt with its own vendor while the lot keeps the latest', async () => {
-    const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
-    oystehr.fhir.get.mockResolvedValue(catalog);
-    const first = await receivePerformEffect(oystehr, receiveBody, performer);
-    const second = await receivePerformEffect(
-      oystehr,
-      { ...receiveBody, quantity: 10, vendor: 'Henry Schein' },
-      performer
-    );
-
-    expect(first).toMatchObject({ entry: { vendor: 'McKesson' }, lot: { vendor: 'McKesson' } });
-    expect(second).toMatchObject({ entry: { vendor: 'Henry Schein' }, lot: { vendor: 'Henry Schein' } });
+    expect(result.lot).toMatchObject({ id: 'lot-1', onHand: 35 });
+    expect(result.lot.vendor).toBe(lotVendor);
+    expect(result.entry.vendor).toBe(vendor);
     // what was written is what the history reads back
-    const writtenEntry = oystehr.fhir.transaction.mock.calls[1][0].requests[0].resource as Observation;
-    expect(parseInventoryStockEntry({ ...writtenEntry, id: 'x' })).toMatchObject({ vendor: 'Henry Schein' });
-  });
-
-  it('does not stamp vendor on a receipt entered without one', async () => {
-    const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
-    oystehr.fhir.get.mockResolvedValue(catalog);
-    const { vendor: _v, ...body } = receiveBody;
-    const { entry: receipt } = written(await receivePerformEffect(oystehr, body, performer));
-    expect(receipt.vendor).toBeUndefined();
+    expect(parseInventoryStockEntry({ ...requests[0].resource, id: 'x' })?.vendor).toBe(vendor);
   });
 
   describe('same lot number with a different expiration date', () => {

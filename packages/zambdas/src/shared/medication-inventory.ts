@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Encounter, Medication, MedicationAdministration, Observation } from 'fhir/r4b';
+import { Encounter, FhirResource, Medication, MedicationAdministration, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -40,7 +40,7 @@ import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medicatio
 
 const INVENTORY_CATEGORY_PARAM = `${INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM}|${INVENTORY_STOCK_ENTRY_CODE}`;
 
-export interface InventoryLotKey {
+interface InventoryLotKey {
   catalogMedicationId: string;
   locationId: string;
   lotNumber: string;
@@ -90,15 +90,34 @@ export async function getInventoryLotsOnHand(
     .sort((a, b) => a.expirationDate.localeCompare(b.expirationDate));
 }
 
+const lotEntrySearchParams = (lotId: string): { name: string; value: string }[] => [
+  { name: 'subject', value: `Medication/${lotId}` },
+  { name: 'category', value: INVENTORY_CATEGORY_PARAM },
+  { name: '_sort', value: 'date' },
+];
+
 /** Every ledger entry of a lot, oldest first. */
 export async function getInventoryLotEntries(oystehr: Oystehr, lotId: string): Promise<Observation[]> {
   return getAllFhirSearchPages<Observation>(
+    { resourceType: 'Observation', params: lotEntrySearchParams(lotId) },
+    oystehr
+  );
+}
+
+/**
+ * A lot's ledger plus, in the same search, who made each entry and, for administrations, the order with its
+ * visit and patient (the ad hoc inventory dataset reads the ledger the same way).
+ */
+export async function getInventoryLotHistoryResources(oystehr: Oystehr, lotId: string): Promise<FhirResource[]> {
+  return getAllFhirSearchPages<FhirResource>(
     {
       resourceType: 'Observation',
       params: [
-        { name: 'subject', value: `Medication/${lotId}` },
-        { name: 'category', value: INVENTORY_CATEGORY_PARAM },
-        { name: '_sort', value: 'date' },
+        ...lotEntrySearchParams(lotId),
+        { name: '_include', value: 'Observation:performer' },
+        { name: '_include', value: 'Observation:part-of' },
+        { name: '_include:iterate', value: 'MedicationAdministration:context' },
+        { name: '_include:iterate', value: 'MedicationAdministration:subject' },
       ],
     },
     oystehr
@@ -302,6 +321,7 @@ export async function reconcileAdministrationStock(
       effectiveDateTime: DateTime.now().toUTC().toISO(),
       medicationAdministrationId,
       reversesEntryId: change.reversesEntryId,
+      administrationDeleted: change.administrationDeleted,
       ...(change.waste
         ? { components: [{ code: 'waste-amount', value: change.waste.amount, unit: change.waste.unit }] }
         : {}),
@@ -314,15 +334,16 @@ export async function getLastReceivedLot(
   oystehr: Oystehr,
   catalogMedicationId: string
 ): Promise<Medication | undefined> {
-  const lots = (
-    await oystehr.fhir.search<Medication>({
+  const lots = await getAllFhirSearchPages<Medication>(
+    {
       resourceType: 'Medication',
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${catalogMedicationId}` },
         { name: '_elements', value: 'id' },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
   const lotIds = lots.flatMap((lot) => (lot.id ? [lot.id] : []));
   if (lotIds.length === 0) return undefined;
 

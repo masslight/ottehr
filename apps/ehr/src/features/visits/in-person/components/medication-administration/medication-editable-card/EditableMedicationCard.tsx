@@ -29,7 +29,7 @@ import {
   getMedicationName,
   medicationExtendedToMedicationData,
 } from 'utils/lib/fhir/medication-administration';
-import { sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
+import { isExpirationDatePast, sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
 import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
@@ -68,10 +68,6 @@ import {
   medicationInteractionsFromErxResponse,
   validateAllMedicationFields,
 } from './utils';
-
-/** True when the expiration date (an ISO date or date-time) is before today. */
-const isExpirationInPast = (expDate: string | undefined): boolean =>
-  Boolean(expDate) && DateTime.fromISO(expDate!).startOf('day') < DateTime.now().startOf('day');
 
 interface InteractionsCheckState {
   status: 'in-progress' | 'done' | 'error';
@@ -420,7 +416,7 @@ export const EditableMedicationCard: React.FC<{
     const { newStatus, orderData } = updatedRequestInput;
     if (
       (newStatus === 'administered' || newStatus === 'administered-partly') &&
-      isExpirationInPast(orderData?.expDate)
+      isExpirationDatePast(orderData?.expDate, DateTime.now().toISODate())
     ) {
       pendingSaveRef.current = updatedRequestInput;
       setExpiredLotPrompt({ lotNumber: orderData?.lotNumber ?? '', expDate: orderData!.expDate! });

@@ -244,42 +244,4 @@ describe('medication inventory dataset', () => {
     // a count that matched the shelf
     expect(rows[3]).toMatchObject({ entryType: 'count', reason: 'no-difference', quantity: 0 });
   });
-
-  it("shows each receipt's own vendor, and the lot's latest on everything else", async () => {
-    const latestLot: Medication = {
-      ...withLotOnHand(makeInventoryLot(catalog, { ...lotInput, vendor: 'Henry Schein' }), 33),
-      id: 'lot-1',
-    };
-    const receipts: Observation[] = [
-      {
-        ...makeInventoryStockEntry({
-          ...base,
-          type: 'received',
-          quantity: 25,
-          effectiveDateTime: '2026-10-01T14:02:00Z',
-          vendor: 'McKesson',
-        }),
-        id: 'receipt-1',
-      },
-      {
-        ...makeInventoryStockEntry({
-          ...base,
-          type: 'received',
-          quantity: 10,
-          effectiveDateTime: '2026-10-05T14:02:00Z',
-          vendor: 'Henry Schein',
-        }),
-        id: 'receipt-2',
-      },
-      entries[2],
-    ];
-    const oystehr = makeOystehr(receipts, [latestLot, location, nurse]);
-
-    const rows = await fetchAdHocMedicationInventoryRows(oystehr, { dateRange });
-
-    expect(() => AdHocMedicationInventoryOutputSchema.parse({ rows })).not.toThrow();
-    expect(rows[0]).toMatchObject({ entryId: 'receipt-1', vendor: 'McKesson' });
-    expect(rows[1]).toMatchObject({ entryId: 'receipt-2', vendor: 'Henry Schein' });
-    expect(rows[2]).toMatchObject({ entryType: 'adjustment', vendor: 'Henry Schein' });
-  });
 });

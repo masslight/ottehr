@@ -88,7 +88,7 @@ export const getMedicationInventoryConfig = (medication: Medication): InHouseMed
 // expiration, both searchable; the same number can be on hand twice when a shipment arrived with a different
 // date and staff chose to keep it separate). Every stock change is an Observation whose subject is the lot: Observation was chosen over
 // Basic because Oystehr searches only standard parameters, and Observation has one for everything the
-// inventory screens, tasks and reports filter on (subject, focus, part-of, derived-from, date, code,
+// inventory screens and reports filter on (subject, focus, part-of, derived-from, date, code,
 // category, performer, value-quantity). See documents/otr-3339-fhir-inventory-modeling.md, "Decision".
 // Entries are append-only and never carry `encounter` or a Patient subject; on hand is the sum of their
 // signed values, cached on the lot and recomputed (never incremented) on every write.
@@ -100,20 +100,21 @@ export const INVENTORY_LOT_IDENTIFIER_VALUE = 'inventory-lot';
 export const INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('inventory-lot-drug');
 /** meta.tag naming the location (code = Location id) so lots can be searched per location. */
 export const INVENTORY_LOT_LOCATION_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-lot-location');
-export const INVENTORY_LOT_EXTENSION_URL = ottehrExtensionUrl('inventory-lot');
+const INVENTORY_LOT_EXTENSION_URL = ottehrExtensionUrl('inventory-lot');
 const LOT_LOCATION = 'location';
 const LOT_VENDOR = 'vendor';
 const LOT_ON_HAND = 'on-hand';
 
-/** On a received entry: that shipment's vendor (same sub-extension url as the lot's). */
-export const INVENTORY_STOCK_ENTRY_EXTENSION_URL = ottehrExtensionUrl('inventory-stock-entry');
+/** Entry details: a receipt's vendor (same sub-extension url as the lot's); on a reversal, that the order was deleted. */
+const INVENTORY_STOCK_ENTRY_EXTENSION_URL = ottehrExtensionUrl('inventory-stock-entry');
+const ENTRY_ADMINISTRATION_DELETED = 'administration-deleted';
 
 export const INVENTORY_STOCK_ENTRY_CODE = 'inventory-stock-entry';
-export const INVENTORY_STOCK_ENTRY_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-stock-entry');
+const INVENTORY_STOCK_ENTRY_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-stock-entry');
 export const INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM = ottehrCodeSystemUrl('observation-category');
 export const INVENTORY_ENTRY_TYPE_SYSTEM = ottehrCodeSystemUrl('inventory-entry-type');
 export const INVENTORY_ENTRY_REASON_SYSTEM = ottehrCodeSystemUrl('inventory-adjustment-reason');
-export const INVENTORY_ENTRY_COMPONENT_SYSTEM = ottehrCodeSystemUrl('inventory-entry-component');
+const INVENTORY_ENTRY_COMPONENT_SYSTEM = ottehrCodeSystemUrl('inventory-entry-component');
 
 export const isInventoryLot = (medication: Medication): boolean =>
   medication.identifier?.some(
@@ -137,7 +138,7 @@ export interface InventoryLotInput {
   ndc: string;
   manufacturer?: string;
   vendor?: string;
-  /** The drug's stock unit: counted-as items (or the dose volume unit for measured multi-use drugs). */
+  /** The drug's stock unit: counted-as items. */
   unit: string;
 }
 
@@ -251,43 +252,43 @@ export type InventoryStockEntryInput = Omit<InventoryStockEntry, 'id' | 'lotId'>
   lotReference: string;
 };
 
-export const makeInventoryStockEntry = (input: InventoryStockEntryInput): Observation => ({
-  resourceType: 'Observation',
-  meta: { tag: [{ system: INVENTORY_STOCK_ENTRY_TAG_SYSTEM, code: INVENTORY_STOCK_ENTRY_CODE }] },
-  status: 'final',
-  category: [{ coding: [{ system: INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM, code: INVENTORY_STOCK_ENTRY_CODE }] }],
-  code: {
-    coding: [
-      { system: INVENTORY_ENTRY_TYPE_SYSTEM, code: input.type },
-      ...(input.reason ? [{ system: INVENTORY_ENTRY_REASON_SYSTEM, code: input.reason }] : []),
-    ],
-  },
-  subject: { reference: input.lotReference },
-  focus: [{ reference: `Location/${input.locationId}` }],
-  ...(input.medicationAdministrationId
-    ? { partOf: [{ reference: `MedicationAdministration/${input.medicationAdministrationId}` }] }
-    : {}),
-  ...(input.reversesEntryId ? { derivedFrom: [{ reference: `Observation/${input.reversesEntryId}` }] } : {}),
-  ...(input.performerReference ? { performer: [{ reference: input.performerReference }] } : {}),
-  effectiveDateTime: input.effectiveDateTime,
-  valueQuantity: { value: input.quantity, unit: input.unit },
-  ...(input.note ? { note: [{ text: input.note }] } : {}),
-  ...(input.vendor
-    ? {
-        extension: [
-          { url: INVENTORY_STOCK_ENTRY_EXTENSION_URL, extension: [{ url: LOT_VENDOR, valueString: input.vendor }] },
-        ],
-      }
-    : {}),
-  ...(input.components?.length
-    ? {
-        component: input.components.map((component) => ({
-          code: { coding: [{ system: INVENTORY_ENTRY_COMPONENT_SYSTEM, code: component.code }] },
-          valueQuantity: { value: component.value, unit: component.unit },
-        })),
-      }
-    : {}),
-});
+export const makeInventoryStockEntry = (input: InventoryStockEntryInput): Observation => {
+  const details: Extension[] = [
+    ...(input.vendor ? [{ url: LOT_VENDOR, valueString: input.vendor }] : []),
+    ...(input.administrationDeleted ? [{ url: ENTRY_ADMINISTRATION_DELETED, valueBoolean: true }] : []),
+  ];
+  return {
+    resourceType: 'Observation',
+    meta: { tag: [{ system: INVENTORY_STOCK_ENTRY_TAG_SYSTEM, code: INVENTORY_STOCK_ENTRY_CODE }] },
+    status: 'final',
+    category: [{ coding: [{ system: INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM, code: INVENTORY_STOCK_ENTRY_CODE }] }],
+    code: {
+      coding: [
+        { system: INVENTORY_ENTRY_TYPE_SYSTEM, code: input.type },
+        ...(input.reason ? [{ system: INVENTORY_ENTRY_REASON_SYSTEM, code: input.reason }] : []),
+      ],
+    },
+    subject: { reference: input.lotReference },
+    focus: [{ reference: `Location/${input.locationId}` }],
+    ...(input.medicationAdministrationId
+      ? { partOf: [{ reference: `MedicationAdministration/${input.medicationAdministrationId}` }] }
+      : {}),
+    ...(input.reversesEntryId ? { derivedFrom: [{ reference: `Observation/${input.reversesEntryId}` }] } : {}),
+    ...(input.performerReference ? { performer: [{ reference: input.performerReference }] } : {}),
+    effectiveDateTime: input.effectiveDateTime,
+    valueQuantity: { value: input.quantity, unit: input.unit },
+    ...(input.note ? { note: [{ text: input.note }] } : {}),
+    ...(details.length ? { extension: [{ url: INVENTORY_STOCK_ENTRY_EXTENSION_URL, extension: details }] } : {}),
+    ...(input.components?.length
+      ? {
+          component: input.components.map((component) => ({
+            code: { coding: [{ system: INVENTORY_ENTRY_COMPONENT_SYSTEM, code: component.code }] },
+            valueQuantity: { value: component.value, unit: component.unit },
+          })),
+        }
+      : {}),
+  };
+};
 
 const isEntryType = (code: string | undefined): code is InventoryEntryType =>
   INVENTORY_ENTRY_TYPES.includes(code as InventoryEntryType);
@@ -296,7 +297,7 @@ const isEntryReason = (code: string | undefined): code is InventoryEntryReason =
 const isEntryComponent = (code: string | undefined): code is InventoryEntryComponent =>
   INVENTORY_ENTRY_COMPONENTS.includes(code as InventoryEntryComponent);
 
-export const isInventoryStockEntry = (observation: Observation): boolean =>
+const isInventoryStockEntry = (observation: Observation): boolean =>
   observation.category?.some(
     (category) =>
       category.coding?.some(
@@ -331,6 +332,7 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
   });
   const details = getExtension(observation, INVENTORY_STOCK_ENTRY_EXTENSION_URL);
   const vendor = details ? getExtension(details, LOT_VENDOR)?.valueString : undefined;
+  const administrationDeleted = details ? getExtension(details, ENTRY_ADMINISTRATION_DELETED)?.valueBoolean : undefined;
   return {
     id: observation.id,
     lotId,
@@ -346,6 +348,7 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
     note: observation.note?.[0]?.text,
     ...(components.length ? { components } : {}),
     ...(vendor ? { vendor } : {}),
+    ...(administrationDeleted ? { administrationDeleted } : {}),
   };
 };
 
@@ -378,7 +381,7 @@ const convertAmount = (amount: number, from: string, to: string): number | undef
 };
 
 /** What one counted item contains, in the dose's unit; undefined when the units can't be related. */
-export const containerAmountInDoseUnit = (
+const containerAmountInDoseUnit = (
   inventory: Pick<InHouseMedicationInventory, 'eachContains'>,
   doseUnit: string
 ): number | undefined => {
@@ -423,6 +426,8 @@ export interface AdministrationStockChange {
   /** Signed change to the waste recorded for this administration on this lot. */
   waste?: { amount: number; unit: string };
   reversesEntryId?: string;
+  /** On a reversal: the order was deleted (nothing should be off any more), not changed. */
+  administrationDeleted?: true;
 }
 
 const sumWaste = (entries: InventoryStockEntry[]): number =>
@@ -463,18 +468,27 @@ export const planAdministrationStockChanges = (
         quantity: itemsDelta === 0 ? 0 : -itemsDelta,
         ...(wasteDelta !== 0 && wasteUnit ? { waste: { amount: wasteDelta, unit: wasteUnit } } : {}),
         ...(reversing && latestAdministered ? { reversesEntryId: latestAdministered.id } : {}),
+        ...(reversing && !target ? { administrationDeleted: true } : {}),
       },
     ];
   });
 };
 
-/** Lots for the MAR Lot field: unexpired first, each group soonest expiration first; expired lots last. */
-export const sortInventoryLotsForPicking = <T extends Pick<InventoryLot, 'expirationDate'>>(
+/**
+ * True when `expirationDate` (an ISO date or date-time, taken as a calendar date) is before `today`
+ * (YYYY-MM-DD, the user's date). Dates compare as strings: no zone is involved.
+ */
+export const isExpirationDatePast = (expirationDate: string | undefined, today: string): boolean =>
+  Boolean(expirationDate) && expirationDate!.slice(0, 10) < today;
+
+/** Lots for the MAR Lot field: unexpired first, each group soonest expiration (then lot number) first; expired lots last. */
+export const sortInventoryLotsForPicking = <T extends Pick<InventoryLot, 'expirationDate' | 'lotNumber'>>(
   lots: T[],
   today: string
 ): { lot: T; expired: boolean }[] => {
-  const byExpiration = (a: T, b: T): number => a.expirationDate.localeCompare(b.expirationDate);
-  const isExpired = (lot: T): boolean => Boolean(lot.expirationDate) && lot.expirationDate < today;
+  const byExpiration = (a: T, b: T): number =>
+    a.expirationDate.localeCompare(b.expirationDate) || a.lotNumber.localeCompare(b.lotNumber);
+  const isExpired = (lot: T): boolean => isExpirationDatePast(lot.expirationDate, today);
   return [
     ...lots.filter((lot) => !isExpired(lot)).sort(byExpiration),
     ...lots.filter(isExpired).sort(byExpiration),

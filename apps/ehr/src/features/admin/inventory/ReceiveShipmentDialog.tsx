@@ -24,7 +24,7 @@ import { Medication } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useRef, useState } from 'react';
-import { getMedicationInventory, lookupNdc, receiveMedicationShipment } from 'src/api/api';
+import { lookupNdc, receiveMedicationShipment } from 'src/api/api';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -37,7 +37,9 @@ import {
   ReceiveExpirationConflict,
   ReceiveMedicationShipmentInput,
 } from 'utils/lib/types/api/config/in-house-medications';
+import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 import { formatExpiration, inventoryButtonSx, storedLocationId, unitLabel } from './inventory.helpers';
+import { useLastReceivedLot } from './inventory.queries';
 
 interface ReceiveShipmentDialogProps {
   open: boolean;
@@ -61,6 +63,13 @@ type LookupState = { status: 'idle' | 'loading' } | LookupNdcResponse;
 
 const NDC_LOOKUP_DEBOUNCE_MS = 600;
 
+/** What the lookup panel says while there is no product to show. */
+const LOOKUP_MESSAGES: Partial<Record<LookupState['status'], (ndc: string) => string>> = {
+  loading: (ndc) => `Looking up NDC ${ndc} in the FDA NDC directory…`,
+  unavailable: () => 'FDA NDC directory lookup unavailable. Check the box before saving.',
+  'not-found': (ndc) => `NDC ${ndc} is not in the FDA NDC directory. Check the box before saving.`,
+};
+
 export default function ReceiveShipmentDialog({
   open,
   onClose,
@@ -80,7 +89,6 @@ export default function ReceiveShipmentDialog({
     vendor: '',
   }));
   const [lookup, setLookup] = useState<LookupState>({ status: 'idle' });
-  const [prefilledFromLastLot, setPrefilledFromLastLot] = useState(false);
   const [saving, setSaving] = useState(false);
   // Set when the location already has this lot number with another expiration date; staff pick what to do.
   const [conflict, setConflict] = useState<ReceiveExpirationConflict | undefined>(undefined);
@@ -92,25 +100,18 @@ export default function ReceiveShipmentDialog({
   const quantity = Number(form.quantity);
 
   // Later shipments start from the last lot received (any location).
+  const lastReceivedLot = useLastReceivedLot(medication.id);
+  const prefilledFromLastLot = Boolean(lastReceivedLot.data);
   useEffect(() => {
-    if (!open || !oystehrZambda) return;
-    let cancelled = false;
-    getMedicationInventory(oystehrZambda, { medicationId: medication.id })
-      .then(({ lastReceivedLot }) => {
-        if (cancelled || !lastReceivedLot) return;
-        setForm((prev) => ({
-          ...prev,
-          ndc: prev.ndc || (lastReceivedLot.ndc ?? ''),
-          manufacturer: prev.manufacturer || (lastReceivedLot.manufacturer ?? ''),
-          vendor: prev.vendor || (lastReceivedLot.vendor ?? ''),
-        }));
-        setPrefilledFromLastLot(true);
-      })
-      .catch((error) => console.error('Error loading the last lot received', error));
-    return () => {
-      cancelled = true;
-    };
-  }, [open, oystehrZambda, medication.id]);
+    const lastLot = lastReceivedLot.data;
+    if (!lastLot) return;
+    setForm((prev) => ({
+      ...prev,
+      ndc: prev.ndc || (lastLot.ndc ?? ''),
+      manufacturer: prev.manufacturer || (lastLot.manufacturer ?? ''),
+      vendor: prev.vendor || (lastLot.vendor ?? ''),
+    }));
+  }, [lastReceivedLot.data]);
 
   // Look the box up once typing pauses; a result for an NDC that has since changed is dropped.
   useEffect(() => {
@@ -177,24 +178,11 @@ export default function ReceiveShipmentDialog({
   const receiveLabel = quantity > 0 ? `Receive ${quantity} ${unitsLabel}` : `Receive ${unitsLabel}`;
   const lookupPanel = ((): ReactElement | null => {
     if (lookup.status === 'idle') return null;
-    if (lookup.status === 'loading') {
+    const message = LOOKUP_MESSAGES[lookup.status];
+    if (message) {
       return (
         <Typography variant="body2" color="text.secondary">
-          Looking up NDC {form.ndc.trim()} in the FDA NDC directory…
-        </Typography>
-      );
-    }
-    if (lookup.status === 'unavailable') {
-      return (
-        <Typography variant="body2" color="text.secondary">
-          FDA NDC directory lookup unavailable. Check the box before saving.
-        </Typography>
-      );
-    }
-    if (lookup.status === 'not-found') {
-      return (
-        <Typography variant="body2" color="text.secondary">
-          NDC {form.ndc.trim()} is not in the FDA NDC directory. Check the box before saving.
+          {message(form.ndc.trim())}
         </Typography>
       );
     }
@@ -298,7 +286,7 @@ export default function ReceiveShipmentDialog({
                   label="Expiration Date"
                   value={form.expirationDate}
                   onChange={(value) => setField('expirationDate', value)}
-                  format="MM/dd/yyyy"
+                  format={DISPLAY_DATE_FORMAT}
                   slotProps={{ textField: { fullWidth: true, required: true } }}
                 />
               </LocalizationProvider>
@@ -339,10 +327,12 @@ export default function ReceiveShipmentDialog({
                 onChange={(e) => setField('vendor', e.target.value)}
               />
             </Grid>
-            {prefilledFromLastLot ? (
+            {prefilledFromLastLot || lastReceivedLot.isError ? (
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">
-                  NDC, manufacturer and vendor are filled from the last lot received.
+                  {lastReceivedLot.isError
+                    ? "Couldn't load the last lot received."
+                    : 'NDC, manufacturer and vendor are filled from the last lot received.'}
                 </Typography>
               </Grid>
             ) : null}

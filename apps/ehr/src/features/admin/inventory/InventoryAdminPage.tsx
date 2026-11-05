@@ -23,6 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
+import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -31,6 +32,7 @@ import { useGetAllLocations } from 'src/features/notifications/notifications.que
 import {
   InventoryDrugRow,
   InventoryLotRow,
+  InventoryMarker,
   ListMedicationInventoryInput,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
@@ -40,7 +42,7 @@ import {
   describeChange,
   describeReason,
   formatExpiration,
-  formatOnHand,
+  formatQuantity,
   formatWhen,
   MarkerChips,
   storedLocationId,
@@ -97,12 +99,14 @@ export default function InventoryAdminPage(): ReactElement {
     }
   }, [locationsQuery.isSuccess, locationsQuery.data, locationId]);
 
+  // The browser's date decides "expired", as it does on the MAR.
+  const today = DateTime.now().toISODate();
   const view: ListMedicationInventoryInput | undefined =
     locationId === undefined
       ? undefined
       : locationId === ALL_LOCATIONS
-      ? { view: 'all-locations' }
-      : { view: 'location', locationId };
+      ? { view: 'all-locations', today }
+      : { view: 'location', locationId, today };
   const { data, isPending, isError, error } = useMedicationInventory(view);
 
   const drugs = (data?.drugs ?? []).filter((drug) => drug.name.toLowerCase().includes(search.trim().toLowerCase()));
@@ -215,6 +219,36 @@ export default function InventoryAdminPage(): ReactElement {
   );
 }
 
+/** The first cells of a drug's row in either view: expand, name (links to the drug's setup) and on hand. */
+function DrugHeaderCells({
+  drug,
+  open,
+  onToggle,
+  onHandMarkers,
+}: {
+  drug: InventoryDrugRow;
+  open: boolean;
+  onToggle: () => void;
+  onHandMarkers: InventoryMarker[];
+}): ReactElement {
+  return (
+    <>
+      <TableCell>
+        <ExpandButton open={open} onClick={onToggle} />
+      </TableCell>
+      <TableCell sx={{ fontWeight: 500 }}>
+        <Link component={RouterLink} to={`/admin/medication/${drug.medicationId}`} underline="hover">
+          {drug.name}
+        </Link>
+      </TableCell>
+      <TableCell>
+        {formatQuantity(drug.onHand, drug.countedAs)}
+        <MarkerChips markers={drug.markers} only={onHandMarkers} />
+      </TableCell>
+    </>
+  );
+}
+
 function AllLocationsDrugRows({
   drug,
   open,
@@ -230,18 +264,7 @@ function AllLocationsDrugRows({
         sx={{ backgroundColor: open ? otherColors.apptHover : undefined }}
         data-testid={dataTestIds.inventoryPage.medicationRow(drug.medicationId)}
       >
-        <TableCell>
-          <ExpandButton open={open} onClick={onToggle} />
-        </TableCell>
-        <TableCell sx={{ fontWeight: 500 }}>
-          <Link component={RouterLink} to={`/admin/medication/${drug.medicationId}`} underline="hover">
-            {drug.name}
-          </Link>
-        </TableCell>
-        <TableCell>
-          {formatOnHand(drug.onHand, drug.countedAs)}
-          <MarkerChips markers={drug.markers} only={['below-zero']} />
-        </TableCell>
+        <DrugHeaderCells drug={drug} open={open} onToggle={onToggle} onHandMarkers={['below-zero']} />
         <TableCell>
           {drug.locationsBelowReorderLevel} of {drug.locationsWithReorderLevel}
           <MarkerChips markers={drug.markers} only={['low']} />
@@ -257,7 +280,7 @@ function AllLocationsDrugRows({
             <TableCell />
             <TableCell sx={{ pl: 3.5, color: 'text.secondary' }}>{line.locationName}</TableCell>
             <TableCell>
-              {formatOnHand(line.onHand, drug.countedAs)}
+              {formatQuantity(line.onHand, drug.countedAs)}
               <MarkerChips markers={line.markers} only={['low', 'below-zero']} />
             </TableCell>
             <TableCell sx={{ color: 'text.secondary' }}>{reorderLabel(line.reorderLevel)}</TableCell>
@@ -294,18 +317,7 @@ function LocationDrugRows({
         sx={{ backgroundColor: open ? otherColors.apptHover : undefined }}
         data-testid={dataTestIds.inventoryPage.medicationRow(drug.medicationId)}
       >
-        <TableCell>
-          <ExpandButton open={open} onClick={onToggle} />
-        </TableCell>
-        <TableCell sx={{ fontWeight: 500 }}>
-          <Link component={RouterLink} to={`/admin/medication/${drug.medicationId}`} underline="hover">
-            {drug.name}
-          </Link>
-        </TableCell>
-        <TableCell>
-          {formatOnHand(drug.onHand, drug.countedAs)}
-          <MarkerChips markers={drug.markers} only={['low', 'below-zero']} />
-        </TableCell>
+        <DrugHeaderCells drug={drug} open={open} onToggle={onToggle} onHandMarkers={['low', 'below-zero']} />
         <TableCell>{reorderLabel(drug.reorderLevel)}</TableCell>
         <TableCell />
         <TableCell />
@@ -319,7 +331,7 @@ function LocationDrugRows({
               </TableCell>
               <TableCell>Lot {lot.lotNumber}</TableCell>
               <TableCell>
-                {formatOnHand(lot.onHand, lot.unit)}
+                {formatQuantity(lot.onHand, lot.unit)}
                 <MarkerChips markers={lot.markers} only={['below-zero']} />
               </TableCell>
               <TableCell>

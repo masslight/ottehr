@@ -1,21 +1,12 @@
-import { LoadingButton } from '@mui/lab';
-import {
-  Button,
-  capitalize,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, capitalize, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useRef, useState } from 'react';
 import { adjustMedicationInventory } from 'src/api/api';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { InventoryDrugRow, InventoryLotRow } from 'utils/lib/types/api/config/in-house-medications';
-import { formatChange, formatOnHand, inventoryButtonSx, unitLabel } from './inventory.helpers';
+import { formatQuantity, unitLabel } from './inventory.helpers';
 
 interface CountLotDialogProps {
   open: boolean;
@@ -36,6 +27,7 @@ export default function CountLotDialog({
   locationName,
 }: CountLotDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
+  const formRef = useRef<HTMLFormElement>(null);
   const [counted, setCounted] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -50,7 +42,7 @@ export default function CountLotDialog({
       enqueueSnackbar(
         difference === 0
           ? `Counted lot ${lot.lotNumber}: no difference`
-          : `Counted lot ${lot.lotNumber}: recorded ${formatChange(difference ?? 0, lot.unit)}`,
+          : `Counted lot ${lot.lotNumber}: recorded ${formatQuantity(difference ?? 0, lot.unit, { signed: true })}`,
         { variant: 'success' }
       );
       onSaved();
@@ -64,22 +56,25 @@ export default function CountLotDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-      >
-        <DialogTitle component="div">
-          <Typography variant="h5" color="primary.dark">
-            Count Lot
-          </Typography>
+    <CustomDialog
+      open={open}
+      handleClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      title="Count Lot"
+      description={
+        <Box
+          component="form"
+          ref={formRef}
+          onSubmit={(event: React.FormEvent) => {
+            event.preventDefault();
+            void save();
+          }}
+          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+        >
           <Typography variant="body2" color="text.secondary">
             {drug.name} · Lot {lot.lotNumber} · {locationName}
           </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
           <TextField
             required
             label={`${capitalize(unitLabel(lot.unit, 2))} on the Shelf`}
@@ -90,14 +85,15 @@ export default function CountLotDialog({
             sx={{ width: 160 }}
           />
           <Typography>
-            Ottehr expects <b style={{ fontWeight: 500 }}>{formatOnHand(lot.onHand, lot.unit)}</b>.
+            Ottehr expects <b style={{ fontWeight: 500 }}>{formatQuantity(lot.onHand, lot.unit)}</b>.
             {difference === undefined ? null : difference === 0 ? (
               <> Saving records &quot;no difference&quot;.</>
             ) : (
               <>
                 {' '}
-                Saving records <b style={{ fontWeight: 500 }}>{formatChange(difference, lot.unit)}</b> as &quot;Count
-                adjustment&quot;.
+                Saving records{' '}
+                <b style={{ fontWeight: 500 }}>{formatQuantity(difference, lot.unit, { signed: true })}</b> as
+                &quot;Count adjustment&quot;.
               </>
             )}
           </Typography>
@@ -105,16 +101,14 @@ export default function CountLotDialog({
             If the count matches, it&apos;s recorded as &quot;no difference&quot;. Multi-use items are counted as
             containers.
           </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button variant="outlined" onClick={onClose} sx={inventoryButtonSx}>
-            Cancel
-          </Button>
-          <LoadingButton type="submit" variant="contained" loading={saving} sx={inventoryButtonSx}>
-            Save Count
-          </LoadingButton>
-        </DialogActions>
-      </form>
-    </Dialog>
+        </Box>
+      }
+      handleConfirm={() => {
+        if (formRef.current?.reportValidity()) void save();
+      }}
+      confirmText="Save Count"
+      confirmLoading={saving}
+      closeButtonText="Cancel"
+    />
   );
 }

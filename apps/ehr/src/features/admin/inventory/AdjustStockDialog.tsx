@@ -1,11 +1,6 @@
-import { LoadingButton } from '@mui/lab';
 import {
-  Button,
+  Box,
   capitalize,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   FormControlLabel,
   FormLabel,
@@ -18,8 +13,9 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useRef, useState } from 'react';
 import { adjustMedicationInventory } from 'src/api/api';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -29,7 +25,7 @@ import {
   InventoryDrugRow,
   InventoryLotRow,
 } from 'utils/lib/types/api/config/in-house-medications';
-import { formatOnHand, inventoryButtonSx, unitLabel } from './inventory.helpers';
+import { formatQuantity, unitLabel } from './inventory.helpers';
 
 interface AdjustStockDialogProps {
   open: boolean;
@@ -50,6 +46,7 @@ export default function AdjustStockDialog({
   locationName,
 }: AdjustStockDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
+  const formRef = useRef<HTMLFormElement>(null);
   const [direction, setDirection] = useState<'remove' | 'add'>('remove');
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState<InventoryAdjustmentReason | ''>('');
@@ -81,7 +78,7 @@ export default function AdjustStockDialog({
         note: note.trim() || undefined,
       });
       enqueueSnackbar(
-        `${actionLabel === 'Remove' ? 'Removed' : 'Added'} ${formatOnHand(count, lot.unit)} of ${drug.name}`,
+        `${actionLabel === 'Remove' ? 'Removed' : 'Added'} ${formatQuantity(count, lot.unit)} of ${drug.name}`,
         {
           variant: 'success',
         }
@@ -97,22 +94,25 @@ export default function AdjustStockDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-      >
-        <DialogTitle component="div">
-          <Typography variant="h5" color="primary.dark">
-            Adjust Stock
-          </Typography>
+    <CustomDialog
+      open={open}
+      handleClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      title="Adjust Stock"
+      description={
+        <Box
+          component="form"
+          ref={formRef}
+          onSubmit={(event: React.FormEvent) => {
+            event.preventDefault();
+            void save();
+          }}
+          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+        >
           <Typography variant="body2" color="text.secondary">
-            {drug.name} · Lot {lot.lotNumber} · {locationName} · {formatOnHand(lot.onHand, lot.unit)} on hand
+            {drug.name} · Lot {lot.lotNumber} · {locationName} · {formatQuantity(lot.onHand, lot.unit)} on hand
           </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
           <FormControl>
             <FormLabel id="adjust-direction-label">Direction</FormLabel>
             <RadioGroup
@@ -160,16 +160,16 @@ export default function AdjustStockDialog({
               onChange={(e) => setNote(e.target.value)}
             />
           ) : null}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button variant="outlined" onClick={onClose} sx={inventoryButtonSx}>
-            Cancel
-          </Button>
-          <LoadingButton type="submit" variant="contained" loading={saving} sx={inventoryButtonSx}>
-            {submitLabel}
-          </LoadingButton>
-        </DialogActions>
-      </form>
-    </Dialog>
+          {/* Enter saves even with two text fields, which only submit implicitly when the form has a submit button */}
+          <input type="submit" hidden />
+        </Box>
+      }
+      handleConfirm={() => {
+        if (formRef.current?.reportValidity()) void save();
+      }}
+      confirmText={submitLabel}
+      confirmLoading={saving}
+      closeButtonText="Cancel"
+    />
   );
 }

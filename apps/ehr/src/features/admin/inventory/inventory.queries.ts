@@ -2,6 +2,7 @@ import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { getMedicationInventory, listMedicationInventory } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  GetMedicationInventoryResponse,
   InventoryLot,
   ListMedicationInventoryInput,
   ListMedicationInventoryResponse,
@@ -46,5 +47,17 @@ export const useInventoryLotsOnHand = ({
       return lots ?? [];
     },
     enabled: Boolean(oystehrZambda && catalogMedicationId && locationId && enabled),
+  });
+};
+
+/** The lot of a drug last received at any location, for prefilling the next receipt; `null` before the first. */
+export const useLastReceivedLot = (
+  medicationId: string
+): UseQueryResult<GetMedicationInventoryResponse['lastReceivedLot'] | null> => {
+  const { oystehrZambda } = useApiClients();
+  return useQuery({
+    queryKey: ['medication-inventory-last-received-lot', medicationId],
+    queryFn: async () => (await getMedicationInventory(oystehrZambda!, { medicationId })).lastReceivedLot ?? null,
+    enabled: !!oystehrZambda,
   });
 };
