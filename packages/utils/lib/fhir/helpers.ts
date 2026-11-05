@@ -1648,6 +1648,12 @@ export function getResponsiblePartyFromAccount(
   return takeContainedOrFind<RelatedPerson | Patient>(responsiblePartyRef, resources, account);
 }
 
+// The schedule owner among an appointment's actors: its Location, else its HealthcareService, else its Practitioner.
+export const scheduleOwnerAmong = (resources: Resource[]): Location | HealthcareService | Practitioner | undefined =>
+  (resources.find((resource) => resource.resourceType === 'Location') as Location | undefined) ??
+  (resources.find((resource) => resource.resourceType === 'HealthcareService') as HealthcareService | undefined) ??
+  (resources.find((resource) => resource.resourceType === 'Practitioner') as Practitioner | undefined);
+
 export const getScheduleOwnerFromAppointmentOrEncounter = async (
   input: { appointmentId?: string; encounterId?: string },
   oystehr: Oystehr
@@ -1695,18 +1701,7 @@ export const getScheduleOwnerFromAppointmentOrEncounter = async (
   ).unbundle();
   console.log(`successfully retrieved ${allResources.length} appointment resources`);
   const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
-  const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
-  const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
-  const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
-
-  let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
-  if (fhirLocation) {
-    scheduleOwner = fhirLocation as Location;
-  } else if (fhirHS) {
-    scheduleOwner = fhirHS as HealthcareService;
-  } else if (fhirPractitioner) {
-    scheduleOwner = fhirPractitioner as Practitioner;
-  }
+  const scheduleOwner = scheduleOwnerAmong(allResources);
 
   if (!fhirAppointment) {
     throw APPOINTMENT_NOT_FOUND_ERROR;

@@ -14,6 +14,7 @@ import {
   settledRefundTotalInCents,
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -78,8 +79,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const stripeAccount = stripePaymentIntentIdForNotice(notice)
     ? await createStripeAccountResolver({
         billingOystehr,
-        clinicalOystehr,
-        encounterId: validatedParameters.encounterId,
+        lookUpScheduleAccount: () =>
+          getStripeAccountForAppointmentOrEncounter({ encounterId: validatedParameters.encounterId }, clinicalOystehr),
       })(notice)
     : undefined;
   const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);

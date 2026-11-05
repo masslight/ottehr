@@ -35,6 +35,7 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { EditableSection, TitleWithSourceLink } from '../components/claim/EditableSection';
 import { CoverageFields } from '../components/CoverageFields';
 import { DemographicFields } from '../components/DemographicFields';
+import { PatientPaymentsTab } from '../components/PatientPaymentsTab';
 import { Row } from '../components/Row';
 import { CLAIM_STATUS_COLORS } from '../constants/claimStatus';
 import { CoverageForm, coverageToUpdateInput, defaultCoverageFormValues } from '../constants/coverage';
@@ -204,6 +205,7 @@ export default function PatientDetail(): ReactElement {
             <Tab label="Demographics" value="1" />
             <Tab label="Insurance" value="2" />
             <Tab label="Claims" value="3" />
+            <Tab label="Payments" value="4" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -227,6 +229,10 @@ export default function PatientDetail(): ReactElement {
               slots={dataGridSlots()}
               sx={{ ...dataGridSx }}
             />
+          </TabPanel>
+
+          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+            <PatientPaymentsTab key={patient.id} patientId={patient.id} />
           </TabPanel>
         </TabContext>
       </Box>

@@ -38,8 +38,7 @@ const legacyNotice = { resourceType: 'PaymentNotice', request: { reference: 'Enc
 const resolver = (): ((notice: PaymentNotice) => Promise<string | undefined>) =>
   createStripeAccountResolver({
     billingOystehr: { fhir: { get: billingGet } } as unknown as Oystehr,
-    clinicalOystehr: {} as Oystehr,
-    encounterId: 'enc-1',
+    lookUpScheduleAccount: () => getStripeAccountForAppointmentOrEncounter({ encounterId: 'enc-1' }, {} as Oystehr),
   });
 
 beforeEach(() => {
