@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, FhirResource, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { Encounter, FhirResource, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getAllStripeCustomerAccountPairs, scheduleOwnerAmong } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
@@ -17,6 +17,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../shared/harvest';
+import { getAllFhirEncountersAndAppointmentsForPatient } from '../shared/patient-encounters';
 
 const ZAMBDA_NAME = 'get-patient-payment-visits';
 // keeps each request= OR list within URL limits
@@ -59,41 +60,28 @@ export const getPatientPaymentVisits = async (
   };
 };
 
-// One paged search for every encounter with its appointment and the appointment's actors, among
-// which getScheduleOwnerFromAppointmentOrEncounter finds the schedule owner.
+// One paged search for every encounter (follow-ups included) with its appointment and the
+// appointment's actors, among which getScheduleOwnerFromAppointmentOrEncounter finds the schedule owner.
 const fetchVisits = async (
   oystehr: Oystehr,
   patientId: string
 ): Promise<Omit<PatientPaymentVisit, 'legacyPaymentNotices'>[]> => {
-  const encounters: Encounter[] = [];
-  const resourcesByReference = new Map<string, FhirResource>();
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await oystehr.fhir.search<FhirResource>({
-      resourceType: 'Encounter',
-      params: [
-        { name: 'subject', value: `Patient/${patientId}` },
-        { name: '_include', value: 'Encounter:appointment' },
-        { name: '_include:iterate', value: 'Appointment:actor' },
-        { name: '_count', value: String(count) },
-        { name: '_offset', value: String(offset) },
-      ],
+  const { encounters, appointments, appointmentActorsByReference } =
+    await getAllFhirEncountersAndAppointmentsForPatient(oystehr, patientId, {
+      includeEncountersWithoutAppointment: true,
+      includeAppointmentActors: true,
     });
-    for (const resource of bundle.unbundle()) {
-      if (resource.resourceType === 'Encounter') encounters.push(resource);
-      else if (resource.id) resourcesByReference.set(`${resource.resourceType}/${resource.id}`, resource);
-    }
-    return bundle;
-  }, 100);
+  const appointmentsByReference = new Map(
+    appointments.map((appointment) => [`Appointment/${appointment.id}`, appointment])
+  );
 
   return encounters
     .filter((encounter): encounter is Encounter & { id: string } => Boolean(encounter.id))
     .map((encounter) => {
       const appointmentReference = encounter.appointment?.[0]?.reference;
-      const appointment = appointmentReference
-        ? (resourcesByReference.get(appointmentReference) as Appointment | undefined)
-        : undefined;
+      const appointment = appointmentReference ? appointmentsByReference.get(appointmentReference) : undefined;
       const actors = (appointment?.participant ?? [])
-        .map((participant) => resourcesByReference.get(participant.actor?.reference ?? ''))
+        .map((participant) => appointmentActorsByReference.get(participant.actor?.reference ?? ''))
         .filter((resource): resource is FhirResource => Boolean(resource));
       const scheduleOwner = appointment ? scheduleOwnerAmong(actors) : undefined;
       return {
