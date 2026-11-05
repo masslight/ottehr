@@ -164,10 +164,51 @@ describe('Tasks board: task notes', () => {
     expect(hasUnreadDot('long')).toBe(true);
 
     await userEvent.unhover(title('long'));
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
     await userEvent.hover(notesButton('long'));
 
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Internal Notes');
+    const buttonPreview = await screen.findByRole('tooltip');
+    expect(
+      within(buttonPreview)
+        .getAllByText(/^(Newest|Oldest)$/)
+        .map((element) => element.textContent)
+    ).toEqual(['Newest', 'Oldest']);
     expect(markTaskNotesRead).not.toHaveBeenCalled();
+    expect(hasUnreadDot('long')).toBe(true);
+  });
+
+  it('labels the notes button "Internal Notes" on hover when the task has no notes', async () => {
+    tasks = [task('quiet')];
+    renderBoard();
+
+    await userEvent.hover(notesButton('quiet'));
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Internal Notes');
+  });
+
+  it('shows the note count on the notes button, orange while unread and grey once read', async () => {
+    tasks = [
+      task('none', { assignee: assignedTo(ME) }),
+      task('read', { assignee: assignedTo(ME) }),
+      task('unread', { assignee: assignedTo(ME) }),
+    ];
+    notes = [
+      note('read', { resourceId: 'read-1', isUnread: false }),
+      note('read', { resourceId: 'read-2', isUnread: false }),
+      note('unread', { resourceId: 'unread-1', isUnread: false }),
+      note('unread', { resourceId: 'unread-2' }),
+      note('unread', { resourceId: 'unread-3' }),
+    ];
+    renderBoard();
+
+    const readCount = await within(row('read')).findByText('2');
+    const unreadCount = within(row('unread')).getByText('3');
+    const noneBadge = within(row('none')).queryByText('0');
+    if (noneBadge) expect(noneBadge).toHaveClass('MuiBadge-invisible');
+    expect(getComputedStyle(readCount).backgroundColor).toBe('rgb(97, 97, 97)');
+    expect(getComputedStyle(unreadCount).backgroundColor).toBe('rgb(230, 81, 0)');
+    expect(hasUnreadDot('read')).toBe(false);
+    expect(hasUnreadDot('unread')).toBe(true);
   });
 
   it("opens a task's notes, completed ones too, and marks them read only when some are unread", async () => {

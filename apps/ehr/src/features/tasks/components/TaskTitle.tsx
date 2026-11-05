@@ -11,23 +11,24 @@ interface TaskTitleProps {
   onOpenNotes: () => void;
 }
 
+// Shared by the task name and the Internal Notes button on the Tasks board.
+export const TaskNotesPreview: React.FC<{ notes: NoteDTO[] }> = ({ notes }) => (
+  <Box sx={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+    {notes.map((note) => (
+      <Box key={note.resourceId}>
+        <Typography variant="body2" whiteSpace="pre-wrap">
+          {note.text}
+        </Typography>
+        <Typography variant="caption" color="textSecondary">
+          {formatNoteByline(note)}
+        </Typography>
+      </Box>
+    ))}
+  </Box>
+);
+
 export const TaskTitle: React.FC<TaskTitleProps> = ({ task, notes, onOpenNotes }) => {
-  const preview = notes.length ? (
-    <Box sx={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {notes.map((note) => (
-        <Box key={note.resourceId}>
-          <Typography variant="body2" whiteSpace="pre-wrap">
-            {note.text}
-          </Typography>
-          <Typography variant="caption" color="textSecondary">
-            {formatNoteByline(note)}
-          </Typography>
-        </Box>
-      ))}
-    </Box>
-  ) : (
-    ''
-  );
+  const preview = notes.length ? <TaskNotesPreview notes={notes} /> : '';
   return (
     <GenericToolTip title={preview} customWidth={400} placement="bottom-start" describeChild>
       <Link
