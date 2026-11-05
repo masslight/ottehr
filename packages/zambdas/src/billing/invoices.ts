@@ -6,6 +6,7 @@ import {
   getHostedInvoiceUrl,
   INVOICE_CLAIM_TAG_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -21,6 +22,26 @@ import { copySourceId, fetchById, findById } from './shared';
 export async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
   const copyId = getIdFromReference(claim.facility?.reference, 'Location');
   return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
+}
+
+export async function createInvoiceUnlessClaimsHaveOne(oystehr: Oystehr, invoice: Invoice): Promise<Invoice> {
+  const claimTags = getBillingInvoiceClaims(invoice).map(({ claimId }) => `${INVOICE_CLAIM_TAG_SYSTEM}|${claimId}`);
+  return oystehr.fhir.create<Invoice>(invoice, {
+    ifNoneExist: [
+      {
+        name: '_tag',
+        value: claimTags.join(','),
+      },
+      {
+        name: '_tag',
+        value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`,
+      },
+      {
+        name: 'status',
+        value: 'draft,issued,balanced',
+      },
+    ],
+  });
 }
 
 export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Promise<Invoice[]> {

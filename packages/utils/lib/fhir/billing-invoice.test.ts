@@ -1,11 +1,13 @@
 import { Location, Organization, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
+  BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM,
   buildBillingInvoice,
   BuildBillingInvoiceInput,
   formatInvoiceNumber,
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
+  getBillingInvoiceIdempotencyKey,
   getBillingInvoiceKind,
   getHostedInvoiceUrl,
   getInvoiceNumber,
@@ -247,6 +249,40 @@ describe('formatInvoiceNumber', () => {
         ],
       })
     ).toBe('INV-00042');
+  });
+});
+
+describe('getBillingInvoiceIdempotencyKey', () => {
+  it('reads the key the creating request stored, ignoring other identifiers', () => {
+    const invoice = buildBillingInvoice({
+      ...base,
+      recipient: {
+        reference: 'Organization/fedex',
+      },
+      claims: [
+        {
+          claimId: 'claim-1',
+          amountCents: 5000,
+        },
+      ],
+    });
+
+    expect(getBillingInvoiceIdempotencyKey(invoice)).toBeUndefined();
+    expect(
+      getBillingInvoiceIdempotencyKey({
+        ...invoice,
+        identifier: [
+          {
+            system: INVOICE_NUMBER_IDENTIFIER_SYSTEM,
+            value: 'INV-00042',
+          },
+          {
+            system: BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM,
+            value: 'key-1',
+          },
+        ],
+      })
+    ).toBe('key-1');
   });
 });
 
