@@ -31,6 +31,7 @@ export const useSendSupportChatMessageMutation = (): UseMutationResult<
 
   return useMutation({
     mutationFn: (input: SendSupportChatMessageInput) => ottehrApi.sendSupportChatMessage(zambdaClient!, input),
+    onMutate: () => queryClient.cancelQueries({ queryKey: SUPPORT_CHAT_QUERY_KEY, exact: true }),
     onSuccess: (data) => queryClient.setQueryData(SUPPORT_CHAT_QUERY_KEY, data),
   });
 };

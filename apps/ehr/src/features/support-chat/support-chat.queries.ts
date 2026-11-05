@@ -53,6 +53,7 @@ export const useReplySupportChatMutation = (
 
   return useMutation({
     mutationFn: (text: string) => replySupportChat(oystehrZambda!, { taskId, text }),
+    onMutate: () => queryClient.cancelQueries({ queryKey: supportChatKey(taskId) }),
     onSuccess: (data) => queryClient.setQueryData(supportChatKey(taskId), data),
     onError: () => enqueueSnackbar('The message was not sent. Please try again.', { variant: 'error' }),
   });

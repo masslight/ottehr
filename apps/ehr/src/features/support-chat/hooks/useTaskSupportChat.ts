@@ -1,5 +1,5 @@
 import { enqueueSnackbar } from 'notistack';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SupportChatMessageDto } from 'utils/lib/types/api/support-chat.types';
 import { Task } from 'utils/lib/types/data/tasks/types';
 import { useCompleteTask } from '../../visits/in-person/hooks/useTasks';
@@ -24,6 +24,7 @@ export const useTaskSupportChat = (task: Task): UseTaskSupportChat => {
   const { mutateAsync: completeTask, isPending: isCompleting } = useCompleteTask();
   const { mutate: markRead } = useMarkTaskSupportChatReadMutation(task.id);
   const [firstUnreadId, setFirstUnreadId] = useState<string>();
+  const sentReplyRef = useRef<string>();
 
   const messages = useMemo(() => data?.messages ?? [], [data]);
   const unreadId = messages.find((message) => message.author === 'patient' && !message.isRead)?.id;
@@ -37,7 +38,11 @@ export const useTaskSupportChat = (task: Task): UseTaskSupportChat => {
   }, [isLoaded, unreadId, task.chat?.hasUnread, markRead]);
 
   const complete = async (text: string): Promise<void> => {
-    if (text) await sendReply(text);
+    if (text && text !== sentReplyRef.current) {
+      await sendReply(text);
+      sentReplyRef.current = text;
+    }
+
     try {
       await completeTask({ taskId: task.id });
     } catch (error) {
