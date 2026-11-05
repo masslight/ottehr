@@ -18,6 +18,7 @@ import {
 import z from 'zod';
 import type { StructuredFacts } from '../../../procedure-coding/structured-fields';
 import { ObservationDTO } from '../../data/screening-questions/types';
+import type { PrescriptionOrderMetadata } from '../erx.types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import type { CompoundIngredientInput } from '../order-prescription.types';
 import { RadiologyDTO } from '../radiology';
@@ -209,6 +210,8 @@ export interface PrescribedMedicationOrderDTO {
   /** A compound's name, dosage form and ingredients, read from the prescription's contained Medication. Each
    * ingredient has the amount that went in (never a strength or base); it's absent when it couldn't be read. */
   compound?: { description?: string; dosageForm?: string; ingredients: CompoundIngredientInput[] };
+  /** The order form's blanks it was sent with (the eRx service's `metadata`), to fill the form again on a reorder */
+  metadata?: PrescriptionOrderMetadata;
 }
 
 export interface ErxEventDTO {

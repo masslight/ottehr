@@ -3,7 +3,7 @@ import { Box, Button, Divider, FormHelperText, Stack, Typography, useTheme } fro
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { createPrescriptionQuickPick } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -11,6 +11,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedPrescriptionQuickPicks, useMergedPrescriptionSetQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { getFirstName } from 'utils/lib/fhir/patient';
+import { directoryPharmacyToResult } from 'utils/lib/helpers/erx-pharmacy-match';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
@@ -22,7 +23,7 @@ import { AllergiesContainer } from '../../../shared/components/review-tab/compon
 import { MedicationsContainer } from '../../../shared/components/review-tab/components/MedicationsContainer';
 import { useChartData } from '../../../shared/hooks/useChartData';
 import { useChartSection } from '../../../shared/hooks/useChartSection';
-import { usePreferredPharmacy } from '../../../shared/hooks/useErxPharmacies';
+import { usePharmaciesByNcpdpId, usePreferredPharmacy } from '../../../shared/hooks/useErxPharmacies';
 import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
 import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
 import { useAppointmentData, useSaveChartData } from '../../../shared/stores/appointment/appointment.store';
@@ -44,6 +45,8 @@ import {
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
+import { refillLine } from './refillRequest';
+import { useReorderPrescriptionStore } from './reorderPrescription.store';
 import { useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 // Layout from the procedure page: the side column sits beside the form once the page is wide enough.
@@ -127,6 +130,31 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
         ]
       : []
   );
+
+  // Reorder on a sent prescription: its line joins the form in place of an untouched one, to go to its pharmacy. A
+  // form answering a request (`visit`) doesn't take it.
+  const formRef = useRef<HTMLDivElement>(null);
+  const reordered = useReorderPrescriptionStore((state) => state.prescription);
+  const [reorderNcpdpId, setReorderNcpdpId] = useState<string>();
+  const [reorderPharmacy] = usePharmaciesByNcpdpId(reorderNcpdpId ? [reorderNcpdpId] : []);
+  useEffect(() => {
+    if (!reordered || visit) return;
+    useReorderPrescriptionStore.setState({ prescription: undefined });
+    const line = refillLine(reordered, undefined, reordered.order?.metadata);
+    setLines((current) => [...current.filter((item) => item.drug || item.medication || item.compound), line]);
+    setReorderNcpdpId(reordered.pharmacyId);
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [reordered, visit]);
+  useEffect(() => {
+    if (!reorderPharmacy || reorderPharmacy.status === 'pending') return;
+    const found = reorderPharmacy.row && directoryPharmacyToResult(reorderPharmacy.row);
+    if (found) setPickedPharmacy(found);
+    else
+      enqueueSnackbar("The original pharmacy can't take e-prescriptions now. Pick another pharmacy.", {
+        variant: 'warning',
+      });
+    setReorderNcpdpId(undefined);
+  }, [reorderPharmacy]);
 
   const [quickPickLineKey, setQuickPickLineKey] = useState<number | null>(null);
   const [quickPickName, setQuickPickName] = useState('');
@@ -285,7 +313,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
 
   return (
     <>
-      <Box sx={{ containerType: 'inline-size' }}>
+      <Box ref={formRef} sx={{ containerType: 'inline-size' }}>
         <Box
           sx={{
             display: 'grid',

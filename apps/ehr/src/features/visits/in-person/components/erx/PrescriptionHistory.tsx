@@ -163,7 +163,7 @@ export const PrescriptionHistoryButton: FC<PrescriptionTimelineProps & { visitDa
 }) => (
   <PanelButton
     label="History"
-    icon={<HistoryIcon fontSize="small" />}
+    icon={<HistoryIcon fontSize="small" color="info" />}
     prescription={props.prescription}
     subtitle={[props.prescription.pharmacyName, visitDate && `visit ${visitDate}`].filter(Boolean).join(' · ')}
     content={<PrescriptionTimeline {...props} />}
@@ -225,7 +225,7 @@ const PrescriptionDetails: FC<PrescriptionTimelineProps> = ({ prescription, prac
 export const PrescriptionDetailsButton: FC<PrescriptionTimelineProps> = (props) => (
   <PanelButton
     label="Details"
-    icon={<InfoOutlinedIcon fontSize="small" />}
+    icon={<InfoOutlinedIcon fontSize="small" color="primary" />}
     prescription={props.prescription}
     content={<PrescriptionDetails {...props} />}
   />

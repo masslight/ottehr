@@ -55,6 +55,7 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
 }));
 vi.mock('../../src/features/visits/shared/hooks/useErxPharmacies', () => ({
   usePreferredPharmacy: () => ({ data: PHARMACY }),
+  usePharmaciesByNcpdpId: () => [],
 }));
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
   useSearchMedications: () => ({ data: [], isFetching: false, isError: false }),

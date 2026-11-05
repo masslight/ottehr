@@ -49,6 +49,7 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
 // The saved pharmacy matches the directory.
 vi.mock('../../src/features/visits/shared/hooks/useErxPharmacies', () => ({
   usePreferredPharmacy: () => ({ data: PHARMACY }),
+  usePharmaciesByNcpdpId: () => [],
 }));
 // The medication search answers with the test drugs whose name starts with what's typed.
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({

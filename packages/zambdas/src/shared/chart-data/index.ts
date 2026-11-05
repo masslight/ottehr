@@ -43,6 +43,7 @@ import {
   ERX_MEDICATION_META_TAG_CODE,
   FHIR_EXTENSION,
   PERFORMER_TYPE_SYSTEM,
+  PRESCRIPTION_ERX_METADATA_URL,
   PRESCRIPTION_ERX_PHARMACY_ID_URL,
   PRESCRIPTION_ERX_PHARMACY_NAME_URL,
   PRIVATE_EXTENSION_BASE_URL,
@@ -116,6 +117,7 @@ import {
 import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SNOMEDCodeConceptInterface } from 'utils/lib/types/api/chart-data/save-chart-data.types';
+import { PrescriptionOrderMetadata, PrescriptionOrderMetadataSchema } from 'utils/lib/types/api/erx.types';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { CompoundIngredientInput, QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
 import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.constants';
@@ -471,6 +473,23 @@ const makePrescribedCompound = (medRequest: MedicationRequest): PrescribedMedica
   };
 };
 
+/** The order form's blanks the prescription was sent with, from the eRx service's metadata extension. None when it was
+ * sent without them, or what is stored isn't this version's shape (treated as nothing stored, never as an error). */
+export const readPrescriptionMetadata = (
+  medicationRequest: MedicationRequest
+): PrescriptionOrderMetadata | undefined => {
+  const json = medicationRequest.extension?.find((extension) => extension.url === PRESCRIPTION_ERX_METADATA_URL)
+    ?.valueString;
+  if (!json) return undefined;
+  try {
+    const parsed = PrescriptionOrderMetadataSchema.safeParse(JSON.parse(json));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    // Not JSON: the same as none stored.
+    return undefined;
+  }
+};
+
 // The order fields the eRx service stores on a prescription, as it was sent.
 const makePrescribedMedicationOrder = (medRequest: MedicationRequest): PrescribedMedicationOrderDTO => {
   const ndc = medRequest.medicationCodeableConcept?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC);
@@ -493,6 +512,7 @@ const makePrescribedMedicationOrder = (medRequest: MedicationRequest): Prescribe
     diagnosisCode: diagnosis?.code,
     diagnosisDescription: diagnosis?.display,
     ...(compound ? { compound } : {}),
+    metadata: readPrescriptionMetadata(medRequest),
   };
 };
 

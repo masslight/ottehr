@@ -1,5 +1,6 @@
 import BlockIcon from '@mui/icons-material/Block';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
+import ReplayIcon from '@mui/icons-material/Replay';
 import { Alert, Box, Button, CircularProgress, IconButton, Paper, Tooltip, Typography } from '@mui/material';
 import { Stack } from '@mui/system';
 import { DataGridPro, GridColDef, GridRowSelectionModel } from '@mui/x-data-grid-pro';
@@ -11,6 +12,7 @@ import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-da
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { medicationStatusMapper } from '../../../shared/components/plan-tab/ERxContainer';
 import { useChartSection } from '../../../shared/hooks/useChartSection';
+import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { CancelPrescriptionsDialog } from './CancelPrescriptionsDialog';
 import { PrescriptionDetailsButton, PrescriptionHistoryButton } from './PrescriptionHistory';
@@ -21,6 +23,7 @@ import {
   prescriptionActionUnavailableText,
   prescriptionStatusView,
 } from './prescriptionStatus';
+import { reorderPrescription } from './reorderPrescription.store';
 import { SendToAnotherPharmacyDialog } from './SendToAnotherPharmacyDialog';
 
 // The chips reuse the medication status colors.
@@ -33,9 +36,20 @@ const prescriptionChipMapper = {
   Cancelled: medicationStatusMapper.cancelled,
 };
 
-const ROW_ACTIONS: { action: PrescriptionAction; label: string; icon: JSX.Element }[] = [
-  { action: 'sendToAnotherPharmacy', label: 'Send to another pharmacy', icon: <LocalPharmacyIcon fontSize="small" /> },
-  { action: 'cancel', label: 'Cancel prescription', icon: <BlockIcon fontSize="small" /> },
+// Colored on the button, so a disabled one still greys out.
+const ROW_ACTIONS: {
+  action: PrescriptionAction;
+  label: string;
+  icon: JSX.Element;
+  color: 'secondary' | 'error';
+}[] = [
+  {
+    action: 'sendToAnotherPharmacy',
+    label: 'Send to another pharmacy',
+    icon: <LocalPharmacyIcon fontSize="small" />,
+    color: 'secondary',
+  },
+  { action: 'cancel', label: 'Cancel prescription', icon: <BlockIcon fontSize="small" />, color: 'error' },
 ];
 
 /** A row's action buttons; one that doesn't apply to the row is disabled and says why. */
@@ -44,12 +58,18 @@ const PrescriptionActionButtons: FC<{
   onAction: (action: PrescriptionAction) => void;
 }> = ({ prescription, onAction }) => (
   <>
-    {ROW_ACTIONS.map(({ action, label, icon }) => {
+    {ROW_ACTIONS.map(({ action, label, icon, color }) => {
       const unavailable = prescriptionActionUnavailableText(action, [prescription]);
       return (
         <Tooltip key={action} title={unavailable ?? label}>
           <span>
-            <IconButton aria-label={label} size="small" disabled={!!unavailable} onClick={() => onAction(action)}>
+            <IconButton
+              aria-label={label}
+              size="small"
+              color={color}
+              disabled={!!unavailable}
+              onClick={() => onAction(action)}
+            >
               {icon}
             </IconButton>
           </span>
@@ -57,6 +77,26 @@ const PrescriptionActionButtons: FC<{
       );
     })}
   </>
+);
+
+/** Fills the order form with the prescription as it was sent, for the provider to check and send again. */
+const ReorderButton: FC<{ prescription: PrescribedMedicationDTO; readOnly: boolean }> = ({
+  prescription,
+  readOnly,
+}) => (
+  <Tooltip title={readOnly ? 'The visit is signed' : 'Reorder'}>
+    <span>
+      <IconButton
+        aria-label="Reorder"
+        size="small"
+        color="success"
+        disabled={readOnly}
+        onClick={() => reorderPrescription(prescription)}
+      >
+        <ReplayIcon fontSize="small" />
+      </IconButton>
+    </span>
+  </Tooltip>
 );
 
 const isRowSelectable = (prescription: PrescribedMedicationDTO): boolean =>
@@ -75,6 +115,7 @@ const getPractitionerName = (practitioner?: Practitioner): string | undefined =>
 export const PrescriptionTable: FC = () => {
   const { isLoading, isFetching, error, refetch, data: chartFields } = useChartSection('plan');
   const { appointment } = useAppointmentData();
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const userTimezone = DateTime.local().zoneName;
   const appointmentStart = useMemo(
     () => formatDateToMDYWithTime(appointment?.start, userTimezone),
@@ -167,7 +208,7 @@ export const PrescriptionTable: FC = () => {
         sortable: false,
         field: 'actions',
         headerName: 'Actions',
-        width: 160,
+        width: 195,
         // The buttons and the details and history dialogs (portalled, but still React children) don't change the
         // selection.
         renderCell: ({ row }) => (
@@ -183,6 +224,7 @@ export const PrescriptionTable: FC = () => {
               practitioners={chartFields?.prescribedMedicationsRequesterPractitioners}
               visitDate={appointmentStart?.date}
             />
+            <ReorderButton prescription={row} readOnly={isAppointmentReadOnly} />
             <PrescriptionActionButtons
               prescription={row}
               onAction={(action) => (action === 'cancel' ? setToCancel : setToSendElsewhere)([row])}
@@ -191,7 +233,7 @@ export const PrescriptionTable: FC = () => {
         ),
       },
     ],
-    [appointmentStart, chartFields?.prescribedMedicationsRequesterPractitioners]
+    [appointmentStart, chartFields?.prescribedMedicationsRequesterPractitioners, isAppointmentReadOnly]
   );
 
   return (
