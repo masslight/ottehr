@@ -49,8 +49,8 @@ import {
   getBooleanExtensionValue,
   sanitizeStringForFhirCode,
 } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   addEmptyArrOperation,
   addOperation,
@@ -1706,7 +1706,7 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
 
   // 2. Getting DiagnosisDTO
   encounterResource.diagnosis?.forEach((encounterDiagnosis) => {
-    const conditionId = removePrefix('Condition/', encounterDiagnosis.condition.reference || '');
+    const conditionId = getIdFromReference(encounterDiagnosis.condition.reference, 'Condition');
     const isPrimary = (encounterDiagnosis.rank ?? 0) === 1;
     if (conditionId) {
       const conditionResource = resources.find((element) => element.id === conditionId) as Condition;
@@ -1957,7 +1957,7 @@ export function makeProceduresDTOFromFhirResources(
   ) as Procedure[];
 
   const diagnosisConditions = (encounter.diagnosis ?? []).flatMap((encounterDiagnosis) => {
-    const conditionId = removePrefix('Condition/', encounterDiagnosis.condition.reference || '');
+    const conditionId = getIdFromReference(encounterDiagnosis.condition.reference, 'Condition');
     const condition = resources.find((resource) => resource.id === conditionId) as Condition | undefined;
     if (condition) {
       return [condition];
@@ -1968,7 +1968,7 @@ export function makeProceduresDTOFromFhirResources(
   return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
     return {
       resourceId: serviceRequests.id,
-      encounterId: serviceRequests.encounter?.reference?.split('/')[1],
+      encounterId: getIdFromReference(serviceRequests.encounter?.reference),
       cptCodes: cptCodeProcedures
         .filter(
           (procedure) => serviceRequests.supportingInfo?.find((ref) => ref.reference === `Procedure/${procedure.id}`)

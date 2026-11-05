@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_VIEWER_LAUNCH_URL } from 'utils/lib/fhir/radiology';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { RadiologyLaunchViewerZambdaOutput } from 'utils/lib/types/api/radiology';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -56,7 +57,7 @@ const performEffect = async (
       throw new Error('No accession number found in oystehr service request.');
     }
 
-    const patientId = serviceRequest.subject.reference?.split('/')[1];
+    const patientId = getIdFromReference(serviceRequest.subject.reference);
 
     if (!patientId) {
       throw new Error('No patient ID found in oystehr service request.');

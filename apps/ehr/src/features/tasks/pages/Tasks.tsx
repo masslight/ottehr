@@ -35,6 +35,7 @@ import {
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FAX_TASK, Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { TASK_CATEGORY_LABEL } from '../common';
@@ -73,7 +74,7 @@ export const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { mutateAsync: completeTask } = useCompleteTask();
   const currentUser = useEvolveUser();
-  const currentUserProviderId = currentUser?.profile?.split('/')[1];
+  const currentUserProviderId = getIdFromReference(currentUser?.profile);
 
   const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {

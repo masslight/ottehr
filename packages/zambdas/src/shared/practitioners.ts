@@ -2,7 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Practitioner, Reference } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 
 /**
@@ -16,7 +16,7 @@ import { Secrets } from 'utils/lib/secrets';
  * from invoking zambdas that depend on this helper.
  */
 export async function getMyPractitionerId(token: string, secrets: Secrets | null): Promise<string> {
-  const myPractitionerId = removePrefix('Practitioner/', (await userMe(token, secrets)).profile);
+  const myPractitionerId = getIdFromReference((await userMe(token, secrets)).profile, 'Practitioner');
   if (!myPractitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
   return myPractitionerId;
 }
@@ -37,7 +37,7 @@ export async function resolveCallerPractitionerRef(
   oystehr: Oystehr
 ): Promise<Reference> {
   const user = await userMe(token, secrets);
-  const practitionerId = removePrefix('Practitioner/', user.profile);
+  const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
 
   const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
@@ -50,7 +50,7 @@ export async function resolveCallerPractitionerRef(
  * Display is first + last name only — no credentials.
  */
 export async function practitionerRefForUser(user: User, oystehr: Oystehr): Promise<Reference> {
-  const practitionerId = removePrefix('Practitioner/', user.profile ?? '');
+  const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) return { reference: user.profile, display: user.name };
   try {
     const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });

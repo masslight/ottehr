@@ -35,6 +35,7 @@ import {
   getSMSNumberForIndividual,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -354,7 +355,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput, 
       (asEnc.participant ?? []).forEach((p) => {
         const ref = p.individual?.reference;
         if (ref?.startsWith('Practitioner/')) {
-          const id = ref.split('/')[1];
+          const id = getIdFromReference(ref, 'Practitioner');
           if (id) practitionerIds.push(id);
         }
       });

@@ -2,7 +2,8 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Patient, Practitioner } from 'fhir/r4b';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { removePrefix, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { SendFaxZambdaInput } from 'utils/lib/types/api/send-fax.types';
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
@@ -55,7 +56,7 @@ const complexValidation = async (
 ): Promise<SendFaxAttemptInput> => {
   const { appointmentId, faxNumber, secrets } = validatedInput;
   const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
-  const practitionerId = removePrefix('Practitioner/', user.profile);
+  const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) throw new Error('User practitioner reference is invalid');
 
   console.log('searching fhir for patient, visit note, and user');
