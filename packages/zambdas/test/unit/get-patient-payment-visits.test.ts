@@ -165,6 +165,47 @@ describe('getPatientPaymentVisits', () => {
     ]);
   });
 
+  it("finds a schedule owner linked only through the appointment's slot schedule", async () => {
+    const oystehr = searchClient({
+      Encounter: [
+        {
+          resourceType: 'Encounter',
+          id: 'enc-1',
+          status: 'finished',
+          class: { code: 'AMB' },
+          appointment: [{ reference: 'Appointment/appt-1' }],
+        },
+        // the practitioner is an actor, but the location only comes through slot -> schedule
+        {
+          resourceType: 'Appointment',
+          id: 'appt-1',
+          status: 'fulfilled',
+          start: '2026-10-01T14:00:00.000Z',
+          slot: [{ reference: 'Slot/slot-1' }],
+          participant: [{ actor: { reference: 'Practitioner/doc' }, status: 'accepted' }],
+        },
+        {
+          resourceType: 'Slot',
+          id: 'slot-1',
+          status: 'busy',
+          start: '2026-10-01T14:00:00.000Z',
+          end: '2026-10-01T14:15:00.000Z',
+          schedule: { reference: 'Schedule/sched-1' },
+        },
+        { resourceType: 'Schedule', id: 'sched-1', actor: [{ reference: 'Location/clinic' }] },
+        { resourceType: 'Practitioner', id: 'doc', ...withStripeAccount('acct_doc') },
+        { resourceType: 'Location', id: 'clinic', ...withStripeAccount('acct_clinic') },
+      ],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    // as in getScheduleOwnerFromAppointmentOrEncounter, the schedule's Location wins over the practitioner actor
+    expect(visits).toEqual([
+      expect.objectContaining({ encounterId: 'enc-1', scheduleOwner: { stripeAccount: 'acct_clinic' } }),
+    ]);
+  });
+
   it('looks up no payments for a patient with no visits', async () => {
     const oystehr = searchClient({});
 

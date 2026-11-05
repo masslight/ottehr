@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getAllStripeCustomerAccountPairs, scheduleOwnerAmong } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
@@ -61,17 +61,21 @@ export const getPatientPaymentVisits = async (
   };
 };
 
-// One paged search for every encounter (follow-ups included) with its appointment and the
-// appointment's actors, among which getScheduleOwnerFromAppointmentOrEncounter finds the schedule owner.
+// One paged search for every encounter (follow-ups included) with its appointment, the appointment's
+// actors and its slot's schedule actor: the same candidates getScheduleOwnerFromAppointmentOrEncounter
+// picks the schedule owner from.
 const fetchVisits = async (
   oystehr: Oystehr,
   patientId: string
 ): Promise<Omit<PatientPaymentVisit, 'legacyPaymentNotices'>[]> => {
-  const { encounters, appointments, appointmentActorsByReference } =
-    await getAllFhirEncountersAndAppointmentsForPatient(oystehr, patientId, {
+  const { encounters, appointments, relatedResourcesByReference } = await getAllFhirEncountersAndAppointmentsForPatient(
+    oystehr,
+    patientId,
+    {
       includeEncountersWithoutAppointment: true,
-      includeAppointmentActors: true,
-    });
+      includeScheduleOwnerCandidates: true,
+    }
+  );
   const appointmentsByReference = new Map(
     appointments.map((appointment) => [`Appointment/${appointment.id}`, appointment])
   );
@@ -81,10 +85,9 @@ const fetchVisits = async (
     .map((encounter) => {
       const appointmentReference = encounter.appointment?.[0]?.reference;
       const appointment = appointmentReference ? appointmentsByReference.get(appointmentReference) : undefined;
-      const actors = (appointment?.participant ?? []).flatMap(
-        (participant) => appointmentActorsByReference.get(participant.actor?.reference ?? '') ?? []
-      );
-      const scheduleOwner = appointment ? scheduleOwnerAmong(actors) : undefined;
+      const scheduleOwner = appointment
+        ? scheduleOwnerAmong(scheduleOwnerCandidates(appointment, relatedResourcesByReference))
+        : undefined;
       return {
         encounterId: encounter.id,
         appointmentId: appointment?.id,
@@ -92,6 +95,27 @@ const fetchVisits = async (
         ...(scheduleOwner ? { scheduleOwner: { stripeAccount: getStripeAccountForScheduleOwner(scheduleOwner) } } : {}),
       };
     });
+};
+
+// The appointment's actors plus the actor of each schedule its slots belong to, so a location that is
+// only linked through the schedule is still found.
+const scheduleOwnerCandidates = (
+  appointment: Appointment,
+  resourcesByReference: Map<string, FhirResource>
+): FhirResource[] => {
+  const lookup = (reference: string | undefined): FhirResource[] => {
+    const resource = reference ? resourcesByReference.get(reference) : undefined;
+    return resource ? [resource] : [];
+  };
+  const appointmentActors = (appointment.participant ?? []).flatMap((participant) =>
+    lookup(participant.actor?.reference)
+  );
+  const scheduleActors = (appointment.slot ?? [])
+    .flatMap((slotReference) => lookup(slotReference.reference))
+    .flatMap((slot) => (slot.resourceType === 'Slot' ? lookup(slot.schedule.reference) : []))
+    .flatMap((schedule) => (schedule.resourceType === 'Schedule' ? schedule.actor : []))
+    .flatMap((actor) => lookup(actor.reference));
+  return [...appointmentActors, ...scheduleActors];
 };
 
 // Payments the EHR recorded against each encounter. The clinical client skips billing-tagged notices.
