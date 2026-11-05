@@ -35,11 +35,11 @@ import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
 import { getOrCreateInvoicingConfig } from '../../rcm/invoice-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { nextInvoiceNumber } from '../../shared/invoice-number';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from '../invoice-issuer';
+import { issueInvoiceNumber } from '../invoice-number';
 import { getInvoiceableEncounterId, getServiceFacilityId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
@@ -96,7 +96,7 @@ export async function performEffect(
         ...invoice,
         identifier: [
           ...(invoice.identifier ?? []),
-          { system: INVOICE_NUMBER_IDENTIFIER_SYSTEM, value: await nextInvoiceNumber(oystehr) },
+          { system: INVOICE_NUMBER_IDENTIFIER_SYSTEM, value: await issueInvoiceNumber(oystehr) },
         ],
       });
     }
