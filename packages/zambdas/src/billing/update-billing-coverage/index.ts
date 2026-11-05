@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Coverage, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
 import { setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { UpdateBillingCoverageInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -52,7 +53,7 @@ async function complexValidation(
   authorizationHeader: string | undefined
 ): Promise<ComplexValidationResult> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
-  const patientId = coverage.beneficiary?.reference?.split('/')[1];
+  const patientId = getIdFromReference(coverage.beneficiary?.reference);
   if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
   // Don't let this coverage take an insurance type another active coverage already holds.
@@ -117,7 +118,7 @@ export async function performEffect(
   if (params.relationship) {
     setCoverageRelationship(coverage, params.relationship);
     const currentRef = coverage.subscriber?.reference;
-    currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
+    currentSubscriberId = getIdFromReference(currentRef, 'RelatedPerson');
 
     if (params.relationship === 'Self' || !params.policyHolder) {
       coverage.subscriber = { reference: `Patient/${patientId}` };

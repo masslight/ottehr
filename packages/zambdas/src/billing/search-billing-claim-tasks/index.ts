@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Organization, Patient, Task } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { buildAppointmentStartMap, getEncounterDateTime } from 'utils/lib/fhir/encounter';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   BILLING_CLAIM_TASK_CODING,
@@ -154,15 +155,15 @@ async function getTaskRows(
   const appointmentStarts = buildAppointmentStartMap(visitResources);
   const payerNames = await getClaimTaskPayerNames(clinicalOystehr, oystehr, visitResources, payerCache);
   return taskResources.map((task) => {
-    const encounterId = task.encounter?.reference?.split('/')[1];
-    const patientId = task.for?.reference?.split('/')[1];
+    const encounterId = getIdFromReference(task.encounter?.reference);
+    const patientId = getIdFromReference(task.for?.reference);
     const encounter = encounterId ? encountersById.get(encounterId) : undefined;
     return {
       id: task.id!,
       status: task.status,
       encounterId,
       encounterDate: encounter ? getEncounterDateTime(encounter, appointmentStarts) : undefined,
-      appointmentId: encounter?.appointment?.[0]?.reference?.split('/')[1],
+      appointmentId: getIdFromReference(encounter?.appointment?.[0]?.reference),
       patientId,
       patientName: fhirName(patientsById.get(patientId)) || undefined,
       payerNames: payerNames.get(encounterId ?? '') ?? [],

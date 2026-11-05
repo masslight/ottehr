@@ -49,32 +49,9 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   );
 };
 
-// Filters saved before `knownVisitTypes` was persisted predate the scheduled follow-up option.
-const VISIT_TYPES_ADDED_AFTER_LEGACY_FILTERS: string[] = ['in-person-scheduled-follow-up'];
-
-// A saved visit-type selection that covered every option offered at save time means "all", so
-// options added since then are selected too; a narrowed selection is restored as-is.
-const restoreVisitTypes = (
-  allVisitTypes: string[],
-  savedVisitTypes: string[] | undefined,
-  knownVisitTypesAtSaveTime: string[] | undefined
-): string[] => {
-  if (!savedVisitTypes) {
-    return allVisitTypes;
-  }
-  const knownAtSaveTime =
-    knownVisitTypesAtSaveTime ?? allVisitTypes.filter((key) => !VISIT_TYPES_ADDED_AFTER_LEGACY_FILTERS.includes(key));
-  const hadAllSelected = knownAtSaveTime
-    .filter((key) => allVisitTypes.includes(key))
-    .every((key) => savedVisitTypes.includes(key));
-  if (!hadAllSelected) {
-    return savedVisitTypes;
-  }
-  const added = allVisitTypes.filter((key) => !knownAtSaveTime.includes(key) && !savedVisitTypes.includes(key));
-  return [...savedVisitTypes, ...added];
-};
-
 export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+// Persisted filters carry this marker. So we can add new filter options and silently select them for users
+const PERSISTED_FILTERS_VERSION = 1;
 // The tracking-board date range is kept in sessionStorage (not localStorage) so it survives
 // in-app navigation but resets to today on a new browser session.
 export const SESSION_STORAGE_DATE_RANGE_KEY = 'appointments.dateRange';
@@ -206,7 +183,7 @@ export default function AppointmentsFilters(): ReactElement {
           const { dateFrom, dateTo, ...rest } = values;
           localStorage.setItem(
             LOCAL_STORAGE_FILTERS_KEY,
-            JSON.stringify({ ...rest, knownVisitTypes: Object.keys(visitTypeToLabel) })
+            JSON.stringify({ ...rest, version: PERSISTED_FILTERS_VERSION })
           );
           if (dateFrom && dateTo) {
             // Persist only a complete range; a half-cleared range is invalid for the board, so it is
@@ -222,7 +199,7 @@ export default function AppointmentsFilters(): ReactElement {
       },
     });
     return () => callback();
-  }, [methods, setSearchParams, visitTypeToLabel]);
+  }, [methods, setSearchParams]);
 
   useEffect(() => {
     // Restore persisted filters when the URL carries none (e.g. only `?tab=` after an approval).
@@ -251,12 +228,13 @@ export default function AppointmentsFilters(): ReactElement {
     }
 
     try {
-      const { knownVisitTypes: knownVisitTypesAtSaveTime, ...parsed } = JSON.parse(persistedValues);
+      const { version, ...parsed } = JSON.parse(persistedValues);
+      const isLegacy = version == null;
       methods.reset({
         ...defaultFilterValues,
         ...parsed,
         ...persistedDateRange,
-        visitType: restoreVisitTypes(defaultValues.visitType, parsed.visitType, knownVisitTypesAtSaveTime),
+        visitType: isLegacy ? defaultValues.visitType : parsed.visitType ?? defaultValues.visitType,
       });
     } catch {
       // Corrupt/legacy localStorage: drop it and fall back to defaults instead of crashing.
@@ -282,6 +260,7 @@ export default function AppointmentsFilters(): ReactElement {
                 }}
                 size="medium"
                 multiple
+                withSelectAll
               />
             </Box>
             <Link to="/visits/add" style={{ display: 'contents' }}>

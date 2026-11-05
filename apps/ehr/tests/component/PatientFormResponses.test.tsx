@@ -109,16 +109,20 @@ describe('PatientFormResponses', () => {
     // Only this visit's response has the Edit/Delete menu.
     expect(screen.getAllByTestId(dataTestIds.visitDetailsPage.customFormMenuButton('sdoh-qr-now'))).toHaveLength(1);
     expect(screen.queryByTestId(dataTestIds.visitDetailsPage.customFormMenuButton('sdoh-qr-old'))).toBeNull();
-    expect(screen.getByRole('button', { name: 'Add form' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add Form' })).toBeInTheDocument();
   });
 
-  it('offers no changes once the visit is locked', async () => {
+  // The page title shares the Add Form button's row, so hiding the button on a locked visit must keep the title.
+  it('offers no changes once the visit is locked, but keeps the page title', async () => {
     (useGetAppointmentAccessibility as Mock).mockReturnValue({ isAppointmentReadOnly: true });
-    renderWithProviders(<PatientFormResponses placement="questionnaires" scope="all-visits" />);
+    renderWithProviders(
+      <PatientFormResponses placement="questionnaires" scope="all-visits" pageTitle={<h1>Clinical Forms</h1>} />
+    );
 
     expect(await screen.findByText(/This visit/)).toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.visitDetailsPage.customFormMenuButton('sdoh-qr-now'))).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add form' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add Form' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Clinical Forms' })).toBeInTheDocument();
   });
 
   it('opens a form started from another page in its edit dialog', async () => {

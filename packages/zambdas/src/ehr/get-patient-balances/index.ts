@@ -2,19 +2,25 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
-import { Appointment, Encounter } from 'fhir/r4b';
+import { FhirResource } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { GetBillingPatientBalanceResponse } from 'utils/lib/types/data/billing/billing.types';
 import { GetPatientBalancesZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, shouldUseOttehrBillingForPatientBalances } from '../../shared/candid';
-import { fetchAllPages } from '../../shared/fhir';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { lambdaResponse } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import {
+  encounterAndAppointmentSearchParams,
+  getAllFhirEncountersAndAppointmentsForPatient,
+  PatientEncountersAndAppointments,
+  splitEncountersAndAppointments,
+} from '../shared/patient-encounters';
 import { ValidatedInput, validateInput, validateSecrets } from './validateRequestParameters';
 
 type EncounterIdMap = Map<
@@ -31,8 +37,6 @@ type EncounterIdMap = Map<
 let m2mToken: string;
 
 const CANDID_BATCH_SIZE = 3;
-
-const ENCOUNTER_SCAN_PAGE_SIZE = 100;
 
 const ZAMBDA_NAME = 'get-patient-balances';
 
@@ -69,7 +73,7 @@ export async function performBillingEffect(
 
   const encounterDataMap = new Map<string, { encounterDate: string; appointmentId: string }>();
   encounters.forEach((encounter) => {
-    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const appointmentId = getIdFromReference(encounter.appointment?.[0].reference);
     const encounterDate = appointments.find((app) => app.id === appointmentId)?.start;
     if (!appointmentId || !encounterDate) {
       console.warn(
@@ -155,7 +159,7 @@ export async function performEffect(
   const claimIdToEncounterIdMap = new Map<string, string>();
 
   encounters.forEach((encounter) => {
-    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const appointmentId = getIdFromReference(encounter.appointment?.[0].reference);
     const appointment = appointments.find((app) => app.id === appointmentId);
     const encounterDate = appointment?.start;
     const candidId = encounter.identifier?.find(
@@ -235,69 +239,11 @@ export async function performEffect(
   };
 }
 
-function encounterAndAppointmentSearchParams(patientId: string): { name: string; value: string }[] {
-  return [
-    {
-      name: 'subject',
-      value: `Patient/${patientId}`,
-    },
-    {
-      name: '_include',
-      value: 'Encounter:appointment',
-    },
-    // exclude follow-up encounters that are missing appointment references
-    {
-      name: 'appointment:missing',
-      value: 'false',
-    },
-  ];
-}
-
-function splitEncountersAndAppointments(
-  resources: (Encounter | Appointment)[],
-  patientId: string
-): { encounters: Encounter[]; appointments: Appointment[] } {
-  const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
-  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
-  console.log(`Found ${encounters.length} encounters for patient ${patientId}`);
-  return {
-    encounters,
-    appointments,
-  };
-}
-
-// Same search as getFhirEncountersAndAppointmentsForPatient but pages through every encounter.
-async function getAllFhirEncountersAndAppointmentsForPatient(
-  oystehr: Oystehr,
-  patientId: string
-): Promise<{ encounters: Encounter[]; appointments: Appointment[] }> {
-  const resources: (Encounter | Appointment)[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const bundle = await oystehr.fhir.search<Encounter | Appointment>({
-      resourceType: 'Encounter',
-      params: [
-        ...encounterAndAppointmentSearchParams(patientId),
-        {
-          name: '_count',
-          value: String(count),
-        },
-        {
-          name: '_offset',
-          value: String(offset),
-        },
-      ],
-    });
-    resources.push(...bundle.unbundle());
-    return bundle;
-  }, ENCOUNTER_SCAN_PAGE_SIZE);
-  return splitEncountersAndAppointments(resources, patientId);
-}
-
 async function getFhirEncountersAndAppointmentsForPatient(
   oystehr: Oystehr,
   patientId: string
-): Promise<{ encounters: Encounter[]; appointments: Appointment[] }> {
-  const resourcesResponse = await oystehr.fhir.search<Encounter | Appointment>({
+): Promise<PatientEncountersAndAppointments> {
+  const resourcesResponse = await oystehr.fhir.search<FhirResource>({
     resourceType: 'Encounter',
     params: encounterAndAppointmentSearchParams(patientId),
   });

@@ -18,6 +18,7 @@ import {
   locationSupportsServiceMode,
 } from 'utils/lib/fhir/location';
 import { getFullName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getOpeningTime, isLocationOpen } from 'utils/lib/helpers/check-office-open';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -158,7 +159,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   if (!resolvedCoding && scheduleOwner.resourceType === 'PractitionerRole') {
     const fhirCategoryIds = new Set(fhirCategoryHits.map((hs) => hs.id).filter((id): id is string => !!id));
     const roleCategoryIds = ((scheduleOwner as PractitionerRole).healthcareService ?? [])
-      .map((ref) => ref.reference?.split('/')[1])
+      .map((ref) => getIdFromReference(ref.reference))
       .filter((id): id is string => !!id && fhirCategoryIds.has(id));
     if (roleCategoryIds.length === 1) {
       const onlyId = roleCategoryIds[0];
@@ -232,7 +233,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
         if (getPractitionerRoleAllCategories(entry.owner as PractitionerRole)) return true;
         const roleServices = (entry.owner as any).healthcareService || [];
         return roleServices.some((ref: { reference?: string }) => {
-          const id = ref.reference?.split('/')[1];
+          const id = getIdFromReference(ref.reference);
           return id && categoryHealthcareServiceIds.has(id);
         });
       });
@@ -261,7 +262,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   for (const entry of scheduleList) {
     if (entry.owner.resourceType === 'PractitionerRole') {
       for (const ref of (entry.owner as PractitionerRole).location ?? []) {
-        const id = ref.reference?.split('/')[1];
+        const id = getIdFromReference(ref.reference);
         if (id) pairedLocationIds.add(id);
       }
     }
@@ -332,7 +333,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       qualifyingLocationIds.add(entry.owner.id);
     } else if (entry.owner.resourceType === 'PractitionerRole') {
       for (const ref of (entry.owner as PractitionerRole).location ?? []) {
-        const id = ref.reference?.split('/')[1];
+        const id = getIdFromReference(ref.reference);
         if (!id) continue;
         // Absent from the map means the fetch above excluded it as deactivated.
         if (!pairedLocationById.has(id)) continue;
@@ -362,7 +363,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       if (entry.owner.resourceType === 'Location') return entry.owner.id === atLocationId;
       if (entry.owner.resourceType === 'PractitionerRole') {
         return ((entry.owner as PractitionerRole).location ?? []).some(
-          (ref) => ref.reference?.split('/')[1] === atLocationId
+          (ref) => getIdFromReference(ref.reference) === atLocationId
         );
       }
       // Practitioner / HealthcareService owners pass through (rare in the
@@ -527,8 +528,8 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   // header reads naturally to the patient.
   if (scheduleOwner.resourceType === 'PractitionerRole') {
     const role = scheduleOwner as PractitionerRole;
-    const practitionerId = role.practitioner?.reference?.split('/')[1];
-    const locationId = role.location?.[0]?.reference?.split('/')[1];
+    const practitionerId = getIdFromReference(role.practitioner?.reference);
+    const locationId = getIdFromReference(role.location?.[0]?.reference);
     const [practitioner, prLocation] = await Promise.all([
       practitionerId
         ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }).catch(() => undefined)

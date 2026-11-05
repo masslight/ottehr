@@ -118,6 +118,7 @@ import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
+import { ClaimInvoicesSection } from '../components/ClaimInvoicesSection';
 import {
   ClaimSubmissionFields,
   ClaimSubmissionForm,
@@ -576,7 +577,7 @@ export default function ClaimDetail(): ReactElement {
           claim={claim}
         />
       )}
-      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
+      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claim={claim} />
 
       <ClaimNotesDrawer
         key={claim.id}
@@ -745,6 +746,7 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+            <ClaimInvoicesSection claim={claim} refetchClaim={fetchDetail} />
             <PatientPaymentsSection payments={claim.patientPayments} />
             <WriteOffsSection
               claimId={claim.id}

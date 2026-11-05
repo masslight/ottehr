@@ -66,6 +66,7 @@ vi.mock('../../src/hooks/useAppClients', () => ({
     oystehrZambda: oystehrZambdaStub,
   }),
 }));
+vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({ useInvoicingInBillingApp: () => false }));
 
 const { enqueueSnackbarMock } = vi.hoisted(() => ({ enqueueSnackbarMock: vi.fn() }));
 
@@ -82,7 +83,7 @@ const emptyAddressParts = {
   postalCode: '',
 };
 
-const makeClaim = (arStage: string): ClaimDetailResponse => ({
+export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   id: 'claim-1',
   encounterId: '',
   appointmentId: '',
@@ -157,6 +158,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePayments: [],
   patientPayments: [],
   writeOffs: [],
+  invoices: [],
   otherClaims: [],
   tags: [],
   pcn: '',

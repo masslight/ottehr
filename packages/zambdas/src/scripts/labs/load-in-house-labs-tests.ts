@@ -353,14 +353,22 @@ const getUrlAndVersion = (
   const nameForUrl = item.name.split(' ').join('');
   const url = `${AD_CANONICAL_URL_BASE}/${nameForUrl}`;
   const curVersion = adUrlVersionMap[url];
-  const updatedVersion = curVersion ? parseInt(curVersion) + 1 : 1;
-  return { url, version: updatedVersion.toString() };
+  return { url, version: curVersion ? bumpPatchVersion(curVersion) : '1.0.0' };
+};
+
+// bumps the patch segment of a semver version; legacy integer versions (e.g. '3') are treated as '3.0.0'
+const bumpPatchVersion = (version: string): string => {
+  const [major = 0, minor = 0, patch = 0] = version.split('.').map((part) => parseInt(part, 10));
+  if ([major, minor, patch].some((part) => Number.isNaN(part))) {
+    throw new Error(`Cannot bump non-semver version: ${version}`);
+  }
+  return `${major}.${minor}.${patch + 1}`;
 };
 
 /**
  * Builds the in-house lab ActivityDefinition resources from test-item definitions.
  * Shared by the `make-in-house-test-items` loader (destructive re-sync) and the
- * `recreate-in-house-labs` one-shot seed. Versions default to 1; pass a populated
+ * `recreate-in-house-labs` one-shot seed. Versions default to 1.0.0; pass a populated
  * `adUrlVersionMap` (canonical url -> current version) to bump versions of tests
  * that already exist.
  */
@@ -373,7 +381,7 @@ export const buildInHouseLabActivityDefinitions = (
   for (const testItem of testItems) {
     const { obsDefReferences, contained } = getObservationRequirement(testItem);
 
-    // this will default to version 1 at the onset which is fine, but if running in API mode, we need to figure out the current version and increment
+    // this will default to version 1.0.0 at the onset which is fine, but if running in API mode, we need to figure out the current version and increment
     const { url: activityDefUrl, version: activityDefVersion } = getUrlAndVersion(testItem, adUrlVersionMap);
 
     const activityDef: ActivityDefinition = {
@@ -390,6 +398,7 @@ export const buildInHouseLabActivityDefinitions = (
             return {
               system: CODE_SYSTEM_CPT,
               code: cptCode.code,
+              display: cptCode.display,
               ...(cptCode.modifier ? { extension: [makeCptModifierExtension(cptCode.modifier)] } : {}),
             };
           }),
@@ -665,7 +674,7 @@ interface StringComponent extends BaseComponent {
 
 type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 
-type CptCode = { code: string; modifier?: { code: ProcedureModifier; display: string }[] };
+type CptCode = { code: string; display: string; modifier?: { code: ProcedureModifier; display: string }[] };
 export interface TestItem {
   name: string;
   methods: TestItemMethods;

@@ -28,6 +28,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
 import { replaceOperation } from 'utils/lib/helpers/operations';
@@ -475,7 +476,7 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
     (res) => res.resourceType === 'MedicationStatement'
   ) as MedicationStatement;
 
-  const medicationRequestId = medicationAdministration.request?.reference?.split('/')[1];
+  const medicationRequestId = getIdFromReference(medicationAdministration.request?.reference);
   const medicationRequest = resources.find(
     (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
   ) as MedicationRequest;

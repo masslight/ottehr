@@ -82,6 +82,9 @@ export const ExportClaimX12InputSchema = z.object({
 
 export const GetClaimCms1500InputSchema = z.object({
   claimId: z.string().uuid(),
+  submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES).optional(),
+  submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES).optional(),
+  payerClaimControlNumber: z.string().min(1).optional(),
 });
 
 export const GetEraDetailInputSchema = z.object({
@@ -909,10 +912,27 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
+export const GetBillingInvoiceRecipientInputSchema = z.object({
+  claimId: z.string().uuid(),
+});
+
+export const CreateBillingInvoiceInputSchema = z.object({
+  claimId: nonEmptyString.uuid(),
+  amountCents: z.number().int().positive(),
+  dueDate: z.string().date(),
+  smsMessage: nonEmptyString,
+  memo: nonEmptyString,
+  // Same key on a retry resumes the invoice that request started.
+  idempotencyKey: z
+    .string()
+    .max(128)
+    .regex(/^[A-Za-z0-9._-]+$/),
+});
+
 export const SearchBillingInvoicesInputSchema = z
   .object({
     status: z.enum(BILLING_INVOICE_LIST_STATUSES).optional(),
-    // A full claim ID, or the start of a patient's name.
+    // A full billing patient or claim ID, or the start of a patient's name.
     searchText: nonEmptyString.optional(),
     facilityId: nonEmptyString.optional(),
     issuedFrom: z.string().date().optional(),
@@ -936,10 +956,19 @@ export const VoidBillingInvoiceInputSchema = z.object({
   reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),
 });
 
+export const BillingInvoiceStatementInputSchema = z.object({
+  invoiceId: nonEmptyString,
+});
+
 // EHR-facing patient payment endpoints owned by the billing app.
 export const ListBillingPatientPaymentsInputSchema = z.object({
   patientId: nonEmptyString.uuid(),
   encounterId: nonEmptyString.uuid(),
+});
+
+// every payment on a billing patient's account, across their visits
+export const ListBillingPatientAccountPaymentsInputSchema = z.object({
+  patientId: nonEmptyString,
 });
 
 // client key, stable across retries of one logical payment; embedded in a FHIR token search
@@ -1287,6 +1316,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type CreateBillingInvoiceInput = z.output<typeof CreateBillingInvoiceInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
 export type SearchBillingInvoicesInput = z.output<typeof SearchBillingInvoicesInputSchema>;
 export type GetBillingInvoiceInput = z.output<typeof GetBillingInvoiceInputSchema>;

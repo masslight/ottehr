@@ -28,15 +28,14 @@ import { StatusChip } from 'src/components/StatusChip';
 import { useTaskNotes } from 'src/features/patient-notes/hooks/useTaskNotes';
 import {
   formatDate,
-  OPEN_DOSESPOT,
   TASKS_PAGE_SIZE,
   useCompleteTask,
   useGetTasks,
   VIEW_FAX,
 } from 'src/features/visits/in-person/hooks/useTasks';
-import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FAX_TASK, Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { CompleteSupportChatTaskButton } from '../../support-chat/components/CompleteSupportChatTaskButton';
@@ -45,6 +44,7 @@ import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
 import { MoreTaskActions } from '../components/MoreTaskActions';
+import { TaskActionButton } from '../components/TaskActionButton';
 import { TaskNotesButton } from '../components/TaskNotesButton';
 import { TaskNotesDialog } from '../components/TaskNotesDialog';
 import { TaskTitle } from '../components/TaskTitle';
@@ -76,40 +76,7 @@ export const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { mutateAsync: completeTask, isPending: isCompleting, variables: completingTask } = useCompleteTask();
   const currentUser = useEvolveUser();
-  const currentUserProviderId = currentUser?.profile?.split('/')[1];
-  const { oystehr } = useApiClients();
-
-  const renderActionButton = (task: Task): ReactElement | null => {
-    // Completed tasks normally have no action, except read-only "View" actions (e.g. a completed
-    // inbound fax, where the PDF can still be opened) which fall through to the generic button.
-    if (task.status === COMPLETED && task.action?.name !== VIEW_FAX) {
-      return null;
-    }
-    if (task.action) {
-      if (task.action.name === OPEN_DOSESPOT) {
-        return (
-          <RoundedButton
-            variant="contained"
-            onClick={async () => {
-              if (!oystehr) {
-                return;
-              }
-              const { ssoLink } = await oystehr.erx.connectPractitioner();
-              window.open(ssoLink, '_blank');
-            }}
-          >
-            {task.action.name}
-          </RoundedButton>
-        );
-      }
-      return (
-        <RoundedButton variant="contained" onClick={() => window.open(task.action?.link, '_blank')}>
-          {task.action.name}
-        </RoundedButton>
-      );
-    }
-    return null;
-  };
+  const currentUserProviderId = getIdFromReference(currentUser?.profile);
 
   const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
@@ -428,7 +395,7 @@ export const Tasks: React.FC = () => {
                               onOpenNotes={() => setNotesTaskId(task.id)}
                             />
                             {task.chat && <SupportChatTaskButton task={task} />}
-                            {renderActionButton(task)}
+                            <TaskActionButton task={task} />
                             {renderCompleteButton(task)}
                           </Stack>
                         </TableCell>
