@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
-import { Account, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { Account, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
-import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import {
   isLocallyRecordedRefund,
   isPendingReservation,
@@ -15,6 +15,7 @@ import {
 import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { convertPaymentNoticeListToCashPaymentDTOs } from 'utils/lib/helpers/helpers';
 import { CashPaymentDTO, PatientPaymentDTO, PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
+import { MAX_PRACTITIONER_NAMES_IDS } from 'utils/lib/types/api/practitioner-names.types';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   checkForStripeCustomerDeletedError,
@@ -25,6 +26,7 @@ import {
   stripeEncounterMetadataQuery,
   stripeRefundToDTO,
 } from '../shared/stripeIntegration';
+import { getPractitionerNames } from './clinical-practitioners';
 import {
   createStripeAccountResolver,
   fetchEncounterPaymentNotices,
@@ -36,7 +38,7 @@ import {
 import { stampedStripeAccount } from './payments';
 
 interface GetPaymentsForEncounterInput {
-  // reads Account, Encounter, Practitioner and legacy EHR PaymentNotices
+  // reads Account, Encounter and legacy EHR PaymentNotices
   clinicalOystehr: Oystehr;
   // reads billing PaymentNotices and keeps their refund stamps current
   billingOystehr: Oystehr;
@@ -116,7 +118,6 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     paymentMethods,
     stripeClient,
     stripeAccountFor,
-    clinicalOystehr,
     billingOystehr
   );
 };
@@ -298,10 +299,11 @@ const resolveRefundsForPaymentNotice = async (
 };
 
 // Submitter names by notice id. Notices written since the display was stamped on the submitter
-// reference resolve locally; older ones fall back to one batched Practitioner lookup.
+// reference resolve locally; older ones fall back to batched lookups through the EHR's
+// get-practitioner-names zambda.
 const resolveTakenByNames = async (
   fhirPaymentNotices: PaymentNotice[],
-  clinicalOystehr: Oystehr
+  billingOystehr: Oystehr
 ): Promise<Map<string, string>> => {
   const takenByByNoticeId = new Map<string, string>();
   const noticeIdsByPractitionerId = new Map<string, string[]>();
@@ -321,20 +323,17 @@ const resolveTakenByNames = async (
 
   if (noticeIdsByPractitionerId.size > 0) {
     try {
-      const practitioners = (
-        await clinicalOystehr.fhir.search<Practitioner>({
-          resourceType: 'Practitioner',
-          params: [{ name: '_id', value: [...noticeIdsByPractitionerId.keys()].join(',') }],
-        })
-      ).unbundle();
-      for (const practitioner of practitioners) {
-        if (!practitioner.id) continue;
-        // first + last only, matching the display stamped at write time
-        const name = [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
+      // first + last only, matching the display stamped at write time
+      const batches = await Promise.all(
+        chunkThings([...noticeIdsByPractitionerId.keys()], MAX_PRACTITIONER_NAMES_IDS).map((practitionerIds) =>
+          getPractitionerNames(billingOystehr, { practitionerIds })
+        )
+      );
+      const names: Record<string, string> = Object.assign({}, ...batches);
+      for (const [practitionerId, noticeIds] of noticeIdsByPractitionerId) {
+        const name = names[practitionerId];
         if (!name) continue;
-        for (const noticeId of noticeIdsByPractitionerId.get(practitioner.id) ?? []) {
-          takenByByNoticeId.set(noticeId, name);
-        }
+        for (const noticeId of noticeIds) takenByByNoticeId.set(noticeId, name);
       }
     } catch (error) {
       console.error('Error resolving payment submitter names', error);
@@ -399,12 +398,11 @@ async function buildPaymentDTOs(
   paymentMethods: Stripe.PaymentMethod[],
   stripeClient: Stripe,
   stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
-  clinicalOystehr: Oystehr,
   billingOystehr: Oystehr
 ): Promise<PatientPaymentDTO[]> {
   const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
   const paymentIntentCache = new Map<string, Stripe.PaymentIntent>(stripePayments.map((pi) => [pi.id, pi]));
-  const takenByByNoticeId = await resolveTakenByNames(fhirPaymentNotices, clinicalOystehr);
+  const takenByByNoticeId = await resolveTakenByNames(fhirPaymentNotices, billingOystehr);
 
   const cardPaymentsNested: PatientPaymentDTO[][] = await Promise.all(
     fhirPaymentNotices.map(async (paymentNotice) => {

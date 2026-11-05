@@ -363,4 +363,82 @@ describe('getPaymentsForEncounter', () => {
       ]);
     });
   });
+
+  describe('taken by', () => {
+    const submittedBy = (id: string, submitter: { reference: string; display?: string }): PaymentNotice => ({
+      ...otherNotice(id, '2026-10-21T15:00:00.000Z', 25, []),
+      contained: [
+        {
+          resourceType: 'PaymentReconciliation',
+          id: 'reconciliation',
+          status: 'active',
+          created: '2026-10-21T15:00:00.000Z',
+          paymentDate: '2026-10-21',
+          paymentAmount: { value: 25, currency: 'USD' },
+          detail: [{ type: {}, submitter }],
+        },
+      ],
+    });
+
+    it("names older payments' submitters through the EHR zambda, in one call, and stamped ones locally", async () => {
+      vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
+        new Map([
+          [
+            ENCOUNTER_ID,
+            [
+              submittedBy('stamped', { reference: 'Practitioner/pr-stamped', display: 'Stamped Name' }),
+              submittedBy('older-1', { reference: 'Practitioner/pr-ada' }),
+              submittedBy('older-2', { reference: 'Practitioner/pr-ada' }),
+              submittedBy('nameless', { reference: 'Practitioner/pr-nameless' }),
+            ],
+          ],
+        ])
+      );
+      const execute = vi.fn().mockResolvedValue({ output: { names: { 'pr-ada': 'Ada Lovelace' } } });
+
+      const payments = await getPaymentsForEncounter({
+        clinicalOystehr: {} as Oystehr,
+        billingOystehr: { zambda: { execute } } as unknown as Oystehr,
+        stripeClient: {} as Stripe,
+        account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
+        encounterId: ENCOUNTER_ID,
+      });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(execute).toHaveBeenCalledWith({
+        id: 'get-practitioner-names',
+        practitionerIds: ['pr-ada', 'pr-nameless'],
+      });
+      const takenBy = Object.fromEntries(
+        payments.map((payment) => [
+          payment.fhirPaymentNotificationId,
+          'takenBy' in payment ? payment.takenBy : undefined,
+        ])
+      );
+      expect(takenBy).toEqual({
+        stamped: 'Stamped Name',
+        'older-1': 'Ada Lovelace',
+        'older-2': 'Ada Lovelace',
+        nameless: undefined,
+      });
+    });
+
+    it('still lists the payments, unnamed, when the name lookup fails', async () => {
+      vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(
+        new Map([[ENCOUNTER_ID, [submittedBy('older-1', { reference: 'Practitioner/pr-ada' })]]])
+      );
+      const execute = vi.fn().mockRejectedValue(new Error('zambda down'));
+
+      const payments = await getPaymentsForEncounter({
+        clinicalOystehr: {} as Oystehr,
+        billingOystehr: { zambda: { execute } } as unknown as Oystehr,
+        stripeClient: {} as Stripe,
+        account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
+        encounterId: ENCOUNTER_ID,
+      });
+
+      expect(payments).toEqual([expect.objectContaining({ fhirPaymentNotificationId: 'older-1' })]);
+      expect(payments[0]).not.toHaveProperty('takenBy');
+    });
+  });
 });
