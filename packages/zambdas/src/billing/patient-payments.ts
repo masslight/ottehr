@@ -16,11 +16,7 @@ import {
   parsePaymentVoidFromNotice,
   upsertPaymentRefundsExtension,
 } from 'utils/lib/fhir/paymentRefunds';
-import {
-  getContainedReconciliation,
-  getPaymentNoticeSubmitterRef,
-  getStripeAccountForAppointmentOrEncounter,
-} from 'utils/lib/fhir/payments';
+import { getContainedReconciliation, getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { RoleType } from 'utils/lib/types/api/user.types';
