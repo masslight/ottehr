@@ -25,6 +25,7 @@ import { PersonSex, ServiceMode } from '../types/common';
 import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from '../types/constants';
 import { PatchPaperworkParameters, SubmitPaperworkParameters } from '../types/data/paperwork/paperwork.types';
 import { PatientInfo } from '../types/data/telemed/appointments/create-appointment.types';
+import { getAvailableSlotsForSchedules } from '../utils/scheduleUtils';
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
@@ -488,6 +489,28 @@ const processPaperwork = async (
 
 type SampleAppointmentInputParams = CreateAppointmentInputParams & { selectedLocation: Location };
 
+// After the schedule closes for the day the next boundary is off its grid and create-appointment
+// rejects it with SLOT_UNAVAILABLE, so fall forward to the schedule's next bookable starts.
+const getBookableInPersonStart = async (
+  from: DateTime,
+  appointmentIndex: number,
+  schedule: Schedule,
+  location: Location,
+  oystehr: Oystehr
+): Promise<DateTime> => {
+  const preferred = from.plus({ minutes: 15 * appointmentIndex });
+  const { availableSlots } = await getAvailableSlotsForSchedules(
+    { now: DateTime.now(), scheduleList: [{ schedule, owner: location }] },
+    oystehr
+  );
+  const starts = availableSlots
+    .map((item) => DateTime.fromISO(item.slot.start))
+    .filter((start) => start >= from)
+    .sort((a, b) => a.toMillis() - b.toMillis());
+  if (starts.some((start) => start.toMillis() === preferred.toMillis())) return preferred;
+  return starts[appointmentIndex] ?? starts.at(-1) ?? preferred;
+};
+
 const generateRandomPatientInfo = async (
   oystehr: Oystehr,
   zambdaUrl: string,
@@ -595,7 +618,11 @@ const generateRandomPatientInfo = async (
   // Round to the next 15-min boundary, then stagger by index — see appointmentIndex.
   const currentMinutes = now.minute;
   const minutesToAdd = (15 - (currentMinutes % 15)) % 15 || 15;
-  const nextInPersonSlot = now.plus({ minutes: minutesToAdd + 15 * appointmentIndex }).startOf('minute');
+  const nextBoundary = now.plus({ minutes: minutesToAdd }).startOf('minute');
+  const nextInPersonSlot =
+    serviceMode === ServiceMode['in-person']
+      ? await getBookableInPersonStart(nextBoundary, appointmentIndex, matchingSchedule, selectedLocation!, oystehr)
+      : now;
   const createSlotInput: CreateSlotParams = {
     scheduleId: matchingSchedule.id,
     startISO: serviceMode === ServiceMode['in-person'] ? nextInPersonSlot.toISO() : now.toISO(),
