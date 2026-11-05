@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, FhirResource, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
 import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
@@ -15,9 +14,9 @@ import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/r
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { OttehrTaskSystem } from 'utils/lib/types/common';
-import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
 import { VideoChatNotificationResponse } from 'utils/lib/types/data/telemed/video-chat-invites.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { isVideoEncounter } from '../../../shared/encounters';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
@@ -194,9 +193,8 @@ async function getFhirResources(
   const resources = resourcesResponse.unbundle();
   const appointment = resources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
   const encounter = resources.find(
-    (resource) =>
-      resource.resourceType === 'Encounter' && getVirtualServiceResourceExtension(resource, TELEMED_VIDEO_ROOM_CODE)
-  ) as Encounter | undefined;
+    (resource): resource is Encounter => resource.resourceType === 'Encounter' && isVideoEncounter(resource)
+  );
   const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
   return {
     appointment,

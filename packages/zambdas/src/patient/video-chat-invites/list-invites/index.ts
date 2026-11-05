@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
 import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
@@ -77,8 +78,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const encounter = await getVideoEncounterForAppointment(appointment.id, oystehr);
-  // e.g. an in-person appointment opened in the telemed waiting room
   if (!encounter || !encounter.id) {
+    if (isTelemedAppointment(appointment)) {
+      throw new Error('Encounter not found.'); // 500
+    }
+    // e.g. an in-person appointment opened in the telemed waiting room
     console.log('Video encounter is not found');
     return lambdaResponse(404, APPOINTMENT_NOT_FOUND_ERROR);
   }
