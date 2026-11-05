@@ -28,7 +28,8 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'video-chat-waiting-room-notification';
 
-const INACTIVE_APPOINTMENT_STATUSES: Appointment['status'][] = ['fulfilled', 'cancelled', 'noshow', 'entered-in-error'];
+// 'fulfilled' also covers active provider stages, so a completed visit is detected by its encounter
+const INACTIVE_APPOINTMENT_STATUSES: Appointment['status'][] = ['cancelled', 'noshow', 'entered-in-error'];
 const INACTIVE_ENCOUNTER_STATUSES: Encounter['status'][] = ['finished', 'cancelled', 'entered-in-error'];
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {

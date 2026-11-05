@@ -50,6 +50,11 @@ describe('video-chat-waiting-room-notification performEffect', () => {
     expect(client.fhir.create).not.toHaveBeenCalled();
   });
 
+  it('creates a task for a visit already with the provider (fulfilled appointment, in-progress encounter)', async () => {
+    const result = await run([appointment('fulfilled'), encounter('enc-video', 'in-progress', true), patient]);
+    expect(result.taskCreated).toBe(true);
+  });
+
   it('creates the task against the video encounter when other encounters come first', async () => {
     const result = await run([
       appointment('booked'),
