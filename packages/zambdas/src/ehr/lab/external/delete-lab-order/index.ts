@@ -83,12 +83,10 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     });
   }
 
-  console.log('communications?.orderLevelNotesByUser', communications?.orderLevelNotesByUser);
   const orderNoteCommunicationRequest = makeCommunicationRequestForOrderNote(
     communications?.orderLevelNotesByUser,
     serviceRequest
   );
-  console.log('orderNoteCommunicationRequest', orderNoteCommunicationRequest);
   if (orderNoteCommunicationRequest) {
     requests.push(orderNoteCommunicationRequest.batchRequest);
     targetResourcesForProvenance.push(orderNoteCommunicationRequest.targetReference);
