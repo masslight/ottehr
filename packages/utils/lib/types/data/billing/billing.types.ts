@@ -1195,6 +1195,10 @@ export interface CreateBillingInvoiceResponse {
   smsSent?: boolean;
 }
 
+export interface PreviewBillingNioInvoiceResponse {
+  pdfBase64: string;
+}
+
 export interface BillingInvoiceSummary {
   id: string;
   status: BillingInvoiceListStatus;
