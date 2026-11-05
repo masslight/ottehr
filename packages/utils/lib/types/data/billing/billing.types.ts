@@ -612,6 +612,7 @@ export interface ClaimDetailResponse {
   accidentDate: string;
   attachments: ClaimAttachment[];
   writeOffs: ClaimWriteOff[];
+  invoices: BillingInvoiceSummary[];
 }
 
 interface Paginated {
@@ -1159,17 +1160,36 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
-export interface BillingInvoiceListItem {
+export interface GetBillingInvoiceRecipientResponse {
+  patient: { fullName: string; dob?: string; gender?: string; phoneNumber?: string };
+  responsibleParty: { fullName?: string; email?: string; phoneNumber?: string };
+  location?: string;
+  visitDate?: string;
+}
+
+export interface CreateBillingInvoiceResponse {
+  invoiceId: string;
+  stripeInvoiceId: string;
+  // True when this request's SMS was accepted, which does not confirm delivery. False when it failed.
+  // Missing when this request sent no SMS, such as a retry of an invoice that was already sent or paid.
+  smsSent?: boolean;
+}
+
+export interface BillingInvoiceSummary {
   id: string;
   status: BillingInvoiceListStatus;
   // FHIR Invoice.date as an ISO timestamp.
   issueDate: string;
   dueDate: string;
   amount: number;
+  hostedInvoiceUrl?: string;
+}
+
+export interface BillingInvoiceListItem extends BillingInvoiceSummary {
+  patientId?: string;
   patientName?: string;
   claimId?: string;
   serviceDate?: string;
-  hostedInvoiceUrl?: string;
   kind?: BillingInvoiceKind;
   number?: string;
   recipient?: {
@@ -1182,6 +1202,14 @@ export interface BillingInvoiceListItem {
 
 export interface SearchBillingInvoicesResponse extends Paginated {
   invoices: BillingInvoiceListItem[];
+}
+
+export interface GetBillingInvoiceStatementResponse {
+  html: string;
+  // When the current statement PDF in the patient's chart was made.
+  generatedAt?: string;
+  // A short-lived link to that PDF.
+  pdfUrl?: string;
 }
 
 export interface BillingInvoiceClaimLine {
