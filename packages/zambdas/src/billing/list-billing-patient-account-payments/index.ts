@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -142,10 +143,7 @@ export const listAccountPayments = async (params: {
 // the claim the billing notices were reconciled to, else the encounter's only claim
 const claimForPayments = (claims: Claim[], notices: PaymentNotice[]): Claim | undefined => {
   const linkedClaimIds = new Set(
-    notices
-      .map((notice) => notice.request?.reference)
-      .filter((reference): reference is string => Boolean(reference?.startsWith('Claim/')))
-      .map((reference) => reference.slice('Claim/'.length))
+    notices.flatMap((notice) => getIdFromReference(notice.request?.reference, 'Claim') ?? [])
   );
   return claims.find((claim) => claim.id && linkedClaimIds.has(claim.id)) ?? claims[0];
 };

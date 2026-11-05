@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, FhirResource, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { Encounter, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getAllStripeCustomerAccountPairs, scheduleOwnerAmong } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import { getPaymentNoticeSubmitterRef, getStripeAccountForScheduleOwner } from 'utils/lib/fhir/payments';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GetPatientPaymentVisitsInputSchema,
   GetPatientPaymentVisitsResponse,
@@ -80,9 +81,9 @@ const fetchVisits = async (
     .map((encounter) => {
       const appointmentReference = encounter.appointment?.[0]?.reference;
       const appointment = appointmentReference ? appointmentsByReference.get(appointmentReference) : undefined;
-      const actors = (appointment?.participant ?? [])
-        .map((participant) => appointmentActorsByReference.get(participant.actor?.reference ?? ''))
-        .filter((resource): resource is FhirResource => Boolean(resource));
+      const actors = (appointment?.participant ?? []).flatMap(
+        (participant) => appointmentActorsByReference.get(participant.actor?.reference ?? '') ?? []
+      );
       const scheduleOwner = appointment ? scheduleOwnerAmong(actors) : undefined;
       return {
         encounterId: encounter.id,
@@ -110,7 +111,7 @@ const fetchLegacyPaymentNotices = async (
         ],
       });
       for (const notice of bundle.unbundle()) {
-        const encounterId = notice.request?.reference?.replace('Encounter/', '');
+        const encounterId = getIdFromReference(notice.request?.reference, 'Encounter');
         if (!encounterId) continue;
         noticesByEncounter.set(encounterId, [...(noticesByEncounter.get(encounterId) ?? []), notice]);
       }
@@ -130,8 +131,8 @@ const submitterNamer = async (
     ...new Set(
       notices
         .map(getPaymentNoticeSubmitterRef)
-        .filter((submitter) => submitter?.reference?.startsWith('Practitioner/') && !submitter.display)
-        .map((submitter) => submitter?.reference?.slice('Practitioner/'.length) ?? '')
+        .filter((submitter) => !submitter?.display)
+        .flatMap((submitter) => getIdFromReference(submitter?.reference, 'Practitioner') ?? [])
     ),
   ];
   const nameByReference = new Map<string, string>();
