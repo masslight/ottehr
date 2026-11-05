@@ -370,4 +370,42 @@ describe('getCptModifierCodeFromProcedure', () => {
     const result = getCptModifierCodeFromProcedure(procedure);
     expect(result).toEqual([{ code: '59', display: 'Has Code' }]);
   });
+
+  it('returns modifiers from every modifier extension, not just the first', () => {
+    // repeat in-house lab orders write the '91' repeat extension ahead of the
+    // test's own modifier extension (see makeProcedureConfig in build-order.ts)
+    const procedure: Procedure = {
+      resourceType: 'Procedure',
+      status: 'completed',
+      subject: { reference: 'Patient/123' },
+      code: {
+        coding: [
+          {
+            system: CODE_SYSTEM_CPT,
+            code: '87880',
+            extension: [
+              {
+                url: EXTENSION_URL_CPT_MODIFIER,
+                valueCodeableConcept: {
+                  coding: [{ system: CODE_SYSTEM_CPT_MODIFIER, code: '91', display: 'Repeat clinical test' }],
+                },
+              },
+              {
+                url: EXTENSION_URL_CPT_MODIFIER,
+                valueCodeableConcept: {
+                  coding: [{ system: CODE_SYSTEM_CPT_MODIFIER, code: '50', display: 'Bilateral Procedure' }],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const result = getCptModifierCodeFromProcedure(procedure);
+    expect(result).toEqual([
+      { code: '91', display: 'Repeat clinical test' },
+      { code: '50', display: 'Bilateral Procedure' },
+    ]);
+  });
 });
