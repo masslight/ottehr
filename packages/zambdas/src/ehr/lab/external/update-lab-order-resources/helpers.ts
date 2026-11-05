@@ -534,6 +534,10 @@ export const handleAddOrderLevelNote = async ({
           name: 'identifier',
           value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${requisitionNumber}`,
         },
+        {
+          name: 'status:not',
+          value: `revoked`,
+        },
       ],
     })
   ).unbundle();
