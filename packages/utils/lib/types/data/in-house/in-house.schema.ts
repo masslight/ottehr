@@ -62,10 +62,7 @@ const QuantityComponentSchema = BaseComponentSchema.extend({
       low: z.coerce.number(), // coerce since forms somtimes submit as strings, prevents silent validation failures
       high: z.coerce.number(),
       precision: z.coerce.number({ invalid_type_error: 'Please enter a valid number.' }).optional(),
-      unit: nonEmptyString('Quantity component must have a unit').regex(
-        FHIR_CODE_REGEX,
-        'Unit must not have leading, trailing, or consecutive spaces'
-      ),
+      unit: z.string().optional(),
     })
     .superRefine((val, ctx) => {
       if (val.low >= val.high) {

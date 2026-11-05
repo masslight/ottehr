@@ -401,8 +401,7 @@ function QuantityFields(props: ComponentProps): ReactElement {
             <TextField
               id={`unit-input-${index}`}
               label="Unit"
-              required
-              onChange={onChange}
+              onChange={(e) => onChange(e.target.value || undefined)} // clearing the field should drop the unit, not submit ''
               value={value || ''}
               sx={{ width: '100%' }}
               error={!!fieldState.error}
