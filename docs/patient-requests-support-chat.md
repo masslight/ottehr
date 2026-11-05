@@ -77,7 +77,8 @@ Solid arrow: a FHIR reference. Dashed arrow: no reference, the `Person` id is st
 - **Unread** uses `Communication.status`: a new message is `in-progress`, mark-read sets `completed`. Bot messages are stored as `completed`.
 - **Unread dot in the EHR** uses the tag `support-chat-unread` on open tasks. A patient text sets it on all open tasks of the thread, so no request is missed; the text itself is linked to the newest open task. Staff mark-read removes it only from the opened task: other tasks can have other assignees, so their dots stay until each task is opened. The Tasks list and the Tasks tab need no extra data.
 - **Task category** `patient-request`, one code per request type. Title: `{Request Type} for {Patient} {Visit Date}`. Unassigned. Location of the selected visit (also the `task-location` tag). In the Tasks list, the existing Category filter shows "Patient Request", and the Location filter shows the task to the staff of that clinic.
-- **Visit prompt** is shown after a topic or after free text that starts a request, only if the account has more than one completed visit. With one visit, the bot uses it. The selection is echoed as a recap.
+- **Visits** are all visits of the account patients in any status except `entered-in-error`, newest first. A patient can write about a cancelled or no-show visit too.
+- **Visit prompt** is shown after a topic or after free text that starts a request, only if the account has more than one visit. With one visit, the bot uses it. The selection is echoed as a recap.
 - **Free text with no open task**, or right after a greeting ("+"), creates a `follow-up` task at once. Title: the message text in quotes. Until a visit is selected, the task uses the default visit: the most recent visit of the patient of the last task in the thread, else the most recent visit of the account. A visit selection then updates the task: visit, patient, title, location.
 - **Free text instead of a visit selection after a topic** creates the topic task with the default visit; the text becomes the task details.
 - **Free text with an open task** is added to that task.
@@ -88,12 +89,12 @@ Solid arrow: a FHIR reference. Dashed arrow: no reference, the `Person` id is st
 
 ```mermaid
 flowchart TD
-  T[Topic chip] --> TV{Completed visits}
+  T[Topic chip] --> TV{Visits}
   TV -->|0 or 1| C[Create task]
   TV -->|more than 1| TP[Visit prompt]
   TP -->|visit chip| C
   TP -->|text, default visit| C
-  F[Text, no open task or after +] --> FV{Completed visits}
+  F[Text, no open task or after +] --> FV{Visits}
   FV -->|0 or 1| C
   FV -->|more than 1| FC[Create follow-up task with default visit, then visit prompt]
   FC -->|visit chip| U[Update the task with the selected visit]

@@ -17,6 +17,7 @@ import { PatientRequestCode } from './bot';
 import { makeThreadTag, threadTagSearchParam } from './thread';
 
 const MAX_QUOTED_TITLE_LENGTH = 100;
+const EXCLUDED_VISIT_STATUSES: Appointment['status'][] = ['entered-in-error'];
 
 export interface Visit {
   appointmentId: string;
@@ -38,7 +39,10 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
 
   return resources
     .filter((resource): resource is Appointment => resource.resourceType === 'Appointment')
-    .filter((appointment) => appointment.status === 'fulfilled' && appointment.start && encounters[appointment.id!])
+    .filter(
+      (appointment) =>
+        !EXCLUDED_VISIT_STATUSES.includes(appointment.status) && appointment.start && encounters[appointment.id!]
+    )
     .sort((a, b) => b.start!.localeCompare(a.start!))
     .flatMap((appointment) => {
       const patient = patients.find((p) => p.id === getParticipantIdFromAppointment(appointment, 'Patient'));
