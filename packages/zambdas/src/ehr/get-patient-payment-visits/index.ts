@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, FhirResource, PaymentNotice } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getAllStripeCustomerAccountPairs, scheduleOwnerAmong } from 'utils/lib/fhir/helpers';
-import { getStripeAccountForScheduleOwner } from 'utils/lib/fhir/payments';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { getPaymentNoticeSubmitterRef, getStripeAccountForScheduleOwner } from 'utils/lib/fhir/payments';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GetPatientPaymentVisitsInputSchema,
@@ -22,33 +23,39 @@ import { getAllFhirEncountersAndAppointmentsForPatient } from '../shared/patient
 const ZAMBDA_NAME = 'get-patient-payment-visits';
 // keeps each request= OR list within URL limits
 const ENCOUNTER_BATCH_SIZE = 50;
+// keeps each _id OR list within URL limits
+const PRACTITIONER_BATCH_SIZE = 100;
 
 let m2mToken: string;
 
 // The clinical side of a patient's payments, for billing: every visit with its schedule owner's
 // Stripe account and the payments the EHR recorded on it, plus the patient's Stripe customers.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { patientId, secrets } = validateWithSchema(GetPatientPaymentVisitsInputSchema, input);
+  const { patientId, encounterId, secrets } = validateWithSchema(GetPatientPaymentVisitsInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const response = await getPatientPaymentVisits(oystehr, patientId);
+  const response = await getPatientPaymentVisits(oystehr, patientId, encounterId);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 export const getPatientPaymentVisits = async (
   oystehr: Oystehr,
-  patientId: string
+  patientId: string,
+  // only this visit; it is still looked up among the patient's own, so another patient's is never returned
+  encounterId?: string
 ): Promise<GetPatientPaymentVisitsResponse> => {
-  const [visits, { account }] = await Promise.all([
+  const [allVisits, { account }] = await Promise.all([
     fetchVisits(oystehr, patientId),
     getAccountAndCoverageResourcesForPatient(patientId, oystehr),
   ]);
+  const visits = encounterId ? allVisits.filter((visit) => visit.encounterId === encounterId) : allVisits;
   const legacyNoticesByEncounter = await fetchLegacyPaymentNotices(
     oystehr,
     visits.map((visit) => visit.encounterId)
   );
+  await nameSubmitters(oystehr, [...legacyNoticesByEncounter.values()].flat());
   return {
     visits: visits.map((visit) => ({
       ...visit,
@@ -140,4 +147,47 @@ const fetchLegacyPaymentNotices = async (
     }, 100);
   }
   return noticesByEncounter;
+};
+
+// Notices written before the submitter's display name was stamped on them carry only a Practitioner
+// reference. Billing can't read clinical Practitioners, so the names are filled in here (on the
+// returned copies only), which is how billing shows who took a payment, as the EHR does.
+const nameSubmitters = async (oystehr: Oystehr, notices: PaymentNotice[]): Promise<void> => {
+  const unnamed = notices.flatMap((notice) => {
+    const submitter = getPaymentNoticeSubmitterRef(notice);
+    const practitionerId = submitter?.display ? undefined : getIdFromReference(submitter?.reference, 'Practitioner');
+    return submitter && practitionerId ? [{ submitter, practitionerId }] : [];
+  });
+  if (unnamed.length === 0) return;
+
+  const names = new Map<string, string>();
+  try {
+    for (const batch of chunkThings(
+      [...new Set(unnamed.map(({ practitionerId }) => practitionerId))],
+      PRACTITIONER_BATCH_SIZE
+    )) {
+      const practitioners = (
+        await oystehr.fhir.search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [
+            { name: '_id', value: batch.join(',') },
+            { name: '_count', value: String(batch.length) },
+          ],
+        })
+      ).unbundle();
+      for (const practitioner of practitioners) {
+        // first + last only, matching the display stamped at write time
+        const name = [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
+        if (practitioner.id && name) names.set(practitioner.id, name);
+      }
+    }
+  } catch (error) {
+    // an unnamed submitter only leaves "taken by" blank; it must not fail the payments
+    console.error('Error resolving payment submitter names', error);
+  }
+
+  for (const { submitter, practitionerId } of unnamed) {
+    const name = names.get(practitionerId);
+    if (name) submitter.display = name;
+  }
 };
