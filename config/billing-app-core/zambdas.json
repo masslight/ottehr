@@ -922,6 +922,24 @@
         ]
       }
     },
+    "SUB_POST_ADJUDICATION_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing post-adjudication rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-post-adjudication-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
     "SUB_TAG_ERA_RESOURCES_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",

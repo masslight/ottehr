@@ -979,15 +979,22 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
  * The rules engine responsible for a claim, decided by its AR Stage:
  * - Insurance Payer AR -> Claim Submission Rules
  * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
+ * - Insurance Payer AR + Adjudicated AR Status -> Post-Adjudication Rules
  * - Patient AR -> Patient AR Pre-Invoice Rules
- * Undefined when no engine applies (no AR Stage).
+ * Undefined when no engine applies. If an override is provided, that will be used instead.
  *
  * An engine runs automatically only when a claim is created in its stage. Changing an existing
  * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
  * biller runs the rules explicitly (Submit claim / Prepare for invoice).
  */
-export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | undefined {
+export function determineRulesEngineForClaim(
+  claim: Claim,
+  engineOverride?: RulesEngineType
+): RulesEngineType | undefined {
+  if (engineOverride) return engineOverride;
   const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
+  const insuranceARStatus = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.insuranceArStatus);
+  if (arStage === AR_STAGE.insurancePayer && insuranceARStatus === 'adjudicated') return 'post-adjudication';
   if (arStage === AR_STAGE.insurancePayer) return 'claim-submission';
   if (arStage === AR_STAGE.nonInsurancePayer) return 'non-insurance-payer-pre-invoice';
   if (arStage === AR_STAGE.patient) return 'patient-ar-pre-invoice';
