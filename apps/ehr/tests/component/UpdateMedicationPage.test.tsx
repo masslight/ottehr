@@ -26,6 +26,11 @@ vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: vi.fn(),
 }));
 
+// Editing a catalog medication is limited to admin-tier roles.
+vi.mock('src/hooks/useEvolveUser', () => ({
+  default: () => ({ hasRole: () => true }),
+}));
+
 const { FORBIDDEN_MESSAGE } = vi.hoisted(() => ({
   FORBIDDEN_MESSAGE: 'Your role does not have access to the medication database. Please contact an administrator.',
 }));
