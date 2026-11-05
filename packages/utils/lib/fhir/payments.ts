@@ -1,5 +1,13 @@
 import Oystehr from '@oystehr/sdk';
-import { Device, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import {
+  Device,
+  HealthcareService,
+  Location,
+  PaymentNotice,
+  PaymentReconciliation,
+  Practitioner,
+  Reference,
+} from 'fhir/r4b';
 import {
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
@@ -14,10 +22,13 @@ export const getStripeAccountForAppointmentOrEncounter = async (
 ): Promise<string | undefined> => {
   const scheduleOwner = await getScheduleOwnerFromAppointmentOrEncounter(input, oystehr);
 
-  return scheduleOwner.extension?.find((ext) => {
-    return ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL;
-  })?.valueString;
+  return getStripeAccountForScheduleOwner(scheduleOwner);
 };
+
+export const getStripeAccountForScheduleOwner = (
+  scheduleOwner: Location | HealthcareService | Practitioner
+): string | undefined =>
+  scheduleOwner.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)?.valueString;
 
 // The staff member who recorded the payment, as stamped on the contained PaymentReconciliation
 export const getPaymentNoticeSubmitterRef = (notice: PaymentNotice): Reference | undefined => {

@@ -42,6 +42,7 @@ import {
   GetPatientDetailInputSchema,
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
+  ListBillingPatientAccountPaymentsInputSchema,
   MatchClaimResponseToClaimInputSchema,
   NetCollectionsDrilldownParamsSchema,
   PatientPaymentsDrilldownParamsSchema,
@@ -109,6 +110,7 @@ import {
   GetBillingProductivityReportResponse,
   GetBillingReportHistoryResponse,
   GetPatientCoveragesResponse,
+  ListBillingPatientAccountPaymentsResponse,
   OkResponse,
   PatientDetailResponse,
   RecordBillingManualPaymentResponse,
@@ -247,6 +249,12 @@ export const getBillingPatientDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetPatientDetailInputSchema>
 ): Promise<PatientDetailResponse> => executeBillingZambda(oystehr, 'get-billing-patient-detail', parameters);
+
+export const listBillingPatientAccountPayments = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ListBillingPatientAccountPaymentsInputSchema>
+): Promise<ListBillingPatientAccountPaymentsResponse> =>
+  executeBillingZambda(oystehr, 'list-billing-patient-account-payments', parameters);
 
 export const updateBillingPatient = (
   oystehr: Oystehr,

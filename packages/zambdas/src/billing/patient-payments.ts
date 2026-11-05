@@ -16,11 +16,7 @@ import {
   parsePaymentVoidFromNotice,
   upsertPaymentRefundsExtension,
 } from 'utils/lib/fhir/paymentRefunds';
-import {
-  getContainedReconciliation,
-  getPaymentNoticeSubmitterRef,
-  getStripeAccountForAppointmentOrEncounter,
-} from 'utils/lib/fhir/payments';
+import { getContainedReconciliation, getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -84,6 +80,12 @@ export const stripePaymentIntentIdForNotice = (notice: PaymentNotice): string | 
   return ids.find((id) => id.startsWith('pi_')) ?? ids.find((id) => !NON_PAYMENT_INTENT_STRIPE_ID.test(id));
 };
 
+// the Stripe invoice a payment settled; the webhook's disposition strings carry the charge↔invoice link
+export const invoiceIdForPaymentNotice = (notice: PaymentNotice): string | undefined =>
+  stripeIdsForPaymentNotice(notice).find((id) => id.startsWith('in_')) ??
+  notice.payment?.reference?.match(/in_\w+/)?.[0] ??
+  (notice.contained?.[0] as { disposition?: string } | undefined)?.disposition?.match(/invoice (in_\w+)/)?.[1];
+
 // the webhook records the Stripe method type, where the EHR records 'card-reader' for terminal payments
 export const paymentMethodForNotice = (notice: PaymentNotice): string | undefined => {
   const method = notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
@@ -110,21 +112,31 @@ const shadowsLegacyNotice = (billingNotice: PaymentNotice, legacyNotice: Payment
   return stripeIdsForPaymentNotice(legacyNotice).some((id) => billingStripeIds.includes(id));
 };
 
-// webhook copies carry no submitter, the EHR notice they shadow does
+// Webhook copies carry no submitter, the EHR notice they shadow does. Bridge copies carry the EHR
+// notice's submitter as it was stored, which predates stamping the name on it.
 const withSubmitterFrom = (billingNotice: PaymentNotice, legacyNotice: PaymentNotice): PaymentNotice => {
   const submitter = getPaymentNoticeSubmitterRef(legacyNotice);
   const reconciliation = getContainedReconciliation(billingNotice);
-  if (!submitter || !reconciliation || getPaymentNoticeSubmitterRef(billingNotice)) return billingNotice;
+  if (!submitter || !reconciliation) return billingNotice;
+  const billingSubmitter = getPaymentNoticeSubmitterRef(billingNotice);
+  const namesBillingSubmitter =
+    billingSubmitter &&
+    !billingSubmitter.display &&
+    submitter.display &&
+    billingSubmitter.reference === submitter.reference;
+  if (billingSubmitter && !namesBillingSubmitter) return billingNotice;
   return {
     ...billingNotice,
     contained: billingNotice.contained?.map((resource) =>
       resource === reconciliation
         ? {
             ...reconciliation,
-            detail: [
-              ...(reconciliation.detail ?? []),
-              { type: { coding: [{ system: PAYMENT_TYPE_SYSTEM, code: 'payment' }] }, submitter },
-            ],
+            detail: billingSubmitter
+              ? reconciliation.detail?.map((detail) => (detail.submitter ? { ...detail, submitter } : detail))
+              : [
+                  ...(reconciliation.detail ?? []),
+                  { type: { coding: [{ system: PAYMENT_TYPE_SYSTEM, code: 'payment' }] }, submitter },
+                ],
           }
         : resource
     ),
@@ -281,14 +293,12 @@ export const fetchEncounterPaymentNotices = async (params: {
  */
 export const createStripeAccountResolver = (params: {
   billingOystehr: Oystehr;
-  clinicalOystehr: Oystehr;
-  encounterId: string;
-  // the schedule owner's account when the caller already looked it up
-  scheduleAccount?: Promise<string | undefined>;
+  // the encounter schedule owner's account, looked up at most once and only when a notice needs it
+  lookUpScheduleAccount: () => Promise<string | undefined>;
 }): ((notice: PaymentNotice) => Promise<string | undefined>) => {
-  const { billingOystehr, clinicalOystehr, encounterId } = params;
+  const { billingOystehr, lookUpScheduleAccount } = params;
   const accountByOrgId = new Map<string, Promise<string | undefined>>();
-  let { scheduleAccount } = params;
+  let scheduleAccount: Promise<string | undefined> | undefined;
 
   // a payee outside billing (the default org) is not a billing provider, so carries no account
   const accountForOrg = async (orgId: string): Promise<string | undefined> => {
@@ -314,7 +324,7 @@ export const createStripeAccountResolver = (params: {
     if (stamped) return stamped.stripeAccount;
     const fromPayee = isBillingPaymentNotice(notice) ? await payeeAccount(notice) : undefined;
     if (fromPayee) return fromPayee;
-    scheduleAccount ??= getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
+    scheduleAccount ??= lookUpScheduleAccount();
     return scheduleAccount;
   };
 };

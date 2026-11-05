@@ -45,6 +45,7 @@ import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useGetChargeMasterEntryQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
+import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
 import { getCopayAndRemainingDeductible } from 'utils/lib/fhir/billing';
 import { CPT_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
@@ -72,7 +73,7 @@ import { findQuestionnaireItemByLinkId } from 'utils/lib/types/data/paperwork/fi
 import { mapEligibilityCheckResultToSimpleStatus } from 'utils/lib/types/data/telemed/eligibility.types';
 import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
 import { sendReceiptByEmail } from '../api/api';
-import PaymentDetailsDialog, { getRefundState, RefundChip } from './dialogs/PaymentDetailsDialog';
+import PaymentDetailsDialog from './dialogs/PaymentDetailsDialog';
 import PaymentDialog from './dialogs/PaymentDialog';
 import RemoveCardOnFileDialog from './dialogs/RemoveCardOnFileDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
