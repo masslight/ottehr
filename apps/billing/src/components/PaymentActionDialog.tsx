@@ -73,6 +73,12 @@ export function PaymentActionDialog({
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A failed request may still have been applied (e.g. the refund was stamped but the Candid sync
+  // failed), so after a failure the form is locked to what was sent: a retry with the same key and
+  // payload resumes that operation, while changing anything means closing and starting over from the
+  // reloaded balance.
+  const [failed, setFailed] = useState(false);
+  const locked = submitting || failed;
 
   const amountCents = Math.round(Number(amountText) * 100);
   const amountValid = !isRefund || (Number.isFinite(amountCents) && amountCents > 0 && amountCents <= remainingCents);
@@ -81,6 +87,7 @@ export function PaymentActionDialog({
       ? `Enter an amount between $0.01 and ${cents(remainingCents)}`
       : undefined;
   const canSubmit = !!reason && amountValid && (action !== 'external-refund' || !!medium) && !submitting;
+  const operation = isRefund ? 'refund' : 'void';
 
   const description =
     action === 'void'
@@ -127,12 +134,10 @@ export function PaymentActionDialog({
       await onDone();
       onClose();
     } catch (err) {
-      setError(
-        getApiError({
-          error: err,
-          defaultError: `Something went wrong. The payment was not ${isRefund ? 'refunded' : 'voided'}.`,
-        })
-      );
+      setFailed(true);
+      setError(getApiError({ error: err, defaultError: `Something went wrong while processing the ${operation}.` }));
+      // the outcome is uncertain, so reload the payment: its transactions show whether this went through
+      void onDone();
     } finally {
       setSubmitting(false);
     }
@@ -150,7 +155,15 @@ export function PaymentActionDialog({
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
-          {error && <Alert severity="error">{error}</Alert>}
+          {error && (
+            <Alert severity="error">
+              {error}
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                The {operation} may still have gone through. Check the payment&apos;s transactions before retrying; a
+                retry resumes this same {operation} and won&apos;t record a second one.
+              </Typography>
+            </Alert>
+          )}
           <Typography variant="body2" color="text.secondary">
             {description}
           </Typography>
@@ -162,7 +175,7 @@ export function PaymentActionDialog({
               type="number"
               value={amountText}
               onChange={(e) => setAmountText(e.target.value)}
-              disabled={submitting}
+              disabled={locked}
               error={!!amountError}
               helperText={amountError}
               inputProps={{ min: 0.01, max: remainingCents / 100, step: 0.01 }}
@@ -177,7 +190,7 @@ export function PaymentActionDialog({
               fullWidth
               value={medium}
               onChange={(e) => setMedium(e.target.value as PaymentRefundMedium)}
-              disabled={submitting}
+              disabled={locked}
             >
               {PAYMENT_REFUND_MEDIUMS.map((option) => (
                 <MenuItem key={option} value={option}>
@@ -193,7 +206,7 @@ export function PaymentActionDialog({
             fullWidth
             value={reason}
             onChange={(e) => setReason(e.target.value as PaymentRefundVoidReason)}
-            disabled={submitting}
+            disabled={locked}
           >
             {PAYMENT_REFUND_VOID_REASONS.map((option) => (
               <MenuItem key={option} value={option}>
@@ -209,7 +222,7 @@ export function PaymentActionDialog({
             minRows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            disabled={submitting}
+            disabled={locked}
           />
         </Box>
       </DialogContent>
@@ -224,7 +237,13 @@ export function PaymentActionDialog({
           disabled={!canSubmit}
           startIcon={submitting ? <CircularProgress size={14} /> : undefined}
         >
-          {action === 'void' ? 'Void Payment' : action === 'external-refund' ? 'Record Refund' : 'Issue Refund'}
+          {failed
+            ? 'Retry'
+            : action === 'void'
+            ? 'Void Payment'
+            : action === 'external-refund'
+            ? 'Record Refund'
+            : 'Issue Refund'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -100,7 +100,7 @@ export default function PatientPaymentDetail(): ReactElement {
     );
   }
 
-  if (error || !payment) {
+  if (!payment) {
     return (
       <Box sx={{ p: 0 }}>
         <Alert severity="error">{error ?? 'Payment not found'}</Alert>
@@ -117,6 +117,8 @@ export default function PatientPaymentDetail(): ReactElement {
   const refunds = payment.refunds ?? [];
   const refundedToCard = !MANUAL_REFUND_METHODS.includes(payment.paymentMethod) && !refunds.some((r) => r.medium);
 
+  // after a failed reload the shown balance is unconfirmed, so no new operation may start from it
+  const balanceUnconfirmed = loading || !!error;
   const method = payment.paymentMethod;
   const refundApplies =
     REFUNDABLE_METHODS.includes(method) &&
@@ -167,13 +169,23 @@ export default function PatientPaymentDetail(): ReactElement {
         {actions.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
             {actions.map(({ action: actionType, label }) => (
-              <Tooltip key={actionType} title={canManagePayments ? '' : NOT_ALLOWED_HINT}>
+              <Tooltip
+                key={actionType}
+                title={
+                  !canManagePayments
+                    ? NOT_ALLOWED_HINT
+                    : balanceUnconfirmed
+                    ? 'Waiting for the latest payment balance'
+                    : ''
+                }
+              >
                 <span>
                   <Button
                     variant="outlined"
                     color="error"
                     size="small"
-                    disabled={!canManagePayments}
+                    // a new operation must start from the confirmed balance, e.g. after a failed attempt
+                    disabled={!canManagePayments || balanceUnconfirmed}
                     onClick={() => setAction(actionType)}
                   >
                     {label}
@@ -196,6 +208,19 @@ export default function PatientPaymentDetail(): ReactElement {
       </Card>
 
       <Box sx={{ ml: 5 }}>
+        {error && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => void fetchPayment()} disabled={loading}>
+                Reload
+              </Button>
+            }
+          >
+            {error} — the details below may be out of date.
+          </Alert>
+        )}
         {refundState !== 'none' && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             {refundState === 'voided'
