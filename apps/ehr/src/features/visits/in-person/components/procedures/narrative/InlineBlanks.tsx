@@ -52,7 +52,8 @@ const SEARCH_THRESHOLD = 8;
 
 const SENTENCE_SX: SxProps<Theme> = {
   fontSize: '16px',
-  lineHeight: 1.6,
+  // Room between wrapped lines, so the blanks on them don't touch.
+  lineHeight: 1.8,
   color: 'text.primary',
   // Prose line length, even when the column is wider.
   maxWidth: '75ch',
