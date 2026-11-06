@@ -53,8 +53,6 @@ import { fetchClaimInvoices, toBillingInvoiceSummary } from '../invoices';
 import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
@@ -75,6 +73,7 @@ import {
   getClaimType,
   getEraCheckNumber,
   getGroupNumber,
+  getPayerClaimControlNumber,
   getTaxonomy,
   readClaimItemDrug,
   readClaimItemOrderingProvider,
@@ -178,49 +177,20 @@ export async function performEffect(
     ...claimResponses.map((cr) => cr.insurer?.reference),
     ...paymentReconciliations.map((paymentReconciliation) => paymentReconciliation.paymentIssuer?.reference),
   ]);
-  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
-    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
-  );
   const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
-  const payerClaimControlNumber = payerClaimControlNumbers.find(
-    (i) =>
-      // is primary type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'primary'
-      ) ||
-      // is legacy type-less identifier
-      !i.type
-  )?.value;
+  const payerClaimControlNumber = getPayerClaimControlNumber(claim, 'primary');
   const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(secondaryCoverage.payor[0].reference)
     : undefined;
-  const secondaryPayerClaimControlNumber = payerClaimControlNumbers.find(
-    (i) =>
-      // is secondary type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'secondary'
-      )
-  )?.value;
+  const secondaryPayerClaimControlNumber = getPayerClaimControlNumber(claim, 'secondary');
   const tertiaryInsurer = tertiaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(tertiaryCoverage.payor[0].reference)
     : undefined;
-  const tertiaryPayerClaimControlNumber = payerClaimControlNumbers.find(
-    (i) =>
-      // is tertiary type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'tertiary'
-      )
-  )?.value;
+  const tertiaryPayerClaimControlNumber = getPayerClaimControlNumber(claim, 'tertiary');
   const quaternaryInsurer = quaternaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(quaternaryCoverage.payor[0].reference)
     : undefined;
-  const quaternaryPayerClaimControlNumber = payerClaimControlNumbers.find(
-    (i) =>
-      // is quaternary type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'quaternary'
-      )
-  )?.value;
+  const quaternaryPayerClaimControlNumber = getPayerClaimControlNumber(claim, 'quaternary');
 
   const billed = claim.total?.value ?? 0;
   const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);

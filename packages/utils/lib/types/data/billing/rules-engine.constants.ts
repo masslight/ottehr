@@ -83,5 +83,5 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
 export const RULES_ENGINE_SUBMISSION_TYPES = ['new', 'correction', 'void'] as const;
 export type RulesEngineSubmissionType = (typeof RULES_ENGINE_SUBMISSION_TYPES)[number];
 
-export const RULES_ENGINE_SUBMISSION_INSURANCES = ['primary', 'secondary', 'tertiary', 'quaternary'] as const;
-export type RulesEngineSubmissionInsurance = (typeof RULES_ENGINE_SUBMISSION_INSURANCES)[number];
+export const RULES_ENGINE_INSURANCES = ['primary', 'secondary', 'tertiary', 'quaternary'] as const;
+export type RulesEngineInsurance = (typeof RULES_ENGINE_INSURANCES)[number];
