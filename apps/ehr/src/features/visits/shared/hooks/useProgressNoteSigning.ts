@@ -8,6 +8,7 @@ import {
   useCreateExternalLabStore,
   useCreateInHouseLabStore,
   useCreateRadiologyOrderStore,
+  useDmeOrderStore,
   useImmunizationOrderStore,
   useInHouseMedicationOrderStore,
   useNursingOrderStore,
@@ -63,6 +64,7 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
   const { hasDraft: hasImmunizationDraft } = useImmunizationOrderStore();
   const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
   const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
+  const { hasDraft: hasDmeDraft } = useDmeOrderStore();
 
   const apiClient = useOystehrAPIClient();
   const { isAssignedProviderEligible } = useAssignedProvider();
@@ -203,6 +205,9 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
       if (hasVitalsDraft(encounter.id)) {
         messages.push(makeDraftWarningMessage('vitals'));
       }
+      if (hasDmeDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('DME order'));
+      }
     }
 
     return messages;
@@ -228,6 +233,7 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
     hasImmunizationDraft,
     hasMedDraft,
     hasVitalsDraft,
+    hasDmeDraft,
     encounter.id,
   ]);
 

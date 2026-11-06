@@ -18,6 +18,7 @@ import {
   resetPendingObservationFields,
 } from '../../src/features/visits/shared/stores/appointment/pending-observation-fields.store';
 import { useRosObservationsInitializationStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
+import { useDmeOrderStore } from '../../src/state/draft-data.store';
 import { emptyVisitNote } from './helpers/emptyVisitNote';
 
 vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
@@ -110,6 +111,8 @@ describe('MissingCard', () => {
     useRosObservationsInitializationStore.setState({ hasInitialData: true });
     useExamObservationsInitializationStore.setState({ hasInitialData: true });
     resetPendingObservationFields();
+    useDmeOrderStore.setState({ draftsByEncounterId: {} });
+    window.history.pushState({}, '', '/');
 
     mockUseAppointmentData.mockReturnValue({
       appointment: { id: 'appointment-123' },
@@ -170,6 +173,29 @@ describe('MissingCard', () => {
     expect(verificationLink).toBeVisible();
     fireEvent.click(verificationLink);
     expect(navigate).toHaveBeenCalledWith('/in-person/appointment-123/cc-and-intake-notes');
+  });
+
+  it('links an in-progress DME order to the DME order form', () => {
+    const navigate = vi.fn();
+    mockUseNavigate.mockReturnValue(navigate);
+    useDmeOrderStore.setState({ draftsByEncounterId: { 'encounter-123': { itemName: 'Crutches' } } });
+
+    renderComponent();
+    fireEvent.click(screen.getByRole('button', { name: 'Draft DME Order' }));
+
+    expect(navigate).toHaveBeenCalledWith('/in-person/appointment-123/dme/create');
+  });
+
+  it("keeps a follow-up's encounter on the draft DME order link", () => {
+    const navigate = vi.fn();
+    mockUseNavigate.mockReturnValue(navigate);
+    useDmeOrderStore.setState({ draftsByEncounterId: { 'encounter-123': { itemName: 'Crutches' } } });
+    window.history.pushState({}, '', '/?encounterId=encounter-123');
+
+    renderComponent();
+    fireEvent.click(screen.getByRole('button', { name: 'Draft DME Order' }));
+
+    expect(navigate).toHaveBeenCalledWith('/in-person/appointment-123/dme/create?encounterId=encounter-123');
   });
 
   it('renders the missing card when patient verification is the only missing item', () => {

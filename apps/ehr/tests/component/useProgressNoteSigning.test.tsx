@@ -100,6 +100,7 @@ vi.mock('src/state/draft-data.store', () => ({
   useNursingOrderStore: () => noDrafts,
   useProcedureStore: () => noDrafts,
   useVitalsDraftStore: () => noDrafts,
+  useDmeOrderStore: () => noDrafts,
 }));
 
 import { useProgressNoteSigning } from '../../src/features/visits/shared/hooks/useProgressNoteSigning';

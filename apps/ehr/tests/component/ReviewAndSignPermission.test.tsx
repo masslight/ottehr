@@ -92,6 +92,7 @@ vi.mock('src/state/draft-data.store', () => ({
   useNursingOrderStore: () => noDrafts,
   useProcedureStore: () => noDrafts,
   useVitalsDraftStore: () => noDrafts,
+  useDmeOrderStore: () => noDrafts,
 }));
 
 import { ReviewAndSignButton } from '../../src/features/visits/shared/components/review-tab/ReviewAndSignButton';
