@@ -1195,6 +1195,15 @@ export interface CreateBillingInvoiceResponse {
   smsSent?: boolean;
 }
 
+export type CheckBillingNioInvoiceResponse =
+  | {
+      invoiceable: true;
+    }
+  | {
+      invoiceable: false;
+      reason: string;
+    };
+
 export interface PreviewBillingNioInvoiceResponse {
   pdfBase64: string;
 }

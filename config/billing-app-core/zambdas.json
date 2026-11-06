@@ -358,6 +358,13 @@
       "src": "src/billing/create-billing-invoice/index",
       "zip": ".dist/zips/create-billing-invoice.zip"
     },
+    "CHECK-BILLING-NIO-INVOICE": {
+      "name": "check-billing-nio-invoice",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/check-billing-nio-invoice/index",
+      "zip": ".dist/zips/check-billing-nio-invoice.zip"
+    },
     "PREVIEW-BILLING-NIO-INVOICE": {
       "name": "preview-billing-nio-invoice",
       "type": "http_auth",
