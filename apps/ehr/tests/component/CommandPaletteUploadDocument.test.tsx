@@ -67,16 +67,22 @@ describe('CommandPaletteUploadDocument', () => {
     );
   });
 
-  it('closes when the user navigates to another patient, so the upload cannot land in their chart', async () => {
-    useCommandPaletteStore.setState({ uploadDocumentMode: 'upload' });
+  const renderWithRouter = (pathname: string): ReturnType<typeof createMemoryRouter> => {
     const router = createMemoryRouter([{ path: '*', element: <CommandPaletteUploadDocument /> }], {
-      initialEntries: ['/patient/patient-1/info'],
+      initialEntries: [pathname],
     });
     render(
       <QueryClientProvider client={new QueryClient()}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     );
+    return router;
+  };
+
+  it('closes when the user navigates to another patient, so the upload cannot land in their chart', async () => {
+    const router = renderWithRouter('/patient/patient-1/info');
+    act(() => useCommandPaletteStore.setState({ uploadDocumentMode: 'upload' }));
+    expect(useCommandPaletteStore.getState().uploadDocumentMode).toBe('upload');
     expect(dialogProps).toHaveBeenLastCalledWith(expect.objectContaining({ patientId: 'patient-1' }));
     dialogProps.mockClear();
 
@@ -84,6 +90,27 @@ describe('CommandPaletteUploadDocument', () => {
 
     expect(useCommandPaletteStore.getState().uploadDocumentMode).toBeNull();
     expect(dialogProps).not.toHaveBeenCalledWith(expect.objectContaining({ patientId: 'patient-2' }));
+  });
+
+  it('closes when the visit switches to another follow-up encounter', async () => {
+    const patient: Patient = { resourceType: 'Patient', id: 'patient-2' };
+    appointmentData = {
+      patient,
+      encounter: { resourceType: 'Encounter', id: 'encounter-a', status: 'in-progress', class: {} },
+    };
+    const router = renderWithRouter('/in-person/appt-2/progress-note?encounterId=encounter-a');
+    act(() => useCommandPaletteStore.setState({ uploadDocumentMode: 'upload' }));
+    expect(dialogProps).toHaveBeenLastCalledWith(expect.objectContaining({ encounterId: 'encounter-a' }));
+    dialogProps.mockClear();
+
+    appointmentData = {
+      patient,
+      encounter: { resourceType: 'Encounter', id: 'encounter-b', status: 'in-progress', class: {} },
+    };
+    await act(() => router.navigate('/in-person/appt-2/progress-note?encounterId=encounter-b'));
+
+    expect(useCommandPaletteStore.getState().uploadDocumentMode).toBeNull();
+    expect(dialogProps).not.toHaveBeenCalledWith(expect.objectContaining({ encounterId: 'encounter-b' }));
   });
 
   it('renders nothing while closed, but loads the patient folders as the palette opens', () => {

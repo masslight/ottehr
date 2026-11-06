@@ -7,7 +7,7 @@ import { GridRowSelectionModel } from '@mui/x-data-grid-pro';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DateSearch, { CustomFormEventHandler } from 'src/components/DateSearch';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -110,6 +110,17 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   useEffect(() => {
     if (!isFaxDialogOpen) setDocumentIdToFax(null);
   }, [isFaxDialogOpen]);
+
+  // Reused for another patient or visit (e.g. browser Back), a still-open upload dialog would file into it, so it
+  // isn't rendered for the new target and closes once that change commits.
+  const uploadTarget = useRef({ patientId, uploadEncounterId });
+  const uploadTargetChanged =
+    uploadTarget.current.patientId !== patientId || uploadTarget.current.uploadEncounterId !== uploadEncounterId;
+  useEffect(() => {
+    const previous = uploadTarget.current;
+    uploadTarget.current = { patientId, uploadEncounterId };
+    if (previous.patientId !== patientId || previous.uploadEncounterId !== uploadEncounterId) setUploadMode(null);
+  }, [patientId, uploadEncounterId]);
 
   const handleDocumentFax = useCallback(
     (documentId: string): void => {
@@ -397,7 +408,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
         </Grid>
       </Grid>
 
-      {uploadMode && (
+      {uploadMode && !uploadTargetChanged && (
         <UploadDocumentDialog
           open
           mode={uploadMode}

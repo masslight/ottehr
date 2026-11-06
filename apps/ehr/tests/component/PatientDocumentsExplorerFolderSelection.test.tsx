@@ -52,15 +52,19 @@ vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentsExpl
   PatientDocumentsExplorerTable: () => <div />,
 }));
 vi.mock('../../src/components/DateSearch', () => ({ default: () => <div /> }));
+vi.mock('src/features/visits/shared/components/patient/docs/UploadDocumentDialog', () => ({
+  UploadDocumentDialog: ({ patientId }: { patientId: string }) => <div>Upload dialog for {patientId}</div>,
+}));
 
 import { PatientDocumentsExplorer } from '../../src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 
-const renderExplorer = (): ReturnType<typeof render> =>
-  render(
-    <MemoryRouter>
-      <PatientDocumentsExplorer patientId="patient-1" />
-    </MemoryRouter>
-  );
+const explorerFor = (patientId: string): JSX.Element => (
+  <MemoryRouter>
+    <PatientDocumentsExplorer patientId={patientId} />
+  </MemoryRouter>
+);
+
+const renderExplorer = (): ReturnType<typeof render> => render(explorerFor('patient-1'));
 
 describe('PatientDocumentsExplorer folder selection', () => {
   beforeEach(() => {
@@ -77,12 +81,19 @@ describe('PatientDocumentsExplorer folder selection', () => {
     );
 
     docsState.documentsFolders = [REAL_FOLDER];
-    rerender(
-      <MemoryRouter>
-        <PatientDocumentsExplorer patientId="patient-1" />
-      </MemoryRouter>
-    );
+    rerender(explorerFor('patient-1'));
 
     expect(mockSearchDocuments).toHaveBeenLastCalledWith(expect.objectContaining({ documentsFolder: REAL_FOLDER }));
+  });
+
+  it('closes its upload dialog when reused for another patient', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderExplorer();
+    await user.click(screen.getByRole('button', { name: 'Upload' }));
+    expect(screen.getByText('Upload dialog for patient-1')).toBeInTheDocument();
+
+    rerender(explorerFor('patient-2'));
+
+    expect(screen.queryByText(/Upload dialog for/)).not.toBeInTheDocument();
   });
 });
