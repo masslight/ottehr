@@ -41,7 +41,9 @@ export const createCompactPatientHeader = <TData extends { patient?: PatientInfo
     client.drawText(data.fullName, styles.textStyles.patientName);
 
     client.drawText(`DOB: ${data.dob} | ${data.sex}`, styles.textStyles.regular);
-    client.drawText(`PID: ${data.id}`, styles.textStyles.regular);
+    if (data.id) {
+      client.drawText(`PID: ${data.id}`, styles.textStyles.regular);
+    }
     if (data.phone) {
       client.drawImage(assets.icons!.call, ICON_STYLE, styles.textStyles.text);
       client.drawTextSequential(` ${data.phone}`, styles.textStyles.regular);

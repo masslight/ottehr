@@ -404,14 +404,6 @@ export interface PatientInfo extends PdfData {
   ssn: string;
 }
 
-export interface PatientInfoForProgressNote extends PdfData {
-  patientName: string;
-  patientDOB: string;
-  patientId: string;
-  personAccompanying: string;
-  patientPhone: string;
-}
-
 export interface EncounterInfo extends PdfData {
   isFollowup: boolean;
 }
@@ -423,13 +415,11 @@ interface VisitDetailsForFollowUpVisit extends PdfData {
   message?: string;
   location?: Location;
   provider?: ProviderDetails;
+  personAccompanying?: string;
 }
 
 interface VisitDetailsForInitialVisit extends PdfData {
   visitType: 'initial';
-  type?: string;
-  serviceCategory?: string;
-  bookingType?: string;
   dateOfService: string;
   reasonForVisit: string;
   provider: string;
@@ -440,6 +430,7 @@ interface VisitDetailsForInitialVisit extends PdfData {
   insuranceCompany?: string;
   insuranceSubscriberId?: string;
   address: string;
+  personAccompanying?: string;
 }
 
 export type VisitDetailsForProgressNote = VisitDetailsForFollowUpVisit | VisitDetailsForInitialVisit;
@@ -837,17 +828,11 @@ export interface VisitDataInput {
 export interface ProgressNoteVisitDataInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
-  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface PatientDataInput {
   patient: Patient;
   appointment: Appointment;
-}
-
-export interface ProgressNotePatientDataInput {
-  patient: Patient;
-  questionnaireResponse?: QuestionnaireResponse;
 }
 
 export interface EncounterDataInput {
@@ -1100,7 +1085,9 @@ export interface ProgressNoteInput {
 
 export interface ProgressNoteData extends PdfData {
   visit: VisitDetailsForProgressNote;
-  patient: PatientInfoForProgressNote;
+  /** Absent for annotation follow-ups. */
+  visitHeader?: VisitInfo;
+  patient: PatientInfoForDischargeSummary;
   encounter: EncounterInfo;
   chiefComplaint: ChiefComplaint;
   historyOfPresentIllness: HistoryOfPresentIllness;

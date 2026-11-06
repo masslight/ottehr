@@ -1,8 +1,15 @@
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { Secrets } from 'utils/lib/secrets';
 import { createClinicalOystehrClient } from '../helpers';
+import { clinicalDocumentAssetPaths, createClinicalDocumentStyles } from './clinical-document-theme';
 import { DataComposer, PdfRenderConfig, renderPdf, StyleFactory, uploadPdfToStorage } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
+import {
+  composePatientInformationForDischargeSummary,
+  createCompactPatientHeader,
+} from './sections/discharge-summary/patientInfo';
 import { composeRadiology, createRadiologySection } from './sections/discharge-summary/radiology';
 import { composeUpcomingVisits, createUpcomingVisitsSection } from './sections/upcomingVisits';
 import {
@@ -40,10 +47,6 @@ import { composePlanData, createPlanSection } from './sections/visit-note/plan';
 import { composePrescriptions, createPrescriptionsSection } from './sections/visit-note/prescriptions';
 import { composeProcedures, createProceduresSection } from './sections/visit-note/procedures';
 import {
-  composePatientInformation,
-  createProgressNotePatientInfoSection,
-} from './sections/visit-note/progressNotePatientInfo';
-import {
   composeProgressNoteVisitDetails,
   createProgressNoteVisitDetailsSection,
 } from './sections/visit-note/progressNoteVisitDetails';
@@ -52,21 +55,44 @@ import { composeRosObservations, createRosObservationsSection } from './sections
 import { composeSignature, createSignatureSection } from './sections/visit-note/signature';
 import { composeSurgicalHistory, createSurgicalHistorySection } from './sections/visit-note/surgicalHistory';
 import { composeVitals, createVitalsSection } from './sections/visit-note/vitals';
+import { composeVisitData, createVisitInfoSection } from './sections/visitInfo';
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
-import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
+import { AssetPaths, PatientInfoForDischargeSummary, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
+
+/**
+ * The discharge summary's patient header, except that the phone stays the guardian's paperwork number the
+ * old "Patient information" section showed, falling back to the patient's own phone.
+ */
+const composeProgressNoteHeaderPatient = (
+  appointmentPackage: ProgressNoteInput['appointmentPackage']
+): PatientInfoForDischargeSummary => {
+  const patient = composePatientInformationForDischargeSummary({ appointmentPackage });
+  const guardianPhone = getQuestionnaireResponseByLinkId(
+    'guardian-number',
+    appointmentPackage.questionnaireResponse
+  )?.answer?.[0]?.valueString?.trim();
+  // standardizePhoneNumber only formats US numbers; anything else is shown as entered, as before.
+  return { ...patient, phone: standardizePhoneNumber(guardianPhone) ?? (guardianPhone || patient.phone) };
+};
 
 export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
-  const { patient, encounter, questionnaireResponse, allChartData, appointmentPackage, upcomingFollowUps } = input;
+  const { encounter, allChartData, appointmentPackage, upcomingFollowUps } = input;
 
-  const visit = composeProgressNoteVisitDetails({
-    allChartData,
-    appointmentPackage,
-    serviceCategories: input.serviceCategories,
-  });
+  const visit = composeProgressNoteVisitDetails({ allChartData, appointmentPackage });
+  const encounterInfo = composeEncounterData({ encounter });
 
   return {
-    patient: composePatientInformation({ patient, questionnaireResponse }),
-    encounter: composeEncounterData({ encounter }),
+    patient: composeProgressNoteHeaderPatient(appointmentPackage),
+    // A follow-up note is not the appointment's visit, so its header carries no visit date/location.
+    visitHeader: encounterInfo.isFollowup
+      ? undefined
+      : composeVisitData({
+          appointment: appointmentPackage.appointment,
+          location: appointmentPackage.location,
+          timezone: appointmentPackage.timezone,
+          serviceCategories: input.serviceCategories,
+        }),
+    encounter: encounterInfo,
     visit,
     chiefComplaint: composeChiefComplaint({
       allChartData,
@@ -178,158 +204,72 @@ export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNo
 };
 
 const progressNoteAssetPaths: AssetPaths = {
-  fonts: {
-    regular: './assets/Rubik-Regular.otf',
-    bold: './assets/Rubik-Bold.otf',
-  },
+  fonts: clinicalDocumentAssetPaths.fonts,
   icons: {
+    ...clinicalDocumentAssetPaths.icons,
     redDot: './assets/red-dot.png',
     greenDot: './assets/green-dot.png',
-    abnormal: './assets/abnormal.png',
-    inconclusive: './assets/inconclusive.png',
-    normal: './assets/normal.png',
   },
 };
 
-const createProgressNoteStyles: StyleFactory = (assets) => ({
-  textStyles: {
-    header: {
-      fontSize: 20,
-      font: assets.fonts.bold,
-      spacing: 17,
-      side: 'right',
-      newLineAfter: true,
+/**
+ * The discharge summary / visit details look (12pt body, 14pt section titles, compact header) plus the
+ * styles only the visit note sections use. Kept at that scale so a printed note takes as few pages as the
+ * other clinical documents.
+ */
+const createProgressNoteStyles: StyleFactory = (assets) => {
+  const clinicalStyles = createClinicalDocumentStyles(assets);
+  const { regular, bold, muted } = clinicalStyles.textStyles;
+  const label = { ...bold, newLineAfter: false };
+  const small = { ...regular, fontSize: 10 };
+
+  return {
+    textStyles: {
+      ...clinicalStyles.textStyles,
+      blockSubHeader: bold,
+      fieldHeader: label,
+      fieldText: regular,
+      alternativeRegularText: muted,
+      smallText: small,
+      smallGreyText: { ...small, color: muted.color },
+      examCardHeader: label,
+      examBoldField: { ...label, spacing: 4 },
+      examAbnormalField: { ...label, spacing: 4, color: rgbNormalized(211, 47, 47) },
+      examRegularField: { ...regular, spacing: 4, newLineAfter: false },
+      examProviderComment: { ...bold, spacing: 6 },
+      pageNumber: { ...small, newLineAfter: false, color: muted.color },
     },
-    subHeader: {
-      fontSize: 18,
-      font: assets.fonts.regular,
-      spacing: 8,
-      newLineAfter: true,
-      color: rgbNormalized(48, 19, 103),
-    },
-    blockSubHeader: {
-      fontSize: 16,
-      spacing: 1,
-      font: assets.fonts.bold,
-      newLineAfter: true,
-      color: rgbNormalized(48, 19, 103),
-    },
-    fieldHeader: {
-      fontSize: 16,
-      font: assets.fonts.regular,
-      spacing: 1,
-      color: rgbNormalized(48, 19, 103),
-    },
-    fieldText: {
-      fontSize: 16,
-      spacing: 6,
-      font: assets.fonts.regular,
-      side: 'right',
-      newLineAfter: true,
-    },
-    regularText: {
-      fontSize: 16,
-      spacing: 1,
-      font: assets.fonts.regular,
-      newLineAfter: true,
-    },
-    alternativeRegularText: {
-      fontSize: 16,
-      spacing: 1,
-      color: rgbNormalized(143, 154, 167),
-      font: assets.fonts.regular,
-      newLineAfter: true,
-    },
-    muted: {
-      fontSize: 16,
-      spacing: 1,
-      color: rgbNormalized(143, 154, 167),
-      font: assets.fonts.regular,
-      newLineAfter: true,
-    },
-    smallText: {
-      fontSize: 14,
-      spacing: 1,
-      font: assets.fonts.regular,
-      newLineAfter: true,
-    },
-    smallGreyText: {
-      fontSize: 14,
-      spacing: 1,
-      font: assets.fonts.regular,
-      newLineAfter: true,
-      color: rgbNormalized(143, 154, 167),
-    },
-    examCardHeader: {
-      fontSize: 16,
-      spacing: 1,
-      font: assets.fonts.bold,
-      color: rgbNormalized(48, 19, 103),
-    },
-    examBoldField: {
-      fontSize: 16,
-      spacing: 5,
-      font: assets.fonts.bold,
-    },
-    examRegularField: {
-      fontSize: 16,
-      spacing: 5,
-      font: assets.fonts.regular,
-    },
-    examProviderComment: {
-      fontSize: 16,
-      spacing: 16,
-      font: assets.fonts.bold,
-      newLineAfter: true,
-    },
-    regular: {
-      fontSize: 16,
-      spacing: 1,
-      font: assets.fonts.regular,
-      newLineAfter: true,
-    },
-    patientName: {
-      fontSize: 16,
-      font: assets.fonts.bold,
-      spacing: 5,
-      newLineAfter: true,
-    },
-  },
-  lineStyles: {
-    separator: {
-      thickness: 1,
-      color: rgbNormalized(227, 230, 239),
-      margin: { top: 8, bottom: 8 },
-    },
-    examExtraItemsSeparatedLineStyle: {
-      thickness: 1,
-      color: rgbNormalized(244, 246, 248),
-      margin: {
-        right: 200,
+    lineStyles: {
+      ...clinicalStyles.lineStyles,
+      examExtraItemsSeparatedLineStyle: {
+        thickness: 1,
+        color: rgbNormalized(244, 246, 248),
+        margin: {
+          right: 200,
+        },
       },
     },
-  },
-  imageStyles: {
-    examColorDotsStyle: {
-      width: 10,
-      height: 10,
+    imageStyles: {
+      examColorDotsStyle: {
+        width: 8,
+        height: 8,
+      },
     },
-  },
-});
+  };
+};
 
-const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
+// exported for unit tests
+export const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
   header: {
-    title: (data) => (data.encounter.isFollowup ? 'Follow-up Visit Note' : 'Visit Note'),
-    logo: {
-      maxWidth: 110,
-      maxHeight: 28,
-    },
+    title: (data) => (data.encounter.isFollowup ? 'FOLLOW-UP VISIT NOTE' : 'VISIT NOTE'),
+    leftSection: createCompactPatientHeader(),
+    rightSection: { ...createVisitInfoSection(), dataSelector: (data) => data.visitHeader },
   },
-  headerBodySeparator: false,
+  headerBodySeparator: true,
+  numberPages: true,
   assetPaths: progressNoteAssetPaths,
   styleFactory: createProgressNoteStyles,
   sections: [
-    createProgressNotePatientInfoSection(),
     createProgressNoteVisitDetailsSection(),
     createChiefComplaintSection(),
     createHistoryOfPresentIllnessSection(),
