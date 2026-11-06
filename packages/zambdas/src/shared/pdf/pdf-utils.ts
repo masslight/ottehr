@@ -226,10 +226,10 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
     splitLongStringToPageSize(text, font, fontSize, pageTextWidth()).forEach((line, index) => {
       const { width: lineWidth, height: lineHeight } = getTextDimensions(line, textStyle);
+      // Move down to a wrapped line before checking that it fits, so it can't land below the bottom margin.
+      if (index !== 0) currYPos -= lineHeight + spacing;
       if (currYPos - lineHeight < (pageStyles.pageMargins.bottom ?? 0))
         addNewPage(pageStyles, pageLeftBound, pageRightBound);
-
-      if (index !== 0) currYPos -= lineHeight + spacing; // skip first and add new line before writing text
 
       if (side === 'right') currXPos = pageLeftBound + pageTextWidth() - lineWidth;
       else if (side === 'center') currXPos = pageLeftBound + (pageTextWidth() - lineWidth) / 2;

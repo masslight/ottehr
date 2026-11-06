@@ -71,8 +71,11 @@ const composeProgressNoteHeaderPatient = (
     'guardian-number',
     appointmentPackage.questionnaireResponse
   )?.answer?.[0]?.valueString?.trim();
-  // standardizePhoneNumber only formats US numbers; anything else is shown as entered, as before.
-  return { ...patient, phone: standardizePhoneNumber(guardianPhone) ?? (guardianPhone || patient.phone) };
+  // standardizePhoneNumber only knows US numbers: it would rewrite an explicit other country code as a US
+  // number and drops what it can't parse, so those are shown as entered, as before.
+  const hasForeignCountryCode = /^\+(?!1)/.test(guardianPhone ?? '');
+  const guardianPhoneFormatted = hasForeignCountryCode ? guardianPhone : standardizePhoneNumber(guardianPhone);
+  return { ...patient, phone: guardianPhoneFormatted ?? (guardianPhone || patient.phone) };
 };
 
 export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
