@@ -1299,27 +1299,7 @@ export class PagedQuestionnaireFlowHelper {
       };
     }
 
-    // Set up response listener before clicking continue
-    const responsePromise = this.page.waitForResponse(
-      (response) => response.url().includes('/patch-paperwork/execute'),
-      { timeout: 60000 }
-    );
-
-    await this.clickContinue();
-
-    // Wait for and capture the PATCH response
-    const response = await responsePromise;
-    if (response.status() !== 200) {
-      const errorBody = await response.text().catch(() => 'Unable to read response body');
-      throw new Error(`patch-paperwork failed with status ${response.status()}: ${errorBody}`);
-    }
-    const responseBody = await response.json();
-
-    // The API returns { status, output: QuestionnaireResponse } wrapper
-    const questionnaireResponse = (responseBody.output ?? responseBody) as QuestionnaireResponse;
-
-    // Update our tracked responses for enableWhen evaluation
-    this.collectedResponses = questionnaireResponse.item ?? [];
+    const questionnaireResponse = await this.continueAndCapturePatch();
 
     console.log(`[Validation Check Complete] Total errors found across all phases: ${allValidationErrors.length}`);
     return { validationErrors: allValidationErrors, response: questionnaireResponse };
@@ -1342,13 +1322,34 @@ export class PagedQuestionnaireFlowHelper {
       return { resourceType: 'QuestionnaireResponse', status: 'in-progress', item: this.collectedResponses };
     }
 
-    // Set up response listener before clicking continue
-    const responsePromise = this.page.waitForResponse(
-      (response) => response.url().includes('/patch-paperwork/execute'),
-      { timeout: 60000 }
-    );
+    return this.continueAndCapturePatch();
+  }
+
+  /**
+   * Click Continue and capture the patch-paperwork response. When the page's own validation blocks
+   * Continue no request is ever sent, so this reports the validation errors instead of waiting out the
+   * response timeout. Pages with a complex validation call it before patching, so no request alone
+   * isn't proof of a block.
+   */
+  private async continueAndCapturePatch(): Promise<QuestionnaireResponse> {
+    const isPatch = (url: string): boolean => url.includes('/patch-paperwork/execute');
+    // Set up listeners before clicking continue
+    const requestPromise = this.page.waitForRequest((request) => isPatch(request.url()), { timeout: 20000 });
+    const responsePromise = this.page.waitForResponse((response) => isPatch(response.url()), { timeout: 60000 });
+    responsePromise.catch(() => undefined);
 
     await this.clickContinue();
+
+    const requestSent = await requestPromise.then(
+      () => true,
+      () => false
+    );
+    if (!requestSent) {
+      const { allErrors } = await collectValidationErrorsDetailed(this.page);
+      if (allErrors.length) {
+        throw new Error(`Continue on ${this.getCurrentPageSlug()} was blocked by validation: ${allErrors.join('; ')}`);
+      }
+    }
 
     // Wait for and capture the PATCH response
     const response = await responsePromise;
