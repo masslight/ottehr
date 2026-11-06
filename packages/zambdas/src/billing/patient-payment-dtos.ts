@@ -117,6 +117,10 @@ export const listEncounterPayments = async (input: {
   fhirPaymentNotices: PaymentNotice[];
   // the EHR visit list shows at most CARD_PAYMENT_LIMIT card payments; listings that must be complete lift the cap
   uncappedCardPayments?: boolean;
+  // Skips prefetching the encounter's payment intents and the customer's cards, two bulk Stripe calls
+  // that save a lookup per payment when listing many. With one payment they only add latency and a way
+  // to fail: its intent and card are retrieved by id instead.
+  skipEncounterPrefetch?: boolean;
 }): Promise<PatientPaymentDTO[]> => {
   const { clinical, billingOystehr, stripeClient, encounterId, fhirPaymentNotices } = input;
 
@@ -141,7 +145,8 @@ export const listEncounterPayments = async (input: {
       : () => clinical.scheduleStripeAccount(encounterId),
   });
 
-  const customerId = scheduleFound ? clinical.stripeCustomerId(stripeAccount) : undefined;
+  const customerId =
+    scheduleFound && !input.skipEncounterPrefetch ? clinical.stripeCustomerId(stripeAccount) : undefined;
   if (customerId) {
     try {
       const [paymentIntents, pms] = await Promise.all([

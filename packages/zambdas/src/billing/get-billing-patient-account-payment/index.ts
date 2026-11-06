@@ -86,6 +86,7 @@ export const getAccountPayment = async (params: {
     encounterId,
     fhirPaymentNotices: [notice],
     uncappedCardPayments: true,
+    skipEncounterPrefetch: true,
   });
   const [accountPayment] = toAccountPayments({
     visit,

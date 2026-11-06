@@ -21,7 +21,7 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
   getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { getPaymentsForEncounter } from '../../../src/billing/patient-payment-dtos';
+import { getPaymentsForEncounter, listEncounterPayments } from '../../../src/billing/patient-payment-dtos';
 import { fetchEncounterPaymentNotices } from '../../../src/billing/patient-payments';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, stripeAccountExtension } from '../../../src/billing/payments';
 import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
@@ -398,5 +398,77 @@ describe('getPaymentsForEncounter', () => {
         expect.objectContaining({ paymentMethod: 'card', fhirPaymentNotificationId: 'charge-1', amountInCents: 4000 }),
       ]);
     });
+  });
+});
+
+describe('listEncounterPayments for a single payment', () => {
+  // a legacy card payment without an account stamp, on a visit whose schedule owner has a Stripe customer
+  const unstampedCardNotice = {
+    resourceType: 'PaymentNotice',
+    id: 'legacy-1',
+    status: 'active',
+    created: '2026-10-21T15:00:00.000Z',
+    amount: { value: 30, currency: 'USD' },
+    request: { reference: `Encounter/${ENCOUNTER_ID}` },
+    payment: {},
+    recipient: {},
+    identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
+    extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
+  } as PaymentNotice;
+
+  const stripeStub = (): {
+    stripeClient: Stripe;
+    search: ReturnType<typeof vi.fn>;
+    list: ReturnType<typeof vi.fn>;
+    retrieveIntent: ReturnType<typeof vi.fn>;
+    retrieveMethod: ReturnType<typeof vi.fn>;
+  } => {
+    const search = vi.fn().mockRejectedValue(new Error('search unavailable'));
+    const list = vi.fn().mockRejectedValue(new Error('list unavailable'));
+    const retrieveIntent = vi.fn().mockResolvedValue({ id: 'pi_1', payment_method: 'pm_1', description: 'Copay' });
+    const retrieveMethod = vi.fn().mockResolvedValue({ id: 'pm_1', card: { brand: 'visa', last4: '4242' } });
+    const stripeClient = {
+      paymentIntents: { search, retrieve: retrieveIntent },
+      paymentMethods: { list, retrieve: retrieveMethod },
+    } as unknown as Stripe;
+    return { stripeClient, search, list, retrieveIntent, retrieveMethod };
+  };
+
+  const list = (stripeClient: Stripe, skipEncounterPrefetch: boolean): ReturnType<typeof listEncounterPayments> =>
+    listEncounterPayments({
+      clinical: { scheduleStripeAccount: async () => 'acct_1', stripeCustomerId: () => 'cus_1' },
+      billingOystehr: {} as Oystehr,
+      stripeClient,
+      encounterId: ENCOUNTER_ID,
+      fhirPaymentNotices: [unstampedCardNotice],
+      uncappedCardPayments: true,
+      skipEncounterPrefetch,
+    });
+
+  it("retrieves only the payment's own intent and card, on the schedule owner's account", async () => {
+    const { stripeClient, search, list: listMethods, retrieveIntent, retrieveMethod } = stripeStub();
+
+    const payments = await list(stripeClient, true);
+
+    expect(search).not.toHaveBeenCalled();
+    expect(listMethods).not.toHaveBeenCalled();
+    expect(retrieveIntent).toHaveBeenCalledWith('pi_1', expect.anything(), { stripeAccount: 'acct_1' });
+    expect(retrieveMethod).toHaveBeenCalledWith('pm_1', { stripeAccount: 'acct_1' });
+    expect(payments).toEqual([
+      expect.objectContaining({
+        stripePaymentId: 'pi_1',
+        stripePaymentMethodId: 'pm_1',
+        cardBrand: 'visa',
+        cardLast4: '4242',
+        description: 'Copay',
+      }),
+    ]);
+  });
+
+  it('still prefetches the encounter when listing, where a bulk failure fails the list', async () => {
+    const { stripeClient, search } = stripeStub();
+
+    await expect(list(stripeClient, false)).rejects.toThrow('search unavailable');
+    expect(search).toHaveBeenCalled();
   });
 });

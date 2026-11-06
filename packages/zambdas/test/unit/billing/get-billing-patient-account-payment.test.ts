@@ -118,6 +118,8 @@ describe('getAccountPayment', () => {
     expect(vi.mocked(listEncounterPayments).mock.calls[0][0].fhirPaymentNotices.map((n) => n.id)).toEqual([
       'pn-invoice',
     ]);
+    // ...without the encounter-wide Stripe prefetch a listing uses
+    expect(vi.mocked(listEncounterPayments).mock.calls[0][0].skipEncounterPrefetch).toBe(true);
     // the claim is resolved against every notice on the visit, as in the account listing
     expect(result).toMatchObject({
       fhirPaymentNotificationId: 'pn-invoice',
