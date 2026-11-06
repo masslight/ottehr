@@ -552,4 +552,35 @@ describe('listEncounterPayments for a single payment', () => {
     await expect(list(stripeClient, false)).rejects.toThrow('search unavailable');
     expect(search).toHaveBeenCalled();
   });
+
+  describe('refunds Stripe could not confirm', () => {
+    it('are confirmed when Stripe returns the payment and it shows no refunds', async () => {
+      const { stripeClient } = stripeStub();
+
+      const [payment] = await list(stripeClient, true);
+
+      expect(payment.refundsUnconfirmed).toBeUndefined();
+    });
+
+    it('are flagged when the payment cannot be retrieved', async () => {
+      const { stripeClient, retrieveIntent } = stripeStub();
+      retrieveIntent.mockRejectedValue(new Error('Stripe unavailable'));
+
+      const [payment] = await list(stripeClient, true);
+
+      expect(payment.refundsUnconfirmed).toBe(true);
+    });
+
+    it("are flagged when the payment shows refunds but they can't be listed", async () => {
+      const { stripeClient, retrieveIntent } = stripeStub();
+      retrieveIntent.mockResolvedValue({ id: 'pi_1', payment_method: 'pm_1', latest_charge: { amount_refunded: 500 } });
+      (stripeClient as unknown as { refunds: unknown }).refunds = {
+        list: vi.fn().mockRejectedValue(new Error('Stripe unavailable')),
+      };
+
+      const [payment] = await list(stripeClient, true);
+
+      expect(payment.refundsUnconfirmed).toBe(true);
+    });
+  });
 });

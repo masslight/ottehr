@@ -127,6 +127,37 @@ describe('PatientPaymentDetail loading', () => {
     expect(screen.getByText('Kim, Bo | DOB 1985-05-05 | MRN MRN-2')).toBeTruthy();
   });
 
+  it("blocks refunds while Stripe hasn't confirmed the refunded amount", async () => {
+    const resolvers = deferredCalls();
+    renderAt('/patients/p-1/encounters/enc-1/payments/pn-card');
+    await act(async () =>
+      resolvers[0]({
+        ...payment('pn-card', 'enc-1', 1000),
+        paymentMethod: 'card',
+        method: 'card',
+        stripePaymentId: 'pi_1',
+        refundsUnconfirmed: true,
+      } as BillingPatientAccountPayment)
+    );
+
+    expect(screen.getByText(/Stripe couldn't be reached to confirm this payment's refunds/)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Refund Payment' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Record External Refund' }) as HTMLButtonElement).disabled).toBe(true);
+
+    // a reload that confirms them lifts the block
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Reload' }));
+    await act(async () =>
+      resolvers[1]({
+        ...payment('pn-card', 'enc-1', 1000),
+        paymentMethod: 'card',
+        method: 'card',
+        stripePaymentId: 'pi_1',
+      } as BillingPatientAccountPayment)
+    );
+    expect(screen.queryByText(/Stripe couldn't be reached/)).toBeNull();
+    expect((screen.getByRole('button', { name: 'Refund Payment' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('names the back button after where it goes', async () => {
     const resolvers = deferredCalls();
     const router = renderAt('/patients/p-1/encounters/enc-1/payments/pn-a');

@@ -173,8 +173,11 @@ export default function PatientPaymentDetail(): ReactElement {
   const refunds = payment.refunds ?? [];
   const refundedToCard = !MANUAL_REFUND_METHODS.includes(payment.paymentMethod) && !refunds.some((r) => r.medium);
 
-  // after a failed reload the shown balance is unconfirmed, so no new operation may start from it
-  const balanceUnconfirmed = loading || !!error;
+  // Stripe couldn't be reached for the refunds, so the refunded total may miss some made outside the app
+  const refundsUnconfirmed = !!payment.refundsUnconfirmed;
+  // after a failed reload, or with unconfirmed refunds, the shown balance is unconfirmed, so no new
+  // operation may start from it
+  const balanceUnconfirmed = loading || !!error || refundsUnconfirmed;
   const method = payment.paymentMethod;
   const refundApplies =
     REFUNDABLE_METHODS.includes(method) &&
@@ -230,8 +233,10 @@ export default function PatientPaymentDetail(): ReactElement {
                 title={
                   !canManagePayments
                     ? NOT_ALLOWED_HINT
-                    : balanceUnconfirmed
+                    : loading || error
                     ? 'Waiting for the latest payment balance'
+                    : refundsUnconfirmed
+                    ? "The payment's refunds couldn't be confirmed with Stripe; reload to try again"
                     : ''
                 }
               >
@@ -275,6 +280,20 @@ export default function PatientPaymentDetail(): ReactElement {
             }
           >
             {error} — the details below may be out of date.
+          </Alert>
+        )}
+        {!error && refundsUnconfirmed && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => void fetchPayment()} disabled={loading}>
+                Reload
+              </Button>
+            }
+          >
+            Stripe couldn&apos;t be reached to confirm this payment&apos;s refunds. The refunded amount shows only
+            refunds recorded here and may be missing some, so refunds are unavailable until it is confirmed.
           </Alert>
         )}
         {refundState !== 'none' && (

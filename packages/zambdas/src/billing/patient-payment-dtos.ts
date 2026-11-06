@@ -308,7 +308,7 @@ const resolveRefundsForPaymentNotice = async (
   stripeClient: Stripe,
   stripeAccount: string | undefined,
   billingOystehr: Oystehr
-): Promise<PaymentRefundDTO[] | undefined> => {
+): Promise<{ refunds: PaymentRefundDTO[] | undefined; stripeLookupFailed?: boolean }> => {
   // legacy EHR notices are read-only here; their state is re-derived from Stripe on every read
   const persistRefunds = async (refunds: PaymentRefundDTO[], removeIds: string[]): Promise<void> => {
     if (!isBillingPaymentNotice(paymentNotice)) return;
@@ -336,7 +336,7 @@ const resolveRefundsForPaymentNotice = async (
         console.error('Error clearing stale refund reservations on notice', paymentNotice.id, error);
       }
     }
-    return activeStored;
+    return { refunds: activeStored };
   }
 
   // skip the Stripe round-trip when the stamped state is provably current and nothing needs cleanup
@@ -350,7 +350,7 @@ const resolveRefundsForPaymentNotice = async (
     storedAreTerminal &&
     settledRefundTotalInCents(storedStripeRefunds) === latestCharge.amount_refunded
   ) {
-    return storedRefunds;
+    return { refunds: storedRefunds };
   }
 
   try {
@@ -363,10 +363,10 @@ const resolveRefundsForPaymentNotice = async (
     const allStaleIds = staleReservationIds([...(storedRefunds ?? []), ...stripeDTOs]);
     const refunds = mergeStripeRefundsWithStored(storedRefunds, stripeDTOs, allStaleIds);
     await persistRefunds(refunds, allStaleIds);
-    return refunds;
+    return { refunds };
   } catch (error) {
     console.error('Error fetching refunds for payment intent', paymentIntent.id, error);
-    return activeStored;
+    return { refunds: activeStored, stripeLookupFailed: true };
   }
 };
 
@@ -441,7 +441,7 @@ const buildChargeOnlyPaymentDTOs = async (
 
   const refunds = (
     await resolveRefundsForPaymentNotice(paymentNotice, undefined, stripeClient, stripeAccount, billingOystehr)
-  )?.filter((refund) => !isPendingReservation(refund));
+  ).refunds?.filter((refund) => !isPendingReservation(refund));
   const common = {
     amountInCents: Math.round((paymentNotice.amount.value ?? 0) * 100),
     dateISO,
@@ -538,13 +538,15 @@ async function buildPaymentDTOs(
         return [];
       }
 
-      const refunds = await resolveRefundsForPaymentNotice(
+      const { refunds, stripeLookupFailed } = await resolveRefundsForPaymentNotice(
         paymentNotice,
         paymentIntent,
         stripeClient,
         stripeAccount,
         billingOystehr
       );
+      // without the intent (its lookup failed) or its refund list, only the recorded refunds are known
+      const unconfirmedField = !paymentIntent || stripeLookupFailed ? { refundsUnconfirmed: true } : {};
       // in-flight reservations stay on the notice but are not refunds to show or count
       const displayRefunds = refunds?.filter((refund) => !isPendingReservation(refund));
       const refundFields = displayRefunds?.length
@@ -566,6 +568,7 @@ async function buildPaymentDTOs(
             dateISO,
             ...takenByField,
             ...refundFields,
+            ...unconfirmedField,
           },
         ];
       }
@@ -583,6 +586,7 @@ async function buildPaymentDTOs(
           dateISO,
           ...takenByField,
           ...refundFields,
+          ...unconfirmedField,
         },
       ];
     })
