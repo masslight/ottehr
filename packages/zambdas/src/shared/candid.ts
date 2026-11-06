@@ -72,7 +72,7 @@ import {
   isAppointmentPreOp,
   isAppointmentWorkersComp,
 } from 'utils/lib/fhir/appointments';
-import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
+import { extractCptCodeModifiersFromCoding, getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { ACCIDENT_STATE_EXTENSION, ACCIDENT_TYPE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { createReference } from 'utils/lib/fhir/helpers';
@@ -1803,17 +1803,9 @@ export const getCptModifierCodeFromProcedure = (
   const coding = fhirProcedure.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
   if (!coding) return;
 
-  const modifierExtensions = coding.extension?.filter(
-    (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept
-  );
-  if (!modifierExtensions?.length) return;
+  if (!coding.extension?.some((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept)) return;
 
-  return modifierExtensions.flatMap(
-    (ext) =>
-      ext.valueCodeableConcept?.coding?.flatMap((c) =>
-        c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [{ code: c.code, display: c.display ?? '' }] : []
-      ) ?? []
-  );
+  return extractCptCodeModifiersFromCoding(coding).filter((modifier) => modifier.code);
 };
 
 export function shouldUseCandid(secrets: Secrets): boolean {
