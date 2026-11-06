@@ -774,6 +774,13 @@ export const CompoundIngredientSentences: FC<{
 );
 
 /** One prescription as sentences: what, for what, how to take it, how much, and whether it may be substituted. */
+/** The directions' verb said of the patient, on screen only ("Patient takes", "Patient applies"); the sig sent keeps
+ * the imperative. */
+const patientVerb = (route: PrescriptionLine['route']): string => {
+  const verb = prescriptionVerb(route).toLowerCase();
+  return `Patient ${verb.endsWith('y') ? `${verb.slice(0, -1)}ies` : `${verb}s`}`;
+};
+
 export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
   line,
   index,
@@ -1295,7 +1302,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                   />
                 )}
                 {doseInfo(line, '', line.doseNotes?.[0])}
-                {prescriptionVerb(line.route)}{' '}
+                {patientVerb(line.route)}{' '}
                 {stepBlanks(
                   line,
                   '',
@@ -1340,8 +1347,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 {i === line.steps.length - 1 ? courseEnd : '.'}
               </Sentence>
             ))}
-            <Sentence muted>
-              Dispense{' '}
+            {/* The sig the blanks above write, before what the pharmacy hands over. */}
+            {!compound && directionsSentence}
+            <Sentence>
+              Pharmacy dispenses{' '}
               <TextBlank
                 label="quantity"
                 kind="number"
@@ -1384,8 +1393,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
               />{' '}
               refills.
             </Sentence>
-
-            {!compound && directionsSentence}
 
             <Sentence>
               Note to pharmacy:{' '}
