@@ -38,6 +38,11 @@ export const CommandPaletteUploadDocument: FC = () => {
     if (hasUploadContextChanged(previous, context.current)) setUploadDocumentMode(null);
   }, [visitId, routePatientId, encounterId, setUploadDocumentMode]);
 
+  // With no patient to file for (e.g. a follow-up still loading, or failing to), a hidden dialog must not keep Cmd+K blocked.
+  useEffect(() => {
+    if (mode && !patientId) setUploadDocumentMode(null);
+  }, [mode, patientId, setUploadDocumentMode]);
+
   // Load the patient's folders as the palette opens, so Upload/Scan show them without a wait.
   const paletteIsOpen = useCommandPaletteStore((state) => state.isOpen);
   const queryClient = useQueryClient();

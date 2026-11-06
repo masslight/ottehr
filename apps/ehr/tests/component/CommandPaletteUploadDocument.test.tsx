@@ -142,6 +142,8 @@ describe('CommandPaletteUploadDocument', () => {
     renderAt('/in-person/appt-2/progress-note?encounterId=new-follow-up');
 
     expect(dialogProps).not.toHaveBeenCalled();
+    // A hidden dialog that stayed "open" would keep Cmd+K blocked if the follow-up never loads.
+    expect(useCommandPaletteStore.getState().uploadDocumentMode).toBeNull();
   });
 
   it('renders nothing while closed, but loads the patient folders as the palette opens', () => {
