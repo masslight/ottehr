@@ -10,6 +10,7 @@ import {
   Chip,
   Grid,
   IconButton,
+  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -33,21 +34,28 @@ import useEvolveUser, { EvolveUser } from 'src/hooks/useEvolveUser';
 import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
 import { RoleType } from 'utils/lib/types/api/user.types';
 
+type StatusFilter = 'all' | 'active' | 'inactive';
+
+interface PageState {
+  pageNumber: number;
+  rowsPerPage: number;
+  searchText: string;
+  statusFilter: StatusFilter;
+}
+
 export default function MedicationsConfigurationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [medications, setMedications] = useState<Medication[] | undefined>(undefined);
   const currentUser = useEvolveUser();
-  const [pageState, setPageState] = useState({
+  const [pageState, setPageState] = useState<PageState>({
     pageNumber: 0,
     rowsPerPage: 10,
     searchText: '',
+    statusFilter: 'active',
   });
-  const handlePageStateChange = useCallback(
-    (newPageState: { pageNumber?: number; rowsPerPage?: number; searchText?: string }): void => {
-      setPageState((prev) => ({ ...prev, ...newPageState }));
-    },
-    []
-  );
+  const handlePageStateChange = useCallback((newPageState: Partial<PageState>): void => {
+    setPageState((prev) => ({ ...prev, ...newPageState }));
+  }, []);
 
   const fetchMedications = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) {
@@ -69,6 +77,7 @@ export default function MedicationsConfigurationPage(): ReactElement {
         pageNumber={pageState.pageNumber}
         rowsPerPage={pageState.rowsPerPage}
         searchText={pageState.searchText}
+        statusFilter={pageState.statusFilter}
         onPageStateChange={handlePageStateChange}
         onRefresh={fetchMedications}
       />
@@ -82,7 +91,8 @@ interface MedicationsTableProps {
   pageNumber: number;
   rowsPerPage: number;
   searchText: string;
-  onPageStateChange: (newPageState: { pageNumber?: number; rowsPerPage?: number; searchText?: string }) => void;
+  statusFilter: StatusFilter;
+  onPageStateChange: (newPageState: Partial<PageState>) => void;
   onRefresh: () => Promise<void>;
 }
 
@@ -92,6 +102,7 @@ function MedicationsTable({
   pageNumber,
   rowsPerPage,
   searchText,
+  statusFilter,
   onPageStateChange,
   onRefresh,
 }: MedicationsTableProps): ReactElement {
@@ -104,6 +115,9 @@ function MedicationsTable({
     () =>
       (
         medications?.filter((medication: Medication) => {
+          const isActive = (medication.status ?? 'active') === 'active';
+          if (statusFilter === 'active' && !isActive) return false;
+          if (statusFilter === 'inactive' && isActive) return false;
           const name = medication.identifier?.find(
             (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
           )?.value;
@@ -120,13 +134,20 @@ function MedicationsTable({
           b.identifier?.find((i) => i.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value?.toLowerCase() ?? '';
         return nameA.localeCompare(nameB);
       }),
-    [medications, searchText]
+    [medications, searchText, statusFilter]
   );
 
   const pageMedications: Medication[] = useMemo(
     () => filteredMedications.slice(pageNumber * rowsPerPage, (pageNumber + 1) * rowsPerPage),
     [filteredMedications, pageNumber, rowsPerPage]
   );
+
+  // Toggling a status can empty the current page under an active/inactive filter.
+  useEffect(() => {
+    if (pageNumber > 0 && pageNumber * rowsPerPage >= filteredMedications.length) {
+      onPageStateChange({ pageNumber: Math.max(0, Math.ceil(filteredMedications.length / rowsPerPage) - 1) });
+    }
+  }, [filteredMedications.length, pageNumber, rowsPerPage, onPageStateChange]);
 
   const handleChangePage = useCallback(
     (_event: unknown, newPageNumber: number): void => {
@@ -145,6 +166,13 @@ function MedicationsTable({
   const handleChangeSearchText = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
       onPageStateChange({ searchText: event.target.value, pageNumber: 0 });
+    },
+    [onPageStateChange]
+  );
+
+  const handleChangeStatusFilter = useCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
+      onPageStateChange({ statusFilter: event.target.value as StatusFilter, pageNumber: 0 });
     },
     [onPageStateChange]
   );
@@ -197,6 +225,13 @@ function MedicationsTable({
               InputProps={{ endAdornment: <SearchIcon /> }}
               sx={{ width: '100%', paddingRight: 2 }}
             />
+          </Grid>
+          <Grid item xs={3}>
+            <TextField select label="Status" value={statusFilter} onChange={handleChangeStatusFilter} fullWidth>
+              <MenuItem value="all">All statuses</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="inactive">Inactive</MenuItem>
+            </TextField>
           </Grid>
           <Grid item xs={3}>
             {medications === undefined && (

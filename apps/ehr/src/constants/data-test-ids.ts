@@ -106,6 +106,7 @@ export const dataTestIds = {
   patientHeader: {
     patientId: 'header-patient-id',
     patientName: 'header-patient-name',
+    nameRow: 'header-patient-name-row',
     patientBirthSex: 'header-patient-birth-sex',
     patientBirthday: 'header-patient-birthday',
     patientAddress: 'header-patient-address',
@@ -221,6 +222,7 @@ export const dataTestIds = {
     roleFilter: 'employees-role-filter',
     roleCell: 'employees-role-cell',
     stateFilter: 'employees-state-filter',
+    statusFilter: 'employees-status-filter',
     gettingAlertsChip: 'employee-getting-alerts-chip',
     seenPatientRecentlyChip: 'employee-seen-patient-recently-chip',
     informationForm: 'employee-information-form',
@@ -632,6 +634,7 @@ export const dataTestIds = {
     addFreeFormButton: 'add-free-form-button',
     freeFormRow: 'free-form-row',
     freeFormNoteInput: 'free-form-note-input',
+    freeFormDeleteButton: 'free-form-delete-button',
   },
   patientDocsPage: {
     faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,
@@ -707,6 +710,11 @@ export const dataTestIds = {
     procedureDate: 'procedure-date',
     procedureTime: 'procedure-time',
     addDiagnosis: 'add-diagnosis',
+    ekgTiles: 'ekg-tiles',
+    ekgTile: (key: string) => `ekg-tile-${key}`,
+    ekgQtcMethod: 'ekg-qtc-method',
+    ekgSuggestions: 'ekg-suggestions',
+    ekgReminders: 'ekg-reminders',
   },
   proceduresPage: {
     title: 'procedures-title',

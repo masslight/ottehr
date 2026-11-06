@@ -228,8 +228,8 @@ interface CronZambdaInfo {
   description: string;
   expression: string;
   humanReadableUtc: string;
-  intervalMs: number;
-  getNextRun: () => Date;
+  minutes: number[];
+  hours: number[] | null;
 }
 
 function getNextCronRun(minutes: number[], hours: number[] | null): Date {
@@ -305,10 +305,10 @@ const OUTREACH_CRON_ZAMBDAS: CronZambdaInfo[] = [
     name: 'cron-outreach-invoice-due',
     displayName: 'Invoice Due Monitor',
     description: 'Scans for past-due invoices and creates outreach tasks',
-    expression: 'cron(0 6 * * ? *)',
-    humanReadableUtc: 'Daily at 6:00 AM UTC',
-    intervalMs: 24 * 60 * 60 * 1000,
-    getNextRun: () => getNextCronRun([0], [6]),
+    expression: 'cron(0 15 * * ? *)',
+    humanReadableUtc: 'Daily at 3:00 PM UTC',
+    minutes: [0],
+    hours: [15],
   },
   {
     name: 'cron-outreach-birthday',
@@ -316,8 +316,8 @@ const OUTREACH_CRON_ZAMBDAS: CronZambdaInfo[] = [
     description: 'Scans for upcoming patient birthdays and creates outreach tasks',
     expression: 'cron(0 6 * * ? *)',
     humanReadableUtc: 'Daily at 6:00 AM UTC',
-    intervalMs: 24 * 60 * 60 * 1000,
-    getNextRun: () => getNextCronRun([0], [6]),
+    minutes: [0],
+    hours: [6],
   },
   {
     name: 'cron-outreach-task-promoter',
@@ -325,8 +325,8 @@ const OUTREACH_CRON_ZAMBDAS: CronZambdaInfo[] = [
     description: 'Continuously monitors clinic events to initiate and advance outreach workflows',
     expression: 'cron(0,15,30,45 * * * ? *)',
     humanReadableUtc: 'Every 15 minutes',
-    intervalMs: 15 * 60 * 1000,
-    getNextRun: () => getNextCronRun([0, 15, 30, 45], null),
+    minutes: [0, 15, 30, 45],
+    hours: null,
   },
 ];
 
@@ -1270,7 +1270,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
         </Typography>
         <Stack spacing={2}>
           {OUTREACH_CRON_ZAMBDAS.map((z) => {
-            const nextRun = z.getNextRun();
+            const nextRun = getNextCronRun(z.minutes, z.hours);
             const shortTz = getShortTimezone();
             const nextLocal = nextRun.toLocaleString(undefined, {
               month: 'short',
@@ -1279,10 +1279,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
               minute: '2-digit',
               hour12: true,
             });
-            const localSchedule =
-              z.intervalMs < 60 * 60 * 1000
-                ? formatCronLocalSchedule(null, [0, 15, 30, 45])
-                : formatCronLocalSchedule([6], [0]);
+            const localSchedule = formatCronLocalSchedule(z.hours, z.minutes);
             const showUtc = localSchedule !== z.humanReadableUtc;
             return (
               <Box key={z.name} sx={{ borderLeft: '3px solid', borderColor: 'primary.main', pl: 1.5 }}>

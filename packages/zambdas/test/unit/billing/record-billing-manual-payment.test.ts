@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Claim, Encounter, FhirResource, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, FhirResource, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Secrets } from 'utils/lib/secrets';
@@ -67,13 +67,6 @@ const baseParams = {
   idempotencyKey: 'key-12345678',
 };
 
-const encounter: Encounter = {
-  resourceType: 'Encounter',
-  id: ENCOUNTER_ID,
-  status: 'finished',
-  class: { code: 'AMB' },
-};
-
 const claimWithProvider: Claim = {
   resourceType: 'Claim',
   id: 'claim-1',
@@ -127,9 +120,16 @@ const makeBillingOystehr = (
 const writtenNotice = (transaction: Mock): { resource: PaymentNotice; fullUrl: string; ifNoneExist: unknown } =>
   transaction.mock.calls[0][0].requests.find((request: { url: string }) => request.url === '/PaymentNotice');
 
-const makeClinicalOystehr = (encounters: Encounter[]): Oystehr =>
+const makeClinicalOystehr = (): Oystehr =>
   ({
-    fhir: { search: vi.fn().mockResolvedValue({ unbundle: () => encounters }) },
+    fhir: {
+      // the submitter, named on the notice
+      get: vi.fn().mockResolvedValue({
+        resourceType: 'Practitioner',
+        id: 'prac-1',
+        name: [{ given: ['Ada'], family: 'Lovelace' }],
+      }),
+    },
   }) as unknown as Oystehr;
 
 const makeInput = (params: Record<string, unknown>): ZambdaInput => ({
@@ -178,8 +178,8 @@ describe('record-billing-manual-payment', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-22T12:00:00Z'));
     vi.clearAllMocks();
-    (createClinicalOystehrClient as Mock).mockReturnValue(makeClinicalOystehr([encounter]));
     (getUser as Mock).mockResolvedValue({ profile: 'Practitioner/prac-1' });
+    (createClinicalOystehrClient as Mock).mockReturnValue(makeClinicalOystehr());
   });
 
   afterEach(() => {
@@ -198,17 +198,6 @@ describe('record-billing-manual-payment', () => {
 
     await expect(index(makeInput({ ...baseParams, ...override }))).rejects.toMatchObject({
       code: APIErrorCode.INVALID_INPUT,
-    });
-    expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('throws when the encounter does not exist', async () => {
-    (createClinicalOystehrClient as Mock).mockReturnValue(makeClinicalOystehr([]));
-    const { oystehr, transaction } = makeBillingOystehr([]);
-    (createBillingClient as Mock).mockReturnValue(oystehr);
-
-    await expect(index(makeInput(baseParams))).rejects.toMatchObject({
-      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
     });
     expect(transaction).not.toHaveBeenCalled();
   });
@@ -240,7 +229,10 @@ describe('record-billing-manual-payment', () => {
     expect(reconciliation.paymentDate).toBe('2026-07-01');
     expect(reconciliation.disposition).toBe('check copay');
     expect(reconciliation.paymentIdentifier).toEqual({ system: CHECK_NUMBER_IDENTIFIER_SYSTEM, value: '1234' });
-    expect(reconciliation.detail?.[0]?.submitter).toEqual({ reference: 'Practitioner/prac-1' });
+    expect(reconciliation.detail?.[0]?.submitter).toEqual({
+      reference: 'Practitioner/prac-1',
+      display: 'Ada Lovelace',
+    });
     expect(resource.created).toBe('2026-07-22T12:00:00.000Z');
     expect(JSON.parse(result.body)).toEqual({ paymentNoticeId: 'pn-new' });
   });

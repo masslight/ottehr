@@ -72,7 +72,7 @@ import {
   isAppointmentPreOp,
   isAppointmentWorkersComp,
 } from 'utils/lib/fhir/appointments';
-import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
+import { extractCptCodeModifiersFromCoding, getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { ACCIDENT_STATE_EXTENSION, ACCIDENT_TYPE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { createReference } from 'utils/lib/fhir/helpers';
@@ -87,6 +87,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getEmCodes } from 'utils/lib/helpers/em-codes';
 import {
   findOrgMatchingReference,
@@ -351,7 +352,7 @@ export function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition
   const orderedDiagnoses = [...(encounter.diagnosis ?? [])].sort((a, b) => Number(isPrimary(b)) - Number(isPrimary(a)));
   const seenCodes = new Set<string>();
   return orderedDiagnoses.flatMap<DiagnosisCreate>((encounterDiagnosis) => {
-    const diagnosisResourceId = encounterDiagnosis.condition.reference?.split('/')[1];
+    const diagnosisResourceId = getIdFromReference(encounterDiagnosis.condition.reference);
     const diagnosisResource = diagnoses.find((resource) => resource.id === diagnosisResourceId);
     const diagnosisCode = diagnosisResource?.code?.coding?.[0].code;
     if (diagnosisCode == null || seenCodes.has(diagnosisCode)) {
@@ -695,7 +696,7 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
       `Occupational Medicine employer is a billing-app NIO (${occupationalMedicineAccount.owner?.reference}); sending the Candid claim without a non-insurance payer.`
     );
   } else if (occupationalMedicineAccount) {
-    const ownerOrganizationId = occupationalMedicineAccount.owner?.reference?.split('/')[1];
+    const ownerOrganizationId = getIdFromReference(occupationalMedicineAccount.owner?.reference);
     if (ownerOrganizationId) {
       const occupationalMedicineEmployerOrganization = await oystehr.fhir.get<Organization>({
         id: occupationalMedicineAccount.owner?.reference?.split('/')[1] || '',
@@ -1797,14 +1798,9 @@ export const getCptModifierCodeFromProcedure = (
   const coding = fhirProcedure.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
   if (!coding) return;
 
-  const modifierCodableConcept = coding?.extension?.find(
-    (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept
-  )?.valueCodeableConcept;
-  const modifier = modifierCodableConcept?.coding?.flatMap((c) =>
-    c.system === CODE_SYSTEM_CPT_MODIFIER && c.code ? [{ code: c.code, display: c.display ?? '' }] : []
-  );
+  if (!coding.extension?.some((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept)) return;
 
-  return modifier;
+  return extractCptCodeModifiersFromCoding(coding).filter((modifier) => modifier.code);
 };
 
 export function shouldUseCandid(secrets: Secrets): boolean {

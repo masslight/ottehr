@@ -38,6 +38,7 @@ import { isAnnotationFollowupEncounter } from '../fhir/encounter';
 import { codingContainedInList, scheduleStrategyForHealthcareService } from '../fhir/helpers';
 import { isLocationVirtual, locationSupportsServiceMode } from '../fhir/location';
 import { getFullName } from '../fhir/patient';
+import { getIdFromReference } from '../fhir/reference';
 import { getPatchOperationForNewMetaTag } from '../fhir/resourcePatch';
 import { resolveServiceCategory } from '../fhir/serviceCategoryResolution';
 import { ServiceCategoryCode } from '../ottehr-config/booking';
@@ -2191,7 +2192,7 @@ export const scheduleOwnerSupportsServiceMode = (
   }
   if (owner.resourceType === 'PractitionerRole') {
     return ((owner as PractitionerRole).location ?? []).some((ref) => {
-      const id = ref.reference?.split('/')[1];
+      const id = getIdFromReference(ref.reference);
       const loc = id ? pairedLocationById.get(id) : undefined;
       return !!loc && locationSupportsServiceMode(loc, mode);
     });

@@ -17,7 +17,13 @@ import {
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, getCandidEncounterIdFromEncounter } from '../../shared/candid';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { buildInvoiceTask, isCandidInvoicingEnabled, sendInvoiceTaskDedupeQuery } from '../../shared/invoice-tasks';
+import {
+  buildInvoiceTask,
+  isCandidInvoicingEnabled,
+  isInvoicedFromBillingApp,
+  isOttehrBillingInvoicingInBillingApp,
+  sendInvoiceTaskDedupeQuery,
+} from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 
@@ -77,7 +83,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     )}`
   );
 
-  await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg, invoicingConfig)));
+  const billingAppInvoices = isOttehrBillingInvoicingInBillingApp(secrets);
+  await Promise.all(
+    packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg, invoicingConfig, billingAppInvoices))
+  );
 
   return {
     statusCode: 200,
@@ -88,10 +97,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export async function createTaskForEncounter(
   oystehr: Oystehr,
   encounterPkg: EncounterPackage,
-  config: ParsedInvoicingConfig
+  config: ParsedInvoicingConfig,
+  billingAppInvoices = false
 ): Promise<void> {
   try {
     const { encounter, claim, amountCents } = encounterPkg;
+
+    // Only checked in projects that invoice from the billing app.
+    if (billingAppInvoices && (await isInvoicedFromBillingApp(oystehr, encounter.id!))) {
+      console.log(`Encounter ${encounter.id} is invoiced from the billing app, skipping claim ${claim.claimId}`);
+      return;
+    }
 
     console.log(
       `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, encounter: ${encounter.id}, balance (cents): ${amountCents}`

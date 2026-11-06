@@ -45,6 +45,11 @@ export async function finalizeEngineRun(engine: RulesEngineType, input: Finalize
         stageLabel: 'Non-insurance Payer AR',
         statusField: 'nonInsuranceArStatus',
       });
+    case 'post-adjudication':
+      // CW TODO
+      return {
+        statusReason: 'Rules passed.',
+      };
     case 'patient-ar-pre-invoice':
       return markReadyToInvoice(input, {
         requiredStage: AR_STAGE.patient,

@@ -4,6 +4,7 @@ import { Appointment, Location, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BillingProviderDataObject, getBillingProviderData, GetBillingProviderInput } from 'utils/lib/fhir/billing';
 import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
@@ -375,7 +376,7 @@ export const getDefaultBillingProviderResource = async (
   }
 
   const defaultBillingResourceType = defaultBillingResource.split('/')[0];
-  const defaultBillingResourceId = defaultBillingResource.split('/')[1];
+  const defaultBillingResourceId = getIdFromReference(defaultBillingResource);
 
   if (defaultBillingResourceType === undefined || defaultBillingResourceId === undefined) {
     throw BILLING_PROVIDER_RESOURCE_NOT_FOUND;

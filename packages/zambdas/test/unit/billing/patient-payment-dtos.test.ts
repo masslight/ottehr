@@ -182,6 +182,42 @@ describe('getPaymentsForEncounter', () => {
     expect(payments).toEqual([expect.objectContaining({ paymentMethod: 'card', fhirPaymentNotificationId: 'card-1' })]);
   });
 
+  describe('an encounter with more card payments than the EHR visit list shows', () => {
+    // stored oldest first, so the newest payment is the one past the cap
+    const cardNotices = Array.from({ length: 21 }, (_, i): PaymentNotice => {
+      const day = String(i + 1).padStart(2, '0');
+      return {
+        ...otherNotice(`card-${day}`, `2026-10-${day}T15:00:00.000Z`, 10, [
+          { system: STRIPE_PAYMENT_ID_SYSTEM, value: `pi_${day}` },
+        ]),
+        extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }, stripeAccountExtension('acct_clinic')],
+      };
+    });
+    const listCardPayments = (uncappedCardPayments?: boolean): ReturnType<typeof getPaymentsForEncounter> => {
+      vi.mocked(fetchEncounterPaymentNotices).mockResolvedValue(new Map([[ENCOUNTER_ID, cardNotices]]));
+      return getPaymentsForEncounter({
+        clinicalOystehr: {} as Oystehr,
+        billingOystehr: {} as Oystehr,
+        stripeClient: { paymentIntents: { retrieve: vi.fn(async (id: string) => ({ id })) } } as unknown as Stripe,
+        account: { resourceType: 'Account', id: 'account-1', status: 'active' } as Account,
+        encounterId: ENCOUNTER_ID,
+        uncappedCardPayments,
+      });
+    };
+
+    it('lists every one, newest first, when uncapped', async () => {
+      const payments = await listCardPayments(true);
+
+      expect(payments).toHaveLength(21);
+      expect(payments[0].fhirPaymentNotificationId).toBe('card-21');
+      expect(payments[20].fhirPaymentNotificationId).toBe('card-01');
+    });
+
+    it('keeps the EHR visit list capped at 20', async () => {
+      expect(await listCardPayments()).toHaveLength(20);
+    });
+  });
+
   describe('a legacy card payment on an encounter without a schedule owner', () => {
     const legacyCardNotice: PaymentNotice = {
       resourceType: 'PaymentNotice',

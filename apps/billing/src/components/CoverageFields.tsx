@@ -46,7 +46,7 @@ export function CoverageFields({
               multiple={false}
               value={field.value}
               onChange={field.onChange}
-              label="Payer *"
+              label="Payer"
               required
               error={!!fieldError}
               helperText={fieldError?.message}
@@ -69,6 +69,7 @@ export function CoverageFields({
             />
           )}
         />
+
         {hideInsuranceType ? (
           <></>
         ) : (
@@ -151,6 +152,21 @@ export function CoverageFields({
                 <></>
               )}
             </FormControl>
+          )}
+        />
+        <Controller
+          name="groupNumber"
+          control={control}
+          render={({ field, fieldState: { error: fieldError } }) => (
+            <TextField
+              label="Group Number"
+              size="small"
+              fullWidth
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+              error={!!fieldError}
+              helperText={fieldError?.message}
+            />
           )}
         />
       </Box>

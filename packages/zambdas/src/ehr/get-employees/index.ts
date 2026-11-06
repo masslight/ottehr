@@ -4,6 +4,7 @@ import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { allLicensesForPractitioner, getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName, getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { EmployeeDetails, GetEmployeesResponse } from 'utils/lib/types/api/get-employees/get-employees.types';
@@ -74,7 +75,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 
   const practitionerIds = allEmployees
     .filter((employee) => employee.profile?.startsWith('Practitioner/'))
-    .map((employee) => employee.profile.split('/')[1]);
+    .map((employee) => getIdFromReference(employee.profile, 'Practitioner'));
 
   // Lite mode skips the organization-wide Encounter queries (used only for `seenPatientRecently`)
   // and trims Practitioner _elements to just what's needed for names.
@@ -120,7 +121,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
   const employeeDetails: EmployeeDetails[] = allEmployees.map((employee) => {
     const status = inactiveMemberIds.has(employee.id) ? 'Deactivated' : 'Active';
     const isPractitioner = hasPractitionerProfile(employee.profile);
-    const practitionerId = isPractitioner ? employee.profile.split('/')[1] : undefined;
+    const practitionerId = isPractitioner ? getIdFromReference(employee.profile) : undefined;
     const practitioner = practitionerId
       ? (resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined)
       : undefined;

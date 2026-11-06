@@ -9,7 +9,7 @@ import {
 import { fetchAllActivePatientArClaims } from '../../billing/search-billing-patient-ar-claims/handler';
 import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { isOttehrBillingInvoicingEnabled } from '../../shared/invoice-tasks';
+import { isOttehrBillingInvoicingInEhr } from '../../shared/invoice-tasks';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -26,8 +26,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
-  if (!isOttehrBillingInvoicingEnabled(secrets)) {
-    console.log('Ottehr billing invoicing is disabled for this env (BILLING_INTEGRATION or feature flag); skipping');
+  if (!isOttehrBillingInvoicingInEhr(secrets)) {
+    console.log(
+      'Ottehr billing invoicing is not running in the EHR for this env (BILLING_INTEGRATION or feature flags); skipping'
+    );
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'Ottehr billing invoicing disabled, no tasks created' }),

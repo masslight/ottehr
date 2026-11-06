@@ -7,14 +7,17 @@ import {
   Encounter,
   FhirResource,
   HealthcareService,
+  Location,
   Observation,
   Patient,
   Person,
   Questionnaire,
   RelatedPerson,
+  Schedule,
 } from 'fhir/r4b';
 import { chunkThings } from '../fhir/chat';
 import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
+import { getIdFromReference } from '../fhir/reference';
 import { removePrefix, sleep } from '../helpers/helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
@@ -462,6 +465,78 @@ export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise
 };
 
 /**
+ * Per-file tag the zambda integration suite stamps on every resource it creates. Mirrors
+ * INTEGRATION_TEST_PROCESS_ID_SYSTEM in packages/zambdas/test/helpers/integration-tags.ts, which can't be
+ * imported from here.
+ */
+export const INTEGRATION_TEST_PROCESS_ID_SYSTEM = 'INTEGRATION_TEST_PROCESS_ID_SYSTEM';
+
+/**
+ * Removes Locations (and the Schedules that act for them) left behind by the zambda integration suite.
+ *
+ * cleanAppointmentGraph never deletes a Location, so a Location a test failed to remove itself has no other
+ * way out; thousands of unnamed ones built up this way and sort to the top of the admin Locations list. The
+ * day-long age filter keeps this clear of any run still in progress on the shared environment.
+ */
+export const cleanupStaleIntegrationTestLocations = async (oystehr: Oystehr): Promise<void> => {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const resources = await getAllFhirSearchPages<Location | Schedule>(
+    {
+      resourceType: 'Location',
+      params: [
+        {
+          name: '_tag',
+          value: `${INTEGRATION_TEST_PROCESS_ID_SYSTEM}|`,
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneDayAgo}`,
+        },
+        {
+          name: '_revinclude',
+          value: 'Schedule:actor',
+        },
+      ],
+    },
+    oystehr
+  );
+
+  if (resources.length === 0) {
+    console.log('No stale integration test Locations found to clean up');
+    return;
+  }
+
+  // Schedules go first so no chunk deletes a Location while a Schedule still points at it.
+  const schedules = resources.filter((res) => res.resourceType === 'Schedule');
+  const locations = resources.filter((res) => res.resourceType === 'Location');
+  console.log(
+    `Found ${locations.length} stale integration test Locations and ${schedules.length} Schedules to clean up`
+  );
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = [...schedules, ...locations]
+    .filter((res) => res.id)
+    .map((res) => ({
+      method: 'DELETE',
+      url: `${res.resourceType}/${res.id}`,
+    }));
+
+  const chunkedRequests = chunkThings(batchDeleteRequests, 100);
+  for (let i = 0; i < chunkedRequests.length; i++) {
+    try {
+      await oystehr.fhir.batch({ requests: [...chunkedRequests[i]] });
+      console.log(`Successfully deleted stale integration test Locations, chunk ${i + 1} of ${chunkedRequests.length}`);
+    } catch (e) {
+      console.log(
+        `Error deleting stale integration test Locations, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`,
+        JSON.stringify(e)
+      );
+    }
+    await sleep(250);
+  }
+};
+
+/**
  * Clean up appointments and related resources from integration tests.
  *
  * Integration tests use the OTTEHR_AUTOMATED_TEST tag system with DELETE_ME-{processId} codes.
@@ -871,7 +946,7 @@ export const cleanupOrphanedInProgressEncounters = async (oystehr: Oystehr, dead
     const candidatePatientIds = [
       ...new Set(
         encounters
-          .map((encounter) => removePrefix('Patient/', encounter.subject?.reference ?? ''))
+          .map((encounter) => getIdFromReference(encounter.subject?.reference, 'Patient'))
           .filter((id): id is string => id !== undefined && !livePatientIds.has(id))
       ),
     ];

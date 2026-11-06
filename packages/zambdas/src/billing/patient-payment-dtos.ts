@@ -35,23 +35,90 @@ import {
 } from './patient-payments';
 import { stampedStripeAccount } from './payments';
 
+// What listing an encounter's payments needs from the clinical workspace. Callers with clinical access
+// read it from FHIR (fhirClinicalPaymentLookups); billing endpoints get it from the EHR's zambdas.
+export interface ClinicalPaymentLookups {
+  // the encounter schedule owner's Stripe account; rejects with APPOINTMENT_NOT_FOUND_ERROR or
+  // SCHEDULE_NOT_FOUND_ERROR when the encounter has none
+  scheduleStripeAccount: (encounterId: string) => Promise<string | undefined>;
+  // the patient's Stripe customer on a Stripe account (undefined: the platform account)
+  stripeCustomerId: (stripeAccount: string | undefined) => string | undefined;
+  // staff display names by Practitioner id, for submitters stored without one; without it they go unnamed
+  practitionerNames?: (practitionerIds: string[]) => Promise<Map<string, string>>;
+}
+
+export const fhirClinicalPaymentLookups = (
+  clinicalOystehr: Oystehr,
+  // holds the patient's Stripe customer ids; without it card details come from each payment alone
+  account: Account | undefined
+): ClinicalPaymentLookups => ({
+  scheduleStripeAccount: (encounterId) => getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr),
+  stripeCustomerId: (stripeAccount) => (account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined),
+  practitionerNames: async (practitionerIds) => {
+    const practitioners = (
+      await clinicalOystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [{ name: '_id', value: practitionerIds.join(',') }],
+      })
+    ).unbundle();
+    return new Map(
+      practitioners
+        // first + last only, matching the display stamped at write time
+        .map((practitioner) => [
+          practitioner.id ?? '',
+          [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' '),
+        ])
+        .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1]))
+    );
+  },
+});
+
 interface GetPaymentsForEncounterInput {
   // reads Account, Encounter, Practitioner and legacy EHR PaymentNotices
   clinicalOystehr: Oystehr;
   // reads billing PaymentNotices and keeps their refund stamps current
   billingOystehr: Oystehr;
   stripeClient: Stripe;
-  account: Account;
+  // holds the patient's Stripe customer ids; without it card details come from each payment alone
+  account: Account | undefined;
   encounterId: string;
+  // the encounter's merged notices, when the caller already fetched them in bulk
+  fhirPaymentNotices?: PaymentNotice[];
+  // the EHR visit list shows at most CARD_PAYMENT_LIMIT card payments; listings that must be complete lift the cap
+  uncappedCardPayments?: boolean;
 }
 
+const CARD_PAYMENT_LIMIT = 20;
+
 export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInput): Promise<PatientPaymentDTO[]> => {
-  const { clinicalOystehr, billingOystehr, stripeClient, account, encounterId } = input;
+  const { clinicalOystehr, billingOystehr, account, encounterId } = input;
 
   const fhirPaymentNotices =
+    input.fhirPaymentNotices ??
     (await fetchEncounterPaymentNotices({ clinicalOystehr, billingOystehr, encounterIds: [encounterId] })).get(
       encounterId
-    ) ?? [];
+    ) ??
+    [];
+
+  return listEncounterPayments({
+    ...input,
+    clinical: fhirClinicalPaymentLookups(clinicalOystehr, account),
+    fhirPaymentNotices,
+  });
+};
+
+// An encounter's payments from its merged notices, enriched with Stripe card and refund details.
+export const listEncounterPayments = async (input: {
+  clinical: ClinicalPaymentLookups;
+  // keeps billing notices' refund stamps current and resolves their payees' Stripe accounts
+  billingOystehr: Oystehr;
+  stripeClient: Stripe;
+  encounterId: string;
+  fhirPaymentNotices: PaymentNotice[];
+  // the EHR visit list shows at most CARD_PAYMENT_LIMIT card payments; listings that must be complete lift the cap
+  uncappedCardPayments?: boolean;
+}): Promise<PatientPaymentDTO[]> => {
+  const { clinical, billingOystehr, stripeClient, encounterId, fhirPaymentNotices } = input;
 
   const stripePayments: Stripe.PaymentIntent[] = [];
   const paymentMethods: Stripe.PaymentMethod[] = [];
@@ -64,19 +131,17 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     (notice) => stripePaymentIntentIdForNotice(notice) && !stampedStripeAccount(notice)
   );
   const { found: scheduleFound, stripeAccount } = needsSchedule
-    ? await lookUpScheduleStripeAccount(encounterId, clinicalOystehr)
+    ? await lookUpScheduleStripeAccount(encounterId, clinical)
     : { found: false };
-  const scheduleAccount = needsSchedule ? Promise.resolve(stripeAccount) : undefined;
   if (scheduleFound) console.log('found a stripe account from the schedule owner, ', stripeAccount);
   const stripeAccountFor = createStripeAccountResolver({
     billingOystehr,
-    clinicalOystehr,
-    encounterId,
-    scheduleAccount,
+    lookUpScheduleAccount: needsSchedule
+      ? async () => stripeAccount
+      : () => clinical.scheduleStripeAccount(encounterId),
   });
 
-  const customerId = scheduleFound ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
-
+  const customerId = scheduleFound ? clinical.stripeCustomerId(stripeAccount) : undefined;
   if (customerId) {
     try {
       const [paymentIntents, pms] = await Promise.all([
@@ -116,8 +181,9 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
     paymentMethods,
     stripeClient,
     stripeAccountFor,
-    clinicalOystehr,
-    billingOystehr
+    clinical.practitionerNames,
+    billingOystehr,
+    input.uncappedCardPayments ? undefined : CARD_PAYMENT_LIMIT
   );
 };
 
@@ -125,13 +191,10 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
 // payments are still listed, from FHIR alone, rather than failing the whole list.
 const lookUpScheduleStripeAccount = async (
   encounterId: string,
-  clinicalOystehr: Oystehr
+  clinical: ClinicalPaymentLookups
 ): Promise<{ found: boolean; stripeAccount?: string }> => {
   try {
-    return {
-      found: true,
-      stripeAccount: await getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr),
-    };
+    return { found: true, stripeAccount: await clinical.scheduleStripeAccount(encounterId) };
   } catch (error) {
     const code = (error as { code?: unknown } | undefined)?.code;
     if (code !== APPOINTMENT_NOT_FOUND_ERROR.code && code !== SCHEDULE_NOT_FOUND_ERROR.code) throw error;
@@ -301,7 +364,7 @@ const resolveRefundsForPaymentNotice = async (
 // reference resolve locally; older ones fall back to one batched Practitioner lookup.
 const resolveTakenByNames = async (
   fhirPaymentNotices: PaymentNotice[],
-  clinicalOystehr: Oystehr
+  practitionerNames: ClinicalPaymentLookups['practitionerNames']
 ): Promise<Map<string, string>> => {
   const takenByByNoticeId = new Map<string, string>();
   const noticeIdsByPractitionerId = new Map<string, string[]>();
@@ -319,20 +382,11 @@ const resolveTakenByNames = async (
     noticeIdsByPractitionerId.set(resourceId, [...(noticeIdsByPractitionerId.get(resourceId) ?? []), notice.id]);
   }
 
-  if (noticeIdsByPractitionerId.size > 0) {
+  if (practitionerNames && noticeIdsByPractitionerId.size > 0) {
     try {
-      const practitioners = (
-        await clinicalOystehr.fhir.search<Practitioner>({
-          resourceType: 'Practitioner',
-          params: [{ name: '_id', value: [...noticeIdsByPractitionerId.keys()].join(',') }],
-        })
-      ).unbundle();
-      for (const practitioner of practitioners) {
-        if (!practitioner.id) continue;
-        // first + last only, matching the display stamped at write time
-        const name = [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
-        if (!name) continue;
-        for (const noticeId of noticeIdsByPractitionerId.get(practitioner.id) ?? []) {
+      const names = await practitionerNames([...noticeIdsByPractitionerId.keys()]);
+      for (const [practitionerId, name] of names) {
+        for (const noticeId of noticeIdsByPractitionerId.get(practitionerId) ?? []) {
           takenByByNoticeId.set(noticeId, name);
         }
       }
@@ -399,12 +453,14 @@ async function buildPaymentDTOs(
   paymentMethods: Stripe.PaymentMethod[],
   stripeClient: Stripe,
   stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
-  clinicalOystehr: Oystehr,
-  billingOystehr: Oystehr
+  practitionerNames: ClinicalPaymentLookups['practitionerNames'],
+  billingOystehr: Oystehr,
+  // undefined keeps every card payment
+  cardPaymentLimit: number | undefined
 ): Promise<PatientPaymentDTO[]> {
   const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
   const paymentIntentCache = new Map<string, Stripe.PaymentIntent>(stripePayments.map((pi) => [pi.id, pi]));
-  const takenByByNoticeId = await resolveTakenByNames(fhirPaymentNotices, clinicalOystehr);
+  const takenByByNoticeId = await resolveTakenByNames(fhirPaymentNotices, practitionerNames);
 
   const cardPaymentsNested: PatientPaymentDTO[][] = await Promise.all(
     fhirPaymentNotices.map(async (paymentNotice) => {
@@ -522,7 +578,7 @@ async function buildPaymentDTOs(
     })
   );
 
-  const cardPayments: PatientPaymentDTO[] = cardPaymentsNested.flat().slice(0, 20);
+  const cardPayments: PatientPaymentDTO[] = cardPaymentsNested.flat().slice(0, cardPaymentLimit);
 
   // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
   // but that awaits the candid integration portion

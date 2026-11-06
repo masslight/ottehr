@@ -1,7 +1,8 @@
-import { useMutation, UseMutationResult } from '@tanstack/react-query';
+import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-query';
 import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { CopyableFollowupField } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { discardChart } from '../../hooks/chartSectionCache';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
 import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
@@ -18,6 +19,7 @@ interface CopyChartDataInput {
 // copied server-side by create-appointment — callers must NOT include it in `fields`.
 export const useCopyChartDataToFollowup = (): UseMutationResult<void, Error, CopyChartDataInput> => {
   const apiClient = useOystehrAPIClient();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ sourceEncounterId, targetEncounterId, fields, overwriteExisting }): Promise<void> => {
@@ -41,6 +43,8 @@ export const useCopyChartDataToFollowup = (): UseMutationResult<void, Error, Cop
       };
       await apiClient.saveChartData(payload);
 
+      // A cached chart of the target still holds what the copy replaced and would reseed the exam/ROS stores with it.
+      discardChart(queryClient, targetEncounterId);
       const copied = new Set(configs.map((config) => config.key));
       if (copied.has('examObservations')) resetExamObservationsStore();
       if (copied.has('rosObservations')) resetRosObservationsStore();

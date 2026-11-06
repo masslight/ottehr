@@ -12,10 +12,18 @@ interface Props {
   visitDiagnoses: readonly DiagnosisDTO[];
   readOnly: boolean;
   onChange: (diagnoses: DiagnosisDTO[]) => void;
+  /** Whether an empty list shows as a required blank. */
+  need?: boolean;
 }
 
 /** Visit quick picks offer each unselected code once. */
-export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnoses, readOnly, onChange }) => {
+export const ProcedureDiagnosesSentence: FC<Props> = ({
+  diagnoses,
+  visitDiagnoses,
+  readOnly,
+  onChange,
+  need = true,
+}) => {
   const diagnosisChoices = useMemo(() => {
     const seenCodes = new Set(diagnoses.map((diagnosis) => diagnosis.code));
     return visitDiagnoses.filter((diagnosis) => {
@@ -57,7 +65,7 @@ export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnose
           label={diagnoses.length ? '+ another' : 'diagnosis'}
           title="Diagnosis"
           ghost={diagnoses.length > 0}
-          need={diagnoses.length === 0}
+          need={need && diagnoses.length === 0}
           readOnly={readOnly}
           dataTestId={dataTestIds.documentProcedurePage.addDiagnosis}
         >
