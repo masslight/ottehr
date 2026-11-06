@@ -25,6 +25,8 @@ export async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Prom
   return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
 }
 
+export const ACTIVE_INVOICE_STATUSES = 'draft,issued,balanced';
+
 const activeClaimInvoiceParams = (claimIds: string[]): SearchParam[] => [
   {
     name: '_tag',
@@ -36,7 +38,7 @@ const activeClaimInvoiceParams = (claimIds: string[]): SearchParam[] => [
   },
   {
     name: 'status',
-    value: 'draft,issued,balanced',
+    value: ACTIVE_INVOICE_STATUSES,
   },
 ];
 

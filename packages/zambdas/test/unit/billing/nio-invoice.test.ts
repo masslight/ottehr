@@ -441,6 +441,48 @@ describe('assembleNioInvoice', () => {
     });
   });
 
+  it('ignores the invoice a resumed create already saved for the claims', async () => {
+    const resumed: Invoice = {
+      ...buildBillingInvoice({
+        status: 'issued',
+        date: '2026-10-01T15:00:00.000Z',
+        dueDate: '2026-10-08',
+        recipient: {
+          reference: 'Organization/nio-1',
+        },
+        claims: [
+          {
+            claimId: 'claim-1',
+            amountCents: 18000,
+          },
+        ],
+      }),
+      id: 'invoice-1',
+    };
+    mockFetchActiveClaimInvoices.mockResolvedValue([resumed]);
+    const oystehr = setup({
+      claims: [
+        makeClaim({
+          id: 'claim-1',
+        }),
+      ],
+    });
+
+    const draft = await assembleNioInvoice({
+      oystehr,
+      claimIds: ['claim-1'],
+      resumedInvoiceId: 'invoice-1',
+      now: NOW,
+    });
+
+    expect(draft.invoice.claims).toEqual([
+      {
+        claimId: 'claim-1',
+        amountCents: 18000,
+      },
+    ]);
+  });
+
   it('reports a claim on a paid invoice as already invoiced, not as having no balance', async () => {
     const paid: Invoice = buildBillingInvoice({
       status: 'balanced',

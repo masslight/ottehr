@@ -32,14 +32,17 @@ const ISSUER_SOURCE_LABELS = {
 const listIds = (claims: Claim[]): string => claims.map((claim) => claim.id).join(', ');
 
 // Checks the claims can go on one NIO invoice together and builds what the invoice and its PDF
-// need. Nothing is saved, so preview and create both start here.
+// need. Nothing is saved, so preview and create both start here. A create that resumes passes the
+// invoice it already saved, so the claims aren't refused for being on it.
 export async function assembleNioInvoice({
   oystehr,
   claimIds,
+  resumedInvoiceId,
   now = DateTime.now(),
 }: {
   oystehr: Oystehr;
   claimIds: string[];
+  resumedInvoiceId?: string;
   now?: DateTime;
 }): Promise<NioInvoiceDraft> {
   const resources = (
@@ -103,8 +106,9 @@ export async function assembleNioInvoice({
     throw INVALID_INPUT_ERROR(`All claims must have the same ${ISSUER_SOURCE_LABELS[invoiceIssuerSource]}`);
   }
 
+  const otherInvoices = activeInvoices.filter((invoice) => !resumedInvoiceId || invoice.id !== resumedInvoiceId);
   const invoiced = claims.filter((claim) =>
-    activeInvoices.some((invoice) => getBillingInvoiceClaims(invoice).some(({ claimId }) => claimId === claim.id))
+    otherInvoices.some((invoice) => getBillingInvoiceClaims(invoice).some(({ claimId }) => claimId === claim.id))
   );
   if (invoiced.length > 0) {
     throw BILLING_INVOICE_CONFLICT_ERROR(`Claims ${listIds(invoiced)} are already on an invoice`);

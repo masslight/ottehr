@@ -1199,6 +1199,12 @@ export interface PreviewBillingNioInvoiceResponse {
   pdfBase64: string;
 }
 
+export interface CreateBillingNioInvoiceResponse {
+  invoiceId: string;
+  invoiceNumber: string;
+  pdfUrl: string;
+}
+
 export interface BillingInvoiceSummary {
   id: string;
   status: BillingInvoiceListStatus;
