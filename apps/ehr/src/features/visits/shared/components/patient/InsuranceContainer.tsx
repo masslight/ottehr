@@ -314,9 +314,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   };
 
-  // Called, not rendered as <TitleWidget />: a component declared here is a new type on every render, which
-  // would remount the date picker (and drop its focus) each time its value changes.
-  const renderTitleWidget = (): ReactElement => {
+  const renderTitleWidget = ({ showTitle }: { showTitle: boolean }): ReactElement => {
     const chipColors = STATUS_TO_STYLE_MAP[eligibilityStatus?.status ?? 'UNKNOWN'];
     const lastRefreshDateString = (() => {
       const dateISO = eligibilityStatus?.dateISO ?? '';
@@ -350,15 +348,24 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     };
 
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '100%' }}>
-        {/* Status badge and View Details button in same row */}
-
+      <Box
+        sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: showTitle ? '100%' : undefined }}
+      >
         <Box
-          sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', gap: 1, mb: 1 }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            width: showTitle ? '100%' : undefined,
+            justifyContent: 'space-between',
+            gap: 1,
+            mb: 1,
+          }}
         >
-          <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
-            {ordinal === 1 ? 'Primary insurance' : 'Secondary insurance'}
-          </Typography>
+          {showTitle && (
+            <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
+              {ordinal === 1 ? 'Primary insurance' : 'Secondary insurance'}
+            </Typography>
+          )}
 
           <Box>
             <Chip
@@ -587,7 +594,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             pt: ordinal > 1 ? 2 : 0,
           }}
         >
-          {renderTitleWidget()}
+          {renderTitleWidget({ showTitle: true })}
         </Box>
       )}
       {!isNew && (
@@ -962,7 +969,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     <PatientRecordFormSection
       formSection={insuranceSection}
       ordinal={ordinal - 1}
-      titleWidget={isNew ? undefined : renderTitleWidget()}
+      titleWidget={isNew ? undefined : renderTitleWidget({ showTitle: false })}
     >
       {content}
     </PatientRecordFormSection>

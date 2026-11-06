@@ -562,7 +562,7 @@ describe('InsuranceSection — eligibility date of service', () => {
     renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
 
     await screen.findByText(/Primary insurance/i);
-    expect(screen.getByText('Recheck:')).toBeInTheDocument();
+    expect(screen.getByText('Check:')).toBeInTheDocument();
     expect(dateOfServiceInput().value).toBe('03/04/2025');
   });
 
