@@ -82,21 +82,30 @@ export default function PatientPaymentDetail(): ReactElement {
   const invalidateLoads = (): void => {
     generationRef.current++;
   };
+  // The payment the page is on: its patient/encounter and its ids, current first, then those it was opened
+  // under before the URL moved to its billing id. Null once the page is gone. A refund or void dialog holds the
+  // reload of the route it was opened on and may call it after the user has moved on; that reload is dropped.
+  const routeRef = useRef<{ key: string; paymentIds: string[] } | null>(null);
+  const routeKey = `${patientId}/${encounterId}`;
 
   const fetchPayment = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !patientId || !encounterId || !paymentId) return;
+    const isOnRoute = (): boolean =>
+      routeRef.current?.key === `${patientId}/${encounterId}` && routeRef.current.paymentIds.includes(paymentId);
+    if (!isOnRoute()) return;
     const generation = ++generationRef.current;
-    const isCurrent = (): boolean => generation === generationRef.current;
+    const isCurrent = (): boolean => generation === generationRef.current && isOnRoute();
     setLoading(true);
     setError(null);
     try {
       const res = await getBillingPatientAccountPayment(oystehrZambda, { patientId, encounterId, paymentId });
-      if (!isCurrent()) return;
+      if (!isCurrent() || !routeRef.current) return;
       setPayment(res.payment);
       // a legacy EHR payment gets a billing id once it is refunded or voided; keep the URL current
       const resolvedId = res.payment.fhirPaymentNotificationId;
       const path = paymentDetailPath(patientId, res.payment);
-      if (resolvedId && resolvedId !== paymentId && path) {
+      if (resolvedId && path && routeRef.current.paymentIds[0] !== resolvedId) {
+        routeRef.current = { ...routeRef.current, paymentIds: [resolvedId, ...routeRef.current.paymentIds] };
         loadedUnderIdRef.current = resolvedId;
         navigate(path, { replace: true });
       }
@@ -108,27 +117,33 @@ export default function PatientPaymentDetail(): ReactElement {
     }
   }, [oystehrZambda, patientId, encounterId, paymentId, navigate]);
 
-  // the payment the page shows, by route: a different one must not show (or be acted on) the previous one's data
-  const routeKey = `${patientId}/${encounterId}`;
-  const shownRouteKeyRef = useRef(routeKey);
-
   useEffect(() => {
     if (loadedUnderIdRef.current && loadedUnderIdRef.current === paymentId) {
       // the same payment under its current id, already loaded
       loadedUnderIdRef.current = undefined;
     } else {
-      if (shownRouteKeyRef.current !== routeKey || payment?.fhirPaymentNotificationId !== paymentId) {
-        setPayment(null);
-        setAction(null);
+      const route = routeRef.current;
+      if (!route || route.key !== routeKey || !route.paymentIds.includes(paymentId ?? '')) {
+        // a different payment must not show (or be acted on) the previous one's data
+        if (route) {
+          setPayment(null);
+          setAction(null);
+        }
+        routeRef.current = { key: routeKey, paymentIds: paymentId ? [paymentId] : [] };
       }
-      shownRouteKeyRef.current = routeKey;
       void fetchPayment();
     }
     // leaving the route or the page drops whatever is still loading for it
     return invalidateLoads;
-    // payment is read only to compare against the new route, not to reload when it changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchPayment, paymentId, routeKey]);
+
+  useEffect(
+    () => () => {
+      routeRef.current = null;
+    },
+    []
+  );
 
   if (loading && !payment) {
     return (
