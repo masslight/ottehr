@@ -14,10 +14,14 @@ import {
   adminUpdateSupportDialog,
   bulkUpdateInsuranceStatus,
   createEmCode,
+  createPrescriptionQuickPick,
+  createPrescriptionSetQuickPick,
   deleteEmCode,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
   getLabelPrintingConfig,
+  getPrescriptionQuickPicks,
+  getPrescriptionSetQuickPicks,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   getSupportDialog,
@@ -29,6 +33,8 @@ import {
   updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
+  updatePrescriptionQuickPick,
+  updatePrescriptionSetQuickPick,
   updateProcedureQuickPick,
   updateRadiologyQuickPick,
 } from 'src/api/api';
@@ -45,6 +51,8 @@ import {
 import {
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
+  PrescriptionQuickPickData,
+  PrescriptionSetQuickPickData,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
@@ -247,7 +255,28 @@ function makeRenameQuickPickMutation<T extends { id?: string; name: string }>(
   };
 }
 
-function makeRemoveQuickPickMutation(queryKey: string): () => UseMutationResult<void, Error, string> {
+/** Adds a quick pick, or replaces the one with the id. */
+function makeSaveQuickPickMutation<T>(
+  queryKey: string,
+  createFn: (oystehrZambda: Oystehr, input: { quickPick: Omit<T, 'id'> }) => Promise<unknown>,
+  updateFn: (oystehrZambda: Oystehr, id: string, quickPick: Omit<T, 'id'>) => Promise<unknown>
+): () => UseMutationResult<void, Error, { id?: string; quickPick: Omit<T, 'id'> }> {
+  return () => {
+    const { oystehrZambda } = useApiClients();
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: async ({ id, quickPick }) => {
+        if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
+        if (id) await updateFn(oystehrZambda, id, quickPick);
+        else await createFn(oystehrZambda, { quickPick });
+      },
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryKey] }),
+    });
+  };
+}
+
+/** Other lists the removal changes (a prescription quick pick's sets) are fetched again too. */
+function makeRemoveQuickPickMutation(...queryKeys: string[]): () => UseMutationResult<void, Error, string> {
   return () => {
     const { oystehrZambda } = useApiClients();
     const queryClient = useQueryClient();
@@ -256,7 +285,8 @@ function makeRemoveQuickPickMutation(queryKey: string): () => UseMutationResult<
         if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
         await removeQuickPick(oystehrZambda, id);
       },
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryKey] }),
+      onSuccess: () =>
+        Promise.all(queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey: [queryKey] }))),
     });
   };
 }
@@ -283,6 +313,31 @@ export const useRenameInHouseMedicationQuickPickMutation = makeRenameQuickPickMu
 );
 export const useRemoveInHouseMedicationQuickPickMutation = makeRemoveQuickPickMutation(
   'in-house-medication-quick-picks'
+);
+
+export const usePrescriptionQuickPicksQuery = makeQuickPicksQuery(
+  'prescription-quick-picks',
+  getPrescriptionQuickPicks
+);
+export const useRemovePrescriptionQuickPickMutation = makeRemoveQuickPickMutation(
+  'prescription-quick-picks',
+  'prescription-set-quick-picks'
+);
+export const useSavePrescriptionQuickPickMutation = makeSaveQuickPickMutation<PrescriptionQuickPickData>(
+  'prescription-quick-picks',
+  createPrescriptionQuickPick,
+  updatePrescriptionQuickPick
+);
+
+export const usePrescriptionSetQuickPicksQuery = makeQuickPicksQuery(
+  'prescription-set-quick-picks',
+  getPrescriptionSetQuickPicks
+);
+export const useRemovePrescriptionSetQuickPickMutation = makeRemoveQuickPickMutation('prescription-set-quick-picks');
+export const useSavePrescriptionSetQuickPickMutation = makeSaveQuickPickMutation<PrescriptionSetQuickPickData>(
+  'prescription-set-quick-picks',
+  createPrescriptionSetQuickPick,
+  updatePrescriptionSetQuickPick
 );
 
 export const useProcedureQuickPicksQuery = makeQuickPicksQuery('procedure-quick-picks', getProcedureQuickPicks);

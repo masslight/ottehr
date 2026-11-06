@@ -1,7 +1,8 @@
 import { Stack } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
+import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
@@ -21,6 +22,7 @@ import {
   useInHouseLabOrdersOptions,
   useInHouseMedicationsOptions,
   useNursingOrdersOptions,
+  usePrescriptionsOptions,
   useProceduresOptions,
   useRadiologyOrdersOptions,
 } from '../common';
@@ -46,7 +48,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
   appointmentId: appointmentIdProp,
   initialPatient,
 }) => {
-  const methods = useForm();
+  // Checkboxes start unchecked rather than without a value, so they are controlled from the start.
+  const methods = useForm<FieldValues>({ defaultValues: { refillRequest: false, changeRequest: false } });
   const formValue = methods.watch();
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -71,12 +74,19 @@ export const CreateTaskDialog: React.FC<Props> = ({
     setRefreshKey(Date.now());
   }, [open, methods]);
 
+  // An eRx task is a patient's refill or change request, on a prescription, only when chosen as one.
+  const isErx = formValue.category === MANUAL_TASK.category.erx;
+  const refillRequest = isErx && !!formValue.refillRequest;
+  const changeRequest = isErx && !!formValue.changeRequest;
+
   const { mutateAsync: createManualTask } = useCreateManualTask();
   const handleConfirm = async (): Promise<void> => {
     await createManualTask({
       category: formValue.category,
       appointmentId: formValue.appointment,
-      orderId: formValue.order,
+      orderId: isErx && !refillRequest && !changeRequest ? undefined : formValue.order,
+      refillRequest,
+      changeRequest,
       encounterId: encounterId || undefined,
       taskTitle: formValue.taskTitle,
       taskDetails: formValue.taskDetails,
@@ -110,6 +120,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId, refreshKey);
   const { proceduresLoading, proceduresOptions } = useProceduresOptions(encounterId);
   const { inHouseMedicationsLoading, inHouseMedicationsOptions } = useInHouseMedicationsOptions(encounterId);
+  const { prescriptionsLoading, prescriptionsOptions } = usePrescriptionsOptions(encounterId);
 
   const ordersLoading =
     formValue.category === MANUAL_TASK.category.inHouseLab
@@ -124,6 +135,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? proceduresLoading
       : formValue.category === MANUAL_TASK.category.inHouseMedications
       ? inHouseMedicationsLoading
+      : formValue.category === MANUAL_TASK.category.erx
+      ? prescriptionsLoading
       : false;
 
   const orderOptions =
@@ -139,6 +152,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? proceduresOptions
       : formValue.category === MANUAL_TASK.category.inHouseMedications
       ? inHouseMedicationsOptions
+      : formValue.category === MANUAL_TASK.category.erx
+      ? prescriptionsOptions
       : [];
 
   useEffect(() => {
@@ -229,7 +244,13 @@ export const CreateTaskDialog: React.FC<Props> = ({
       open={open}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
-      disabled={!formValue.category || !formValue.taskTitle || !formValue.location}
+      disabled={
+        !formValue.category ||
+        !formValue.taskTitle ||
+        !formValue.location ||
+        // A refill or change request is on a prescription.
+        ((refillRequest || changeRequest) && !formValue.order)
+      }
       description={''}
       title={'New Task'}
       confirmText={'Create new task'}
@@ -253,14 +274,23 @@ export const CreateTaskDialog: React.FC<Props> = ({
               getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
               required
             />
-            <SelectInput
-              name="order"
-              label="Order"
-              options={orderOptions.map((order) => order.id)}
-              getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
-              loading={ordersLoading}
-              disabled={!formValue.appointment || !formValue.category}
-            />
+            {isErx && (
+              <Stack direction="row">
+                <CheckboxInput name="refillRequest" label="Refill request" disabled={changeRequest} />
+                <CheckboxInput name="changeRequest" label="Change request" disabled={refillRequest} />
+              </Stack>
+            )}
+            {(!isErx || refillRequest || changeRequest) && (
+              <SelectInput
+                name="order"
+                label={isErx ? 'Prescription' : 'Order'}
+                options={orderOptions.map((order) => order.id)}
+                getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
+                loading={ordersLoading}
+                disabled={!formValue.appointment || !formValue.category}
+                required={refillRequest || changeRequest}
+              />
+            )}
             <TextInput name="taskTitle" label="Title" required />
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>

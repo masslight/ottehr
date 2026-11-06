@@ -1,5 +1,7 @@
+import type { DoseBasis } from '../../helpers/medications/plain-dose';
 import type { StructuredFacts } from '../../procedure-coding/structured-fields';
-import type { QuantityUnit } from './order-prescription.types';
+import type { MedicationProductDetails } from './erx-search.types';
+import type { CompoundInput, QuantityUnit } from './order-prescription.types';
 // ── Generic CRUD types for all quick pick categories ──
 
 export interface QuickPickCreateInput<T> {
@@ -149,9 +151,35 @@ export type GetRadiologyQuickPicksResponse = QuickPickListResponse<RadiologyQuic
 
 // ── Prescription (eRx) Quick Picks ──
 
-/** A whole prescription: the medication with its dispense details and directions. The diagnosis and pharmacy
- * are encounter-specific and never saved. */
-export interface PrescriptionQuickPickData {
+/** The dose calculator's settings a quick pick keeps when its dose came from the calculator, so it can be re-dosed
+ * for another patient's weight. Field names as the calculator's. */
+export interface PrescriptionQuickPickDosing {
+  rate: number;
+  basis: DoseBasis;
+  /** Older quick picks only, and ignored: the frequency gives the doses a day. */
+  dosesPerDay?: number;
+  /** A key of `PRESCRIPTION_FREQUENCIES`. */
+  frequency?: string;
+  durationDays?: number;
+  maxPerDoseMg?: number;
+  maxPerDayMg?: number;
+}
+
+/** Where a quick pick's dosing comes from (a starter set's guideline): shown behind its ⓘ, as a link with a URL. */
+export interface PrescriptionQuickPickSource {
+  label: string;
+  /** https only. */
+  url?: string;
+}
+
+/** The most an additional instructions text may be: with the calculated sentence it stays within the order's 1000
+ * characters of directions. */
+export const PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX = 500;
+
+/** A whole prescription: the medication with its dispense details and directions, and optionally its diagnosis. The
+ * pharmacy is encounter-specific and never saved. The product's RxCUI, dose form and ingredients are kept from the
+ * picked strength; one saved before them has none. */
+export interface PrescriptionQuickPickData extends MedicationProductDetails {
   id?: string;
   name: string;
   ndc?: string;
@@ -163,6 +191,16 @@ export interface PrescriptionQuickPickData {
   substitutionAllowed?: boolean;
   patientInstructions?: string;
   noteToPharmacy?: string;
+  /** One ICD-10 code; using the quick pick replaces the line's diagnosis with it. */
+  diagnosis?: { code: string; display: string };
+  /** Only when the dose came from the calculator's "Use this dose". */
+  dosing?: PrescriptionQuickPickDosing;
+  /** With dosing only: written after the calculated directions ("Shake well. Take with food."), up to
+   * `PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX` characters so the whole sig fits the order's 1000. */
+  additionalInstructions?: string;
+  source?: PrescriptionQuickPickSource;
+  /** A compound in place of a product: no NDC, medication description, substitution or dosing. */
+  compound?: CompoundInput;
 }
 
 export type CreatePrescriptionQuickPickInput = QuickPickCreateInput<PrescriptionQuickPickData>;
@@ -170,6 +208,35 @@ export type CreatePrescriptionQuickPickResponse = QuickPickCreateResponse<Prescr
 export type UpdatePrescriptionQuickPickInput = QuickPickUpdateInput<PrescriptionQuickPickData>;
 export type UpdatePrescriptionQuickPickResponse = QuickPickUpdateResponse<PrescriptionQuickPickData>;
 export type GetPrescriptionQuickPicksResponse = QuickPickListResponse<PrescriptionQuickPickData>;
+
+// ── Prescription Sets ──
+
+export const PRESCRIPTION_SET_STATUSES = ['Active', 'Inactive'] as const;
+export type PrescriptionSetStatus = (typeof PRESCRIPTION_SET_STATUSES)[number];
+
+/** A member quick pick taken out of the set when it was removed, for the admin to review. */
+export interface PrescriptionSetRemovedMember {
+  name: string;
+  /** ISO date-time of the removal. */
+  removedAt: string;
+}
+
+/** Prescription quick picks ordered together. Each member's dosing stays on its quick pick. */
+export interface PrescriptionSetQuickPickData {
+  id?: string;
+  name: string;
+  status: PrescriptionSetStatus;
+  /** Prescription quick pick ids, in order. */
+  memberIds: string[];
+  /** Members removed since the set was last saved; cleared by saving it again. */
+  removedMembers?: PrescriptionSetRemovedMember[];
+}
+
+export type CreatePrescriptionSetQuickPickInput = QuickPickCreateInput<PrescriptionSetQuickPickData>;
+export type CreatePrescriptionSetQuickPickResponse = QuickPickCreateResponse<PrescriptionSetQuickPickData>;
+export type UpdatePrescriptionSetQuickPickInput = QuickPickUpdateInput<PrescriptionSetQuickPickData>;
+export type UpdatePrescriptionSetQuickPickResponse = QuickPickUpdateResponse<PrescriptionSetQuickPickData>;
+export type GetPrescriptionSetQuickPicksResponse = QuickPickListResponse<PrescriptionSetQuickPickData>;
 
 // ── Immunization Quick Picks ──
 

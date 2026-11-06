@@ -24,6 +24,10 @@ export interface CreateManualTaskRequest {
   category: string;
   appointmentId?: string;
   orderId?: string;
+  // An eRx task on a prescription (orderId) that is a patient's refill request
+  refillRequest?: boolean;
+  // An eRx task on a prescription (orderId) that is a patient's change request
+  changeRequest?: boolean;
   encounterId?: string;
   taskTitle: string;
   taskDetails?: string;
@@ -121,6 +125,10 @@ export const ERX_TASK = {
   system: 'erx-task',
   code: {
     providerNotification: 'provider-notification',
+    // A pharmacy's refill (renewal) request, basedOn the eRx service's Task
+    refillRequest: 'refill-request',
+    // A pharmacy's change request, basedOn the eRx service's Task
+    changeRequest: 'change-request',
   },
   input: {
     providerName: 'provider-name',
