@@ -74,6 +74,7 @@ const ListPaper: FC<HTMLAttributes<HTMLElement>> = ({ children, className }) => 
         gap: '6px',
         // As the notice's status above the row that switches between Google and the directory.
         '& .MuiAutocomplete-noOptions, & .MuiAutocomplete-loading': { padding: '8px 12px' },
+        '& .MuiAutocomplete-noOptions:empty': { display: 'none' },
       }}
     >
       {notice}
@@ -220,9 +221,9 @@ export const PharmacySearch: FC<{
     notice.zipCode ? (
       `No pharmacies in ${notice.zipCode} can receive e-prescriptions`
     ) : null
-  ) : !directory && typed.length < 3 ? (
-    'Type to search pharmacies'
-  ) : (directory ? directoryResults.isFetching : debouncedQuery !== query || places.isFetching) ? (
+  ) : !directory && typed.length < 3 ? null : (
+      directory ? directoryResults.isFetching : debouncedQuery !== query || places.isFetching
+    ) ? (
     SEARCHING
   ) : (
     'Nothing found for this search criteria'

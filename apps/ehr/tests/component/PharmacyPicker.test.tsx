@@ -194,7 +194,6 @@ describe('eRx pharmacy picker', () => {
     const user = userEvent.setup();
     renderPicker();
     await user.type(screen.getByRole('combobox', { name: 'Pharmacy' }), 'he');
-    expect(screen.getByText('Type to search pharmacies')).toBeInTheDocument();
     expect(screen.queryByRole('option')).not.toBeInTheDocument();
   });
 

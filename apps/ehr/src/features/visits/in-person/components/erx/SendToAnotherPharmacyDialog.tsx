@@ -123,9 +123,6 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
               {ALREADY_THERE}, so left as is: {alreadyThere.map((prescription) => prescription.name).join(', ')}
             </Typography>
           )}
-          <Typography variant="body2" color="text.secondary">
-            A sent prescription is cancelled at its pharmacy ({CANCEL_REASON}) and sent again unchanged.
-          </Typography>
         </Stack>
       }
       closeButtonText={several ? 'Keep prescriptions' : 'Keep prescription'}
