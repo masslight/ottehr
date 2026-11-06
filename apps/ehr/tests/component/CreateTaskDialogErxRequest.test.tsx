@@ -67,7 +67,6 @@ vi.mock('../../src/features/tasks/common', () => {
     usePrescriptionsOptions: () => ({
       prescriptionsLoading: false,
       prescriptionsOptions: [{ id: 'rx-1', label: 'Lisinopril' }],
-      compoundPrescriptionIds: [],
     }),
   };
 });

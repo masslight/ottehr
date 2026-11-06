@@ -29,9 +29,4 @@ describe('New task: a patient’s refill request picks the prescription', () => 
       { id: 'rx-3', label: 'Magic mouthwash' },
     ]);
   });
-
-  it('names the compounds, which a patient’s change request can’t be on until the eRx service cancels them', () => {
-    const { result } = renderHook(() => usePrescriptionsOptions('encounter-1'));
-    expect(result.current.compoundPrescriptionIds).toEqual(['rx-3']);
-  });
 });

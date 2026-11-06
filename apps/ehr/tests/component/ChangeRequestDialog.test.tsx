@@ -145,16 +145,16 @@ describe('Change request dialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('offers Pending only for a prior authorization request', async () => {
+  it('offers Pending on every change request', async () => {
     const answers = (): string[] =>
       within(screen.getByText('Your answer').parentElement!)
         .getAllByRole('button')
         .map((button) => button.textContent ?? '');
     await open(OUT_OF_STOCK);
-    expect(answers()).toEqual(['Approve', 'Change', 'Deny']);
+    expect(answers()).toEqual(['Approve', 'Change', 'Deny', 'Pending']);
     cleanup();
     await open(CHANGE('G', { suggestions: OUT_OF_STOCK.pharmacyChangeRequest!.suggestions }));
-    expect(answers()).toEqual(['Approve', 'Change', 'Deny']);
+    expect(answers()).toEqual(['Approve', 'Change', 'Deny', 'Pending']);
     cleanup();
     await open(CHANGE('P'));
     expect(answers()).toEqual(['Approve', 'Deny', 'Pending']);

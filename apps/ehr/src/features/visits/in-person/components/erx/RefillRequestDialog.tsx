@@ -159,15 +159,12 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const selected = suggestions[suggestion];
   // A drug-use alert with no suggestion is approved as written: the eRx service answers Approved with the original.
   const asWritten = change?.code === 'D' && !suggestions.length;
-  // Approve sends what the pharmacy asked; a change request with no suggestion has nothing to approve as is. A change
-  // request is answered Pending only when it asks for a prior authorization.
-  const answers = (
-    priorAuth
-      ? ANSWERS.filter((item) => item !== 'change')
-      : change && !suggestions.length && !asWritten
-      ? ANSWERS.filter((item) => item !== 'approve')
-      : ANSWERS
-  ).filter((item) => !(change && !priorAuth && item === 'pending'));
+  // Approve sends what the pharmacy asked; a change request with no suggestion has nothing to approve as is.
+  const answers = priorAuth
+    ? ANSWERS.filter((item) => item !== 'change')
+    : change && !suggestions.length && !asWritten
+    ? ANSWERS.filter((item) => item !== 'approve')
+    : ANSWERS;
   const answer = answers.includes(chosen) ? chosen : answers[0];
   const prescription = data?.prescription;
   // The prescription the request is answered with, as the order form starts: the pharmacy's over the original's
