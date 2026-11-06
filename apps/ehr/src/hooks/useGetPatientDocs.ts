@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { QueryClient, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
@@ -28,6 +28,23 @@ import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
+
+// A blob URL opens in the EHR's origin, so types that can carry script are never rendered.
+const RENDERABLE_BLOB_TYPES = new Set([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+]);
+export const safeBlobType = (type: string | undefined): string => {
+  const mimeType = type?.split(';')[0].trim().toLowerCase() ?? '';
+  if (mimeType === 'text/plain' || mimeType === 'text/csv') return `${mimeType};charset=utf-8`;
+  if (RENDERABLE_BLOB_TYPES.has(mimeType) || mimeType.startsWith('audio/') || mimeType.startsWith('video/'))
+    return mimeType;
+  return mimeType.startsWith('text/') ? 'text/plain;charset=utf-8' : 'application/octet-stream';
+};
 
 export type DownloadDocumentOptions = {
   skipRelated?: boolean;
@@ -61,6 +78,7 @@ export type PatientDocumentAttachment = {
   presignedUrl?: string;
   /** The stored MIME type. Carried so the UI decides what is faxable on the same input the server uses. */
   contentType?: string;
+  data?: string;
 };
 
 // http://localhost:4002/patient/104e4c8c-1866-4c96-a436-88080c691614/docs
@@ -449,6 +467,12 @@ export const useGetPatientDocs = (
         }
 
         const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
+          for (const { z3Url, data, contentType } of attachments) {
+            if (z3Url || !data) continue;
+            const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+            openFile(window.URL.createObjectURL(new Blob([bytes], { type: safeBlobType(contentType) })));
+          }
+
           const urlSigningRequests = attachments.map(async (attachment) => {
             let presignedUrl = undefined;
             if (attachment.z3Url) {
@@ -485,7 +509,7 @@ export const useGetPatientDocs = (
                 if (!mimeType) {
                   throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
                 }
-                const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+                const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType) }));
                 openFile(fileBlob);
               })
               .catch((error) => {
@@ -682,6 +706,38 @@ export const parsePatientDocsFolders = (
   return Array.from(byInternalName.values());
 };
 
+const fetchPatientDocsFolders = async (oystehr: Oystehr, patientId: string): Promise<PatientDocsFoldersQueryData> => {
+  const [listsBundle, catalogBundle] = await Promise.all([
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: 'code', value: PATIENT_FOLDERS_CODE },
+      ],
+    }),
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
+    }),
+  ]);
+
+  return {
+    // Include soft-deleted catalog entries: per-patient Lists that reference them
+    // are still shown to users and must resolve display names from the catalog.
+    // Synthetic folders for soft-deleted entries are filtered out below.
+    lists: listsBundle.unbundle() as List[],
+    catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
+  };
+};
+
+export const prefetchPatientDocsFolders = (queryClient: QueryClient, oystehr: Oystehr, patientId: string): void => {
+  void queryClient.prefetchQuery({
+    queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+    queryFn: () => fetchPatientDocsFolders(oystehr, patientId),
+    staleTime: 60_000,
+  });
+};
+
 // Exported so screens that file documents for an ad-hoc patient (e.g. inbound-fax matching)
 // can reuse the folder loading + synthetic-folder logic instead of re-implementing it.
 export const useGetPatientDocsFolders = (
@@ -708,28 +764,7 @@ export const useGetPatientDocsFolders = (
       }
 
       console.log(`useGetPatientDocsFolders() query triggered`);
-
-      const [listsBundle, catalogBundle] = await Promise.all([
-        oystehr.fhir.search<List>({
-          resourceType: 'List',
-          params: [
-            { name: 'subject', value: `Patient/${patientId}` },
-            { name: 'code', value: PATIENT_FOLDERS_CODE },
-          ],
-        }),
-        oystehr.fhir.search<List>({
-          resourceType: 'List',
-          params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
-        }),
-      ]);
-
-      return {
-        // Include soft-deleted catalog entries: per-patient Lists that reference them
-        // are still shown to users and must resolve display names from the catalog.
-        // Synthetic folders for soft-deleted entries are filtered out below.
-        lists: listsBundle.unbundle() as List[],
-        catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
-      };
+      return fetchPatientDocsFolders(oystehr, patientId);
     },
   });
 
@@ -854,6 +889,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
         fileNameFromUrl: getFileNameFromUrl(docRefAttachment.url),
         z3Url: docRefAttachment.url,
         contentType: docRefAttachment.contentType,
+        data: docRefAttachment.data,
       } as PatientDocumentAttachment;
     });
 };
@@ -878,7 +914,7 @@ const debug__mimicTextNarrativeDocumentsFilter = (
   });
 };
 
-const usePatientDocsActions = ({
+export const usePatientDocsActions = ({
   patientId,
   encounterId,
 }: {
