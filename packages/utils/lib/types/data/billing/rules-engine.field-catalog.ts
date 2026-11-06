@@ -484,6 +484,16 @@ const coverageFields = (
       requiredOnSet: true,
       options: RELATIONSHIP_OPTIONS,
     },
+    {
+      id: `${prefix}.pccn`,
+      label: 'Payer Claim Control Number',
+      group,
+      valueType: 'string',
+      operators: SCALAR_OPS,
+      settable: false,
+      description: `The ${countingWord} payer's claim control number for this claim.`,
+      requiredOnSet: true,
+    },
   ];
 };
 

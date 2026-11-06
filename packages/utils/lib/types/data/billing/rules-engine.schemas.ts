@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import {
-  RULES_ENGINE_SUBMISSION_INSURANCES,
+  RULES_ENGINE_INSURANCES,
   RULES_ENGINE_SUBMISSION_TYPES,
   RULES_ENGINE_TYPES,
+  RulesEngineInsurance,
+  RulesEngineSubmissionType,
   RulesEngineType,
 } from './rules-engine.constants';
 import { HOLD_TAG_NAME } from './system-tags';
@@ -134,6 +136,7 @@ export const RULE_ACTION_TYPE = {
   updateServiceLines: 'updateServiceLines',
   removeServiceLines: 'removeServiceLines',
   applyChargeMasterPrices: 'applyChargeMasterPrices',
+  submitClaim: 'submitClaim',
   noop: 'noop',
 } as const;
 export const RULE_OUTCOME_TYPE = { actions: 'actions', conditional: 'conditional', noop: 'noop' } as const;
@@ -279,6 +282,11 @@ export type RuleAction =
   // Re-prices the matching lines from the best applicable charge master (resolved by the engine at
   // apply time from the claim's billing type and date of service).
   | { type: 'applyChargeMasterPrices'; match: ServiceLineMatch }
+  | {
+      type: 'submitClaim';
+      submissionType: RulesEngineSubmissionType;
+      submissionInsurance: RulesEngineInsurance;
+    }
   | { type: 'noop' };
 
 // Tags are free text in the UI, but the engine halts on an exact HOLD_TAG_NAME match — so
@@ -309,6 +317,14 @@ export const RuleActionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.removeServiceLines), match: ServiceLineMatchSchema }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.applyChargeMasterPrices), match: ServiceLineMatchSchema }),
+  // maybe a wrapper schema that is also a discriminated union
+  z.object({
+    type: z.literal(RULE_ACTION_TYPE.submitClaim),
+    // Allow configuration of submission type and insurance ordinal. Corrections and voids will use the
+    // PCCN on file for the payer.
+    submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES),
+    submissionInsurance: z.enum(RULES_ENGINE_INSURANCES),
+  }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.noop) }),
 ]);
 
@@ -417,7 +433,7 @@ export const RunBillingRulesEngineInputSchema = z
       claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
       skipRules: z.boolean().default(false),
       submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES),
-      submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES),
+      submissionInsurance: z.enum(RULES_ENGINE_INSURANCES),
       payerClaimControlNumber: z.string().min(1).optional(),
     }),
     z.object({
