@@ -17,7 +17,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
@@ -29,7 +29,7 @@ import { BillingPatientAccountPayment } from 'utils/lib/types/data/billing/billi
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingPatientAccountPayment } from '../api/api';
 import { Amount } from '../components/Amount';
-import { EHR_URL, paymentMethodLabel } from '../components/PatientPaymentsTab';
+import { EHR_URL, paymentDetailPath, paymentMethodLabel } from '../components/PatientPaymentsTab';
 import {
   MANUAL_REFUND_METHODS,
   PaymentAction,
@@ -74,6 +74,9 @@ export default function PatientPaymentDetail(): ReactElement {
 
   const backToPayments = (): void => navigate(`/patients/${patientId}?tab=payments`);
 
+  // set when the URL is switched to the id a payment was just loaded under, so that switch doesn't reload it
+  const loadedUnderIdRef = useRef<string | undefined>(undefined);
+
   const fetchPayment = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !patientId || !encounterId || !paymentId) return;
     setLoading(true);
@@ -81,16 +84,27 @@ export default function PatientPaymentDetail(): ReactElement {
     try {
       const res = await getBillingPatientAccountPayment(oystehrZambda, { patientId, encounterId, paymentId });
       setPayment(res.payment);
+      // a legacy EHR payment gets a billing id once it is refunded or voided; keep the URL current
+      const resolvedId = res.payment.fhirPaymentNotificationId;
+      const path = paymentDetailPath(patientId, res.payment);
+      if (resolvedId && resolvedId !== paymentId && path) {
+        loadedUnderIdRef.current = resolvedId;
+        navigate(path, { replace: true });
+      }
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to load payment' }));
     } finally {
       setLoading(false);
     }
-  }, [oystehrZambda, patientId, encounterId, paymentId]);
+  }, [oystehrZambda, patientId, encounterId, paymentId, navigate]);
 
   useEffect(() => {
+    if (loadedUnderIdRef.current && loadedUnderIdRef.current === paymentId) {
+      loadedUnderIdRef.current = undefined;
+      return;
+    }
     void fetchPayment();
-  }, [fetchPayment]);
+  }, [fetchPayment, paymentId]);
 
   if (loading && !payment) {
     return (

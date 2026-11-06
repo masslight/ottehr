@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Patient } from 'fhir/r4b';
+import { Patient, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { PatientPaymentVisit } from 'utils/lib/types/api/patient-payment-visits.types';
 import { GetBillingPatientAccountPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPatientAccountPayment,
@@ -17,7 +18,7 @@ import { fetchPatientPaymentsByEncounterIds } from '../claim-amounts';
 import { ehrClinicalPaymentLookups, getPatientPaymentVisits } from '../ehr-payment-data';
 import { fetchClaimsByEncounter, toAccountPayments } from '../patient-account-payments';
 import { listEncounterPayments } from '../patient-payment-dtos';
-import { mergeBillingAndLegacyPaymentNotices } from '../patient-payments';
+import { mergeBillingAndLegacyPaymentNotices, shadowsLegacyNotice } from '../patient-payments';
 import { createBillingClient, fetchById, resolveClinicalPatientIds } from '../shared';
 
 const ZAMBDA_NAME = 'get-billing-patient-account-payment';
@@ -75,8 +76,8 @@ export const getAccountPayment = async (params: {
     billingNoticesByEncounter.get(encounterId) ?? [],
     visit.legacyPaymentNotices
   );
-  const notice = notices.find((candidate) => candidate.id === paymentId);
-  if (!notice) throw FHIR_RESOURCE_NOT_FOUND('PaymentNotice');
+  const notice = notices.find((candidate) => candidate.id === paymentId) ?? adoptedCopyOf(paymentId, visit, notices);
+  if (!notice?.id) throw FHIR_RESOURCE_NOT_FOUND('PaymentNotice');
 
   const dtos = await listEncounterPayments({
     clinical: ehrClinicalPaymentLookups(ehrData),
@@ -89,9 +90,23 @@ export const getAccountPayment = async (params: {
   const [accountPayment] = toAccountPayments({
     visit,
     notices,
-    dtos: dtos.filter((dto) => dto.fhirPaymentNotificationId === paymentId),
+    // the resolved id, which differs from paymentId once a legacy payment has been adopted
+    dtos: dtos.filter((dto) => dto.fhirPaymentNotificationId === notice.id),
     claims: claimsByEncounter.get(encounterId) ?? [],
   });
   if (!accountPayment) throw FHIR_RESOURCE_NOT_FOUND('PaymentNotice');
   return accountPayment.payment;
+};
+
+// A refund or void of a legacy EHR payment adopts it into billing: a billing notice with a new id
+// replaces it in the merged list. A link made before that still names the legacy id, so it resolves
+// to the billing notice that now stands for it (the caller reads the new id off the response).
+const adoptedCopyOf = (
+  paymentId: string,
+  visit: PatientPaymentVisit,
+  notices: PaymentNotice[]
+): PaymentNotice | undefined => {
+  const legacyNotice = visit.legacyPaymentNotices.find((candidate) => candidate.id === paymentId);
+  if (!legacyNotice) return undefined;
+  return notices.find((candidate) => candidate.id !== paymentId && shadowsLegacyNotice(candidate, legacyNotice));
 };

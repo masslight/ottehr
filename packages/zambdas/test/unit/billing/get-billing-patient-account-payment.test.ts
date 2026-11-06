@@ -23,6 +23,7 @@ import { fetchPatientPaymentsByEncounterIds } from '../../../src/billing/claim-a
 import { getPatientPaymentVisits } from '../../../src/billing/ehr-payment-data';
 import { getAccountPayment } from '../../../src/billing/get-billing-patient-account-payment';
 import { listEncounterPayments } from '../../../src/billing/patient-payment-dtos';
+import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../../src/billing/payments';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
@@ -135,6 +136,24 @@ describe('getAccountPayment', () => {
     const result = await get(searchClient({}), 'pn-cash');
 
     expect(result).toMatchObject({ fhirPaymentNotificationId: 'pn-cash', method: 'cash', dateISO: '2026-09-01' });
+  });
+
+  it('resolves a legacy payment id to the billing notice that adopted it on a refund or void', async () => {
+    givenVisits([visit('enc-1', { legacyPaymentNotices: [notice('pn-legacy')] })]);
+    givenBillingNotices({
+      'enc-1': [
+        notice('pn-adopted', { identifier: [{ system: CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, value: 'pn-legacy' }] }),
+      ],
+    });
+    vi.mocked(listEncounterPayments).mockResolvedValue([payment('pn-adopted', '2026-09-01T11:00:00.000Z')]);
+
+    const result = await get(searchClient({}), 'pn-legacy');
+
+    expect(vi.mocked(listEncounterPayments).mock.calls[0][0].fhirPaymentNotices.map((n) => n.id)).toEqual([
+      'pn-adopted',
+    ]);
+    // the caller learns the payment's current id from the response
+    expect(result.fhirPaymentNotificationId).toBe('pn-adopted');
   });
 
   it("rejects an encounter that isn't the patient's", async () => {

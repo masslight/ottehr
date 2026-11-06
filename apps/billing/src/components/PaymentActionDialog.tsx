@@ -71,6 +71,12 @@ export function PaymentActionDialog({
   const [notes, setNotes] = useState('');
   // stable per dialog open so a retry resumes the same refund instead of recording a second one
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // The server scopes the idempotency key to the notice id sent, and a legacy payment's id changes to its
+  // billing copy's once the first attempt adopts it; a retry must still send the id the key was used with.
+  const [target] = useState(() => ({
+    encounterId: payment.encounterId,
+    paymentNoticeId: payment.fhirPaymentNotificationId,
+  }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // A failed request may still have been applied (e.g. the refund was stamped but the Candid sync
@@ -103,12 +109,12 @@ export function PaymentActionDialog({
       : `Up to ${cents(remainingCents)} can be refunded to the original card.`;
 
   const submit = async (): Promise<void> => {
-    if (!oystehrZambda || !reason || !payment.fhirPaymentNotificationId) return;
+    if (!oystehrZambda || !reason || !target.paymentNoticeId) return;
     setSubmitting(true);
     setError(null);
     const common = {
-      encounterId: payment.encounterId,
-      paymentNoticeId: payment.fhirPaymentNotificationId,
+      encounterId: target.encounterId,
+      paymentNoticeId: target.paymentNoticeId,
       reason,
       ...(notes.trim() ? { notes: notes.trim() } : {}),
     };
