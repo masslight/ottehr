@@ -29,8 +29,7 @@ import { useApiClients } from './useAppClients';
 
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
 
-// A blob URL opens in the EHR's origin, so a type that can carry script (HTML, SVG, XML) is shown as plain text or
-// downloaded instead of rendered.
+// A blob URL opens in the EHR's origin, so types that can carry script are never rendered.
 const RENDERABLE_BLOB_TYPES = new Set([
   'application/pdf',
   'image/png',
@@ -79,7 +78,6 @@ export type PatientDocumentAttachment = {
   presignedUrl?: string;
   /** The stored MIME type. Carried so the UI decides what is faxable on the same input the server uses. */
   contentType?: string;
-  /** Base64 content kept inside the record instead of in a file, as the AI scribe does with its transcript. */
   data?: string;
 };
 
@@ -708,7 +706,6 @@ export const parsePatientDocsFolders = (
   return Array.from(byInternalName.values());
 };
 
-/** The patient's folders query, shared by useGetPatientDocsFolders and prefetchPatientDocsFolders. */
 const fetchPatientDocsFolders = async (oystehr: Oystehr, patientId: string): Promise<PatientDocsFoldersQueryData> => {
   const [listsBundle, catalogBundle] = await Promise.all([
     oystehr.fhir.search<List>({
@@ -733,7 +730,6 @@ const fetchPatientDocsFolders = async (oystehr: Oystehr, patientId: string): Pro
   };
 };
 
-/** Warms the folders query so an upload dialog opened shortly after (e.g. from the command palette) shows them at once. */
 export const prefetchPatientDocsFolders = (queryClient: QueryClient, oystehr: Oystehr, patientId: string): void => {
   void queryClient.prefetchQuery({
     queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],

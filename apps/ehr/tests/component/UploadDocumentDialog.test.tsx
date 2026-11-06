@@ -19,7 +19,6 @@ const { mockUpload, mockCapture, folderState } = vi.hoisted(() => ({
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 vi.mock('utils/lib/frontend/sentry', () => ({ safelyCaptureException: mockCapture }));
-// Stands in for the scanner: a button that finishes a scan with one PDF named "scan 1".
 vi.mock('src/components/ScannerModal', () => ({
   ScannerModal: ({ open, onScanComplete }: { open: boolean; onScanComplete: (blob: Blob, name: string) => void }) =>
     open ? (
@@ -138,7 +137,6 @@ describe('UploadDocumentDialog', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Scan' }));
-    // The main dialog steps aside while the scanner is open, so find the stand-in by its text.
     await user.click(await screen.findByText('Finish scan'));
 
     await waitFor(() => expect(mockUpload).toHaveBeenCalledTimes(1));

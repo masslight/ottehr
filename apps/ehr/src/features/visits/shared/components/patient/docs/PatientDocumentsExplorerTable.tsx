@@ -303,10 +303,7 @@ const resolveDocumentVisit = (
   (doc.encounterId ? visitsByEncounterId.get(doc.encounterId) : undefined) ??
   (doc.appointmentId ? visitsByAppointmentId.get(doc.appointmentId) : undefined);
 
-/**
- * Opens a document in a new tab. The tab is reserved inside the click, because a tab opened after the
- * download's awaits would be blocked as a pop-up; the download closes it if the file never arrives.
- */
+// Opened inside the click: a tab opened after the download's awaits is blocked as a pop-up.
 const openInNewTab = (documentId: string, download: DocumentTableActions['onDocumentDownload']): void => {
   void download(documentId, { targetTab: window.open('', '_blank'), skipRelated: true });
 };

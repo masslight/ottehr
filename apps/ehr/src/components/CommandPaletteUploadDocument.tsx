@@ -18,18 +18,12 @@ const hasUploadContextChanged = (previous: UploadContext, next: UploadContext): 
   previous.routePatientId !== next.routePatientId ||
   (!!previous.encounterId && !!next.encounterId && previous.encounterId !== next.encounterId);
 
-/**
- * Mounts the upload/scan dialog at App level so the command palette's "Upload" and "Scan" actions open it
- * over the current screen without navigating. On a visit page the document is also filed against the
- * visit's encounter (the follow-up note's, when one is open). Rendered only while open.
- */
 export const CommandPaletteUploadDocument: FC = () => {
   const mode = useCommandPaletteStore((state) => state.uploadDocumentMode);
   const setUploadDocumentMode = useCommandPaletteStore((state) => state.setUploadDocumentMode);
   const { visitId, routePatientId, patientId, encounterId } = useCommandPaletteDocumentTarget();
 
-  // Left open across navigation (e.g. browser Back), the dialog would file into another patient, visit or follow-up,
-  // so it isn't rendered for a changed context and closes once that change commits.
+  // A dialog left open across navigation must not file into another patient, visit or follow-up.
   const context = useRef({ visitId, routePatientId, encounterId });
   const contextChanged = hasUploadContextChanged(context.current, { visitId, routePatientId, encounterId });
   useEffect(() => {
@@ -38,12 +32,11 @@ export const CommandPaletteUploadDocument: FC = () => {
     if (hasUploadContextChanged(previous, context.current)) setUploadDocumentMode(null);
   }, [visitId, routePatientId, encounterId, setUploadDocumentMode]);
 
-  // With no patient to file for (e.g. a follow-up still loading, or failing to), a hidden dialog must not keep Cmd+K blocked.
+  // A hidden dialog would keep Cmd+K blocked.
   useEffect(() => {
     if (mode && !patientId) setUploadDocumentMode(null);
   }, [mode, patientId, setUploadDocumentMode]);
 
-  // Load the patient's folders as the palette opens, so Upload/Scan show them without a wait.
   const paletteIsOpen = useCommandPaletteStore((state) => state.isOpen);
   const queryClient = useQueryClient();
   const { oystehr } = useApiClients();

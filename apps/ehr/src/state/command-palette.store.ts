@@ -49,9 +49,7 @@ interface CommandPaletteState {
   groupActions: Record<string, CommandPaletteGroupAction>;
   pendingQuickPick: PendingQuickPick | null;
   createTaskDialogOpen: boolean;
-  /** Upload or Scan opened from the palette; null when closed. */
   uploadDocumentMode: 'upload' | 'scan' | null;
-  /** An upload/scan dialog is open, from the palette or a Documents page. */
   uploadDialogOpen: boolean;
   phraseDialog: PhraseDialogState | null;
   open: () => void;

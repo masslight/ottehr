@@ -45,19 +45,14 @@ export type UploadDocumentMode = 'upload' | 'scan';
 
 interface UploadDocumentDialogProps {
   open: boolean;
-  /** Upload picks a file; scan opens the scanner. Both file into the folder chosen here. */
   mode: UploadDocumentMode;
   onClose: () => void;
   patientId: string;
-  /** When given, the document is also filed against this visit. */
   encounterId?: string;
-  /** The folder the user is looking at; the folder field starts empty without one. */
   defaultFolderId?: string;
-  /** Called with the folder the document went into, after it is uploaded. */
   onUploaded?: (folder: PatientDocumentsFolder) => void;
 }
 
-/** Self-contained so it can be opened from anywhere that knows the patient (documents page, command palette). */
 export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
   open,
   mode,
@@ -79,7 +74,7 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
   const [file, setFile] = useState<File | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
-  // Each opening starts from the folder the user is in, with no file chosen; a later change of it doesn't wipe the form.
+  // Reset only on opening, so a later defaultFolderId change doesn't wipe the form.
   const wasOpen = useRef(open);
   useEffect(() => {
     if (open && !wasOpen.current) {
@@ -89,14 +84,13 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
     wasOpen.current = open;
   }, [open, defaultFolderId]);
 
-  // Keeps Cmd+K from opening the palette over this dialog, whichever screen opened it.
   useEffect(() => {
     if (!open) return;
     setUploadDialogOpen(true);
     return () => setUploadDialogOpen(false);
   }, [open, setUploadDialogOpen]);
 
-  // An upload that finishes after navigation closed this dialog must not close or redirect whatever is open now.
+  // An upload finishing after this dialog unmounted must not close whatever is open now.
   const isMounted = useRef(false);
   useEffect(() => {
     isMounted.current = true;

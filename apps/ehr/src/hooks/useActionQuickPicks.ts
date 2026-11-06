@@ -65,8 +65,6 @@ export function useActionQuickPicks(): void {
       });
     }
 
-    // Documents belong to a patient, so these only appear with a visit or a patient on screen, and, like the
-    // visit's own Documents page, not on a locked visit.
     if (documentTarget.patientId && !documentTarget.isVisitLocked) {
       actions.push(
         {

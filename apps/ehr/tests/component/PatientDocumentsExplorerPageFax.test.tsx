@@ -40,7 +40,6 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
       isUploading: false,
     },
   }),
-  // Used by the upload dialog, which mounts only when Upload or Scan is clicked.
   useGetPatientDocsFolders: () => ({ data: undefined, isLoading: false, isError: false }),
   parsePatientDocsFolders: () => [],
   usePatientDocsActions: () => ({ uploadDocumentAction: vi.fn(), isUploading: false }),

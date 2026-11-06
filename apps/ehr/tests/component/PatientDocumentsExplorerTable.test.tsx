@@ -156,7 +156,6 @@ describe('PatientDocumentsExplorerTable', () => {
 
     expect(openSpy).toHaveBeenCalledWith('', '_blank');
     expect(onDocumentDownload).toHaveBeenCalledWith('doc-1', { targetTab: reservedTab, skipRelated: true });
-    // The table hands the tab over and never closes it: the download fills it or closes it if nothing arrives.
     await Promise.resolve();
     expect(reservedTab.close).not.toHaveBeenCalled();
     openSpy.mockRestore();

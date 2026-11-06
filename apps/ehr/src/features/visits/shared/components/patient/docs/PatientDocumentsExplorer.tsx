@@ -111,8 +111,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     if (!isFaxDialogOpen) setDocumentIdToFax(null);
   }, [isFaxDialogOpen]);
 
-  // Reused for another patient or visit (e.g. browser Back), a still-open upload dialog would file into it, so it
-  // isn't rendered for the new target and closes once that change commits.
+  // A dialog left open across navigation must not file into another patient or visit.
   const uploadTarget = useRef({ patientId, uploadEncounterId });
   const uploadTargetChanged =
     uploadTarget.current.patientId !== patientId || uploadTarget.current.uploadEncounterId !== uploadEncounterId;
@@ -139,7 +138,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     }
   }, [documentsFolders, pendingSelectInternalName]);
 
-  // The first upload into a catalog-only folder creates its real List, wherever it came from (e.g. the command palette).
+  // The first upload into a catalog-only folder creates its real List.
   useEffect(() => {
     if (!selectedFolder?.internalName || !isSyntheticFolderId(selectedFolder.id)) return;
     const real = documentsFolders.find(
@@ -227,8 +226,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     setSearchDocNameFieldValue('');
   }, []);
 
-  // After an upload, show the folder it went into; selecting by internalName (every listed folder has one)
-  // also picks up the real List that the first upload into a synthetic catalog-only folder creates.
+  // Selecting by internalName also picks up the real List created for a synthetic folder.
   const handleUploaded = useCallback((folder: PatientDocumentsFolder) => {
     setPendingSelectInternalName(folder.internalName ?? null);
   }, []);
