@@ -36,6 +36,7 @@ const customConfig: ProgressNoteConfig = {
   vitalsUnitInputOrder: 'imperial-metric',
   // Deliberately not what the input order implies, so the round trip proves the two are stored apart.
   vitalsHeaderUnitSystem: 'metric',
+  specialtyTransferOptions: ['Urology', 'Cardiologist', 'Sports Medicine'],
   signReviewPrompt: 'ROS and Exam must each have at least 4 systems documented.',
 };
 
@@ -57,6 +58,17 @@ describe('progress-note-config shared read/write', () => {
     const { oystehr } = makeOystehr({ search: [] });
     const result = await getProgressNoteConfigPayload(oystehr);
     expect(result).toEqual(DEFAULT_PROGRESS_NOTE_CONFIG);
+  });
+
+  test('read returns the default specialties for a config saved before they were configurable', async () => {
+    const basic: Basic = {
+      resourceType: 'Basic',
+      code: {},
+      extension: [{ url: PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL, valueString: 'imperial-metric' }],
+    };
+    const { oystehr } = makeOystehr({ search: [basic] });
+    const result = await getProgressNoteConfigPayload(oystehr);
+    expect(result.specialtyTransferOptions).toEqual(DEFAULT_PROGRESS_NOTE_CONFIG.specialtyTransferOptions);
   });
 
   test('read falls back to the default order when the stored value is not a valid option', async () => {
