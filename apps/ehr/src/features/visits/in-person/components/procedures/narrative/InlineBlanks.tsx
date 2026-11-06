@@ -685,14 +685,15 @@ export const TextBlank: FC<TextBlankProps> = ({
             ...(kind === 'number' ? numberInputSx : {}),
             ...(warn ? warnSx(theme) : {}),
           },
-          // A growing blank renders a textarea; it takes the same look and starts level with the sentence.
+          // A growing blank renders a textarea; it takes the same look, and its first line sits on the sentence's
+          // baseline like the other blanks.
           ...(grows
             ? {
                 '& textarea': {
                   ...(inline['& input'] as Record<string, unknown>),
                   ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
                 },
-                verticalAlign: 'top',
+                verticalAlign: 'baseline',
               }
             : {}),
           maxWidth: '100%',
