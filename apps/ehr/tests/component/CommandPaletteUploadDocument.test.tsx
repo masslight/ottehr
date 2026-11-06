@@ -4,7 +4,12 @@ import { Encounter, Patient } from 'fhir/r4b';
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-let appointmentData: { patient?: Patient; encounter?: Encounter; followUpOriginEncounter?: Encounter } = {};
+let appointmentData: {
+  patient?: Patient;
+  encounter?: Encounter;
+  followUpOriginEncounter?: Encounter;
+  selectedEncounterId?: string;
+} = {};
 const useAppointmentData = vi.fn((_appointmentId?: string) => appointmentData);
 const dialogProps = vi.fn();
 const prefetch = vi.fn();
@@ -124,6 +129,19 @@ describe('CommandPaletteUploadDocument', () => {
     renderAt('/visit/appt-2');
 
     expect(dialogProps).toHaveBeenLastCalledWith(expect.objectContaining({ encounterId: 'visit-encounter' }));
+  });
+
+  it("doesn't open on the chart while a just-picked follow-up is still loading", () => {
+    appointmentData = {
+      patient: { resourceType: 'Patient', id: 'patient-2' },
+      encounter: { resourceType: 'Encounter', id: 'visit-encounter', status: 'in-progress', class: {} },
+      selectedEncounterId: 'new-follow-up',
+    };
+    useCommandPaletteStore.setState({ uploadDocumentMode: 'upload' });
+
+    renderAt('/in-person/appt-2/progress-note?encounterId=new-follow-up');
+
+    expect(dialogProps).not.toHaveBeenCalled();
   });
 
   it('renders nothing while closed, but loads the patient folders as the palette opens', () => {

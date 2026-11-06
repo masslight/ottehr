@@ -7,7 +7,7 @@ import useEvolveUser from './useEvolveUser';
 export interface CommandPaletteDocumentTarget {
   visitId: string | undefined;
   routePatientId: string | undefined;
-  /** The patient a palette upload goes to; undefined until a visit's data loads. */
+  /** The patient a palette upload goes to; undefined until a visit's data, and its selected encounter, load. */
   patientId: string | undefined;
   /** The encounter a palette upload on a visit is filed against. */
   encounterId: string | undefined;
@@ -22,9 +22,18 @@ export interface CommandPaletteDocumentTarget {
 export function useCommandPaletteDocumentTarget(): CommandPaletteDocumentTarget {
   const user = useEvolveUser();
   const { visitId, patientId: routePatientId, isVisitDetails } = useCommandPaletteRouteContext();
-  const { patient, encounter, appointment, followUpOriginEncounter, rawResources, locationVirtual } =
-    useAppointmentData(visitId);
+  const {
+    patient,
+    encounter,
+    appointment,
+    followUpOriginEncounter,
+    rawResources,
+    locationVirtual,
+    selectedEncounterId,
+  } = useAppointmentData(visitId);
 
+  // Until a follow-up just picked in the chart loads, the data still holds the visit's own encounter.
+  const isEncounterResolving = !isVisitDetails && !!selectedEncounterId && selectedEncounterId !== encounter?.id;
   const visitEncounter = isVisitDetails ? followUpOriginEncounter : encounter;
   const visitAppointment = isVisitDetails
     ? rawResources?.find((r): r is Appointment => r.resourceType === 'Appointment' && r.id === visitId) ?? appointment
@@ -33,7 +42,7 @@ export function useCommandPaletteDocumentTarget(): CommandPaletteDocumentTarget 
   return {
     visitId,
     routePatientId,
-    patientId: visitId ? patient?.id : routePatientId,
+    patientId: visitId ? (isEncounterResolving ? undefined : patient?.id) : routePatientId,
     encounterId: visitId ? visitEncounter?.id : undefined,
     isVisitLocked:
       !!visitId &&

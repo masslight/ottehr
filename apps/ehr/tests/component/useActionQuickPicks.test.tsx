@@ -11,6 +11,7 @@ let appointmentData: {
   followUpOriginEncounter?: Encounter;
   appointment?: Appointment;
   rawResources?: Appointment[];
+  selectedEncounterId?: string;
 } = {};
 const useAppointmentData = vi.fn((_appointmentId?: string) => appointmentData);
 let hasStaffRole = true;
@@ -174,6 +175,15 @@ describe('useActionQuickPicks — Upload and Scan', () => {
   it('hides them with no patient in context', () => {
     appointmentData = {};
     expect(documentItems('/tasks')).toEqual([]);
+  });
+
+  it('withholds them on the chart while a just-picked follow-up is still loading', () => {
+    appointmentData = {
+      patient: { resourceType: 'Patient', id: 'patient-1' },
+      encounter: { resourceType: 'Encounter', id: 'visit-encounter', status: 'in-progress', class: {} },
+      selectedEncounterId: 'new-follow-up',
+    };
+    expect(documentItems('/in-person/appt-1/progress-note?encounterId=new-follow-up')).toEqual([]);
   });
 
   it("checks Visit Details' own encounter and appointment, not a follow-up still selected from the chart", () => {
