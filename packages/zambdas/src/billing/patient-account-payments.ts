@@ -8,6 +8,7 @@ import { BillingPatientAccountPayment, BillingPatientPaymentMethod } from 'utils
 import { fetchResourcesGrouped } from './claim-amounts';
 import { getClaimServiceDate } from './claim-search';
 import { invoiceIdForPaymentNotice } from './patient-payments';
+import { manualPaymentDescription } from './payments';
 
 // Shared by the patient account payment list and the single-payment lookup.
 
@@ -38,20 +39,25 @@ export const toAccountPayments = (params: {
 }): { payment: BillingPatientAccountPayment; recordedISO: string }[] => {
   const { visit, notices, dtos, claims } = params;
   const claim = claimForPayments(claims, notices);
-  return dtos.map((dto) => ({
-    recordedISO: dto.dateISO,
-    payment: {
-      ...dto,
-      dateISO: notices.find((notice) => notice.id === dto.fhirPaymentNotificationId)?.paymentDate ?? dto.dateISO,
-      recordedDateISO: dto.dateISO,
-      method: methodOf(dto, notices),
-      encounterId: visit.encounterId,
-      appointmentId: visit.appointmentId,
-      visitDateISO: visit.visitDateISO,
-      claimId: claim?.id,
-      claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
-    },
-  }));
+  return dtos.map((dto) => {
+    const notice = notices.find((candidate) => candidate.id === dto.fhirPaymentNotificationId);
+    return {
+      recordedISO: dto.dateISO,
+      payment: {
+        ...dto,
+        // card payments carry Stripe's description; a manual one's is kept on its notice only
+        description: dto.description ?? (notice ? manualPaymentDescription(notice) : undefined),
+        dateISO: notice?.paymentDate ?? dto.dateISO,
+        recordedDateISO: dto.dateISO,
+        method: methodOf(dto, notices),
+        encounterId: visit.encounterId,
+        appointmentId: visit.appointmentId,
+        visitDateISO: visit.visitDateISO,
+        claimId: claim?.id,
+        claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
+      },
+    };
+  });
 };
 
 // the claim the billing notices were reconciled to, else the encounter's only claim

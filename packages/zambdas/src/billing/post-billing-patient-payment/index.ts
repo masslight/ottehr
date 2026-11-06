@@ -42,6 +42,7 @@ import { ensurePaymentTaskForNotice, unionIdentifiers } from '../patient-payment
 import {
   billingProviderRefForStripeAccount,
   claimRequestFor,
+  collectedFromPatientDisposition,
   createPaymentNotice,
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
@@ -330,7 +331,7 @@ const makePaymentNotice = (input: {
     disposition:
       paymentMethod === 'card'
         ? 'card payment intent created and confirmed with Stripe'
-        : `${paymentMethod} collected from patient`,
+        : collectedFromPatientDisposition(paymentMethod),
     outcome: 'complete',
     paymentDate,
     paymentAmount,

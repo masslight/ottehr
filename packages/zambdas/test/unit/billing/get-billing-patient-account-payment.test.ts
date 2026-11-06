@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { PatientPaymentVisit } from 'utils/lib/types/api/patient-payment-visits.types';
@@ -154,6 +155,49 @@ describe('getAccountPayment', () => {
     ]);
     // the caller learns the payment's current id from the response
     expect(result.fhirPaymentNotificationId).toBe('pn-adopted');
+  });
+
+  describe('description', () => {
+    const recorded = (method: string, disposition: string): PaymentNotice =>
+      notice('pn-1', {
+        extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: method }],
+        contained: [{ resourceType: 'PaymentReconciliation', id: 'contained-reconciliation', disposition } as never],
+      });
+
+    const descriptionOf = async (paymentNotice: PaymentNotice, dto: PatientPaymentDTO): Promise<string | undefined> => {
+      givenVisits([visit('enc-1')]);
+      givenBillingNotices({ 'enc-1': [paymentNotice] });
+      vi.mocked(listEncounterPayments).mockResolvedValue([dto]);
+      return (await get(searchClient({}), 'pn-1')).description;
+    };
+
+    it('shows the description entered for a manual payment', async () => {
+      await expect(
+        descriptionOf(recorded('check', 'Paid by spouse'), payment('pn-1', '2026-09-01T11:00:00.000Z'))
+      ).resolves.toBe('Paid by spouse');
+    });
+
+    it.each(['cash payment collected manually', 'cash collected from patient'])(
+      'hides the generated disposition "%s"',
+      async (disposition) => {
+        await expect(
+          descriptionOf(recorded('cash', disposition), payment('pn-1', '2026-09-01T11:00:00.000Z'))
+        ).resolves.toBeUndefined();
+      }
+    );
+
+    it("keeps a card payment's Stripe description and never shows its processor log", async () => {
+      const card = recorded('card', 'Stripe charge ch_1 succeeded');
+      await expect(
+        descriptionOf(card, payment('pn-1', '2026-09-01T11:00:00.000Z', { paymentMethod: 'card' }))
+      ).resolves.toBeUndefined();
+      await expect(
+        descriptionOf(
+          card,
+          payment('pn-1', '2026-09-01T11:00:00.000Z', { paymentMethod: 'card', description: 'Copay' } as never)
+        )
+      ).resolves.toBe('Copay');
+    });
   });
 
   it("rejects an encounter that isn't the patient's", async () => {

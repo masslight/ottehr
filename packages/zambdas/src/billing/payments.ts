@@ -389,6 +389,26 @@ export interface RecordBillingPatientPaymentInput {
   submitterRef?: Reference;
 }
 
+// Dispositions written when a manual payment is recorded without a description: from the billing app,
+// and from the EHR (whose disposition the bridge forwards as the billing copy's description).
+const recordedManuallyDisposition = (paymentMethod: string): string => `${paymentMethod} payment collected manually`;
+export const collectedFromPatientDisposition = (paymentMethod: string): string =>
+  `${paymentMethod} collected from patient`;
+
+// methods processed through Stripe, whose dispositions are processor logs rather than descriptions
+const STRIPE_PROCESSED_METHODS = ['card', 'card-reader'];
+
+// The description entered for a manually recorded payment, which is kept as its reconciliation's
+// disposition; undefined for a Stripe payment or when only a generated disposition is there.
+export const manualPaymentDescription = (notice: PaymentNotice): string | undefined => {
+  const method = notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '';
+  if (STRIPE_PROCESSED_METHODS.includes(method)) return undefined;
+  const disposition = getContainedReconciliation(notice)?.disposition?.trim();
+  if (!disposition) return undefined;
+  const generated = [recordedManuallyDisposition(method), collectedFromPatientDisposition(method)];
+  return generated.includes(disposition) ? undefined : disposition;
+};
+
 const paymentFingerprint = (notice: PaymentNotice): string => {
   const reconciliation = getContainedReconciliation(notice);
   return JSON.stringify({
@@ -443,7 +463,7 @@ export const recordBillingPatientPayment = async (
     id: 'contained-reconciliation',
     status: 'active',
     created: createdISO,
-    disposition: description ?? `${paymentMethod} payment collected manually`,
+    disposition: description ?? recordedManuallyDisposition(paymentMethod),
     outcome: 'complete',
     paymentDate,
     paymentAmount,
