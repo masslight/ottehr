@@ -107,6 +107,17 @@ describe('PatientPaymentDetail loading', () => {
     expect(getBillingPatientAccountPaymentMock).toHaveBeenCalledTimes(1);
   });
 
+  it('names the back button after where it goes', async () => {
+    const resolvers = deferredCalls();
+    const router = renderAt('/patients/p-1/encounters/enc-1/payments/pn-a');
+    await act(async () => resolvers[0](payment('pn-a', 'enc-1', 1000)));
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Back to payments' }));
+
+    expect(router.state.location.pathname).toBe('/patients/p-1');
+    expect(router.state.location.search).toBe('?tab=payments');
+  });
+
   describe('while a void is pending', () => {
     // opens the void dialog on the loaded payment and submits it; the void stays pending until settled
     const submitVoid = async (): Promise<(value: unknown) => void> => {

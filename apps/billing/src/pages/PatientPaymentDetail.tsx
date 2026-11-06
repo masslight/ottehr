@@ -203,7 +203,7 @@ export default function PatientPaymentDetail(): ReactElement {
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-        <IconButton onClick={backToPayments} size="small" sx={{ mt: 0.5 }}>
+        <IconButton onClick={backToPayments} size="small" sx={{ mt: 0.5 }} aria-label="Back to payments">
           <ArrowBackIcon />
         </IconButton>
         <Box>
