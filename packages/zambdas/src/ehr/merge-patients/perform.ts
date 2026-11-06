@@ -22,7 +22,7 @@ import {
   PARTICIPATION_CODE_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
 } from 'utils/lib/fhir/constants';
-import { flattenBundleResources, getCoding } from 'utils/lib/fhir/helpers';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { createUserResourcesForPatient } from 'utils/lib/fhir/patient';
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
@@ -211,7 +211,6 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
   // ════════════════════════════════════════════════════════════════════════
   console.log('Step 1: Applying merged patient record fields');
 
-  let mainPatientCoverages: Coverage[] | undefined;
   const items = questionnaireResponse.item ?? [];
   if (items.length > 0) {
     const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
@@ -274,7 +273,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     }
 
     try {
-      const resultBundle = await updatePatientAccountFromQuestionnaire(
+      await updatePatientAccountFromQuestionnaire(
         {
           questionnaireResponseItem: items,
           patientId: mainPatientId,
@@ -284,8 +283,6 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
         },
         oystehr
       );
-      const resources = flattenBundleResources<FhirResource>(resultBundle);
-      mainPatientCoverages = resources.filter((r) => r.resourceType === 'Coverage');
     } catch (error: any) {
       console.error(
         `Error: Step 1 updatePatientAccountFromQuestionnaire failed for Patient/${mainPatientId}.`,
@@ -622,6 +619,36 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
       .then((r) => r.unbundle()),
   ]);
 
+  // Coverages of the merged-away patient that must not stay active on the main patient: duplicates of a main
+  // coverage, or ones competing for a slot (order) the main patient already fills. Main's coverages win, since
+  // Step 1 already applied the insurance the user picked in the merge UI.
+  const [oldPatientCoverages, mainPatientActiveCoverages] = await Promise.all([
+    oystehr.fhir
+      .search<Coverage>({
+        resourceType: 'Coverage',
+        params: [
+          { name: 'patient', value: oldPatientRef },
+          { name: '_count', value: '100' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+    oystehr.fhir
+      .search<Coverage>({
+        resourceType: 'Coverage',
+        params: [
+          { name: 'patient', value: newPatientRef },
+          { name: 'status', value: 'active' },
+          { name: '_count', value: '100' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+  ]);
+  const coverageIdsToCancel = getCoverageIdsToCancel(
+    oldPatientCoverages,
+    mainPatientActiveCoverages,
+    getCoverageSlots([...oldPatientAccountsRaw, ...mainPatientAccountsRaw])
+  );
+
   const isActive = (a: Account): boolean => a.status === 'active';
   const mainActiveAccounts = mainPatientAccountsRaw.filter(isActive);
 
@@ -638,6 +665,8 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     const seen = dedupedRefs((main ?? []).map((c) => c.coverage));
     const merged = [...(main ?? [])];
     for (const c of other ?? []) {
+      const coverageId = c.coverage?.reference?.replace('Coverage/', '');
+      if (coverageId && coverageIdsToCancel.has(coverageId)) continue;
       if (c.coverage?.reference && !seen.has(c.coverage.reference)) {
         merged.push(c);
         seen.add(c.coverage.reference);
@@ -744,19 +773,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     requests.push({ method: 'PUT', url: `/Account/${id}`, resource: acct as FhirResource });
   }
 
-  console.log('mainPatientCoverages', mainPatientCoverages?.map((c) => `Coverage/${c.id}`));
-
-  const coverages = (
-    await oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [
-        { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '100' },
-      ],
-    })
-  ).unbundle();
-
-  for (const coverage of coverages) {
+  for (const coverage of oldPatientCoverages) {
     if (!coverage.id || processedIds.has(`Coverage/${coverage.id}`)) continue;
     processedIds.add(`Coverage/${coverage.id}`);
     let changed = false;
@@ -769,22 +786,10 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
       changed = true;
     }
 
-    if (mainPatientCoverages && mainPatientCoverages.length > 0) {
-      // check to see if a coverage for the main already exists
-      const coverageIsDuplicated = mainPatientCoverages.some((coverageForMainPatient) => {
-        const duplicated = coveragesAreSame(coverageForMainPatient, coverage);
-        if (duplicated) {
-          console.log('these coverages are flagged as duplicates: ', coverageForMainPatient.id, coverage.id);
-        }
-        return duplicated;
-      });
-
-      if (coverageIsDuplicated) {
-        // if duplicated, we should still move the coverage under the new main patient
-        // but mark it cancelled
-        coverage.status = 'cancelled';
-        changed = true;
-      }
+    if (coverageIdsToCancel.has(coverage.id) && coverage.status !== 'cancelled') {
+      // still move the coverage under the main patient, but mark it cancelled
+      coverage.status = 'cancelled';
+      changed = true;
     }
 
     if (!changed) continue;
@@ -978,3 +983,39 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     console.error(`Error: Step 7 failed to enumerate login phone numbers (non-fatal).`, 'message:', error?.message);
   }
 }
+
+// Coverage.order is not populated; the primary/secondary slot lives in Account.coverage[].priority.
+// Priorities are only comparable within one Account type (billing and workers' comp both use priority 1), so
+// a slot is "<account type code>:<priority>". Inactive accounts are ignored: their retained coverage
+// references may carry outdated priorities.
+export const getCoverageSlots = (accounts: Account[]): Map<string, string> => {
+  const slots = new Map<string, string>();
+  for (const account of accounts) {
+    if (account.status !== 'active') continue;
+    const typeCode = account.type?.coding?.[0]?.code ?? '';
+    for (const entry of account.coverage ?? []) {
+      const id = entry.coverage?.reference?.replace('Coverage/', '');
+      if (id && entry.priority !== undefined && !slots.has(id)) slots.set(id, `${typeCode}:${entry.priority}`);
+    }
+  }
+  return slots;
+};
+
+export const getCoverageIdsToCancel = (
+  oldCoverages: Coverage[],
+  mainActiveCoverages: Coverage[],
+  slots: Map<string, string> = new Map()
+): Set<string> => {
+  const slotOf = (c: Coverage): string | undefined =>
+    (c.id ? slots.get(c.id) : undefined) ?? (c.order !== undefined ? `:${c.order}` : undefined);
+  const mainSlots = new Set(mainActiveCoverages.map(slotOf).filter((slot): slot is string => slot !== undefined));
+  const ids = new Set<string>();
+  for (const coverage of oldCoverages) {
+    if (!coverage.id || coverage.status !== 'active') continue;
+    const isDuplicate = mainActiveCoverages.some((main) => coveragesAreSame(main, coverage));
+    const slot = slotOf(coverage);
+    const slotTaken = slot !== undefined && mainSlots.has(slot);
+    if (isDuplicate || slotTaken) ids.add(coverage.id);
+  }
+  return ids;
+};
