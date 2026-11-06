@@ -176,6 +176,11 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
     void fetchPayments();
   }, [fetchPayments]);
 
+  const openPayment = (payment: BillingPatientAccountPayment): void => {
+    const path = paymentDetailPath(patientId, payment);
+    if (path) navigate(path);
+  };
+
   const rows = useMemo<PaymentRow[]>(
     () => payments.map((payment, idx) => ({ ...payment, id: paymentRowId(payment, idx) })),
     [payments]
@@ -193,9 +198,14 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
         columns={columns}
         loading={loading}
         rowHeight={56}
-        onRowClick={({ row }) => {
-          const path = paymentDetailPath(patientId, row);
-          if (path) navigate(path);
+        onRowClick={({ row }) => openPayment(row)}
+        // keyboard parity with onRowClick: Enter/Space on a focused cell opens the payment
+        onCellKeyDown={({ row }, event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          // keys pressed on the Encounter/Claim links inside a cell are the link's own
+          if ((event.target as HTMLElement).closest('a')) return;
+          event.preventDefault();
+          openPayment(row);
         }}
         getRowClassName={({ row }) => (row.fhirPaymentNotificationId ? 'payment-row--linked' : '')}
         disableRowSelectionOnClick
