@@ -13,7 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ChangeEvent, FC, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
 import { ScannerModal } from 'src/components/ScannerModal';
 import {
   parsePatientDocsFolders,
@@ -22,6 +22,7 @@ import {
   usePatientDocsActions,
 } from 'src/hooks/useGetPatientDocs';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
+import { parseSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 
 const FileAttachmentHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -72,18 +73,25 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
     [data, patientId]
   );
   const { uploadDocumentAction, isUploading } = usePatientDocsActions({ patientId, encounterId });
-  const [folderId, setFolderId] = useState('');
+  const [folderId, setFolderId] = useState(defaultFolderId ?? '');
   const [file, setFile] = useState<File | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
-  // Each opening starts from the folder the user is in, with no file chosen.
+  // Each opening starts from the folder the user is in, with no file chosen; a later change of it doesn't wipe the form.
+  const wasOpen = useRef(open);
   useEffect(() => {
-    if (!open) return;
-    setFolderId(defaultFolderId ?? '');
-    setFile(null);
+    if (open && !wasOpen.current) {
+      setFolderId(defaultFolderId ?? '');
+      setFile(null);
+    }
+    wasOpen.current = open;
   }, [open, defaultFolderId]);
 
-  const folder = folders.find((f) => f.id === folderId);
+  // A catalog-only folder's synthetic id gives way to its real List once one exists (e.g. after a refetch).
+  const syntheticInternalName = parseSyntheticFolderId(folderId);
+  const folder =
+    folders.find((f) => f.id === folderId) ??
+    (syntheticInternalName ? folders.find((f) => f.internalName === syntheticInternalName) : undefined);
   const fileNameIsValid = !file || VALID_FILE_NAME_PATTERN.test(file.name);
 
   const upload = async (docFile: File): Promise<void> => {
@@ -131,7 +139,7 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
               select
               size="small"
               label="Folder"
-              value={folderId}
+              value={folder?.id ?? ''}
               onChange={(e) => setFolderId(e.target.value)}
               disabled={isUploading || isLoadingFolders}
               error={foldersFailed}

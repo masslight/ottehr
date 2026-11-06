@@ -6,7 +6,16 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockUpload, mockCapture } = vi.hoisted(() => ({ mockUpload: vi.fn(), mockCapture: vi.fn() }));
+const DEFAULT_FOLDERS = [
+  { id: 'labs-id', folderName: 'Labs', internalName: 'labs', documentsCount: 0, isCustom: false },
+  { id: 'imaging-id', folderName: 'Imaging', internalName: 'imaging', documentsCount: 0, isCustom: false },
+];
+
+const { mockUpload, mockCapture, folderState } = vi.hoisted(() => ({
+  mockUpload: vi.fn(),
+  mockCapture: vi.fn(),
+  folderState: { folders: [] as unknown[] },
+}));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 vi.mock('utils/lib/frontend/sentry', () => ({ safelyCaptureException: mockCapture }));
@@ -21,10 +30,7 @@ vi.mock('src/components/ScannerModal', () => ({
 }));
 vi.mock('src/hooks/useGetPatientDocs', () => ({
   useGetPatientDocsFolders: () => ({ data: {} }),
-  parsePatientDocsFolders: () => [
-    { id: 'labs-id', folderName: 'Labs', internalName: 'labs', documentsCount: 0, isCustom: false },
-    { id: 'imaging-id', folderName: 'Imaging', internalName: 'imaging', documentsCount: 0, isCustom: false },
-  ],
+  parsePatientDocsFolders: () => folderState.folders,
   usePatientDocsActions: () => ({ uploadDocumentAction: mockUpload, isUploading: false }),
 }));
 
@@ -36,6 +42,35 @@ describe('UploadDocumentDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUpload.mockResolvedValue({});
+    folderState.folders = DEFAULT_FOLDERS;
+  });
+
+  it("keeps the chosen file when a catalog-only folder's real List appears while the dialog is open", async () => {
+    const referrals = { folderName: 'Referrals', internalName: 'referrals', documentsCount: 0, isCustom: true };
+    folderState.folders = [{ ...referrals, id: 'synthetic:referrals' }];
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <UploadDocumentDialog
+        open
+        mode="upload"
+        onClose={vi.fn()}
+        patientId="patient-1"
+        defaultFolderId="synthetic:referrals"
+      />
+    );
+    await user.upload(document.body.querySelector('input[type="file"]')!, pdf('referral.pdf'));
+
+    folderState.folders = [{ ...referrals, id: 'list-9', documentsCount: 1 }];
+    rerender(
+      <UploadDocumentDialog open mode="upload" onClose={vi.fn()} patientId="patient-1" defaultFolderId="list-9" />
+    );
+
+    expect(screen.getByText('referral.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Folder' })).toHaveTextContent('Referrals');
+    await user.click(screen.getByRole('button', { name: 'Upload' }));
+    expect(mockUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ fileFolderId: 'list-9', internalName: 'referrals' })
+    );
   });
 
   it('starts in the folder the user is in and uploads the chosen file there', async () => {

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { Encounter, Patient } from 'fhir/r4b';
-import { MemoryRouter } from 'react-router-dom';
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let appointmentData: { patient?: Patient; encounter?: Encounter } = {};
@@ -65,6 +65,25 @@ describe('CommandPaletteUploadDocument', () => {
     expect(dialogProps).toHaveBeenLastCalledWith(
       expect.objectContaining({ mode: 'upload', patientId: 'patient-2', encounterId: 'encounter-2' })
     );
+  });
+
+  it('closes when the user navigates to another patient, so the upload cannot land in their chart', async () => {
+    useCommandPaletteStore.setState({ uploadDocumentMode: 'upload' });
+    const router = createMemoryRouter([{ path: '*', element: <CommandPaletteUploadDocument /> }], {
+      initialEntries: ['/patient/patient-1/info'],
+    });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    );
+    expect(dialogProps).toHaveBeenLastCalledWith(expect.objectContaining({ patientId: 'patient-1' }));
+    dialogProps.mockClear();
+
+    await act(() => router.navigate('/patient/patient-2/info'));
+
+    expect(useCommandPaletteStore.getState().uploadDocumentMode).toBeNull();
+    expect(dialogProps).not.toHaveBeenCalledWith(expect.objectContaining({ patientId: 'patient-2' }));
   });
 
   it('renders nothing while closed, but loads the patient folders as the palette opens', () => {

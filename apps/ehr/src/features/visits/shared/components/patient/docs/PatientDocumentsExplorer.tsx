@@ -21,6 +21,7 @@ import {
   useGetPatientDocs,
 } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
+import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 import { describeIncompleteArchive, isSingleFileDownload, makeDocumentsZipFileName } from './documentsZip';
 import { PatientDocumentFoldersColumn, PatientDocumentFoldersColumnSkeleton } from './PatientDocumentFoldersColumn';
 import {
@@ -126,6 +127,15 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
       setPendingSelectInternalName(null);
     }
   }, [documentsFolders, pendingSelectInternalName]);
+
+  // The first upload into a catalog-only folder creates its real List, wherever it came from (e.g. the command palette).
+  useEffect(() => {
+    if (!selectedFolder?.internalName || !isSyntheticFolderId(selectedFolder.id)) return;
+    const real = documentsFolders.find(
+      (f) => f.internalName === selectedFolder.internalName && !isSyntheticFolderId(f.id)
+    );
+    if (real) setSelectedFolder(real);
+  }, [documentsFolders, selectedFolder]);
 
   // Used by the Patient Follow-up Task "Go To Task" deep link from completed practice-managed forms.
   useEffect(() => {

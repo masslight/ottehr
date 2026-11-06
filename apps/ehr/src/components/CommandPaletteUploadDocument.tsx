@@ -19,6 +19,11 @@ export const CommandPaletteUploadDocument: FC = () => {
   const { patient, encounter } = useAppointmentData(visitId);
   const patientId = visitId ? patient?.id : routePatientId;
 
+  // Left open across navigation (e.g. browser Back), the dialog would file into the next screen's patient or visit.
+  useEffect(() => {
+    setUploadDocumentMode(null);
+  }, [visitId, routePatientId, setUploadDocumentMode]);
+
   // Load the patient's folders as the palette opens, so Upload/Scan show them without a wait.
   const paletteIsOpen = useCommandPaletteStore((state) => state.isOpen);
   const queryClient = useQueryClient();
