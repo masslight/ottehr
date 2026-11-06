@@ -29,6 +29,7 @@ import {
 import { formatDateForLabs, formatDOB } from 'utils/lib/utils/dateUtils';
 import { getPatientFolders } from '../fax/resolve-fax-source';
 import { getPatientLastFirstName } from '../patients';
+import { byVisitDateAscending, ReferralDocument, referralDocumentTitle } from '../referrals/referral-documents';
 import { drawFieldLine } from './helpers/render/drawFieldLine';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
@@ -52,6 +53,8 @@ export interface ReferralFormInput {
   /** The visit's office, when the referral belongs to a visit; its address and numbers win over the practice's. */
   location?: Location;
   recipient?: ReferralRecipient;
+  /** The referral's documents from earlier visits that still qualify; listed after this visit's documents. */
+  earlierDocuments?: ReferralDocument[];
   timezone: string;
   oystehr: Oystehr;
 }
@@ -79,7 +82,7 @@ const telecom = (resource: Location | Organization | undefined, system: string):
   resource?.telecom?.find((point) => point.system === system)?.value;
 
 const composeReferralFormData: DataComposer<ReferralFormInput, ReferralFormData> = (input) => {
-  const { serviceRequest, patient, practitioner, practice, location, recipient, timezone } = input;
+  const { serviceRequest, patient, practitioner, practice, location, recipient, earlierDocuments, timezone } = input;
   const details = getReferralDetails(serviceRequest);
   const specialty = getReferralSpecialty(serviceRequest);
 
@@ -124,7 +127,16 @@ const composeReferralFormData: DataComposer<ReferralFormInput, ReferralFormData>
       urgency: REFERRAL_URGENCY_LABELS[getReferralUrgency(serviceRequest)],
       whatIsAsked: REFERRAL_ASK_LABELS[details?.whatIsAsked ?? REFERRAL_DEFAULTS.whatIsAsked],
       whoSchedules: REFERRAL_SCHEDULER_LABELS[details?.whoSchedules ?? REFERRAL_DEFAULTS.whoSchedules],
-      documents: (details?.includeDocuments ?? []).map((kind) => FAX_DOCUMENT_LABELS[kind]).join(', ') || 'None',
+      documents:
+        [
+          ...(details?.includeDocuments ?? []).map((kind) => FAX_DOCUMENT_LABELS[kind]),
+          // Oldest first, the order the fax packet sends them in, each named the way its chip shows it.
+          ...[...(earlierDocuments ?? [])].sort(byVisitDateAscending).map((document) => {
+            const date = document.visitDate ?? document.documentReference.date;
+            const title = referralDocumentTitle(document.documentReference);
+            return date ? `${DateTime.fromISO(date).setZone(timezone).toFormat('MM/dd/yyyy')} ${title}` : title;
+          }),
+        ].join(', ') || 'None',
       notes: getReferralNotesToRecipient(serviceRequest),
       responseRequested: details?.responseRequested ?? REFERRAL_DEFAULTS.responseRequested,
     },

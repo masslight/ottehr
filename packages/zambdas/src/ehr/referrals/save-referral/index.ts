@@ -14,6 +14,7 @@ import { topLevelCatch } from '../../../shared/lambda';
 import { resolveCallerPractitionerRef } from '../../../shared/practitioners';
 import { loadReferral } from '../../../shared/referrals/load-referral';
 import { loadRecipientContact } from '../../../shared/referrals/recipient';
+import { loadReferralDocuments } from '../../../shared/referrals/referral-documents';
 import { getOrCreateReferralForm } from '../../../shared/referrals/referral-form';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -52,6 +53,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         throw INVALID_INPUT_ERROR('The visit of a referral cannot change');
       }
     }
+    // Every earlier document must be this patient's and one a referral may send; the fax checks again at send time.
+    await loadReferralDocuments(oystehr, params.patientId, params.earlierDocumentIds ?? []);
 
     const resource = makeReferralServiceRequest(params, {
       patientId: params.patientId,

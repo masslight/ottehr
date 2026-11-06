@@ -4,6 +4,7 @@ import {
   REFERRAL_DEFAULTS,
   ReferralAsk,
   ReferralDTO,
+  ReferralEarlierDocument,
   ReferralScheduler,
   ReferralUrgency,
   SaveReferralInput,
@@ -34,6 +35,8 @@ export interface ReferralFormValues {
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
   includeDocuments: FaxDocumentKind[];
+  /** Documents from earlier visits, shown as chips in the order they were chosen. */
+  earlierDocuments: ReferralEarlierDocument[];
   notesToRecipient: string;
 }
 
@@ -53,6 +56,7 @@ export const toReferralFormValues = (referral?: ReferralDTO, hasVisit = true): R
     whoSchedules: referral?.whoSchedules ?? REFERRAL_DEFAULTS.whoSchedules,
     responseRequested: referral?.responseRequested ?? REFERRAL_DEFAULTS.responseRequested,
     includeDocuments: referral?.includeDocuments ?? (hasVisit ? [...REFERRAL_DEFAULTS.includeDocuments] : []),
+    earlierDocuments: referral?.earlierDocuments ?? [],
     notesToRecipient: referral?.notesToRecipient ?? '',
   };
 };
@@ -75,6 +79,7 @@ export const toSaveReferralInput = (
   responseRequested: values.recipientContactId ? values.responseRequested : false,
   // Visit documents only exist for a referral made on a visit.
   includeDocuments: ids.encounterId ? values.includeDocuments : [],
+  earlierDocumentIds: values.earlierDocuments.map((document) => document.id),
   notesToRecipient: values.notesToRecipient.trim() || undefined,
 });
 

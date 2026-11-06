@@ -10,12 +10,11 @@ interface ReferralRowProps {
   referral: ReferralDTO;
   expanded: boolean;
   onToggle: () => void;
-  readOnly: boolean;
   onSendFax: (referralId: string) => void;
 }
 
 /** One referral on the Plan tab: a summary line, and the form underneath when expanded. */
-export const ReferralRow: FC<ReferralRowProps> = ({ referral, expanded, onToggle, readOnly, onSendFax }) => (
+export const ReferralRow: FC<ReferralRowProps> = ({ referral, expanded, onToggle, onSendFax }) => (
   <Box
     sx={{ border: 1, borderColor: expanded ? 'primary.main' : 'divider', borderRadius: 1 }}
     data-testid={dataTestIds.referrals.row(referral.id)}
@@ -42,7 +41,6 @@ export const ReferralRow: FC<ReferralRowProps> = ({ referral, expanded, onToggle
         patientId={referral.patientId}
         encounterId={referral.encounterId}
         referral={referral}
-        readOnly={readOnly}
         onSendFax={onSendFax}
       />
     )}

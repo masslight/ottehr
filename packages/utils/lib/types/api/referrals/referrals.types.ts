@@ -132,6 +132,9 @@ export const REFERRAL_TASK = {
   },
 } as const;
 
+/** Most earlier-visit documents one referral can carry; the fax page limit still applies on top. */
+export const REFERRAL_MAX_EARLIER_DOCUMENTS = 50;
+
 // ---- zambda inputs and outputs ----
 
 const trimmedRequired = z.string().trim().min(1);
@@ -153,6 +156,12 @@ export const SaveReferralInputSchema = z.object({
   whoSchedules: ReferralSchedulerSchema,
   responseRequested: z.boolean(),
   includeDocuments: z.array(FaxDocumentKindSchema),
+  /** DocumentReference ids from the patient's earlier visits, sent after this visit's documents. Duplicates are dropped. */
+  earlierDocumentIds: z
+    .array(z.string().uuid())
+    .max(REFERRAL_MAX_EARLIER_DOCUMENTS)
+    .transform((ids) => [...new Set(ids)])
+    .optional(),
   notesToRecipient: z.string().trim().optional(),
 });
 export type SaveReferralInput = z.infer<typeof SaveReferralInputSchema>;
@@ -198,6 +207,16 @@ export interface ReferralRecipient {
   address?: string;
 }
 
+/** A document from an earlier visit chosen for the referral, as its chip shows it. */
+export interface ReferralEarlierDocument {
+  id: string;
+  title: string;
+  /** ISO; when the document was added. */
+  date?: string;
+  /** ISO; start of the visit the document belongs to, when it belongs to one. */
+  visitDate?: string;
+}
+
 export interface ReferralDTO {
   id: string;
   patientId: string;
@@ -211,6 +230,8 @@ export interface ReferralDTO {
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
   includeDocuments: FaxDocumentKind[];
+  /** In the order they were chosen; documents that no longer qualify are left out. */
+  earlierDocuments: ReferralEarlierDocument[];
   notesToRecipient?: string;
   referringProvider: { id?: string; name: string };
   status: ReferralStatus;

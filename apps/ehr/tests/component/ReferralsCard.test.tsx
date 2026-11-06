@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ReferralDTO } from 'utils/lib/types/api/referrals/referrals.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,6 +25,15 @@ const referrals: ReferralDTO[] = vi.hoisted(() => [
     whoSchedules: 'patient',
     responseRequested: true,
     includeDocuments: ['progress-note', 'lab-results', 'radiology-results'],
+    earlierDocuments: [
+      {
+        id: 'doc-xr',
+        title: 'XR wrist 3 views.pdf',
+        date: '2026-09-23T15:00:00.000Z',
+        visitDate: '2026-09-22T15:00:00.000Z',
+      },
+      { id: 'doc-note', title: 'VisitNote.pdf', date: '2026-09-22T16:00:00.000Z' },
+    ],
     notesToRecipient: 'Splint applied.',
     referringProvider: { id: 'p1', name: 'J. Rivera, MD' },
     status: 'not-sent',
@@ -41,6 +51,7 @@ const referrals: ReferralDTO[] = vi.hoisted(() => [
     whoSchedules: 'patient',
     responseRequested: false,
     includeDocuments: ['progress-note'],
+    earlierDocuments: [],
     referringProvider: { id: 'p1', name: 'J. Rivera, MD' },
     status: 'given-to-patient',
     createdAt: '2026-11-01T15:00:00.000Z',
@@ -77,6 +88,7 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
   useAppointmentData: () => ({ encounter: { id: 'encounter-1' }, resources: { patient: { id: 'patient-1' } } }),
 }));
 
+import { PatientReferralsTab } from '../../src/features/referrals/PatientReferralsTab';
 import { ReferralsCard } from '../../src/features/referrals/ReferralsCard';
 
 const renderCard = (): void => {
@@ -293,10 +305,40 @@ describe('ReferralsCard', () => {
       whoSchedules: 'patient',
       responseRequested: false,
       includeDocuments: ['progress-note', 'lab-results', 'radiology-results'],
+      earlierDocumentIds: [],
       notesToRecipient: undefined,
     });
     // The new form is gone once the referral is saved.
     await waitFor(() => expect(screen.queryByTestId(dataTestIds.referrals.form)).toBeNull());
+  });
+
+  it('shows earlier-visit documents as chips dated by their visit, and saves without a removed one', async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByTestId(dataTestIds.referrals.expandButton(referrals[0].id)));
+    const form = screen.getByTestId(dataTestIds.referrals.form);
+    expect(form).toHaveTextContent('This visit');
+    expect(form).toHaveTextContent('Earlier visits');
+    expect(within(form).getByTestId(dataTestIds.referrals.earlierDocument('doc-xr'))).toHaveTextContent(
+      '09/22/2026 · XR wrist 3 views.pdf'
+    );
+    // No visit: dated by when it was added.
+    expect(within(form).getByTestId(dataTestIds.referrals.earlierDocument('doc-note'))).toHaveTextContent(
+      '09/22/2026 · VisitNote.pdf'
+    );
+    expect(within(form).getByTestId(dataTestIds.referrals.addEarlierDocumentsButton)).toHaveTextContent(
+      '+ Add from earlier visits'
+    );
+
+    await user.click(
+      within(within(form).getByTestId(dataTestIds.referrals.earlierDocument('doc-xr'))).getByTestId('CancelIcon')
+    );
+    expect(within(form).queryByTestId(dataTestIds.referrals.earlierDocument('doc-xr'))).toBeNull();
+    await user.click(within(form).getByTestId(dataTestIds.referrals.saveButton));
+
+    await waitFor(() => expect(api.saveReferral).toHaveBeenCalledTimes(1));
+    expect(api.saveReferral.mock.calls[0][1]).toMatchObject({ earlierDocumentIds: ['doc-note'] });
   });
 
   it('sends the typed "Other" specialty as the specialty', async () => {
@@ -338,19 +380,62 @@ describe('ReferralsCard', () => {
     expect(form).toHaveTextContent('Closed 11/02/2026: Patient seen (confirmed by phone) — Cast placed');
   });
 
-  it('on a read-only visit hides Add, disables the fields and still offers Print', async () => {
+  it('on a signed visit still offers Add and lets an existing referral be edited and faxed', async () => {
     const user = userEvent.setup();
     accessibility.isAppointmentReadOnly = true;
     renderCard();
 
     await user.click(await screen.findByTestId(dataTestIds.referrals.expandButton(referrals[0].id)));
 
-    expect(screen.queryByTestId(dataTestIds.referrals.addButton)).toBeNull();
+    expect(screen.getByTestId(dataTestIds.referrals.addButton)).toBeEnabled();
     const form = screen.getByTestId(dataTestIds.referrals.form);
-    expect(within(form).getByTestId(dataTestIds.referrals.reason)).toBeDisabled();
-    expect(within(form).getByTestId(dataTestIds.referrals.recipient).querySelector('input')).toBeDisabled();
-    expect(within(form).queryByTestId(dataTestIds.referrals.saveButton)).toBeNull();
-    expect(within(form).queryByTestId(dataTestIds.referrals.sendFaxButton)).toBeNull();
-    expect(within(form).getByTestId(dataTestIds.referrals.printLink)).toBeInTheDocument();
+    const reason = within(form).getByTestId(dataTestIds.referrals.reason);
+    expect(within(form).getByTestId(dataTestIds.referrals.recipient).querySelector('input')).toBeEnabled();
+    expect(within(form).getByTestId(dataTestIds.referrals.saveButton)).toBeEnabled();
+    // Fax saves the edit first, then opens the fax dialog.
+    await user.type(reason, '; seen in ED');
+    await user.click(within(form).getByTestId(dataTestIds.referrals.sendFaxButton));
+
+    await waitFor(() => expect(faxOpen).toHaveBeenCalledTimes(1));
+    expect(api.saveReferral.mock.calls[0][1]).toMatchObject({
+      referralId: referrals[0].id,
+      reason: `${referrals[0].reason}; seen in ED`,
+    });
+  });
+});
+
+describe('PatientReferralsTab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    api.listReferrals.mockResolvedValue({ referrals });
+    api.saveReferral.mockImplementation(async (_oystehr: unknown, input: { reason: string }) => ({
+      referral: { ...referrals[0], reason: input.reason },
+    }));
+  });
+
+  it("lets a visit's referral be edited from the patient record, keeping its visit", async () => {
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <PatientReferralsTab patientId="patient-1" />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await user.click(await screen.findByTestId(dataTestIds.referrals.row(referrals[0].id)));
+
+    const form = screen.getByTestId(dataTestIds.referrals.form);
+    await user.type(within(form).getByTestId(dataTestIds.referrals.reason), '; seen in ED');
+    await user.click(within(form).getByTestId(dataTestIds.referrals.saveButton));
+
+    await waitFor(() => expect(api.saveReferral).toHaveBeenCalledTimes(1));
+    expect(api.saveReferral.mock.calls[0][1]).toMatchObject({
+      referralId: referrals[0].id,
+      patientId: 'patient-1',
+      encounterId: 'encounter-1',
+      reason: `${referrals[0].reason}; seen in ED`,
+    });
+    expect(within(form).getByTestId(dataTestIds.referrals.sendFaxButton)).toBeEnabled();
   });
 });

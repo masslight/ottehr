@@ -22,6 +22,7 @@ import {
 import { getFullestAvailableName, getFullName } from 'utils/lib/fhir/patient';
 import {
   getReferralDetails,
+  getReferralEarlierDocumentIds,
   getReferralNotesToRecipient,
   getReferralReason,
   getReferralRecipientContactId,
@@ -37,11 +38,13 @@ import {
   REFERRAL_DEFAULTS,
   REFERRAL_TASK,
   ReferralDTO,
+  ReferralEarlierDocument,
   ReferralRecipient,
   referralTaskTitle,
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { getTaskInputValue } from 'utils/lib/types/data/tasks/types';
 import { mapReferralRecipient, withReferralFax } from '../../shared/referrals/recipient';
+import { findReferralDocuments, toReferralEarlierDocument } from '../../shared/referrals/referral-documents';
 import { findReferralTasks, isOpenTask, referralOverdueAt } from '../../shared/referrals/referral-task';
 import { createOwnerReference, createTask } from '../../shared/tasks';
 
@@ -109,6 +112,8 @@ export interface ReferralDTOContext {
   formDocumentReference?: DocumentReference;
   /** Filed responses, oldest first. */
   responseDocumentReferences?: DocumentReference[];
+  /** The chosen earlier-visit documents that still qualify, in the order they were chosen. */
+  earlierDocuments?: ReferralEarlierDocument[];
   lastFax?: ReferralDTO['lastFax'];
 }
 
@@ -133,6 +138,7 @@ export const toReferralDTO = (serviceRequest: ServiceRequest, context: ReferralD
     whoSchedules: details?.whoSchedules ?? REFERRAL_DEFAULTS.whoSchedules,
     responseRequested: details?.responseRequested ?? REFERRAL_DEFAULTS.responseRequested,
     includeDocuments: details?.includeDocuments ?? [],
+    earlierDocuments: context.earlierDocuments ?? [],
     notesToRecipient: getReferralNotesToRecipient(serviceRequest),
     referringProvider: {
       id: referenceId(serviceRequest.requester, 'Practitioner/'),
@@ -213,6 +219,38 @@ const groupBy = <T>(items: T[], key: (item: T) => string | undefined): Map<strin
   return groups;
 };
 
+/**
+ * The earlier-visit documents of each referral, by ServiceRequest id. One lookup per patient (a list is almost
+ * always one patient's); a document that no longer qualifies (deleted, superseded) is left out.
+ */
+const loadEarlierDocumentsFor = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[]
+): Promise<Map<string, ReferralEarlierDocument[]>> => {
+  const withDocuments = serviceRequests.filter(
+    (serviceRequest) => getReferralEarlierDocumentIds(serviceRequest).length
+  );
+  const byPatient = groupBy(withDocuments, (serviceRequest) => referenceId(serviceRequest.subject, 'Patient/'));
+  const result = new Map<string, ReferralEarlierDocument[]>();
+  for (const [patientId, patientReferrals] of byPatient) {
+    const found = await findReferralDocuments(
+      oystehr,
+      patientId,
+      patientReferrals.flatMap(getReferralEarlierDocumentIds)
+    );
+    for (const serviceRequest of patientReferrals) {
+      result.set(
+        serviceRequest.id!,
+        getReferralEarlierDocumentIds(serviceRequest).flatMap((id) => {
+          const document = found.get(id);
+          return document ? [toReferralEarlierDocument(document)] : [];
+        })
+      );
+    }
+  }
+  return result;
+};
+
 const basedOnReferralId = (task: Task): string | undefined =>
   task.basedOn?.map((ref) => referenceId(ref, 'ServiceRequest/')).find((id) => !!id);
 
@@ -237,7 +275,7 @@ export const buildReferralDTOs = async (
     .map((serviceRequest) => referenceId(serviceRequest.requester, 'Practitioner/'))
     .filter((id): id is string => !!id);
 
-  const [recipients, tasks, docRefs, encounters, practitioners] = await Promise.all([
+  const [recipients, tasks, docRefs, encounters, practitioners, earlierDocuments] = await Promise.all([
     loadRecipientsFor(oystehr, referrals),
     // Referral-category tasks and outbound fax attempts both hang off the ServiceRequest; one search, split below.
     searchByValues<Task>(oystehr, 'Task', 'based-on', referralRefs),
@@ -247,6 +285,7 @@ export const buildReferralDTOs = async (
     ]),
     searchByValues<Encounter>(oystehr, 'Encounter', '_id', encounterIds),
     searchByValues<Practitioner>(oystehr, 'Practitioner', '_id', practitionerIdsWithoutDisplay),
+    loadEarlierDocumentsFor(oystehr, referrals),
   ]);
 
   const referralTasks = groupBy(tasks.filter(isReferralTask), basedOnReferralId);
@@ -277,6 +316,7 @@ export const buildReferralDTOs = async (
         task: pickReferralTask(referralTasks.get(id) ?? []),
         formDocumentReference: [...(formsByReferral.get(id) ?? [])].sort(newestFirst)[0],
         responseDocumentReferences: [...(responsesByReferral.get(id) ?? [])].sort(oldestFirst),
+        earlierDocuments: earlierDocuments.get(id),
         lastFax: lastFaxes.get(id),
       });
     })

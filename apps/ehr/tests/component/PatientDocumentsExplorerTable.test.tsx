@@ -144,4 +144,33 @@ describe('PatientDocumentsExplorerTable', () => {
 
     expect(screen.queryByRole('button', { name: 'Send Fax' })).not.toBeInTheDocument();
   });
+
+  it('in picker mode drops the Action column, opens a document from its name and keeps hidden rows selected', async () => {
+    const actions = makeActions();
+    render(
+      <PatientDocumentsExplorerTable
+        isLoadingDocs={false}
+        documents={[makeDocument('doc-1', 'visit-note.pdf')]}
+        documentTableActions={actions}
+        patientId="patient-1"
+        selectedDocumentIds={[]}
+        onSelectedDocumentIdsChange={vi.fn()}
+        pickerMode
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send Fax' })).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'visit-note.pdf' }));
+    expect(actions.onDocumentDownload).toHaveBeenCalledWith('doc-1');
+    expect(mockDataGridProps).toHaveBeenLastCalledWith(expect.objectContaining({ keepNonExistentRowsSelected: true }));
+  });
+
+  it('outside picker mode keeps the Action column and a plain name', () => {
+    renderTable([makeDocument('doc-1', 'visit-note.pdf')], makeActions());
+
+    expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'visit-note.pdf' })).toBeNull();
+    expect(mockDataGridProps).toHaveBeenLastCalledWith(expect.objectContaining({ keepNonExistentRowsSelected: false }));
+  });
 });

@@ -12,6 +12,7 @@ import {
   parseCustomFoldersCatalogIncludingDeleted,
   PATIENT_FOLDERS_CODE,
 } from 'utils/lib/fhir/list';
+import { isReferralLabResult } from 'utils/lib/fhir/referral';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { removePrefix } from 'utils/lib/helpers/helpers';
@@ -78,6 +79,8 @@ export type PatientDocumentInfo = {
   encounterId?: string;
   // Appointment the document was filed against, when it is linked that way instead of by encounter.
   appointmentId?: string;
+  /** A lab result report (not an order form, label or ABN); the referral document picker offers only these from Labs. */
+  isLabResult?: boolean;
 };
 
 /**
@@ -1066,6 +1069,7 @@ const createDocumentInfo = (documentReference: DocumentReference): PatientDocume
     attachments: extractDocumentAttachments(documentReference),
     encounterId: removePrefix('Encounter/', documentReference.context?.encounter?.[0]?.reference ?? ''),
     appointmentId: extractRelatedAppointmentId(documentReference),
+    isLabResult: isReferralLabResult(documentReference),
   };
 };
 

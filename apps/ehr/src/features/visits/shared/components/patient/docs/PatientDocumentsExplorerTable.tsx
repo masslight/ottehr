@@ -7,6 +7,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
   IconButton,
+  Link,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -305,15 +306,24 @@ const resolveDocumentVisit = (
 const configureTableColumns = (
   actions: DocumentTableActions,
   visitsByEncounterId: Map<string, PatientVisitOption>,
-  visitsByAppointmentId: Map<string, PatientVisitOption>
+  visitsByAppointmentId: Map<string, PatientVisitOption>,
+  pickerMode: boolean
 ): GridColDef<PatientDocumentInfo>[] => {
-  return [
+  const columns: GridColDef<PatientDocumentInfo>[] = [
     {
       sortable: false,
       field: 'docName',
       headerName: 'Doc Name',
       width: 400,
-      renderCell: ({ row: { docName } }) => docName,
+      // A picker has no Action column, so the name is how a document is opened to check it before choosing it.
+      renderCell: ({ row: { id, docName } }) =>
+        pickerMode ? (
+          <Link component="button" type="button" onClick={() => void actions.onDocumentDownload(id)}>
+            {docName}
+          </Link>
+        ) : (
+          docName
+        ),
     },
     {
       sortable: true,
@@ -354,6 +364,7 @@ const configureTableColumns = (
       renderCell: ({ row }) => <DocActionsCell docInfo={row} actions={actions} />,
     },
   ];
+  return pickerMode ? columns.filter((column) => column.field !== 'actions') : columns;
 };
 
 export type PatientDocumentsExplorerTableProps = {
@@ -364,6 +375,11 @@ export type PatientDocumentsExplorerTableProps = {
   patientId: string;
   selectedDocumentIds: GridRowSelectionModel;
   onSelectedDocumentIdsChange: (selectedDocumentIds: GridRowSelectionModel) => void;
+  /**
+   * Choosing documents rather than managing them: no Action column, the name opens the document, and a
+   * selection survives the filters hiding its rows.
+   */
+  pickerMode?: boolean;
 };
 
 export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProps> = (props) => {
@@ -374,6 +390,7 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
     patientId,
     selectedDocumentIds,
     onSelectedDocumentIdsChange,
+    pickerMode = false,
   } = props;
 
   const { visitsByEncounterId, visitsByAppointmentId } = usePatientVisitOptions(patientId);
@@ -381,8 +398,8 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
   const filteredDocs = documents ?? [];
 
   const tableColumns = useMemo(() => {
-    return configureTableColumns(documentTableActions, visitsByEncounterId, visitsByAppointmentId);
-  }, [documentTableActions, visitsByEncounterId, visitsByAppointmentId]);
+    return configureTableColumns(documentTableActions, visitsByEncounterId, visitsByAppointmentId, pickerMode);
+  }, [documentTableActions, visitsByEncounterId, visitsByAppointmentId, pickerMode]);
 
   return (
     <DataGridPro
@@ -405,6 +422,7 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
       pageSizeOptions={[10]}
       checkboxSelection
       rowSelectionModel={selectedDocumentIds}
+      keepNonExistentRowsSelected={pickerMode}
       onRowSelectionModelChange={onSelectedDocumentIdsChange}
       disableRowSelectionOnClick
       sx={{

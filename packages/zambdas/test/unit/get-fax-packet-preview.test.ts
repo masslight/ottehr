@@ -38,6 +38,12 @@ vi.mock('../../src/shared/fax/collect-visit-documents', async (importOriginal) =
   resolveFaxDocumentAvailability: (...args: unknown[]) => mockResolveFaxDocumentAvailability(...args),
 }));
 
+const mockLoadReferralDocuments = vi.fn().mockResolvedValue([]);
+vi.mock('../../src/shared/referrals/referral-documents', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  loadReferralDocuments: (...args: unknown[]) => mockLoadReferralDocuments(...args),
+}));
+
 import { index } from '../../src/ehr/get-fax-packet-preview';
 
 const APPOINTMENT_ID = '650e8400-e29b-41d4-a716-446655440000';
@@ -384,6 +390,7 @@ describe('get-fax-packet-preview for a referral', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockResolveFaxDocumentAvailability.mockResolvedValue(AVAILABILITY);
+    mockLoadReferralDocuments.mockResolvedValue([]);
   });
 
   const runReferralPreview = async (): Promise<GetFaxPacketPreviewOutput> => {
@@ -477,5 +484,30 @@ describe('get-fax-packet-preview for a referral', () => {
     await expect(
       (index as any)(createMockZambdaInput({ referralId: REFERRAL_ID }, { secrets: createMockSecrets() }))
     ).rejects.toMatchObject({ message: `Referral ${REFERRAL_ID} not found` });
+  });
+
+  it('lists the earlier-visit documents last, oldest first, checked against the referral patient', async () => {
+    mockReads(
+      referral({
+        supportingInfo: [{ reference: 'DocumentReference/doc-new' }, { reference: 'DocumentReference/doc-old' }],
+      })
+    );
+    const earlier = (id: string, title: string, visitDate: string): any => ({
+      documentReference: { resourceType: 'DocumentReference', id, content: [{ attachment: { title } }] },
+      visitDate,
+    });
+    mockLoadReferralDocuments.mockResolvedValue([
+      earlier('doc-new', 'XR wrist 2 views.pdf', '2026-10-06T14:00:00.000Z'),
+      earlier('doc-old', 'VisitNote.pdf', '2026-09-22T14:00:00.000Z'),
+    ]);
+
+    const output = await runReferralPreview();
+
+    expect(output.documents).toEqual([
+      { kind: 'referral-form', available: true, count: 1 },
+      { kind: 'earlier-visit-document', title: 'VisitNote.pdf', available: true, count: 1 },
+      { kind: 'earlier-visit-document', title: 'XR wrist 2 views.pdf', available: true, count: 1 },
+    ]);
+    expect(mockLoadReferralDocuments).toHaveBeenCalledWith(expect.anything(), PATIENT_ID, ['doc-new', 'doc-old']);
   });
 });

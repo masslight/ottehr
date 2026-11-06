@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
+import { Secrets } from 'utils/lib/secrets';
 import { MedicalRecordDateRange } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getFileNameFromUrl, getMimeType, isFaxableAttachment } from 'utils/lib/utils/file';
@@ -9,6 +10,8 @@ import {
   isFaxPacket,
   isMedicalRecordExport,
 } from '../patient-documents';
+import { assertZ3UrlInProject } from '../presigned-file-urls/helpers';
+import { byVisitDateAscending, loadReferralDocuments } from '../referrals/referral-documents';
 import { FaxPacketPart } from './collect-visit-documents';
 
 /**
@@ -58,4 +61,21 @@ export const collectDocumentParts = async (
     );
   }
   return toParts([document]);
+};
+
+/**
+ * A referral's documents from earlier visits, oldest visit first, after checking again that each one is the
+ * patient's and still one a referral may send (it may have changed since the referral was saved). The packet
+ * builder presigns each URL with the M2M token, so every one must be a Z3 object of this project.
+ */
+export const collectReferralDocumentParts = async (
+  oystehr: Oystehr,
+  patientId: string,
+  documentReferenceIds: string[],
+  secrets: Secrets | null
+): Promise<FaxPacketPart[]> => {
+  const documents = await loadReferralDocuments(oystehr, patientId, documentReferenceIds);
+  const parts = toParts([...documents].sort(byVisitDateAscending).map(({ documentReference }) => documentReference));
+  parts.forEach((part) => part.z3Url && assertZ3UrlInProject(part.z3Url, secrets));
+  return parts;
 };

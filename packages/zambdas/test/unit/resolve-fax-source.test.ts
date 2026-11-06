@@ -26,6 +26,17 @@ vi.mock('../../src/shared/referrals/referral-form', () => ({
   getOrCreateReferralForm: (...args: unknown[]) => mockGetOrCreateReferralForm(...args),
 }));
 
+const mockLoadReferralDocuments = vi.fn();
+vi.mock('../../src/shared/referrals/referral-documents', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  loadReferralDocuments: (...args: unknown[]) => mockLoadReferralDocuments(...args),
+}));
+
+const mockAssertZ3UrlInProject = vi.fn();
+vi.mock('../../src/shared/presigned-file-urls/helpers', () => ({
+  assertZ3UrlInProject: (...args: unknown[]) => mockAssertZ3UrlInProject(...args),
+}));
+
 import { resolveFaxPacketPlan } from '../../src/shared/fax/resolve-fax-source';
 
 const PATIENT_ID = 'patient-1';
@@ -423,6 +434,7 @@ describe('resolveFaxPacketPlan for a referral', () => {
     mockBuildFaxPacketSection.mockImplementation(({ subject, parts }: any) =>
       Promise.resolve({ subject, parts, bytes: new Uint8Array([1]), pageCount: 2 })
     );
+    mockLoadReferralDocuments.mockResolvedValue([]);
     // The form as the referral stands now: reused when unchanged, regenerated otherwise (the helper decides).
     mockGetOrCreateReferralForm.mockImplementation((serviceRequest: ServiceRequest) => {
       const documentReference = form(`form-for-${serviceRequest.id}`);
@@ -500,5 +512,69 @@ describe('resolveFaxPacketPlan for a referral', () => {
       expect.objectContaining({ message: expect.stringContaining('no media URL') })
     );
     expect(mockBuildFaxPacketSection).not.toHaveBeenCalled();
+  });
+
+  describe('with documents from earlier visits', () => {
+    const earlier = (id: string, visitDate: string | undefined, date: string): any => ({
+      documentReference: docRef(id, `https://z3.example/${id}.pdf`, {
+        date,
+        content: [{ attachment: { url: `https://z3.example/${id}.pdf`, title: id, contentType: 'application/pdf' } }],
+      }),
+      visitDate,
+    });
+    const supportingInfo = [{ reference: 'DocumentReference/newer' }, { reference: 'DocumentReference/older' }];
+
+    beforeEach(() => {
+      mockLoadReferralDocuments.mockResolvedValue([
+        earlier('newer', '2026-10-06T14:00:00.000Z', '2026-10-07T00:00:00.000Z'),
+        // No visit: placed by when it was added.
+        earlier('older', undefined, '2026-02-04T00:00:00.000Z'),
+      ]);
+    });
+
+    it("sends the form, then this visit's documents, then the earlier ones oldest first", async () => {
+      resourcesById[REFERRAL_ID] = referral({ encounter: { reference: `Encounter/${ENCOUNTER_ID}` }, supportingInfo });
+
+      const plan = await resolve({ type: 'referral', referralId: REFERRAL_ID });
+
+      expect(plan.sections[0].parts.map((part) => part.title)).toEqual([
+        'Referral form',
+        'Visit/Progress Note',
+        'older',
+        'newer',
+      ]);
+      // Checked again at send time against the referral's own patient, and only Z3 URLs of this project are fetched.
+      expect(mockLoadReferralDocuments).toHaveBeenCalledWith(oystehr, PATIENT_ID, ['newer', 'older']);
+      expect(mockAssertZ3UrlInProject.mock.calls.map(([url]) => url)).toEqual([
+        'https://z3.example/older.pdf',
+        'https://z3.example/newer.pdf',
+      ]);
+    });
+
+    it('sends them after the form on a referral made without a visit', async () => {
+      resourcesById[REFERRAL_ID] = referral({ supportingInfo });
+
+      const plan = await resolve({ type: 'referral', referralId: REFERRAL_ID });
+
+      expect(plan.sections[0].parts.map((part) => part.title)).toEqual(['Referral form', 'older', 'newer']);
+    });
+
+    it('SECURITY: fails the job rather than presign a URL outside this project', async () => {
+      resourcesById[REFERRAL_ID] = referral({ supportingInfo });
+      mockAssertZ3UrlInProject.mockImplementationOnce(() => {
+        throw new Error('Refusing to presign URL not from this project');
+      });
+
+      await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toThrow('not from this project');
+      expect(mockBuildFaxPacketSection).not.toHaveBeenCalled();
+    });
+
+    it('fails the job when a chosen document no longer passes the checks', async () => {
+      resourcesById[REFERRAL_ID] = referral({ supportingInfo });
+      mockLoadReferralDocuments.mockRejectedValue(new Error('One or more of the chosen documents cannot be sent'));
+
+      await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toThrow('cannot be sent');
+      expect(mockBuildFaxPacketSection).not.toHaveBeenCalled();
+    });
   });
 });

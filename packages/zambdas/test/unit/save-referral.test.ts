@@ -1,9 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Patient, ServiceRequest } from 'fhir/r4b';
+import { DocumentReference, Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { makeReferralServiceRequest } from 'utils/lib/fhir/referral';
 import { SaveReferralInput } from 'utils/lib/types/api/referrals/referrals.types';
+import { FAX_PACKET_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { REFERRAL_DOCUMENT_REJECTED_MESSAGE } from '../../src/shared/referrals/referral-documents';
 import type { ZambdaInput } from '../../src/shared/types/common';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 
@@ -200,5 +204,88 @@ describe('save-referral', () => {
     expect(JSON.parse(result.body).referral).toMatchObject({ id: REFERRAL_ID, status: 'not-sent' });
     expect(mockOystehr.fhir.create).toHaveBeenCalledTimes(1);
     expect(mockCaptureException).toHaveBeenCalledWith(failure);
+  });
+
+  describe('earlier-visit documents', () => {
+    const DOCUMENT_ID = '66666666-6666-4666-8666-666666666666';
+    const visitNote: DocumentReference = {
+      resourceType: 'DocumentReference',
+      id: DOCUMENT_ID,
+      status: 'current',
+      subject: { reference: `Patient/${PATIENT_ID}` },
+      content: [{ attachment: { url: 'z3://visit-notes/note.pdf', title: 'VisitNote.pdf' } }],
+    };
+    const folderOf = (title: string): List => ({
+      resourceType: 'List',
+      id: `list-${title}`,
+      status: 'current',
+      mode: 'working',
+      title,
+      code: { coding: [{ code: PATIENT_FOLDERS_CODE }] },
+      entry: [{ item: { reference: `DocumentReference/${DOCUMENT_ID}` } }],
+    });
+
+    /** The FHIR search, scoped by `subject` the way the server scopes it. */
+    const filed = (document: DocumentReference, folderTitle: string): void => {
+      mockOystehr.fhir.search.mockImplementation(
+        async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
+          const byId = params.some((param) => param.name === '_id' && param.value.includes(DOCUMENT_ID));
+          const subject = params.find((param) => param.name === 'subject')?.value;
+          if (resourceType === 'DocumentReference' && byId && document.subject?.reference === subject) {
+            return { unbundle: () => [document] };
+          }
+          if (resourceType === 'List' && subject === `Patient/${PATIENT_ID}`) {
+            return { unbundle: () => [folderOf(folderTitle)] };
+          }
+          return { unbundle: () => [] };
+        }
+      );
+    };
+
+    it('stores the chosen documents as supportingInfo, once each, and returns them for the chips', async () => {
+      reads({ encounter: encounterOf(PATIENT_ID) });
+      filed(visitNote, BUCKET_NAMES.VISIT_NOTES);
+
+      const result = await run({ earlierDocumentIds: [DOCUMENT_ID, DOCUMENT_ID] });
+
+      expect(result.statusCode).toBe(200);
+      expect(mockOystehr.fhir.create.mock.calls[0][0].supportingInfo).toEqual([
+        { reference: `DocumentReference/${DOCUMENT_ID}` },
+      ]);
+      expect(JSON.parse(result.body).referral.earlierDocuments).toEqual([{ id: DOCUMENT_ID, title: 'VisitNote.pdf' }]);
+    });
+
+    it.each([
+      [
+        "another patient's document",
+        { ...visitNote, subject: { reference: `Patient/${OTHER_PATIENT_ID}` } },
+        BUCKET_NAMES.VISIT_NOTES,
+      ],
+      ['a fax packet', { ...visitNote, type: { coding: [{ code: FAX_PACKET_CODE }] } }, BUCKET_NAMES.VISIT_NOTES],
+      ['a document in a folder referrals do not send from', visitNote, BUCKET_NAMES.CONSENT_FORMS],
+      ['a Labs document that is not a result', visitNote, BUCKET_NAMES.LABS],
+    ])('SECURITY: refuses %s with one generic message before writing anything', async (_case, document, folder) => {
+      reads({ encounter: encounterOf(PATIENT_ID) });
+      filed(document as DocumentReference, folder);
+
+      const result = await run({ earlierDocumentIds: [DOCUMENT_ID] });
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body)).toEqual({
+        code: APIErrorCode.INVALID_INPUT,
+        message: REFERRAL_DOCUMENT_REJECTED_MESSAGE,
+      });
+      expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses more than 50 documents at validation', async () => {
+      reads({ encounter: encounterOf(PATIENT_ID) });
+      const ids = Array.from({ length: 51 }, (_, i) => `66666666-6666-4666-8666-${String(i).padStart(12, '0')}`);
+
+      const result = await run({ earlierDocumentIds: ids });
+
+      expect(result.statusCode).toBe(400);
+      expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+    });
   });
 });

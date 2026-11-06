@@ -1,4 +1,5 @@
-import { Reference, ServiceRequest } from 'fhir/r4b';
+import { DocumentReference, Reference, ServiceRequest } from 'fhir/r4b';
+import { docRefIsLabGeneratedResult, docRefIsOttehrGeneratedResultAndCurrent } from '../helpers/labs/helpers';
 import { FaxDocumentKind } from '../types/api/fax.types';
 import {
   ReferralAsk,
@@ -8,6 +9,7 @@ import {
   ReferralUrgency,
   SaveReferralInput,
 } from '../types/api/referrals/referrals.types';
+import { BUCKET_NAMES } from './constants';
 import { readExtensionJson, withExtensionJson } from './extensions';
 import { ORDER_TYPE_CODE_SYSTEM } from './radiology';
 
@@ -21,6 +23,9 @@ import { ORDER_TYPE_CODE_SYSTEM } from './radiology';
  * `encounter` the patient and visit. The Ottehr-only fields live in one JSON extension (`ReferralDetails`),
  * following `readExtensionJson` / `withExtensionJson`. `ServiceRequest.status` mirrors the referral status
  * so plain FHIR searches for active/completed requests still make sense.
+ *
+ * Documents from the patient's earlier visits that go out with the referral are `supportingInfo` references to
+ * their DocumentReferences, in the order staff chose them.
  *
  * Documents of a referral (the form and filed responses) are DocumentReferences with `context.related`
  * naming the ServiceRequest; the form is told apart by its `referral-form` type. Nothing on the
@@ -47,6 +52,31 @@ export const REFERRAL_FORM_DOC_REF_DOCTYPE = {
 /** Identifier stamped on the form DocumentReference with the ServiceRequest version it was rendered from. */
 export const REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM =
   'https://fhir.ottehr.com/Identifier/referral-form-source-version';
+
+/**
+ * Patient Docs folders (internal names) whose documents can go out with a referral. The picker offers only
+ * these, and save-referral and the fax packet check every chosen document against them.
+ */
+export const REFERRAL_DOCUMENT_FOLDERS: readonly string[] = [
+  BUCKET_NAMES.VISIT_NOTES,
+  BUCKET_NAMES.LABS,
+  BUCKET_NAMES.RADIOLOGY_REPORTS,
+];
+
+/** A lab result report, as opposed to the order forms, eReqs, specimen labels and ABNs the Labs folder also holds. */
+export const isReferralLabResult = (docRef: DocumentReference): boolean =>
+  docRefIsOttehrGeneratedResultAndCurrent(docRef) || docRefIsLabGeneratedResult(docRef);
+
+/** Whether a document filed in `folderName` can go out with a referral: from the Labs folder, results only. */
+export const isReferralDocumentFolderAllowed = (folderName: string, isLabResult: boolean): boolean =>
+  REFERRAL_DOCUMENT_FOLDERS.includes(folderName) && (folderName !== BUCKET_NAMES.LABS || isLabResult);
+
+/** Ids of the earlier-visit documents chosen for the referral, in the order they were chosen. */
+export const getReferralEarlierDocumentIds = (serviceRequest: ServiceRequest): string[] =>
+  (serviceRequest.supportingInfo ?? [])
+    .map((reference) => reference.reference ?? '')
+    .filter((reference) => reference.startsWith('DocumentReference/'))
+    .map((reference) => reference.replace('DocumentReference/', ''));
 
 export interface ReferralDetails {
   status: ReferralStatus;
@@ -163,6 +193,9 @@ export const makeReferralServiceRequest = (
         }
       : {}),
     ...(input.notesToRecipient ? { note: [{ text: input.notesToRecipient, time: options.now }] } : {}),
+    ...(input.earlierDocumentIds?.length
+      ? { supportingInfo: input.earlierDocumentIds.map((id) => ({ reference: `DocumentReference/${id}` })) }
+      : {}),
   };
   return { ...base, extension: withExtensionJson(existing ?? base, REFERRAL_DETAILS_EXTENSION_URL, details) };
 };

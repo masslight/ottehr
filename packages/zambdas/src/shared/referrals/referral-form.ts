@@ -2,7 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { DocumentReference, Encounter, Location, Organization, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { REFERRAL_FORM_DOC_REF_DOCTYPE, REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/referral';
+import {
+  getReferralEarlierDocumentIds,
+  REFERRAL_FORM_DOC_REF_DOCTYPE,
+  REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM,
+} from 'utils/lib/fhir/referral';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -10,6 +14,7 @@ import { isFhirNotFoundError } from '../errors';
 import { DEFAULT_TIMEZONE } from '../fax/run-fax-packet';
 import { createReferralFormPDF } from '../pdf/referral-form-pdf';
 import { loadReferralRecipient } from './recipient';
+import { findReferralDocuments } from './referral-documents';
 
 /** `ServiceRequest/<id>@<versionId>`: the form is reused only while the referral has not changed. */
 export const makeReferralFormSourceVersion = (serviceRequest: ServiceRequest): string | undefined =>
@@ -70,7 +75,8 @@ export const getOrCreateReferralForm = async (
 
   const encounterId = referenceId(serviceRequest.encounter?.reference, 'Encounter/');
   const practitionerId = referenceId(serviceRequest.requester?.reference, 'Practitioner/');
-  const [patient, practice, encounter, practitioner, recipient] = await Promise.all([
+  const earlierDocumentIds = getReferralEarlierDocumentIds(serviceRequest);
+  const [patient, practice, encounter, practitioner, recipient, earlierDocuments] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
     // The practice fills the From block; when ORGANIZATION_ID names no Organization the form still renders from
     // the visit's office, the way the fax packet preview tolerates a missing sending organization. That is a
@@ -86,6 +92,10 @@ export const getOrCreateReferralForm = async (
     encounterId ? oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }) : undefined,
     practitionerId ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }) : undefined,
     loadReferralRecipient(oystehr, serviceRequest),
+    // The form lists what still qualifies; the fax packet refuses to send when a chosen document no longer does.
+    findReferralDocuments(oystehr, patientId, earlierDocumentIds).then((found) =>
+      earlierDocumentIds.flatMap((id) => found.get(id) ?? [])
+    ),
   ]);
   const locationId = referenceId(encounter?.location?.[0]?.location?.reference, 'Location/');
   const location = locationId
@@ -100,6 +110,7 @@ export const getOrCreateReferralForm = async (
       practice,
       location,
       recipient,
+      earlierDocuments,
       timezone: timezoneOf(location) ?? timezoneOf(practice) ?? DEFAULT_TIMEZONE,
       oystehr,
     },

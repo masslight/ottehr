@@ -129,13 +129,10 @@ export const PatientReferralsTab: FC<PatientReferralsTabProps> = ({ patientId })
                     {expanded && (
                       <TableRow>
                         <TableCell colSpan={COLUMNS.length} sx={{ p: 0 }}>
-                          {/* A visit's referral is edited on that visit; here it can only be sent, printed or closed. */}
                           <ReferralForm
                             patientId={referral.patientId}
                             encounterId={referral.encounterId}
                             referral={referral}
-                            readOnly={!!referral.encounterId}
-                            keepActions
                             onSendFax={sendFax}
                           />
                         </TableCell>

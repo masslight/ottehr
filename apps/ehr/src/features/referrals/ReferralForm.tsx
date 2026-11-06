@@ -4,6 +4,7 @@ import {
   Button,
   ButtonGroup,
   Checkbox,
+  Chip,
   FormControlLabel,
   Link,
   Menu,
@@ -40,9 +41,11 @@ import {
   REFERRAL_URGENCIES,
   REFERRAL_URGENCY_LABELS,
   ReferralDTO,
+  ReferralEarlierDocument,
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { AddressBookContact } from 'utils/lib/types/data/address-book';
 import { CloseReferralDialog } from './CloseReferralDialog';
+import { ReferralDocumentsPickerDialog } from './ReferralDocumentsPickerDialog';
 import {
   NO_FAX_SEND_TEXT,
   NO_RECIPIENT_SEND_TEXT,
@@ -59,16 +62,18 @@ const RECIPIENT_ERROR = 'Pick a directory contact or add a new one, or clear the
 
 const formatLocalDate = (iso: string): string => DateTime.fromISO(iso).toLocal().toFormat(DATE_FORMAT);
 
+/** "MM/DD/YYYY · name": the document's visit date, or when it was added when it has no visit. */
+const earlierDocumentLabel = (document: ReferralEarlierDocument): string => {
+  const date = document.visitDate ?? document.date;
+  return date ? `${formatLocalDate(date)} · ${document.title}` : document.title;
+};
+
 interface ReferralFormProps {
   patientId: string;
   /** Omitted when the referral is created from the patient record without a visit. */
   encounterId?: string;
   /** Omitted for a new referral. */
   referral?: ReferralDTO;
-  /** The fields cannot change: a read-only visit, or a visit's referral opened from the patient record. */
-  readOnly?: boolean;
-  /** With readOnly: keep the send, print and close actions (only Save and Preview go). */
-  keepActions?: boolean;
   /** A new referral was saved or an existing one changed; the parent decides what to show next. */
   onSaved?: (referral: ReferralDTO) => void;
   /** Discard a new, unsaved referral. */
@@ -93,8 +98,6 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   patientId,
   encounterId,
   referral,
-  readOnly = false,
-  keepActions = false,
   onSaved,
   onDiscard,
   onSendFax,
@@ -105,6 +108,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   // The id the actions work on: the referral's, or the one a first save of a new referral returns.
   const [savedId, setSavedId] = useState(referral?.id);
   const [closing, setClosing] = useState(false);
+  const [pickingDocuments, setPickingDocuments] = useState(false);
   const [sendMenuAnchor, setSendMenuAnchor] = useState<HTMLElement | null>(null);
   const saveMutation = useSaveReferralMutation();
   const statusMutation = useUpdateReferralStatusMutation();
@@ -125,6 +129,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   const recipientName = useWatch({ control, name: 'recipientName' });
   const recipientContactId = useWatch({ control, name: 'recipientContactId' });
   const recipientFax = useWatch({ control, name: 'recipientFax' });
+  const earlierDocuments = useWatch({ control, name: 'earlierDocuments' });
 
   const contactFields = useContactFields({
     organizationName: 'recipientName',
@@ -150,17 +155,13 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
 
   const finished = !!referral && !isReferralOpen(referral.status);
   const busy = saveMutation.isPending || statusMutation.isPending;
-  const locked = readOnly || finished;
-  const disabled = locked || busy;
-  const showActions = !finished && (!readOnly || keepActions);
+  const disabled = finished || busy;
   const hasRecipient = !!recipientContactId;
   // A referral made from the patient record has no visit documents to include.
   const hasVisit = !!(encounterId ?? referral?.encounterId);
   const canFax = hasRecipient && !!recipientFax.trim();
 
   const save = async (values: ReferralFormValues): Promise<ReferralDTO | undefined> => {
-    // Locked fields have nothing to save; the actions work on the referral as it is.
-    if (readOnly && referral) return referral;
     if (values.recipientName.trim() && !values.recipientContactId) {
       setError('recipientName', { message: RECIPIENT_ERROR });
       return undefined;
@@ -292,7 +293,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
             />
           )}
           <Box sx={{ flexGrow: 1, minWidth: 260 }}>
-            {locked ? (
+            {finished ? (
               <TextField
                 size="small"
                 fullWidth
@@ -441,7 +442,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
 
         {hasVisit && (
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <UppercaseCaptionTypography>Include</UppercaseCaptionTypography>
+            <UppercaseCaptionTypography sx={{ width: 120 }}>This visit</UppercaseCaptionTypography>
             <Controller
               name="includeDocuments"
               control={control}
@@ -468,6 +469,55 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                     />
                   ))}
                 </>
+              )}
+            />
+          </Box>
+        )}
+
+        {(!finished || earlierDocuments.length > 0) && (
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+            <UppercaseCaptionTypography sx={{ width: 120, flexShrink: 0, pt: 0.75 }}>
+              {hasVisit ? 'Earlier visits' : 'Documents'}
+            </UppercaseCaptionTypography>
+            <Controller
+              name="earlierDocuments"
+              control={control}
+              render={({ field: { value, onChange } }) => (
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+                  {value.map((document) => (
+                    <Chip
+                      key={document.id}
+                      variant="outlined"
+                      label={earlierDocumentLabel(document)}
+                      onDelete={
+                        disabled ? undefined : () => onChange(value.filter((chosen) => chosen.id !== document.id))
+                      }
+                      data-testid={dataTestIds.referrals.earlierDocument(document.id)}
+                    />
+                  ))}
+                  {!disabled && (
+                    <Button
+                      variant="text"
+                      onClick={() => setPickingDocuments(true)}
+                      sx={{ textTransform: 'none' }}
+                      data-testid={dataTestIds.referrals.addEarlierDocumentsButton}
+                    >
+                      {hasVisit ? '+ Add from earlier visits' : '+ Add from visits'}
+                    </Button>
+                  )}
+                  {pickingDocuments && (
+                    <ReferralDocumentsPickerDialog
+                      patientId={patientId}
+                      encounterId={encounterId ?? referral?.encounterId}
+                      selected={value}
+                      onClose={() => setPickingDocuments(false)}
+                      onAdd={(documents) => {
+                        onChange(documents);
+                        setPickingDocuments(false);
+                      }}
+                    />
+                  )}
+                </Box>
               )}
             />
           </Box>
@@ -512,7 +562,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
             )}
           </Stack>
 
-          {!showActions && savedId ? (
+          {finished && savedId ? (
             <RoundedButton onClick={onPrint} data-testid={dataTestIds.referrals.printLink}>
               Print form
             </RoundedButton>
@@ -552,21 +602,17 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                   Discard
                 </RoundedButton>
               )}
-              {!readOnly && (
-                <>
-                  <RoundedButton disabled={busy} onClick={onPreview} data-testid={dataTestIds.referrals.previewButton}>
-                    Preview form
-                  </RoundedButton>
-                  <RoundedButton
-                    loading={saveMutation.isPending}
-                    disabled={busy}
-                    onClick={onSave}
-                    data-testid={dataTestIds.referrals.saveButton}
-                  >
-                    Save
-                  </RoundedButton>
-                </>
-              )}
+              <RoundedButton disabled={busy} onClick={onPreview} data-testid={dataTestIds.referrals.previewButton}>
+                Preview form
+              </RoundedButton>
+              <RoundedButton
+                loading={saveMutation.isPending}
+                disabled={busy}
+                onClick={onSave}
+                data-testid={dataTestIds.referrals.saveButton}
+              >
+                Save
+              </RoundedButton>
               <ButtonGroup variant="contained" sx={{ boxShadow: 'none' }}>
                 {/* Always shown; disabled until the referral has a fax number, the hover says where to put one. */}
                 <Tooltip title={canFax ? '' : hasRecipient ? NO_FAX_SEND_TEXT : NO_RECIPIENT_SEND_TEXT}>
@@ -604,8 +650,8 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                   Add to discharge paperwork
                 </MenuItem>
               </Menu>
-              {/* Preview covers printing while the form is editable; otherwise the saved form prints as is. */}
-              {savedId && (readOnly || !canFax) && (
+              {/* Preview covers printing a referral that can be faxed; one that can't gets a plain print link. */}
+              {savedId && !canFax && (
                 <Link
                   component="button"
                   type="button"

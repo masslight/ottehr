@@ -191,16 +191,24 @@ export type GetFaxPacketPreviewInput = z.infer<typeof GetFaxPacketPreviewInputSc
 
 /** The referral form heads a referral packet; it is not one of the selectable visit document kinds. */
 export const REFERRAL_FORM_FAX_DOCUMENT_KIND = 'referral-form';
-export type FaxPacketDocumentKind = FaxDocumentKind | typeof REFERRAL_FORM_FAX_DOCUMENT_KIND;
+/** A document from an earlier visit that a referral carries after its own visit's documents. */
+export const REFERRAL_EARLIER_DOCUMENT_FAX_DOCUMENT_KIND = 'earlier-visit-document';
+export type FaxPacketDocumentKind =
+  | FaxDocumentKind
+  | typeof REFERRAL_FORM_FAX_DOCUMENT_KIND
+  | typeof REFERRAL_EARLIER_DOCUMENT_FAX_DOCUMENT_KIND;
 
 export const FAX_PACKET_DOCUMENT_LABELS: Record<FaxPacketDocumentKind, string> = {
   ...FAX_DOCUMENT_LABELS,
   [REFERRAL_FORM_FAX_DOCUMENT_KIND]: 'Referral form',
+  [REFERRAL_EARLIER_DOCUMENT_FAX_DOCUMENT_KIND]: 'Earlier visit document',
 };
 
 export interface FaxDocumentAvailability {
   kind: FaxPacketDocumentKind;
   available: boolean;
+  /** Names one document rather than a kind (a referral's earlier-visit documents); shown instead of the kind's label. */
+  title?: string;
   /** How many source documents back this row, e.g. 3 lab results. */
   count?: number;
   /** Shown as a tooltip on the disabled checkbox. */

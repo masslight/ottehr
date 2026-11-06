@@ -3,7 +3,7 @@ import { Encounter, List, Location, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getReferralDetails, getReferralStatus } from 'utils/lib/fhir/referral';
+import { getReferralDetails, getReferralEarlierDocumentIds, getReferralStatus } from 'utils/lib/fhir/referral';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -20,7 +20,11 @@ import { getAppointmentAndRelatedResources } from '../pdf/visit-details-pdf/get-
 import { loadReferral } from '../referrals/load-referral';
 import { getOrCreateReferralForm } from '../referrals/referral-form';
 import { buildFaxPacketSection, createFaxPacketByteBudget, FaxPacketSection } from './build-fax-packet';
-import { collectDocumentParts, collectMedicalRecordParts } from './collect-patient-documents';
+import {
+  collectDocumentParts,
+  collectMedicalRecordParts,
+  collectReferralDocumentParts,
+} from './collect-patient-documents';
 import { collectFaxParts, FaxPacketPart } from './collect-visit-documents';
 import { resolvePatientDisplayId, resolveVisitTypeLabel } from './run-fax-packet';
 
@@ -135,7 +139,8 @@ export const resolveReferralFaxContext = async (oystehr: Oystehr, referralId: st
 };
 
 /**
- * The referral form first, then whichever of the referral's chosen visit documents exist. One section:
+ * The referral form first, then whichever of the referral's chosen visit documents exist, then its documents
+ * from earlier visits, oldest first. One section:
  * the existing cover sheet stays page 1 and the form is the first document after it.
  */
 const resolveReferral = async (args: {
@@ -149,7 +154,10 @@ const resolveReferral = async (args: {
 
   const { serviceRequest, patientId, appointmentId } = await resolveReferralFaxContext(oystehr, referralId);
   const basedOnReference = `ServiceRequest/${referralId}`;
-  const formPart = await resolveReferralFormPart(serviceRequest, { oystehr, secrets, token });
+  const [formPart, earlierParts] = await Promise.all([
+    resolveReferralFormPart(serviceRequest, { oystehr, secrets, token }),
+    collectReferralDocumentParts(oystehr, patientId, getReferralEarlierDocumentIds(serviceRequest), secrets),
+  ]);
   const budget = createFaxPacketByteBudget(sourceType);
 
   if (appointmentId) {
@@ -161,7 +169,11 @@ const resolveReferral = async (args: {
       throw INVALID_INPUT_ERROR(`Visit ${appointmentId} does not belong to this patient`);
     }
     const kinds = getReferralDetails(serviceRequest)?.includeDocuments ?? [];
-    const parts = [formPart, ...(await collectFaxParts({ oystehr, token, secrets, kinds, visitResources }))];
+    const parts = [
+      formPart,
+      ...(await collectFaxParts({ oystehr, token, secrets, kinds, visitResources })),
+      ...earlierParts,
+    ];
     return {
       sourceType,
       patient: visitResources.patient,
@@ -187,7 +199,7 @@ const resolveReferral = async (args: {
   return {
     sourceType,
     patient,
-    sections: [await buildFaxPacketSection({ token, subject, parts: [formPart], budget })],
+    sections: [await buildFaxPacketSection({ token, subject, parts: [formPart, ...earlierParts], budget })],
     listResources,
     basedOnReference,
   };

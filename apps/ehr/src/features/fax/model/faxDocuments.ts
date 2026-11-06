@@ -9,13 +9,13 @@ export interface FaxDocumentLabelGroups {
 
 /**
  * Splits the packet's documents into what it will and won't contain, for the read-only tooltip. The server
- * lists them in packet order (a referral form first, then the visit documents in merge order).
+ * lists them in packet order (a referral form first, then the visit documents in merge order, then a referral's earlier-visit documents).
  */
 export const documentLabelGroups = (availability: FaxDocumentAvailability[]): FaxDocumentLabelGroups => {
   const included: string[] = [];
   const excluded: string[] = [];
   for (const entry of availability) {
-    (entry.available ? included : excluded).push(FAX_PACKET_DOCUMENT_LABELS[entry.kind]);
+    (entry.available ? included : excluded).push(entry.title ?? FAX_PACKET_DOCUMENT_LABELS[entry.kind]);
   }
   return { included, excluded };
 };

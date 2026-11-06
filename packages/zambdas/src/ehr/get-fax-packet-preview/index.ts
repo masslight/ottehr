@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { getAllPractitionerCredentials, getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getReferralDetails } from 'utils/lib/fhir/referral';
+import { getReferralDetails, getReferralEarlierDocumentIds } from 'utils/lib/fhir/referral';
 import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
@@ -11,6 +11,7 @@ import {
   FaxRecipient,
   GetFaxPacketPreviewInput,
   GetFaxPacketPreviewOutput,
+  REFERRAL_EARLIER_DOCUMENT_FAX_DOCUMENT_KIND,
   REFERRAL_FORM_FAX_DOCUMENT_KIND,
 } from 'utils/lib/types/api/fax.types';
 import { REFERRAL_ROLES, ReferralRecipient } from 'utils/lib/types/api/referrals/referrals.types';
@@ -22,6 +23,11 @@ import { resolveFaxDocumentAvailability } from '../../shared/fax/collect-visit-d
 import { resolveReferralFaxContext } from '../../shared/fax/resolve-fax-source';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { loadReferralRecipient } from '../../shared/referrals/recipient';
+import {
+  byVisitDateAscending,
+  loadReferralDocuments,
+  referralDocumentTitle,
+} from '../../shared/referrals/referral-documents';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -97,7 +103,9 @@ export const mapReferralRecipientToFax = (recipient: ReferralRecipient | undefin
 };
 
 /**
- * A referral packet: the form always, then the referral's chosen visit documents as the visit has them.
+ * A referral packet: the form always, then the referral's chosen visit documents as the visit has them, then its
+ * earlier-visit documents oldest first (checked the way the packet checks them, so a preview never promises one
+ * the send would refuse).
  * The dialog does not manage the PCP for a referral, so `hasSavedPcp` is reported as true to keep the
  * "save as PCP" default off.
  */
@@ -106,21 +114,33 @@ const previewReferral = async (
   referralId: string,
   senderFaxNumber: Promise<string | undefined>
 ): Promise<GetFaxPacketPreviewOutput> => {
-  const { serviceRequest, appointmentId, encounterId } = await resolveReferralFaxContext(oystehr, referralId);
+  const { serviceRequest, patientId, appointmentId, encounterId } = await resolveReferralFaxContext(
+    oystehr,
+    referralId
+  );
   const includeDocuments = getReferralDetails(serviceRequest)?.includeDocuments ?? [];
 
-  const [recipient, visitDocuments] = await Promise.all([
+  const [recipient, visitDocuments, earlierDocuments] = await Promise.all([
     // A contact deleted since the referral was saved prefills nothing.
     loadReferralRecipient(oystehr, serviceRequest).then(mapReferralRecipientToFax),
     appointmentId && encounterId && includeDocuments.length
       ? resolveFaxDocumentAvailability({ oystehr, appointmentId, encounterId })
       : ([] as FaxDocumentAvailability[]),
+    loadReferralDocuments(oystehr, patientId, getReferralEarlierDocumentIds(serviceRequest)),
   ]);
 
   return {
     documents: [
       { kind: REFERRAL_FORM_FAX_DOCUMENT_KIND, available: true, count: 1 },
       ...visitDocuments.filter((document) => includeDocuments.some((kind) => kind === document.kind)),
+      ...[...earlierDocuments].sort(byVisitDateAscending).map(
+        ({ documentReference }): FaxDocumentAvailability => ({
+          kind: REFERRAL_EARLIER_DOCUMENT_FAX_DOCUMENT_KIND,
+          title: referralDocumentTitle(documentReference),
+          available: true,
+          count: 1,
+        })
+      ),
     ],
     recipient,
     hasSavedPcp: true,

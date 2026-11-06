@@ -5,16 +5,17 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
-import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { ReferralForm } from './ReferralForm';
 import { ReferralRow } from './ReferralRow';
 import { useReferralsQuery } from './referrals.queries';
 
-/** The visit's referrals on the Plan tab, beside the disposition (requirements items 1 and 3). */
+/**
+ * The visit's referrals on the Plan tab, beside the disposition (requirements items 1 and 3).
+ * Like faxes and tasks, they stay open after the note is signed; only a finished referral locks.
+ */
 export const ReferralsCard: FC = () => {
   const theme = useTheme();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { encounter, resources } = useAppointmentData();
   const encounterId = encounter?.id;
   const patientId = resources?.patient?.id;
@@ -43,7 +44,7 @@ export const ReferralsCard: FC = () => {
         </Box>
       }
       headerItem={
-        !isReadOnly && patientId ? (
+        patientId ? (
           <Button
             size="small"
             variant="text"
@@ -66,7 +67,6 @@ export const ReferralsCard: FC = () => {
             referral={referral}
             expanded={expandedId === referral.id}
             onToggle={() => setExpandedId((current) => (current === referral.id ? undefined : referral.id))}
-            readOnly={isReadOnly}
             onSendFax={sendFax}
           />
         ))}
