@@ -1,6 +1,6 @@
 import { Account, Coverage } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { getCoverageIdsToCancel, getCoveragePriorities } from '../src/ehr/merge-patients/perform';
+import { getCoverageIdsToCancel, getCoverageSlots } from '../src/ehr/merge-patients/perform';
 
 const coverage = (
   id: string,
@@ -61,17 +61,49 @@ describe('getCoverageIdsToCancel', () => {
         coverage: [{ coverage: { reference: 'Coverage/b1' }, priority: 1 }],
       },
     ];
-    const priorities = getCoveragePriorities(accounts);
-    expect([...getCoverageIdsToCancel([other], [main], priorities)]).toEqual(['b1']);
+    const slots = getCoverageSlots(accounts);
+    expect([...getCoverageIdsToCancel([other], [main], slots)]).toEqual(['b1']);
   });
 
   it('keeps a secondary-slot coverage from the merged-away patient when main only has a primary', () => {
     const main = coverage('a1', undefined, 'MEMBER-A', 'Organization/3m');
     const other = coverage('b1', undefined, 'MEMBER-B', 'Organization/1199');
-    const priorities = new Map([
-      ['a1', 1],
-      ['b1', 2],
+    const slots = new Map([
+      ['a1', 'PBILLACCT:1'],
+      ['b1', 'PBILLACCT:2'],
     ]);
-    expect(getCoverageIdsToCancel([other], [main], priorities).size).toBe(0);
+    expect(getCoverageIdsToCancel([other], [main], slots).size).toBe(0);
+  });
+
+  it('ignores inactive accounts when deriving priorities', () => {
+    const accounts: Account[] = [
+      {
+        resourceType: 'Account',
+        status: 'inactive',
+        coverage: [{ coverage: { reference: 'Coverage/a1' }, priority: 2 }],
+      },
+      {
+        resourceType: 'Account',
+        status: 'active',
+        coverage: [{ coverage: { reference: 'Coverage/a1' }, priority: 1 }],
+      },
+    ];
+    expect(getCoverageSlots(accounts).get('a1')).toBe(':1');
+  });
+
+  it('compares priorities only within the same Account type', () => {
+    const main = coverage('a1', undefined, 'MEMBER-A', 'Organization/3m');
+    const workersComp = coverage('b1', undefined, 'MEMBER-B', 'Organization/1199');
+    const typed = (code: string, id: string): Account => ({
+      resourceType: 'Account',
+      status: 'active',
+      type: { coding: [{ code }] },
+      coverage: [{ coverage: { reference: `Coverage/${id}` }, priority: 1 }],
+    });
+    const slots = getCoverageSlots([typed('PBILLACCT', 'a1'), typed('WCOMPACCT', 'b1')]);
+    expect(getCoverageIdsToCancel([workersComp], [main], slots).size).toBe(0);
+    // same type, same priority still conflicts
+    const sameType = getCoverageSlots([typed('WCOMPACCT', 'a1'), typed('WCOMPACCT', 'b1')]);
+    expect([...getCoverageIdsToCancel([workersComp], [main], sameType)]).toEqual(['b1']);
   });
 });

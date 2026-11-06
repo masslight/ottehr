@@ -646,7 +646,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
   const coverageIdsToCancel = getCoverageIdsToCancel(
     oldPatientCoverages,
     mainPatientActiveCoverages,
-    getCoveragePriorities([...oldPatientAccountsRaw, ...mainPatientAccountsRaw])
+    getCoverageSlots([...oldPatientAccountsRaw, ...mainPatientAccountsRaw])
   );
 
   const isActive = (a: Account): boolean => a.status === 'active';
@@ -985,24 +985,30 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
 }
 
 // Coverage.order is not populated; the primary/secondary slot lives in Account.coverage[].priority.
-export const getCoveragePriorities = (accounts: Account[]): Map<string, number> => {
-  const priorities = new Map<string, number>();
+// Priorities are only comparable within one Account type (billing and workers' comp both use priority 1), so
+// a slot is "<account type code>:<priority>". Inactive accounts are ignored: their retained coverage
+// references may carry outdated priorities.
+export const getCoverageSlots = (accounts: Account[]): Map<string, string> => {
+  const slots = new Map<string, string>();
   for (const account of accounts) {
+    if (account.status !== 'active') continue;
+    const typeCode = account.type?.coding?.[0]?.code ?? '';
     for (const entry of account.coverage ?? []) {
       const id = entry.coverage?.reference?.replace('Coverage/', '');
-      if (id && entry.priority !== undefined && !priorities.has(id)) priorities.set(id, entry.priority);
+      if (id && entry.priority !== undefined && !slots.has(id)) slots.set(id, `${typeCode}:${entry.priority}`);
     }
   }
-  return priorities;
+  return slots;
 };
 
 export const getCoverageIdsToCancel = (
   oldCoverages: Coverage[],
   mainActiveCoverages: Coverage[],
-  priorities: Map<string, number> = new Map()
+  slots: Map<string, string> = new Map()
 ): Set<string> => {
-  const slotOf = (c: Coverage): number | undefined => (c.id ? priorities.get(c.id) : undefined) ?? c.order;
-  const mainSlots = new Set(mainActiveCoverages.map(slotOf).filter((slot): slot is number => slot !== undefined));
+  const slotOf = (c: Coverage): string | undefined =>
+    (c.id ? slots.get(c.id) : undefined) ?? (c.order !== undefined ? `:${c.order}` : undefined);
+  const mainSlots = new Set(mainActiveCoverages.map(slotOf).filter((slot): slot is string => slot !== undefined));
   const ids = new Set<string>();
   for (const coverage of oldCoverages) {
     if (!coverage.id || coverage.status !== 'active') continue;
