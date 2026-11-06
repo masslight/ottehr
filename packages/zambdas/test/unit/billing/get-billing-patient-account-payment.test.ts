@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { STRIPE_INVOICE_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -197,6 +198,17 @@ describe('getAccountPayment', () => {
           payment('pn-1', '2026-09-01T11:00:00.000Z', { paymentMethod: 'card', description: 'Copay' } as never)
         )
       ).resolves.toBe('Copay');
+    });
+
+    // shapes the Stripe webhook writes: a terminal charge, and an invoice settled without a charge
+    it.each([
+      ['card_present', 'Stripe charge ch_1 succeeded', STRIPE_PAYMENT_ID_SYSTEM, 'ch_1'],
+      ['other', 'Stripe invoice in_1 paid out of band', STRIPE_INVOICE_ID_SYSTEM, 'in_1'],
+    ])("never shows a Stripe-backed '%s' payment's processor log", async (method, disposition, system, value) => {
+      const stripeNotice = { ...recorded(method, disposition), identifier: [{ system, value }] };
+      await expect(
+        descriptionOf(stripeNotice, payment('pn-1', '2026-09-01T11:00:00.000Z', { paymentMethod: 'card' }))
+      ).resolves.toBeUndefined();
     });
   });
 

@@ -12,6 +12,7 @@ import {
   ProvenanceAgent,
   Reference,
 } from 'fhir/r4b';
+import { STRIPE_INVOICE_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import {
   BILLING_RESOURCE_TAG,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -395,14 +396,23 @@ const recordedManuallyDisposition = (paymentMethod: string): string => `${paymen
 export const collectedFromPatientDisposition = (paymentMethod: string): string =>
   `${paymentMethod} collected from patient`;
 
-// methods processed through Stripe, whose dispositions are processor logs rather than descriptions
-const STRIPE_PROCESSED_METHODS = ['card', 'card-reader'];
+// card methods, as both the apps and the Stripe webhook name them
+const CARD_METHODS = ['card', 'card-reader', 'card_present'];
+
+// Stripe-backed notices keep processor logs ("Stripe charge ch_… succeeded") as their disposition. They are
+// told apart by their Stripe ids, since the webhook also writes methods a manual payment can have ('other' for
+// a chargeless invoice); a card method without an id still counts, as no card payment is recorded by hand.
+const isStripeBacked = (notice: PaymentNotice, method: string): boolean =>
+  CARD_METHODS.includes(method) ||
+  (notice.identifier ?? []).some(
+    (identifier) => identifier.system === STRIPE_PAYMENT_ID_SYSTEM || identifier.system === STRIPE_INVOICE_ID_SYSTEM
+  );
 
 // The description entered for a manually recorded payment, which is kept as its reconciliation's
 // disposition; undefined for a Stripe payment or when only a generated disposition is there.
 export const manualPaymentDescription = (notice: PaymentNotice): string | undefined => {
   const method = notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '';
-  if (STRIPE_PROCESSED_METHODS.includes(method)) return undefined;
+  if (isStripeBacked(notice, method)) return undefined;
   const disposition = getContainedReconciliation(notice)?.disposition?.trim();
   if (!disposition) return undefined;
   const generated = [recordedManuallyDisposition(method), collectedFromPatientDisposition(method)];
