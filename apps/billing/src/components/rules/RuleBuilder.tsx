@@ -1172,25 +1172,46 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleAction['type'];
-            if (next === RULE_ACTION_TYPE.setField) replace(newAction());
-            else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
-            else if (next === RULE_ACTION_TYPE.addServiceLine)
-              replace({
-                type: RULE_ACTION_TYPE.addServiceLine,
-                line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
-              });
-            else if (next === RULE_ACTION_TYPE.updateServiceLines)
-              replace({
-                type: RULE_ACTION_TYPE.updateServiceLines,
-                match: newServiceLineMatch(),
-                set: { property: SETTABLE_LINE_PROPERTIES[0].id, value: '' },
-              });
-            else if (next === RULE_ACTION_TYPE.removeServiceLines)
-              replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
-            else if (next === RULE_ACTION_TYPE.applyChargeMasterPrices)
-              // Default to all lines: re-pricing the whole claim is the common case.
-              replace({ type: RULE_ACTION_TYPE.applyChargeMasterPrices, match: { type: SERVICE_LINE_MATCH_TYPE.all } });
-            else replace({ type: RULE_ACTION_TYPE.noop });
+            switch (next) {
+              case RULE_ACTION_TYPE.setField:
+                replace(newAction());
+                break;
+              case RULE_ACTION_TYPE.applyTag:
+                replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
+                break;
+              case RULE_ACTION_TYPE.addServiceLine:
+                replace({
+                  type: RULE_ACTION_TYPE.addServiceLine,
+                  line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
+                });
+                break;
+              case RULE_ACTION_TYPE.updateServiceLines:
+                replace({
+                  type: RULE_ACTION_TYPE.updateServiceLines,
+                  match: newServiceLineMatch(),
+                  set: { property: SETTABLE_LINE_PROPERTIES[0].id, value: '' },
+                });
+                break;
+              case RULE_ACTION_TYPE.removeServiceLines:
+                replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
+                break;
+              case RULE_ACTION_TYPE.applyChargeMasterPrices:
+                // Default to all lines: re-pricing the whole claim is the common case.
+                replace({
+                  type: RULE_ACTION_TYPE.applyChargeMasterPrices,
+                  match: { type: SERVICE_LINE_MATCH_TYPE.all },
+                });
+                break;
+              case RULE_ACTION_TYPE.submitClaim:
+                replace({ type: RULE_ACTION_TYPE.submitClaim, submissionType: 'new', submissionInsurance: 'primary' });
+                break;
+              case RULE_ACTION_TYPE.noop:
+                replace({ type: RULE_ACTION_TYPE.noop });
+                break;
+              default:
+                // Exhaustive switch check
+                throw next satisfies never;
+            }
             clearErrors(name);
           }}
         >
@@ -1200,6 +1221,8 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <MenuItem value={RULE_ACTION_TYPE.updateServiceLines}>Update service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.removeServiceLines}>Remove service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.applyChargeMasterPrices}>Apply charge master prices</MenuItem>
+          {/* CW TODO: conditionally show only for post-adjudication */}
+          <MenuItem value={RULE_ACTION_TYPE.submitClaim}>Submit claim</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
         </Select>
       </FormControl>
@@ -1289,6 +1312,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           )}
         />
       )}
+      {/* CW TODO: add submitClaim case */}
     </Box>
   );
 }
