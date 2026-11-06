@@ -4,11 +4,18 @@ import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { Secrets } from 'utils/lib/secrets';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
+import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
 import { FileURLInfo, FileURLs } from 'utils/lib/types/common';
 import { LAB_DOC_REF_DETAIL_TAGS, LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
-import { PrescribedMedication } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import {
+  PrescribedMedication,
+  ReviewedRadiologyResult,
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { getRadiologyOrders } from '../../../ehr/radiology/order-list';
+import { searchRadiologyResultDocRefs } from '../../../ehr/radiology/shared/result-doc-refs';
 import { getLabDocRefDescriptionFromMetaTags } from '../../../shared/pdf/lab-pdf-utils';
 import { assertZ3UrlInProject } from '../../../shared/presigned-file-urls/helpers';
+import { radiologyReportText } from '../../../shared/radiology';
 
 async function makePresignedURLFromDocumentReference(
   resource: DocumentReference,
@@ -95,6 +102,33 @@ export async function getMedications(oystehr: Oystehr, encounterId?: string): Pr
       medications.push(makePrescribedMedicationDTO(entry.resource as MedicationRequest));
   });
   return medications;
+}
+
+export async function getReviewedRadiologyResults(
+  oystehr: Oystehr,
+  oystehrToken: string,
+  secrets: Secrets | null,
+  encounterId: string
+): Promise<ReviewedRadiologyResult[]> {
+  const { orders } = await getRadiologyOrders(oystehr, { encounterIds: [encounterId] });
+
+  return Promise.all(
+    orders
+      .filter((order) => order.status === RadiologyOrderStatus.reviewed)
+      .map(async (order) => {
+        const resultDocRefs = order.external ? await searchRadiologyResultDocRefs(order.serviceRequestId, oystehr) : [];
+        return {
+          studyType: order.studyType,
+          report: radiologyReportText(order.finalReport),
+          files: await Promise.all(
+            resultDocRefs.map(async (docRef) => ({
+              presignedUrl: await makePresignedURLFromDocumentReference(docRef, oystehrToken, secrets),
+              description: docRef.content?.[0]?.attachment.title,
+            }))
+          ),
+        };
+      })
+  );
 }
 
 function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedMedication {
