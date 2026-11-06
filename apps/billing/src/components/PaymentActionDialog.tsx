@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   PAYMENT_REFUND_MEDIUMS,
@@ -86,6 +86,16 @@ export function PaymentActionDialog({
   const [failed, setFailed] = useState(false);
   const locked = submitting || failed;
 
+  // The page owns one dialog slot, and the user can leave this payment (and open another's dialog) while a
+  // request is in flight. Once this dialog is gone its request must not reload or close what replaced it.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const amountCents = Math.round(Number(amountText) * 100);
   const amountValid = !isRefund || (Number.isFinite(amountCents) && amountCents > 0 && amountCents <= remainingCents);
   const amountError =
@@ -137,15 +147,17 @@ export function PaymentActionDialog({
           : 'Refund issued',
         { variant: 'success' }
       );
+      if (!mountedRef.current) return;
       await onDone();
-      onClose();
+      if (mountedRef.current) onClose();
     } catch (err) {
+      if (!mountedRef.current) return;
       setFailed(true);
       setError(getApiError({ error: err, defaultError: `Something went wrong while processing the ${operation}.` }));
       // the outcome is uncertain, so reload the payment: its transactions show whether this went through
       void onDone();
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 

@@ -170,6 +170,29 @@ describe('PatientPaymentDetail loading', () => {
       expect(screen.getAllByText('$20.00')).not.toHaveLength(0);
     });
 
+    it('leaves the dialog opened on the next payment alone when it completes', async () => {
+      const resolvers = deferredCalls();
+      const router = renderAt('/patients/p-1/encounters/enc-1/payments/pn-a');
+      await act(async () => resolvers[0](payment('pn-a', 'enc-1', 1000)));
+      const settleFirstVoid = await submitVoid();
+
+      await act(() => router.navigate('/patients/p-1/encounters/enc-2/payments/pn-b'));
+      await act(async () => resolvers[1](payment('pn-b', 'enc-2', 2000)));
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Void Payment' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.click(within(dialog).getByRole('combobox', { name: /Reason/ }));
+      const reason = screen.getAllByRole('option')[0].textContent ?? '';
+      await user.click(screen.getAllByRole('option')[0]);
+
+      await act(async () => settleFirstVoid({}));
+
+      // pn-b's dialog is still open with what was entered, and nothing reloaded
+      expect(screen.getByRole('dialog')).toBeTruthy();
+      expect(within(screen.getByRole('dialog')).getByRole('combobox', { name: /Reason/ }).textContent).toBe(reason);
+      expect(getBillingPatientAccountPaymentMock).toHaveBeenCalledTimes(2);
+    });
+
     it("doesn't reload once the page has been left", async () => {
       const resolvers = deferredCalls();
       const router = renderAt('/patients/p-1/encounters/enc-1/payments/pn-a');
