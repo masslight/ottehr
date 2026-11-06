@@ -3,7 +3,13 @@ import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { Alert, Box, Button, CircularProgress, IconButton, Paper, Tooltip, Typography } from '@mui/material';
 import { Stack } from '@mui/system';
-import { DataGridPro, GridColDef, GridRowSelectionModel } from '@mui/x-data-grid-pro';
+import {
+  DataGridPro,
+  GRID_DETAIL_PANEL_TOGGLE_FIELD,
+  GridColDef,
+  GridRowId,
+  GridRowSelectionModel,
+} from '@mui/x-data-grid-pro';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
@@ -15,7 +21,11 @@ import { useChartSection } from '../../../shared/hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { CancelPrescriptionsDialog } from './CancelPrescriptionsDialog';
-import { PrescriptionDetailsButton, PrescriptionHistoryButton } from './PrescriptionHistory';
+import {
+  PrescriptionDetailsAndHistory,
+  PrescriptionDetailsToggle,
+  PrescriptionDetailsTooltip,
+} from './PrescriptionHistory';
 import { compoundDetailsText } from './prescriptionLines';
 import {
   isPrescriptionActionAvailable,
@@ -112,6 +122,9 @@ const getPractitionerName = (practitioner?: Practitioner): string | undefined =>
   return `${familyName}, ${givenName}`.trim();
 };
 
+// An open row and its details, tinted together.
+const EXPANDED_BG = 'rgba(25,118,210,.08)';
+
 export const PrescriptionTable: FC = () => {
   const { isLoading, isFetching, error, refetch, data: chartFields } = useChartSection('plan');
   const { appointment } = useAppointmentData();
@@ -127,6 +140,7 @@ export const PrescriptionTable: FC = () => {
     [chartFields?.prescribedMedications]
   );
   const [selectedIds, setSelectedIds] = useState<GridRowSelectionModel>([]);
+  const [expandedIds, setExpandedIds] = useState<GridRowId[]>([]);
   const [toCancel, setToCancel] = useState<PrescribedMedicationDTO[]>([]);
   const [toSendElsewhere, setToSendElsewhere] = useState<PrescribedMedicationDTO[]>([]);
   // A row that stops qualifying for any action on a refetch leaves the selection.
@@ -147,18 +161,27 @@ export const PrescriptionTable: FC = () => {
         headerName: 'Medication',
         flex: 1,
         minWidth: 200,
-        // A compound reads as its name with its dosage form and the amount of each ingredient underneath.
-        renderCell: ({ row }) =>
-          row.order?.compound ? (
-            <Box sx={{ py: 1, whiteSpace: 'normal' }}>
-              Compound: {row.name}
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                {compoundDetailsText(row.order.compound)}
-              </Typography>
-            </Box>
-          ) : (
-            row.name
-          ),
+        // A compound reads as its name with its dosage form and the amount of each ingredient underneath. Hovering the
+        // medication shows the row's details and history.
+        renderCell: ({ row }) => (
+          <PrescriptionDetailsTooltip
+            prescription={row}
+            practitionerName={getPractitionerName}
+            practitioners={chartFields?.prescribedMedicationsRequesterPractitioners}
+            expanded={expandedIds.includes(row.resourceId!)}
+          >
+            {row.order?.compound ? (
+              <Box sx={{ py: 1, whiteSpace: 'normal' }}>
+                Compound: {row.name}
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                  {compoundDetailsText(row.order.compound)}
+                </Typography>
+              </Box>
+            ) : (
+              <span>{row.name}</span>
+            )}
+          </PrescriptionDetailsTooltip>
+        ),
       },
       {
         sortable: false,
@@ -208,32 +231,28 @@ export const PrescriptionTable: FC = () => {
         sortable: false,
         field: 'actions',
         headerName: 'Actions',
-        width: 195,
-        // The buttons and the details and history dialogs (portalled, but still React children) don't change the
-        // selection.
+        width: 165,
+        // The buttons and the dialogs they open (portalled, but still React children) don't change the selection.
         renderCell: ({ row }) => (
           <Box onClick={(event) => event.stopPropagation()}>
-            <PrescriptionDetailsButton
-              prescription={row}
-              practitionerName={getPractitionerName}
-              practitioners={chartFields?.prescribedMedicationsRequesterPractitioners}
-            />
-            <PrescriptionHistoryButton
-              prescription={row}
-              practitionerName={getPractitionerName}
-              practitioners={chartFields?.prescribedMedicationsRequesterPractitioners}
-              visitDate={appointmentStart?.date}
-            />
             <ReorderButton prescription={row} readOnly={isAppointmentReadOnly} />
             <PrescriptionActionButtons
               prescription={row}
               onAction={(action) => (action === 'cancel' ? setToCancel : setToSendElsewhere)([row])}
             />
+            <PrescriptionDetailsToggle
+              expanded={expandedIds.includes(row.resourceId!)}
+              onToggle={() =>
+                setExpandedIds((ids) =>
+                  ids.includes(row.resourceId!) ? ids.filter((id) => id !== row.resourceId) : [...ids, row.resourceId!]
+                )
+              }
+            />
           </Box>
         ),
       },
     ],
-    [appointmentStart, chartFields?.prescribedMedicationsRequesterPractitioners, isAppointmentReadOnly]
+    [appointmentStart, chartFields?.prescribedMedicationsRequesterPractitioners, isAppointmentReadOnly, expandedIds]
   );
 
   return (
@@ -302,12 +321,32 @@ export const PrescriptionTable: FC = () => {
               checkboxSelection
               isRowSelectable={({ row }) => isRowSelectable(row)}
               // A click anywhere on a selectable row selects it.
-              getRowClassName={({ row }) => (isRowSelectable(row) ? 'selectable' : '')}
+              getRowClassName={({ row }) =>
+                [isRowSelectable(row) && 'selectable', expandedIds.includes(row.resourceId!) && 'expanded']
+                  .filter(Boolean)
+                  .join(' ')
+              }
+              // The caret at the end of the actions opens a row's details and history under it, in place of the
+              // grid's own toggle column.
+              columnVisibilityModel={{ [GRID_DETAIL_PANEL_TOGGLE_FIELD]: false }}
+              detailPanelExpandedRowIds={expandedIds}
+              onDetailPanelExpandedRowIdsChange={setExpandedIds}
+              getDetailPanelHeight={() => 'auto'}
+              getDetailPanelContent={({ row }) => (
+                <Box sx={{ p: '4px 16px 16px 58px', bgcolor: EXPANDED_BG }}>
+                  <PrescriptionDetailsAndHistory
+                    prescription={row}
+                    practitionerName={getPractitionerName}
+                    practitioners={chartFields?.prescribedMedicationsRequesterPractitioners}
+                  />
+                </Box>
+              )}
               rowSelectionModel={selected.map((prescription) => prescription.resourceId!)}
               onRowSelectionModelChange={setSelectedIds}
               sx={{
                 border: 0,
                 '.selectable': { cursor: 'pointer' },
+                '.expanded, .expanded:hover': { bgcolor: EXPANDED_BG },
                 '.MuiDataGrid-columnHeaderTitle': {
                   fontWeight: 500,
                 },

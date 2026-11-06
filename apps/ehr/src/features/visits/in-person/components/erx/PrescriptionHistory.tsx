@@ -1,15 +1,14 @@
-import HistoryIcon from '@mui/icons-material/History';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { Box, Button, Dialog, IconButton, Tooltip } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FC, Fragment, useState } from 'react';
+import { FC, Fragment, ReactElement } from 'react';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { compoundDetailsText, quantityText } from './prescriptionLines';
 import { erxEventText } from './prescriptionStatus';
 
-// From the approved order history mockup (erx-order-history.html)
+// From the approved order history mockup (erx-order-history.html); the caret from erx-row-details-mockups.html
 const EDGE = '#DFE5E9';
 const MUTED = 'rgba(0,0,0,.6)';
 const FAINT = 'rgba(0,0,0,.45)';
@@ -103,73 +102,6 @@ export const PrescriptionTimeline: FC<PrescriptionTimelineProps> = ({
   );
 };
 
-/** An action icon: hovering shows `content` in a card; a click opens it in a dialog titled "`label` · name". */
-const PanelButton: FC<{
-  label: string;
-  icon: JSX.Element;
-  prescription: PrescribedMedicationDTO;
-  subtitle?: string;
-  content: JSX.Element;
-}> = ({ label, icon, prescription, subtitle, content }) => {
-  const [open, setOpen] = useState(false);
-  const titleId = `prescription-${label.toLowerCase()}-title`;
-  return (
-    <>
-      <Tooltip title={content} componentsProps={{ tooltip: { sx: { ...PANEL_SX, maxWidth: 560 } } }}>
-        <IconButton aria-label={label} size="small" onClick={() => setOpen(true)}>
-          {icon}
-        </IconButton>
-      </Tooltip>
-      {open && (
-        <Dialog
-          open
-          onClose={() => setOpen(false)}
-          fullWidth
-          maxWidth="sm"
-          aria-labelledby={titleId}
-          PaperProps={{ sx: { ...PANEL_SX, display: 'flex', flexDirection: 'column', gap: '10px' } }}
-        >
-          <Box id={titleId} sx={{ fontSize: '18px', fontWeight: 600, color: '#0A2143' }}>
-            {label} · {prescription.name}
-          </Box>
-          {subtitle && <Box sx={{ fontSize: '13px', color: MUTED, lineHeight: 1.5 }}>{subtitle}</Box>}
-          {content}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
-            <Button
-              variant="outlined"
-              onClick={() => setOpen(false)}
-              sx={{
-                borderRadius: '20px',
-                padding: '5px 16px',
-                fontSize: '13.5px',
-                fontWeight: 500,
-                textTransform: 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Close
-            </Button>
-          </Box>
-        </Dialog>
-      )}
-    </>
-  );
-};
-
-/** Hovering shows the timeline; a click opens it in a dialog with the pharmacy and visit. */
-export const PrescriptionHistoryButton: FC<PrescriptionTimelineProps & { visitDate?: string }> = ({
-  visitDate,
-  ...props
-}) => (
-  <PanelButton
-    label="History"
-    icon={<HistoryIcon fontSize="small" color="info" />}
-    prescription={props.prescription}
-    subtitle={[props.prescription.pharmacyName, visitDate && `visit ${visitDate}`].filter(Boolean).join(' · ')}
-    content={<PrescriptionTimeline {...props} />}
-  />
-);
-
 /** The order as sent, one labelled line per field it has. */
 const PrescriptionDetails: FC<PrescriptionTimelineProps> = ({ prescription, practitionerName, practitioners }) => {
   const order = prescription.order ?? {};
@@ -221,12 +153,51 @@ const PrescriptionDetails: FC<PrescriptionTimelineProps> = ({ prescription, prac
   );
 };
 
-/** Hovering shows the order's details; a click opens them in a dialog. */
-export const PrescriptionDetailsButton: FC<PrescriptionTimelineProps> = (props) => (
-  <PanelButton
-    label="Details"
-    icon={<InfoOutlinedIcon fontSize="small" color="primary" />}
-    prescription={props.prescription}
-    content={<PrescriptionDetails {...props} />}
-  />
+const HEADING_SX = {
+  fontSize: '12px',
+  fontWeight: 500,
+  textTransform: 'uppercase',
+  letterSpacing: '.04em',
+  color: '#0F347C',
+  mb: '6px',
+};
+
+/** The order as sent beside its eRx history: the row's open section and the caret's hover card. */
+export const PrescriptionDetailsAndHistory: FC<PrescriptionTimelineProps> = (props) => (
+  <Box
+    component="section"
+    aria-label={`Details and history · ${props.prescription.name}`}
+    sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(0,1fr)', gap: '24px' }}
+  >
+    <Box>
+      <Box sx={HEADING_SX}>Details</Box>
+      <PrescriptionDetails {...props} />
+    </Box>
+    <Box>
+      <Box sx={HEADING_SX}>History</Box>
+      <PrescriptionTimeline {...props} />
+    </Box>
+  </Box>
+);
+
+/** Hovering the row's medication shows its details and history in a card while the row is closed. */
+export const PrescriptionDetailsTooltip: FC<
+  PrescriptionTimelineProps & { expanded: boolean; children: ReactElement }
+> = ({ expanded, children, ...props }) => (
+  <Tooltip
+    title={expanded ? '' : <PrescriptionDetailsAndHistory {...props} />}
+    componentsProps={{ tooltip: { sx: { ...PANEL_SX, maxWidth: 720, width: 720 } } }}
+  >
+    {children}
+  </Tooltip>
+);
+
+/** The row's last action: a click opens or closes its details and history under the row. */
+export const PrescriptionDetailsToggle: FC<{ expanded: boolean; onToggle: () => void }> = ({ expanded, onToggle }) => (
+  <IconButton aria-label="Details" aria-expanded={expanded} size="small" onClick={onToggle}>
+    <ExpandMoreIcon
+      fontSize="small"
+      sx={{ transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }}
+    />
+  </IconButton>
 );

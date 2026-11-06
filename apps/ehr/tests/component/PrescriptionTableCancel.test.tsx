@@ -71,7 +71,12 @@ const renderTable = (): ReturnType<typeof userEvent.setup> => {
   );
   return user;
 };
-const row = (name: string): HTMLElement => screen.getByText(name).closest<HTMLElement>('[role="row"]')!;
+// The table's row, not the medication's hover card, which repeats the name.
+const row = (name: string): HTMLElement =>
+  screen
+    .getAllByText(name)
+    .map((element) => element.closest<HTMLElement>('[role="row"]'))
+    .find(Boolean)!;
 const checkbox = (name: string): HTMLElement => within(row(name)).getByRole('checkbox', { hidden: true });
 const selectAll = (): HTMLElement => screen.getByRole('checkbox', { name: 'Select all rows' });
 const response = (status: number, body: unknown): Response =>

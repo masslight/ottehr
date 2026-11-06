@@ -131,7 +131,12 @@ const renderTable = (): ReturnType<typeof userEvent.setup> => {
   );
   return user;
 };
-const row = (name: string): HTMLElement => screen.getByText(name).closest<HTMLElement>('[role="row"]')!;
+// The table's row, not the medication's hover card, which repeats the name.
+const row = (name: string): HTMLElement =>
+  screen
+    .getAllByText(name)
+    .map((element) => element.closest<HTMLElement>('[role="row"]'))
+    .find(Boolean)!;
 const checkbox = (name: string): HTMLElement => within(row(name)).getByRole('checkbox', { hidden: true });
 const response = (status: number, body: unknown): Response =>
   ({ ok: status < 300, status, json: async () => body }) as Response;
@@ -242,55 +247,16 @@ describe('Prescription table: send to another pharmacy', () => {
     expect(await tooltipOf(action(ERR_INCOMPLETE.name!, 'Send to another pharmacy'))).toBe(
       `Send to another pharmacy isn't available for ${ERR_INCOMPLETE.name}: missing NDC.`
     );
-    // History is always there.
-    expect(action(PRED.name!, 'History')).toBeEnabled();
+    // Details and history are always there.
+    expect(action(PRED.name!, 'Details')).toBeEnabled();
   });
 
-  it('shows a prescription’s history, oldest first, on hover and in a dialog on click', async () => {
+  it('shows a prescription’s details beside its history, oldest first, on hover and under the row on click', async () => {
     const user = renderTable();
     const at = (iso: string): string => DateTime.fromISO(iso).toLocal().toFormat('MM/dd h:mm a');
-    // Time | rail | the service's text with who did it inline
-    const lines = [
-      at('2026-10-28T11:00:00.000Z'),
-      'Prescription ordered',
-      'Abrams, Dana',
-      at('2026-10-28T11:00:01.000Z'),
-      'Surescripts reported an error: Receiver unable to process.',
-      'Surescripts',
-    ];
-    const history = within(row(ERR.name!)).getByRole('button', { name: 'History' });
-    await user.hover(history);
-    const tooltip = await screen.findByRole('tooltip');
-    expect(tooltip).toHaveTextContent(lines.join(''));
-    await user.unhover(history);
-    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
-    await user.click(history);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveAccessibleName(`History · ${ERR.name}`);
-    expect(
-      within(dialog).getByText(
-        `Apex Discount Drugs · visit ${
-          formatDateToMDYWithTime('2026-10-28T08:00:00.000Z', DateTime.local().zoneName)!.date
-        }`
-      )
-    ).toBeInTheDocument();
-    expect(within(dialog).getByRole('list')).toHaveTextContent(lines.join(''));
-    // Who did it sits inline after the text, faint.
-    expect(within(dialog).getByText('Abrams, Dana')).toHaveClass('who');
-    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    // Opening the history doesn't select the row.
-    expect(checkbox(ERR.name!)).not.toBeChecked();
-    await user.hover(within(row(ERR_INCOMPLETE.name!)).getByRole('button', { name: 'History' }));
-    // The history button got its focus back from the dialog, so its own tooltip may still be open.
-    expect(await screen.findByText('No history yet')).toBeInTheDocument();
-  });
-
-  it('shows a prescription’s order details on hover and in a dialog on click, leaving out empty fields', async () => {
-    const user = renderTable();
     const sent = formatDateToMDYWithTime(ERR.sent, DateTime.local().zoneName)!;
     // Label | value; ERR has no note to pharmacy or days supply, and no prescriber on file.
-    const lines = [
+    const details = [
       ['Medication', ERR.name],
       ['Directions', ERR.instructions],
       ['Quantity', '250 milliliters'],
@@ -300,21 +266,45 @@ describe('Prescription table: send to another pharmacy', () => {
       ['Pharmacy', 'Apex Discount Drugs'],
       ['Sent', `${sent.date} ${sent.time}`],
     ].flat();
-    const details = within(row(ERR.name!)).getByRole('button', { name: 'Details' });
-    // Taken now: the button gets its focus back from the dialog, and its card repeats the name.
+    // Time | rail | the service's text with who did it inline
+    const history = [
+      at('2026-10-28T11:00:00.000Z'),
+      'Prescription ordered',
+      'Abrams, Dana',
+      at('2026-10-28T11:00:01.000Z'),
+      'Surescripts reported an error: Receiver unable to process.',
+      'Surescripts',
+    ];
+    const both = ['Details', ...details, 'History', ...history].join('');
+    const errRow = row(ERR.name!);
+    const medication = within(errRow).getByText(ERR.name!);
+    const toggle = within(errRow).getByRole('button', { name: 'Details' });
     const rowCheckbox = checkbox(ERR.name!);
-    await user.hover(details);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(lines.join(''), { normalizeWhitespace: false });
-    await user.unhover(details);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    // The medication shows the card on hover; the caret shows none.
+    await user.hover(toggle);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    await user.hover(medication);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(both, { normalizeWhitespace: false });
+    await user.unhover(medication);
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
-    await user.click(details);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveAccessibleName(`Details · ${ERR.name}`);
-    expect(dialog.querySelector('dl')).toHaveTextContent(lines.join(''), { normalizeWhitespace: false });
-    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const section = await screen.findByRole('region', { name: `Details and history · ${ERR.name}` });
+    expect(section).toHaveTextContent(both, { normalizeWhitespace: false });
+    // Who did it sits inline after the text, faint.
+    expect(within(section).getByText('Abrams, Dana')).toHaveClass('who');
+    // Open, the medication shows no card: it's all under the row.
+    await user.hover(medication);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    await user.unhover(medication);
+    await user.click(toggle);
+    await waitFor(() => expect(screen.queryByRole('region', { name: /^Details and history/ })).not.toBeInTheDocument());
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
     // Opening the details doesn't select the row.
     expect(rowCheckbox).not.toBeChecked();
+    await user.hover(within(row(ERR_INCOMPLETE.name!)).getByText(ERR_INCOMPLETE.name!));
+    expect(await screen.findByText('No history yet')).toBeInTheDocument();
   });
 
   it('cancels a sent prescription (duplicate order, different pharmacy) and sends it to the new pharmacy', async () => {

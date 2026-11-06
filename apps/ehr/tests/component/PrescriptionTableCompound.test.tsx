@@ -111,7 +111,12 @@ const renderTable = (): ReturnType<typeof userEvent.setup> => {
   );
   return user;
 };
-const row = (name: string): HTMLElement => screen.getByText(name).closest<HTMLElement>('[role="row"]')!;
+// The table's row, not the medication's hover card, which repeats the name.
+const row = (name: string): HTMLElement =>
+  screen
+    .getAllByText(name)
+    .map((element) => element.closest<HTMLElement>('[role="row"]'))
+    .find(Boolean)!;
 const response = (status: number, body: unknown): Response =>
   ({ ok: status < 300, status, json: async () => body }) as Response;
 const calls = (path: string): unknown[] =>
@@ -146,7 +151,7 @@ describe('Prescription table: compounds', () => {
   it('shows a compound’s details with its ingredients, and the prescriber', async () => {
     const user = renderTable();
     await user.click(within(row('Compound: Pain cream')).getByRole('button', { name: 'Details' }));
-    const details = screen.getByRole('dialog').querySelector('dl')!;
+    const details = (await screen.findByRole('region', { name: /^Details and history/ })).querySelector('dl')!;
     expect(details).toHaveTextContent(
       'MedicationCompound: Pain cream · Cream · Ketoprofen Powder 6 grams · Lidocaine 600 milligrams · Compounding cream 53.4 grams'
     );
