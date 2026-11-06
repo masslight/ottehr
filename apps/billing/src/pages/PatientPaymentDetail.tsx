@@ -76,13 +76,22 @@ export default function PatientPaymentDetail(): ReactElement {
 
   // set when the URL is switched to the id a payment was just loaded under, so that switch doesn't reload it
   const loadedUnderIdRef = useRef<string | undefined>(undefined);
+  // Loads overlap (a failed action reloads without waiting, a retry reloads again, the route can change
+  // mid-load), so each one takes a generation and only the latest may touch state or the URL.
+  const generationRef = useRef(0);
+  const invalidateLoads = (): void => {
+    generationRef.current++;
+  };
 
   const fetchPayment = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !patientId || !encounterId || !paymentId) return;
+    const generation = ++generationRef.current;
+    const isCurrent = (): boolean => generation === generationRef.current;
     setLoading(true);
     setError(null);
     try {
       const res = await getBillingPatientAccountPayment(oystehrZambda, { patientId, encounterId, paymentId });
+      if (!isCurrent()) return;
       setPayment(res.payment);
       // a legacy EHR payment gets a billing id once it is refunded or voided; keep the URL current
       const resolvedId = res.payment.fhirPaymentNotificationId;
@@ -92,19 +101,34 @@ export default function PatientPaymentDetail(): ReactElement {
         navigate(path, { replace: true });
       }
     } catch (err) {
+      if (!isCurrent()) return;
       setError(getApiError({ error: err, defaultError: 'Failed to load payment' }));
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [oystehrZambda, patientId, encounterId, paymentId, navigate]);
 
+  // the payment the page shows, by route: a different one must not show (or be acted on) the previous one's data
+  const routeKey = `${patientId}/${encounterId}`;
+  const shownRouteKeyRef = useRef(routeKey);
+
   useEffect(() => {
     if (loadedUnderIdRef.current && loadedUnderIdRef.current === paymentId) {
+      // the same payment under its current id, already loaded
       loadedUnderIdRef.current = undefined;
-      return;
+    } else {
+      if (shownRouteKeyRef.current !== routeKey || payment?.fhirPaymentNotificationId !== paymentId) {
+        setPayment(null);
+        setAction(null);
+      }
+      shownRouteKeyRef.current = routeKey;
+      void fetchPayment();
     }
-    void fetchPayment();
-  }, [fetchPayment, paymentId]);
+    // leaving the route or the page drops whatever is still loading for it
+    return invalidateLoads;
+    // payment is read only to compare against the new route, not to reload when it changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchPayment, paymentId, routeKey]);
 
   if (loading && !payment) {
     return (
