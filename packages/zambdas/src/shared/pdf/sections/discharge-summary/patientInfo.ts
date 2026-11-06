@@ -9,6 +9,17 @@ import { ICON_STYLE } from '../../pdf-consts';
 import { PatientInfoForDischargeSummary, PdfSection } from '../../types';
 import { FullAppointmentResourcePackage } from '../../visit-details-pdf/types';
 
+/**
+ * standardizePhoneNumber only knows US numbers: it rewrites an explicit other country code as a US number
+ * and drops what it can't parse, so those are printed as entered rather than mangled or lost.
+ */
+export const formatPhoneForPdf = (rawPhone: string | undefined): string | undefined => {
+  const phone = rawPhone?.trim();
+  if (!phone) return undefined;
+  if (/^\+(?!1)/.test(phone)) return phone;
+  return standardizePhoneNumber(phone) ?? phone;
+};
+
 export const composePatientInformationForDischargeSummary: DataComposer<
   { appointmentPackage: FullAppointmentResourcePackage },
   PatientInfoForDischargeSummary
@@ -20,9 +31,7 @@ export const composePatientInformationForDischargeSummary: DataComposer<
   const dob = formatDOB(patient?.birthDate) ?? '';
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = getPatientFriendlyId(patient);
-  const phone = standardizePhoneNumber(
-    patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value
-  );
+  const phone = formatPhoneForPdf(patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value);
   return {
     fullName,
     dob,

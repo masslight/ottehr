@@ -154,6 +154,10 @@ describe('visit note PDF layout — golden chart data', () => {
     // ten digits after a non-US country code must not be reformatted as a US number
     expect(withPhones('+65 6123 4567', '3125550199')).toBe('+65 6123 4567');
     expect(withPhones('+1 202 555 0123', '3125550199')).toBe('(202) 555-0123');
+    // the patient's own phone keeps an explicit country code too
+    expect(withPhones(undefined, '+65 6123 4567')).toBe('+65 6123 4567');
+    expect(withPhones(undefined, '+44 20 7946 0958')).toBe('+44 20 7946 0958');
+    expect(withPhones('   ', '3125550199')).toBe('(312) 555-0199');
     expect(withPhones(undefined, undefined)).toBeUndefined();
   });
 

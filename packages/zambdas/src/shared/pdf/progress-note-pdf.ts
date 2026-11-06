@@ -1,5 +1,4 @@
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
-import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { Secrets } from 'utils/lib/secrets';
 import { createClinicalOystehrClient } from '../helpers';
@@ -9,6 +8,7 @@ import { rgbNormalized } from './pdf-utils';
 import {
   composePatientInformationForDischargeSummary,
   createCompactPatientHeader,
+  formatPhoneForPdf,
 } from './sections/discharge-summary/patientInfo';
 import { composeRadiology, createRadiologySection } from './sections/discharge-summary/radiology';
 import { composeUpcomingVisits, createUpcomingVisitsSection } from './sections/upcomingVisits';
@@ -67,15 +67,9 @@ const composeProgressNoteHeaderPatient = (
   appointmentPackage: ProgressNoteInput['appointmentPackage']
 ): PatientInfoForDischargeSummary => {
   const patient = composePatientInformationForDischargeSummary({ appointmentPackage });
-  const guardianPhone = getQuestionnaireResponseByLinkId(
-    'guardian-number',
-    appointmentPackage.questionnaireResponse
-  )?.answer?.[0]?.valueString?.trim();
-  // standardizePhoneNumber only knows US numbers: it would rewrite an explicit other country code as a US
-  // number and drops what it can't parse, so those are shown as entered, as before.
-  const hasForeignCountryCode = /^\+(?!1)/.test(guardianPhone ?? '');
-  const guardianPhoneFormatted = hasForeignCountryCode ? guardianPhone : standardizePhoneNumber(guardianPhone);
-  return { ...patient, phone: guardianPhoneFormatted ?? (guardianPhone || patient.phone) };
+  const guardianPhone = getQuestionnaireResponseByLinkId('guardian-number', appointmentPackage.questionnaireResponse)
+    ?.answer?.[0]?.valueString;
+  return { ...patient, phone: formatPhoneForPdf(guardianPhone) ?? patient.phone };
 };
 
 export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
