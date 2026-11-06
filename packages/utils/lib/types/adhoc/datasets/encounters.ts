@@ -306,6 +306,8 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'followUpReason',
   'procedureTypes',
   'occupationalMedicineEmployer',
+  'workersCompEmployer',
+  'workersCompCarrier',
   'examAbnormalSystems',
 ];
 
@@ -943,8 +945,10 @@ export const ENCOUNTER_LAYERS = {
     }),
   },
   employer: {
-    label: 'Occupational medicine employer',
-    description: 'The occupational-medicine employer of the visit, as printed on the visit details face sheet.',
+    label: 'Employers',
+    description:
+      "The visit's employers as printed on the visit details face sheet: the occupational-medicine employer and " +
+      'the workers\' comp employer / carrier. Use for questions like "workers\' comp visits of employer X".',
     schema: z.object({
       occupationalMedicineEmployer: z
         .string()
@@ -952,6 +956,19 @@ export const ENCOUNTER_LAYERS = {
           'Employer name: for pre-op visits the employer picked for THIS visit; otherwise the occupational-' +
             "medicine employer on the patient's account (it may be set on any visit — filter by serviceCategory " +
             'for occupational-medicine visits). "" when none.'
+        ),
+      workersCompEmployer: z
+        .string()
+        .describe(
+          "Workers' comp employer on the patient's account (entered in paperwork), i.e. the employer of a " +
+            "workers' comp visit. Patient-level: it is the CURRENT value, so an older visit shows the patient's " +
+            "latest employer. Set on any visit of such a patient — filter by serviceCategory for workers' comp " +
+            'visits. "" when none.'
+        ),
+      workersCompCarrier: z
+        .string()
+        .describe(
+          'Workers\' comp insurance carrier on the patient\'s account (patient-level, current value). "" when none.'
         ),
     }),
   },

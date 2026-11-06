@@ -54,10 +54,14 @@ export async function practitionerRefForUser(user: User, oystehr: Oystehr): Prom
   if (!practitionerId) return { reference: user.profile, display: user.name };
   try {
     const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
-    const name = [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
-    return { reference: user.profile, display: name || user.name };
+    return { reference: user.profile, display: practitionerFirstLastName(practitioner) || user.name };
   } catch (error) {
     console.error('Failed to resolve practitioner name for user', user.id, error);
     return { reference: user.profile, display: user.name };
   }
+}
+
+// A Practitioner's first + last name, no credentials; empty when the record names neither.
+export function practitionerFirstLastName(practitioner: Practitioner): string {
+  return [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
 }

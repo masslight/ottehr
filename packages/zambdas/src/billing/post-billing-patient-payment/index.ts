@@ -33,11 +33,11 @@ import {
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { practitionerRefForBillingUser } from '../clinical-practitioners';
 import { ensurePaymentTaskForNotice, unionIdentifiers } from '../patient-payments';
 import {
   billingProviderRefForStripeAccount,
@@ -74,7 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
-  const submitterRef = await practitionerRefForUser(user, clinicalOystehr);
+  const submitterRef = await practitionerRefForBillingUser(user, billingOystehr);
 
   const notice = await performEffect({ ...params, submitterRef }, clinicalOystehr, billingOystehr);
 

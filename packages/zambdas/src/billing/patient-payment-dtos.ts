@@ -74,7 +74,7 @@ export const fhirClinicalPaymentLookups = (
 });
 
 interface GetPaymentsForEncounterInput {
-  // reads Account, Encounter, Practitioner and legacy EHR PaymentNotices
+  // reads Account, Encounter and legacy EHR PaymentNotices
   clinicalOystehr: Oystehr;
   // reads billing PaymentNotices and keeps their refund stamps current
   billingOystehr: Oystehr;
@@ -86,6 +86,8 @@ interface GetPaymentsForEncounterInput {
   fhirPaymentNotices?: PaymentNotice[];
   // the EHR visit list shows at most CARD_PAYMENT_LIMIT card payments; listings that must be complete lift the cap
   uncappedCardPayments?: boolean;
+  // replaces the clinical FHIR Practitioner lookup; billing endpoints pass the EHR zambda's
+  practitionerNames?: ClinicalPaymentLookups['practitionerNames'];
 }
 
 const CARD_PAYMENT_LIMIT = 20;
@@ -102,7 +104,10 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
 
   return listEncounterPayments({
     ...input,
-    clinical: fhirClinicalPaymentLookups(clinicalOystehr, account),
+    clinical: {
+      ...fhirClinicalPaymentLookups(clinicalOystehr, account),
+      ...(input.practitionerNames ? { practitionerNames: input.practitionerNames } : {}),
+    },
     fhirPaymentNotices,
   });
 };

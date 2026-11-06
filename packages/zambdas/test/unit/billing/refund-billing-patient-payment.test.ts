@@ -17,8 +17,8 @@ vi.mock('../../../src/shared/auth', () => ({
   getUserToken: vi.fn().mockReturnValue('user-token'),
   requireUserWithRole: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/pr-1', name: 'Pat Admin' }),
 }));
-vi.mock('../../../src/shared/practitioners', () => ({
-  practitionerRefForUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Pat Admin' }),
+vi.mock('../../../src/billing/clinical-practitioners', () => ({
+  practitionerRefForBillingUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Pat Admin' }),
 }));
 vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
   ...(await importOriginal<object>()),

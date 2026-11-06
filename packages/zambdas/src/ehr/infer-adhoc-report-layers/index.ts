@@ -136,7 +136,7 @@ FACT, not presentation: judge it exactly as if it had been asked for as a column
 ONLY THEN REJECT — and only for a NEAR MATCH or a MISSING RECORDED FACT. A field naming a different
 thing does not cover the request: "attending provider" is not "referring provider", a marketing
 "source" is not a referral source, a "most recent" value is not an initial one. Likewise reject an
-attribute nobody charts here at all (a pain score, a triage acuity level, an employer). Never let the
+attribute nobody charts here at all (a pain score, a triage acuity level). Never let the
 report substitute one of these for the other.
 
 So: reject only when, after all three tests, the request needs a fact that is neither recorded in any

@@ -16,6 +16,7 @@ import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { OttehrTaskSystem } from 'utils/lib/types/common';
 import { VideoChatNotificationResponse } from 'utils/lib/types/data/telemed/video-chat-invites.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { isVideoEncounter } from '../../../shared/encounters';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
@@ -26,6 +27,10 @@ import { ValidatedInput, validateInput, validateSecrets } from './validateReques
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'video-chat-waiting-room-notification';
+
+// 'fulfilled' also covers active provider stages, so a completed visit is detected by its encounter
+const INACTIVE_APPOINTMENT_STATUSES: Appointment['status'][] = ['cancelled', 'noshow', 'entered-in-error'];
+const INACTIVE_ENCOUNTER_STATUSES: Encounter['status'][] = ['finished', 'cancelled', 'entered-in-error'];
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -60,8 +65,16 @@ export async function performEffect(
   const { appointment, encounter, patient } = await getFhirResources(oystehr, appointmentId);
   console.groupEnd();
   console.debug('getFhirResources success');
-  if (!appointment.id || !encounter.id || !patient.id) {
-    failureResponse.taskNotCreatedReason = 'Appointment, encounter, or patient not found';
+  if (!appointment?.id || !encounter?.id || !patient?.id) {
+    failureResponse.taskNotCreatedReason = 'Appointment, video encounter, or patient not found';
+    return failureResponse;
+  }
+
+  if (
+    INACTIVE_APPOINTMENT_STATUSES.includes(appointment.status) ||
+    INACTIVE_ENCOUNTER_STATUSES.includes(encounter.status)
+  ) {
+    failureResponse.taskNotCreatedReason = 'Visit is no longer active';
     return failureResponse;
   }
 
@@ -160,7 +173,7 @@ type ReturnedResources = {
 async function getFhirResources(
   oystehr: Oystehr,
   appointmentId: string
-): Promise<{ appointment: Appointment; encounter: Encounter; patient: Patient }> {
+): Promise<{ appointment?: Appointment; encounter?: Encounter; patient?: Patient }> {
   const resourcesResponse = await oystehr.fhir.search<Appointment | Encounter | Patient>({
     resourceType: 'Appointment',
     params: [
@@ -180,7 +193,9 @@ async function getFhirResources(
   });
   const resources = resourcesResponse.unbundle();
   const appointment = resources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
-  const encounter = resources.find((resource) => resource.resourceType === 'Encounter') as Encounter;
+  const encounter = resources.find(
+    (resource): resource is Encounter => resource.resourceType === 'Encounter' && isVideoEncounter(resource)
+  );
   const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
   return {
     appointment,

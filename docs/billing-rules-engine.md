@@ -12,6 +12,7 @@ automatic trigger, and its own on-success effect:
 | --- | --- | --- |
 | Claim Submission Rules (`claim-submission`) | when an Insurance Payer AR claim is submitted | the claim is submitted to the payer |
 | Non-Insurance Payer Pre-Invoice Rules (`non-insurance-payer-pre-invoice`) | when a claim is created in Non-insurance Payer AR | the Non-insurance AR Status moves to Ready to invoice |
+| Post-Adjudication Rules (`post-adjudication`) | when an ERA matches to an Insurance Payer AR claim | the claim is not modified further |
 | Patient AR Pre-Invoice Rules (`patient-ar-pre-invoice`) | when a claim is created in Patient AR | the Patient AR Status moves to Ready to invoice |
 
 Each set of rules runs automatically only when a claim is created in its AR stage, and on demand

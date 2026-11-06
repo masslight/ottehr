@@ -12,8 +12,8 @@ vi.mock('../../../src/shared/auth', () => ({
   getUserToken: vi.fn().mockReturnValue('user-token'),
   requireUserWithRole: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/pr-1', name: 'Pat Admin' }),
 }));
-vi.mock('../../../src/shared/practitioners', () => ({
-  practitionerRefForUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Pat Admin' }),
+vi.mock('../../../src/billing/clinical-practitioners', () => ({
+  practitionerRefForBillingUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Pat Admin' }),
 }));
 vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -83,7 +83,6 @@ const legacyNotice = (
 
 // legacy notices and the schedule's Stripe account come from the EHR zambda, never clinical FHIR
 const ehr = fakeEhrPaymentNoticeZambda('acct_1');
-const clinicalFhir = { get: vi.fn(), search: vi.fn() };
 const billingGet = vi.fn();
 const billingSearch = vi.fn();
 const billingCreate = vi.fn();
@@ -115,7 +114,6 @@ const refundOffsetCreates = (): PaymentNotice[] => offsetCreateRequests().map((r
 beforeEach(() => {
   vi.clearAllMocks();
   ehr.serve();
-  vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: clinicalFhir } as unknown as Oystehr);
   vi.mocked(createBillingClient).mockReturnValue({
     zambda: { execute: ehr.execute },
     fhir: {
@@ -155,8 +153,7 @@ describe('void-billing-patient-payment', () => {
     expect(ehr.noticeRequests()).toEqual([
       expect.objectContaining({ encounterId: ENCOUNTER_ID, paymentNoticeId: LEGACY_NOTICE_ID }),
     ]);
-    expect(clinicalFhir.get).not.toHaveBeenCalled();
-    expect(clinicalFhir.search).not.toHaveBeenCalled();
+    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
   });
 
   it('records the void in claim history, credited to the user who voided it', async () => {
