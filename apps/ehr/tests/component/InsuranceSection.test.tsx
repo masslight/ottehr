@@ -558,35 +558,31 @@ describe('InsuranceSection — eligibility date of service', () => {
   const dateOfServiceInput = (): HTMLInputElement =>
     screen.getByTestId(dataTestIds.insuranceContainer.dateOfServiceInput) as HTMLInputElement;
 
-  const dateOfServiceButton = (): HTMLElement => screen.getByTestId(dataTestIds.insuranceContainer.dateOfServiceButton);
-
-  it('shows the visit date as inline text, without a date field', async () => {
+  it('starts the date field on the visit date', async () => {
     renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
 
     await screen.findByText(/Primary insurance/i);
-    expect(dateOfServiceButton()).toHaveTextContent('03/04/2025');
-    expect(screen.getByText('Recheck for visit date')).toBeInTheDocument();
-    expect(dateOfServiceInput()).not.toBeVisible();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Recheck:')).toBeInTheDocument();
+    expect(dateOfServiceInput().value).toBe('03/04/2025');
   });
 
-  it('shows today when there is no visit', async () => {
+  it('starts the date field on today when there is no visit', async () => {
     renderHarness({ initialCoverages: makeFullPrimaryCoverages() });
 
     await screen.findByText(/Primary insurance/i);
-    expect(dateOfServiceButton()).toHaveTextContent(DateTime.now().toFormat('MM/dd/yyyy'));
+    expect(dateOfServiceInput().value).toBe(DateTime.now().toFormat('MM/dd/yyyy'));
   });
 
-  it('opens the calendar on click and updates the text when another day is picked', async () => {
+  it('updates the date when another day is picked from the calendar', async () => {
     const user = userEvent.setup();
     renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
 
     await screen.findByText(/Primary insurance/i);
-    await user.click(dateOfServiceButton());
+    await user.click(screen.getByRole('button', { name: /choose date/i }));
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('gridcell', { name: '10' }));
 
-    await waitFor(() => expect(dateOfServiceButton()).toHaveTextContent('03/10/2025'));
+    await waitFor(() => expect(dateOfServiceInput().value).toBe('03/10/2025'));
   });
 
   it('explains the date on hover but keeps the tooltip off the open calendar', async () => {
@@ -594,10 +590,10 @@ describe('InsuranceSection — eligibility date of service', () => {
     renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
 
     await screen.findByText(/Primary insurance/i);
-    await user.hover(dateOfServiceButton());
+    await user.hover(dateOfServiceInput());
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/Date of service the eligibility check is run for/);
 
-    await user.click(dateOfServiceButton());
+    await user.click(screen.getByRole('button', { name: /choose date/i }));
     await screen.findByRole('dialog');
     await user.hover(screen.getByRole('dialog'));
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());

@@ -18,7 +18,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
+import { FC, ReactElement, ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout/Row';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
@@ -167,7 +167,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [dateTooltipOpen, setDateTooltipOpen] = useState(false);
-  const dateAnchorRef = useRef<HTMLButtonElement>(null);
 
   const serviceDateISO = (serviceDate?.isValid ? serviceDate.toISODate() : undefined) ?? undefined;
 
@@ -351,113 +350,120 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     };
 
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '100%' }}>
         {/* Status badge and View Details button in same row */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <Chip
-            label={eligibilityStatus?.status ?? 'UNKNOWN'}
-            sx={{
-              backgroundColor: chipColors.bgColor,
-              color: chipColors.textColor,
-              borderRadius: '8px',
-              padding: '0 9px',
-              height: '24px',
-              '& .MuiChip-label': {
-                padding: 0,
-                fontWeight: 'bold',
-                fontSize: '0.7rem',
-              },
-            }}
-          />
-          {(initialEligibilityCheck || eligibilityStatus) && (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => setShowEligibilityDetails(true)}
-              sx={{
-                textTransform: 'none',
-                fontSize: '12px',
-                borderRadius: '16px',
-                minWidth: 'auto',
-                px: 2,
-                py: 0.5,
-              }}
-            >
-              View Details
-            </Button>
-          )}
-        </Box>
-        {lastRefreshDateString && (
-          <Typography sx={{ ...lastCheckedTextSx }}>
-            {dosLabel ? `${lastRefreshDateString} (${dosLabel})` : lastRefreshDateString}
+
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', gap: 1, mb: 1 }}
+        >
+          <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
+            {ordinal === 1 ? 'Primary insurance' : 'Secondary insurance'}
           </Typography>
-        )}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Tooltip
-            arrow
-            open={dateTooltipOpen && !datePickerOpen}
-            onOpen={() => setDateTooltipOpen(true)}
-            onClose={() => setDateTooltipOpen(false)}
-            title="Date of service the eligibility check is run for. Click the date to change it, then click refresh."
-          >
-            <Box>
-              {/* Inline text until clicked; the picker's own field is hidden and its calendar anchors to the text. */}
+
+          <Box>
+            <Chip
+              label={eligibilityStatus?.status ?? 'UNKNOWN'}
+              sx={{
+                backgroundColor: chipColors.bgColor,
+                color: chipColors.textColor,
+                borderRadius: '8px',
+                padding: '0 9px',
+                mr: 1,
+                height: '24px',
+                '& .MuiChip-label': {
+                  padding: 0,
+                  fontWeight: 'bold',
+                  fontSize: '0.7rem',
+                },
+              }}
+            />
+            {(initialEligibilityCheck || eligibilityStatus) && (
               <Button
-                ref={dateAnchorRef}
-                variant="text"
+                variant="outlined"
                 size="small"
-                disableRipple
-                data-testid={dataTestIds.insuranceContainer.dateOfServiceButton}
-                onClick={() => {
-                  setDateTooltipOpen(false);
-                  setDatePickerOpen(true);
-                }}
+                onClick={() => setShowEligibilityDetails(true)}
                 sx={{
-                  ...lastCheckedTextSx,
                   textTransform: 'none',
+                  fontSize: '12px',
+                  borderRadius: '99px',
                   minWidth: 'auto',
-                  p: 0,
-                  textDecoration: 'underline',
-                  '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' },
+                  height: '35px',
+                  px: 2,
+                  py: 0.5,
                 }}
               >
-                <Typography sx={lastCheckedTextSx}>
-                  Recheck for {serviceDate?.isValid ? serviceDate.toFormat('MM/dd/yyyy') : 'Pick a date'}
-                </Typography>
+                View Details
               </Button>
-              <LocalizationProvider dateAdapter={AdapterLuxon}>
-                <DatePicker
-                  value={serviceDate}
-                  open={datePickerOpen}
-                  onChange={(value) => setServiceDate(value)}
-                  onClose={() => {
-                    setDateTooltipOpen(false);
-                    setDatePickerOpen(false);
-                  }}
-                  format="MM/dd/yyyy"
-                  slotProps={{
-                    textField: {
-                      size: 'small',
-                      sx: { display: 'none' },
-                      inputProps: {
-                        'aria-label': 'Date of service',
-                        'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput,
+            )}
+          </Box>
+        </Box>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            flexWrap: 'nowrap',
+            justifyContent: 'space-between',
+            width: '100%',
+          }}
+        >
+          <Box>
+            {lastRefreshDateString && (
+              <Typography sx={{ ...lastCheckedTextSx, whiteSpace: 'nowrap' }}>
+                {dosLabel ? `${lastRefreshDateString} (${dosLabel})` : lastRefreshDateString}
+              </Typography>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'nowrap' }}>
+            <Typography sx={{ ...lastCheckedTextSx, whiteSpace: 'nowrap' }}>
+              {lastRefreshDateString ? 'Recheck:' : 'Check:'}
+            </Typography>
+            <Tooltip
+              arrow
+              open={dateTooltipOpen && !datePickerOpen}
+              onOpen={() => setDateTooltipOpen(true)}
+              onClose={() => setDateTooltipOpen(false)}
+              title="Date of service the eligibility check is run for. Change it to check coverage as of another day, then click refresh."
+            >
+              <Box>
+                <LocalizationProvider dateAdapter={AdapterLuxon}>
+                  <DatePicker
+                    value={serviceDate}
+                    open={datePickerOpen}
+                    onChange={(value) => setServiceDate(value)}
+                    onOpen={() => {
+                      setDatePickerOpen(true);
+                    }}
+                    onClose={() => {
+                      setDateTooltipOpen(false);
+                      setDatePickerOpen(false);
+                    }}
+                    format="MM/dd/yyyy"
+                    slotProps={{
+                      textField: {
+                        variant: 'standard',
+                        size: 'small',
+                        sx: { width: 120, '& .MuiInputBase-input': { fontSize: '14px' } },
+                        inputProps: {
+                          'aria-label': 'Date of service',
+                          'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput,
+                        },
                       },
-                    },
-                    popper: { anchorEl: dateAnchorRef.current },
-                  }}
-                />
-              </LocalizationProvider>
-            </Box>
-          </Tooltip>
-          <IconButton
-            data-testid={dataTestIds.insuranceContainer.recheckEligibilityButton}
-            onClick={handleRecheckEligibility}
-            disabled={!serviceDate?.isValid || recheckEligibility.isPending}
-            size="small"
-          >
-            {recheckEligibility.isPending ? <CircularProgress size="24px" /> : <RefreshRounded color="primary" />}
-          </IconButton>
+                    }}
+                  />
+                </LocalizationProvider>
+              </Box>
+            </Tooltip>
+            <IconButton
+              data-testid={dataTestIds.insuranceContainer.recheckEligibilityButton}
+              onClick={handleRecheckEligibility}
+              disabled={!serviceDate?.isValid || recheckEligibility.isPending}
+              size="small"
+            >
+              {recheckEligibility.isPending ? <CircularProgress size="24px" /> : <RefreshRounded color="primary" />}
+            </IconButton>
+          </Box>
         </Box>
       </Box>
     );
@@ -581,9 +587,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             pt: ordinal > 1 ? 2 : 0,
           }}
         >
-          <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
-            {ordinal === 1 ? 'Primary insurance' : 'Secondary insurance'}
-          </Typography>
           {renderTitleWidget()}
         </Box>
       )}
