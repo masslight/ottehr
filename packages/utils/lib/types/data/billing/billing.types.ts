@@ -2,6 +2,7 @@ import { Address, Task } from 'fhir/r4b';
 import type { BillingInvoiceKind } from '../../../fhir/billing-invoice';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
+import type { PatientPaymentDTO } from '../../api/patient-payment-types';
 import type {
   BillingInvoiceListStatus,
   EraClaimStatusCode,
@@ -402,6 +403,25 @@ export interface PatientDetailResponse {
   >[];
 }
 
+// how a patient payment was made; 'invoice' is any payment against an emailed/portal Stripe invoice
+export type BillingPatientPaymentMethod = PatientPaymentDTO['paymentMethod'] | 'invoice';
+
+export type BillingPatientAccountPayment = PatientPaymentDTO & {
+  method: BillingPatientPaymentMethod;
+  encounterId: string;
+  // the visit's appointment, which the EHR visit page is keyed by
+  appointmentId?: string;
+  visitDateISO?: string;
+  // absent when the payment's visit has no claim
+  claimId?: string;
+  claimServiceDate?: string;
+};
+
+export interface ListBillingPatientAccountPaymentsResponse {
+  // newest first
+  payments: BillingPatientAccountPayment[];
+}
+
 // One X12 CAS adjustment carried on a remit: group code (X12_ADJUSTMENT_GROUP_CODE) + CARC reason
 // code (e.g. 1 = deductible, 2 = coinsurance, 3 = copay, 45 = exceeds fee schedule).
 export interface ClaimRemitAdjustment {
@@ -612,6 +632,7 @@ export interface ClaimDetailResponse {
   accidentDate: string;
   attachments: ClaimAttachment[];
   writeOffs: ClaimWriteOff[];
+  invoices: BillingInvoiceSummary[];
 }
 
 interface Paginated {
@@ -1159,17 +1180,36 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
-export interface BillingInvoiceListItem {
+export interface GetBillingInvoiceRecipientResponse {
+  patient: { fullName: string; dob?: string; gender?: string; phoneNumber?: string };
+  responsibleParty: { fullName?: string; email?: string; phoneNumber?: string };
+  location?: string;
+  visitDate?: string;
+}
+
+export interface CreateBillingInvoiceResponse {
+  invoiceId: string;
+  stripeInvoiceId: string;
+  // True when this request's SMS was accepted, which does not confirm delivery. False when it failed.
+  // Missing when this request sent no SMS, such as a retry of an invoice that was already sent or paid.
+  smsSent?: boolean;
+}
+
+export interface BillingInvoiceSummary {
   id: string;
   status: BillingInvoiceListStatus;
   // FHIR Invoice.date as an ISO timestamp.
   issueDate: string;
   dueDate: string;
   amount: number;
+  hostedInvoiceUrl?: string;
+}
+
+export interface BillingInvoiceListItem extends BillingInvoiceSummary {
+  patientId?: string;
   patientName?: string;
   claimId?: string;
   serviceDate?: string;
-  hostedInvoiceUrl?: string;
   kind?: BillingInvoiceKind;
   number?: string;
   recipient?: {
@@ -1182,6 +1222,14 @@ export interface BillingInvoiceListItem {
 
 export interface SearchBillingInvoicesResponse extends Paginated {
   invoices: BillingInvoiceListItem[];
+}
+
+export interface GetBillingInvoiceStatementResponse {
+  html: string;
+  // When the current statement PDF in the patient's chart was made.
+  generatedAt?: string;
+  // A short-lived link to that PDF.
+  pdfUrl?: string;
 }
 
 export interface BillingInvoiceClaimLine {

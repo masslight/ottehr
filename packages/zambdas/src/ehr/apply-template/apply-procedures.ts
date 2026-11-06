@@ -3,6 +3,7 @@ import { Encounter, List, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { chartDataTagSystem } from 'utils/lib/fhir/constants';
 import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CPTCodeDTO, DiagnosisDTO, ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TemplateSectionAction } from 'utils/lib/types/data/apply-template.types';
 import { v4 as uuidV4 } from 'uuid';
@@ -49,7 +50,7 @@ export const collectContainedIdsClaimedByProcedures = (
   const claimed = new Set<string>();
   for (const plan of findProcedurePlans(templateList)) {
     for (const ref of [...(plan.reasonReference ?? []), ...(plan.supportingInfo ?? [])]) {
-      const id = ref.reference?.split('/')[1];
+      const id = getIdFromReference(ref.reference);
       if (id) claimed.add(id);
     }
   }
@@ -99,7 +100,7 @@ export const buildLiveProcedureRequest = (input: BuildLiveProcedureInput): Batch
   const { plan, encounter, containedIdToNewFullUrl } = input;
 
   const remap = (ref: { reference?: string }): string | null => {
-    const oldId = ref.reference?.split('/')[1];
+    const oldId = getIdFromReference(ref.reference);
     if (!oldId) return null;
     return containedIdToNewFullUrl.get(oldId) ?? null;
   };

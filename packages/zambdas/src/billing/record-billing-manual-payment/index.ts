@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Reference } from 'fhir/r4b';
+import { Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { RecordBillingManualPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -12,7 +12,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } from '../payments';
-import { createBillingClient, fetchById } from '../shared';
+import { createBillingClient } from '../shared';
 
 type RecordBillingManualPaymentParams = ValidatedZambdaInput<typeof RecordBillingManualPaymentInputSchema>;
 
@@ -29,10 +29,6 @@ const complexValidation = async (
   params: RecordBillingManualPaymentParams,
   token: string
 ): Promise<ComplexValidationOutput> => {
-  // The billing client cannot see Encounters, so check the ID before recording money against it.
-  const clinicalOystehr = createClinicalOystehrClient(token, params.secrets);
-  await fetchById<Encounter>(clinicalOystehr, 'Encounter', params.encounterId);
-
   // TODO: Should every payment have a submitter?
   // For now we keep going if the caller has no profile or the lookup fails.
   // The name is stamped on the reference so payment lists show who took it without a Practitioner lookup.
@@ -41,7 +37,9 @@ const complexValidation = async (
   if (authorization) {
     try {
       const user = await getUser(authorization.replace('Bearer ', ''), params.secrets);
-      if (user.profile) submitterRef = await practitionerRefForUser(user, clinicalOystehr);
+      // The billing client cannot read Practitioners, so the name lookup goes through the clinical client.
+      if (user.profile)
+        submitterRef = await practitionerRefForUser(user, createClinicalOystehrClient(token, params.secrets));
     } catch (error) {
       console.log('could not resolve caller profile for submitter', error);
     }

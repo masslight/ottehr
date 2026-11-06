@@ -6,6 +6,7 @@ import {
   makeProviderTypeExtension,
   makeQualificationForPractitioner,
 } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getSecret } from 'utils/lib/secrets';
 import { UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
 import { hasPractitionerProfile, RoleType } from 'utils/lib/types/api/user.types';
@@ -76,7 +77,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const user = await oystehr.user.get({ id: userId });
   const userProfile = user.profile;
   const isPractitioner = hasPractitionerProfile(userProfile);
-  const orphanedPatientId = userProfile?.startsWith('Patient/') ? userProfile.split('/')[1] : undefined;
+  const orphanedPatientId = userProfile?.startsWith('Patient/')
+    ? getIdFromReference(userProfile, 'Patient')
+    : undefined;
 
   // self-registered users have a patient profile instead of practitioner, so
   // create a practitioner first

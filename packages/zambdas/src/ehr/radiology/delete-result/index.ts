@@ -3,7 +3,7 @@ import { DocumentReference } from 'fhir/r4b';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { replaceOperation } from 'utils/lib/helpers/operations';
 import { DeleteRadiologyResultZambdaOutput } from 'utils/lib/types/api/radiology';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -41,7 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   if (!isRadiologyResult || !isRelatedToServiceRequest) {
     throw new Error('DocumentReference is not a radiology result attached to an order');
   }
-  const patientId = removePrefix('Patient/', docRef.subject?.reference ?? '');
+  const patientId = getIdFromReference(docRef.subject?.reference, 'Patient');
   if (!patientId) {
     throw new Error(`DocumentReference/${docRef.id} has no patient subject`);
   }

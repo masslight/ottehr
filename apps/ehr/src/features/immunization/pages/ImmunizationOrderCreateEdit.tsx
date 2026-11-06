@@ -23,6 +23,7 @@ import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useImmunizationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -85,7 +86,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
-  const currentUserProviderId = currentUser?.profile?.split('/')[1];
+  const currentUserProviderId = getIdFromReference(currentUser?.profile);
   const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
   const defaultProviderId = currentUserHasProviderRole ? currentUserProviderId : undefined;
 

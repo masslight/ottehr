@@ -46,7 +46,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
   const notice = await resolvePaymentNoticeForWrite({
-    clinicalOystehr,
     billingOystehr,
     getStripe: () => getStripeClient(secrets),
     paymentNoticeId,

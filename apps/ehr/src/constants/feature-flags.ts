@@ -20,6 +20,7 @@ export const FEATURE_FLAGS = {
   MAILING_PAPER_STATEMENTS_ENABLED: FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled,
   AUTOMATED_PATIENT_OUTREACH_ENABLED: FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled,
   CANDID_INVOICING_ENABLED: ['candid', 'all'].includes(BILLING_INTEGRATION),
+  // Ottehr billing invoicing can still move to the billing app at runtime. useOttehrBillingInvoicingInEhr checks that.
   OTTEHR_BILLING_INVOICING_ENABLED:
     ['ottehr', 'all'].includes(BILLING_INTEGRATION) && (FEATURE_FLAGS_CONFIG.ottehrBillingInvoicingEnabled ?? false),
   EMPLOYEE_CHAT_ENABLED: FEATURE_FLAGS_CONFIG.employeeChatEnabled ?? false,

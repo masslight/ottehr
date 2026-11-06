@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -64,6 +64,19 @@ vi.mock('notistack', () => ({
 vi.mock('../../src/components/BillingDataGrid', () => ({
   dataGridSlots: (props?: { onExportCsv?: () => void; exporting?: boolean }) => ({ exportSlot: props }),
   dataGridSx: {},
+}));
+
+vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({ useInvoicingInBillingApp: () => true }));
+
+vi.mock('../../src/components/SendInvoiceDialog', () => ({
+  SendInvoiceDialog: ({ claim, onSent }: { claim: BillingClaimItem; onSent: () => void }) => (
+    <div role="dialog" aria-label="Send Invoice">
+      {claim.id}
+      <button type="button" onClick={onSent}>
+        Sent
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('../../src/utils/pollExportTask', () => ({
@@ -202,6 +215,7 @@ describe('ClaimsList — submit claims', () => {
       claims: [
         makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer, 'claim-submission'),
         makeRow('c-self', 'Self-Pay Patient', AR_STAGE.patient, 'patient-ar-pre-invoice'),
+        makeRow('c-adj', 'Adjudicated', AR_STAGE.insurancePayer, 'post-adjudication'),
         makeRow('c-cov', 'Covered Patient AR', AR_STAGE.patient),
       ],
       total: 3,
@@ -210,31 +224,35 @@ describe('ClaimsList — submit claims', () => {
       results: [
         { claimId: 'c-ins', taskId: 'task-1', engine: 'claim-submission' },
         { claimId: 'c-self', taskId: 'task-2', engine: 'patient-ar-pre-invoice' },
+        { claimId: 'c-adj', taskId: 'task-3', engine: 'post-adjudication' },
       ],
     });
     renderList();
 
     const insurable = await screen.findByLabelText('select Insurable Patient');
     const selfPay = screen.getByLabelText('select Self-Pay Patient');
+    const adjudicated = screen.getByLabelText('select Adjudicated');
     expect(insurable).toBeEnabled();
     expect(selfPay).toBeEnabled();
+    expect(adjudicated).toBeEnabled();
     // A row no engine applies to (Patient AR with coverage) stays unselectable.
     expect(screen.getByLabelText('select Covered Patient AR')).toBeDisabled();
 
     fireEvent.click(insurable);
     fireEvent.click(selfPay);
+    fireEvent.click(adjudicated);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (3)' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
     await waitFor(() =>
       expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
         {},
-        { claimIds: ['c-ins', 'c-self'], submissionType: 'new', submissionInsurance: 'primary' }
+        { claimIds: ['c-ins', 'c-self', 'c-adj'], submissionType: 'new', submissionInsurance: 'primary' }
       )
     );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
-      'Rules started for 2 claim(s) — each claim will be submitted, made ready to invoice, or held shortly. ' +
+      'Rules started for 3 claim(s) — each claim will be submitted, made ready to invoice, or held shortly. ' +
         'Refresh to see the results.',
       { variant: 'info' }
     );
@@ -272,6 +290,39 @@ describe('ClaimsList — submit claims', () => {
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
     await waitFor(() => expect(screen.queryByRole('button', { name: /^Run Rules \(/ })).not.toBeInTheDocument());
+  });
+});
+
+describe('ClaimsList — send invoice', () => {
+  it('offers Send Patient Invoice for one claim that can be invoiced and reloads the claims once it is sent', async () => {
+    const patientArRow = (id: string, patientName: string, patientArStatus: string): BillingClaimItem => ({
+      ...makeRow(id, patientName, AR_STAGE.patient, 'patient-ar-pre-invoice'),
+      statuses: { ...emptyClaimStatusValues(), arStage: AR_STAGE.patient, patientArStatus },
+    });
+    searchBillingClaimsMock.mockReset().mockResolvedValue({
+      claims: [
+        patientArRow('c-ready', 'Ready Patient', 'ready-to-invoice'),
+        patientArRow('c-new', 'New Patient', 'not-invoiced'),
+      ],
+      total: 2,
+    });
+    renderList();
+
+    fireEvent.click(await screen.findByLabelText('select New Patient'));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    const sendInvoice = screen.getByRole('menuitem', { name: 'Send Patient Invoice' });
+    expect(sendInvoice).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(screen.getByLabelText('select Ready Patient'));
+    expect(sendInvoice).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(screen.getByLabelText('select New Patient'));
+    fireEvent.click(sendInvoice);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Send Invoice' });
+    expect(dialog).toHaveTextContent('c-ready');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Sent' }));
+
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('dialog', { name: 'Send Invoice' })).not.toBeInTheDocument();
   });
 });
 
