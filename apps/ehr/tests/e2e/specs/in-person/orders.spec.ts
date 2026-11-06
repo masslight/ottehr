@@ -26,7 +26,6 @@ import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetail
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
-import { ENV_LOCATION_NAME } from 'tests/e2e-utils/resource/constants';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { makeCptCodeDisplay, unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 import {
@@ -858,7 +857,7 @@ test.describe('External labs page', async () => {
         ? getTimezone(resourceHandler.appointmentLocation)
         : undefined;
       const mockResults = MOCK_LAB_RESULTS.withAoe;
-      const orderingOfficeName = ENV_LOCATION_NAME;
+      const orderingOfficeName = resourceHandler.appointmentLocation?.name;
       const note = 'hey! im a note :)';
       let primaryDx: string | null = null;
       let additionalDx: string | null = null;
