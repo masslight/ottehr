@@ -67,7 +67,10 @@ export default function PatientPaymentDetail(): ReactElement {
   const [payment, setPayment] = useState<BillingPatientAccountPayment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [patient] = usePatient({ id: patientId! });
+  const [loadedPatient] = usePatient({ id: patientId! });
+  // usePatient keeps the previous patient (and a late response for it) when the route moves to another
+  // patient, so the header shows only the one this route names
+  const patient = loadedPatient?.id === patientId ? loadedPatient : null;
   const { currentUser } = useEvolveUser();
   const canManagePayments = currentUser?.hasRole(PAYMENT_MANAGEMENT_ROLES) ?? false;
   const [action, setAction] = useState<PaymentAction | null>(null);

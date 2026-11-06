@@ -5,11 +5,13 @@ import { BillingPatientAccountPayment } from 'utils/lib/types/data/billing/billi
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PatientPaymentDetail from '../../src/pages/PatientPaymentDetail';
 
-const { getBillingPatientAccountPaymentMock, voidBillingPatientPaymentMock, oystehrZambdaStub } = vi.hoisted(() => ({
-  getBillingPatientAccountPaymentMock: vi.fn(),
-  voidBillingPatientPaymentMock: vi.fn(),
-  oystehrZambdaStub: {},
-}));
+const { getBillingPatientAccountPaymentMock, voidBillingPatientPaymentMock, usePatientMock, oystehrZambdaStub } =
+  vi.hoisted(() => ({
+    getBillingPatientAccountPaymentMock: vi.fn(),
+    usePatientMock: vi.fn(),
+    voidBillingPatientPaymentMock: vi.fn(),
+    oystehrZambdaStub: {},
+  }));
 
 vi.mock('../../src/api/api', () => ({
   getBillingPatientAccountPayment: getBillingPatientAccountPaymentMock,
@@ -28,7 +30,7 @@ vi.mock('../../src/hooks/useEvolveUser', () => ({
 }));
 
 vi.mock('../../src/hooks/usePatient', () => ({
-  usePatient: () => [undefined],
+  usePatient: usePatientMock,
 }));
 
 const payment = (id: string, encounterId: string, amountInCents: number): BillingPatientAccountPayment =>
@@ -68,6 +70,7 @@ const renderAt = (path: string): ReturnType<typeof createMemoryRouter> => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  usePatientMock.mockReturnValue([null]);
 });
 
 describe('PatientPaymentDetail loading', () => {
@@ -105,6 +108,23 @@ describe('PatientPaymentDetail loading', () => {
     expect(router.state.location.pathname).toBe('/patients/p-1/encounters/enc-1/payments/pn-adopted');
     expect(await screen.findAllByText('$10.00')).not.toHaveLength(0);
     expect(getBillingPatientAccountPaymentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the patient header only for the route's patient", async () => {
+    const resolvers = deferredCalls();
+    // the hook still holds the previous patient after the route moved to p-2
+    usePatientMock.mockReturnValue([
+      { id: 'p-1', firstName: 'Ann', lastName: 'Lee', dob: '1990-01-01', clinicalId: 'MRN-1' },
+    ]);
+    const router = renderAt('/patients/p-2/encounters/enc-2/payments/pn-b');
+    await act(async () => resolvers[0](payment('pn-b', 'enc-2', 2000)));
+    expect(screen.queryByText(/Lee, Ann/)).toBeNull();
+
+    usePatientMock.mockReturnValue([
+      { id: 'p-2', firstName: 'Bo', lastName: 'Kim', dob: '1985-05-05', clinicalId: 'MRN-2' },
+    ]);
+    await act(() => router.navigate('/patients/p-2/encounters/enc-2/payments/pn-b?again'));
+    expect(screen.getByText('Kim, Bo | DOB 1985-05-05 | MRN MRN-2')).toBeTruthy();
   });
 
   it('names the back button after where it goes', async () => {
