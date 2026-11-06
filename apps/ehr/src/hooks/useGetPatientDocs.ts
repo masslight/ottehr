@@ -29,6 +29,24 @@ import { useApiClients } from './useAppClients';
 
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
 
+// A blob URL opens in the EHR's origin, so a type that can carry script (HTML, SVG, XML) is shown as plain text or
+// downloaded instead of rendered.
+const RENDERABLE_BLOB_TYPES = new Set([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+]);
+export const safeBlobType = (type: string | undefined): string => {
+  const mimeType = type?.split(';')[0].trim().toLowerCase() ?? '';
+  if (mimeType === 'text/plain' || mimeType === 'text/csv') return `${mimeType};charset=utf-8`;
+  if (RENDERABLE_BLOB_TYPES.has(mimeType) || mimeType.startsWith('audio/') || mimeType.startsWith('video/'))
+    return mimeType;
+  return mimeType.startsWith('text/') ? 'text/plain;charset=utf-8' : 'application/octet-stream';
+};
+
 export type DownloadDocumentOptions = {
   skipRelated?: boolean;
   /** A tab reserved inside the click; a popup opened after this call's awaits would be blocked. */
@@ -454,8 +472,7 @@ export const useGetPatientDocs = (
           for (const { z3Url, data, contentType } of attachments) {
             if (z3Url || !data) continue;
             const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
-            const type = contentType?.startsWith('text/') ? `${contentType};charset=utf-8` : contentType;
-            openFile(window.URL.createObjectURL(new Blob([bytes], { type })));
+            openFile(window.URL.createObjectURL(new Blob([bytes], { type: safeBlobType(contentType) })));
           }
 
           const urlSigningRequests = attachments.map(async (attachment) => {
@@ -494,7 +511,7 @@ export const useGetPatientDocs = (
                 if (!mimeType) {
                   throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
                 }
-                const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+                const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType) }));
                 openFile(fileBlob);
               })
               .catch((error) => {

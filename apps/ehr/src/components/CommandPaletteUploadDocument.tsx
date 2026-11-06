@@ -1,9 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { FC, useEffect, useRef } from 'react';
 import { UploadDocumentDialog } from '../features/visits/shared/components/patient/docs/UploadDocumentDialog';
-import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from '../hooks/useAppClients';
-import { useCommandPaletteRouteContext } from '../hooks/useCommandPaletteRouteContext';
+import { useCommandPaletteDocumentTarget } from '../hooks/useCommandPaletteDocumentTarget';
 import { prefetchPatientDocsFolders } from '../hooks/useGetPatientDocs';
 import { useCommandPaletteStore } from '../state/command-palette.store';
 
@@ -27,11 +26,7 @@ const hasUploadContextChanged = (previous: UploadContext, next: UploadContext): 
 export const CommandPaletteUploadDocument: FC = () => {
   const mode = useCommandPaletteStore((state) => state.uploadDocumentMode);
   const setUploadDocumentMode = useCommandPaletteStore((state) => state.setUploadDocumentMode);
-  const { visitId, patientId: routePatientId } = useCommandPaletteRouteContext();
-  const { patient, encounter } = useAppointmentData(visitId);
-  const patientId = visitId ? patient?.id : routePatientId;
-
-  const encounterId = visitId ? encounter?.id : undefined;
+  const { visitId, routePatientId, patientId, encounterId } = useCommandPaletteDocumentTarget();
 
   // Left open across navigation (e.g. browser Back), the dialog would file into another patient, visit or follow-up,
   // so it isn't rendered for a changed context and closes once that change commits.

@@ -4,7 +4,7 @@ import { Encounter, Patient } from 'fhir/r4b';
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-let appointmentData: { patient?: Patient; encounter?: Encounter } = {};
+let appointmentData: { patient?: Patient; encounter?: Encounter; followUpOriginEncounter?: Encounter } = {};
 const useAppointmentData = vi.fn((_appointmentId?: string) => appointmentData);
 const dialogProps = vi.fn();
 const prefetch = vi.fn();
@@ -111,6 +111,19 @@ describe('CommandPaletteUploadDocument', () => {
 
     expect(useCommandPaletteStore.getState().uploadDocumentMode).toBeNull();
     expect(dialogProps).not.toHaveBeenCalledWith(expect.objectContaining({ encounterId: 'encounter-b' }));
+  });
+
+  it("files against Visit Details' own encounter, not a follow-up still selected from the chart", () => {
+    appointmentData = {
+      patient: { resourceType: 'Patient', id: 'patient-2' },
+      encounter: { resourceType: 'Encounter', id: 'follow-up', status: 'in-progress', class: {} },
+      followUpOriginEncounter: { resourceType: 'Encounter', id: 'visit-encounter', status: 'in-progress', class: {} },
+    };
+    useCommandPaletteStore.setState({ uploadDocumentMode: 'upload' });
+
+    renderAt('/visit/appt-2');
+
+    expect(dialogProps).toHaveBeenLastCalledWith(expect.objectContaining({ encounterId: 'visit-encounter' }));
   });
 
   it('renders nothing while closed, but loads the patient folders as the palette opens', () => {

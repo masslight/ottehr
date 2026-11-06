@@ -1,11 +1,17 @@
 import { renderHook } from '@testing-library/react';
-import { Encounter, Patient } from 'fhir/r4b';
+import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigate = vi.fn();
-let appointmentData: { patient?: Patient; encounter?: Encounter } = {};
+let appointmentData: {
+  patient?: Patient;
+  encounter?: Encounter;
+  followUpOriginEncounter?: Encounter;
+  appointment?: Appointment;
+  rawResources?: Appointment[];
+} = {};
 const useAppointmentData = vi.fn((_appointmentId?: string) => appointmentData);
 let hasStaffRole = true;
 let visitIsLocked = false;
@@ -19,8 +25,12 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   useAppointmentData: (appointmentId?: string) => useAppointmentData(appointmentId),
 }));
 
+const getAppointmentAccessibilityData = vi.fn((_props: { encounter?: Encounter; appointment?: Appointment }) => ({
+  isAppointmentReadOnly: visitIsLocked,
+}));
 vi.mock('../../src/features/visits/shared/utils/appointment-accessibility.helper', () => ({
-  getAppointmentAccessibilityData: () => ({ isAppointmentReadOnly: visitIsLocked }),
+  getAppointmentAccessibilityData: (props: { encounter?: Encounter; appointment?: Appointment }) =>
+    getAppointmentAccessibilityData(props),
 }));
 
 vi.mock('../../src/hooks/useEvolveUser', () => ({
@@ -164,5 +174,30 @@ describe('useActionQuickPicks — Upload and Scan', () => {
   it('hides them with no patient in context', () => {
     appointmentData = {};
     expect(documentItems('/tasks')).toEqual([]);
+  });
+
+  it("checks Visit Details' own encounter and appointment, not a follow-up still selected from the chart", () => {
+    const visitAppointment: Appointment = {
+      resourceType: 'Appointment',
+      id: 'appt-1',
+      status: 'fulfilled',
+      participant: [],
+    };
+    appointmentData = {
+      patient: { resourceType: 'Patient', id: 'patient-1' },
+      encounter: { resourceType: 'Encounter', id: 'follow-up', status: 'in-progress', class: {} },
+      followUpOriginEncounter: { resourceType: 'Encounter', id: 'visit-encounter', status: 'in-progress', class: {} },
+      appointment: { ...visitAppointment, id: 'follow-up-appt' },
+      rawResources: [visitAppointment],
+    };
+
+    documentItems('/visit/appt-1');
+
+    expect(getAppointmentAccessibilityData).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        encounter: expect.objectContaining({ id: 'visit-encounter' }),
+        appointment: expect.objectContaining({ id: 'appt-1' }),
+      })
+    );
   });
 });

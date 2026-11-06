@@ -21,6 +21,7 @@ import {
   useGetPatientDocsFolders,
   usePatientDocsActions,
 } from 'src/hooks/useGetPatientDocs';
+import { useCommandPaletteStore } from 'src/state/command-palette.store';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { parseSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 
@@ -73,6 +74,7 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
     [data, patientId]
   );
   const { uploadDocumentAction, isUploading } = usePatientDocsActions({ patientId, encounterId });
+  const setUploadDialogOpen = useCommandPaletteStore((state) => state.setUploadDialogOpen);
   const [folderId, setFolderId] = useState(defaultFolderId ?? '');
   const [file, setFile] = useState<File | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -86,6 +88,22 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
     }
     wasOpen.current = open;
   }, [open, defaultFolderId]);
+
+  // Keeps Cmd+K from opening the palette over this dialog, whichever screen opened it.
+  useEffect(() => {
+    if (!open) return;
+    setUploadDialogOpen(true);
+    return () => setUploadDialogOpen(false);
+  }, [open, setUploadDialogOpen]);
+
+  // An upload that finishes after navigation closed this dialog must not close or redirect whatever is open now.
+  const isMounted = useRef(false);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // A catalog-only folder's synthetic id gives way to its real List once one exists (e.g. after a refetch).
   const syntheticInternalName = parseSyntheticFolderId(folderId);
@@ -104,6 +122,7 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
         internalName: folder.internalName,
       });
       enqueueSnackbar(`Uploaded to ${folder.folderName}`, { variant: 'success' });
+      if (!isMounted.current) return;
       onUploaded?.(folder);
       onClose();
     } catch (error) {

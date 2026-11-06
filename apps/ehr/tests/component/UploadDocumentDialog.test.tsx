@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -35,6 +35,7 @@ vi.mock('src/hooks/useGetPatientDocs', () => ({
 }));
 
 import { UploadDocumentDialog } from '../../src/features/visits/shared/components/patient/docs/UploadDocumentDialog';
+import { useCommandPaletteStore } from '../../src/state/command-palette.store';
 
 const pdf = (name: string): File => new File(['%PDF'], name, { type: 'application/pdf' });
 
@@ -161,5 +162,40 @@ describe('UploadDocumentDialog', () => {
     await waitFor(() => expect(mockCapture).toHaveBeenCalled());
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByText('cbc results.pdf')).toBeInTheDocument();
+  });
+
+  it('leaves the next screen alone when an upload finishes after the dialog was closed by navigation', async () => {
+    let finishUpload: (value: unknown) => void = () => undefined;
+    mockUpload.mockReturnValue(new Promise((resolve) => (finishUpload = resolve)));
+    const onUploaded = vi.fn();
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <UploadDocumentDialog
+        open
+        mode="upload"
+        onClose={onClose}
+        patientId="patient-1"
+        defaultFolderId="labs-id"
+        onUploaded={onUploaded}
+      />
+    );
+    await user.upload(document.body.querySelector('input[type="file"]')!, pdf('labs.pdf'));
+    await user.click(screen.getByRole('button', { name: 'Upload' }));
+
+    unmount();
+    await act(async () => finishUpload({}));
+
+    expect(onUploaded).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps Cmd+K from opening the palette over it while open', () => {
+    const { unmount } = render(<UploadDocumentDialog open mode="upload" onClose={vi.fn()} patientId="patient-1" />);
+    expect(useCommandPaletteStore.getState().uploadDialogOpen).toBe(true);
+
+    unmount();
+
+    expect(useCommandPaletteStore.getState().uploadDialogOpen).toBe(false);
   });
 });

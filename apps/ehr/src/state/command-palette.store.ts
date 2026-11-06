@@ -51,6 +51,8 @@ interface CommandPaletteState {
   createTaskDialogOpen: boolean;
   /** Upload or Scan opened from the palette; null when closed. */
   uploadDocumentMode: 'upload' | 'scan' | null;
+  /** An upload/scan dialog is open, from the palette or a Documents page. */
+  uploadDialogOpen: boolean;
   phraseDialog: PhraseDialogState | null;
   open: () => void;
   openWithInsertContext: (insertContext: InsertContext | null) => void;
@@ -63,6 +65,7 @@ interface CommandPaletteState {
   setPendingQuickPick: (pending: PendingQuickPick | null) => void;
   setCreateTaskDialogOpen: (open: boolean) => void;
   setUploadDocumentMode: (mode: 'upload' | 'scan' | null) => void;
+  setUploadDialogOpen: (open: boolean) => void;
   setPhraseDialog: (phraseDialog: PhraseDialogState | null) => void;
 }
 
@@ -74,6 +77,7 @@ export const useCommandPaletteStore = create<CommandPaletteState>()((set) => ({
   pendingQuickPick: null,
   createTaskDialogOpen: false,
   uploadDocumentMode: null,
+  uploadDialogOpen: false,
   phraseDialog: null,
   open: () => set({ isOpen: true, insertContext: null }),
   openWithInsertContext: (insertContext) => set({ isOpen: true, insertContext }),
@@ -116,5 +120,6 @@ export const useCommandPaletteStore = create<CommandPaletteState>()((set) => ({
   setPendingQuickPick: (pendingQuickPick) => set({ pendingQuickPick }),
   setCreateTaskDialogOpen: (createTaskDialogOpen) => set({ createTaskDialogOpen }),
   setUploadDocumentMode: (uploadDocumentMode) => set({ uploadDocumentMode }),
+  setUploadDialogOpen: (uploadDialogOpen) => set({ uploadDialogOpen }),
   setPhraseDialog: (phraseDialog) => set({ phraseDialog }),
 }));

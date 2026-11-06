@@ -810,6 +810,18 @@ describe('useGetPatientDocs — downloadDocument target tab', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['text/html', 'text/plain;charset=utf-8'],
+    ['image/svg+xml', 'application/octet-stream'],
+  ])('never renders an inline %s attachment, which could run script in the EHR origin', async (contentType, type) => {
+    attachment = { title: 'Note', contentType, data: btoa('<script>alert(1)</script>') };
+
+    await renderDownload()(DOC_ID, { skipRelated: true, targetTab: makeTab() });
+
+    const blob: Blob = (window.URL.createObjectURL as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(blob.type).toBe(type);
+  });
+
   it('still opens a popup when no tab was reserved', async () => {
     await renderDownload()(DOC_ID, { skipRelated: true });
 

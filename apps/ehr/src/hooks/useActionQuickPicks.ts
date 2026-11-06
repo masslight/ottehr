@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getInitialEncounterIdForFollowUp } from 'utils/lib/fhir/encounter';
 import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';
-import { getAppointmentAccessibilityData } from '../features/visits/shared/utils/appointment-accessibility.helper';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
+import { useCommandPaletteDocumentTarget } from './useCommandPaletteDocumentTarget';
 import { useCommandPaletteRouteContext } from './useCommandPaletteRouteContext';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import useEvolveUser from './useEvolveUser';
@@ -21,7 +21,8 @@ export function useActionQuickPicks(): void {
   const setCreateTaskDialogOpen = useCommandPaletteStore((state) => state.setCreateTaskDialogOpen);
   const setUploadDocumentMode = useCommandPaletteStore((state) => state.setUploadDocumentMode);
   const { visitId, patientId } = useCommandPaletteRouteContext();
-  const { patient, encounter, appointment, locationVirtual } = useAppointmentData(visitId);
+  const { patient, encounter } = useAppointmentData(visitId);
+  const documentTarget = useCommandPaletteDocumentTarget();
 
   const followUpTarget = useMemo<FollowUpTarget | undefined>(() => {
     if (visitId) {
@@ -66,11 +67,7 @@ export function useActionQuickPicks(): void {
 
     // Documents belong to a patient, so these only appear with a visit or a patient on screen, and, like the
     // visit's own Documents page, not on a locked visit.
-    const visitIsLocked =
-      !!visitId &&
-      getAppointmentAccessibilityData({ locationVirtual, encounter, appointment, user: currentUser })
-        .isAppointmentReadOnly;
-    if (((visitId && patient?.id) || patientId) && !visitIsLocked) {
+    if (documentTarget.patientId && !documentTarget.isVisitLocked) {
       actions.push(
         {
           id: 'action-upload-document',
@@ -96,12 +93,8 @@ export function useActionQuickPicks(): void {
     navigate,
     setCreateTaskDialogOpen,
     setUploadDocumentMode,
-    visitId,
-    patientId,
-    patient?.id,
-    encounter,
-    appointment,
-    locationVirtual,
+    documentTarget.patientId,
+    documentTarget.isVisitLocked,
   ]);
 
   useCommandPaletteSource('actions', items);
