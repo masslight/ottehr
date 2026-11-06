@@ -779,6 +779,7 @@ export const dataTestIds = {
       thirdPartyPhone: 'dme-order-form-third-party-phone',
       thirdPartyFax: 'dme-order-form-third-party-fax',
       cancelButton: 'dme-order-form-cancel-button',
+      clearFormButton: 'dme-order-form-clear-form-button',
       submitButton: 'dme-order-form-submit-button',
       error: 'dme-order-form-error',
     },
