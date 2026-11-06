@@ -1,8 +1,9 @@
+import { Context } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { PATIENT_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { performEffect } from '../../src/ehr/search-patients';
+import { performEffect, searchDeadline } from '../../src/ehr/search-patients';
 
 const patient: Patient = {
   resourceType: 'Patient',
@@ -120,5 +121,23 @@ describe('search-patients performEffect', () => {
     );
 
     expect(result.patients).toHaveLength(1);
+  });
+});
+
+describe('search-patients searchDeadline', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const withRemaining = (ms: number): Context => ({ getRemainingTimeInMillis: () => ms }) as Context;
+
+  it.each([
+    ['without a Lambda context (local server)', undefined, 1_025_000],
+    ['when the Lambda has more time left', withRemaining(60_000), 1_025_000],
+    ['capped 5 s before a shorter Lambda timeout', withRemaining(20_000), 1_015_000],
+  ])('gives the search 25 s %s', (_label, context, expected) => {
+    vi.useFakeTimers({ now: 1_000_000 });
+
+    expect(searchDeadline(context)).toBe(expected);
   });
 });

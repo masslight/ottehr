@@ -20,7 +20,9 @@ import { SearchPatientsInputValidated, validateRequestParameters } from './valid
 const ZAMBDA_NAME = 'search-patients';
 const DEFAULT_PAGE_SIZE = 15;
 const DEFAULT_OFFSET = 0;
-// Stop waiting for FHIR this long before the Lambda timeout, so a slow search returns an error instead of timing out.
+// A search still running after this long gives up and asks for narrower criteria instead of running into the timeout.
+export const SEARCH_TIMEOUT_MS = 25_000;
+// A shorter Lambda timeout still wins: stop this long before it so the error goes out in time.
 const RESPONSE_RESERVE_MS = 5_000;
 let m2mToken = '';
 
@@ -45,7 +47,7 @@ export interface SearchPatientsOutput {
 export const index = wrapHandler(
   ZAMBDA_NAME,
   async (input: ZambdaInput, context?: Context): Promise<APIGatewayProxyResult> => {
-    const deadline = deadlineFromContext(context, RESPONSE_RESERVE_MS);
+    const deadline = searchDeadline(context);
     const parameters = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
@@ -53,6 +55,9 @@ export const index = wrapHandler(
     return { statusCode: 200, body: JSON.stringify(output) };
   }
 );
+
+export const searchDeadline = (context: Context | undefined): number =>
+  Math.min(Date.now() + SEARCH_TIMEOUT_MS, deadlineFromContext(context, RESPONSE_RESERVE_MS) ?? Infinity);
 
 export async function performEffect(
   input: SearchPatientsInputValidated,
