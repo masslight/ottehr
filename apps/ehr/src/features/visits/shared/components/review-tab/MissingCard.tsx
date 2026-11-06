@@ -190,6 +190,20 @@ export const MissingCard: FC = () => {
   // Defensive: these strings come from a model, and a bad shape must not take down Review & Sign.
   const noteReviewSuggestions = Array.isArray(noteReview?.suggestions) ? noteReview.suggestions : [];
   const showNoteReviewStatus = !!signReviewPrompt && (isNoteReviewLoading || isNoteReviewError);
+  const draftEncounterId = encounter?.id;
+  const hasAnyDraft =
+    !!draftEncounterId &&
+    [
+      hasExternalLabDraft,
+      hasInHouseLabDraft,
+      hasRadiologyDraft,
+      hasProcedureDraft,
+      hasNursingOrderDraft,
+      hasImmunizationDraft,
+      hasMedDraft,
+      hasVitalsDraft,
+      hasDmeDraft,
+    ].some((hasDraft) => hasDraft(draftEncounterId));
 
   if (
     primaryDiagnosis &&
@@ -201,6 +215,7 @@ export const MissingCard: FC = () => {
     !accidentMissingDate &&
     !accidentMissingState &&
     noteReviewSuggestions.length === 0 &&
+    !hasAnyDraft &&
     // Otherwise a complete note whose review failed renders nothing at all, and the provider signs
     // believing the review passed.
     !showNoteReviewStatus

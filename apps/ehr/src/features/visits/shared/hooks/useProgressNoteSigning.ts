@@ -56,15 +56,16 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isFollowup = appointmentAccessibility.visitType === 'follow-up';
 
-  const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
-  const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
-  const { hasDraft: hasRadiologyDraft } = useCreateRadiologyOrderStore();
-  const { hasDraft: hasProcedureDraft } = useProcedureStore();
-  const { hasDraft: hasNursingOrderDraft } = useNursingOrderStore();
-  const { hasDraft: hasImmunizationDraft } = useImmunizationOrderStore();
-  const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
-  const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
-  const { hasDraft: hasDmeDraft } = useDmeOrderStore();
+  const draftEncounterId = encounter.id ?? '';
+  const hasExternalLabDraft = useCreateExternalLabStore((state) => state.hasDraft(draftEncounterId));
+  const hasInHouseLabDraft = useCreateInHouseLabStore((state) => state.hasDraft(draftEncounterId));
+  const hasRadiologyDraft = useCreateRadiologyOrderStore((state) => state.hasDraft(draftEncounterId));
+  const hasProcedureDraft = useProcedureStore((state) => state.hasDraft(draftEncounterId));
+  const hasNursingOrderDraft = useNursingOrderStore((state) => state.hasDraft(draftEncounterId));
+  const hasImmunizationDraft = useImmunizationOrderStore((state) => state.hasDraft(draftEncounterId));
+  const hasMedDraft = useInHouseMedicationOrderStore((state) => state.hasDraft(draftEncounterId));
+  const hasVitalsDraft = useVitalsDraftStore((state) => state.hasDraft(draftEncounterId));
+  const hasDmeDraft = useDmeOrderStore((state) => state.hasDraft(draftEncounterId));
 
   const apiClient = useOystehrAPIClient();
   const { isAssignedProviderEligible } = useAssignedProvider();
@@ -179,33 +180,33 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
       const makeDraftWarningMessage = (infoType: string): string => {
         return `Complete or clear the in-progress ${infoType} to sign`;
       };
-      if (hasExternalLabDraft(encounter.id)) {
+      if (hasExternalLabDraft) {
         messages.push(makeDraftWarningMessage('external lab order'));
       }
 
-      if (hasInHouseLabDraft(encounter.id)) {
+      if (hasInHouseLabDraft) {
         messages.push(makeDraftWarningMessage('in house lab order'));
       }
 
-      if (hasRadiologyDraft(encounter.id)) {
+      if (hasRadiologyDraft) {
         messages.push(makeDraftWarningMessage('radiology order'));
       }
-      if (hasProcedureDraft(encounter.id)) {
+      if (hasProcedureDraft) {
         messages.push(makeDraftWarningMessage('procedure'));
       }
-      if (hasNursingOrderDraft(encounter.id)) {
+      if (hasNursingOrderDraft) {
         messages.push(makeDraftWarningMessage('nursing order'));
       }
-      if (hasImmunizationDraft(encounter.id)) {
+      if (hasImmunizationDraft) {
         messages.push(makeDraftWarningMessage('immunization'));
       }
-      if (hasMedDraft(encounter.id)) {
+      if (hasMedDraft) {
         messages.push(makeDraftWarningMessage('in house medication order'));
       }
-      if (hasVitalsDraft(encounter.id)) {
+      if (hasVitalsDraft) {
         messages.push(makeDraftWarningMessage('vitals'));
       }
-      if (hasDmeDraft(encounter.id)) {
+      if (hasDmeDraft) {
         messages.push(makeDraftWarningMessage('DME order'));
       }
     }

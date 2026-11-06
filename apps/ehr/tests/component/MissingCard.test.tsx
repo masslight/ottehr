@@ -186,6 +186,16 @@ describe('MissingCard', () => {
     expect(navigate).toHaveBeenCalledWith('/in-person/appointment-123/dme/create');
   });
 
+  it('shows the card for a draft order on an otherwise complete note', () => {
+    mockUseNavigate.mockReturnValue(vi.fn());
+    withCompleteNote();
+    useDmeOrderStore.setState({ draftsByEncounterId: { 'encounter-123': { itemName: 'Crutches' } } });
+
+    renderComponent();
+
+    expect(screen.getByRole('button', { name: 'Draft DME Order' })).toBeVisible();
+  });
+
   it("keeps a follow-up's encounter on the draft DME order link", () => {
     const navigate = vi.fn();
     mockUseNavigate.mockReturnValue(navigate);
