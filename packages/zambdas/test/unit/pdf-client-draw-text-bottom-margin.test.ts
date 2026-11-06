@@ -6,10 +6,6 @@ import { PDF_CLIENT_STYLES } from '../../src/shared/pdf/pdf-consts';
 import { createPdfClient } from '../../src/shared/pdf/pdf-utils';
 import { TextStyle } from '../../src/shared/pdf/types';
 
-/**
- * drawText wraps long text into lines. It used to check the room left on the page before moving down to a
- * wrapped line, so a wrapped line could be drawn below the bottom margin, where a printer or fax may cut it.
- */
 describe('pdf client drawText — wrapped lines near the bottom margin', () => {
   const BOTTOM_MARGIN = PDF_CLIENT_STYLES.initialPage.pageMargins.bottom ?? 0;
   const LONG_TEXT = Array.from({ length: 60 }, (_, i) => `word${i}`).join(' ');

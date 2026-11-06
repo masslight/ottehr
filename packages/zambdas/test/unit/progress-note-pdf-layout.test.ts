@@ -1,8 +1,3 @@
-/**
- * Renders the visit note for the golden chart through the real render config and checks the layout
- * matches the discharge summary / visit details PDFs (OTR-3429): their font sizes, the compact header
- * and the two-column visit details, so a printed note takes as few pages as the other documents.
- */
 import { join } from 'path';
 import { PDFPage } from 'pdf-lib';
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
@@ -42,7 +37,6 @@ const renderedAssetPaths = {
   icons: fromPackageRoot(progressNoteRenderConfig.assetPaths.icons),
 };
 
-/** Renders with the visit note config and returns every text fragment drawn on the PDF pages. */
 const renderAndCapture = async (
   data: ProgressNoteData,
   sections = progressNoteRenderConfig.sections
@@ -52,7 +46,6 @@ const renderAndCapture = async (
   await renderPdf(data, { ...progressNoteRenderConfig, assetPaths: renderedAssetPaths, sections }, '');
   const drawn = drawText.mock.instances.map((page, index) => {
     const [rawText, options] = drawText.mock.calls[index];
-    // the pdf client ends every wrapped line with a space
     const text = rawText.trimEnd();
     const size = options?.size ?? 0;
     const width = options?.font?.widthOfTextAtSize(text, size) ?? 0;
@@ -149,12 +142,9 @@ describe('visit note PDF layout — golden chart data', () => {
 
     expect(withPhones('2025550123', '3125550199')).toBe('(202) 555-0123');
     expect(withPhones(undefined, '3125550199')).toBe('(312) 555-0199');
-    // not a US number, so it cannot be standardized: printed as entered rather than dropped
     expect(withPhones('+44 20 7946 0958', '3125550199')).toBe('+44 20 7946 0958');
-    // ten digits after a non-US country code must not be reformatted as a US number
     expect(withPhones('+65 6123 4567', '3125550199')).toBe('+65 6123 4567');
     expect(withPhones('+1 202 555 0123', '3125550199')).toBe('(202) 555-0123');
-    // the patient's own phone keeps an explicit country code too
     expect(withPhones(undefined, '+65 6123 4567')).toBe('+65 6123 4567');
     expect(withPhones(undefined, '+44 20 7946 0958')).toBe('+44 20 7946 0958');
     expect(withPhones('   ', '3125550199')).toBe('(312) 555-0199');
@@ -163,7 +153,6 @@ describe('visit note PDF layout — golden chart data', () => {
 
   it('puts the patient in the compact header instead of a separate "Patient information" section', () => {
     expect(drawn.some((item) => item.text.startsWith('DOB: '))).toBe(true);
-    // the golden patient has no friendly ID, so there is no empty "PID:" line
     expect(drawn.some((item) => item.text.startsWith('PID'))).toBe(false);
     expect(drawn.some((item) => item.text === 'Patient information')).toBe(false);
   });
@@ -210,12 +199,10 @@ describe('visit note PDF layout — visit details at the bottom of a page', () =
     visitID: GOLDEN_IDS.appointmentId,
     visitState: 'NY',
     insuranceCompany: 'Test Insurance Company of New York',
-    // one unbreakable token too wide for a half-page column
     insuranceSubscriberId: 'SUBSCRIBER-0123456789-0123456789',
     address: '123 Long Street Name Apartment 456, Some City',
     personAccompanying: 'Guardian, Test',
   };
-  // Leaves room for the section title and about one field line before the bottom margin.
   const pushToPageBottom: PdfSection<ProgressNoteData, true> = {
     dataSelector: () => true,
     render: (client) => client.setY((initialPage.pageMargins.bottom ?? 0) + 45),
@@ -249,7 +236,6 @@ describe('visit note PDF layout — visit details at the bottom of a page', () =
 
   it('keeps each row of the two columns together and the full-width rows after them', () => {
     const pages = [...new Set(drawn.map((item) => item.page))];
-    // reading order: earlier page first, then top (larger Y) first
     const position = (text: string): [number, number] => {
       const item = drawn.find((candidate) => candidate.text === text);
       expect(item, `"${text}" is drawn`).toBeDefined();
@@ -258,12 +244,10 @@ describe('visit note PDF layout — visit details at the bottom of a page', () =
     const isBefore = (a: [number, number], b: [number, number]): boolean =>
       a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
 
-    // row 0 is Reason for visit | Insurance Company, row 1 Provider | Visit State, row 2 Intake | Address
     expect(isBefore(position('Insurance Company:'), position('Reason for visit:'))).toBe(false);
     expect(isBefore(position('Insurance Company:'), position('Provider:'))).toBe(true);
     expect(isBefore(position('Visit State:'), position('Intake completed by:'))).toBe(true);
     expect(isBefore(position('Address:'), position('Date of Service:'))).toBe(true);
-    // fields that cannot wrap into a column get full-width rows after the columns
     const lastColumnCell = position('Address:');
     ['Person accompanying the minor patient:', 'Visit ID:', 'Subscriber ID:'].forEach((label) => {
       const fullWidth = drawn.find((item) => item.text === label)!;

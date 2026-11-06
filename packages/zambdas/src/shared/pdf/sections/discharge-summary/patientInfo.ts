@@ -9,10 +9,7 @@ import { ICON_STYLE } from '../../pdf-consts';
 import { PatientInfoForDischargeSummary, PdfSection } from '../../types';
 import { FullAppointmentResourcePackage } from '../../visit-details-pdf/types';
 
-/**
- * standardizePhoneNumber only knows US numbers: it rewrites an explicit other country code as a US number
- * and drops what it can't parse, so those are printed as entered rather than mangled or lost.
- */
+// standardizePhoneNumber is US-only, so a non-US number is printed as entered
 export const formatPhoneForPdf = (rawPhone: string | undefined): string | undefined => {
   const phone = rawPhone?.trim();
   if (!phone) return undefined;

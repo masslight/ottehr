@@ -45,7 +45,6 @@ export interface PdfHeaderConfig<TData extends PdfData> {
 export interface PdfRenderConfig<TData extends PdfData> {
   header: PdfHeaderConfig<TData>;
   headerBodySeparator?: boolean;
-  /** Writes "Page N of M" in the bottom margin of every page, using the `pageNumber` text style. */
   numberPages?: boolean;
   assetPaths: AssetPaths;
   styleFactory: StyleFactory;

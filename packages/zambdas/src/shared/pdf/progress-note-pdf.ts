@@ -59,10 +59,6 @@ import { composeVisitData, createVisitInfoSection } from './sections/visitInfo';
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, PatientInfoForDischargeSummary, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
 
-/**
- * The discharge summary's patient header, except that the phone stays the guardian's paperwork number the
- * old "Patient information" section showed, falling back to the patient's own phone.
- */
 const composeProgressNoteHeaderPatient = (
   appointmentPackage: ProgressNoteInput['appointmentPackage']
 ): PatientInfoForDischargeSummary => {
@@ -80,7 +76,6 @@ export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNo
 
   return {
     patient: composeProgressNoteHeaderPatient(appointmentPackage),
-    // A follow-up note is not the appointment's visit, so its header carries no visit date/location.
     visitHeader: encounterInfo.isFollowup
       ? undefined
       : composeVisitData({
@@ -209,11 +204,6 @@ const progressNoteAssetPaths: AssetPaths = {
   },
 };
 
-/**
- * The discharge summary / visit details look (12pt body, 14pt section titles, compact header) plus the
- * styles only the visit note sections use. Kept at that scale so a printed note takes as few pages as the
- * other clinical documents.
- */
 const createProgressNoteStyles: StyleFactory = (assets) => {
   const clinicalStyles = createClinicalDocumentStyles(assets);
   const { regular, bold, muted } = clinicalStyles.textStyles;

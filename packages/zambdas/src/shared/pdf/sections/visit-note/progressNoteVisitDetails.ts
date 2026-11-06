@@ -115,7 +115,6 @@ const drawVisitDetailsField = (client: PdfClient, styles: PdfStyles, { label, va
   drawFieldLine(client, styles, { label: `${label}:`, value, gap: FIELD_LABEL_GAP });
 };
 
-/** Text only wraps at spaces, so a field fits a column when its longest word fits beside the label. */
 const fitsInWidth = (
   client: PdfClient,
   styles: PdfStyles,
@@ -130,13 +129,7 @@ const fitsInWidth = (
   return labelWidth + longestWord <= width;
 };
 
-/**
- * Lays the fields out in two side-by-side columns, the way the discharge summary and visit details PDFs do.
- * Drawn row by row, like the discharge summary vitals, so the cursor only ever moves forward through the
- * pages: a cell that runs onto a new page takes the rest of its row to the top of that page.
- * A field that cannot wrap into its column (a visit ID, a long member ID, a very long label) would run past
- * the column, so it gets a full-width row below the columns instead.
- */
+// Fields that can't wrap into a column (no spaces) get full-width rows after the columns.
 const drawVisitDetailsColumns = (
   client: PdfClient,
   styles: PdfStyles,
@@ -172,7 +165,6 @@ const drawVisitDetailsColumns = (
       client.setLeftBound(left);
       client.setRightBound(right);
       drawVisitDetailsField(client, styles, field);
-      // Y grows upwards: on the same page the row ends at the lower cell, on a new page at this cell.
       rowEndY = client.getCurrentPageIndex() === pageBeforeCell ? Math.min(rowEndY, client.getY()) : client.getY();
     });
 
@@ -218,7 +210,6 @@ export const createProgressNoteVisitDetailsSection = <
           ...(data.insuranceSubscriberId ? [{ label: 'Subscriber ID', value: data.insuranceSubscriberId }] : []),
           { label: 'Visit State', value: data.visitState },
           { label: 'Address', value: data.address },
-          // never fits a column, so it always lands in the full-width rows below them
           { label: 'Visit ID', value: data.visitID },
         ];
         drawVisitDetailsColumns(client, styles, leftFields, rightFields);

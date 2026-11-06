@@ -1085,7 +1085,6 @@ export interface ProgressNoteInput {
 
 export interface ProgressNoteData extends PdfData {
   visit: VisitDetailsForProgressNote;
-  /** Absent for annotation follow-ups. */
   visitHeader?: VisitInfo;
   patient: PatientInfoForDischargeSummary;
   encounter: EncounterInfo;
