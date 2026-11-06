@@ -57,10 +57,13 @@ const ANSWERS: Answer[] = ['approve', 'change', 'deny', 'pending'];
 
 const ANSWER_LABEL: Record<Answer, string> = {
   approve: 'Approve',
-  change: 'Change and approve',
+  change: 'Change',
   deny: 'Deny',
   pending: 'Pending',
 };
+
+/** The pharmacy's request and the original, side by side. */
+const COMPARISON_BOX_SX = { border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5, bgcolor: '#F3F6FA' };
 
 /** What a toast says went out, for each answer. */
 const SENT_LABEL: Record<Answer, string> = {
@@ -108,6 +111,15 @@ interface RefillRequestDialogProps {
 }
 
 /** A refill or change request, the pharmacy's beside the original prescription, and the provider's answer. */
+const SuggestionLabel: FC<{ suggestion: Parameters<typeof suggestionText>[0] }> = ({ suggestion }) => (
+  <Box>
+    <Typography variant="body2">{suggestion.description}</Typography>
+    <Typography variant="body2" color="text.secondary">
+      {suggestionText(suggestion)}
+    </Typography>
+  </Box>
+);
+
 export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onClose }) => {
   const { oystehrZambda } = useApiClients();
   const token = useAuthToken();
@@ -157,12 +169,6 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       : ANSWERS
   ).filter((item) => !(change && !priorAuth && item === 'pending'));
   const answer = answers.includes(chosen) ? chosen : answers[0];
-  const answerLabel = (key: Answer): string =>
-    key === 'approve' && change && !priorAuth
-      ? asWritten
-        ? 'Approve as written'
-        : 'Approve selected'
-      : ANSWER_LABEL[key];
   const prescription = data?.prescription;
   // The prescription the request is answered with, as the order form starts: the pharmacy's over the original's
   // blanks. A plain approval keeps those blanks on the new prescription too, while they still write its directions.
@@ -331,11 +337,6 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
         {error && <Alert severity="error">{errorMessage(error)}</Alert>}
         {data && prescription && (
           <Stack spacing={2}>
-            {request?.askedAgain && !closed && (
-              <Alert severity="info">
-                The pharmacy asked again. You’re answering the newest request ({dateTime(request.askedAgain)}).
-              </Alert>
-            )}
             {closed && (
               <Alert severity={request.withdrawn ? 'warning' : 'info'}>
                 {request.withdrawn ? `${pharmacyName} withdrew this request.` : 'This request is closed.'} It can’t be
@@ -368,30 +369,30 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             )}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.25fr 1fr' }, gap: 2 }}>
               {suggestions.length > 0 && (
-                <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-                  <SectionHeading>Pharmacy’s suggestions</SectionHeading>
-                  <RadioGroup value={suggestion} onChange={(_e, value) => setSuggestion(Number(value))}>
-                    {suggestions.map((item, index) => (
-                      <FormControlLabel
-                        key={index}
-                        value={index}
-                        disabled={closed}
-                        control={<Radio size="small" />}
-                        label={
-                          <Box>
-                            <Typography variant="body2">{item.description}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {suggestionText(item)}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                    ))}
-                  </RadioGroup>
+                <Box sx={COMPARISON_BOX_SX}>
+                  <SectionHeading>
+                    {suggestions.length === 1 ? 'Pharmacy’s suggestion' : 'Pharmacy’s suggestions'}
+                  </SectionHeading>
+                  {/* A choice only when there is one to make. */}
+                  {suggestions.length === 1 ? (
+                    <SuggestionLabel suggestion={suggestions[0]} />
+                  ) : (
+                    <RadioGroup value={suggestion} onChange={(_e, value) => setSuggestion(Number(value))}>
+                      {suggestions.map((item, index) => (
+                        <FormControlLabel
+                          key={index}
+                          value={index}
+                          disabled={closed}
+                          control={<Radio size="small" />}
+                          label={<SuggestionLabel suggestion={item} />}
+                        />
+                      ))}
+                    </RadioGroup>
+                  )}
                 </Box>
               )}
               {refill && (
-                <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                <Box sx={COMPARISON_BOX_SX}>
                   <SectionHeading>Pharmacy’s request</SectionHeading>
                   <Rows
                     rows={requestRows(refill.medication, prescription).map((row) => ({
@@ -405,7 +406,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                   />
                 </Box>
               )}
-              <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5, bgcolor: '#F3F6FA' }}>
+              <Box sx={COMPARISON_BOX_SX}>
                 <SectionHeading>Original prescription · {formatDateForDisplay(prescription.sent)}</SectionHeading>
                 <Rows
                   rows={[
@@ -448,7 +449,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 >
                   {answers.map((key) => (
                     <ToggleButton key={key} value={key} sx={{ textTransform: 'none' }}>
-                      {answerLabel(key)}
+                      {ANSWER_LABEL[key]}
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
@@ -469,11 +470,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     value={fillsText}
                     onChange={(event) => setFills(event.target.value)}
                     error={fillsText !== '' && !fillsValid}
-                    helperText={
-                      fillsValid
-                        ? `The pharmacy may fill it ${fillsNumber} more ${fillsNumber === 1 ? 'time' : 'times'}.`
-                        : 'A whole number from 1 to 99.'
-                    }
+                    helperText={fillsValid ? undefined : 'A whole number from 1 to 99.'}
                     inputProps={{ inputMode: 'numeric' }}
                     sx={{ maxWidth: 240 }}
                   />
@@ -504,24 +501,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
                     inputProps={{ maxLength: noteMax }}
-                    helperText={`Up to ${noteMax} characters`}
                   />
-                )}
-                {!closed && answer === 'approve' && refill && (
-                  <Typography variant="body2" color="text.secondary">
-                    Sent as “Approved”. If you change the number of fills, it’s sent as “Approved with changes”.
-                  </Typography>
-                )}
-                {!closed && answer === 'approve' && selected && (
-                  <Typography variant="body2" color="text.secondary">
-                    Sent as “Approved” with {selected.description} exactly as the pharmacy suggested. “Change and
-                    approve” opens the order form with it filled in.
-                  </Typography>
-                )}
-                {!closed && answer === 'pending' && (
-                  <Typography variant="body2" color="text.secondary">
-                    Tells {pharmacyName} you’ll answer later. The task stays open, In progress.
-                  </Typography>
                 )}
               </Stack>
             )}

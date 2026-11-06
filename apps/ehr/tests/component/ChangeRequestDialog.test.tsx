@@ -122,7 +122,7 @@ describe('Change request dialog', () => {
     expect(within(suggestions).getByText('0.5 tablets')).toBeInTheDocument();
     expect(screen.getAllByRole('radio')).toHaveLength(2);
     expect(screen.getByRole('radio', { name: /Omeprazole/ })).toBeChecked();
-    expect(screen.getByRole('button', { name: 'Change and approve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument();
     // The original against the selected suggestion.
     expect(within(original()).getByText('Dexilant 60 mg capsule')).toHaveAttribute('data-differs', 'true');
     expect(within(original()).getByText('Take 1 capsule by mouth once daily')).toHaveAttribute('data-differs', 'true');
@@ -151,10 +151,10 @@ describe('Change request dialog', () => {
         .getAllByRole('button')
         .map((button) => button.textContent ?? '');
     await open(OUT_OF_STOCK);
-    expect(answers()).toEqual(['Approve selected', 'Change and approve', 'Deny']);
+    expect(answers()).toEqual(['Approve', 'Change', 'Deny']);
     cleanup();
     await open(CHANGE('G', { suggestions: OUT_OF_STOCK.pharmacyChangeRequest!.suggestions }));
-    expect(answers()).toEqual(['Approve selected', 'Change and approve', 'Deny']);
+    expect(answers()).toEqual(['Approve', 'Change', 'Deny']);
     cleanup();
     await open(CHANGE('P'));
     expect(answers()).toEqual(['Approve', 'Deny', 'Pending']);
@@ -190,8 +190,8 @@ describe('Change request dialog', () => {
   it('approves a drug-use alert with no suggestion as written, with no suggestion or changes', async () => {
     const user = await open(CHANGE('D', { reason: 'Interacts with clopidogrel' }));
     expect(screen.getByText('Drug-use alert.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Approve as written' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Change and approve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
     await waitFor(() => expect(mocks.completeTask).toHaveBeenCalled());
     expect(mocks.respondToChange.mock.calls[0][1]).toStrictEqual({
@@ -205,11 +205,11 @@ describe('Change request dialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('approves a prior authorization request with its number, with no Change and approve', async () => {
+  it('approves a prior authorization request with its number, with no Change', async () => {
     const user = await open(CHANGE('P', { reason: 'Plan requires prior authorization' }));
     expect(screen.getByText('Prior authorization.')).toBeInTheDocument();
     expect(screen.queryByText('Pharmacy’s suggestions')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Change and approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Change' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
     const send = screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' });
     expect(send).toBeDisabled();

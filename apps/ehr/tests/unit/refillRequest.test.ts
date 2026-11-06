@@ -118,9 +118,9 @@ describe('refill request: the prescription the order form starts with', () => {
     });
     expect(line.medication).toEqual({ ndc: '00093111201', description: 'Lisinopril 20 mg tablet' });
     expect(line.quantityValue).toBe('90');
-    // Not sent by the pharmacy: the original's.
+    // Not sent by the pharmacy: the original's, but never its note for another product.
     expect(line.daysSupply).toBe('30');
-    expect(line.noteToPharmacy).toBe('Call when ready');
+    expect(line.noteToPharmacy).toBe('');
     // 3 fills: the first and 2 refills.
     expect(line.numberOfRefills).toBe('2');
     expect(line.diagnosis).toEqual({ code: 'I10', display: 'Essential hypertension' });
@@ -196,6 +196,32 @@ describe('change request: the pharmacy’s suggestions', () => {
     expect(line.numberOfRefills).toBe('0');
     expect(refillLine(ORIGINAL, OMEPRAZOLE).medication?.ndc).toBe('00093521998');
   });
+
+  it('never fills another product with the original’s directions, quantity or note to pharmacy', () => {
+    const empty = { patientInstructions: '', quantityValue: '', noteToPharmacy: '' };
+    expect(refillLine(ORIGINAL, { description: 'Pantoprazole 40 mg tablet', ndc: '00008084181' })).toMatchObject({
+      ...empty,
+      daysSupply: '30',
+      diagnosis: { code: 'I10' },
+    });
+    expect(refillLine(ORIGINAL, { description: 'Pantoprazole 40 mg tablet' })).toMatchObject(empty);
+    expect(
+      refillLine(ORIGINAL, {
+        description: 'Pantoprazole 40 mg tablet',
+        ndc: '00008084181',
+        sig: 'Take 1 tablet by mouth once daily',
+        quantityValue: 30,
+      })
+    ).toMatchObject({
+      patientInstructions: 'Take 1 tablet by mouth once daily',
+      quantityValue: '30',
+      noteToPharmacy: '',
+    });
+    // The same product, by NDC or by name, still falls back to the original's.
+    const same = { patientInstructions: ORIGINAL.instructions, quantityValue: '30', noteToPharmacy: 'Call when ready' };
+    expect(refillLine(ORIGINAL, { description: 'LISINOPRIL 10MG TAB', ndc: '00093111101' })).toMatchObject(same);
+    expect(refillLine(ORIGINAL, { description: 'lisinopril 10 mg tablet' })).toMatchObject(same);
+  });
 });
 
 describe('change request: the answers', () => {
@@ -235,7 +261,7 @@ describe('change request: the answers', () => {
     });
   });
 
-  it('“Change and approve” sends the whole prescription over the selected suggestion, refills as written', () => {
+  it('“Change” sends the whole prescription over the selected suggestion, refills as written', () => {
     const line = refillLine(ORIGINAL, OMEPRAZOLE);
     expect(changeApproval('change-1', 0, line)).toEqual({
       taskId: 'change-1',
@@ -249,7 +275,6 @@ describe('change request: the answers', () => {
         daysSupply: 30,
         substitutionAllowed: true,
         patientInstructions: 'Take 1 capsule by mouth once daily before breakfast',
-        noteToPharmacy: 'Call when ready',
         numberOfRefills: 2,
       },
     });

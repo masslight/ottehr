@@ -37,7 +37,7 @@ export const OPEN_DOSESPOT = 'Open DoseSpot';
 // Read-only action label for fax tasks that have already been actioned (filed/deleted).
 export const VIEW_FAX = 'View';
 // Opens a refill or change request's dialog on the Tasks page.
-export const GO_TO_REQUEST = 'Go to request';
+export const VIEW_REQUEST = 'View request';
 
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
@@ -655,7 +655,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       }
       // A patient's refill or change request: the order is the prescription.
       if (category === MANUAL_TASK.category.erx && isErxRequestCode(getCoding(task.code, ERX_TASK.system)?.code)) {
-        action = { name: GO_TO_REQUEST, link: '' };
+        action = { name: VIEW_REQUEST, link: '' };
       }
     } else if (appointmentId) {
       action = {
@@ -699,7 +699,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     if (isErxRequestCode(code)) {
       // The refill and change request subscription writes the whole sentence into the description.
       title = task.description ?? '';
-      action = { name: GO_TO_REQUEST, link: '' };
+      action = { name: VIEW_REQUEST, link: '' };
     } else {
       const providerName = getInputString(ERX_TASK.input.providerName, task);
       title = `Provider ${providerName} has notifications in DoseSpot`;

@@ -25,12 +25,12 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import {
   formatDate,
-  GO_TO_REQUEST,
   OPEN_DOSESPOT,
   TASKS_PAGE_SIZE,
   useCompleteTask,
   useGetTasks,
   VIEW_FAX,
+  VIEW_REQUEST,
 } from 'src/features/visits/in-person/hooks/useTasks';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -79,7 +79,7 @@ export const Tasks: React.FC = () => {
       return null;
     }
     if (task.action) {
-      if (task.action.name === GO_TO_REQUEST) {
+      if (task.action.name === VIEW_REQUEST) {
         return (
           <RoundedButton variant="contained" onClick={() => setRequestTaskId(task.id)}>
             {task.action.name}

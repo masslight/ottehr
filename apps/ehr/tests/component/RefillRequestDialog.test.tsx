@@ -129,14 +129,12 @@ describe('Refill request dialog', () => {
     expect(within(section('Pharmacy’s request')).getByText('Pharmacy asks for 1 fill')).toBeInTheDocument();
   });
 
-  it('says the pharmacy asked again, with both dates', async () => {
+  it('dates when the pharmacy asked again, beside when the request came in', async () => {
     await open({ ...REQUEST, pharmacyRequest: { ...REQUEST.pharmacyRequest!, askedAgain: ASKED_AGAIN } });
     expect(
       screen.getByText(new RegExp(`Received ${local(RECEIVED)} · asked again ${local(ASKED_AGAIN)}`))
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(`The pharmacy asked again. You’re answering the newest request (${local(ASKED_AGAIN)}).`)
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/You’re answering the newest request/)).not.toBeInTheDocument();
   });
 
   it('approves with the fills asked for, then completes the task', async () => {

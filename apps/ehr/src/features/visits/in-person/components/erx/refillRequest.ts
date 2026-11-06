@@ -87,7 +87,8 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
 
 /**
  * The prescription the order form starts with when the provider answers with a new one: what the pharmacy sent
- * where it sent it, else the original prescription's, since the provider writes the whole prescription again. The
+ * where it sent it, else the original prescription's, since the provider writes the whole prescription again; for
+ * another product, never the original's directions, quantity or note to pharmacy. The
  * diagnosis is always the original's (a request has none). A renewal's fills are the first fill plus its refills.
  * The original's directions blanks (`metadata`) fill the form again when the medication is still its product and the
  * pharmacy sent our directions back (or none); its stored details go with them, so the sentence reads as it did.
@@ -102,6 +103,15 @@ export const refillLine = (
   // The unit goes with the quantity it came with: a request's own, else empty for the provider, never the original's.
   const unit = request ? request.quantityUnit : order.quantityUnit;
   const compound = request ? undefined : order.compound;
+  // The original's directions, quantity and note were written for its product, never for another one: by NDC, else
+  // by name.
+  const sameProduct =
+    !request ||
+    (request.ndc !== undefined && order.ndc !== undefined
+      ? request.ndc === order.ndc
+      : request.description === undefined ||
+        request.description.trim().toLowerCase() ===
+          (order.medicationDescription ?? prescription.name ?? '').trim().toLowerCase());
   // The blanks were written for the original's product and directions: another product (or none named), or a sig of
   // the pharmacy's own, starts from the sig alone. A compound's directions are typed, with no blanks.
   const blanks =
@@ -130,14 +140,14 @@ export const refillLine = (
           substitutionAllowed: request?.substitutionAllowed ?? order.substitutionAllowed,
           ...blanks?.product,
         }),
-    quantityValue: request?.quantityValue ?? order.quantityValue,
+    quantityValue: request?.quantityValue ?? (sameProduct ? order.quantityValue : undefined),
     quantityUnit: isQuantityUnit(unit) ? unit : undefined,
     daysSupply: request?.daysSupply ?? order.daysSupply,
     numberOfRefills:
       request?.numberOfRefills ??
       (request?.requestedRefills !== undefined ? Math.max(request.requestedRefills - 1, 0) : order.numberOfRefills),
-    patientInstructions: request?.sig ?? prescription.instructions,
-    noteToPharmacy: request?.noteToPharmacy ?? order.noteToPharmacy,
+    patientInstructions: request?.sig ?? (sameProduct ? prescription.instructions : undefined),
+    noteToPharmacy: request?.noteToPharmacy ?? (sameProduct ? order.noteToPharmacy : undefined),
     diagnosis: order.diagnosisCode
       ? { code: order.diagnosisCode, display: order.diagnosisDescription ?? order.diagnosisCode }
       : undefined,
@@ -149,7 +159,7 @@ export const refillLine = (
     : started;
 };
 
-/** "Change and approve": the renewal response approving the prescription the order form holds. Its fills are the
+/** "Change": the renewal response approving the prescription the order form holds. Its fills are the
  * first fill plus the refills written; the eRx service sends what differs from the request as the changes, and keeps
  * the order's blanks (`metadata`) on the new prescription as it would a new order's. */
 export const renewalApproval = (
@@ -167,7 +177,7 @@ export const renewalApproval = (
   };
 };
 
-/** The blanks a plain approval keeps on the new prescription, as "Change and approve" and a new order do: the
+/** The blanks a plain approval keeps on the new prescription, as "Change" and a new order do: the
  * line's (the original's, filled again), also when its directions were typed over them; none when the blanks are
  * empty (the pharmacy's own directions), or for a compound. */
 export const approvalMetadata = (line: PrescriptionLine): PrescriptionOrderMetadata | undefined =>
@@ -199,7 +209,7 @@ const orderChanges = (
   noteToPharmacy: order.noteToPharmacy,
 });
 
-/** "Change and approve" of a change request: the prescription the order form holds, over the selected suggestion
+/** "Change" of a change request: the prescription the order form holds, over the selected suggestion
  * (none when the pharmacy sent none). The eRx service picks Approved or ApprovedWithChanges. */
 export const changeApproval = (
   changeTaskId: string,

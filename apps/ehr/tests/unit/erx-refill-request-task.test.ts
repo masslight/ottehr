@@ -9,7 +9,7 @@ vi.mock('utils/lib/frontend/sentry', () => ({
   safelyCaptureException: vi.fn(),
 }));
 
-import { fhirTaskToTask, GO_TO_REQUEST } from '../../src/features/visits/in-person/hooks/useTasks';
+import { fhirTaskToTask, VIEW_REQUEST } from '../../src/features/visits/in-person/hooks/useTasks';
 
 const TITLE = 'Refill request from CVS Pharmacy #7741: Lisinopril 10 mg tablet for Maria Lopez';
 
@@ -23,7 +23,7 @@ const task = (category: string, extra: Partial<FhirTask>): FhirTask => ({
 });
 
 describe('Tasks page: refill requests', () => {
-  it('shows a pharmacy’s request by its sentence, with Go to request', () => {
+  it('shows a pharmacy’s request by its sentence, with View request', () => {
     const row = fhirTaskToTask(
       task(ERX_TASK.category, {
         description: TITLE,
@@ -32,11 +32,11 @@ describe('Tasks page: refill requests', () => {
       })
     );
     expect(row.title).toBe(TITLE);
-    expect(row.action?.name).toBe(GO_TO_REQUEST);
+    expect(row.action?.name).toBe(VIEW_REQUEST);
     expect(row.completable).toBe(true);
   });
 
-  it('gives a manual eRx task made as a refill request Go to request, and an ordinary one none', () => {
+  it('gives a manual eRx task made as a refill request View request, and an ordinary one none', () => {
     const input = (code: string, valueString: string): NonNullable<FhirTask['input']>[number] => ({
       type: { coding: [{ system: TASK_INPUT_SYSTEM, code }] },
       valueString,
@@ -51,13 +51,13 @@ describe('Tasks page: refill requests', () => {
         ...extra,
       });
     const refill = { code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }] } };
-    expect(fhirTaskToTask(manual(refill)).action?.name).toBe(GO_TO_REQUEST);
-    expect(fhirTaskToTask(manual({})).action?.name).not.toBe(GO_TO_REQUEST);
+    expect(fhirTaskToTask(manual(refill)).action?.name).toBe(VIEW_REQUEST);
+    expect(fhirTaskToTask(manual({})).action?.name).not.toBe(VIEW_REQUEST);
     const change = { code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.changeRequest }] } };
-    expect(fhirTaskToTask(manual(change)).action?.name).toBe(GO_TO_REQUEST);
+    expect(fhirTaskToTask(manual(change)).action?.name).toBe(VIEW_REQUEST);
   });
 
-  it('shows a pharmacy’s change request by its sentence, with Go to request', () => {
+  it('shows a pharmacy’s change request by its sentence, with View request', () => {
     const title = 'Change request from CVS Pharmacy #7741: Dexilant 30 mg capsule for Maria Lopez — Out of stock';
     const row = fhirTaskToTask(
       task(ERX_TASK.category, {
@@ -67,6 +67,6 @@ describe('Tasks page: refill requests', () => {
       })
     );
     expect(row.title).toBe(title);
-    expect(row.action?.name).toBe(GO_TO_REQUEST);
+    expect(row.action?.name).toBe(VIEW_REQUEST);
   });
 });

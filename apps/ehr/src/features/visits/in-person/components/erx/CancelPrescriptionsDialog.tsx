@@ -1,4 +1,4 @@
-import { MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { MenuItem, Stack, TextField } from '@mui/material';
 import { FC, useState } from 'react';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -62,9 +62,6 @@ export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ 
               </MenuItem>
             ))}
           </TextField>
-          <Typography variant="body2" color="text.secondary">
-            The pharmacy confirms or refuses the cancellation. Until then the prescription stays active.
-          </Typography>
         </Stack>
       }
       closeButtonText={several ? 'Keep prescriptions' : 'Keep prescription'}

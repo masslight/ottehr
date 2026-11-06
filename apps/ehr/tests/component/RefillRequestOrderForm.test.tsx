@@ -187,9 +187,9 @@ describe('Refill request dialog: the order form outside a visit', () => {
     mocks.completeTask.mockResolvedValue(undefined);
   });
 
-  it('Change and approve answers the pharmacy with the prescription as the form holds it', async () => {
+  it('Change answers the pharmacy with the prescription as the form holds it', async () => {
     const user = await open(PHARMACY_REQUEST);
-    await user.click(screen.getByRole('button', { name: 'Change and approve' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     // The original's visit, though signed and not the page's.
     expect(screen.getByText('Allergies of encounter-9')).toBeInTheDocument();
     expect(mocks.chartSectionOptions).toContainEqual({ encounterId: 'encounter-9' });
@@ -227,12 +227,12 @@ describe('Refill request dialog: the order form outside a visit', () => {
       patient: { ...PATIENT, telecom: [{ system: 'phone', value: '5125550187' }] },
     });
     expect(screen.getAllByText('Patient Info')).toHaveLength(1);
-    await user.click(screen.getByRole('button', { name: 'Change and approve' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     expect(screen.getAllByText('Patient Info')).toHaveLength(1);
     expect(screen.getAllByText('(512) 555-0187')).toHaveLength(1);
   });
 
-  it('Change and approve of a change request starts from the selected suggestion and answers with it', async () => {
+  it('Change of a change request starts from the selected suggestion and answers with it', async () => {
     const user = await open(
       CHANGE_REQUEST('T', [
         { description: 'Enalapril 10 mg tablet', ndc: '00093002701', quantityValue: 30, quantityUnit: 'Tablet' },
@@ -242,11 +242,12 @@ describe('Refill request dialog: the order form outside a visit', () => {
           quantityValue: 90,
           quantityUnit: 'Tablet',
           numberOfRefills: 3,
+          sig: 'Take 1 tablet by mouth twice daily',
         },
       ])
     );
     await user.click(screen.getByRole('radio', { name: /Losartan/ }));
-    await user.click(screen.getByRole('button', { name: 'Change and approve' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
     await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
     expect(mocks.orderPrescription).not.toHaveBeenCalled();
@@ -262,7 +263,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
         // Left out by the pharmacy: the original's, which the eRx service doesn't count as changes.
         daysSupply: 30,
         substitutionAllowed: true,
-        patientInstructions: 'Take 1 tablet by mouth once daily',
+        patientInstructions: 'Take 1 tablet by mouth twice daily',
         numberOfRefills: 3,
       },
     });
@@ -272,7 +273,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     const user = await open(CHANGE_REQUEST('S', []));
     expect(screen.getByText('Script clarification.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Approve/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Change and approve' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Change' })).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
     await waitFor(() => expect(mocks.respondToChange).toHaveBeenCalled());
     expect(mocks.respondToChange.mock.calls[0][1]).toMatchObject({
@@ -282,10 +283,10 @@ describe('Refill request dialog: the order form outside a visit', () => {
     });
   });
 
-  it('shows a failed Change and approve like other send errors, and leaves the task open', async () => {
+  it('shows a failed Change like other send errors, and leaves the task open', async () => {
     mocks.respondToRenewal.mockRejectedValue(new Error('Amoxicillin is no longer available. Pick it again.'));
     const user = await open(PHARMACY_REQUEST);
-    await user.click(screen.getByRole('button', { name: 'Change and approve' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
     await waitFor(() =>
       expect(enqueueSnackbar).toHaveBeenCalledWith('Amoxicillin is no longer available. Pick it again.', {
