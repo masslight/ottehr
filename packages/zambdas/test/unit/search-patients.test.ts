@@ -1,6 +1,7 @@
 import { Patient } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
-import { describe, expect, it, vi } from 'vitest';
+import { PATIENT_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../src/ehr/search-patients';
 
 const patient: Patient = {
@@ -17,6 +18,10 @@ const patient: Patient = {
 };
 
 describe('search-patients performEffect', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('builds FHIR search params for each provided filter', async () => {
     const search = vi.fn().mockResolvedValue({ unbundle: () => [], total: 0 });
     await performEffect(
@@ -90,5 +95,30 @@ describe('search-patients performEffect', () => {
 
     expect(result.total).toBe(0);
     expect(result.patients).toEqual([]);
+  });
+
+  it('gives up with a narrow-your-search error when FHIR does not answer before the deadline', async () => {
+    vi.useFakeTimers();
+    const search = vi.fn().mockReturnValue(new Promise(() => undefined));
+    const result = performEffect(
+      { dateOfBirth: '2007-09-08', secrets: null },
+      { fhir: { search } } as any,
+      Date.now() + 1_000
+    );
+    const assertion = expect(result).rejects.toEqual(PATIENT_SEARCH_TOO_BROAD_ERROR);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await assertion;
+  });
+
+  it('returns the results when FHIR answers before the deadline', async () => {
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [patient], total: 1 });
+    const result = await performEffect(
+      { dateOfBirth: '1990-01-01', secrets: null },
+      { fhir: { search } } as any,
+      Date.now() + 60_000
+    );
+
+    expect(result.patients).toHaveLength(1);
   });
 });
