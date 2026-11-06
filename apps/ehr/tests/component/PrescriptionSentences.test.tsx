@@ -581,6 +581,19 @@ describe('PrescriptionSentences: suggestions first', () => {
   );
 
   it(
+    'uses "Other" from its blue link as from its "+"',
+    withRows([DOSED_ROW], async () => {
+      const user = userEvent.setup();
+      render(<Harness initial={lineFor(LIQUIDS)} />);
+      const other = screen.getByRole('button', { name: 'Other' });
+      expect(other).toHaveClass('MuiLink-root');
+      await user.click(other);
+      expect(screen.getByRole('button', { name: 'Show suggestions' })).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(null);
+    })
+  );
+
+  it(
     'folds the suggestions to their title once a row is used, or "Other"; the title’s chevron toggles them',
     withRows([DOSED_ROW], async () => {
       const user = userEvent.setup();

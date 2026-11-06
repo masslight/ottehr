@@ -1,4 +1,4 @@
-import { Box, Chip } from '@mui/material';
+import { Box, Chip, Link } from '@mui/material';
 import { ReactElement, ReactNode, useMemo } from 'react';
 import { SentencePicks, SuggestedSentence, SuggestedSentences } from 'src/components/SuggestedSentences';
 import { SentenceBlank } from 'utils/lib/helpers/suggested-sentences';
@@ -10,7 +10,8 @@ import { DoseInfoHover, SourceText } from './DoseCalculatorCard';
  * lines under a set's row. "Other" (Write my own) is always the last row.
  */
 
-const OTHER_ROW: SuggestedSentence = { id: 'other', segments: ['Other'], addLabel: 'Write my own' };
+// Its sentence is a blue "Other" link (the lead below), doing what its "+" does.
+const OTHER_ROW: SuggestedSentence = { id: 'other', segments: [], addLabel: 'Write my own' };
 
 /** A row from a quick pick, or whose dose is a blank: the dose tool (a calculator icon) starts its sentence. The ⓘ by
  * its "+" holds the quick pick it came from, then how the dose was worked out. */
@@ -76,11 +77,15 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>({
       isAdded={(row, picks) => isRow(row) && (isAdded?.(row, picks) ?? false)}
       onAdd={(row, picks) => (isRow(row) ? onPick(row, picks) : onOther())}
       renderPicker={renderPicker && ((row, blank, pick) => (isRow(row) ? renderPicker(row, blank, pick) : undefined))}
-      // A quick pick's row, or one with a dose blank: its dose tool starts the sentence (the calculator icon when it has
+      // "Other" is a link. A quick pick's row, or one with a dose blank: its dose tool starts the sentence (the calculator icon when it has
       // saved dosing, else the icon disabled, its hover saying it's as written). The ⓘ by its "+" has its quick pick
       // and working.
       renderLead={(row, picks) =>
-        isRow(row) && (row.doseAt !== undefined || row.quickPickName !== undefined) ? (
+        !isRow(row) ? (
+          <Link component="button" type="button" onClick={onOther} sx={{ verticalAlign: 'baseline' }}>
+            Other
+          </Link>
+        ) : row.doseAt !== undefined || row.quickPickName !== undefined ? (
           <>
             {renderDoseTool?.(row, picks)}
             {row.setName && (
