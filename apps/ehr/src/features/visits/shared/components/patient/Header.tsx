@@ -66,7 +66,7 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id, encounterId, fallba
             >
               <FullNameDisplay patient={patient} loading={loading} variant="h5" />
               <PatientNotesButton patientId={id} />
-              <PrintVisitLabelButton encounterId={encounterId ?? latestAppointmentEncounterId} color="primary.main" />
+              <PrintVisitLabelButton encounterId={encounterId ?? latestAppointmentEncounterId} />
               <Summary patient={patient} loading={loading} />
             </Box>
             <Contacts patient={patient} loading={loading} />
