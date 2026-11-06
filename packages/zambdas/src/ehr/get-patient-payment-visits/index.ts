@@ -43,14 +43,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export const getPatientPaymentVisits = async (
   oystehr: Oystehr,
   patientId: string,
-  // only this visit; it is still looked up among the patient's own, so another patient's is never returned
+  // only this visit, searched by id alongside the patient, so another patient's is never returned
   encounterId?: string
 ): Promise<GetPatientPaymentVisitsResponse> => {
-  const [allVisits, { account }] = await Promise.all([
-    fetchVisits(oystehr, patientId),
+  const [visits, { account }] = await Promise.all([
+    fetchVisits(oystehr, patientId, encounterId),
     getAccountAndCoverageResourcesForPatient(patientId, oystehr),
   ]);
-  const visits = encounterId ? allVisits.filter((visit) => visit.encounterId === encounterId) : allVisits;
   const legacyNoticesByEncounter = await fetchLegacyPaymentNotices(
     oystehr,
     visits.map((visit) => visit.encounterId)
@@ -65,12 +64,13 @@ export const getPatientPaymentVisits = async (
   };
 };
 
-// One paged search for every encounter (follow-ups included) with its appointment, the appointment's
-// actors and its slot's schedule actor: the same candidates getScheduleOwnerFromAppointmentOrEncounter
-// picks the schedule owner from.
+// One paged search for every encounter (follow-ups included), or just the one asked for, with its
+// appointment, the appointment's actors and its slot's schedule actor: the same candidates
+// getScheduleOwnerFromAppointmentOrEncounter picks the schedule owner from.
 const fetchVisits = async (
   oystehr: Oystehr,
-  patientId: string
+  patientId: string,
+  encounterId: string | undefined
 ): Promise<Omit<PatientPaymentVisit, 'legacyPaymentNotices'>[]> => {
   const { encounters, appointments, relatedResourcesByReference } = await getAllFhirEncountersAndAppointmentsForPatient(
     oystehr,
@@ -78,6 +78,7 @@ const fetchVisits = async (
     {
       includeEncountersWithoutAppointment: true,
       includeScheduleOwnerCandidates: true,
+      encounterId,
     }
   );
   const appointmentsByReference = new Map(
