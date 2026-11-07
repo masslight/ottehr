@@ -153,6 +153,11 @@ export function removeTimeFromDate(date: string): string {
   return date.split('T')[0];
 }
 
+/** A full FHIR date (yyyy-MM-dd), as opposed to the year / year-month precisions `isFhirDateString` allows. */
+export function isFullFhirDateString(date: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && isFhirDateString(date);
+}
+
 // FHIR `date`: YYYY, YYYY-MM or YYYY-MM-DD — https://hl7.org/fhir/R4B/datatypes.html#date
 const FHIR_DATE_REGEX =
   /^([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?)?$/;

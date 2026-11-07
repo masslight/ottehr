@@ -9,10 +9,14 @@ import {
   IconButton,
   LinearProgress,
   Paper,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -32,7 +36,7 @@ import {
   PatientPaymentBenefit,
 } from 'utils/lib/types/data/telemed/eligibility.types';
 import { CopayWidget } from './CopayWidget';
-import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
+import { EligibilityDetailsDialog, getDateOfServiceLabel } from './EligibilityDetailsDialog';
 import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
 import { InsuranceCarrierQuickPicks } from './InsuranceCarrierQuickPicks';
 import PatientRecordFormField, { buildAnswerSourceOptionsInput, useAnswerOptionsQuery } from './PatientRecordFormField';
@@ -47,6 +51,10 @@ import {
 type InsuranceContainerProps = {
   ordinal: number;
   patientId: string;
+  /** Visit-page-only: the appointment whose date of service eligibility is checked for. */
+  appointmentId?: string;
+  /** Visit-page-only: date of the visit (yyyy-MM-dd) the date picker starts on; today when absent. */
+  visitDate?: string;
   initialEligibilityCheck?: CoverageCheckWithDetails;
   removeInProgress?: boolean;
   handleRemoveClick?: () => void;
@@ -83,6 +91,7 @@ function mapInitialStatus(
     return {
       status: status.status,
       dateISO: status.dateISO,
+      servicedDate: initialCheckResult.servicedDate,
       copay: initialCheckResult.copay,
       errors: initialCheckResult.errors,
     };
@@ -123,6 +132,7 @@ function getErrorDetailsFromCoverageResponse(
 interface SimpleStatusCheckWithDate {
   status: EligibilityCheckSimpleStatus;
   dateISO: string;
+  servicedDate?: string;
   copay?: PatientPaymentBenefit[];
   errors?: Array<{ code: { coding?: Array<{ code?: string; display?: string }>; text?: string } }>;
 }
@@ -132,6 +142,8 @@ const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
+  appointmentId,
+  visitDate,
   removeInProgress,
   initialEligibilityCheck,
   handleRemoveClick,
@@ -148,6 +160,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
     mapInitialStatus(initialEligibilityCheck)
   );
+
+  const [serviceDate, setServiceDate] = useState<DateTime | null>(() =>
+    DateTime.fromISO(visitDate ?? DateTime.now().toISODate())
+  );
+
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [dateTooltipOpen, setDateTooltipOpen] = useState(false);
+
+  const serviceDateISO = (serviceDate?.isValid ? serviceDate.toISODate() : undefined) ?? undefined;
 
   const { getValues, setValue, watch } = useFormContext();
 
@@ -222,6 +243,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             id: 'get-eligibility',
             patientId,
             coverageToCheck: coverageToCheck,
+            appointmentId,
+            servicedDate: serviceDateISO,
           })
           .then((res) => {
             console.log('eligibility check result', res);
@@ -232,6 +255,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             // Return combined data including the error details
             return {
               ...simpleStatus,
+              servicedDate: simpleStatus.servicedDate ?? serviceDateISO,
               errors: fullResult?.errors,
             };
           });
@@ -290,7 +314,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   };
 
-  const TitleWidget = (): ReactElement => {
+  const renderTitleWidget = ({ showTitle }: { showTitle: boolean }): ReactElement => {
     const chipColors = STATUS_TO_STYLE_MAP[eligibilityStatus?.status ?? 'UNKNOWN'];
     const lastRefreshDateString = (() => {
       const dateISO = eligibilityStatus?.dateISO ?? '';
@@ -312,60 +336,141 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       }
       return '';
     })();
+    const dosLabel = eligibilityStatus?.dateISO
+      ? getDateOfServiceLabel(eligibilityStatus.servicedDate, eligibilityStatus.dateISO)
+      : undefined;
+    const lastCheckedTextSx = {
+      fontFamily: 'Rubik',
+      color: 'rgba(0, 0, 0, 0.6)',
+      fontSize: '12px',
+      lineHeight: '15px',
+      fontWeight: '400',
+    };
 
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        {/* Status badge and View Details button in same row */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Chip
-            label={eligibilityStatus?.status ?? 'UNKNOWN'}
-            sx={{
-              backgroundColor: chipColors.bgColor,
-              color: chipColors.textColor,
-              borderRadius: '8px',
-              padding: '0 9px',
-              height: '24px',
-              '& .MuiChip-label': {
-                padding: 0,
-                fontWeight: 'bold',
-                fontSize: '0.7rem',
-              },
-            }}
-          />
-          {(initialEligibilityCheck || eligibilityStatus) && (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => setShowEligibilityDetails(true)}
-              sx={{
-                textTransform: 'none',
-                fontSize: '12px',
-                borderRadius: '16px',
-                minWidth: 'auto',
-                px: 2,
-                py: 0.5,
-              }}
-            >
-              View Details
-            </Button>
+      <Box
+        sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: showTitle ? '100%' : undefined }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            width: showTitle ? '100%' : undefined,
+            justifyContent: 'space-between',
+            gap: 1,
+            mb: 1,
+          }}
+        >
+          {showTitle && (
+            <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
+              {ordinal === 1 ? 'Primary insurance' : 'Secondary insurance'}
+            </Typography>
           )}
+
+          <Box>
+            <Chip
+              label={eligibilityStatus?.status ?? 'UNKNOWN'}
+              sx={{
+                backgroundColor: chipColors.bgColor,
+                color: chipColors.textColor,
+                borderRadius: '8px',
+                padding: '0 9px',
+                mr: 1,
+                height: '24px',
+                '& .MuiChip-label': {
+                  padding: 0,
+                  fontWeight: 'bold',
+                  fontSize: '0.7rem',
+                },
+              }}
+            />
+            {(initialEligibilityCheck || eligibilityStatus) && (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setShowEligibilityDetails(true)}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '12px',
+                  borderRadius: '99px',
+                  minWidth: 'auto',
+                  height: '35px',
+                  px: 2,
+                  py: 0.5,
+                }}
+              >
+                View Details
+              </Button>
+            )}
+          </Box>
         </Box>
-        {/* Last checked date and refresh button */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography
-            sx={{
-              fontFamily: 'Rubik',
-              color: 'rgba(0, 0, 0, 0.6)',
-              fontSize: '12px',
-              lineHeight: '15px',
-              fontWeight: '400',
-            }}
-          >
-            {lastRefreshDateString}
-          </Typography>
-          <IconButton onClick={handleRecheckEligibility} size="small">
-            {recheckEligibility.isPending ? <CircularProgress size="24px" /> : <RefreshRounded color="primary" />}
-          </IconButton>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            flexWrap: 'nowrap',
+            justifyContent: 'space-between',
+            width: '100%',
+          }}
+        >
+          <Box>
+            {lastRefreshDateString && (
+              <Typography sx={{ ...lastCheckedTextSx, whiteSpace: 'nowrap' }}>
+                {dosLabel ? `${lastRefreshDateString} (${dosLabel})` : lastRefreshDateString}
+              </Typography>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'nowrap' }}>
+            <Typography sx={{ ...lastCheckedTextSx, whiteSpace: 'nowrap' }}>
+              {lastRefreshDateString ? 'Recheck:' : 'Check:'}
+            </Typography>
+            <Tooltip
+              arrow
+              open={dateTooltipOpen && !datePickerOpen}
+              onOpen={() => setDateTooltipOpen(true)}
+              onClose={() => setDateTooltipOpen(false)}
+              title="Date of service the eligibility check is run for. Change it to check coverage as of another day, then click refresh."
+            >
+              <Box>
+                <LocalizationProvider dateAdapter={AdapterLuxon}>
+                  <DatePicker
+                    value={serviceDate}
+                    open={datePickerOpen}
+                    onChange={(value) => setServiceDate(value)}
+                    onOpen={() => {
+                      setDatePickerOpen(true);
+                    }}
+                    onClose={() => {
+                      setDateTooltipOpen(false);
+                      setDatePickerOpen(false);
+                    }}
+                    format="MM/dd/yyyy"
+                    slotProps={{
+                      textField: {
+                        variant: 'standard',
+                        size: 'small',
+                        sx: { width: 120, '& .MuiInputBase-input': { fontSize: '14px' } },
+                        inputProps: {
+                          'aria-label': 'Date of service',
+                          'data-testid': dataTestIds.insuranceContainer.dateOfServiceInput,
+                        },
+                      },
+                    }}
+                  />
+                </LocalizationProvider>
+              </Box>
+            </Tooltip>
+            <IconButton
+              data-testid={dataTestIds.insuranceContainer.recheckEligibilityButton}
+              onClick={handleRecheckEligibility}
+              disabled={!serviceDate?.isValid || recheckEligibility.isPending}
+              size="small"
+            >
+              {recheckEligibility.isPending ? <CircularProgress size="24px" /> : <RefreshRounded color="primary" />}
+            </IconButton>
+          </Box>
         </Box>
       </Box>
     );
@@ -385,6 +490,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         ...initialEligibilityCheck,
         status: mapSimpleStatusToDetailedStatus(eligibilityStatus.status),
         dateISO: eligibilityStatus.dateISO,
+        servicedDate: eligibilityStatus.servicedDate,
         // Prefer eligibilityStatus.copay if it has items, otherwise use initialEligibilityCheck.copay
         copay:
           eligibilityStatus.copay && eligibilityStatus.copay.length > 0
@@ -406,6 +512,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       return {
         status: mapSimpleStatusToDetailedStatus(eligibilityStatus.status),
         dateISO: eligibilityStatus.dateISO,
+        servicedDate: eligibilityStatus.servicedDate,
         copay: eligibilityStatus.copay,
         errors: eligibilityStatus.errors,
         subscriberId: '',
@@ -487,10 +594,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             pt: ordinal > 1 ? 2 : 0,
           }}
         >
-          <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
-            {ordinal === 1 ? 'Primary insurance' : 'Secondary insurance'}
-          </Typography>
-          <TitleWidget />
+          {renderTitleWidget({ showTitle: true })}
         </Box>
       )}
       {!isNew && (
@@ -865,7 +969,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     <PatientRecordFormSection
       formSection={insuranceSection}
       ordinal={ordinal - 1}
-      titleWidget={isNew ? undefined : <TitleWidget />}
+      titleWidget={isNew ? undefined : renderTitleWidget({ showTitle: false })}
     >
       {content}
     </PatientRecordFormSection>
