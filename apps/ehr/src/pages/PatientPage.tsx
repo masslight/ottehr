@@ -36,6 +36,7 @@ import { fetchMedicalRecordFaxDocumentCount } from 'src/features/fax/api/faxApi'
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { FaxVisitOption } from 'src/features/fax/model/types';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
+import { Flowsheets } from 'src/features/flowsheets/components/Flowsheets';
 import { MedicalRecordDateRangeDialog } from 'src/features/medical-record-export/components/MedicalRecordDateRangeDialog';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
@@ -577,6 +578,14 @@ export default function PatientPage(): JSX.Element {
                         }
                       />
                     )}
+                    <Tab
+                      value="flowsheets"
+                      label={
+                        <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                          Flowsheets
+                        </Typography>
+                      }
+                    />
                   </TabList>
                 </Box>
 
@@ -607,6 +616,9 @@ export default function PatientPage(): JSX.Element {
                     <PatientRadiologyTab patientId={id || ''} />
                   </TabPanel>
                 )}
+                <TabPanel value="flowsheets" sx={{ p: 0, pt: 2 }}>
+                  <Flowsheets patientId={id || ''} />
+                </TabPanel>
               </TabContext>
               {showAccountSettingsDialog ? (
                 <AccountSettingsDialog

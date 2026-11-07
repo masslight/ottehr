@@ -2,6 +2,7 @@ import { DmeOrderCreatePage } from 'src/features/dme/pages/DmeOrderCreatePage';
 import { DmeOrderDetailsPage } from 'src/features/dme/pages/DmeOrderDetailsPage';
 import { DmeOrderEditPage } from 'src/features/dme/pages/DmeOrderEditPage';
 import { DmeOrdersPage } from 'src/features/dme/pages/DmeOrdersPage';
+import { VisitFlowsheets } from 'src/features/flowsheets/pages/VisitFlowsheets';
 import { Immunization } from 'src/features/immunization/pages/Immunization';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
@@ -70,6 +71,7 @@ export enum ROUTER_PATH {
   PLAN = 'plan',
   ERX = 'erx',
   DOCUMENTS = 'documents',
+  FLOWSHEETS = 'flowsheets',
   OTTEHR_AI = 'ottehr-ai',
 
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
@@ -508,6 +510,14 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     text: 'Review & Sign',
     iconKey: 'Review & Sign',
     groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.FLOWSHEETS]: {
+    path: ROUTER_PATH.FLOWSHEETS,
+    modes: ['main', 'readonly'],
+    element: <VisitFlowsheets />,
+    text: 'Flowsheets',
+    iconKey: 'Flowsheets',
+    groupLabel: 'Additional Resources',
   },
   [ROUTER_PATH.OTTEHR_AI]: {
     path: ROUTER_PATH.OTTEHR_AI,

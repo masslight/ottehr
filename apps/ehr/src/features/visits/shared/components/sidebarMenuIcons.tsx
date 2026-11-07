@@ -3,6 +3,7 @@ import AccessibleOutlinedIcon from '@mui/icons-material/AccessibleOutlined';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 
 // Kept out of Sidebar.tsx so modules rendered inside the sidebar's routes (e.g. the
 // Review & Sign note, which labels its sections with these icons) can import them
@@ -164,6 +165,7 @@ export const sidebarMenuIcons = {
     </svg>
   ),
   'Oystehr AI': <img src={aiIcon} style={{ width: '22px' }} />,
+  Flowsheets: <TableChartOutlinedIcon />,
   'In-House Labs': (
     <svg width="14" height="20" viewBox="0 0 14 20" xmlns="http://www.w3.org/2000/svg" fill="none">
       <path
