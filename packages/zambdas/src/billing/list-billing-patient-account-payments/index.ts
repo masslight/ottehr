@@ -1,16 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Patient, PaymentNotice } from 'fhir/r4b';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { getIdFromReference } from 'utils/lib/fhir/reference';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
-import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { ListBillingPatientAccountPaymentsInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPatientAccountPayment,
-  BillingPatientPaymentMethod,
   ListBillingPatientAccountPaymentsResponse,
 } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -18,18 +14,17 @@ import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
-import { fetchPatientPaymentsByEncounterIds, fetchResourcesGrouped } from '../claim-amounts';
-import { getClaimServiceDate } from '../claim-search';
+import { fetchPatientPaymentsByEncounterIds } from '../claim-amounts';
 import { ehrClinicalPaymentLookups, getPatientPaymentVisits } from '../ehr-payment-data';
+import { fetchClaimsByEncounter, toAccountPayments } from '../patient-account-payments';
 import { listEncounterPayments } from '../patient-payment-dtos';
-import { invoiceIdForPaymentNotice, mergeBillingAndLegacyPaymentNotices } from '../patient-payments';
+import { mergeBillingAndLegacyPaymentNotices } from '../patient-payments';
 import { createBillingClient, fetchById, resolveClinicalPatientIds } from '../shared';
 
 const ZAMBDA_NAME = 'list-billing-patient-account-payments';
 const STRIPE_REQUEST_TIMEOUT_MS = 10_000;
 // encounters whose payments are resolved against Stripe at once
 const ENCOUNTER_CONCURRENCY = 5;
-const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 
 let m2mToken: string;
 
@@ -85,16 +80,10 @@ export const listAccountPayments = async (params: {
   if (paidVisits.length === 0) return [];
 
   const clinical = ehrClinicalPaymentLookups(ehrData);
-  const claimsByEncounter = await fetchResourcesGrouped<Claim>({
-    oystehr: billingOystehr,
-    resourceType: 'Claim',
-    ids: paidVisits.map(({ visit }) => visit.encounterId),
-    buildParam: (batch) => [
-      { name: 'identifier', value: batch.map((id) => `${CLAIM_ENCOUNTER_ID_SYSTEM}|${id}`).join(',') },
-    ],
-    groupKeyOf: (claim) =>
-      claim.identifier?.find((identifier) => identifier.system === CLAIM_ENCOUNTER_ID_SYSTEM)?.value,
-  });
+  const claimsByEncounter = await fetchClaimsByEncounter(
+    billingOystehr,
+    paidVisits.map(({ visit }) => visit.encounterId)
+  );
 
   const payments: { payment: BillingPatientAccountPayment; recordedISO: string }[] = [];
   for (let i = 0; i < paidVisits.length; i += ENCOUNTER_CONCURRENCY) {
@@ -110,20 +99,12 @@ export const listAccountPayments = async (params: {
           // an account listing must not drop payments the way the EHR visit list caps them
           uncappedCardPayments: true,
         });
-        const claim = claimForPayments(claimsByEncounter.get(encounterId) ?? [], notices);
-        return dtos.map((dto) => ({
-          recordedISO: dto.dateISO,
-          payment: {
-            ...dto,
-            dateISO: notices.find((notice) => notice.id === dto.fhirPaymentNotificationId)?.paymentDate ?? dto.dateISO,
-            method: methodOf(dto, notices),
-            encounterId,
-            appointmentId: visit.appointmentId,
-            visitDateISO: visit.visitDateISO,
-            claimId: claim?.id,
-            claimServiceDate: claim ? getClaimServiceDate(claim) : undefined,
-          },
-        }));
+        return toAccountPayments({
+          visit,
+          notices,
+          dtos,
+          claims: claimsByEncounter.get(encounterId) ?? [],
+        });
       })
     );
     payments.push(...batch.flat());
@@ -138,17 +119,4 @@ export const listAccountPayments = async (params: {
         DateTime.fromISO(b.recordedISO).toMillis() - DateTime.fromISO(a.recordedISO).toMillis()
     )
     .map(({ payment }) => payment);
-};
-
-// the claim the billing notices were reconciled to, else the encounter's only claim
-const claimForPayments = (claims: Claim[], notices: PaymentNotice[]): Claim | undefined => {
-  const linkedClaimIds = new Set(
-    notices.flatMap((notice) => getIdFromReference(notice.request?.reference, 'Claim') ?? [])
-  );
-  return claims.find((claim) => claim.id && linkedClaimIds.has(claim.id)) ?? claims[0];
-};
-
-const methodOf = (payment: PatientPaymentDTO, notices: PaymentNotice[]): BillingPatientPaymentMethod => {
-  const notice = notices.find((candidate) => candidate.id === payment.fhirPaymentNotificationId);
-  return notice && invoiceIdForPaymentNotice(notice) ? 'invoice' : payment.paymentMethod;
 };

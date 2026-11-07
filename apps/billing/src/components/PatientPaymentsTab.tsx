@@ -1,7 +1,7 @@
 import { Alert, Box, capitalize, Link, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
-import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { MouseEvent, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
@@ -13,9 +13,9 @@ import { useApiClients } from '../hooks/useAppClients';
 import { formatDate } from '../utils/format';
 import { dataGridSlots, dataGridSx } from './BillingDataGrid';
 
-const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
+export const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
 
-const METHOD_LABELS: Record<BillingPatientPaymentMethod, string> = {
+export const METHOD_LABELS: Record<BillingPatientPaymentMethod, string> = {
   card: 'Card',
   'card-reader': 'Card reader',
   'external-card-reader': 'External card reader',
@@ -36,6 +36,28 @@ const PAGE_SIZE = 25;
 const EMPTY_CELL = '—';
 
 type PaymentRow = BillingPatientAccountPayment & { id: string };
+
+// cash payments from legacy notices may carry no notice id
+const paymentRowId = (payment: BillingPatientAccountPayment, idx: number): string =>
+  payment.fhirPaymentNotificationId ?? `${payment.encounterId}-${idx}`;
+
+// a payment without a notice id cannot be looked up on its own
+export const paymentDetailPath = (patientId: string, payment: BillingPatientAccountPayment): string | undefined =>
+  payment.fhirPaymentNotificationId
+    ? `/patients/${patientId}/encounters/${encodeURIComponent(payment.encounterId)}/payments/${encodeURIComponent(
+        payment.fhirPaymentNotificationId
+      )}`
+    : undefined;
+
+export const paymentMethodLabel = (payment: BillingPatientAccountPayment): string => {
+  const label = METHOD_LABELS[payment.method];
+  if (!payment.cardLast4) return label;
+  const brand = payment.cardBrand ? CARD_BRAND_NAMES[payment.cardBrand] ?? capitalize(payment.cardBrand) : 'Card';
+  return `${label} — ${brand} •••• ${payment.cardLast4}`;
+};
+
+// links inside a row must not also open the payment the row links to
+const stopRowClick = (e: MouseEvent): void => e.stopPropagation();
 
 function AmountCell({ payment }: { payment: BillingPatientAccountPayment }): ReactElement {
   const refundState = getRefundState(payment);
@@ -59,14 +81,12 @@ function AmountCell({ payment }: { payment: BillingPatientAccountPayment }): Rea
 }
 
 function MethodCell({ payment }: { payment: BillingPatientAccountPayment }): ReactElement {
-  const label = METHOD_LABELS[payment.method];
-  if (!payment.cardLast4) return <Typography variant="body2">{label}</Typography>;
-  const brand = payment.cardBrand ? CARD_BRAND_NAMES[payment.cardBrand] ?? capitalize(payment.cardBrand) : 'Card';
+  if (!payment.cardLast4) return <Typography variant="body2">{METHOD_LABELS[payment.method]}</Typography>;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <CreditCardBrandIcon brand={payment.cardBrand ?? ''} />
       <Typography variant="body2" noWrap>
-        {label} — {brand} •••• {payment.cardLast4}
+        {paymentMethodLabel(payment)}
       </Typography>
     </Box>
   );
@@ -98,7 +118,12 @@ const columns: GridColDef<PaymentRow>[] = [
       const visitDate = formatDate(row.visitDateISO);
       if (!EHR_URL || !row.appointmentId) return visitDate || EMPTY_CELL;
       return (
-        <Link href={`${EHR_URL}/visit/${row.appointmentId}`} target="_blank" rel="noopener noreferrer">
+        <Link
+          href={`${EHR_URL}/visit/${row.appointmentId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={stopRowClick}
+        >
           {visitDate || 'Open visit'}
         </Link>
       );
@@ -110,7 +135,7 @@ const columns: GridColDef<PaymentRow>[] = [
     width: 150,
     renderCell: ({ row }) =>
       row.claimId ? (
-        <Link component={RouterLink} to={`/claims/${row.claimId}`}>
+        <Link component={RouterLink} to={`/claims/${row.claimId}`} onClick={stopRowClick}>
           {formatDate(row.claimServiceDate) || 'Open claim'}
         </Link>
       ) : (
@@ -128,6 +153,7 @@ const columns: GridColDef<PaymentRow>[] = [
 
 export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactElement {
   const { oystehrZambda } = useApiClients();
+  const navigate = useNavigate();
   const [payments, setPayments] = useState<BillingPatientAccountPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,13 +176,13 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
     void fetchPayments();
   }, [fetchPayments]);
 
-  // cash payments from legacy notices may carry no notice id
+  const openPayment = (payment: BillingPatientAccountPayment): void => {
+    const path = paymentDetailPath(patientId, payment);
+    if (path) navigate(path);
+  };
+
   const rows = useMemo<PaymentRow[]>(
-    () =>
-      payments.map((payment, idx) => ({
-        ...payment,
-        id: payment.fhirPaymentNotificationId ?? `${payment.encounterId}-${idx}`,
-      })),
+    () => payments.map((payment, idx) => ({ ...payment, id: paymentRowId(payment, idx) })),
     [payments]
   );
 
@@ -172,6 +198,16 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
         columns={columns}
         loading={loading}
         rowHeight={56}
+        onRowClick={({ row }) => openPayment(row)}
+        // keyboard parity with onRowClick: Enter/Space on a focused cell opens the payment
+        onCellKeyDown={({ row }, event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          // keys pressed on the Encounter/Claim links inside a cell are the link's own
+          if ((event.target as HTMLElement).closest('a')) return;
+          event.preventDefault();
+          openPayment(row);
+        }}
+        getRowClassName={({ row }) => (row.fhirPaymentNotificationId ? 'payment-row--linked' : '')}
         disableRowSelectionOnClick
         disableColumnMenu
         autoHeight
@@ -180,7 +216,7 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
         pageSizeOptions={[PAGE_SIZE, 50]}
         initialState={{ pagination: { paginationModel: { pageSize: PAGE_SIZE } } }}
         slots={dataGridSlots()}
-        sx={dataGridSx}
+        sx={{ ...dataGridSx, '& .payment-row--linked': { cursor: 'pointer' } }}
       />
     </Box>
   );
