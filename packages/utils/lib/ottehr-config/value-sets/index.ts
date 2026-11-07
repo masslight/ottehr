@@ -1,5 +1,5 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
-import { NetworkType } from 'candidhealth/api/index.js';
+import { NetworkType } from 'candidhealth/api';
 import type { InsurancePlanType as BaseInsurancePlanType, ValueSetsConfig } from 'config-types/config/value-sets';
 import { deepFreezeObject } from '../../utils/objects';
 
@@ -12,43 +12,27 @@ export const insuranceTypeOptionsData = [
   {
     candidCode: '09',
     label: 'Self Pay',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
-      code: 'pay',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay', code: 'pay' },
   },
   {
     candidCode: '11',
     label: 'Other Non-Federal Programs',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'PUBLICPOL',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'PUBLICPOL' },
   },
   {
     candidCode: '12',
     label: 'PPO',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'PPO',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'PPO' },
   },
   {
     candidCode: '13',
     label: 'POS',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'POS',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'POS' },
   },
   {
     candidCode: '14',
     label: 'EPO',
-    coverageCoding: {
-      system: 'https://nahdo.org/sopt',
-      code: '515',
-      display: 'Commercial Managed Care - EPO',
-    },
+    coverageCoding: { system: 'https://nahdo.org/sopt', code: '515', display: 'Commercial Managed Care - EPO' },
   },
   {
     candidCode: '15',
@@ -80,15 +64,9 @@ export const insuranceTypeOptionsData = [
   {
     candidCode: 'AM',
     label: 'Auto',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'AUTOPOL',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AUTOPOL' },
   },
-  {
-    candidCode: 'BL',
-    label: 'BlueCross BlueShield',
-  },
+  { candidCode: 'BL', label: 'BlueCross BlueShield' },
   {
     candidCode: 'CH',
     label: 'Champus',
@@ -101,19 +79,12 @@ export const insuranceTypeOptionsData = [
   {
     candidCode: 'CI',
     label: 'Commercial Insurance Co',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'COMM',
-      display: 'Commercial',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'COMM', display: 'Commercial' },
   },
   {
     candidCode: 'DS',
     label: 'Disability',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'DIS',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'DIS' },
   },
   {
     candidCode: 'FI',
@@ -127,10 +98,7 @@ export const insuranceTypeOptionsData = [
   {
     candidCode: 'HM',
     label: 'HMO',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'HMO',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'HMO' },
   },
   {
     candidCode: 'LM',
@@ -159,18 +127,9 @@ export const insuranceTypeOptionsData = [
       display: 'Medicare Part B',
     },
   },
-  {
-    candidCode: 'MC',
-    label: 'Medicaid',
-  },
-  {
-    candidCode: 'OF',
-    label: 'Other Federal Program',
-  },
-  {
-    candidCode: 'TV',
-    label: 'Title V',
-  },
+  { candidCode: 'MC', label: 'Medicaid' },
+  { candidCode: 'OF', label: 'Other Federal Program' },
+  { candidCode: 'TV', label: 'Title V' },
   {
     candidCode: 'VA',
     label: 'Veterans Affairs Plan',
@@ -183,15 +142,9 @@ export const insuranceTypeOptionsData = [
   {
     candidCode: 'WC',
     label: 'Workers Comp Health Claim',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'WCBPOL',
-    },
+    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'WCBPOL' },
   },
-  {
-    candidCode: 'ZZ',
-    label: 'Mutually Defined',
-  },
+  { candidCode: 'ZZ', label: 'Mutually Defined' },
 ];
 
 export const formValueSetsData = {
@@ -220,7 +173,10 @@ export const formValueSetsData = {
     { label: 'Insurance issue', value: 'Insurance issue' },
     { label: 'Service never offered', value: 'Service never offered' },
     { label: 'Duplicate visit or account error', value: 'Duplicate visit or account error' },
-    { label: 'Provider deems acuity too high for clinic', value: 'Provider deems acuity too high for clinic' },
+    {
+      label: 'Provider deems acuity too high for clinic',
+      value: 'Provider deems acuity too high for clinic',
+    },
     { label: 'Other', value: 'Other' },
   ],
   cancelReasonOptionsVirtualPatient: [
@@ -321,7 +277,10 @@ export const formValueSetsData = {
     { label: 'American Indian or Alaska Native', value: 'American Indian or Alaska Native' },
     { label: 'Asian', value: 'Asian' },
     { label: 'Black or African American', value: 'Black or African American' },
-    { label: 'Native Hawaiian or Other Pacific Islander', value: 'Native Hawaiian or Other Pacific Islander' },
+    {
+      label: 'Native Hawaiian or Other Pacific Islander',
+      value: 'Native Hawaiian or Other Pacific Islander',
+    },
     { label: 'White', value: 'White' },
     { label: 'Decline to Specify', value: 'Decline to Specify' },
   ],
@@ -343,9 +302,18 @@ export const formValueSetsData = {
     { label: 'Other', value: 'Other' },
   ],
   rxHistoryConsentOptions: [
-    { label: 'Rx history consent signed by the patient', value: 'Rx history consent signed by the patient' },
-    { label: 'Rx history consent unasked to the patient', value: 'Rx history consent unasked to the patient' },
-    { label: 'Rx history consent denied by the patient', value: 'Rx history consent denied by the patient' },
+    {
+      label: 'Rx history consent signed by the patient',
+      value: 'Rx history consent signed by the patient',
+    },
+    {
+      label: 'Rx history consent unasked to the patient',
+      value: 'Rx history consent unasked to the patient',
+    },
+    {
+      label: 'Rx history consent denied by the patient',
+      value: 'Rx history consent denied by the patient',
+    },
   ],
   sexualOrientationOptions: [
     { label: 'Straight', value: 'Straight' },
@@ -421,12 +389,18 @@ export const formValueSetsData = {
     { label: 'Albuterol', value: 'Albuterol' },
     { label: 'Amoxicillin', value: 'Amoxicillin' },
     { label: 'Amoxicillin+Clav./ Augmentin', value: 'Amoxicillin+Clav./ Augmentin' },
-    { label: 'Budesonide inhaler/ Pulmicort/ Symbicort', value: 'Budesonide inhaler/ Pulmicort/ Symbicort' },
+    {
+      label: 'Budesonide inhaler/ Pulmicort/ Symbicort',
+      value: 'Budesonide inhaler/ Pulmicort/ Symbicort',
+    },
     { label: 'Cefdinir/ Omnicef', value: 'Cefdinir/ Omnicef' },
     { label: 'Cephalexin/ Keflex', value: 'Cephalexin/ Keflex' },
     { label: 'Cetirizine/ Zyrtec', value: 'Cetirizine/ Zyrtec' },
     { label: 'cloNIDine', value: 'cloNIDine' },
-    { label: 'Cold, cough medication- over the counter', value: 'Cold, cough medication- over the counter' },
+    {
+      label: 'Cold, cough medication- over the counter',
+      value: 'Cold, cough medication- over the counter',
+    },
     {
       label: 'Dextroamphetamine amphetamine/ Adderall/ Focalin',
       value: 'Dextroamphetamine amphetamine/ Adderall/ Focalin',
@@ -437,8 +411,14 @@ export const formValueSetsData = {
     { label: 'Famotidine/ Pepcid/ Zantac', value: 'Famotidine/ Pepcid/ Zantac' },
     { label: 'Fexofenadine/ Allegra', value: 'Fexofenadine/ Allegra' },
     { label: 'Fluoxetine/ PROzac', value: 'Fluoxetine/ PROzac' },
-    { label: 'Fluticasone propionate inhaler/ Flovent', value: 'Fluticasone propionate inhaler/ Flovent' },
-    { label: 'Fluticasone propionate nasal spray/ Flonase', value: 'Fluticasone propionate nasal spray/ Flonase' },
+    {
+      label: 'Fluticasone propionate inhaler/ Flovent',
+      value: 'Fluticasone propionate inhaler/ Flovent',
+    },
+    {
+      label: 'Fluticasone propionate nasal spray/ Flonase',
+      value: 'Fluticasone propionate nasal spray/ Flonase',
+    },
     { label: 'guanFACINE HCl/ Intuniv', value: 'guanFACINE HCl/ Intuniv' },
     { label: 'Ibuprofen/ Motrin/ Advil', value: 'Ibuprofen/ Motrin/ Advil' },
     { label: 'Levocetirizine/ Xyzal', value: 'Levocetirizine/ Xyzal' },
@@ -465,7 +445,10 @@ export const formValueSetsData = {
   allergyMedicationOptions: [
     { label: 'Acetaminophen (Tylenol)', value: 'Acetaminophen (Tylenol)' },
     { label: 'Amoxicillin/ Penicillin', value: 'Amoxicillin/ Penicillin' },
-    { label: 'Amoxicillin-Clavulanic Acid (Augmentin)', value: 'Amoxicillin-Clavulanic Acid (Augmentin)' },
+    {
+      label: 'Amoxicillin-Clavulanic Acid (Augmentin)',
+      value: 'Amoxicillin-Clavulanic Acid (Augmentin)',
+    },
     { label: 'Aspirin', value: 'Aspirin' },
     { label: 'Azithromycin', value: 'Azithromycin' },
     { label: 'Cefdinir (Omnicef)', value: 'Cefdinir (Omnicef)' },
@@ -510,7 +493,10 @@ export const formValueSetsData = {
     { label: 'Wheat/ Gluten', value: 'Wheat/ Gluten' },
   ],
   allergiesYesNoOptions: [
-    { label: 'Patient has no known current allergies', value: 'Patient has no known current allergies' },
+    {
+      label: 'Patient has no known current allergies',
+      value: 'Patient has no known current allergies',
+    },
     { label: 'Patient has known current allergies', value: 'Patient has known current allergies' },
   ],
   medicalConditionOptions: [
@@ -546,8 +532,14 @@ export const formValueSetsData = {
     { label: 'Type 1 Diabetes', value: 'Type 1 Diabetes' },
   ],
   medicalHistoryYesNoOptions: [
-    { label: 'Patient has no current medical conditions', value: 'Patient has no current medical conditions' },
-    { label: 'Patient has current medical conditions', value: 'Patient has current medical conditions' },
+    {
+      label: 'Patient has no current medical conditions',
+      value: 'Patient has no current medical conditions',
+    },
+    {
+      label: 'Patient has current medical conditions',
+      value: 'Patient has current medical conditions',
+    },
   ],
   surgeryTypeOptions: [
     { label: 'Adenoidectomy (Adenoid Removal)', value: 'Adenoidectomy (Adenoid Removal)' },
@@ -572,7 +564,10 @@ export const formValueSetsData = {
     { label: 'Knee Surgery', value: 'Knee Surgery' },
     { label: 'Orchiectomy (Testicle Removal)', value: 'Orchiectomy (Testicle Removal)' },
     { label: 'Other Eye surgery', value: 'Other Eye surgery' },
-    { label: 'Pyloromyotomy (Pyloric Stenosis Repair)', value: 'Pyloromyotomy (Pyloric Stenosis Repair)' },
+    {
+      label: 'Pyloromyotomy (Pyloric Stenosis Repair)',
+      value: 'Pyloromyotomy (Pyloric Stenosis Repair)',
+    },
     { label: 'Sinus surgery', value: 'Sinus surgery' },
     { label: 'Splenectomy', value: 'Splenectomy' },
     { label: 'Tear Duct Eye surgery', value: 'Tear Duct Eye surgery' },
@@ -611,12 +606,39 @@ export const formValueSetsData = {
     { label: 'Email', value: 'Email' },
     { label: 'Phone', value: 'Phone' },
   ],
-  // will be automatically added to the encounter if external labs are ordered
-  // (does not apply to psc orders)
   externalLabCptCodesToAddPerEncounter: [
+    { label: 'Handling and/or conveyance of specimen for transfer to a laboratory', value: '99001' },
+  ],
+  cancelReasonOptions: [
+    { label: 'Patient improved', value: 'Patient improved', code: 'patient-improved' },
+    { label: 'Wait time too long', value: 'Wait time too long', code: 'wait-time' },
     {
-      label: 'Handling and/or conveyance of specimen for transfer to a laboratory',
-      value: '99001',
+      label: 'Prefer another provider',
+      value: 'Prefer another provider',
+      code: 'prefer-another-provider',
+    },
+    { label: 'Changing location', value: 'Changing location', code: 'changing-location' },
+    {
+      label: 'Changing to telemedicine',
+      value: 'Changing to telemedicine',
+      code: 'changing-telemedicine',
+    },
+    {
+      label: 'Financial responsibility concern',
+      value: 'Financial responsibility concern',
+      code: 'financial-concern',
+    },
+    { label: 'Insurance issue', value: 'Insurance issue', code: 'insurance-issue' },
+    { label: 'Service never offered', value: 'Service never offered', code: 'service-not-offered' },
+    {
+      label: 'Duplicate visit or account error',
+      value: 'Duplicate visit or account error',
+      code: 'duplicate-visit-or-account-error',
+    },
+    {
+      label: 'Provider deems acuity too high for clinic',
+      value: 'Provider deems acuity too high for clinic',
+      code: 'provider-deems-acuity-too-high-for-clinic',
     },
   ],
 };
@@ -628,15 +650,12 @@ const formValueSets: ValueSetsConfig = {
 
 export const VALUE_SETS = deepFreezeObject(formValueSets);
 
-// Convenience constants for comparing against specific value set options.
-// These live here (alongside the arrays they derive from) rather than in config-helpers,
-// because ottehr-config modules use them in trigger definitions — importing them from
-// config-helpers would create a circular dependency (ottehr-config → config-helpers → ottehr-config).
-export const INSURANCE_PAY_OPTION = VALUE_SETS.patientPaymentPageOptions[0].value; // 'I have insurance'
-export const SELF_PAY_OPTION = VALUE_SETS.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
-export const OCC_MED_SELF_PAY_OPTION = VALUE_SETS.patientOccMedPaymentPageOptions[0].value; // 'Self'
-export const OCC_MED_EMPLOYER_PAY_OPTION = VALUE_SETS.patientOccMedPaymentPageOptions[1].value; // 'Employer'
+// Convenience constants for comparing against specific value set options
+export const INSURANCE_PAY_OPTION = VALUE_SETS.patientPaymentPageOptions[0].value;
+export const SELF_PAY_OPTION = VALUE_SETS.patientPaymentPageOptions[1].value;
+export const OCC_MED_SELF_PAY_OPTION = VALUE_SETS.patientOccMedPaymentPageOptions[0].value;
+export const OCC_MED_EMPLOYER_PAY_OPTION = VALUE_SETS.patientOccMedPaymentPageOptions[1].value;
 export const ALLERGIES_YES_OPTION = VALUE_SETS.allergiesYesNoOptions[1].value;
 export const SURGICAL_HISTORY_YES_OPTION = VALUE_SETS.surgicalHistoryYesNoOptions[1].value;
-export const HAS_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[0].value; // 'I have an attorney'
-export const DOES_NOT_HAVE_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[1].value; // 'I do not have an attorney'
+export const HAS_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[0].value;
+export const DOES_NOT_HAVE_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[1].value;
