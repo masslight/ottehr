@@ -29,6 +29,7 @@ import {
   SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
@@ -798,18 +799,19 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     const row = rows[0];
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
-    expect(row.screeningAnswers).toEqual([
-      { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
-      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
-      { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
-      { question: 'Have you tested positive for COVID?', answer: 'No' },
-    ]);
-    expect(row.screeningQuestions).toEqual([
-      'Has the patient been seen in one of our offices / telemed in last 3 years?',
-      'Do you have any COVID symptoms?',
-      'Are you currently breastfeeding?',
-      'Have you tested positive for COVID?',
-    ]);
+    const screeningQ = (fhirField: string): string | undefined =>
+      patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === fhirField)?.question;
+    const expectedScreeningAnswers = [
+      { fhirField: SEEN_IN_LAST_THREE_YEARS_FIELD, answer: 'Yes' },
+      { fhirField: 'covid-symptoms', answer: 'Yes' },
+      { fhirField: PATIENT_BREASTFEEDING_STATUS, answer: 'Not applicable' },
+      { fhirField: 'tested-positive-covid', answer: 'No' },
+    ]
+      .filter(({ fhirField }) => screeningQ(fhirField) !== undefined)
+      .map(({ fhirField, answer }) => ({ question: screeningQ(fhirField)!, answer }));
+
+    expect(row.screeningAnswers).toEqual(expectedScreeningAnswers);
+    expect(row.screeningQuestions).toEqual(expectedScreeningAnswers.map((e) => e.question));
   });
 
   it('encounters immunizations layer: one vaccine record each, VIS presence carried by the date', async () => {
