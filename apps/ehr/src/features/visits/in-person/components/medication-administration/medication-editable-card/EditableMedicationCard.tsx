@@ -1,4 +1,5 @@
 import { Medication } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -9,6 +10,7 @@ import {
 } from 'src/api/api';
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
+import { useInventoryLotsOnHand } from 'src/features/admin/inventory/inventory.queries';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
@@ -27,8 +29,10 @@ import {
   getMedicationName,
   medicationExtendedToMedicationData,
 } from 'utils/lib/fhir/medication-administration';
+import { isExpirationDatePast, sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
+import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
 import {
   ExtendedMedicationDataForResponse,
@@ -43,6 +47,7 @@ import {
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS,
 } from 'utils/lib/types/constants';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
@@ -143,6 +148,9 @@ export const EditableMedicationCard: React.FC<{
   const [isDeleting, setIsDeleting] = useState(false);
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  // Marking administered with an expired lot (picked or typed) asks first; holds the save to continue with.
+  const [expiredLotPrompt, setExpiredLotPrompt] = useState<{ lotNumber: string; expDate: string } | null>(null);
+  const pendingSaveRef = useRef<UpdateMedicationOrderInput | null>(null);
 
   useMarkDraftNavigatedAway({ encounterId: isCreating ? encounterId : '', setDraft, hasDraft });
 
@@ -257,13 +265,29 @@ export const EditableMedicationCard: React.FC<{
         ndc: quickPick.ndc,
         expDate: quickPick.expDate,
         cptCodes: quickPick.cptCodes ?? [],
+        // A drug set up for inventory takes these from the stocked lot picked at administration; a quick pick's
+        // saved lot would be stale and would stop the soonest-expiring lot being preselected.
+        ...(resolvedMedicationId &&
+          selectsOptions.medicationId.inventoryTrackedIds?.has(resolvedMedicationId) && {
+            lotNumber: undefined,
+            ndc: undefined,
+            expDate: undefined,
+            manufacturer: undefined,
+          }),
       };
       setLocalValues(newValues);
       if (isCreating && encounterId) setDraft(encounterId, newValues);
       // Only enable ERX on order pages — the ERX component isn't rendered for dispense/completed-edit
       if (resolvedMedicationId && isOrderType) setErxEnabled(true);
     },
-    [isOrderType, selectsOptions.medicationId.options, isCreating, encounterId, setDraft]
+    [
+      isOrderType,
+      selectsOptions.medicationId.options,
+      selectsOptions.medicationId.inventoryTrackedIds,
+      isCreating,
+      encounterId,
+      setDraft,
+    ]
   );
 
   const commandPaletteItems = useMemo(() => {
@@ -389,6 +413,20 @@ export const EditableMedicationCard: React.FC<{
       return;
     }
 
+    const { newStatus, orderData } = updatedRequestInput;
+    if (
+      (newStatus === 'administered' || newStatus === 'administered-partly') &&
+      isExpirationDatePast(orderData?.expDate, DateTime.now().toISODate())
+    ) {
+      pendingSaveRef.current = updatedRequestInput;
+      setExpiredLotPrompt({ lotNumber: orderData?.lotNumber ?? '', expDate: orderData!.expDate! });
+      return;
+    }
+
+    await proceedWithSave(updatedRequestInput);
+  };
+
+  const proceedWithSave = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
     /**
      * Using ref to store data that will be:
      * 1. Displayed in confirmation modal for user review
@@ -565,6 +603,45 @@ export const EditableMedicationCard: React.FC<{
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Lot suggestions (requirement 3): the order's catalog drug at the visit's location. An existing order's
+  // medicationId is the contained-copy sentinel, so the catalog drug is found by name, as quick picks do.
+  const medicationIdValue = getFieldValue('medicationId');
+  const catalogMedicationId =
+    medicationIdValue && medicationIdValue !== IN_HOUSE_CONTAINED_MEDICATION_ID
+      ? medicationIdValue
+      : selectsOptions.medicationId.options.find((option) => option.label === medication?.medicationName)?.value;
+  const { data: inventoryLots } = useInventoryLotsOnHand({
+    catalogMedicationId,
+    locationId: resources.location?.id,
+    enabled: !isOrderType,
+  });
+
+  const handleInventoryLotPick = useCallback(
+    (lot: InventoryLot): void => {
+      isSavedRef.current = false;
+      setLocalValues((prev) => ({
+        ...prev,
+        lotNumber: lot.lotNumber,
+        expDate: lot.expirationDate ? DateTime.fromISO(lot.expirationDate).toISO() ?? undefined : undefined,
+        ndc: lot.ndc,
+        manufacturer: lot.manufacturer,
+      }));
+    },
+    [setLocalValues]
+  );
+
+  // Administer mode starts on the soonest-expiring unexpired lot when no lot is filled in yet.
+  const lotPreselectedRef = useRef(false);
+  const hasLotValue = Boolean(getFieldValue('lotNumber'));
+  useEffect(() => {
+    if (lotPreselectedRef.current || typeFromProps !== 'dispense' || hasLotValue || !inventoryLots?.length) return;
+    lotPreselectedRef.current = true;
+    const first = sortInventoryLotsForPicking(inventoryLots, DateTime.now().toISODate()).find(
+      (option) => !option.expired
+    );
+    if (first) handleInventoryLotPick(first.lot);
+  }, [inventoryLots, hasLotValue, typeFromProps, handleInventoryLotPick]);
 
   const defaultProviderValue = selectsOptions.providerId.defaultOption?.value;
   const currentProviderValue = getFieldValue('providerId');
@@ -760,7 +837,44 @@ export const EditableMedicationCard: React.FC<{
         showQuickPickAddOption
         isAdmin={isAdmin}
         onQuickPickAddOrUpdate={() => void openQuickPickDialog()}
+        inventoryLots={
+          inventoryLots?.length ? { lots: inventoryLots, locationName: resources.location?.name } : undefined
+        }
+        onInventoryLotPick={handleInventoryLotPick}
       />
+      {expiredLotPrompt && (
+        <InPersonModal
+          icon={null}
+          color="primary.main"
+          open
+          title="Expired Lot"
+          showEntityPreview={false}
+          closeOnConfirm={false}
+          description={
+            <>
+              Lot <strong>{expiredLotPrompt.lotNumber}</strong> expired on{' '}
+              {formatDateForDisplay(expiredLotPrompt.expDate)}. Mark {medication?.medicationName}{' '}
+              {pendingSaveRef.current?.orderData?.dose}{' '}
+              {selectsOptions.units.options.find((option) => option.value === pendingSaveRef.current?.orderData?.units)
+                ?.label ?? pendingSaveRef.current?.orderData?.units}{' '}
+              as administered anyway?
+            </>
+          }
+          closeButtonText="Cancel"
+          confirmText="Mark as Administered"
+          handleClose={() => {
+            setExpiredLotPrompt(null);
+            pendingSaveRef.current = null;
+            typeRef.current = typeFromProps;
+          }}
+          handleConfirm={() => {
+            const pendingSave = pendingSaveRef.current;
+            setExpiredLotPrompt(null);
+            pendingSaveRef.current = null;
+            if (pendingSave) void proceedWithSave(pendingSave);
+          }}
+        />
+      )}
       <InPersonModal
         icon={null}
         color="error.main"

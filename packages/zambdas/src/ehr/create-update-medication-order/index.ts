@@ -67,6 +67,7 @@ import {
   getEncounterIdFromMA,
   getMedicationById,
   shouldCreateVitalsRecheckNursingOrder,
+  syncInventoryForOrder,
   updateMedicationAdministrationData,
   validateProviderAccess,
 } from './helpers';
@@ -111,6 +112,7 @@ async function performEffect(
     // transition into "administered" from a re-save of an already-administered order.
     const previousStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
     await updateOrder(oystehr, orderResources, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
+    await syncInventoryForOrder(oystehr, orderId, practitionerIdCalledZambda);
 
     const encounterIdFromMA = orderData.encounterId ?? getEncounterIdFromMA(orderResources.medicationAdministration);
     if (encounterIdFromMA && newStatus) {
@@ -145,6 +147,7 @@ async function performEffect(
       newStatus,
       practitionerIdCalledZambda
     );
+    await syncInventoryForOrder(oystehr, orderId, practitionerIdCalledZambda);
 
     const encounterIdFromMA = getEncounterIdFromMA(orderResources.medicationAdministration);
     if (encounterIdFromMA) {
