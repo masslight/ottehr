@@ -4,7 +4,8 @@ export interface FlowsheetRow {
   label: string;
   /** Measure keys of the get-flowsheet response shown in this row, joined with "/" (e.g. systolic/diastolic). */
   keys: string[];
-  digits: number;
+  /** Decimal places for numeric values; text values (e.g. medication names) and unrounded numbers omit it. */
+  digits?: number;
 }
 
 export interface FlowsheetChart {

@@ -14,12 +14,17 @@ import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.const
 import { PATIENT_VITALS_META_SYSTEM, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 
-export interface VitalsFlowsheetResources {
+/** The patient's visits and what every flowsheet's visit columns are described from. */
+export interface VisitResources {
   appointments: Appointment[];
   encounters: Encounter[];
-  observations: Observation[];
+  /** The encounters' charted diagnoses. */
   conditions: Condition[];
   practitioners: Practitioner[];
+}
+
+export interface VitalsFlowsheetResources extends VisitResources {
+  observations: Observation[];
 }
 
 const searchByIds = async <T extends Condition | Practitioner>(
@@ -32,31 +37,18 @@ const searchByIds = async <T extends Condition | Practitioner>(
   return getAllFhirSearchPages<T>({ resourceType, params: [{ name: '_id', value: unique.join(',') }] }, oystehr);
 };
 
-export const fetchVitalsFlowsheet = async (oystehr: Oystehr, patientId: string): Promise<FlowsheetVisit[]> => {
-  const [visitResources, observations] = await Promise.all([
-    getAllFhirSearchPages<Appointment | Encounter>(
-      {
-        resourceType: 'Appointment',
-        params: [
-          { name: 'patient', value: `Patient/${patientId}` },
-          { name: '_tag', value: `${OTTEHR_MODULE.IP},${OTTEHR_MODULE.TM}` },
-          { name: '_revinclude', value: 'Encounter:appointment' },
-        ],
-      },
-      oystehr
-    ),
-    getAllFhirSearchPages<Observation>(
-      {
-        resourceType: 'Observation',
-        params: [
-          { name: 'patient._id', value: patientId },
-          { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' },
-          { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
-        ],
-      },
-      oystehr
-    ),
-  ]);
+export const fetchVisits = async (oystehr: Oystehr, patientId: string): Promise<VisitResources> => {
+  const visitResources = await getAllFhirSearchPages<Appointment | Encounter>(
+    {
+      resourceType: 'Appointment',
+      params: [
+        { name: 'patient', value: `Patient/${patientId}` },
+        { name: '_tag', value: `${OTTEHR_MODULE.IP},${OTTEHR_MODULE.TM}` },
+        { name: '_revinclude', value: 'Encounter:appointment' },
+      ],
+    },
+    oystehr
+  );
   const appointments = visitResources.filter((r): r is Appointment => r.resourceType === 'Appointment');
   const encounters = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
 
@@ -68,9 +60,72 @@ export const fetchVitalsFlowsheet = async (oystehr: Oystehr, patientId: string):
     ),
     searchByIds<Practitioner>(oystehr, 'Practitioner', encounters.map(getAttendingPractitionerId)),
   ]);
-
-  return buildVitalsFlowsheet({ appointments, encounters, observations, conditions, practitioners });
+  return { appointments, encounters, conditions, practitioners };
 };
+
+export const fetchVitals = (oystehr: Oystehr, patientId: string): Promise<Observation[]> =>
+  getAllFhirSearchPages<Observation>(
+    {
+      resourceType: 'Observation',
+      params: [
+        { name: 'patient._id', value: patientId },
+        { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' },
+        { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
+      ],
+    },
+    oystehr
+  );
+
+/** Groups per-visit resources by the encounter id in `reference`; unlinked ones land under ''. */
+export const groupByEncounter = <T>(items: T[], reference: (item: T) => string | undefined): Map<string, T[]> => {
+  const groups = new Map<string, T[]>();
+  items.forEach((item) => {
+    const key = getIdFromReference(reference(item), 'Encounter') ?? '';
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  });
+  return groups;
+};
+
+// 'walk-in' -> 'Walk-in'
+const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * A visit column's header fields for one encounter. `start` is the appointment start; it is absent for a
+ * follow-up or an unknown encounter, which the flowsheet then dates by its own data.
+ */
+export const describeVisit = (
+  encounterId: string,
+  resources: VisitResources
+): Omit<FlowsheetVisit, 'values' | 'start'> & { start?: string } => {
+  const encounter = resources.encounters.find((e) => e.id === encounterId);
+  const appointmentId = getIdFromReference(encounter?.appointment?.[0]?.reference, 'Appointment');
+  const appointment = resources.appointments.find((a) => a.id === appointmentId);
+  const isFollowUp = !!encounter && getEncounterVisitType(encounter) !== 'main';
+
+  const primary = encounter?.diagnosis?.find((d) => d.rank === 1) ?? encounter?.diagnosis?.[0];
+  const conditionId = getIdFromReference(primary?.condition.reference, 'Condition');
+  const coding = resources.conditions.find((c) => c.id === conditionId)?.code?.coding?.[0];
+  const attendingId = encounter && getAttendingPractitionerId(encounter);
+  const attending = resources.practitioners.find((p) => p.id === attendingId);
+
+  return {
+    appointmentId: appointment?.id,
+    encounterId: encounter?.id,
+    start: (!isFollowUp && appointment?.start) || undefined,
+    isFollowUp,
+    visitType: appointment
+      ? `${capitalize(appointmentTypeForAppointment(appointment))} · ${
+          isTelemedAppointment(appointment) ? 'Telemed' : 'In-person'
+        }`
+      : '',
+    reason: getReasonForVisitFromAppointment(appointment) ?? '',
+    primaryDiagnosis: coding ? [coding.code, coding.display].filter(Boolean).join(' — ') : '',
+    attending: attending ? getFullName(attending) : '',
+  };
+};
+
+export const newestFirst = (visits: FlowsheetVisit[]): FlowsheetVisit[] =>
+  visits.sort((a, b) => Date.parse(b.start) - Date.parse(a.start));
 
 /** Grid/chart measure keys for one reading; blood pressure splits into its two components. */
 const measuresOf = (dto: VitalsObservationDTO): Record<string, number | undefined> => {
@@ -100,35 +155,17 @@ const measuresOf = (dto: VitalsObservationDTO): Record<string, number | undefine
 const byEffectiveDateTime = (a: Observation, b: Observation): number =>
   (a.effectiveDateTime ?? '').localeCompare(b.effectiveDateTime ?? '');
 
-// 'walk-in' -> 'Walk-in'
-const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
-
 export const buildVitalsFlowsheet = (resources: VitalsFlowsheetResources): FlowsheetVisit[] => {
-  const appointmentById = new Map(resources.appointments.map((a) => [a.id, a]));
-  const encounterById = new Map(resources.encounters.map((e) => [e.id, e]));
-  const conditionById = new Map(resources.conditions.map((c) => [c.id, c]));
-  const practitionerById = new Map(resources.practitioners.map((p) => [p.id, p]));
-
-  const byEncounter = new Map<string, Observation[]>();
-  resources.observations.forEach((o) => {
-    const key = getIdFromReference(o.encounter?.reference, 'Encounter') ?? '';
-    byEncounter.set(key, [...(byEncounter.get(key) ?? []), o]);
-  });
-
   const visits: FlowsheetVisit[] = [];
-  byEncounter.forEach((observations, encounterId) => {
-    const encounter = encounterById.get(encounterId);
-    const appointment = appointmentById.get(
-      getIdFromReference(encounter?.appointment?.[0]?.reference, 'Appointment') ?? ''
-    );
-    const isFollowUp = !!encounter && getEncounterVisitType(encounter) !== 'main';
-    const start =
-      (!isFollowUp && appointment?.start) || observations.slice().sort(byEffectiveDateTime)[0]?.effectiveDateTime;
+  groupByEncounter(resources.observations, (o) => o.encounter?.reference).forEach((observations, encounterId) => {
+    const visit = describeVisit(encounterId, resources);
+    // Oldest first, so the latest reading of each measure is the cell value; every reading is kept.
+    observations.sort(byEffectiveDateTime);
+    const start = visit.start ?? observations[0]?.effectiveDateTime;
     if (!start) return;
 
-    // Oldest first, so the latest reading of each measure is the cell value; every reading is kept.
     const values: Record<string, FlowsheetValue> = {};
-    observations.sort(byEffectiveDateTime).forEach((o) => {
+    observations.forEach((o) => {
       const dto = makeVitalsObservationDTO(o);
       if (!dto) return;
       const flag = getVitalDTOCriticalityFromObservation(o);
@@ -140,27 +177,8 @@ export const buildVitalsFlowsheet = (resources: VitalsFlowsheetResources): Flows
       });
     });
 
-    const primary = encounter?.diagnosis?.find((d) => d.rank === 1) ?? encounter?.diagnosis?.[0];
-    const condition = conditionById.get(getIdFromReference(primary?.condition.reference, 'Condition') ?? '');
-    const coding = condition?.code?.coding?.[0];
-    const attending = practitionerById.get((encounter && getAttendingPractitionerId(encounter)) ?? '');
-
-    visits.push({
-      appointmentId: appointment?.id,
-      encounterId: encounter?.id,
-      start,
-      isFollowUp,
-      visitType: appointment
-        ? `${capitalize(appointmentTypeForAppointment(appointment))} · ${
-            isTelemedAppointment(appointment) ? 'Telemed' : 'In-person'
-          }`
-        : '',
-      reason: getReasonForVisitFromAppointment(appointment) ?? '',
-      primaryDiagnosis: coding ? [coding.code, coding.display].filter(Boolean).join(' — ') : '',
-      attending: attending ? getFullName(attending) : '',
-      values,
-    });
+    visits.push({ ...visit, start, values });
   });
 
-  return visits.sort((a, b) => Date.parse(b.start) - Date.parse(a.start));
+  return newestFirst(visits);
 };

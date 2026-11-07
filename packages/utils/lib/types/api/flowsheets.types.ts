@@ -1,3 +1,4 @@
+import { MedicationRequest, QuestionnaireResponse } from 'fhir/r4b';
 import { z } from 'zod';
 import { VitalAlertCriticality } from './chart-data/chart-data.constants';
 
@@ -16,7 +17,10 @@ export type GetFlowsheetInput = z.infer<typeof GetFlowsheetInputSchema>;
 export interface FlowsheetReading {
   /** The reading's effective time (ISO). */
   time: string;
-  value: number;
+  /** A number for measures and lab values; text for things like a medication name with its strength. */
+  value: number | string;
+  /** Shown after the value when the row label does not carry the unit (lab units vary by lab). */
+  unit?: string;
   /** The criticality saved on the Observation; never recomputed. */
   flag?: VitalAlertCriticality;
 }
@@ -42,4 +46,82 @@ export interface FlowsheetVisit {
 
 export interface GetFlowsheetOutput {
   visits: FlowsheetVisit[];
+}
+
+// The per-patient data the flowsheet fetchers shape their rows from. Per-visit kinds are keyed by encounter id.
+
+/** One of a visit's charted diagnoses (ICD-10); the primary one comes first in its list. */
+export interface FlowsheetDiagnosis {
+  code: string;
+  display: string;
+  primary: boolean;
+}
+
+/** One Medical Conditions (problem list) entry. */
+export interface FlowsheetProblem {
+  code: string;
+  display: string;
+  status: 'active' | 'inactive';
+}
+
+export interface PatientDiagnoses {
+  byEncounter: Record<string, FlowsheetDiagnosis[]>;
+  problemList: FlowsheetProblem[];
+}
+
+/** A drug prescribed (eRx) or given in the clinic (in-house) during a visit; the name carries the strength. */
+export interface FlowsheetMedication {
+  name: string;
+  source: 'eRx' | 'in-house';
+  /** eRx: the prescription status; in-house: the order status (pending, administered, ...). */
+  status: MedicationRequest['status'] | string;
+  /** In-house only: the dose given, e.g. "2.5 mg". */
+  dose?: string;
+  /** eRx: when it was written; in-house: when it was given (or ordered, if never given). */
+  time?: string;
+}
+
+/** One Medications page (medication list) entry. */
+export interface FlowsheetListMedication {
+  name: string;
+  status: 'active' | 'completed';
+  /** Free-text dose / sig as charted. */
+  dose: string;
+  source: 'patient-reported' | 'prescribed';
+}
+
+export interface PatientMedications {
+  byEncounter: Record<string, FlowsheetMedication[]>;
+  medicationList: FlowsheetListMedication[];
+}
+
+/** A value the form computed itself (a hidden calculated item, e.g. total, severity, positive screen). */
+export interface FlowsheetFormResult {
+  linkId: string;
+  label: string;
+  value: number | string | boolean;
+}
+
+/** A completed practice form; `results` is empty when the form computes nothing. */
+export interface FlowsheetForm {
+  name: string;
+  status: QuestionnaireResponse['status'];
+  completedAt?: string;
+  results: FlowsheetFormResult[];
+}
+
+export interface FlowsheetLabResult {
+  analyte: string;
+  loincCodes: string[];
+  /** Numeric result; absent for text or coded results (see valueText). */
+  value?: number;
+  valueText: string;
+  unit: string;
+  referenceRange: string;
+  /** The interpretation code the lab saved (e.g. H, L, N, A); '' when none. Never recomputed. */
+  interpretation: string;
+  /** The grid flag for that saved interpretation. */
+  flag?: VitalAlertCriticality;
+  resultedAt?: string;
+  source: 'external' | 'in-house';
 }
