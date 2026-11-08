@@ -6,6 +6,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { buildVitalsFlowsheet } from './helpers';
+import { buildNewbornBilirubinFlowsheet, NEWBORN_BILIRUBIN_DATA_KINDS } from './newborn-bilirubin';
 import { fetchFlowsheetData, FlowsheetData, FlowsheetDataKind } from './patient-data';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -22,6 +23,7 @@ interface FlowsheetDefinition {
 
 // Every query is built from the patient id alone; the flowsheet id only picks the kinds of data to fetch.
 const FLOWSHEETS: Record<FlowsheetId, FlowsheetDefinition> = {
+  newbornBilirubin: { kinds: NEWBORN_BILIRUBIN_DATA_KINDS, build: buildNewbornBilirubinFlowsheet },
   vitals: { kinds: ['vitals'], build: (data) => buildVitalsFlowsheet({ ...data, observations: data.vitals ?? [] }) },
 };
 
