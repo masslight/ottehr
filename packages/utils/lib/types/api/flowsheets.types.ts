@@ -1,5 +1,6 @@
 import { MedicationRequest, QuestionnaireResponse } from 'fhir/r4b';
 import { z } from 'zod';
+import { LmsRow } from '../../helpers/vitals/growth-lms';
 import { VitalAlertCriticality } from './chart-data/chart-data.constants';
 
 /** The flowsheets the EHR registry offers; the get-flowsheet zambda accepts nothing else. */
@@ -48,6 +49,48 @@ export interface FlowsheetVisit {
 
 export interface GetFlowsheetOutput {
   visits: FlowsheetVisit[];
+  /** Growth flowsheet only; absent without a full birth date and a male/female sex. */
+  growth?: GrowthChartData;
+}
+
+// The growth charts (ported from the OTR-3741 growth-charts report): WHO birth to 24 months, CDC 2 to 20 years.
+
+export type GrowthChartSet = 'who' | 'cdc';
+/** wfa = weight-for-age, lfa = length-for-age, wfl = weight-for-length, hcfa = head circumference-for-age, sfa = stature-for-age. */
+export const GROWTH_CHART_IDS = ['who-wfa', 'who-lfa', 'who-wfl', 'who-hcfa', 'cdc-wfa', 'cdc-sfa', 'cdc-bmi'] as const;
+export type GrowthChartId = (typeof GROWTH_CHART_IDS)[number];
+
+/** One visit's measurement on one growth chart. */
+export interface GrowthChartPoint {
+  chart: GrowthChartId;
+  encounterId?: string;
+  /** The measurement's time (ISO). */
+  time: string;
+  /** Age at the measurement, clinical style ("3 d", "12 mo", "4 y 6 mo"). */
+  age: string;
+  /** Age in months, or the same visit's length in cm on weight-for-length. */
+  x: number;
+  y: number;
+  /** z-score; absent when x is outside the chart's table. */
+  z?: number;
+  /** "88th", "<1st", ">99th"; absent when the point is not on the line (see note). */
+  percentile?: string;
+  /** Biologically implausible, or built from an implausible measurement: a red ✕, kept off the line. */
+  implausible?: boolean;
+  /** Why the point is not on the line, when it is not. */
+  note?: string;
+}
+
+export interface GrowthChartData {
+  sex: 'male' | 'female';
+  /** Age in months at asOf (this visit), else now: the chart set that opens. */
+  ageMonths?: number;
+  /** Oldest first. */
+  points: GrowthChartPoint[];
+  /** Per chart, how many measurements of its measure fall outside its set's age range. */
+  outsideRange: Partial<Record<GrowthChartId, number>>;
+  /** The LMS rows of every chart for the patient's sex, for the percentile curves. */
+  tables: Record<GrowthChartId, LmsRow[]>;
 }
 
 // The per-patient data the flowsheet fetchers shape their rows from. Per-visit kinds are keyed by encounter id.

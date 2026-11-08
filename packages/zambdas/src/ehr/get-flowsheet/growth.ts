@@ -1,14 +1,34 @@
 import { Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import {
+  DAYS_PER_MONTH,
+  formatAge,
+  formatPercentile,
+  lmsAt,
+  modifiedZ,
+  zOf,
+} from 'utils/lib/helpers/vitals/growth-lms';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { FlowsheetReading, FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
-import { GROWTH_TABLES, LmsRow } from './growth-tables.generated';
+import {
+  FlowsheetReading,
+  FlowsheetValue,
+  FlowsheetVisit,
+  GetFlowsheetOutput,
+  GROWTH_CHART_IDS,
+  GrowthChartData,
+  GrowthChartId,
+  GrowthChartPoint,
+  GrowthChartSet,
+} from 'utils/lib/types/api/flowsheets.types';
+import { GROWTH_TABLES } from './growth-tables.generated';
 import { describeVisit, groupByEncounter, newestFirst, VisitResources } from './helpers';
 
 // The Growth flowsheet: each visit's weight, height/length, BMI and head circumference with their WHO (birth to
-// 24 months) / CDC (2 to 20 years) percentiles. The percentile math and the chart-set rules are ported from the
-// OTR-3741 growth-charts report; the LMS tables are generated from the official files (growth-tables.generated.ts).
+// 24 months) / CDC (2 to 20 years) percentiles, plus the points, z-scores and LMS tables the EHR draws the growth
+// chart cards from. The rules are ported from the OTR-3741 growth-charts report; the math is in
+// utils/lib/helpers/vitals/growth-lms.ts and the LMS tables are generated from the official files
+// (growth-tables.generated.ts).
 
 export interface GrowthFlowsheetResources extends VisitResources {
   observations: Observation[];
@@ -17,86 +37,10 @@ export interface GrowthFlowsheetResources extends VisitResources {
 }
 
 type GrowthMeasure = 'weight' | 'height' | 'bmi' | 'headCircumference';
+type Sex = 'male' | 'female';
 
-// WHO and CDC both turn age in days into months with 365.25 / 12.
-const DAYS_PER_MONTH = 30.4375;
 const WHO_MAX_MONTHS = 24;
 const CDC_MAX_MONTHS = 240;
-
-interface Lms {
-  L: number;
-  M: number;
-  S: number;
-}
-
-/** LMS parameters at x, linearly interpolated between the bracketing table rows; undefined outside the table. */
-export const lmsAt = (table: LmsRow[], x: number): Lms | undefined => {
-  const last = table[table.length - 1];
-  if (!(x >= table[0][0] && x <= last[0])) return undefined;
-  let i = 1;
-  while (i < table.length - 1 && table[i][0] < x) i++;
-  const [ax, aL, aM, aS] = table[i - 1];
-  const [bx, bL, bM, bS] = table[i];
-  const t = (x - ax) / (bx - ax);
-  return { L: aL + t * (bL - aL), M: aM + t * (bM - aM), S: aS + t * (bS - aS) };
-};
-
-/** The measurement at z-score z: M (1 + L S z)^(1/L), or M e^(S z) when L = 0. */
-const valueAtZ = (p: Lms, z: number): number =>
-  p.L === 0 ? p.M * Math.exp(p.S * z) : p.M * Math.pow(1 + p.L * p.S * z, 1 / p.L);
-
-/**
- * z-score of y. restricted = WHO's rule for weight-based indicators: beyond ±3 SD, distance is measured in
- * units of the 2-to-3 SD gap instead of the LMS curve, so extreme values are not exaggerated.
- */
-export const zOf = (p: Lms, y: number, restricted = false): number => {
-  const z = p.L === 0 ? Math.log(y / p.M) / p.S : (Math.pow(y / p.M, p.L) - 1) / (p.L * p.S);
-  if (!restricted || Math.abs(z) <= 3) return z;
-  const sd3 = valueAtZ(p, z > 0 ? 3 : -3);
-  const sd2 = valueAtZ(p, z > 0 ? 2 : -2);
-  return z > 0 ? 3 + (y - sd3) / (sd3 - sd2) : -3 + (y - sd3) / (sd2 - sd3);
-};
-
-/** CDC's modified z-score (used only for its biologically-implausible-value flags). */
-const modifiedZ = (p: Lms, y: number): number =>
-  y < p.M ? (y - p.M) / ((p.M - valueAtZ(p, -2)) / 2) : (y - p.M) / ((valueAtZ(p, 2) - p.M) / 2);
-
-/** Standard normal CDF (erf series, accurate to ~1e-10 for |z| <= 5). */
-export const normCdf = (z: number): number => {
-  if (z <= -5) return 0;
-  if (z >= 5) return 1;
-  const x = z / Math.SQRT2;
-  let term = x;
-  let sum = x;
-  for (let n = 1; n < 200 && Math.abs(term) > 1e-17; n++) {
-    term *= (-x * x) / n;
-    sum += term / (2 * n + 1);
-  }
-  return 0.5 + sum / Math.sqrt(Math.PI);
-};
-
-const ordinal = (n: number): string => {
-  const suffixes = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
-};
-
-/** "88th", "<1st", ">99th" — as the growth-charts report shows percentiles. */
-export const formatPercentile = (z: number): string => {
-  const p = normCdf(z) * 100;
-  if (p < 1) return '<1st';
-  if (p > 99) return '>99th';
-  return ordinal(Math.round(p));
-};
-
-/** Clinical age style: "3 d", "12 mo", "4 y 6 mo". */
-export const formatAge = (months: number): string => {
-  if (months < 1) return `${Math.round(months * DAYS_PER_MONTH)} d`;
-  if (months < 24) return `${Math.floor(months)} mo`;
-  const y = Math.floor(months / 12);
-  const m = Math.floor(months - y * 12);
-  return `${y} y${m ? ` ${m} mo` : ''}`;
-};
 
 /**
  * Age in months from the birth date to the measurement's calendar day in `zone` (the visit location's), else in
@@ -111,8 +55,13 @@ export const ageMonthsAt = (birthDate: string, iso: string, zone?: string): numb
   return DateTime.fromISO(day, { zone: 'utc' }).diff(birth, 'days').days / DAYS_PER_MONTH;
 };
 
-interface Indicator {
+interface GrowthChart {
+  set: GrowthChartSet;
+  measure: GrowthMeasure;
+  /** GROWTH_TABLES key without the sex. */
   table: string;
+  /** What the chart's x-axis is: age in months, or (weight-for-length) the same visit's length in cm. */
+  x: 'age' | 'length';
   /** WHO weight-based indicators use the restricted z-score. */
   restricted?: boolean;
   /** CDC flags on the modified z-score; WHO on the z-score itself. */
@@ -121,56 +70,125 @@ interface Indicator {
   flag: [number, number];
 }
 
-// The chart each measure is read against at an age, with the report's implausible-value limits. WHO has no
-// BMI chart in the report's set; head circumference is WHO only (0-24 months), flagged at WHO Anthro's ±5 SD.
-const indicatorFor = (measure: GrowthMeasure, ageMonths: number, sex: 'male' | 'female'): Indicator | undefined => {
-  if (ageMonths < 0 || ageMonths > CDC_MAX_MONTHS) return undefined;
-  const who = ageMonths < WHO_MAX_MONTHS;
-  switch (measure) {
-    case 'weight':
-      return who
-        ? { table: `WHO wfa ${sex}`, restricted: true, flag: [-6, 5] }
-        : { table: `CDC wfa ${sex}`, modified: true, flag: [-5, 8] };
-    case 'height':
-      return who
-        ? { table: `WHO lfa ${sex}`, flag: [-6, 6] }
-        : { table: `CDC sfa ${sex}`, modified: true, flag: [-5, 4] };
-    case 'bmi':
-      return who ? undefined : { table: `CDC bmi ${sex}`, modified: true, flag: [-4, 8] };
-    case 'headCircumference':
-      return who ? { table: `WHO hcfa ${sex}`, flag: [-5, 5] } : undefined;
-  }
+// The report's chart sets with its implausible-value limits. Head circumference (not in the report, as Ottehr did
+// not record it then) is WHO only, flagged at WHO Anthro's ±5 SD.
+export const GROWTH_CHARTS: Record<GrowthChartId, GrowthChart> = {
+  'who-wfa': { set: 'who', measure: 'weight', table: 'WHO wfa', x: 'age', restricted: true, flag: [-6, 5] },
+  'who-lfa': { set: 'who', measure: 'height', table: 'WHO lfa', x: 'age', flag: [-6, 6] },
+  'who-wfl': { set: 'who', measure: 'weight', table: 'WHO wfl', x: 'length', restricted: true, flag: [-5, 5] },
+  'who-hcfa': { set: 'who', measure: 'headCircumference', table: 'WHO hcfa', x: 'age', flag: [-5, 5] },
+  'cdc-wfa': { set: 'cdc', measure: 'weight', table: 'CDC wfa', x: 'age', modified: true, flag: [-5, 8] },
+  'cdc-sfa': { set: 'cdc', measure: 'height', table: 'CDC sfa', x: 'age', modified: true, flag: [-5, 4] },
+  'cdc-bmi': { set: 'cdc', measure: 'bmi', table: 'CDC bmi', x: 'age', modified: true, flag: [-4, 8] },
 };
+
+/** The chart set an age belongs to; undefined before birth and after 20 years. */
+export const chartSetAt = (ageMonths: number): GrowthChartSet | undefined =>
+  ageMonths < 0 || ageMonths > CDC_MAX_MONTHS ? undefined : ageMonths < WHO_MAX_MONTHS ? 'who' : 'cdc';
+
+/** The age chart a measure is read against at an age (none for BMI under 2 or head circumference from 2). */
+const ageChartFor = (measure: GrowthMeasure, ageMonths: number): GrowthChartId | undefined => {
+  const set = chartSetAt(ageMonths);
+  return GROWTH_CHART_IDS.find((id) => {
+    const chart = GROWTH_CHARTS[id];
+    return chart.set === set && chart.measure === measure && chart.x === 'age';
+  });
+};
+
+interface Score {
+  z: number;
+  percentile: string;
+  implausible: boolean;
+  /** The z the implausible limits apply to: CDC's modified z, else z. */
+  flagZ: number;
+}
+
+/** z, percentile and the implausible flag of y at x on a chart; undefined when x is outside its table. */
+export const scoreOn = (chartId: GrowthChartId, x: number, y: number, sex: Sex): Score | undefined => {
+  const chart = GROWTH_CHARTS[chartId];
+  const p = lmsAt(GROWTH_TABLES[`${chart.table} ${sex}`], x);
+  if (!p) return undefined;
+  const z = zOf(p, y, chart.restricted);
+  const flagZ = chart.modified ? modifiedZ(p, y) : z;
+  return { z, percentile: formatPercentile(z), implausible: flagZ < chart.flag[0] || flagZ > chart.flag[1], flagZ };
+};
+
+const percentileText = (score: Score | undefined): string | undefined =>
+  score && (score.implausible ? 'implausible' : score.percentile);
 
 /** The percentile text for a measurement, 'implausible' when flagged, undefined when no table covers it. */
 export const percentileOf = (
   measure: GrowthMeasure,
   value: number,
   ageMonths: number,
-  sex: 'male' | 'female'
+  sex: Sex
 ): string | undefined => {
-  const indicator = indicatorFor(measure, ageMonths, sex);
-  const p = indicator && lmsAt(GROWTH_TABLES[indicator.table], ageMonths);
-  if (!indicator || !p) return undefined;
-  const z = zOf(p, value, indicator.restricted);
-  const flagZ = indicator.modified ? modifiedZ(p, value) : z;
-  if (flagZ < indicator.flag[0] || flagZ > indicator.flag[1]) return 'implausible';
-  return formatPercentile(z);
+  const chart = ageChartFor(measure, ageMonths);
+  return percentileText(chart && scoreOn(chart, ageMonths, value, sex));
 };
 
 /**
  * WHO weight-for-length (under 24 months): the percentile of a weight at a length, 'implausible' beyond the
  * report's ±5 limit, undefined when the length is outside the 45-110 cm table.
  */
-export const weightForLengthPercentileOf = (
-  weightKg: number,
-  lengthCm: number,
-  sex: 'male' | 'female'
-): string | undefined => {
-  const p = lmsAt(GROWTH_TABLES[`WHO wfl ${sex}`], lengthCm);
-  if (!p) return undefined;
-  const z = zOf(p, weightKg, true);
-  return z < -5 || z > 5 ? 'implausible' : formatPercentile(z);
+export const weightForLengthPercentileOf = (weightKg: number, lengthCm: number, sex: Sex): string | undefined =>
+  percentileText(scoreOn('who-wfl', lengthCm, weightKg, sex));
+
+const NOT_ON_LINE = '— not plotted on the line';
+
+/**
+ * The visit's point on every chart its measurements belong to, as the report's chartRows builds them: one weight,
+ * height, BMI and head circumference per visit (the cell values), weight-for-length from the same visit's pair.
+ * A measurement outside a chart's set counts in outsideRange instead.
+ */
+const visitChartPoints = (
+  values: Record<string, FlowsheetValue>,
+  encounterId: string | undefined,
+  ageAt: (time: string) => number | undefined,
+  sex: Sex,
+  outsideRange: Partial<Record<GrowthChartId, number>>
+): GrowthChartPoint[] => {
+  const points: GrowthChartPoint[] = [];
+  const flagged = (measure: GrowthMeasure): boolean => values[`${measure}Percentile`]?.value === 'implausible';
+  GROWTH_CHART_IDS.forEach((id) => {
+    const chart = GROWTH_CHARTS[id];
+    const measurement = values[chart.measure];
+    const length = values.height?.value;
+    const ageMonths = typeof measurement?.value === 'number' ? ageAt(measurement.time) : undefined;
+    if (typeof measurement?.value !== 'number' || ageMonths === undefined) return;
+    if (chart.x === 'length' && typeof length !== 'number') return; // a weight without a same-visit length
+    if (chartSetAt(ageMonths) !== chart.set) {
+      outsideRange[id] = (outsideRange[id] ?? 0) + 1;
+      return;
+    }
+    const x = chart.x === 'length' && typeof length === 'number' ? length : ageMonths;
+    const point: GrowthChartPoint = {
+      chart: id,
+      encounterId,
+      time: measurement.time,
+      age: formatAge(ageMonths),
+      x,
+      y: measurement.value,
+    };
+    const score = scoreOn(id, x, measurement.value, sex);
+    if (!score) {
+      points.push({
+        ...point,
+        note: chart.x === 'length' ? 'length outside the 45–110 cm table' : 'outside the table',
+      });
+      return;
+    }
+    // A BMI or weight-for-length built from a flagged weight or height is flagged too.
+    const from: GrowthMeasure[] = chart.measure === 'bmi' || chart.x === 'length' ? ['weight', 'height'] : [];
+    const bad = from.filter(flagged);
+    const note = score.implausible
+      ? `implausible (${chart.modified ? 'modified ' : ''}z ${score.flagZ.toFixed(1)}) ${NOT_ON_LINE}`
+      : bad.length
+      ? `from an implausible ${bad.join(' and ')} ${NOT_ON_LINE}`
+      : undefined;
+    points.push({ ...point, z: score.z, ...(note ? { implausible: true, note } : { percentile: score.percentile }) });
+  });
+  return points;
 };
 
 const measureOf = (field: VitalFieldNames): GrowthMeasure | undefined => {
@@ -191,12 +209,15 @@ const byEffectiveDateTime = (a: Observation, b: Observation): number =>
 
 const later = (a: string, b: string): string => (a > b ? a : b);
 
-export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources): FlowsheetVisit[] => {
+/** The grid's visits and, with a full birth date and a male/female sex, the growth-chart data up to asOf. */
+export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources, asOf?: string): GetFlowsheetOutput => {
   // Percentiles need a full birth date and a male/female sex (the references are sex-specific).
   const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(resources.birthDate ?? '') ? resources.birthDate : undefined;
   const sex = resources.gender === 'male' || resources.gender === 'female' ? resources.gender : undefined;
 
   const visits: FlowsheetVisit[] = [];
+  const points: GrowthChartPoint[] = [];
+  const outsideRange: Partial<Record<GrowthChartId, number>> = {};
   groupByEncounter(resources.observations, (o) => o.encounter?.reference).forEach((observations, encounterId) => {
     const visit = describeVisit(encounterId, resources);
     // Oldest first, so the latest reading of each measure is the cell value; every reading is kept.
@@ -250,8 +271,26 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources): Flows
     const ageMonths = birthDate ? ageMonthsAt(birthDate, start, visit.timezone) : undefined;
     if (ageMonths !== undefined && ageMonths >= 0) add('age', { time: start, value: formatAge(ageMonths) });
 
+    // The chart points follow the visits shown: none after asOf.
+    if (birthDate && sex && (!asOf || Date.parse(start) <= Date.parse(asOf))) {
+      const ageAt = (time: string): number | undefined => ageMonthsAt(birthDate, time, visit.timezone);
+      points.push(...visitChartPoints(values, visit.encounterId, ageAt, sex, outsideRange));
+    }
+
     visits.push({ ...visit, start, values });
   });
 
-  return newestFirst(visits);
+  const growth: GrowthChartData | undefined =
+    birthDate && sex
+      ? {
+          sex,
+          ageMonths: ageMonthsAt(birthDate, asOf ?? new Date().toISOString()),
+          points: points.sort((a, b) => a.time.localeCompare(b.time)),
+          outsideRange,
+          tables: Object.fromEntries(
+            GROWTH_CHART_IDS.map((id) => [id, GROWTH_TABLES[`${GROWTH_CHARTS[id].table} ${sex}`]])
+          ) as GrowthChartData['tables'],
+        }
+      : undefined;
+  return { visits: newestFirst(visits), ...(growth ? { growth } : {}) };
 };

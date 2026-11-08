@@ -52,7 +52,8 @@ const vitals: FlowsheetDefinition = {
 };
 
 // Percentiles are WHO (birth to 24 months) / CDC (2 to 20 years) for the patient's sex; BMI is computed from the
-// visit's weight and height. Percentile rows are text ("88th", "<1st", "implausible") computed by the server.
+// visit's weight and height. Percentile rows are text ("88th", "<1st", "implausible") computed by the server. The
+// growth chart cards (GrowthCharts.tsx) take the place of trend charts, from the server's growth data.
 const growth: FlowsheetDefinition = {
   id: 'growth',
   title: 'Growth',
@@ -68,12 +69,7 @@ const growth: FlowsheetDefinition = {
     { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
     { label: 'Head circumference percentile', keys: ['headCircumferencePercentile'] },
   ],
-  charts: [
-    { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
-    { title: 'Height / length', unit: 'cm', lines: [{ name: 'Height / length', key: 'height' }] },
-    { title: 'BMI', unit: 'kg/m²', lines: [{ name: 'BMI', key: 'bmi' }] },
-    { title: 'Head circumference', unit: 'cm', lines: [{ name: 'Head circumference', key: 'headCircumference' }] },
-  ],
+  charts: [],
 };
 
 /** Every flowsheet the EHR offers, in side-list (alphabetical) order. */

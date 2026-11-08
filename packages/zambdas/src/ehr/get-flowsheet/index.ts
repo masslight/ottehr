@@ -18,7 +18,8 @@ let m2mToken: string;
 interface FlowsheetDefinition {
   /** The kinds of patient data this flowsheet needs; nothing else is fetched. */
   kinds: FlowsheetDataKind[];
-  build: (data: FlowsheetData) => FlowsheetVisit[];
+  /** The visits, or the visits with the flowsheet's extra data (the growth charts), up to asOf. */
+  build: (data: FlowsheetData, asOf?: string) => FlowsheetVisit[] | GetFlowsheetOutput;
 }
 
 // Every query is built from the patient id alone; the flowsheet id only picks the kinds of data to fetch.
@@ -26,7 +27,7 @@ const FLOWSHEETS: Record<FlowsheetId, FlowsheetDefinition> = {
   vitals: { kinds: ['vitals'], build: (data) => buildVitalsFlowsheet({ ...data, observations: data.vitals ?? [] }) },
   growth: {
     kinds: ['birthDate', 'vitals'],
-    build: (data) => buildGrowthFlowsheet({ ...data, observations: data.vitals ?? [] }),
+    build: (data, asOf) => buildGrowthFlowsheet({ ...data, observations: data.vitals ?? [] }, asOf),
   },
 };
 
@@ -39,9 +40,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const { kinds, build } = FLOWSHEETS[flowsheetId];
-  const visits = build(await fetchFlowsheetData(oystehr, patientId, kinds));
-  const output: GetFlowsheetOutput = {
-    visits: asOf ? visits.filter((visit) => Date.parse(visit.start) <= Date.parse(asOf)) : visits,
-  };
+  const built = build(await fetchFlowsheetData(oystehr, patientId, kinds), asOf);
+  const output: GetFlowsheetOutput = Array.isArray(built) ? { visits: built } : built;
+  if (asOf) output.visits = output.visits.filter((visit) => Date.parse(visit.start) <= Date.parse(asOf));
   return { statusCode: 200, body: JSON.stringify(output) };
 });

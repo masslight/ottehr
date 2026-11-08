@@ -1,18 +1,24 @@
 import { Appointment, Encounter, Location, Observation } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  formatAge,
+  formatPercentile,
+  lmsAt,
+  normCdf,
+  valueAtZ,
+  zForPercentile,
+  zOf,
+} from 'utils/lib/helpers/vitals/growth-lms';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, test } from 'vitest';
 import {
   ageMonthsAt,
   buildGrowthFlowsheet,
-  formatAge,
-  formatPercentile,
-  lmsAt,
-  normCdf,
+  chartSetAt,
   percentileOf,
+  scoreOn,
   weightForLengthPercentileOf,
-  zOf,
 } from '../../src/ehr/get-flowsheet/growth';
 import { GROWTH_TABLES } from '../../src/ehr/get-flowsheet/growth-tables.generated';
 
@@ -137,7 +143,7 @@ describe('growth math (ported from the OTR-3741 growth-charts report)', () => {
         vital(VitalFieldNames.VitalWeight, 'e1', '2024-07-10T14:05:00.000Z', 7.3),
         vital(VitalFieldNames.VitalHeight, 'e1', '2024-07-10T14:06:00.000Z', 100),
       ],
-    })[0];
+    }).visits[0];
     expect(implausibleLength.values.heightPercentile.value).toBe('implausible');
     expect(implausibleLength.values.weightForLengthPercentile.value).toBe('implausible');
   });
@@ -171,7 +177,7 @@ describe('growth math (ported from the OTR-3741 growth-charts report)', () => {
 
 describe('buildGrowthFlowsheet', () => {
   test('one column per visit with measurements, BMI from the visit pair, age and percentiles', () => {
-    const [cdcVisit, whoVisit] = buildGrowthFlowsheet(resources);
+    const [cdcVisit, whoVisit] = buildGrowthFlowsheet(resources).visits;
     expect(whoVisit.encounterId).toBe('e1');
     expect(whoVisit.values.age.value).toBe('5 mo'); // 182 days = 5.98 months
     expect(whoVisit.values.weight.value).toBe(7.3);
@@ -215,18 +221,18 @@ describe('buildGrowthFlowsheet', () => {
       encounters: [encounters[0]],
       observations: [vital(VitalFieldNames.VitalWeight, 'e1', '2026-04-01T00:35:00.000Z', 3.2)],
     };
-    const [withLocation] = buildGrowthFlowsheet({ ...evening, locations: [location] });
+    const [withLocation] = buildGrowthFlowsheet({ ...evening, locations: [location] }).visits;
     expect(withLocation.timezone).toBe('America/New_York');
     expect(withLocation.values.age.value).toBe('0 d');
     // Without the location the UTC calendar day is used, as before.
-    const [withoutLocation] = buildGrowthFlowsheet(evening);
+    const [withoutLocation] = buildGrowthFlowsheet(evening).visits;
     expect(withoutLocation.timezone).toBeUndefined();
     expect(withoutLocation.values.age.value).toBe('1 d');
   });
 
   test('percentiles follow the patient sex', () => {
-    const asGirl = buildGrowthFlowsheet(resources)[1].values.weightPercentile.value;
-    const asBoy = buildGrowthFlowsheet({ ...resources, gender: 'male' })[1].values.weightPercentile.value;
+    const asGirl = buildGrowthFlowsheet(resources).visits[1].values.weightPercentile.value;
+    const asBoy = buildGrowthFlowsheet({ ...resources, gender: 'male' }).visits[1].values.weightPercentile.value;
     expect(asGirl).not.toBe(asBoy);
   });
 
@@ -236,23 +242,166 @@ describe('buildGrowthFlowsheet', () => {
       { ...resources, birthDate: '2024' },
       { ...resources, gender: 'other' as const },
     ]) {
-      const visit = buildGrowthFlowsheet(partial)[1];
+      const visit = buildGrowthFlowsheet(partial).visits[1];
       expect(visit.values.weight.value).toBe(7.3);
       expect(visit.values.bmi).toBeDefined();
       expect(Object.keys(visit.values).filter((key) => key.endsWith('Percentile'))).toEqual([]);
       expect(visit.values.age === undefined || partial.birthDate === '2024-01-10').toBe(true);
     }
-    expect(buildGrowthFlowsheet({ ...resources, gender: 'other' })[1].values.age.value).toBe('5 mo');
+    expect(buildGrowthFlowsheet({ ...resources, gender: 'other' }).visits[1].values.age.value).toBe('5 mo');
   });
 
   test('keeps every reading of a measure in the visit, latest as the cell value, with its percentile', () => {
     const twice = buildGrowthFlowsheet({
       ...resources,
       observations: [...observations, vital(VitalFieldNames.VitalWeight, 'e1', '2024-07-10T14:40:00.000Z', 7.5)],
-    })[1];
+    }).visits[1];
     expect(twice.values.weight.value).toBe(7.5);
     expect(twice.values.weight.readings.map((r) => r.value)).toEqual([7.3, 7.5]);
     expect(twice.values.weightPercentile.readings).toHaveLength(2);
     expect(twice.values.bmi.value).toBeCloseTo(7.5 / 0.65 ** 2, 10);
+  });
+});
+
+describe('growth chart data (the cards the EHR draws)', () => {
+  test('z is 0 and the percentile 50th at a table row median, on WHO and CDC charts', () => {
+    // WHO weight-for-age boys 12 months: M = 9.6479; CDC BMI-for-age girls at the 120.5-month row.
+    expect(scoreOn('who-wfa', 12, 9.6479, 'male')).toMatchObject({ z: 0, percentile: '50th', implausible: false });
+    const bmi = lmsAt(GROWTH_TABLES['CDC bmi female'], 120.5)!;
+    expect(scoreOn('cdc-bmi', 120.5, bmi.M, 'female')?.z).toBeCloseTo(0, 10);
+    expect(scoreOn('cdc-bmi', 120.5, bmi.M, 'female')?.percentile).toBe('50th');
+    // WHO head circumference boys 6 months: M = 43.3306.
+    expect(scoreOn('who-hcfa', 6, 43.3306, 'male')).toMatchObject({ z: 0, percentile: '50th' });
+    // The curves: the value at z for the 50th percentile is M, and the percentile z's invert the normal CDF.
+    expect(zForPercentile(50)).toBeCloseTo(0, 8);
+    expect(zForPercentile(97.5)).toBeCloseTo(1.959964, 5);
+    expect(valueAtZ(bmi, zForPercentile(50))).toBeCloseTo(bmi.M, 8);
+    expect(scoreOn('who-wfa', 24.5, 10, 'male')).toBeUndefined(); // outside the WHO table
+  });
+
+  test('WHO restricted z: 3 SD above the median is z 3, and each further 2-to-3 SD gap adds 1', () => {
+    const p = lmsAt(GROWTH_TABLES['WHO wfa female'], 12)!;
+    const sd2 = valueAtZ(p, 2);
+    const sd3 = valueAtZ(p, 3);
+    expect(zOf(p, sd3, true)).toBeCloseTo(3, 8);
+    expect(zOf(p, sd3 + (sd3 - sd2), true)).toBeCloseTo(4, 8);
+    const sdm2 = valueAtZ(p, -2);
+    const sdm3 = valueAtZ(p, -3);
+    expect(zOf(p, sdm3 - (sdm2 - sdm3), true)).toBeCloseTo(-4, 8);
+    // Length is not weight-based: no restriction.
+    expect(scoreOn('who-lfa', 12, 95, 'female')!.z).toBeGreaterThan(5);
+  });
+
+  test('the chart set: WHO under 24 months, CDC from 24 to 240, none outside; opens on the age at asOf', () => {
+    expect(chartSetAt(0)).toBe('who');
+    expect(chartSetAt(23.99)).toBe('who');
+    expect(chartSetAt(24)).toBe('cdc');
+    expect(chartSetAt(240)).toBe('cdc');
+    expect(chartSetAt(240.1)).toBeUndefined();
+    expect(chartSetAt(-1)).toBeUndefined();
+    const atWhoVisit = buildGrowthFlowsheet(resources, '2024-07-10T23:59:59.999-04:00').growth!;
+    expect(atWhoVisit.ageMonths).toBeCloseTo(182 / 30.4375, 10);
+    const atCdcVisit = buildGrowthFlowsheet(resources, '2034-01-10T23:59:59.999-05:00').growth!;
+    expect(atCdcVisit.ageMonths).toBeCloseTo(120, 0);
+    // Points follow the visits shown: none after asOf.
+    expect(atWhoVisit.points.every((point) => point.encounterId === 'e1')).toBe(true);
+    expect(atCdcVisit.points.map((point) => point.encounterId).sort()).toEqual([
+      'e1',
+      'e1',
+      'e1',
+      'e1',
+      'e2',
+      'e2',
+      'e2',
+    ]);
+  });
+
+  test('one point per chart per visit, with z, percentile and age; the other set counts as outside the range', () => {
+    const { growth } = buildGrowthFlowsheet(resources);
+    expect(growth?.sex).toBe('female');
+    const byChart = Object.fromEntries(growth!.points.map((point) => [point.chart, point]));
+    expect(Object.keys(byChart).sort()).toEqual(
+      ['cdc-bmi', 'cdc-sfa', 'cdc-wfa', 'who-hcfa', 'who-lfa', 'who-wfa', 'who-wfl'].sort()
+    );
+    expect(byChart['who-wfa']).toMatchObject({ encounterId: 'e1', age: '5 mo', y: 7.3 });
+    expect(byChart['who-wfa'].implausible).toBeUndefined();
+    expect(byChart['who-wfa'].x).toBeCloseTo(182 / 30.4375, 10);
+    expect(byChart['who-wfa'].z).toBeCloseTo(
+      zOf(lmsAt(GROWTH_TABLES['WHO wfa female'], byChart['who-wfa'].x)!, 7.3, true),
+      10
+    );
+    expect(byChart['who-wfa'].percentile).toBe(formatPercentile(byChart['who-wfa'].z!));
+    // Weight-for-length: x is the same visit's length, the value the weight.
+    expect(byChart['who-wfl']).toMatchObject({ x: 65, y: 7.3, time: '2024-07-10T14:05:00.000Z' });
+    expect(byChart['who-hcfa']).toMatchObject({ x: byChart['who-wfa'].x, y: 42 });
+    expect(byChart['cdc-bmi']).toMatchObject({ encounterId: 'e2', age: '10 y' });
+    expect(byChart['cdc-bmi'].y).toBeCloseTo(32 / 1.38 ** 2, 10);
+    expect(typeof byChart['cdc-sfa'].z).toBe('number');
+    // The 10-year visit is outside birth to 24 months, the 6-month visit outside 2 to 20 years.
+    expect(growth!.outsideRange).toEqual({
+      'who-wfa': 1,
+      'who-lfa': 1,
+      'who-wfl': 1,
+      'who-hcfa': 1,
+      'cdc-wfa': 1,
+      'cdc-sfa': 1,
+      'cdc-bmi': 1,
+    });
+    // Every chart's LMS rows for the patient's sex, nothing else.
+    expect(Object.keys(growth!.tables).sort()).toEqual(Object.keys(byChart).sort());
+    expect(growth!.tables['who-wfa']).toBe(GROWTH_TABLES['WHO wfa female']);
+    expect(growth!.tables['cdc-sfa']).toBe(GROWTH_TABLES['CDC sfa female']);
+    // Points are oldest first.
+    expect(growth!.points.map((point) => point.time)).toEqual(growth!.points.map((point) => point.time).sort());
+  });
+
+  test('implausible values keep their z but get a note instead of a percentile, and taint BMI and weight-for-length', () => {
+    const heavy = buildGrowthFlowsheet({
+      ...resources,
+      observations: [
+        // 15 kg and 100 cm at 6 months: each implausible for age, but a normal weight for that length.
+        vital(VitalFieldNames.VitalWeight, 'e1', '2024-07-10T14:05:00.000Z', 15),
+        vital(VitalFieldNames.VitalHeight, 'e1', '2024-07-10T14:06:00.000Z', 100),
+        vital(VitalFieldNames.VitalWeight, 'e2', '2034-01-10T14:05:00.000Z', 32),
+        vital(VitalFieldNames.VitalHeight, 'e2', '2034-01-10T14:06:00.000Z', 100),
+      ],
+    }).growth!;
+    const byChart = Object.fromEntries(heavy.points.map((point) => [point.chart, point]));
+    expect(byChart['who-wfa'].implausible).toBe(true);
+    expect(byChart['who-wfa'].percentile).toBeUndefined();
+    expect(byChart['who-wfa'].note).toMatch(/^implausible \(z \d+\.\d\) — not plotted on the line$/);
+    expect(typeof byChart['who-wfa'].z).toBe('number');
+    expect(byChart['who-lfa'].implausible).toBe(true);
+    expect(byChart['who-wfl']).toMatchObject({
+      implausible: true,
+      note: 'from an implausible weight and height — not plotted on the line',
+    });
+    expect(byChart['who-wfl'].percentile).toBeUndefined();
+    // CDC: 100 cm at 10 years is below the modified-z −5 limit; the BMI from it is tainted.
+    expect(byChart['cdc-sfa'].note).toMatch(/^implausible \(modified z -\d+\.\d\) — not plotted on the line$/);
+    expect(byChart['cdc-bmi']).toMatchObject({
+      implausible: true,
+      note: 'from an implausible height — not plotted on the line',
+    });
+    expect(byChart['cdc-wfa'].implausible).toBeUndefined();
+  });
+
+  test('a length outside the 45–110 cm table is listed with the report note and no z', () => {
+    const long = buildGrowthFlowsheet({
+      ...resources,
+      observations: [
+        vital(VitalFieldNames.VitalWeight, 'e1', '2024-07-10T14:05:00.000Z', 7.3),
+        vital(VitalFieldNames.VitalHeight, 'e1', '2024-07-10T14:06:00.000Z', 44),
+      ],
+    }).growth!;
+    const wfl = long.points.find((point) => point.chart === 'who-wfl')!;
+    expect(wfl).toMatchObject({ x: 44, y: 7.3, note: 'length outside the 45–110 cm table' });
+    expect(wfl.z).toBeUndefined();
+    expect(wfl.implausible).toBeUndefined();
+  });
+
+  test('no growth data without a full birth date or a male/female sex', () => {
+    expect(buildGrowthFlowsheet({ ...resources, birthDate: '2024' }).growth).toBeUndefined();
+    expect(buildGrowthFlowsheet({ ...resources, gender: 'other' }).growth).toBeUndefined();
   });
 });
