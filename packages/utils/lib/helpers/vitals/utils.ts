@@ -224,7 +224,7 @@ const findRulesForVitalsKeyAndDOB = (
 ):
   | { type: 'rules'; rules: AlertRule[] }
   | { type: 'components'; components: { [componentName: string]: AlertRule[] } } => {
-  if (key === 'vital-last-menstrual-period' || key === 'vital-bmi') {
+  if (key === 'vital-last-menstrual-period' || key === 'vital-bmi' || key === 'vital-head-circumference') {
     return { type: 'rules', rules: [] };
   }
 

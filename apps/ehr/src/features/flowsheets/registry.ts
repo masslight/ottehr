@@ -32,6 +32,7 @@ const vitals: FlowsheetDefinition = {
     { label: 'Blood pressure (mmHg)', keys: ['systolic', 'diastolic'], digits: 0 },
     { label: 'Weight (kg)', keys: ['weight'], digits: 1 },
     { label: 'Height (cm)', keys: ['height'], digits: 1 },
+    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
   ],
   charts: [
@@ -50,5 +51,29 @@ const vitals: FlowsheetDefinition = {
   ],
 };
 
+// Percentiles are WHO (birth to 24 months) / CDC (2 to 20 years) for the patient's sex; BMI is computed from the
+// visit's weight and height. Percentile rows are text ("88th", "<1st", "implausible") computed by the server.
+const growth: FlowsheetDefinition = {
+  id: 'growth',
+  title: 'Growth',
+  rows: [
+    { label: 'Age', keys: ['age'] },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
+    { label: 'Weight percentile', keys: ['weightPercentile'] },
+    { label: 'Height / length (cm)', keys: ['height'], digits: 1 },
+    { label: 'Height / length percentile', keys: ['heightPercentile'] },
+    { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
+    { label: 'BMI percentile', keys: ['bmiPercentile'] },
+    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
+    { label: 'Head circumference percentile', keys: ['headCircumferencePercentile'] },
+  ],
+  charts: [
+    { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
+    { title: 'Height / length', unit: 'cm', lines: [{ name: 'Height / length', key: 'height' }] },
+    { title: 'BMI', unit: 'kg/m²', lines: [{ name: 'BMI', key: 'bmi' }] },
+    { title: 'Head circumference', unit: 'cm', lines: [{ name: 'Head circumference', key: 'headCircumference' }] },
+  ],
+};
+
 /** Every flowsheet the EHR offers, in side-list (alphabetical) order. */
-export const FLOWSHEETS: FlowsheetDefinition[] = [vitals].sort((a, b) => a.title.localeCompare(b.title));
+export const FLOWSHEETS: FlowsheetDefinition[] = [vitals, growth].sort((a, b) => a.title.localeCompare(b.title));

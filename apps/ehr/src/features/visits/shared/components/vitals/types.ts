@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 import { ChangeEvent } from 'react';
 import {
   VitalsBloodPressureObservationDTO,
+  VitalsHeadCircumferenceObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -143,6 +144,20 @@ export interface HeightLocalState {
   getDTO: () => VitalsHeightObservationDTO | null;
 }
 
+export interface HeadCircumferenceLocalState {
+  valueCm: string;
+  valueInches: string;
+  validationError: boolean;
+  isDisabled: boolean;
+  hasData: boolean;
+  isValid: boolean;
+  handleCmChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  handleInchesChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  setValidationError: (error: boolean) => void;
+  clearForm: () => void;
+  getDTO: () => VitalsHeadCircumferenceObservationDTO | null;
+}
+
 export interface VisionLocalState {
   leftEyeSelection: string;
   rightEyeSelection: string;
@@ -188,5 +203,6 @@ export type VitalLocalState =
   | OxygenSatLocalState
   | WeightLocalState
   | HeightLocalState
+  | HeadCircumferenceLocalState
   | VisionLocalState
   | LMPLocalState;

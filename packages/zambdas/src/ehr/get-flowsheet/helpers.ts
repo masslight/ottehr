@@ -144,6 +144,8 @@ const measuresOf = (dto: VitalsObservationDTO): Record<string, number | undefine
       return { weight: dto.value };
     case VitalFieldNames.VitalHeight:
       return { height: dto.value };
+    case VitalFieldNames.VitalHeadCircumference:
+      return { headCircumference: dto.value };
     // The saved vital-bmi Observation, never a computed value.
     case VitalFieldNames.VitalBMI:
       return { bmi: dto.value };

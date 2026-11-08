@@ -5,6 +5,7 @@ import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { buildGrowthFlowsheet } from './growth';
 import { buildVitalsFlowsheet } from './helpers';
 import { fetchFlowsheetData, FlowsheetData, FlowsheetDataKind } from './patient-data';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -23,6 +24,10 @@ interface FlowsheetDefinition {
 // Every query is built from the patient id alone; the flowsheet id only picks the kinds of data to fetch.
 const FLOWSHEETS: Record<FlowsheetId, FlowsheetDefinition> = {
   vitals: { kinds: ['vitals'], build: (data) => buildVitalsFlowsheet({ ...data, observations: data.vitals ?? [] }) },
+  growth: {
+    kinds: ['birthDate', 'vitals'],
+    build: (data) => buildGrowthFlowsheet({ ...data, observations: data.vitals ?? [] }),
+  },
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { VitalAlertCriticality } from './chart-data/chart-data.constants';
 
 /** The flowsheets the EHR registry offers; the get-flowsheet zambda accepts nothing else. */
-export const FLOWSHEET_IDS = ['vitals'] as const;
+export const FLOWSHEET_IDS = ['vitals', 'growth'] as const;
 export type FlowsheetId = (typeof FLOWSHEET_IDS)[number];
 
 export const GetFlowsheetInputSchema = z.object({
