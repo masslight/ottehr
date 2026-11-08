@@ -19,22 +19,32 @@ const THYROID_MEDICATION =
   /levothyroxine|synthroid|levoxyl|unithroid|tirosint|liothyronine|cytomel|armour|desiccated|methimazole|tapazole|propylthiouracil|\bptu\b/i;
 
 /**
- * Lab rows: a result matches by one of its LOINC codes first, else by its analyte name. The free hormones are listed
- * before the totals, and a total row never takes a result whose name says "free".
+ * Lab rows: a result with LOINC codes matches by code alone; only a result without any matches by its analyte name.
+ * The free hormones are listed before the totals, and a total row never takes a result whose name says "free".
  */
 const LAB_ROWS: { key: string; loinc: string[]; analyte: RegExp; exclude?: RegExp }[] = [
-  { key: 'tsh', loinc: ['3016-3', '11580-8', '11579-0'], analyte: /\btsh\b|thyrotropin|thyroid stimulating/i },
+  {
+    key: 'tsh',
+    loinc: ['3016-3', '11580-8', '11579-0'],
+    analyte: /\btsh\b|thyrotropin|thyroid stimulating/i,
+    exclude: /receptor|antibod|binding|globulin/i,
+  },
   { key: 'freeT4', loinc: ['3024-7', '6892-4'], analyte: /free t4|ft4|thyroxine.*free/i },
-  { key: 'totalT4', loinc: ['3026-2'], analyte: /^t4\b|total t4|thyroxine/i, exclude: /free/i },
+  {
+    key: 'totalT4',
+    loinc: ['3026-2'],
+    analyte: /^t4\b|total t4|thyroxine/i,
+    exclude: /free|receptor|antibod|binding|globulin/i,
+  },
   { key: 'freeT3', loinc: ['3051-0'], analyte: /free t3|ft3|t3.*free/i },
   { key: 'totalT3', loinc: ['3053-6'], analyte: /^t3\b|total t3|triiodothyronine/i, exclude: /free/i },
   { key: 'tpoAntibodies', loinc: ['8099-4', '32042-4'], analyte: /tpo|peroxidase/i },
 ];
 
 const labRowFor = (lab: FlowsheetLabResult): string | undefined =>
-  (
-    LAB_ROWS.find((row) => lab.loincCodes.some((code) => row.loinc.includes(code))) ??
-    LAB_ROWS.find((row) => row.analyte.test(lab.analyte) && !row.exclude?.test(lab.analyte))
+  (lab.loincCodes.length > 0
+    ? LAB_ROWS.find((row) => lab.loincCodes.some((code) => row.loinc.includes(code)))
+    : LAB_ROWS.find((row) => row.analyte.test(lab.analyte) && !row.exclude?.test(lab.analyte))
   )?.key;
 
 const byResultedAt = (a: FlowsheetLabResult, b: FlowsheetLabResult): number =>

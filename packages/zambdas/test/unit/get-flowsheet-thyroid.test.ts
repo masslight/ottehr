@@ -172,4 +172,16 @@ describe('buildThyroidFlowsheet', () => {
     // The text-only TSH result is left out; the numeric one is the cell.
     expect(visit.values.tsh.readings).toHaveLength(1);
   });
+
+  test('a coded result lands by LOINC only; by name, a TSH receptor antibody is not a TSH and TBG is not a T4', () => {
+    const at = '2023-02-06T18:00:00.000Z';
+    const labsOnly: FlowsheetData = { ...data, vitals: [], diagnoses: undefined, medications: undefined };
+    const rowsOf = (...labs: FlowsheetLabResult[]): string[] =>
+      Object.keys(buildThyroidFlowsheet({ ...labsOnly, labs: { e1: labs } })[0]?.values ?? {}).sort();
+
+    expect(rowsOf(lab('TSH receptor antibody', ['5385-0'], 2.1, 'IU/L', at))).toEqual([]);
+    expect(rowsOf(lab('TSH receptor antibody', [], 2.1, 'IU/L', at))).toEqual([]);
+    expect(rowsOf(lab('Thyroxine binding globulin', [], 18, 'ug/mL', at))).toEqual([]);
+    expect(rowsOf(lab('Thyroxine (T4)', [], 8.1, 'ug/dL', at))).toEqual(['totalT4']);
+  });
 });
