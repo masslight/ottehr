@@ -116,14 +116,14 @@ interface Cell {
   history: { time: string; text: string; flag?: VitalAlertCriticality }[];
 }
 
-const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
+export const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
   const readings = row.keys.map((key) => visit.values[key]).filter((reading) => reading !== undefined);
   if (readings.length < row.keys.length) return { text: '', history: [] };
-  // Numbers are rounded to the row's digits; text (a drug name, a coded lab result) is shown as saved.
+  // Numbers show exactly the row's digits (3.10, not 3.1); text (a drug name, a coded lab result) is shown as saved.
   const formatOne = ({ value, unit }: FlowsheetReading): string => {
     const text =
       typeof value === 'number' && row.digits !== undefined
-        ? String(roundNumberToDecimalPlaces(value, row.digits))
+        ? roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)
         : String(value);
     return unit ? `${text} ${unit}` : text;
   };
