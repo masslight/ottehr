@@ -17,6 +17,11 @@ import { createOystehrFromEnvFile } from '../synthetic-patient-data/shared/oyste
 const ENV = arg('--env', 'synth');
 const PATIENT = arg('--patient', '');
 const EXECUTE = flag('--execute');
+// Seeds demo data only: refuse every other env before authenticating (as synth-daily-census does).
+const ALLOWED_ENVS = ['synth', 'local'];
+if (!ALLOWED_ENVS.includes(ENV)) {
+  throw new Error(`Refusing to run against env "${ENV}": this script only writes to ${ALLOWED_ENVS.join(' or ')}.`);
+}
 
 // Same tag as scripts/flowsheets/seed-longitudinal-patient.ts, so `--cleanup` there removes these too.
 const SEED_TAG = { system: 'https://fhir.ottehr.com/sid/synth-flowsheet-seed', code: 'flowsheet-seed' };
