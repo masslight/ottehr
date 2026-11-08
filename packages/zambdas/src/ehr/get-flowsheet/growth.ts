@@ -98,10 +98,15 @@ export const formatAge = (months: number): string => {
   return `${y} y${m ? ` ${m} mo` : ''}`;
 };
 
-/** Age in months from the birth date to the measurement's calendar day in the zone it was recorded in. */
-export const ageMonthsAt = (birthDate: string, iso: string): number | undefined => {
+/**
+ * Age in months from the birth date to the measurement's calendar day in `zone` (the visit location's), else in
+ * the zone it was recorded in.
+ */
+export const ageMonthsAt = (birthDate: string, iso: string, zone?: string): number | undefined => {
   const birth = DateTime.fromISO(birthDate, { zone: 'utc' });
-  const day = DateTime.fromISO(iso, { setZone: true }).toISODate();
+  const recorded = DateTime.fromISO(iso, { setZone: true });
+  const local = zone ? recorded.setZone(zone) : recorded;
+  const day = (local.isValid ? local : recorded).toISODate();
   if (!birth.isValid || !day) return undefined;
   return DateTime.fromISO(day, { zone: 'utc' }).diff(birth, 'days').days / DAYS_PER_MONTH;
 };
@@ -205,7 +210,7 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources): Flows
     };
     const addWithPercentile = (measure: GrowthMeasure, reading: FlowsheetReading): void => {
       add(measure, reading);
-      const ageMonths = birthDate ? ageMonthsAt(birthDate, reading.time) : undefined;
+      const ageMonths = birthDate ? ageMonthsAt(birthDate, reading.time, visit.timezone) : undefined;
       const percentile =
         ageMonths !== undefined && sex && typeof reading.value === 'number'
           ? percentileOf(measure, reading.value, ageMonths, sex)
@@ -230,7 +235,7 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources): Flows
 
       // Weight-for-length (WHO, under 24 months) pairs the weight with the same visit's length; a pair built
       // from an implausible weight or length is implausible too, as in the report.
-      const ageMonths = birthDate ? ageMonthsAt(birthDate, time) : undefined;
+      const ageMonths = birthDate ? ageMonthsAt(birthDate, time, visit.timezone) : undefined;
       if (sex && ageMonths !== undefined && ageMonths >= 0 && ageMonths < WHO_MAX_MONTHS) {
         const fromImplausible = [values.weightPercentile, values.heightPercentile].some(
           (p) => p?.value === 'implausible'
@@ -242,7 +247,7 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources): Flows
       }
     }
 
-    const ageMonths = birthDate ? ageMonthsAt(birthDate, start) : undefined;
+    const ageMonths = birthDate ? ageMonthsAt(birthDate, start, visit.timezone) : undefined;
     if (ageMonths !== undefined && ageMonths >= 0) add('age', { time: start, value: formatAge(ageMonths) });
 
     visits.push({ ...visit, start, values });

@@ -22,6 +22,10 @@ const HEIGHT_UNITS: UnitRule[] = [
   { pattern: /(?<![a-z])(?:feet|foot|ft)\b|'/i, canonical: 'in', factor: 12 },
 ];
 
+// Head circumference is written in cm, mm or inches, never metres or feet: only the units no larger than their
+// canonical one.
+const HEAD_CIRCUMFERENCE_UNITS: UnitRule[] = HEIGHT_UNITS.filter((rule) => rule.factor <= 1);
+
 const WEIGHT_UNITS: UnitRule[] = [
   { pattern: /(?<![a-z])(?:milligrams?|mg)\b/i, canonical: 'kg', factor: 0.000001 },
   { pattern: /(?<![a-z])(?:kilograms?|kilos?|kgs?)\b/i, canonical: 'kg', factor: 1 },
@@ -33,7 +37,7 @@ const WEIGHT_UNITS: UnitRule[] = [
 
 const UNIT_TABLES: Partial<Record<PlannableVitalField, UnitRule[]>> = {
   'vital-height': HEIGHT_UNITS,
-  'vital-head-circumference': HEIGHT_UNITS,
+  'vital-head-circumference': HEAD_CIRCUMFERENCE_UNITS,
   'vital-weight': WEIGHT_UNITS,
 };
 

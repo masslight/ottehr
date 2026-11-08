@@ -1,5 +1,5 @@
-import { Appointment, Encounter, Observation } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { Appointment, Encounter, Location, Observation } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, test } from 'vitest';
@@ -158,6 +158,10 @@ describe('growth math (ported from the OTR-3741 growth-charts report)', () => {
     // 03:30 on Oct 1 in UTC+9 is still Oct 1 where it was recorded, even though it is Sep 30 in UTC.
     expect(ageMonthsAt('2007-03-31', '2007-10-01T03:30:00+09:00')).toBeCloseTo(184 / 30.4375, 10);
     expect(ageMonthsAt('2007-03-31', 'not a date')).toBeUndefined();
+    // An appointment start is stored in UTC: 00:30Z on Apr 1 is 20:30 on Mar 31 in New York, so age 0 there.
+    expect(ageMonthsAt('2026-03-31', '2026-04-01T00:30:00.000Z', 'America/New_York')).toBe(0);
+    expect(ageMonthsAt('2026-03-31', '2026-04-01T00:30:00.000Z')).toBeCloseTo(1 / 30.4375, 10);
+    expect(ageMonthsAt('2026-03-31', '2026-04-01T00:30:00.000Z', 'Not/A_Zone')).toBeCloseTo(1 / 30.4375, 10);
     expect(formatAge(0.5)).toBe('15 d');
     expect(formatAge(13.9)).toBe('13 mo');
     expect(formatAge(24)).toBe('2 y');
@@ -190,6 +194,34 @@ describe('buildGrowthFlowsheet', () => {
     // Head circumference is still shown after 24 months, without a percentile.
     expect(cdcVisit.values.headCircumference.value).toBe(52);
     expect(cdcVisit.values.headCircumferencePercentile).toBeUndefined();
+  });
+
+  test('age is counted in the visit location zone: an evening visit on the day of birth is 0 d, not 1 d', () => {
+    const location: Location = {
+      resourceType: 'Location',
+      id: 'l1',
+      extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' }],
+    };
+    const evening = {
+      ...resources,
+      birthDate: '2026-03-31',
+      appointments: [
+        {
+          ...appointments[0],
+          start: '2026-04-01T00:30:00.000Z',
+          participant: [{ actor: { reference: 'Location/l1' }, status: 'accepted' as const }],
+        },
+      ],
+      encounters: [encounters[0]],
+      observations: [vital(VitalFieldNames.VitalWeight, 'e1', '2026-04-01T00:35:00.000Z', 3.2)],
+    };
+    const [withLocation] = buildGrowthFlowsheet({ ...evening, locations: [location] });
+    expect(withLocation.timezone).toBe('America/New_York');
+    expect(withLocation.values.age.value).toBe('0 d');
+    // Without the location the UTC calendar day is used, as before.
+    const [withoutLocation] = buildGrowthFlowsheet(evening);
+    expect(withoutLocation.timezone).toBeUndefined();
+    expect(withoutLocation.values.age.value).toBe('1 d');
   });
 
   test('percentiles follow the patient sex', () => {
