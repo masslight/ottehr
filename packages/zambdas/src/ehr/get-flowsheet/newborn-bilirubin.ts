@@ -37,10 +37,15 @@ const labRowFor = (lab: FlowsheetLabResult): string | undefined =>
 const byResultedAt = (a: FlowsheetLabResult, b: FlowsheetLabResult): number =>
   (a.resultedAt ?? '').localeCompare(b.resultedAt ?? '');
 
-/** Whole days from the birth date to the instant's calendar day in the zone it was recorded in. */
-export const dayOfLifeAt = (birthDate: string, iso: string): number | undefined => {
+/**
+ * Whole days from the birth date to the instant's calendar day in `zone` (the visit location's), else in the zone
+ * it was recorded in.
+ */
+export const dayOfLifeAt = (birthDate: string, iso: string, zone?: string): number | undefined => {
   const birth = DateTime.fromISO(birthDate, { zone: 'utc' });
-  const day = DateTime.fromISO(iso, { setZone: true }).toISODate();
+  const recorded = DateTime.fromISO(iso, { setZone: true });
+  const local = zone ? recorded.setZone(zone) : recorded;
+  const day = (local.isValid ? local : recorded).toISODate();
   if (!birth.isValid || !day) return undefined;
   return Math.floor(DateTime.fromISO(day, { zone: 'utc' }).diff(birth, 'days').days);
 };
@@ -96,9 +101,16 @@ export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVi
     Object.keys(visit.values).some((key) => !VITAL_KEYS.includes(key))
   );
   const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(data.birthDate ?? '') ? data.birthDate : undefined;
+  // One day-of-life reading per result time, so a result from the day after the visit shows its own day.
   columns.forEach((visit) => {
-    const dayOfLife = birthDate ? dayOfLifeAt(birthDate, visit.start) : undefined;
-    if (dayOfLife !== undefined) addReading(visit, 'dayOfLife', { time: visit.start, value: dayOfLife });
+    if (!birthDate) return;
+    const resultTimes = Object.entries(visit.values)
+      .filter(([key]) => !VITAL_KEYS.includes(key))
+      .flatMap(([, value]) => value.readings.map((reading) => reading.time));
+    [...new Set(resultTimes)].sort().forEach((time) => {
+      const dayOfLife = dayOfLifeAt(birthDate, time, visit.timezone);
+      if (dayOfLife !== undefined) addReading(visit, 'dayOfLife', { time, value: dayOfLife });
+    });
   });
   return newestFirst(columns);
 };

@@ -35,6 +35,8 @@ export interface FlowsheetVisit {
   encounterId?: string;
   /** Appointment start, or the first reading's time when the readings are not linked to an appointment. */
   start: string;
+  /** The visit location's IANA time zone, for calendar-day math; absent when the visit has no location. */
+  timezone?: string;
   isFollowUp: boolean;
   visitType: string;
   reason: string;

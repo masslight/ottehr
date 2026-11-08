@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Condition, Encounter, Observation, Practitioner } from 'fhir/r4b';
+import { Appointment, Condition, Encounter, Location, Observation, Practitioner } from 'fhir/r4b';
 import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
@@ -13,6 +13,7 @@ import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 
 /** The patient's visits and what every flowsheet's visit columns are described from. */
 export interface VisitResources {
@@ -21,6 +22,8 @@ export interface VisitResources {
   /** The encounters' charted diagnoses. */
   conditions: Condition[];
   practitioners: Practitioner[];
+  /** The appointments' locations, which carry each visit's time zone. */
+  locations?: Location[];
 }
 
 export interface VitalsFlowsheetResources extends VisitResources {
@@ -38,19 +41,21 @@ const searchByIds = async <T extends Condition | Practitioner>(
 };
 
 export const fetchVisits = async (oystehr: Oystehr, patientId: string): Promise<VisitResources> => {
-  const visitResources = await getAllFhirSearchPages<Appointment | Encounter>(
+  const visitResources = await getAllFhirSearchPages<Appointment | Encounter | Location>(
     {
       resourceType: 'Appointment',
       params: [
         { name: 'patient', value: `Patient/${patientId}` },
         { name: '_tag', value: `${OTTEHR_MODULE.IP},${OTTEHR_MODULE.TM}` },
         { name: '_revinclude', value: 'Encounter:appointment' },
+        { name: '_include', value: 'Appointment:location' },
       ],
     },
     oystehr
   );
   const appointments = visitResources.filter((r): r is Appointment => r.resourceType === 'Appointment');
   const encounters = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
+  const locations = visitResources.filter((r): r is Location => r.resourceType === 'Location');
 
   const [conditions, practitioners] = await Promise.all([
     searchByIds<Condition>(
@@ -60,7 +65,7 @@ export const fetchVisits = async (oystehr: Oystehr, patientId: string): Promise<
     ),
     searchByIds<Practitioner>(oystehr, 'Practitioner', encounters.map(getAttendingPractitionerId)),
   ]);
-  return { appointments, encounters, conditions, practitioners };
+  return { appointments, encounters, conditions, practitioners, locations };
 };
 
 export const fetchVitals = (oystehr: Oystehr, patientId: string): Promise<Observation[]> =>
@@ -107,11 +112,17 @@ export const describeVisit = (
   const coding = resources.conditions.find((c) => c.id === conditionId)?.code?.coding?.[0];
   const attendingId = encounter && getAttendingPractitionerId(encounter);
   const attending = resources.practitioners.find((p) => p.id === attendingId);
+  const locationId = getIdFromReference(
+    appointment?.participant.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference,
+    'Location'
+  );
+  const location = resources.locations?.find((l) => l.id === locationId);
 
   return {
     appointmentId: appointment?.id,
     encounterId: encounter?.id,
     start: (!isFollowUp && appointment?.start) || undefined,
+    timezone: location && getTimezone(location),
     isFollowUp,
     visitType: appointment
       ? `${capitalize(appointmentTypeForAppointment(appointment))} · ${

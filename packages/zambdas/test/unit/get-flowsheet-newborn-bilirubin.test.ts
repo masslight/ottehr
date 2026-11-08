@@ -1,5 +1,5 @@
-import { Appointment, Encounter, Observation } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { Appointment, Encounter, Location, Observation } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -142,5 +142,58 @@ describe('buildNewbornBilirubinFlowsheet', () => {
     expect(dayOfLifeAt('2007-03-31', '2007-04-01T00:30:00.000-04:00')).toBe(1);
     expect(dayOfLifeAt('2007-03-31', '2007-04-08T14:30:00.000Z')).toBe(8);
     expect(dayOfLifeAt('not-a-date', '2007-04-08T14:30:00.000Z')).toBeUndefined();
+  });
+
+  test('dayOfLifeAt counts the calendar day in the visit zone when given one: 20:30 in New York is still day 0', () => {
+    expect(dayOfLifeAt('2026-03-31', '2026-04-01T00:30:00.000Z', 'America/New_York')).toBe(0);
+    expect(dayOfLifeAt('2026-03-31', '2026-04-01T00:30:00.000Z')).toBe(1);
+    expect(dayOfLifeAt('2026-03-31', '2026-04-01T00:30:00.000Z', 'Not/A_Zone')).toBe(1);
+  });
+
+  describe('an evening visit at a New York location (appointment start stored in UTC)', () => {
+    const location: Location = {
+      resourceType: 'Location',
+      id: 'l1',
+      extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' }],
+    };
+    const evening: FlowsheetData = {
+      birthDate: '2026-03-31',
+      appointments: [
+        {
+          ...appointment('a5', '2026-04-01T00:30:00.000Z'),
+          participant: [
+            { actor: { reference: PATIENT }, status: 'accepted' },
+            { actor: { reference: 'Location/l1' }, status: 'accepted' },
+          ],
+        },
+      ],
+      encounters: [encounter('e5', 'a5')],
+      conditions: [],
+      practitioners: [],
+      locations: [location],
+      labs: {
+        e5: [
+          lab('TcB', [], 7.2, '2026-04-01T00:40:00.000Z', 'N', 'in-house'),
+          // The serum draw sent out that evening results the next morning, New York time.
+          lab('Bilirubin, total', ['1975-2'], 9.4, '2026-04-01T13:00:00.000Z'),
+        ],
+      },
+    };
+
+    test('the day of life is counted in the location zone, per result: the TcB on day 0, the serum result on day 1', () => {
+      const [visit] = buildNewbornBilirubinFlowsheet(evening);
+      expect(visit.timezone).toBe('America/New_York');
+      expect(visit.values.dayOfLife.readings.map((r) => [r.time, r.value])).toEqual([
+        ['2026-04-01T00:40:00.000Z', 0],
+        ['2026-04-01T13:00:00.000Z', 1],
+      ]);
+      expect(visit.values.dayOfLife.value).toBe(1);
+    });
+
+    test('without the location the UTC calendar day is used, as before', () => {
+      const [visit] = buildNewbornBilirubinFlowsheet({ ...evening, locations: undefined });
+      expect(visit.timezone).toBeUndefined();
+      expect(visit.values.dayOfLife.readings.map((r) => r.value)).toEqual([1, 1]);
+    });
   });
 });
