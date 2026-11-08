@@ -28,6 +28,7 @@ const LAB_ROWS: { key: string; loinc: string[]; analyte: RegExp; exclude?: RegEx
   { key: 'totalT4', loinc: ['3026-2'], analyte: /^t4\b|total t4|thyroxine/i, exclude: /free/i },
   { key: 'freeT3', loinc: ['3051-0'], analyte: /free t3|ft3|t3.*free/i },
   { key: 'totalT3', loinc: ['3053-6'], analyte: /^t3\b|total t3|triiodothyronine/i, exclude: /free/i },
+  { key: 'tpoAntibodies', loinc: ['8099-4', '32042-4'], analyte: /tpo|peroxidase/i },
 ];
 
 const labRowFor = (lab: FlowsheetLabResult): string | undefined =>

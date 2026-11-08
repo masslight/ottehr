@@ -147,12 +147,14 @@ describe('buildThyroidFlowsheet', () => {
       weight: 63,
       tsh: 8.9,
       freeT4: 0.7,
+      tpoAntibodies: 210,
       thyroidDiagnosis: 'E03.9 — Hypothyroidism, unspecified',
       thyroidMedication: 'levothyroxine 50 mcg tablet',
     });
-    const { tsh, freeT4 } = visits.find((v) => v.encounterId === 'e1')!.values;
+    const { tsh, freeT4, tpoAntibodies } = visits.find((v) => v.encounterId === 'e1')!.values;
     expect([tsh.unit, tsh.flag]).toEqual(['mIU/L', VitalAlertCriticality.Abnormal]);
     expect([freeT4.unit, freeT4.flag]).toEqual(['ng/dL', VitalAlertCriticality.Abnormal]);
+    expect([tpoAntibodies.unit, tpoAntibodies.flag]).toEqual(['IU/mL', VitalAlertCriticality.Abnormal]);
   });
 
   test('a visit without vitals is dated by its appointment; labs match by analyte name, free before total; in-house and eRx drugs both listed', () => {

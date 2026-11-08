@@ -60,6 +60,7 @@ const thyroid: FlowsheetDefinition = {
     { label: 'Total T4', keys: ['totalT4'] },
     { label: 'Free T3', keys: ['freeT3'] },
     { label: 'Total T3', keys: ['totalT3'] },
+    { label: 'TPO antibodies', keys: ['tpoAntibodies'] },
     { label: 'Thyroid medication', keys: ['thyroidMedication'] },
     { label: 'Thyroid diagnosis this visit', keys: ['thyroidDiagnosis'] },
     { label: 'Weight (kg)', keys: ['weight'], digits: 1 },
