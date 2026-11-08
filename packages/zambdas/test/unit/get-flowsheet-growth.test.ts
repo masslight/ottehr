@@ -11,6 +11,7 @@ import {
   lmsAt,
   normCdf,
   percentileOf,
+  weightForLengthPercentileOf,
   zOf,
 } from '../../src/ehr/get-flowsheet/growth';
 import { GROWTH_TABLES } from '../../src/ehr/get-flowsheet/growth-tables.generated';
@@ -123,6 +124,24 @@ describe('growth math (ported from the OTR-3741 growth-charts report)', () => {
     expect(percentileOf('weight', 14, 12, 'male')).toBe('>99th');
   });
 
+  test('weight-for-length: WHO table by length in cm, restricted z, ±5 implausible limit', () => {
+    const atMedian = lmsAt(GROWTH_TABLES['WHO wfl female'], 65)!;
+    expect(weightForLengthPercentileOf(atMedian.M, 65, 'female')).toBe('50th');
+    expect(weightForLengthPercentileOf(20, 65, 'female')).toBe('implausible');
+    expect(weightForLengthPercentileOf(7, 44.5, 'female')).toBeUndefined();
+    expect(weightForLengthPercentileOf(20, 110.5, 'female')).toBeUndefined();
+    // A pair built from an implausible length is implausible even though the table would give a number.
+    const implausibleLength = buildGrowthFlowsheet({
+      ...resources,
+      observations: [
+        vital(VitalFieldNames.VitalWeight, 'e1', '2024-07-10T14:05:00.000Z', 7.3),
+        vital(VitalFieldNames.VitalHeight, 'e1', '2024-07-10T14:06:00.000Z', 100),
+      ],
+    })[0];
+    expect(implausibleLength.values.heightPercentile.value).toBe('implausible');
+    expect(implausibleLength.values.weightForLengthPercentile.value).toBe('implausible');
+  });
+
   test('picks WHO under 24 months and CDC from 24 months; BMI is CDC only, head circumference WHO only', () => {
     expect(percentileOf('bmi', 17, 12, 'female')).toBeUndefined();
     expect(percentileOf('bmi', 16.5, 60, 'female')).toMatch(/th$|st$|nd$|rd$/);
@@ -159,8 +178,11 @@ describe('buildGrowthFlowsheet', () => {
     expect(whoVisit.values.weightPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
     expect(whoVisit.values.heightPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
     expect(whoVisit.values.headCircumferencePercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
-    // The WHO set has no BMI-for-age chart.
+    // The WHO set has no BMI-for-age chart; it has weight-for-length instead.
     expect(whoVisit.values.bmiPercentile).toBeUndefined();
+    expect(whoVisit.values.weightForLengthPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
+    expect(whoVisit.values.weightForLengthPercentile.time).toBe('2024-07-10T14:06:00.000Z');
+    expect(cdcVisit.values.weightForLengthPercentile).toBeUndefined();
 
     expect(cdcVisit.encounterId).toBe('e2');
     expect(cdcVisit.values.age.value).toBe('10 y');

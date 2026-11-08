@@ -33,6 +33,7 @@ const WEIGHT_UNITS: UnitRule[] = [
 
 const UNIT_TABLES: Partial<Record<PlannableVitalField, UnitRule[]>> = {
   'vital-height': HEIGHT_UNITS,
+  'vital-head-circumference': HEIGHT_UNITS,
   'vital-weight': WEIGHT_UNITS,
 };
 
@@ -146,6 +147,37 @@ export function parseVitalDisplay(field: PlannableVitalField, display: string): 
         };
       }
       return finishHeight(converted.value, converted.unit, text);
+    });
+  }
+
+  // Head circumference is a length like height (cm or inches, never feet), but a newborn's is well under the
+  // live-birth length floor, so it is only checked for being above 0.
+  if (field === 'vital-head-circumference') {
+    return parseSingleUnit(field, text, (value, writtenUnit) => {
+      if (!writtenUnit) {
+        return {
+          status: 'missing-unit',
+          value,
+          reason: `"${text}" has no unit — a bare head circumference could be centimetres or inches, so it needs confirming`,
+        };
+      }
+      const converted = canonicalizeVitalUnit(field, value, writtenUnit);
+      if (!converted) {
+        return {
+          status: 'unrecognized-unit',
+          writtenUnit,
+          reason: `"${writtenUnit}" is not a length unit this system converts, so "${text}" was not charted`,
+        };
+      }
+      if (converted.value <= 0) {
+        return {
+          status: 'implausible',
+          value: converted.value,
+          unit: converted.unit,
+          reason: 'head circumference must be above 0',
+        };
+      }
+      return { status: 'ok', value: converted.value, unit: converted.unit };
     });
   }
 
@@ -269,6 +301,13 @@ const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
     ),
     new RegExp(
       String.raw`(${NUMBER}\s*(?:cm\b|centimet\w*|millimet\w*|mm\b|met(?:er|re)s?\b|inch(?:es)?\b|ins?\b|"|''))`,
+      'i'
+    ),
+  ],
+  'vital-head-circumference': [
+    // Keyword-anchored only: a bare "45 cm" in a dictation is far more likely a height or a wound size.
+    new RegExp(
+      String.raw`(?:head\s*circumference|\bofc\b|\bhc\b)\D{0,12}(${NUMBER}\s*(?:cm\b|centimet\w*|mm\b|millimet\w*|in\b|ins\b|inch(?:es)?\b|"|''))`,
       'i'
     ),
   ],

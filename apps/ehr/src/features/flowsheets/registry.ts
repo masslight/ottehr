@@ -64,6 +64,7 @@ const growth: FlowsheetDefinition = {
     { label: 'Height / length percentile', keys: ['heightPercentile'] },
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
     { label: 'BMI percentile', keys: ['bmiPercentile'] },
+    { label: 'Weight-for-length percentile', keys: ['weightForLengthPercentile'] },
     { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
     { label: 'Head circumference percentile', keys: ['headCircumferencePercentile'] },
   ],

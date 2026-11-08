@@ -32,6 +32,7 @@ const makeObservation = (field: VitalFieldNames, value: number): VitalsObservati
 const ALERT_TYPE_TO_FIELD: Record<(typeof VITAL_ALERT_TYPES)[number], VitalFieldNames> = {
   'vital-weight': VitalFieldNames.VitalWeight,
   'vital-height': VitalFieldNames.VitalHeight,
+  'vital-head-circumference': VitalFieldNames.VitalHeadCircumference,
   'vital-temperature': VitalFieldNames.VitalTemperature,
   'vital-heartbeat': VitalFieldNames.VitalHeartbeat,
   'vital-respiration-rate': VitalFieldNames.VitalRespirationRate,

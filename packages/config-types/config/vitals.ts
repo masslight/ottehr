@@ -144,6 +144,7 @@ export interface VitalsConfig {
   'vital-respiration-rate'?: VitalsObject;
   'vital-weight'?: VitalsWeight;
   'vital-height'?: VitalsObject;
+  'vital-head-circumference'?: VitalsObject;
   'vital-blood-pressure'?: VitalsBloodPressure;
   'vital-vision'?: VitalsVision;
 }
@@ -160,6 +161,7 @@ export const VitalTypeSchema = z.enum([
   'vital-respiration-rate',
   'vital-weight',
   'vital-height',
+  'vital-head-circumference',
   'vital-blood-pressure',
   'vital-vision',
 ]);

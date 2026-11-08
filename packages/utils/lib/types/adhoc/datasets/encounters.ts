@@ -493,6 +493,10 @@ export const ENCOUNTER_LAYERS = {
         .describe('Diastolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].diastolic.'),
       weightKg: z.number().nullable().describe('Weight kg (most recent, normalized). Null if not taken.'),
       heightCm: z.number().nullable().describe('Height cm (most recent, normalized). Null if not taken.'),
+      headCircumferenceCm: z
+        .number()
+        .nullable()
+        .describe('Head circumference cm (most recent, normalized). Null if not taken.'),
       bmi: z.number().nullable().describe('BMI from weightKg/heightCm when both present. Null otherwise.'),
       temperatureFReadings: z
         .array(z.number())
@@ -527,7 +531,7 @@ export const ENCOUNTER_LAYERS = {
           'Vitals that were out of range on ANY reading of the visit, by the age-banded thresholds the ' +
             'practice has configured. Applied at charting time, so the age band is the age on the visit ' +
             'date. Includes the critical ones. Values: temperatureF, heartRate, respirationRate, ' +
-            'oxygenSaturation, bloodPressure, weightKg, heightCm. Empty if all readings were in range. ' +
+            'oxygenSaturation, bloodPressure, weightKg, heightCm, headCircumferenceCm. Empty if all readings were in range. ' +
             'USE THIS instead of comparing readings to thresholds of your own.'
         ),
       criticalVitals: z
@@ -552,6 +556,12 @@ export const ENCOUNTER_LAYERS = {
       heightFeetInches: z
         .string()
         .describe('Height as feet and inches, e.g. 5\'7.5" (most recent) — same reading as heightCm. "" if not taken.'),
+      headCircumferenceInches: z
+        .number()
+        .nullable()
+        .describe(
+          'Head circumference in inches (most recent) — same reading as headCircumferenceCm. Null if not taken.'
+        ),
       // --- How the most recent reading was taken ---
       temperatureMethod: z
         .enum(TEMPERATURE_METHOD_VALUES)

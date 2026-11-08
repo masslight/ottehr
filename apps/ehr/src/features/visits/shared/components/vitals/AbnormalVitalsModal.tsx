@@ -21,6 +21,7 @@ export const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnorm
   const oxygenSaturation = abnormalVitalsValues[VitalFieldNames.VitalOxygenSaturation];
   const weight = abnormalVitalsValues[VitalFieldNames.VitalWeight];
   const height = abnormalVitalsValues[VitalFieldNames.VitalHeight];
+  const headCircumference = abnormalVitalsValues[VitalFieldNames.VitalHeadCircumference];
 
   return (
     <ConfirmationModal
@@ -85,6 +86,16 @@ export const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnorm
               <AssessmentTitle>Height</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {height?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
+              </Box>
+            </>
+          )}
+          {headCircumference && headCircumference.length > 0 && (
+            <>
+              <AssessmentTitle>Head circumference</AssessmentTitle>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {headCircumference?.map((item) => (
+                  <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
+                ))}
               </Box>
             </>
           )}

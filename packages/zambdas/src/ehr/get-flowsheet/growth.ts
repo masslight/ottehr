@@ -153,6 +153,21 @@ export const percentileOf = (
   return formatPercentile(z);
 };
 
+/**
+ * WHO weight-for-length (under 24 months): the percentile of a weight at a length, 'implausible' beyond the
+ * report's ±5 limit, undefined when the length is outside the 45-110 cm table.
+ */
+export const weightForLengthPercentileOf = (
+  weightKg: number,
+  lengthCm: number,
+  sex: 'male' | 'female'
+): string | undefined => {
+  const p = lmsAt(GROWTH_TABLES[`WHO wfl ${sex}`], lengthCm);
+  if (!p) return undefined;
+  const z = zOf(p, weightKg, true);
+  return z < -5 || z > 5 ? 'implausible' : formatPercentile(z);
+};
+
 const measureOf = (field: VitalFieldNames): GrowthMeasure | undefined => {
   switch (field) {
     case VitalFieldNames.VitalWeight:
@@ -210,10 +225,21 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources): Flows
     const weight = values.weight;
     const height = values.height;
     if (typeof weight?.value === 'number' && typeof height?.value === 'number') {
-      addWithPercentile('bmi', {
-        time: later(weight.time, height.time),
-        value: weight.value / Math.pow(height.value / 100, 2),
-      });
+      const time = later(weight.time, height.time);
+      addWithPercentile('bmi', { time, value: weight.value / Math.pow(height.value / 100, 2) });
+
+      // Weight-for-length (WHO, under 24 months) pairs the weight with the same visit's length; a pair built
+      // from an implausible weight or length is implausible too, as in the report.
+      const ageMonths = birthDate ? ageMonthsAt(birthDate, time) : undefined;
+      if (sex && ageMonths !== undefined && ageMonths >= 0 && ageMonths < WHO_MAX_MONTHS) {
+        const fromImplausible = [values.weightPercentile, values.heightPercentile].some(
+          (p) => p?.value === 'implausible'
+        );
+        const percentile = fromImplausible
+          ? 'implausible'
+          : weightForLengthPercentileOf(weight.value, height.value, sex);
+        if (percentile) add('weightForLengthPercentile', { time, value: percentile });
+      }
     }
 
     const ageMonths = birthDate ? ageMonthsAt(birthDate, start) : undefined;
