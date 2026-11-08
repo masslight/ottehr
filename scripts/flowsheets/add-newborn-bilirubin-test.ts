@@ -23,6 +23,11 @@ import { createOystehrFromEnvFile } from '../synthetic-patient-data/shared/oyste
 
 const ENV = arg('--env', 'synth');
 const EXECUTE = flag('--execute');
+// Seeds demo data only: refuse every other env before authenticating (as synth-daily-census does).
+const ALLOWED_ENVS = ['synth', 'local'];
+if (!ALLOWED_ENVS.includes(ENV)) {
+  throw new Error(`Refusing to run against env "${ENV}": this script only writes to ${ALLOWED_ENVS.join(' or ')}.`);
+}
 
 // ---- In-house test ------------------------------------------------------------------------------
 // Transcutaneous bilirubin has no single age-independent normal range, and Ottehr's result entry needs a two-sided
