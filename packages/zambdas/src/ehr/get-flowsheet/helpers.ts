@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Condition, Encounter, Observation, Practitioner } from 'fhir/r4b';
 import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { FOLLOWUP_SYSTEMS, getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullName } from 'utils/lib/fhir/patient';
@@ -38,19 +38,34 @@ const searchByIds = async <T extends Condition | Practitioner>(
 };
 
 export const fetchVisits = async (oystehr: Oystehr, patientId: string): Promise<VisitResources> => {
-  const visitResources = await getAllFhirSearchPages<Appointment | Encounter>(
-    {
-      resourceType: 'Appointment',
-      params: [
-        { name: 'patient', value: `Patient/${patientId}` },
-        { name: '_tag', value: `${OTTEHR_MODULE.IP},${OTTEHR_MODULE.TM}` },
-        { name: '_revinclude', value: 'Encounter:appointment' },
-      ],
-    },
-    oystehr
-  );
+  const patient = `Patient/${patientId}`;
+  const [visitResources, followUps] = await Promise.all([
+    getAllFhirSearchPages<Appointment | Encounter>(
+      {
+        resourceType: 'Appointment',
+        params: [
+          { name: 'patient', value: patient },
+          { name: '_tag', value: `${OTTEHR_MODULE.IP},${OTTEHR_MODULE.TM}` },
+          { name: '_revinclude', value: 'Encounter:appointment' },
+        ],
+      },
+      oystehr
+    ),
+    // A follow-up charted without an appointment is not reached from the appointments above.
+    getAllFhirSearchPages<Encounter>(
+      {
+        resourceType: 'Encounter',
+        params: [
+          { name: 'subject', value: patient },
+          { name: 'type', value: `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}` },
+        ],
+      },
+      oystehr
+    ),
+  ]);
   const appointments = visitResources.filter((r): r is Appointment => r.resourceType === 'Appointment');
-  const encounters = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
+  const linked = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
+  const encounters = [...linked, ...followUps.filter((f) => !linked.some((e) => e.id === f.id))];
 
   const [conditions, practitioners] = await Promise.all([
     searchByIds<Condition>(
