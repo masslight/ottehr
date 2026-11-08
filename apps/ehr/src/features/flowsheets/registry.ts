@@ -59,7 +59,7 @@ const newbornBilirubin: FlowsheetDefinition = {
     { label: 'Direct (conjugated) bilirubin', keys: ['directBilirubin'] },
     { label: 'Transcutaneous bilirubin', keys: ['transcutaneousBilirubin'] },
     { label: 'Day of life', keys: ['dayOfLife'], digits: 0 },
-    { label: 'Weight (kg)', keys: ['weight'], digits: 1 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
   ],
   charts: [
     {
