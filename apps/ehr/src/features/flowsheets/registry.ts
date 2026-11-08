@@ -50,5 +50,28 @@ const vitals: FlowsheetDefinition = {
   ],
 };
 
+// Lab rows carry no unit in the label and no rounding: the value and unit are shown as the lab saved them.
+const thyroid: FlowsheetDefinition = {
+  id: 'thyroid',
+  title: 'Thyroid',
+  rows: [
+    { label: 'TSH', keys: ['tsh'] },
+    { label: 'Free T4', keys: ['freeT4'] },
+    { label: 'Total T4', keys: ['totalT4'] },
+    { label: 'Free T3', keys: ['freeT3'] },
+    { label: 'Total T3', keys: ['totalT3'] },
+    { label: 'Thyroid medication', keys: ['thyroidMedication'] },
+    { label: 'Thyroid diagnosis this visit', keys: ['thyroidDiagnosis'] },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 1 },
+    { label: 'Heart rate (bpm)', keys: ['heartRate'], digits: 0 },
+  ],
+  charts: [
+    { title: 'TSH', unit: 'mIU/L', lines: [{ name: 'TSH', key: 'tsh' }] },
+    { title: 'Free T4', unit: 'ng/dL', lines: [{ name: 'Free T4', key: 'freeT4' }] },
+    { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
+    { title: 'Heart rate', unit: 'bpm', lines: [{ name: 'Heart rate', key: 'heartRate' }] },
+  ],
+};
+
 /** Every flowsheet the EHR offers, in side-list (alphabetical) order. */
-export const FLOWSHEETS: FlowsheetDefinition[] = [vitals].sort((a, b) => a.title.localeCompare(b.title));
+export const FLOWSHEETS: FlowsheetDefinition[] = [thyroid, vitals].sort((a, b) => a.title.localeCompare(b.title));
