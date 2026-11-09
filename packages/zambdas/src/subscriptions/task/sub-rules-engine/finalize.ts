@@ -7,7 +7,7 @@ import {
   getClaimStatusFieldValue,
 } from 'utils/lib/types/data/billing/claim-status';
 import {
-  RulesEngineSubmissionInsurance,
+  RulesEngineInsurance,
   RulesEngineSubmissionType,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -25,8 +25,9 @@ export interface FinalizeRunInput {
   oystehr: BillingOystehr;
   model: RulesEngineClaimModel;
   agent: ProvenanceAgent[];
+  shouldSubmit: boolean;
   submissionType: RulesEngineSubmissionType | null;
-  submissionInsurance: RulesEngineSubmissionInsurance | null;
+  submissionInsurance: RulesEngineInsurance | null;
   payerClaimControlNumber: string | null;
 }
 
@@ -37,7 +38,13 @@ export interface FinalizeRunResult {
 export async function finalizeEngineRun(engine: RulesEngineType, input: FinalizeRunInput): Promise<FinalizeRunResult> {
   switch (engine) {
     case 'claim-submission':
-      return submitClaim(input);
+    case 'post-adjudication':
+      if (input.shouldSubmit) {
+        return submitClaim(input);
+      }
+      return {
+        statusReason: 'Rules passed; claim submission skipped.',
+      };
     case 'non-insurance-payer-pre-invoice':
       return markReadyToInvoice(input, {
         requiredStage: AR_STAGE.nonInsurancePayer,
@@ -50,6 +57,9 @@ export async function finalizeEngineRun(engine: RulesEngineType, input: Finalize
         stageLabel: 'Patient AR',
         statusField: 'patientArStatus',
       });
+    default:
+      // Exhaustive switch check
+      throw engine satisfies never;
   }
 }
 

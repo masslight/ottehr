@@ -1,15 +1,12 @@
 import { Box, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextField } from '@mui/material';
-import { ReactElement, useEffect } from 'react';
+import { ReactElement, useEffect, useMemo } from 'react';
 import { Controller, Form, useFormContext } from 'react-hook-form';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
-import {
-  RulesEngineSubmissionInsurance,
-  RulesEngineSubmissionType,
-} from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
 
 export type ClaimSubmissionForm = {
   type: RulesEngineSubmissionType;
-  insurance: RulesEngineSubmissionInsurance;
+  insurance: RulesEngineInsurance;
   payerClaimControlNumber: string;
 };
 
@@ -24,6 +21,10 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
   const insurance = watch('insurance');
   const type = watch('type');
   const pccn = watch('payerClaimControlNumber');
+  const pccnIsDirty = useMemo(
+    () => pccn !== (getPccnForInsuranceOrdinal(claim, insurance) ?? ''),
+    [pccn, claim, insurance]
+  );
 
   // Reset pccn and type on insurance selection change
   useEffect(() => {
@@ -57,7 +58,7 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
                   aria-labelledby="submission-type-label"
                   name="submission-type-group"
                   value={field.value}
-                  onChange={(event) => field.onChange(event.target.value as RulesEngineSubmissionInsurance)}
+                  onChange={(event) => field.onChange(event.target.value as RulesEngineInsurance)}
                 >
                   <FormControlLabel
                     value="primary"
@@ -111,8 +112,18 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
                 onChange={(event) => field.onChange(event.target.value as RulesEngineSubmissionType)}
               >
                 <FormControlLabel value="new" control={<Radio />} label="New Submission" />
-                <FormControlLabel disabled={!pccn} value="correction" control={<Radio />} label="Correction" />
-                <FormControlLabel disabled={!pccn} value="void" control={<Radio />} label="Void Claim" />
+                <FormControlLabel
+                  disabled={!pccn && !pccnIsDirty}
+                  value="correction"
+                  control={<Radio />}
+                  label="Correction"
+                />
+                <FormControlLabel
+                  disabled={!pccn && !pccnIsDirty}
+                  value="void"
+                  control={<Radio />}
+                  label="Void Claim"
+                />
               </RadioGroup>
             </FormControl>
           )}
@@ -138,10 +149,7 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
   );
 }
 
-function getPccnForInsuranceOrdinal(
-  claim: ClaimDetailResponse,
-  insurance: RulesEngineSubmissionInsurance
-): string | undefined {
+function getPccnForInsuranceOrdinal(claim: ClaimDetailResponse, insurance: RulesEngineInsurance): string | undefined {
   return insurance === 'primary'
     ? claim.payerClaimControlNumber
     : insurance === 'secondary'

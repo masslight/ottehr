@@ -15,11 +15,7 @@ import {
   parsePaymentVoidFromNotice,
   upsertPaymentRefundsExtension,
 } from 'utils/lib/fhir/paymentRefunds';
-import {
-  getContainedReconciliation,
-  getPaymentNoticeSubmitterRef,
-  getStripeAccountForAppointmentOrEncounter,
-} from 'utils/lib/fhir/payments';
+import { getContainedReconciliation, getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -30,6 +26,11 @@ import { isFhirNotFoundError } from '../shared/errors';
 import { ClinicalOystehr } from '../shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { fetchPatientPaymentsByEncounterIds, fetchResourcesGrouped } from './claim-amounts';
+import {
+  findClinicalPaymentNoticeForStripePayments,
+  getClinicalPaymentNotice,
+  getEncounterScheduleStripeAccount,
+} from './clinical-payment-notices';
 import {
   billingProviderRefForStripeAccount,
   claimRequestFor,
@@ -79,6 +80,12 @@ export const stripePaymentIntentIdForNotice = (notice: PaymentNotice): string | 
   return ids.find((id) => id.startsWith('pi_')) ?? ids.find((id) => !NON_PAYMENT_INTENT_STRIPE_ID.test(id));
 };
 
+// the Stripe invoice a payment settled; the webhook's disposition strings carry the charge↔invoice link
+export const invoiceIdForPaymentNotice = (notice: PaymentNotice): string | undefined =>
+  stripeIdsForPaymentNotice(notice).find((id) => id.startsWith('in_')) ??
+  notice.payment?.reference?.match(/in_\w+/)?.[0] ??
+  (notice.contained?.[0] as { disposition?: string } | undefined)?.disposition?.match(/invoice (in_\w+)/)?.[1];
+
 // the webhook records the Stripe method type, where the EHR records 'card-reader' for terminal payments
 export const paymentMethodForNotice = (notice: PaymentNotice): string | undefined => {
   const method = notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
@@ -96,7 +103,7 @@ export const unionIdentifiers = (existing: Identifier[] = [], added: Identifier[
 
 // a billing notice shadows the legacy notice it was copied from (cash/check bridge) or that records
 // the same Stripe payment (webhook)
-const shadowsLegacyNotice = (billingNotice: PaymentNotice, legacyNotice: PaymentNotice): boolean => {
+export const shadowsLegacyNotice = (billingNotice: PaymentNotice, legacyNotice: PaymentNotice): boolean => {
   const bridged = billingNotice.identifier?.some(
     (identifier) => identifier.system === CLINICAL_PAYMENT_NOTICE_ID_SYSTEM && identifier.value === legacyNotice.id
   );
@@ -105,21 +112,31 @@ const shadowsLegacyNotice = (billingNotice: PaymentNotice, legacyNotice: Payment
   return stripeIdsForPaymentNotice(legacyNotice).some((id) => billingStripeIds.includes(id));
 };
 
-// webhook copies carry no submitter, the EHR notice they shadow does
+// Webhook copies carry no submitter, the EHR notice they shadow does. Bridge copies carry the EHR
+// notice's submitter as it was stored, which predates stamping the name on it.
 const withSubmitterFrom = (billingNotice: PaymentNotice, legacyNotice: PaymentNotice): PaymentNotice => {
   const submitter = getPaymentNoticeSubmitterRef(legacyNotice);
   const reconciliation = getContainedReconciliation(billingNotice);
-  if (!submitter || !reconciliation || getPaymentNoticeSubmitterRef(billingNotice)) return billingNotice;
+  if (!submitter || !reconciliation) return billingNotice;
+  const billingSubmitter = getPaymentNoticeSubmitterRef(billingNotice);
+  const namesBillingSubmitter =
+    billingSubmitter &&
+    !billingSubmitter.display &&
+    submitter.display &&
+    billingSubmitter.reference === submitter.reference;
+  if (billingSubmitter && !namesBillingSubmitter) return billingNotice;
   return {
     ...billingNotice,
     contained: billingNotice.contained?.map((resource) =>
       resource === reconciliation
         ? {
             ...reconciliation,
-            detail: [
-              ...(reconciliation.detail ?? []),
-              { type: { coding: [{ system: PAYMENT_TYPE_SYSTEM, code: 'payment' }] }, submitter },
-            ],
+            detail: billingSubmitter
+              ? reconciliation.detail?.map((detail) => (detail.submitter ? { ...detail, submitter } : detail))
+              : [
+                  ...(reconciliation.detail ?? []),
+                  { type: { coding: [{ system: PAYMENT_TYPE_SYSTEM, code: 'payment' }] }, submitter },
+                ],
           }
         : resource
     ),
@@ -276,14 +293,12 @@ export const fetchEncounterPaymentNotices = async (params: {
  */
 export const createStripeAccountResolver = (params: {
   billingOystehr: BillingOystehr;
-  clinicalOystehr: ClinicalOystehr;
-  encounterId: string;
-  // the schedule owner's account when the caller already looked it up
-  scheduleAccount?: Promise<string | undefined>;
+  // the encounter schedule owner's account, looked up at most once and only when a notice needs it
+  lookUpScheduleAccount: () => Promise<string | undefined>;
 }): ((notice: PaymentNotice) => Promise<string | undefined>) => {
-  const { billingOystehr, clinicalOystehr, encounterId } = params;
+  const { billingOystehr, lookUpScheduleAccount } = params;
   const accountByOrgId = new Map<string, Promise<string | undefined>>();
-  let { scheduleAccount } = params;
+  let scheduleAccount: Promise<string | undefined> | undefined;
 
   // a payee outside billing (the default org) is not a billing provider, so carries no account
   const accountForOrg = async (orgId: string): Promise<string | undefined> => {
@@ -309,7 +324,7 @@ export const createStripeAccountResolver = (params: {
     if (stamped) return stamped.stripeAccount;
     const fromPayee = isBillingPaymentNotice(notice) ? await payeeAccount(notice) : undefined;
     if (fromPayee) return fromPayee;
-    scheduleAccount ??= getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
+    scheduleAccount ??= lookUpScheduleAccount();
     return scheduleAccount;
   };
 };
@@ -334,11 +349,11 @@ const assertNoticeBelongsToEncounter = (notice: PaymentNotice, encounterId: stri
 // from that account.
 const stripeChargeForLegacyPayment = async (
   getStripe: () => Stripe,
-  clinicalOystehr: ClinicalOystehr,
+  billingOystehr: BillingOystehr,
   paymentIntentId: string,
   encounterId: string
 ): Promise<{ chargeId: string | undefined; stripeAccount: string | undefined }> => {
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
+  const stripeAccount = await getEncounterScheduleStripeAccount(billingOystehr, encounterId);
   let paymentIntent: Stripe.PaymentIntent;
   try {
     paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId, undefined, { stripeAccount });
@@ -371,18 +386,17 @@ const linkToLateClaim = async (
 // webhook's notice, so a later charge or refund event merges into the copy instead of recording
 // the payment a second time; anything else is keyed by the legacy id. Retries reuse the copy.
 const adoptLegacyPaymentNotice = async (params: {
-  clinicalOystehr: ClinicalOystehr;
   billingOystehr: BillingOystehr;
   getStripe: () => Stripe;
   legacyNotice: PaymentNotice;
   encounterId: string;
   secrets: Secrets | null;
 }): Promise<PaymentNotice> => {
-  const { clinicalOystehr, billingOystehr, getStripe, legacyNotice, encounterId, secrets } = params;
+  const { billingOystehr, getStripe, legacyNotice, encounterId, secrets } = params;
   if (!legacyNotice.id) throw new Error('Legacy PaymentNotice has no id');
   const stripePaymentIntentId = stripePaymentIntentIdForNotice(legacyNotice);
   const stripeCharge = stripePaymentIntentId
-    ? await stripeChargeForLegacyPayment(getStripe, clinicalOystehr, stripePaymentIntentId, encounterId)
+    ? await stripeChargeForLegacyPayment(getStripe, billingOystehr, stripePaymentIntentId, encounterId)
     : undefined;
   const chargeId = stripeCharge?.chargeId;
   const identifierValues = [
@@ -436,28 +450,22 @@ const adoptLegacyPaymentNotice = async (params: {
   return linkToLateClaim(billingOystehr, adopted, encounterId);
 };
 
-// the legacy EHR notice a billing notice was copied from, or that records the same Stripe payment
+// the legacy EHR notice a billing notice was copied from, or that records the same Stripe payment;
+// read through the EHR zambda interface, never from clinical FHIR
 const findLegacyCounterpart = async (
-  clinicalOystehr: ClinicalOystehr,
+  billingOystehr: BillingOystehr,
   billingNotice: PaymentNotice,
   encounterId: string
 ): Promise<PaymentNotice | undefined> => {
   const legacyId = billingNotice.identifier?.find(
     (identifier) => identifier.system === CLINICAL_PAYMENT_NOTICE_ID_SYSTEM
   )?.value;
-  if (legacyId) return getPaymentNoticeIfVisible(clinicalOystehr, legacyId);
-
-  const stripeIds = stripeIdsForPaymentNotice(billingNotice);
-  if (stripeIds.length === 0) return undefined;
-  return (
-    await clinicalOystehr.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [
-        { name: 'request', value: `Encounter/${encounterId}` },
-        { name: 'identifier', value: stripeIds.map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`).join(',') },
-      ],
-    })
-  ).unbundle()[0];
+  if (legacyId) return getClinicalPaymentNotice(billingOystehr, encounterId, legacyId);
+  return findClinicalPaymentNoticeForStripePayments(
+    billingOystehr,
+    encounterId,
+    stripeIdsForPaymentNotice(billingNotice)
+  );
 };
 
 // Persists legacy-only refund and void state onto the billing notice before a write validates
@@ -529,9 +537,9 @@ export const recordLocalRefundOffsets = async (
 
 // Resolves the billing notice to refund or void, adopting a legacy one first. Refund state is
 // reconciled before the caller validates, so billing balances already reflect earlier refunds even
-// when validation then rejects the request.
+// when validation then rejects the request. Legacy EHR notices are read through the EHR zambda
+// interface, so this needs no clinical client.
 export const resolvePaymentNoticeForWrite = async (params: {
-  clinicalOystehr: ClinicalOystehr;
   billingOystehr: BillingOystehr;
   // resolves the charge behind a legacy Stripe payment when it is adopted; only called then
   getStripe: () => Stripe;
@@ -539,7 +547,7 @@ export const resolvePaymentNoticeForWrite = async (params: {
   encounterId: string;
   secrets: Secrets;
 }): Promise<PaymentNotice> => {
-  const { clinicalOystehr, billingOystehr, getStripe, paymentNoticeId, encounterId, secrets } = params;
+  const { billingOystehr, getStripe, paymentNoticeId, encounterId, secrets } = params;
 
   const billingNotice = await getPaymentNoticeIfVisible(billingOystehr, paymentNoticeId);
   if (billingNotice) {
@@ -547,19 +555,18 @@ export const resolvePaymentNoticeForWrite = async (params: {
       throw INVALID_INPUT_ERROR('Only positive payment notices can be refunded or voided.');
     }
     assertNoticeBelongsToEncounter(billingNotice, encounterId);
-    const legacyNotice = await findLegacyCounterpart(clinicalOystehr, billingNotice, encounterId);
+    const legacyNotice = await findLegacyCounterpart(billingOystehr, billingNotice, encounterId);
     const resolved = await persistLegacyState(billingOystehr, billingNotice, legacyNotice);
     await recordLocalRefundOffsets(billingOystehr, resolved, encounterId, secrets);
     return resolved;
   }
 
-  const legacyNotice = await getPaymentNoticeIfVisible(clinicalOystehr, paymentNoticeId);
+  // scoped to the encounter, so another encounter's notice is not found
+  const legacyNotice = await getClinicalPaymentNotice(billingOystehr, encounterId, paymentNoticeId);
   if (!legacyNotice) {
     throw FHIR_RESOURCE_NOT_FOUND('PaymentNotice');
   }
-  assertNoticeBelongsToEncounter(legacyNotice, encounterId);
   const adopted = await adoptLegacyPaymentNotice({
-    clinicalOystehr,
     billingOystehr,
     getStripe,
     legacyNotice,

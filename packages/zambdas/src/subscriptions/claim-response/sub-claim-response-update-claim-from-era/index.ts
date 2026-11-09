@@ -1,6 +1,6 @@
 import { BatchInputPatchRequest, FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Coverage, Provenance, ProvenanceAgent, Reference } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Provenance, ProvenanceAgent, Reference, Task } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import {
   getExtensionValue,
@@ -27,6 +27,7 @@ import {
   claimMetaTagsWithProvenanceRequests,
   resolveClaimActor,
 } from '../../../billing/provenance';
+import { buildRulesEngineKickoffTask } from '../../../billing/rules-engine/serialization';
 import {
   BillingOystehr,
   buildUpdatedClaimStatusTags,
@@ -238,19 +239,17 @@ export async function performEffect(oystehr: BillingOystehr, validated: ComplexV
               system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
               value: claimResponseIcn,
               ...(insuranceOrdinal
-                ? [
-                    {
-                      type: {
-                        coding: [
-                          {
-                            system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
-                            coe: insuranceOrdinal,
-                          },
-                        ],
-                      },
+                ? {
+                    type: {
+                      coding: [
+                        {
+                          system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
+                          code: insuranceOrdinal,
+                        },
+                      ],
                     },
-                  ]
-                : []),
+                  }
+                : {}),
             },
           ],
         }
@@ -263,7 +262,7 @@ export async function performEffect(oystehr: BillingOystehr, validated: ComplexV
       agent,
       activity: 'update',
     });
-    const merged = reducePatchOperations<Claim | Provenance>([
+    const merged = reducePatchOperations<Claim | Provenance | Task>([
       ...(updatedTags.length ? claimMetaTagsWithProvenanceRequests(current, updatedTags, 'statusChange', agent) : []),
       ...(claimResponseIcn
         ? [
@@ -282,6 +281,11 @@ export async function performEffect(oystehr: BillingOystehr, validated: ComplexV
         : []),
       ...(icnHistory ? [icnHistory] : []),
       ...(matchHistory ? [matchHistory] : []),
+      {
+        method: 'POST',
+        url: '/Task',
+        resource: buildRulesEngineKickoffTask('post-adjudication', current.id, false, agent.who),
+      },
     ]);
     // locked to the claim this attempt read
     const requests = versionLockedPatches({
@@ -292,7 +296,7 @@ export async function performEffect(oystehr: BillingOystehr, validated: ComplexV
       // Nothing to do
       return;
     }
-    await oystehr.fhir.transaction({ requests });
+    await oystehr.fhir.transaction<Claim | Provenance | Task>({ requests });
   });
 }
 

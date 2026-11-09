@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getTestNameOrCodeFromDr } from 'utils/lib/helpers/labs/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { NonNormalResult } from 'utils/lib/types/api/lab';
@@ -48,9 +49,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const isUnsolicited = specificDrTypeFromTag === LAB_DR_TYPE_TAG.code.unsolicited;
   const isUnsolicitedAndMatched = isUnsolicited && !!diagnosticReport.subject?.reference?.startsWith('Patient/');
 
-  const serviceRequestId = diagnosticReport?.basedOn
-    ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
-    ?.reference?.split('/')[1];
+  const serviceRequestId = getIdFromReference(
+    diagnosticReport?.basedOn?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))?.reference,
+    'ServiceRequest'
+  );
 
   console.log('specificDrTypeFromTag', specificDrTypeFromTag);
   console.log('isUnsolicitedAndMatched:', isUnsolicitedAndMatched);

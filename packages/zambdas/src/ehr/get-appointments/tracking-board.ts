@@ -40,7 +40,8 @@ import {
   makePrescribedMedicationDTO,
   makeProceduresDTOFromFhirResources,
 } from '../../shared/chart-data';
-import { DME_ORDER_SEARCH_TAG, getDmeOrderStatus, parseDmeOrder } from '../../shared/dme';
+import { settleByDeadline } from '../../shared/concurrency';
+import { DME_ORDER_SEARCH_TAG, getDmeOrderStatus, isDmeOrderDeleted, parseDmeOrder } from '../../shared/dme';
 import { sendErrors } from '../../shared/errors';
 import { SortedAppointmentQueues } from '../../shared/queueingUtils';
 import {
@@ -60,7 +61,7 @@ import {
 import { mapResourcesToInHouseOrderDTOs } from '../lab/in-house/get-in-house-orders/helpers';
 import { isTaskPST } from '../lab/shared/labs';
 import { parseResultsToOrder } from '../radiology/order-list';
-import { BatchSearch, buildSearchUrl, executeBatchSearches, settleByDeadline } from './batch-search';
+import { BatchSearch, buildSearchUrl, executeBatchSearches } from './batch-search';
 
 /**
  * Tracking board consolidation, Step B and Step C.
@@ -181,8 +182,6 @@ const deviceRequestSearchUrl = (encounterIds: string[]): string =>
   buildSearchUrl('DeviceRequest', [
     { name: 'encounter', value: encounterRefs(encounterIds) },
     { name: '_tag', value: DME_ORDER_SEARCH_TAG },
-    // The board shows DME orders still waiting to be dispensed.
-    { name: 'status', value: 'active' },
     { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
     { name: '_include', value: 'DeviceRequest:requester' },
   ]);
@@ -567,15 +566,15 @@ export const buildOrdersForTrackingBoard = ({
     (order) => order.encounterId
   );
 
-  // External (print-only) DME orders are fulfilled by a third party, so only in-house ones awaiting dispense show.
-  const pendingDmeOrders = pools.deviceRequests.filter(
-    (deviceRequest) => deviceRequest.status === 'active' && getDmeOrderStatus(deviceRequest) === DmeOrderStatus.pending
+  // Third-party (ordered) orders are fulfilled off-site, so there is nothing for staff to track here.
+  const liveDmeOrders = pools.deviceRequests.filter(
+    (deviceRequest) => !isDmeOrderDeleted(deviceRequest) && getDmeOrderStatus(deviceRequest) !== DmeOrderStatus.ordered
   );
-  if (pendingDmeOrders.length > 0) {
+  if (liveDmeOrders.length > 0) {
     const practitionerNames = Object.fromEntries(
       allPractitioners.map((practitioner) => [practitioner.id ?? '', getFullestAvailableName(practitioner) ?? ''])
     );
-    const dmeOrders = pendingDmeOrders.sort(byLastUpdatedDesc).flatMap((deviceRequest) => {
+    const dmeOrders = liveDmeOrders.sort(byLastUpdatedDesc).flatMap((deviceRequest) => {
       const order = mapOrderSafely(`DME order ${deviceRequest.id}`, environment, () =>
         parseDmeOrder(deviceRequest, practitionerNames)
       );

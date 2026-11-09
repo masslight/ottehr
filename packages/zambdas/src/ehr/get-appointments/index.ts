@@ -35,6 +35,7 @@ import {
   getSMSNumberForIndividual,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -49,6 +50,7 @@ import { APPOINTMENT_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { isTruthy } from 'utils/lib/types/utils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { deadlineFromContext } from '../../shared/concurrency';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getPaperworkCompleteness } from '../../shared/paperwork-completeness';
 import { getTrackingBoardVisitStatus, sortAppointments } from '../../shared/queueingUtils';
@@ -60,6 +62,8 @@ import {
   getAppointmentQueryInput,
   getTimezone,
   getTimezoneResourceIdFromAppointment,
+  lambdaResultBytes,
+  MAX_RESPONSE_BYTES,
   mergeResources,
   parseAttenderProviderType,
   parseEncounterParticipants,
@@ -160,9 +164,7 @@ const filterAppointmentsForBoard = (
 let m2mToken: string;
 
 export const index = wrapHandler('get-appointments', async (input: ZambdaInput, context?: Context) => {
-  const trackingBoardDeadline = context
-    ? Date.now() + context.getRemainingTimeInMillis() - TRACKING_BOARD_RESPONSE_RESERVE_MS
-    : undefined;
+  const trackingBoardDeadline = deadlineFromContext(context, TRACKING_BOARD_RESPONSE_RESERVE_MS);
   // The tracking board polls this endpoint every 30 s per open tab, so per-invocation logging is one summary line
   // (see logSummary) rather than a line per phase.
   const phaseMs: Record<string, number> = {};
@@ -352,7 +354,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput, 
       (asEnc.participant ?? []).forEach((p) => {
         const ref = p.individual?.reference;
         if (ref?.startsWith('Practitioner/')) {
-          const id = ref.split('/')[1];
+          const id = getIdFromReference(ref, 'Practitioner');
           if (id) practitionerIds.push(id);
         }
       });
@@ -727,6 +729,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput, 
     cancelled,
     ...trackingBoardExtras,
   };
+  const result = { statusCode: 200, body: JSON.stringify(response) };
+  const responseBytes = lambdaResultBytes(result);
   endPhase('structure');
 
   const rows = [...preBooked, ...inOffice, ...completed, ...cancelled];
@@ -736,12 +740,13 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput, 
     // Patients with no RelatedPerson holding an SMS number: ordinary data, so counted here instead of logged per row.
     withoutSmsModel: rows.filter((row) => !row.smsModel).length,
     ...(trackingBoardExtras.ordersAndVitalsIncomplete ? { ordersAndVitalsIncomplete: true } : {}),
+    bytes: responseBytes,
   });
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+  if (responseBytes > MAX_RESPONSE_BYTES) {
+    throw APPOINTMENT_SEARCH_TOO_BROAD_ERROR;
+  }
+  return result;
 });
 
 interface AppointmentInformationInputs {

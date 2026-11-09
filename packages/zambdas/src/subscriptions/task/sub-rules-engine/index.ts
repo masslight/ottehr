@@ -25,7 +25,7 @@ import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-
 import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
 import {
   RULES_ENGINES,
-  RulesEngineSubmissionInsurance,
+  RulesEngineInsurance,
   RulesEngineSubmissionType,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -189,7 +189,7 @@ export interface ValidatedRulesRun {
   model: RulesEngineClaimModel;
   skipRules: boolean;
   submissionType: RulesEngineSubmissionType | null;
-  submissionInsurance: RulesEngineSubmissionInsurance | null;
+  submissionInsurance: RulesEngineInsurance | null;
   payerClaimControlNumber: string | null;
 }
 
@@ -248,7 +248,7 @@ export async function complexValidation(
     model,
     skipRules: skipRules ?? false,
     submissionType: submissionType as RulesEngineSubmissionType | null,
-    submissionInsurance: submissionInsurance as RulesEngineSubmissionInsurance | null,
+    submissionInsurance: submissionInsurance as RulesEngineInsurance | null,
     payerClaimControlNumber,
   };
 }
@@ -446,10 +446,11 @@ export async function performEffect(
   let preRule = unchanged;
 
   let heldBy: BillingRule | undefined;
+  let shouldSubmit = engine === 'claim-submission';
   let failure: { rule: BillingRule; error: string } | undefined;
   if (!skipRules) {
     for (const rule of rules) {
-      const { held, appliedActions, error } = executeRule(rule, model);
+      const { held, appliedActions, submit, error } = executeRule(rule, model);
       console.log(
         `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
           `${held ? ' — applied Hold, stopping' : ''}${error ? ` — failed: ${error}` : ''}`
@@ -465,6 +466,9 @@ export async function performEffect(
         recordRuleAttribution(attribution, preRule, model, toRuleRef(engine, rule));
       }
       if (error) break;
+      if (submit) {
+        shouldSubmit = true;
+      }
       if (held) {
         heldBy = rule;
         break;
@@ -538,6 +542,7 @@ export async function performEffect(
     oystehr,
     model,
     agent,
+    shouldSubmit,
     submissionType,
     submissionInsurance,
     payerClaimControlNumber,

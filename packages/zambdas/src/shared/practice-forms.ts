@@ -131,7 +131,7 @@ export const getPatientFormResponses = async (input: {
         resourceType: 'Questionnaire',
         params: [
           { name: '_tag', value: `${PAPERWORK_FLOW_TAG.system}|${PAPERWORK_FLOW_TAG.code}` },
-          { name: '_elements', value: 'url,version,derivedFrom' },
+          { name: '_elements', value: 'id,url,version,derivedFrom' },
         ],
       },
       oystehr

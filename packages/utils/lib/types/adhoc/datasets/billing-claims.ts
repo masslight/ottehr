@@ -59,7 +59,12 @@ export const BillingClaimsBaseRowSchema = z.object({
   payerId: z.string().describe('Payer id (the clearinghouse payer id, or "OTR-…" for a custom insurer). "" when none.'),
   nonInsurancePayerName: z
     .string()
-    .describe('Non-insurance payer (e.g. an employer for occupational medicine) billed on the claim. "" when none.'),
+    .describe(
+      'Non-insurance organization (NIO) billed on the claim — the employer of an occupational-medicine or ' +
+        "employer-paid visit, as set when the claim was created. A workers' comp claim billed to its carrier " +
+        "has the carrier in payerName and no employer here — the workers' comp employer is in the Encounters " +
+        'dataset (employer layer). "" when none.'
+    ),
   memberId: z.string().describe('Subscriber / member id on the primary coverage. "" when none.'),
   // --- Status (each a claim status indicator set in the billing app) ---
   arStage: statusField('arStage', 'whose receivable the claim currently is.'),

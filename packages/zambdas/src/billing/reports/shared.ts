@@ -16,6 +16,7 @@ import { ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants'
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { stripeAccountIdRegex } from 'utils/lib/validation/regex';
 import { fetchAllPages } from '../../shared/fhir';
+import { ClinicalOystehr } from '../../shared/helpers';
 import { BillingOystehr, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, UnscopedOystehr } from '../shared';
 
 export const ERA_PAGE_SIZE = 200;
@@ -88,7 +89,8 @@ async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]>
 // schedule-owner extensions; candidates verified against Stripe (test data carries junk ids).
 export async function listStripeAccounts(
   oystehr: BillingOystehr,
-  untaggedClient: UnscopedOystehr,
+  // reads untagged Locations, which the clinical and unscoped clients both see
+  untaggedClient: ClinicalOystehr | UnscopedOystehr,
   stripe: Stripe
 ): Promise<(string | undefined)[]> {
   const orgs: Organization[] = [];

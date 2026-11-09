@@ -50,6 +50,7 @@ import {
 } from '../types/data/billing/custom-insurance-org.types';
 import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
 import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation/regex';
+import { zambdaApiUrlOverride } from './zambda-api-url-override';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -57,6 +58,7 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectApiUrl: projectAPI,
+    services: { zambdaApiUrl: zambdaApiUrlOverride() },
     ignoreTags: [BILLING_RESOURCE_TAG],
   };
   console.log('creating fhir client');

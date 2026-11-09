@@ -14,6 +14,7 @@ import {
 } from 'fhir/r4b';
 import { applyClaimNonInsurancePayerTag, claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
   CLAIM_ACCIDENT_TYPE,
@@ -179,12 +180,12 @@ async function saveCoverageSubscriber(input: {
   claimReference: string;
 }): Promise<{ id: string | undefined }> {
   const { oystehr, coverage, relationship, policyHolder, before, agent, claimReference } = input;
-  const patientId = coverage.beneficiary?.reference?.split('/')[1];
+  const patientId = getIdFromReference(coverage.beneficiary?.reference);
   if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
   setCoverageRelationship(coverage, relationship);
   const currentRef = coverage.subscriber?.reference;
-  const currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
+  const currentSubscriberId = getIdFromReference(currentRef, 'RelatedPerson');
   const currentSubscriber = currentSubscriberId
     ? await fetchById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId)
     : undefined;

@@ -1,4 +1,5 @@
 import { Address, ContactPoint, Extension, Organization, OrganizationAffiliation, Reference } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { extractPayerIdFromUrl, getNioReferenceUrl, getPayerId, isPayerUrl } from 'utils/lib/helpers/helpers';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
 import {
@@ -328,7 +329,7 @@ export function mapNonInsuranceOrganization(params: {
 }
 
 export function referencedId(reference: Reference | undefined): string | undefined {
-  return reference?.reference?.split('/')[1];
+  return getIdFromReference(reference?.reference);
 }
 
 // The minimal clinical-facing shape; `reference` is the NIO token clinical code stores verbatim.

@@ -26,7 +26,7 @@ import {
 } from 'utils/lib/ottehr-config/sendgrid';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { buildLocationSupportPhonesMap, getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
-import { sendErrors } from './errors';
+import { sendErrors, sendWarning } from './errors';
 import { reportMissingUserRelatedPerson } from './invariants';
 
 export interface EmailAttachment {
@@ -263,6 +263,24 @@ export const getEmailClient = (secrets: Secrets | null, oystehr?: Oystehr): Emai
   return new EmailClient(SENDGRID_CONFIG, FEATURE_FLAGS_CONFIG.sendgridEnabled, secrets, oystehr);
 };
 
+// 4006 is Oystehr's generic invalid-request code; the message narrows it to a malformed recipient phone number.
+const INVALID_REQUEST_ERROR_CODE = 4006;
+
+export const isInvalidPhoneNumberError = (error: unknown): boolean =>
+  error instanceof Oystehr.OystehrSdkError &&
+  Number(error.code) === INVALID_REQUEST_ERROR_CODE &&
+  /phone number/i.test(error.message);
+
+// A malformed phone number is bad contact data, not a defect, so it goes to Sentry as a warning.
+const reportSmsError = (error: unknown, env: string, recipient: string): void => {
+  if (isInvalidPhoneNumberError(error)) {
+    const { code, message } = error as Oystehr.OystehrSdkError;
+    sendWarning('SMS recipient has an invalid phone number', env, { recipient, code, message });
+    return;
+  }
+  void sendErrors(error, env);
+};
+
 export async function sendSms(
   message: string,
   resourceReference: string,
@@ -277,7 +295,7 @@ export async function sendSms(
     console.log('message send res: ', commId);
   } catch (e) {
     console.log('message send error: ', JSON.stringify(e));
-    void sendErrors(e, ENVIRONMENT);
+    reportSmsError(e, ENVIRONMENT, resourceReference);
   }
 }
 
@@ -285,7 +303,7 @@ export async function sendSms(
  * How `sendSmsToRelatedPersons` reacts to per-recipient send failures:
  * - `'all'`          — throw if ANY recipient fails.
  * - `'partial-ok'`   — (default) throw only if EVERY recipient fails; partial success is OK.
- * - `'never-throw'`  — never throw. Failures are still routed to Sentry via `sendErrors`.
+ * - `'never-throw'`  — never throw. Failures are still routed to Sentry (an invalid phone number as a warning).
  */
 export type SmsFanoutFailStrategy = 'all' | 'partial-ok' | 'never-throw';
 
@@ -346,7 +364,7 @@ export async function sendSmsToRelatedPersons({
     } else {
       console.log(`sms send error: ${recipient}:`, JSON.stringify(r.reason));
       failures.push({ recipient, error: r.reason });
-      void sendErrors(r.reason, env);
+      reportSmsError(r.reason, env, recipient);
     }
   });
 
@@ -369,18 +387,19 @@ export async function sendSmsForPatient(
   oystehr: Oystehr,
   patient: Patient | undefined,
   ENVIRONMENT: string
-): Promise<void> {
+): Promise<SendSmsToRelatedPersonsResult> {
+  const noRecipients = { total: 0, sent: 0, failures: [] };
   if (!patient?.id) {
     console.error("Message didn't send because no patient was found for encounter");
-    return;
+    return noRecipients;
   }
   const relatedPersons = await getRelatedPersonsForPatient(patient.id, oystehr);
   if (!relatedPersons.length) {
     console.error(`Message didn't send because no user-relatedperson was found for patient ${patient.id}`);
     reportMissingUserRelatedPerson('sendSmsForPatient', patient.id);
-    return;
+    return noRecipients;
   }
-  await sendSmsToRelatedPersons({
+  return sendSmsToRelatedPersons({
     relatedPersons,
     message,
     oystehr,

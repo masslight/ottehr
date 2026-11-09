@@ -22,6 +22,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { InHouseMedicationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
@@ -134,18 +135,23 @@ export default function InHouseMedicationQuickPicksPage(): ReactElement {
                     <IconButton size="small" onClick={() => handleOpenRename(qp)} title="Rename">
                       <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        if (window.confirm(`Remove quick pick "${qp.name}"?`)) {
-                          handleDelete(qp);
-                        }
-                      }}
-                      title="Remove"
-                      sx={{ color: theme.palette.error.main }}
+                    <ConfirmationDialog
+                      title="Remove Quick Pick"
+                      description={`Remove quick pick "${qp.name}"?`}
+                      response={() => handleDelete(qp)}
+                      actionButtons={{ proceed: { text: 'Remove', color: 'error' }, back: { text: 'Cancel' } }}
                     >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
+                      {(showDialog) => (
+                        <IconButton
+                          size="small"
+                          onClick={showDialog}
+                          title="Remove"
+                          sx={{ color: theme.palette.error.main }}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </ConfirmationDialog>
                   </TableCell>
                 </TableRow>
               ))}

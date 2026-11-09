@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { Claim, Invoice, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
@@ -30,6 +30,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
@@ -47,12 +48,11 @@ import {
 } from '../claim-amounts';
 import { getClaimServiceDate } from '../claim-search';
 import { buildEraRemitServiceLines } from '../era-remits';
+import { fetchClaimInvoices, toBillingInvoiceSummary } from '../invoices';
 import { getCLIA } from '../service-facility.helpers';
 import {
   BillingOystehr,
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
@@ -72,6 +72,8 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getEraCheckNumber,
+  getGroupNumber,
+  getPayerClaimControlNumber,
   getTaxonomy,
   readClaimItemDrug,
   readClaimItemOrderingProvider,
@@ -138,6 +140,7 @@ export async function performEffect(
     paymentsByEncounter,
     nonInsurancePayer,
     writeOffResources,
+    invoices,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
     fetchClaimResponsesByClaimIds(oystehr, [claimId]),
@@ -147,6 +150,9 @@ export async function performEffect(
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
     resolveNonInsurancePayerDetail(oystehr, claim),
     fetchWriteOffs(oystehr, claimId),
+    isOttehrBillingInvoicingInBillingApp(params.secrets)
+      ? fetchClaimInvoices(oystehr, claimId)
+      : Promise.resolve<Invoice[]>([]),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
@@ -175,49 +181,20 @@ export async function performEffect(
     ...claimResponses.map((cr) => cr.insurer?.reference),
     ...paymentReconciliations.map((paymentReconciliation) => paymentReconciliation.paymentIssuer?.reference),
   ]);
-  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
-    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
-  );
   const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
-  const payerClaimControlNumber = payerClaimControlNumbers.find(
-    (i) =>
-      // is primary type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'primary'
-      ) ||
-      // is legacy type-less identifier
-      !i.type
-  )?.value;
+  const payerClaimControlNumber = getPayerClaimControlNumber(claim, 'primary');
   const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(secondaryCoverage.payor[0].reference)
     : undefined;
-  const secondaryPayerClaimControlNumber = payerClaimControlNumbers.find(
-    (i) =>
-      // is secondary type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'secondary'
-      )
-  )?.value;
+  const secondaryPayerClaimControlNumber = getPayerClaimControlNumber(claim, 'secondary');
   const tertiaryInsurer = tertiaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(tertiaryCoverage.payor[0].reference)
     : undefined;
-  const tertiaryPayerClaimControlNumber = payerClaimControlNumbers.find(
-    (i) =>
-      // is tertiary type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'tertiary'
-      )
-  )?.value;
+  const tertiaryPayerClaimControlNumber = getPayerClaimControlNumber(claim, 'tertiary');
   const quaternaryInsurer = quaternaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(quaternaryCoverage.payor[0].reference)
     : undefined;
-  const quaternaryPayerClaimControlNumber = payerClaimControlNumbers.find(
-    (i) =>
-      // is quaternary type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === 'quaternary'
-      )
-  )?.value;
+  const quaternaryPayerClaimControlNumber = getPayerClaimControlNumber(claim, 'quaternary');
 
   const billed = claim.total?.value ?? 0;
   const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);
@@ -315,6 +292,7 @@ export async function performEffect(
     payerId: resolvedPayerId(insurer) ?? '',
     payerClaimControlNumber,
     memberId: coverage?.subscriberId ?? '',
+    groupNumber: await getGroupNumber(oystehr, coverage, payersByRef),
     subscriberId: coverage?.subscriberId ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
     relationship: (coverage?.relationship?.coding?.[0]?.display as SubscriberRelationship) ?? '',
@@ -324,16 +302,19 @@ export async function performEffect(
     secondaryPayerName: secondaryInsurer?.name ?? '',
     secondaryPayerId: resolvedPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
+    secondaryGroupNumber: await getGroupNumber(oystehr, secondaryCoverage, payersByRef),
     secondaryPayerClaimControlNumber,
     tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
     tertiaryPayerName: tertiaryInsurer?.name ?? '',
     tertiaryPayerId: resolvedPayerId(tertiaryInsurer) ?? '',
     tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
+    tertiaryGroupNumber: await getGroupNumber(oystehr, tertiaryCoverage, payersByRef),
     tertiaryPayerClaimControlNumber,
     quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
     quaternaryPayerName: quaternaryInsurer?.name ?? '',
     quaternaryPayerId: resolvedPayerId(quaternaryInsurer) ?? '',
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
+    quaternaryGroupNumber: await getGroupNumber(oystehr, quaternaryCoverage, payersByRef),
     quaternaryPayerClaimControlNumber,
     nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
     nonInsurancePayerName: nonInsurancePayer.name,
@@ -396,6 +377,7 @@ export async function performEffect(
     insurancePayments,
     patientPayments,
     writeOffs,
+    invoices: invoices.map(toBillingInvoiceSummary),
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

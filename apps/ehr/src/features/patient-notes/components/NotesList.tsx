@@ -1,0 +1,58 @@
+import { Box, Button, CircularProgress, Typography } from '@mui/material';
+import React from 'react';
+import { noteKind, NoteTarget, useNotes } from '../hooks/useNotes';
+import { NoteItem } from './NoteItem';
+
+interface NotesListProps {
+  target: NoteTarget;
+}
+
+export const NotesList: React.FC<NotesListProps> = ({ target }) => {
+  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useNotes(target);
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Typography color="error" variant="body2" sx={{ px: 3, py: 2 }}>
+        Failed to load notes.
+      </Typography>
+    );
+  }
+
+  const notes = data?.pages.flatMap((page) => page.notes) ?? [];
+
+  if (!notes.length) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ px: 3, py: 2 }}>
+        No {noteKind(target)} notes yet.
+      </Typography>
+    );
+  }
+
+  return (
+    <>
+      {notes.map((note, i) => (
+        <NoteItem key={note.resourceId ?? i} note={note} target={target} />
+      ))}
+      {hasNextPage && (
+        <Box sx={{ px: 3, py: 1 }}>
+          <Button
+            size="small"
+            onClick={() => void fetchNextPage()}
+            disabled={isFetchingNextPage}
+            startIcon={isFetchingNextPage ? <CircularProgress size={14} color="inherit" /> : null}
+          >
+            {isFetchingNextPage ? 'Loading...' : 'Load more'}
+          </Button>
+        </Box>
+      )}
+    </>
+  );
+};
