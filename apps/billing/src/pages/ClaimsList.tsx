@@ -15,6 +15,7 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -93,6 +94,7 @@ import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/cl
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingServices } from '../hooks/useBillingServices';
 import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
+import { useNioInvoiceDisabledReason } from '../hooks/useNioInvoiceDisabledReason';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatFacilityAddress, valueToText } from '../utils/format';
@@ -755,6 +757,12 @@ export function ClaimsListView({
       ? claims.find((claim) => claim.id === String(selected[0]) && isInvoiceableClaimStatus(claim.statuses))
       : undefined;
 
+  const selectedClaimIds = useMemo(() => selected.map(String), [selected]);
+  const nioInvoiceDisabledReason = useNioInvoiceDisabledReason(
+    selectedClaimIds,
+    claimActionMenuOpen && invoicingInBillingApp
+  );
+
   // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
   // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
   // applies the configured rules, then performs its engine's success effect — submit to the payer
@@ -919,6 +927,19 @@ export function ClaimsListView({
                   >
                     Send Patient Invoice
                   </MenuItem>
+                )}
+                {invoicingInBillingApp && (
+                  <Tooltip title={nioInvoiceDisabledReason ?? ''} placement="left">
+                    <span>
+                      <MenuItem
+                        disabled={!!nioInvoiceDisabledReason}
+                        onClick={() => setClaimActionMenuOpen(false)}
+                        disableRipple
+                      >
+                        Create NIO Invoice
+                      </MenuItem>
+                    </span>
+                  </Tooltip>
                 )}
               </Menu>
               <Button

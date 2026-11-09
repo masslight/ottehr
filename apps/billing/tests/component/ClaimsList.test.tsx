@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
@@ -17,6 +18,7 @@ const {
   downloadTextFileMock,
   searchBillingPatientsMock,
   searchBillingServicesMock,
+  checkBillingNioInvoiceMock,
   mockOystehrZambda,
 } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
@@ -28,6 +30,7 @@ const {
   downloadTextFileMock: vi.fn(),
   searchBillingPatientsMock: vi.fn().mockResolvedValue({ patients: [] }),
   searchBillingServicesMock: vi.fn().mockResolvedValue({ services: [] }),
+  checkBillingNioInvoiceMock: vi.fn(),
   mockOystehrZambda: {},
 }));
 
@@ -43,6 +46,7 @@ vi.mock('../../src/api/api', () => ({
   // Preloaded on mount — without this export the load explodes after the test body has finished.
   searchBillingServices: searchBillingServicesMock,
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
+  checkBillingNioInvoice: checkBillingNioInvoiceMock,
 }));
 
 // mockOystehrZambda is a stable reference, like the real store-backed hook returns — a fresh object on
@@ -187,10 +191,19 @@ const makeRow = (
 });
 
 function renderList(): void {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
   render(
-    <MemoryRouter>
-      <ClaimsList />
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ClaimsList />
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
@@ -318,6 +331,74 @@ describe('ClaimsList — send invoice', () => {
 
     await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('dialog', { name: 'Send Invoice' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClaimsList — create NIO invoice', () => {
+  const nioRow = (id: string, patientName: string): BillingClaimItem => ({
+    ...makeRow(id, patientName, AR_STAGE.nonInsurancePayer, 'non-insurance-payer-pre-invoice'),
+    statuses: {
+      ...emptyClaimStatusValues(),
+      arStage: AR_STAGE.nonInsurancePayer,
+      nonInsuranceArStatus: 'ready-to-invoice',
+    },
+  });
+
+  beforeEach(() => {
+    checkBillingNioInvoiceMock.mockReset();
+    searchBillingClaimsMock.mockReset().mockResolvedValue({
+      claims: [nioRow('c-1', 'First Patient'), nioRow('c-2', 'Second Patient')],
+      total: 2,
+    });
+  });
+
+  it('keeps Create NIO Invoice disabled with the broken rule until the server confirms the claims', async () => {
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: false,
+      reason: 'All claims must have the same service facility',
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const second = screen.getByLabelText('select Second Patient');
+    fireEvent.click(second);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    expect(createInvoice).toHaveAttribute('aria-disabled', 'true');
+    await waitFor(() =>
+      expect(checkBillingNioInvoiceMock).toHaveBeenCalledWith(mockOystehrZambda, {
+        claimIds: ['c-1', 'c-2'],
+      })
+    );
+    const user = userEvent.setup();
+    await user.hover(createInvoice.parentElement!);
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('All claims must have the same service facility.');
+    expect(createInvoice).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('enables Create NIO Invoice for claims that can be invoiced and checks again on every open', async () => {
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: true,
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    await waitFor(() => expect(createInvoice).not.toHaveAttribute('aria-disabled'));
+    fireEvent.click(createInvoice);
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+
+    fireEvent.click(actions);
+
+    await waitFor(() => expect(checkBillingNioInvoiceMock).toHaveBeenCalledTimes(2));
   });
 });
 

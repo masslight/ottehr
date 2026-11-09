@@ -46,6 +46,7 @@ import {
   MatchClaimResponseToClaimInputSchema,
   NetCollectionsDrilldownParamsSchema,
   PatientPaymentsDrilldownParamsSchema,
+  PreviewBillingNioInvoiceInputSchema,
   RecordBillingManualPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
   RenameEraAttachmentInputSchema,
@@ -84,6 +85,7 @@ import {
   BillingClaimsExportStatusResponse,
   BillingCodeOption,
   BillingProviderOption,
+  CheckBillingNioInvoiceResponse,
   ClaimDetailResponse,
   CreateBillingInvoiceResponse,
   CreatedClaimResponse,
@@ -199,6 +201,11 @@ export const createBillingInvoice = (
   oystehr: Oystehr,
   parameters: z.input<typeof CreateBillingInvoiceInputSchema>
 ): Promise<CreateBillingInvoiceResponse> => executeBillingZambda(oystehr, 'create-billing-invoice', parameters);
+
+export const checkBillingNioInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof PreviewBillingNioInvoiceInputSchema>
+): Promise<CheckBillingNioInvoiceResponse> => executeBillingZambda(oystehr, 'check-billing-nio-invoice', parameters);
 
 export const searchBillingInvoices = (
   oystehr: Oystehr,
