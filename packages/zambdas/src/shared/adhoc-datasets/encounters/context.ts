@@ -24,7 +24,7 @@ import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { fetchScopedResources } from '../../adhoc-report';
 import { EncounterOrderRecords, fetchEncounterOrders } from '../encounter-orders';
 import { ByIdLoader, byIdLoader, once } from '../memo';
-import { indexByEncounter, stripEnc } from './helpers';
+import { ALL_OBSERVATIONS_ENTRIES_PER_JOB, indexByEncounter, stripEnc } from './helpers';
 
 export interface EncounterRoot {
   /** Keyed `Appointment/{id}`. */
@@ -180,8 +180,11 @@ export function createEncounterContext(params: {
     }),
 
     observations: once(async () =>
-      indexByEncounter(await scoped<Observation>('Observation', 'encounter', encRefs), (o) =>
-        stripEnc(o.encounter?.reference)
+      indexByEncounter(
+        await fetchScopedResources<Observation>(oystehr, 'Observation', 'encounter', encRefs, [], {
+          entriesPerJob: ALL_OBSERVATIONS_ENTRIES_PER_JOB,
+        }),
+        (o) => stripEnc(o.encounter?.reference)
       )
     ),
 

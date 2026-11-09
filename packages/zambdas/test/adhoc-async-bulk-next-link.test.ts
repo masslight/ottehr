@@ -183,6 +183,35 @@ describe('fetch helpers: one async batch job per search set', () => {
     expect(jobs.length).toBe(7);
   });
 
+  it('halves a job of many entries as often as needed without counting it against the split limit', async () => {
+    // Every entry alone is small, but more than 3 entries together reach 30 000: 40 entries need 4 halvings.
+    const { oystehr, jobs } = fakeClient((entries) =>
+      entries.length > 3
+        ? { status: 200, resources: Array.from({ length: 30000 }, (_, i) => practitioner(`x-${i}`)) }
+        : { status: 200, resources: entries.flatMap((e) => idsOf(e).map(practitioner)) }
+    );
+
+    const all = ids(IDS_PER_ENTRY * 40);
+    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', all);
+
+    expect(resources).toHaveLength(all.length);
+    expect(jobs[0]).toHaveLength(40);
+    expect(Math.max(...jobs.slice(1).map((job) => job.length))).toBeLessThanOrEqual(20);
+  });
+
+  it('asks for fewer entries per job when the caller says the entries are heavy', async () => {
+    const { oystehr, jobs } = fakeClient((entries) => ({
+      status: 200,
+      resources: entries.flatMap((e) => idsOf(e).map(practitioner)),
+    }));
+
+    await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(IDS_PER_ENTRY * 5), [], {
+      entriesPerJob: 2,
+    });
+
+    expect(jobs.map((job) => job.length)).toEqual([2, 2, 1]);
+  });
+
   it('fails the report instead of returning a part of the data when the split runs out', async () => {
     const { oystehr } = fakeClient(() => ({ status: 500, outcome: 'Internal Error' }));
 

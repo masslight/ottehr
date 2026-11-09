@@ -1,7 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, FhirResource, Location, Patient } from 'fhir/r4b';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_WINDOW_DAYS, fetchAppointmentReportResources, RECORDS_PER_WINDOW } from '../src/shared/adhoc-report';
+import {
+  DEFAULT_WINDOW_DAYS,
+  fetchAppointmentReportResources,
+  RECORDS_PER_WINDOW,
+  ROOT_WINDOWS_PER_JOB,
+} from '../src/shared/adhoc-report';
 import { parseBatchEntryUrl } from './helpers/adhoc-batch-fake';
 
 type Param = { name: string; value: string };
@@ -114,7 +119,7 @@ describe('report root (fetchAppointmentReportResources)', () => {
     expect(resources.filter((r) => r.resourceType === 'Location')).toHaveLength(1);
   });
 
-  it('a long range: windows sized from one count, all in one job, each resource once', async () => {
+  it('a long range: windows sized from one count, ROOT_WINDOWS_PER_JOB windows per job, each resource once', async () => {
     const dateRange = { start: '2026-01-01T00:00:00.000Z', end: '2026-07-01T00:00:00.000Z' };
     countTotal = RECORDS_PER_WINDOW * 4;
 
@@ -125,12 +130,13 @@ describe('report root (fetchAppointmentReportResources)', () => {
     expect(values(countSearches[0], '_total')).toEqual(['accurate']);
 
     const appointmentJobs = jobs.filter((job) => job[0].resourceType === 'Appointment');
-    expect(appointmentJobs).toHaveLength(1);
+    const windows = appointmentJobs.flat();
     // 4 × RECORDS_PER_WINDOW appointments → about 4 windows (the last one may be a sliver).
-    expect(appointmentJobs[0].length).toBeGreaterThanOrEqual(4);
-    expect(appointmentJobs[0].length).toBeLessThanOrEqual(5);
+    expect(windows.length).toBeGreaterThanOrEqual(4);
+    expect(windows.length).toBeLessThanOrEqual(5);
+    expect(appointmentJobs.every((job) => job.length <= ROOT_WINDOWS_PER_JOB)).toBe(true);
 
-    const bounds = appointmentJobs[0].map((entry) => values(entry.params, 'date'));
+    const bounds = windows.map((entry) => values(entry.params, 'date'));
     expect(bounds[0][0]).toBe(`ge${dateRange.start}`);
     expect(bounds.at(-1)?.[1]).toBe(`le${dateRange.end}`);
 
@@ -144,7 +150,7 @@ describe('report root (fetchAppointmentReportResources)', () => {
 
     await fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange });
 
-    const appointmentJobs = jobs.filter((job) => job[0].resourceType === 'Appointment');
-    expect(appointmentJobs[0]).toHaveLength(Math.ceil(60 / DEFAULT_WINDOW_DAYS));
+    const windows = jobs.filter((job) => job[0].resourceType === 'Appointment').flat();
+    expect(windows).toHaveLength(Math.ceil(60 / DEFAULT_WINDOW_DAYS));
   });
 });

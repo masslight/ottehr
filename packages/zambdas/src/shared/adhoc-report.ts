@@ -232,6 +232,11 @@ export const RECORDS_PER_WINDOW = 5000;
 export const DEFAULT_WINDOW_DAYS = 15;
 /** Ranges up to this many days are not counted first: a count costs more than it saves there. */
 export const COUNT_MIN_RANGE_DAYS = 30;
+/**
+ * Root windows in one job: a window of RECORDS_PER_WINDOW appointments comes back with about as many encounters,
+ * so two windows stay under one 30 000-resource page.
+ */
+export const ROOT_WINDOWS_PER_JOB = 2;
 /** Async jobs one report runs at once. One job, from start to download, holds one slot. */
 export const JOBS_IN_PARALLEL = 4;
 /** Split levels for a failed job before the report fails. */
@@ -407,6 +412,9 @@ async function runGroup(oystehr: Oystehr, group: SearchEntry[], label: string, d
   return [...result.resources, ...rest];
 }
 
+// A job of several entries is split into two jobs of half the entries each (bounded by log2 of the entries);
+// a job of one entry splits the entry itself — its window or its id list — and only that counts against
+// MAX_SPLIT_DEPTH: an entry that still fails after that many halvings stops the report.
 async function splitAndRun(
   oystehr: Oystehr,
   group: SearchEntry[],
@@ -414,34 +422,46 @@ async function splitAndRun(
   depth: number,
   reason: string
 ): Promise<FhirResource[]> {
-  const halves: SearchEntry[][] | undefined =
-    group.length > 1
-      ? [group.slice(0, Math.ceil(group.length / 2)), group.slice(Math.ceil(group.length / 2))]
-      : group[0]?.split?.()?.map((entry) => [entry]);
+  if (group.length > 1) {
+    const middle = Math.ceil(group.length / 2);
+    console.warn(`[adhoc] ${label}: split entries=${group.length} into 2 jobs reason=${reason}`);
+    const parts = await Promise.all(
+      [group.slice(0, middle), group.slice(middle)].map((half) => runGroup(oystehr, half, label, depth))
+    );
+    return parts.flat();
+  }
+
+  const halves = group[0]?.split?.();
 
   if (depth >= MAX_SPLIT_DEPTH || !halves) {
     throw new Error(
-      `Could not load ${label} for the report completely (${reason}) after ${depth} split(s); ` +
+      `Could not load ${label} for the report completely (${reason}) after ${depth} split(s) of one search; ` +
         'the report is stopped rather than shown with missing data'
     );
   }
 
-  console.warn(`[adhoc] ${label}: split depth=${depth + 1} entries=${group.length} reason=${reason}`);
+  console.warn(`[adhoc] ${label}: split one search depth=${depth + 1} reason=${reason}`);
 
-  const parts = await Promise.all(halves.map((half) => runGroup(oystehr, half, label, depth + 1)));
+  const parts = await Promise.all(halves.map((half) => runGroup(oystehr, [half], label, depth + 1)));
   return parts.flat();
 }
 
-/** Runs the entries in batch jobs of ENTRIES_PER_JOB, at most JOBS_IN_PARALLEL at once; each resource once. */
+/**
+ * Runs the entries in batch jobs of `entriesPerJob` (ENTRIES_PER_JOB by default), at most JOBS_IN_PARALLEL at
+ * once; each resource once. A search whose entries are heavy asks for fewer per job, so a job stays under one
+ * page of 30 000 resources and is not run in full only to be split.
+ */
 async function runEntries<T extends FhirResource>(
   oystehr: Oystehr,
   entries: SearchEntry[],
-  label: string
+  label: string,
+  entriesPerJob = ENTRIES_PER_JOB
 ): Promise<T[]> {
   if (entries.length === 0) return [];
   const startedAt = Date.now();
+  const perJob = Math.max(1, Math.floor(entriesPerJob));
   const groups: SearchEntry[][] = [];
-  for (let i = 0; i < entries.length; i += ENTRIES_PER_JOB) groups.push(entries.slice(i, i + ENTRIES_PER_JOB));
+  for (let i = 0; i < entries.length; i += perJob) groups.push(entries.slice(i, i + perJob));
 
   const parts = await Promise.all(groups.map((group) => runGroup(oystehr, group, label, 0)));
 
@@ -610,7 +630,7 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
     windowEntry('Appointment', 'date', window, params)
   );
 
-  const root = await runEntries<Appointment | Encounter>(oystehr, entries, 'Appointment by date');
+  const root = await runEntries<Appointment | Encounter>(oystehr, entries, 'Appointment by date', ROOT_WINDOWS_PER_JOB);
   const appointments = root.filter((r): r is Appointment => r.resourceType === 'Appointment');
 
   const [patients, locations, practitioners] = await Promise.all([
@@ -679,7 +699,8 @@ export async function fetchScopedResources<T extends FhirResource>(
   resourceType: T['resourceType'],
   paramName: string,
   values: string[],
-  extraParams: { name: string; value: string }[] = []
+  extraParams: { name: string; value: string }[] = [],
+  options: { entriesPerJob?: number } = {}
 ): Promise<T[]> {
   const unique = Array.from(new Set(values.filter(Boolean)));
   if (unique.length === 0) return [];
@@ -689,7 +710,7 @@ export async function fetchScopedResources<T extends FhirResource>(
     entries.push(idsEntry(resourceType, paramName, unique.slice(i, i + IDS_PER_ENTRY), extraParams));
   }
 
-  return runEntries<T>(oystehr, entries, `${resourceType} by ${paramName}`);
+  return runEntries<T>(oystehr, entries, `${resourceType} by ${paramName}`, options.entriesPerJob);
 }
 
 export function resolveEncounterAppointment(
