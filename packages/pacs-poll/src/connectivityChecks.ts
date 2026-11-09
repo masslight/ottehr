@@ -1,0 +1,347 @@
+import { existsSync, readFileSync } from 'node:fs';
+import net from 'node:net';
+import { Counter, Gauge, Registry } from 'prom-client';
+import { DicomEchoError, performDicomEcho } from './dicomEcho';
+
+/**
+ * Network reachability checks run once per poll cycle, so Prometheus can tell "the tunnel to the
+ * remote PACS is down" apart from "there was nothing to send".
+ *
+ * Every target gets a plain TCP connect (can we reach the host:port at all?). Targets with a
+ * `dicomEcho` block additionally get a DICOM C-ECHO (does the thing listening there speak DICOM and
+ * accept our AE title?). The two run on separate connections so the TCP metric stays a pure
+ * transport-level signal.
+ */
+
+export const DEFAULT_CHECK_TIMEOUT_MS = 5000;
+export const DEFAULT_CALLING_AE_TITLE = 'PACS_POLL';
+
+export interface DicomEchoTargetConfig {
+  calledAeTitle: string;
+  callingAeTitle: string;
+}
+
+export interface ConnectivityTarget {
+  /** Stable, human readable name; becomes the `target` metric label. */
+  name: string;
+  host: string;
+  port: number;
+  dicomEcho?: DicomEchoTargetConfig;
+}
+
+export interface ConnectivityConfig {
+  timeoutMs: number;
+  targets: ConnectivityTarget[];
+}
+
+// ── Config ──────────────────────────────────────────────────────────
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+// 1-16 characters from the default repertoire, no backslash or control characters, not all spaces (PS3.5 6.2).
+const parseAeTitle = (value: unknown, label: string): string => {
+  if (typeof value !== 'string' || !/^[ -~]{1,16}$/.test(value) || value.includes('\\') || value.trim() === '') {
+    throw new Error(`${label} must be 1-16 printable ASCII characters without backslashes`);
+  }
+  return value;
+};
+
+const parseTarget = (value: unknown, index: number): ConnectivityTarget => {
+  const label = `targets[${index}]`;
+  if (!isRecord(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const { name, host, port, dicomEcho } = value;
+  if (typeof name !== 'string' || name.trim() === '') {
+    throw new Error(`${label}.name must be a non-empty string`);
+  }
+  if (typeof host !== 'string' || host.trim() === '') {
+    throw new Error(`${label}.host must be a non-empty string`);
+  }
+  if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`${label}.port must be an integer between 1 and 65535`);
+  }
+  const target: ConnectivityTarget = { name, host, port };
+  if (dicomEcho !== undefined) {
+    if (!isRecord(dicomEcho)) {
+      throw new Error(`${label}.dicomEcho must be an object`);
+    }
+    target.dicomEcho = {
+      calledAeTitle: parseAeTitle(dicomEcho.calledAeTitle, `${label}.dicomEcho.calledAeTitle`),
+      callingAeTitle:
+        dicomEcho.callingAeTitle === undefined
+          ? DEFAULT_CALLING_AE_TITLE
+          : parseAeTitle(dicomEcho.callingAeTitle, `${label}.dicomEcho.callingAeTitle`),
+    };
+  }
+  return target;
+};
+
+export const parseConnectivityConfig = (raw: unknown): ConnectivityConfig => {
+  if (!isRecord(raw)) {
+    throw new Error('connectivity config must be a JSON object');
+  }
+  const timeoutMs = raw.timeoutMs ?? DEFAULT_CHECK_TIMEOUT_MS;
+  if (typeof timeoutMs !== 'number' || !Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('timeoutMs must be a positive integer number of milliseconds');
+  }
+  if (!Array.isArray(raw.targets)) {
+    throw new Error('targets must be an array');
+  }
+  const targets = raw.targets.map(parseTarget);
+  const names = new Set<string>();
+  for (const target of targets) {
+    if (names.has(target.name)) {
+      throw new Error(`duplicate target name "${target.name}"`);
+    }
+    names.add(target.name);
+  }
+  return { timeoutMs, targets };
+};
+
+/** Returns undefined when no config file exists; throws when one exists but is unusable. */
+export const loadConnectivityConfig = (configPath: string): ConnectivityConfig | undefined => {
+  if (!existsSync(configPath)) {
+    return undefined;
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(configPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Could not parse connectivity config ${configPath}: ${(error as Error).message}`);
+  }
+  try {
+    return parseConnectivityConfig(raw);
+  } catch (error) {
+    throw new Error(`Invalid connectivity config ${configPath}: ${(error as Error).message}`);
+  }
+};
+
+// ── TCP connect check ───────────────────────────────────────────────
+
+export type TcpConnectFailureReason = 'timeout' | 'refused' | 'unreachable' | 'dns_error' | 'reset' | 'error';
+
+export class TcpConnectError extends Error {
+  readonly reason: TcpConnectFailureReason;
+
+  constructor(reason: TcpConnectFailureReason, message: string) {
+    super(message);
+    this.name = 'TcpConnectError';
+    this.reason = reason;
+  }
+}
+
+export const classifyTcpErrorCode = (code: string | undefined): TcpConnectFailureReason => {
+  switch (code) {
+    case 'ECONNREFUSED':
+      return 'refused';
+    case 'EHOSTUNREACH':
+    case 'ENETUNREACH':
+    case 'EHOSTDOWN':
+    case 'ENETDOWN':
+      return 'unreachable';
+    case 'ENOTFOUND':
+    case 'EAI_AGAIN':
+    case 'EAI_FAIL':
+    case 'EAI_NONAME':
+      return 'dns_error';
+    case 'ETIMEDOUT':
+      return 'timeout';
+    case 'ECONNRESET':
+      return 'reset';
+    default:
+      return 'error';
+  }
+};
+
+export interface TcpConnectOptions {
+  host: string;
+  port: number;
+  timeoutMs: number;
+}
+
+/** Opens a TCP connection and closes it again as soon as the handshake completes. */
+export const tcpConnect = ({ host, port, timeoutMs }: TcpConnectOptions): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const socket = net.connect({ host, port });
+    let settled = false;
+    const finish = (error?: Error): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.destroy();
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    };
+    socket.setTimeout(timeoutMs, () => finish(new TcpConnectError('timeout', `no connection within ${timeoutMs}ms`)));
+    socket.once('error', (error: NodeJS.ErrnoException) => {
+      finish(new TcpConnectError(classifyTcpErrorCode(error.code), `${error.code ?? 'error'}: ${error.message}`));
+    });
+    socket.once('connect', () => finish());
+  });
+
+// ── Metrics ─────────────────────────────────────────────────────────
+
+const tcpLabelNames = ['target', 'host', 'port'] as const;
+const dicomLabelNames = ['target', 'host', 'port', 'called_ae'] as const;
+
+const tcpConnectSuccess = new Gauge({
+  name: 'pacs_poll_tcp_connect_success',
+  help: '1 if the last TCP connection attempt to the target succeeded, 0 if it failed',
+  labelNames: tcpLabelNames,
+  registers: [],
+});
+
+const tcpConnectDuration = new Gauge({
+  name: 'pacs_poll_tcp_connect_duration_seconds',
+  help: 'Duration of the last TCP connection attempt to the target',
+  labelNames: tcpLabelNames,
+  registers: [],
+});
+
+const tcpConnectLastSuccess = new Gauge({
+  name: 'pacs_poll_tcp_connect_last_success_timestamp_seconds',
+  help: 'Unix timestamp of the last successful TCP connection to the target',
+  labelNames: tcpLabelNames,
+  registers: [],
+});
+
+const tcpConnectFailures = new Counter({
+  name: 'pacs_poll_tcp_connect_failures_total',
+  help: 'Total failed TCP connection attempts to the target, by failure reason',
+  labelNames: [...tcpLabelNames, 'reason'] as const,
+  registers: [],
+});
+
+const dicomEchoSuccess = new Gauge({
+  name: 'pacs_poll_dicom_echo_success',
+  help: '1 if the last DICOM C-ECHO to the target succeeded, 0 if it failed',
+  labelNames: dicomLabelNames,
+  registers: [],
+});
+
+const dicomEchoDuration = new Gauge({
+  name: 'pacs_poll_dicom_echo_duration_seconds',
+  help: 'Duration of the last DICOM C-ECHO to the target, association setup and release included',
+  labelNames: dicomLabelNames,
+  registers: [],
+});
+
+const dicomEchoLastSuccess = new Gauge({
+  name: 'pacs_poll_dicom_echo_last_success_timestamp_seconds',
+  help: 'Unix timestamp of the last successful DICOM C-ECHO to the target',
+  labelNames: dicomLabelNames,
+  registers: [],
+});
+
+const dicomEchoFailures = new Counter({
+  name: 'pacs_poll_dicom_echo_failures_total',
+  help: 'Total failed DICOM C-ECHO attempts to the target, by failure reason',
+  labelNames: [...dicomLabelNames, 'reason'] as const,
+  registers: [],
+});
+
+export const registerConnectivityMetrics = (register: Registry): void => {
+  register.registerMetric(tcpConnectSuccess);
+  register.registerMetric(tcpConnectDuration);
+  register.registerMetric(tcpConnectLastSuccess);
+  register.registerMetric(tcpConnectFailures);
+  register.registerMetric(dicomEchoSuccess);
+  register.registerMetric(dicomEchoDuration);
+  register.registerMetric(dicomEchoLastSuccess);
+  register.registerMetric(dicomEchoFailures);
+};
+
+// ── Runner ──────────────────────────────────────────────────────────
+
+const elapsedSeconds = (start: number): number => (performance.now() - start) / 1000;
+
+const formatMs = (seconds: number): string => `${Math.round(seconds * 1000)}ms`;
+
+interface CheckOutcome {
+  ok: boolean;
+  summary: string;
+}
+
+const checkTcp = async (target: ConnectivityTarget, timeoutMs: number): Promise<CheckOutcome> => {
+  const labels = { target: target.name, host: target.host, port: target.port };
+  const start = performance.now();
+  try {
+    await tcpConnect({ host: target.host, port: target.port, timeoutMs });
+    const seconds = elapsedSeconds(start);
+    tcpConnectSuccess.set(labels, 1);
+    tcpConnectDuration.set(labels, seconds);
+    tcpConnectLastSuccess.setToCurrentTime(labels);
+    return { ok: true, summary: `tcp ok in ${formatMs(seconds)}` };
+  } catch (error) {
+    const seconds = elapsedSeconds(start);
+    const reason = error instanceof TcpConnectError ? error.reason : 'error';
+    tcpConnectSuccess.set(labels, 0);
+    tcpConnectDuration.set(labels, seconds);
+    tcpConnectFailures.inc({ ...labels, reason });
+    return {
+      ok: false,
+      summary: `tcp FAILED (${reason}) after ${formatMs(seconds)}: ${(error as Error).message}`,
+    };
+  }
+};
+
+const checkDicomEcho = async (
+  target: ConnectivityTarget,
+  echo: DicomEchoTargetConfig,
+  timeoutMs: number
+): Promise<CheckOutcome> => {
+  const labels = { target: target.name, host: target.host, port: target.port, called_ae: echo.calledAeTitle };
+  const start = performance.now();
+  try {
+    await performDicomEcho({
+      host: target.host,
+      port: target.port,
+      calledAeTitle: echo.calledAeTitle,
+      callingAeTitle: echo.callingAeTitle,
+      timeoutMs,
+    });
+    const seconds = elapsedSeconds(start);
+    dicomEchoSuccess.set(labels, 1);
+    dicomEchoDuration.set(labels, seconds);
+    dicomEchoLastSuccess.setToCurrentTime(labels);
+    return { ok: true, summary: `dicom echo to ${echo.calledAeTitle} ok in ${formatMs(seconds)}` };
+  } catch (error) {
+    const seconds = elapsedSeconds(start);
+    const reason = error instanceof DicomEchoError ? error.reason : 'error';
+    dicomEchoSuccess.set(labels, 0);
+    dicomEchoDuration.set(labels, seconds);
+    dicomEchoFailures.inc({ ...labels, reason });
+    return {
+      ok: false,
+      summary: `dicom echo to ${echo.calledAeTitle} FAILED (${reason}) after ${formatMs(seconds)}: ${
+        (error as Error).message
+      }`,
+    };
+  }
+};
+
+/** Checks every target concurrently. Never rejects: failures are recorded in the metrics and logged. */
+export const runConnectivityChecks = async (config: ConnectivityConfig): Promise<void> => {
+  await Promise.all(
+    config.targets.map(async (target) => {
+      const checks = [checkTcp(target, config.timeoutMs)];
+      if (target.dicomEcho) {
+        checks.push(checkDicomEcho(target, target.dicomEcho, config.timeoutMs));
+      }
+      const outcomes = await Promise.all(checks);
+      const summaries = outcomes.map((outcome) => outcome.summary).join('; ');
+      const line = `Connectivity check ${target.name} (${target.host}:${target.port}): ${summaries}`;
+      if (outcomes.some((outcome) => !outcome.ok)) {
+        console.error(line);
+      } else {
+        console.log(line);
+      }
+    })
+  );
+};
