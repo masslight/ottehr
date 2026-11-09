@@ -158,6 +158,23 @@ describe('PatientPaymentDetail loading', () => {
     expect((screen.getByRole('button', { name: 'Refund Payment' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it('shows the payment on the practice-local day the payments list shows', async () => {
+    const resolvers = deferredCalls();
+    renderAt('/patients/p-1/encounters/enc-1/payments/pn-card');
+    // 02:00 UTC on Oct 2 is still Oct 1 in the practice's time zone (America/New_York)
+    await act(async () =>
+      resolvers[0]({
+        ...payment('pn-card', 'enc-1', 1000),
+        paymentMethod: 'card',
+        method: 'card',
+        dateISO: '2026-10-02T02:00:00.000Z',
+        recordedDateISO: '2026-10-02T02:00:00.000Z',
+      } as BillingPatientAccountPayment)
+    );
+
+    expect(screen.getByText('Payment Date').parentElement?.textContent).toContain('10/01/2026');
+  });
+
   it('names the back button after where it goes', async () => {
     const resolvers = deferredCalls();
     const router = renderAt('/patients/p-1/encounters/enc-1/payments/pn-a');

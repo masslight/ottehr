@@ -23,6 +23,7 @@ import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBran
 import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
 import { commaFormattedName } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { BillingPatientAccountPayment } from 'utils/lib/types/data/billing/billing.types';
@@ -50,9 +51,6 @@ const VOIDABLE_METHODS = ['cash', 'check', 'external-card-reader'];
 // the refund and void zambdas allow only this role
 const PAYMENT_MANAGEMENT_ROLES = [RoleType.BillingAdmin];
 const NOT_ALLOWED_HINT = 'Only users with the Billing Admin role can refund or void payments';
-
-// a manual payment's date is a date-only paymentDate, which must not render as midnight
-const formatPaymentDate = (iso: string): string => (iso.length <= 10 ? formatDate(iso) : formatDateTime(iso));
 
 const isSettledRefund = (refund: PaymentRefundDTO): boolean =>
   refund.status !== 'failed' && refund.status !== 'canceled';
@@ -322,9 +320,8 @@ export default function PatientPaymentDetail(): ReactElement {
               </Box>
             }
           />
-          <Row label="Payment Date" value={formatPaymentDate(payment.dateISO)} />
-          {/* a manual payment's date carries no time, and may be backdated; show when it was entered */}
-          {payment.dateISO.length <= 10 && <Row label="Recorded" value={formatDateTime(payment.recordedDateISO)} />}
+          <Row label="Payment Date" value={formatDate(paymentDayOf(payment.dateISO))} />
+          <Row label="Recorded" value={formatDateTime(payment.recordedDateISO)} />
           <Row label="Taken By" value={payment.takenBy} />
           <Row label="Description" value={payment.description} />
           {payment.stripePaymentId && (
