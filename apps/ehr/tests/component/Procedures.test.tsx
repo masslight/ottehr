@@ -228,7 +228,7 @@ describe('Procedures - Delete Procedure Tests', () => {
 
     // Extract and call the onSuccess callback
     const call = mockMutateAsync.mock.calls[0];
-    expect(call[0]).toEqual({ procedures: [mockProcedures[0]] });
+    expect(call[0]).toEqual({ procedures: [mockProcedures[0]], cleanupProcedureDiagnoses: true });
     expect(call[1]).toMatchObject({
       onSuccess: expect.any(Function),
       onError: expect.any(Function),

@@ -225,11 +225,11 @@ const coverage: Coverage = {
   payor: [{ display: 'Acme' }],
 };
 
-const makeEraReadClient = (): Oystehr =>
+const makeEraReadClient = (era: PaymentReconciliation = paymentReconciliation): Oystehr =>
   ({
     fhir: {
       search: vi.fn().mockResolvedValue({
-        unbundle: () => [paymentReconciliation],
+        unbundle: () => [era],
         link: [],
       }),
       get: vi.fn(),
@@ -285,6 +285,7 @@ describe('get-billing-era-detail performEffect', () => {
     // header — pre-existing fields unchanged, new fields populated
     expect(response).toMatchObject({
       id: 'era-1',
+      status: 'active',
       checkNumber: 'CHK-100',
       checkDate: '2026-07-18',
       createdDate: '2026-07-20T10:00:00Z',
@@ -355,6 +356,17 @@ describe('get-billing-era-detail performEffect', () => {
     });
   });
 
+  it('returns original claim amounts when the ERA is voided', async () => {
+    const eraReadClient = makeEraReadClient({ ...paymentReconciliation, status: 'cancelled' });
+    vi.mocked(fetchClaimResponsesByPaymentReconciliations).mockResolvedValue(
+      new Map([['era-1', [matchedResponse('cr-1', '2026-07-15', '1', { paid: 60, allowed: 80, pr: ['1', 20] })]]])
+    );
+    const result = await performEffect(makeBillingClient(), eraReadClient, { eraId: 'era-1', secrets: {} });
+    expect(result.status).toBe('voided');
+    expect(result.claims[0]).toMatchObject({ paid: 60, allowed: 80, patientResp: 20, matched: true });
+    expect(result.claims[0].remits[0].serviceLines[0].paid).toBe(60);
+  });
+
   it('reads the patient DOB off a real patient an unmatched remit references', async () => {
     const referencingResponse: ClaimResponse = {
       ...structuredClone(unmatchedResponse),
@@ -386,7 +398,7 @@ describe('get-billing-era-detail performEffect', () => {
     });
   });
 
-  it('returns a manual remit with its keyed details, attachments and editable form', async () => {
+  it.each(['active', 'cancelled'] as const)('reads a %s manual ERA', async (status) => {
     const header = {
       payerId: 'payer-uhc',
       billingProviderRef: 'Organization/org-1',
@@ -409,6 +421,7 @@ describe('get-billing-era-detail performEffect', () => {
         editedAt: '2026-09-23T15:00:00Z',
       }),
       id: 'era-m',
+      status,
       meta: { versionId: '7' },
     };
     const keyed: ClaimResponse = {
@@ -485,6 +498,7 @@ describe('get-billing-era-detail performEffect', () => {
 
     expect(result).toMatchObject({
       source: 'manual',
+      status: status === 'cancelled' ? 'voided' : 'active',
       versionId: '7',
       checkNumber: '557801',
       payee: { name: 'some org', npi: '8675309123', taxId: '' },
@@ -492,7 +506,12 @@ describe('get-billing-era-detail performEffect', () => {
         { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-23T16:00:00Z' },
       ],
     });
-    expect(result.claims[0]).toMatchObject({ matched: false, patientName: 'Schmoe, Joe', dos: '2026-08-15', paid: 50 });
+    expect(result.claims[0]).toMatchObject({
+      matched: false,
+      patientName: 'Schmoe, Joe',
+      dos: '2026-08-15',
+      paid: 50,
+    });
     expect(result.claims[0].remits[0].serviceLines[0].remarkCodes).toEqual(['N130']);
     // what was keyed from the paper remit, and by whom, is in its manual entry
     expect(result).not.toHaveProperty('remitDate');

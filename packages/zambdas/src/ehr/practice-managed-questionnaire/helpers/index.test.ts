@@ -1,11 +1,16 @@
+import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import { describe, expect, it } from 'vitest';
+import { FORM_PLACEMENT_TAG_SYSTEM, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { describe, expect, it, vi } from 'vitest';
 import { PAPERWORK_FLOW_BASE_VERSION } from '../../paperwork-flow/shared';
 import {
   bumpFlowFormVersionRequests,
+  ensureUniqueQuestionnaire,
   FhirQuestionnaireSubset,
   isLatestVersion,
   patchQuestionnaireVersion,
+  placementTagOperations,
+  supersedeVersionRequests,
 } from './index';
 
 const questionnaire = (overrides: Partial<FhirQuestionnaireSubset> = {}): FhirQuestionnaireSubset => ({
@@ -257,5 +262,171 @@ describe('bumpFlowFormVersionRequests', () => {
     expect(createPost.resource.meta).toEqual({
       tag: [{ system: 'https://ottehr.com/paperwork-flow', code: 'paperwork-flow' }],
     });
+  });
+});
+
+describe('ensureUniqueQuestionnaire', () => {
+  const url = 'https://ottehr.com/FHIR/Questionnaire/new-form';
+
+  const newQuestionnaire = (overrides: Partial<Questionnaire> = {}): Questionnaire => ({
+    resourceType: 'Questionnaire',
+    status: 'active',
+    url,
+    name: 'new-form',
+    title: 'New Form',
+    version: '1.0.0',
+    ...overrides,
+  });
+
+  const mockOystehr = (existing: Questionnaire[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+    const search = vi.fn().mockResolvedValue({ unbundle: () => existing });
+    return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+  };
+
+  it('returns the questionnaire unchanged when no questionnaire with the url exists', async () => {
+    const input = newQuestionnaire();
+    const { oystehr } = mockOystehr([]);
+
+    const result = await ensureUniqueQuestionnaire(input, oystehr);
+
+    expect(result).toBe(input);
+  });
+
+  it('appends a random hex suffix to the url when a questionnaire with the url exists', async () => {
+    const input = newQuestionnaire();
+    const { oystehr } = mockOystehr([newQuestionnaire({ id: 'existing-1' })]);
+
+    const result = await ensureUniqueQuestionnaire(input, oystehr);
+
+    expect(result.url).toMatch(new RegExp(`^${url}-[0-9a-f]{6}$`));
+    expect({ ...result, url }).toEqual(input);
+  });
+
+  it('treats a url match on a different version as a collision', async () => {
+    const input = newQuestionnaire({ version: '1.0.0' });
+    const { oystehr } = mockOystehr([newQuestionnaire({ id: 'existing-1', version: '2.0.0' })]);
+
+    const result = await ensureUniqueQuestionnaire(input, oystehr);
+
+    expect(result.url).not.toBe(url);
+  });
+
+  it('throws without searching when the questionnaire has no url', async () => {
+    const { oystehr, search } = mockOystehr([]);
+
+    await expect(ensureUniqueQuestionnaire(newQuestionnaire({ url: undefined }), oystehr)).rejects.toThrow(
+      'ensureUniqueQuestionnaire requires a questionnaire with a url'
+    );
+    expect(search).not.toHaveBeenCalled();
+  });
+});
+
+describe('placementTagOperations', () => {
+  const screeningTag = { system: FORM_PLACEMENT_TAG_SYSTEM, code: 'screening' };
+  const version = (id: string, tag: Questionnaire['meta']): Questionnaire => ({
+    resourceType: 'Questionnaire',
+    id,
+    status: 'retired',
+    meta: tag,
+  });
+
+  // A response points at the exact version it answered, so earlier versions must carry the form's current
+  // placement too, or moving a form to another page would leave every earlier response behind.
+  it('moves every earlier version to the new placement, keeping their other tags', () => {
+    const operations = placementTagOperations(
+      [
+        version('v1', { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] }),
+        version('v2', { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG, screeningTag] }),
+      ],
+      'questionnaires'
+    );
+
+    const questionnairesTags = [
+      PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+      { system: FORM_PLACEMENT_TAG_SYSTEM, code: 'questionnaires' },
+    ];
+    expect(operations.get('v1')).toEqual([{ op: 'replace', path: '/meta/tag', value: questionnairesTags }]);
+    expect(operations.get('v2')).toEqual([{ op: 'replace', path: '/meta/tag', value: questionnairesTags }]);
+  });
+
+  it('moves a version back to Visit Details by dropping its placement tag', () => {
+    const operations = placementTagOperations(
+      [version('v1', { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG, screeningTag] })],
+      'visit-details'
+    );
+
+    expect(operations.get('v1')).toEqual([
+      { op: 'replace', path: '/meta/tag', value: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] },
+    ]);
+  });
+
+  it('leaves versions alone when the placement did not change', () => {
+    const operations = placementTagOperations(
+      [version('v1', { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG, screeningTag] })],
+      'screening'
+    );
+
+    expect(operations.size).toBe(0);
+  });
+});
+
+describe('supersedeVersionRequests', () => {
+  const screeningTag = { system: FORM_PLACEMENT_TAG_SYSTEM, code: 'screening' };
+  const version = (id: string): Questionnaire => ({
+    resourceType: 'Questionnaire',
+    id,
+    url: 'https://ottehr.com/FHIR/Questionnaire/sdoh',
+    status: id === 'v2' ? 'active' : 'retired',
+    meta: { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] },
+  });
+  const oystehrWith = (versions: Questionnaire[]): Oystehr =>
+    ({
+      fhir: {
+        search: vi.fn(async () => ({
+          entry: versions.map((resource) => ({ resource, search: { mode: 'match' } })),
+          total: versions.length,
+          unbundle: () => versions,
+        })),
+      },
+    }) as unknown as Oystehr;
+
+  // Builder saves and JSON uploads both mint a version, so both must move the answers to earlier ones.
+  it('retires the previous version and moves it and every older version to the new placement', async () => {
+    const requests = await supersedeVersionRequests({
+      url: 'https://ottehr.com/FHIR/Questionnaire/sdoh',
+      previousId: 'v2',
+      placement: 'screening',
+      oystehr: oystehrWith([version('v1'), version('v2')]),
+    });
+
+    const screeningTags = [PRACTICE_MANAGED_QUESTIONNAIRE_TAG, screeningTag];
+    expect(requests).toEqual([
+      {
+        method: 'PATCH',
+        url: 'Questionnaire/v2',
+        operations: [
+          { op: 'replace', path: '/status', value: 'retired' },
+          { op: 'replace', path: '/meta/tag', value: screeningTags },
+        ],
+      },
+      {
+        method: 'PATCH',
+        url: 'Questionnaire/v1',
+        operations: [{ op: 'replace', path: '/meta/tag', value: screeningTags }],
+      },
+    ]);
+  });
+
+  it('only retires the previous version when the placement is unchanged', async () => {
+    const requests = await supersedeVersionRequests({
+      url: 'https://ottehr.com/FHIR/Questionnaire/sdoh',
+      previousId: 'v2',
+      placement: 'visit-details',
+      oystehr: oystehrWith([version('v1'), version('v2')]),
+    });
+
+    expect(requests).toEqual([
+      { method: 'PATCH', url: 'Questionnaire/v2', operations: [{ op: 'replace', path: '/status', value: 'retired' }] },
+    ]);
   });
 });

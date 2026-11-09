@@ -62,7 +62,7 @@ export const createExaminationSection = <
                   styles.imageStyles!.examColorDotsStyle,
                   styles.textStyles.examBoldField
                 );
-                client.drawTextSequential(itemText, styles.textStyles.examBoldField);
+                client.drawTextSequential(itemText, styles.textStyles.examAbnormalField);
               } else {
                 client.drawImage(
                   assets.icons!.greenDot,
@@ -107,7 +107,7 @@ export const createExaminationSection = <
   }));
 };
 
-function parseExamFieldsFromExamObservations(chartData: GetChartDataResponse): {
+export function parseExamFieldsFromExamObservations(chartData: GetChartDataResponse): {
   examination: Examination['examination'];
 } {
   const examObservations: {

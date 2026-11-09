@@ -1,6 +1,18 @@
-import { ActivityDefinition, Coverage, Encounter, Location, Patient, Provenance, ServiceRequest, Task } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Coverage,
+  Encounter,
+  Location,
+  Patient,
+  Procedure,
+  Provenance,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
+import { CODE_SYSTEM_CPT_MODIFIER, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, test } from 'vitest';
+import { getCptModifierCodeFromProcedure } from '../../src/shared/candid';
 import { CreateInHouseLabResources, makeRequestsForCreateInHouseLabs } from '../../src/shared/in-house-lab/build-order';
 import activityDefinitions from '../data/in-house-lab-activity-definitions.json';
 
@@ -202,6 +214,53 @@ describe('makeRequestsForCreateInHouseLabs', () => {
     const sr = pickRequestByType(requests, 'ServiceRequest')[0].resource as ServiceRequest;
     expect(sr.basedOn?.[0]?.reference).toBe('ServiceRequest/initial-sr-1');
     expect(sr.meta?.tag?.some((t) => t.code === 'repeat')).toBe(true);
+  });
+
+  test("'repeat' orderMode keeps the AD's own CPT modifiers and appends 91 in a single modifier extension", () => {
+    const otherExt = { url: 'http://example.org/other-ext', valueString: 'keep-me' };
+    const adWithModifier: ActivityDefinition = {
+      ...snellenAd,
+      code: {
+        ...snellenAd.code,
+        coding: snellenAd.code?.coding?.map((c) =>
+          c.system === 'http://www.ama-assn.org/go/cpt'
+            ? {
+                ...c,
+                extension: [
+                  otherExt,
+                  {
+                    url: EXTENSION_URL_CPT_MODIFIER,
+                    valueCodeableConcept: {
+                      coding: [{ system: CODE_SYSTEM_CPT_MODIFIER, code: '50', display: 'Bilateral Procedure' }],
+                    },
+                  },
+                ],
+              }
+            : c
+        ),
+      },
+    };
+    const requests = makeRequestsForCreateInHouseLabs(
+      buildBaseResources({
+        testResources: [{ activityDefinition: adWithModifier, initialServiceRequest: undefined, orderMode: 'repeat' }],
+      })
+    );
+    const procedure = pickRequestByType(requests, 'Procedure')[0].resource as Procedure;
+
+    expect(getCptModifierCodeFromProcedure(procedure)?.map((m) => m.code)).toEqual(['50', '91']);
+    const extensions = procedure.code?.coding?.[0]?.extension ?? [];
+    expect(extensions.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER)).toHaveLength(1);
+    expect(extensions).toContainEqual(otherExt);
+  });
+
+  test("'repeat' orderMode adds only the 91 modifier when the AD has none", () => {
+    const requests = makeRequestsForCreateInHouseLabs(
+      buildBaseResources({
+        testResources: [{ activityDefinition: snellenAd, initialServiceRequest: undefined, orderMode: 'repeat' }],
+      })
+    );
+    const procedure = pickRequestByType(requests, 'Procedure')[0].resource as Procedure;
+    expect(getCptModifierCodeFromProcedure(procedure)?.map((m) => m.code)).toEqual(['91']);
   });
 
   test('emits resources for each test in testResources', () => {

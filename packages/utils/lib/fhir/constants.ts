@@ -138,6 +138,14 @@ export const FHIR_EXTENSION = {
       url: 'https://extensions.fhir.oystehr.com/medication-request/is-renewal',
     },
   },
+  MedicationStatement: {
+    lastFilledDate: {
+      url: ottehrExtensionUrl('medication-last-filled-date'),
+    },
+    refills: {
+      url: ottehrExtensionUrl('medication-refills'),
+    },
+  },
   InsurancePlan: {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
@@ -509,6 +517,16 @@ export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service
 export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   system: ottehrCodeSystemUrl('questionnaire-type'),
   code: 'practice-managed',
+};
+
+/** meta.tag system naming where a practice-managed form's answers appear; no tag means Visit Details. */
+export const FORM_PLACEMENT_TAG_SYSTEM = ottehrCodeSystemUrl('form-placement');
+
+// applied (alongside the practice-managed tag) to questionnaires uploaded as raw FHIR JSON.
+// these are read only in the admin portal: they can only be updated by uploading a new version
+export const JSON_IMPORT_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'json-import',
 };
 
 /** meta.tag identifying a paperwork flow Questionnaire. */
@@ -980,6 +998,8 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
   attachmentText: `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`,
   autofillFromWhenDisabled: `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`,
+  // standard SDC extension (not a private one): the item's value is derived from other answers
+  calculatedExpression: 'http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression',
   categoryTag: `${PRIVATE_EXTENSION_BASE_URL}/category-tag`,
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
@@ -1205,6 +1225,9 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PAYMENT_REFUNDS_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-refunds';
 // stamped on a PaymentNotice when a non-processor payment (cash/check/external reader) is voided
 export const PAYMENT_VOID_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-void';
+// stamped on a billing PaymentNotice for a Stripe payment: the account the money was taken on, so
+// refunds and lookups go to that account rather than one derived from the payee or schedule
+export const PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-stripe-account';
 
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields

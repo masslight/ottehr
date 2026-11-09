@@ -4,6 +4,7 @@ import { FormControlLabel, Grid, Radio, RadioGroup, RadioGroupProps, Typography,
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getAnswerOptionLabel, getAnswerOptionValue } from 'utils/lib/helpers/paperwork/paperwork';
 import { useAnswerOptionLabelWhen } from '../hooks/useAnswerOptionLabelWhen';
 import { usePaperworkOtherColors } from '../theme';
 import { RadioStyling } from '../types';
@@ -61,13 +62,16 @@ export const RadioInput: FC<RadioInputProps> = ({
       aria-labelledby={`${name}-label`}
     >
       {options.map((option) => {
-        const isSelected = value === option.valueString;
+        // valueCoding options are selected by code and shown by display; valueString options are both
+        const optionValue = getAnswerOptionValue(option);
+        const optionLabel = getAnswerOptionLabel(option);
+        const isSelected = value === optionValue;
         const gridWidths = {
           desktop: { labelText: 8.5, space: 0.2, image: 2 },
           mobile: { labelText: 12, space: 0, image: 12 },
         };
 
-        if (!option.valueString || !(option as any).description) {
+        if (!optionLabel || !(option as any).description) {
           gridWidths.desktop.labelText = 5.5;
         }
 
@@ -77,7 +81,7 @@ export const RadioInput: FC<RadioInputProps> = ({
 
         return (
           <FormControlLabel
-            value={option.valueString ?? ''}
+            value={optionValue ?? ''}
             control={
               <Radio
                 disableRipple
@@ -107,7 +111,7 @@ export const RadioInput: FC<RadioInputProps> = ({
                 }}
               />
             }
-            key={option.id ?? option.valueString ?? ''}
+            key={option.id ?? optionValue ?? ''}
             label={
               <Grid
                 container
@@ -136,9 +140,9 @@ export const RadioInput: FC<RadioInputProps> = ({
                   }}
                 >
                   <>
-                    {option.valueString && (
+                    {optionLabel && (
                       <Typography variant="h5" color="primary.main" sx={radioStyling?.label}>
-                        {labels[option.valueString] ? labels[option.valueString] : option.valueString}
+                        {(optionValue && labels[optionValue]) || optionLabel}
                       </Typography>
                     )}
                     {
@@ -148,10 +152,10 @@ export const RadioInput: FC<RadioInputProps> = ({
                           style={{
                             lineHeight: '20px',
                             // spacing between label and description
-                            marginTop: option.valueString ? '5px' : 0,
+                            marginTop: optionLabel ? '5px' : 0,
                           }}
                         >
-                          <Typography variant={option.valueString ? 'caption' : 'body2'} color="secondary.main">
+                          <Typography variant={optionLabel ? 'caption' : 'body2'} color="secondary.main">
                             {(option as any).description}
                           </Typography>
                         </div>

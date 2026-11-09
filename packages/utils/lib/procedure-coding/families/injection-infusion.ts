@@ -85,6 +85,7 @@ for (const field of administrationFields) {
       facts.route === ADMINISTRATION_ROUTE.IvPush ||
       facts.route === ADMINISTRATION_ROUTE.IvHydration;
   if (['event', 'separateInitial', 'distinctService'].includes(field.key)) field.details = true;
+  field.neededForCoding = ['route', 'drug', 'site', 'start', 'stop'].includes(field.key);
 }
 const fields: CodingField[] = [
   {

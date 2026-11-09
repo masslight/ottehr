@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { enqueueSnackbar } from 'notistack';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InboundFaxMatch } from '../../src/features/inbound-fax/pages/InboundFaxMatch';
 
@@ -287,10 +289,13 @@ describe('InboundFaxMatch page', () => {
       </Wrapper>
     );
 
-    // Read-only notice replaces the match panel
+    // Read-only notice replaces the match panel. Without the filed marker it can't claim the fax was filed.
     await waitFor(() => {
-      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
+      expect(
+        screen.getByText("This fax's task was completed. It may not have been filed to a patient's chart.")
+      ).toBeDefined();
     });
+    expect(screen.queryByText('This fax has already been filed.')).toBeNull();
 
     // The PDF preview still loads (Communication + PDF survive filing)
     expect(mockGetPresignedURL).toHaveBeenCalledWith('https://z3.example.com/bucket/fax.pdf', 'test-token');
@@ -304,6 +309,63 @@ describe('InboundFaxMatch page', () => {
     expect(screen.queryByText('Save')).toBeNull();
     expect(screen.queryByText('Delete')).toBeNull();
     expect(screen.queryByText('Match to patient:')).toBeNull();
+  });
+
+  it('says the fax was filed when a completed task carries the filed marker', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task')
+        return Promise.resolve({
+          unbundle: () => [
+            {
+              ...makeFaxTask('completed'),
+              businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }], text: 'Filed' },
+            },
+          ],
+        });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
+    });
+    expect(screen.queryByText(/may not have been filed/)).toBeNull();
+    expect(screen.queryByText('Save')).toBeNull();
+  });
+
+  it('renders read-only when the fax was filed but its task is still open awaiting a manual Complete', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task')
+        return Promise.resolve({
+          unbundle: () => [
+            {
+              ...makeFaxTask('in-progress'),
+              businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }], text: 'Filed' },
+            },
+          ],
+        });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
+    });
+    expect(screen.queryByTestId('patient-search')).toBeNull();
+    expect(screen.queryByText('Save')).toBeNull();
+    expect(screen.queryByText('Delete')).toBeNull();
   });
 
   it('prefers the ready task (full match form) when both ready and completed tasks exist', async () => {
@@ -561,6 +623,73 @@ describe('InboundFaxMatch page', () => {
 
     // No client-side List creation for a folder that does not exist yet.
     expect(mockFhirCreate).not.toHaveBeenCalled();
+  });
+
+  const staleError = { code: APIErrorCode.PRECONDITION_FAILED, message: 'Task/task-abc has already been filed' };
+  it.each([
+    ['a top-level', staleError],
+    ['a nested output', { output: staleError }],
+  ])('refreshes into the read-only view when someone else filed the fax first (%s error code)', async (_, apiError) => {
+    let filedElsewhere = false;
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType !== 'Task') return Promise.resolve({ unbundle: () => [] });
+      const task = filedElsewhere
+        ? { ...makeFaxTask('ready'), businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }] } }
+        : makeFaxTask('ready');
+      return Promise.resolve({ unbundle: () => [task] });
+    });
+    mockFileInboundFax.mockImplementation(async () => {
+      filedElsewhere = true;
+      throw apiError;
+    });
+    const user = userEvent.setup();
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await selectPatientAndFolder(user);
+    const saveButton = screen.getByText('Save').closest('button');
+    await waitFor(() => {
+      expect(saveButton?.disabled).toBe(false);
+    });
+    await user.click(saveButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
+    });
+    expect(enqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('changed by someone else'), {
+      variant: 'error',
+    });
+    expect(enqueueSnackbar).not.toHaveBeenCalledWith(expect.stringContaining('Please try again'), expect.anything());
+    expect(screen.queryByTestId('tasks-page')).toBeNull();
+  });
+
+  it('offers only Delete for a fax whose earlier delete did not finish', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType !== 'Task') return Promise.resolve({ unbundle: () => [] });
+      return Promise.resolve({
+        unbundle: () => [
+          { ...makeFaxTask('ready'), businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'deleting' }] } },
+        ],
+      });
+    });
+    const user = userEvent.setup();
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/previous attempt to delete this fax did not finish/)).toBeDefined();
+    });
+    await selectPatientAndFolder(user);
+    expect(screen.getByText('Save').closest('button')?.disabled).toBe(true);
+    expect(screen.getByText('Delete').closest('button')?.disabled).toBe(false);
   });
 
   describe('delete confirmation dialog', () => {

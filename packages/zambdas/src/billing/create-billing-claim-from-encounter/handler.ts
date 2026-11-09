@@ -50,10 +50,12 @@ import {
   getMedicationCptEntryFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
+  isInHouseMedicationOrder,
   MedicationUnitOptions,
 } from 'utils/lib/fhir/medication-administration';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   extractCustomInsuranceOrgIdFromReferenceUrl,
@@ -102,6 +104,7 @@ import { sendErrors } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { reconcilePaymentNoticesForClaim } from '../payments';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   billingCopyMatches,
@@ -128,7 +131,6 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
-  reconcilePaymentNoticesForClaim,
   resourceDisplayName,
   searchPatientsByClinicalIds,
   selectClaimCoverages,
@@ -667,6 +669,7 @@ export function copyCoverageAndSubscriber(
   let copy = workingCopy
     ? prepareWorkingCopy<Coverage>(coverage, coverage.id!)
     : prepareCopy<Coverage>(coverage, coverage.id!);
+  // Replace beneficiary reference
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
   // Subscriber is patient by default, check for contained RelatedPerson
   let subscriberId = patientUuidOrUrn;
@@ -1208,7 +1211,7 @@ function buildClaim(resources: ClaimResources): Claim {
 
   // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
-  const nonInsurancePayerId = resources.nonInsurancePayer?.reference?.split('/')[1];
+  const nonInsurancePayerId = getIdFromReference(resources.nonInsurancePayer?.reference);
 
   const claim: Claim = {
     resourceType: 'Claim',
@@ -1393,7 +1396,7 @@ export function getProcedureDrug(
   medicationAdministrations: MedicationAdministration[]
 ): ClaimLineDrug | undefined {
   const ma = getProcedureMedicationAdministration(procedure, medicationAdministrations);
-  if (!ma) return undefined;
+  if (!ma || !isInHouseMedicationOrder(ma)) return undefined;
 
   const medicationEntry = getMedicationCptEntryFromMA(ma);
   if (medicationEntry && !procedure.code?.coding?.some((coding) => coding.code === medicationEntry.code)) {

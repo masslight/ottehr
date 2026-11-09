@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   convertOutreachTextToHtml,
   isEmailValid,
@@ -15,9 +16,15 @@ import {
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TaskIndicator } from 'utils/lib/types/common';
+import { resolveOutreachTaskStripeAccount } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { createOutreachEmailCommunication, getEmailClient, sendSmsForPatient } from '../../../shared/communication';
+import {
+  createOutreachEmailCommunication,
+  getEmailClient,
+  isInvalidPhoneNumberError,
+  sendSmsForPatient,
+} from '../../../shared/communication';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { StatementType } from '../../../shared/statements/get-statement-details';
@@ -28,6 +35,7 @@ import { safeJsonParse } from '../../../shared/validation';
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'sub-outreach-send-notification';
+const INVALID_PHONE_REASON = 'Invalid phone number';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   if (!input.body) throw new Error('No request body provided');
@@ -118,7 +126,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               });
               break;
             }
-            await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets, patient);
+            const smsSkippedReason = await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets, patient);
+            if (smsSkippedReason) {
+              console.log(`[SMS] Skipping SMS for task ${task.id}, patient ${patientRef}: ${smsSkippedReason}`);
+              results.push({ medium, success: false, error: smsSkippedReason, skippedReason: smsSkippedReason });
+              break;
+            }
             console.log(`[SMS] Successfully sent SMS notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
@@ -270,7 +283,7 @@ function validatePatientPhone(patient: Patient): { valid: boolean; reason?: stri
   if (!result.isValid) {
     console.log(`Invalid phone number for patient ${patient.id}: ${maskPhoneNumber(rawPhone)}`);
     // Store a generic reason on the Task — never persist the raw/masked contact value.
-    return { valid: false, reason: 'Invalid phone number' };
+    return { valid: false, reason: INVALID_PHONE_REASON };
   }
   return { valid: true };
 }
@@ -297,10 +310,11 @@ async function sendOutreachSms(
   oystehr: Oystehr,
   secrets: Secrets | null,
   patient: Patient
-): Promise<void> {
+): Promise<string | undefined> {
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
+    stripeAccount: await resolveOutreachTaskStripeAccount(task, oystehr),
     oystehr,
     secrets,
   });
@@ -314,7 +328,12 @@ async function sendOutreachSms(
   }
 
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  await sendSmsForPatient(resolvedMessage, oystehr, patient, ENVIRONMENT);
+  const { total, sent, failures } = await sendSmsForPatient(resolvedMessage, oystehr, patient, ENVIRONMENT);
+  if (total === 0) return 'No SMS recipient';
+  if (sent > 0) return undefined;
+  const realFailure = failures.find((f) => !isInvalidPhoneNumberError(f.error));
+  if (realFailure) throw realFailure.error;
+  return INVALID_PHONE_REASON;
 }
 
 async function sendOutreachEmail(
@@ -334,6 +353,7 @@ async function sendOutreachEmail(
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
+    stripeAccount: await resolveOutreachTaskStripeAccount(task, oystehr),
     oystehr,
     secrets,
   });
@@ -386,7 +406,7 @@ async function sendPaperMail(
   });
 
   const appointmentRef = encounter.appointment?.[0]?.reference;
-  const appointmentId = appointmentRef?.split('/')[1];
+  const appointmentId = getIdFromReference(appointmentRef);
   if (!appointmentId) throw new Error(`No appointment reference in Encounter/${encounterId}`);
 
   const appointment = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId });

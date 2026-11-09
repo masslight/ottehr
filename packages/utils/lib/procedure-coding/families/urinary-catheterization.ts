@@ -21,6 +21,7 @@ type UrinaryCatheterizationCode = (typeof URINARY_CATHETERIZATION_CODES)[keyof t
 const fields: readonly CodingField[] = [
   {
     key: 'catheter',
+    neededForCoding: true,
     label: 'Catheter type',
     kind: 'select',
     options: ['straight', 'indwelling'],

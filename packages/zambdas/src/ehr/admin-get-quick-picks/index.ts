@@ -8,6 +8,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
+  DME_QUICK_PICK_CATEGORY,
   IMMUNIZATION_QUICK_PICK_CATEGORY,
   IN_HOUSE_MEDICATION_QUICK_PICK_CATEGORY,
   INSURANCE_QUICK_PICK_CATEGORY,
@@ -27,6 +28,7 @@ interface QuickPickListInputValidated extends QuickPickListInput {
 const CATEGORY_MAP: Record<string, QuickPickCategory<any>> = Object.fromEntries(
   [
     ALLERGY_QUICK_PICK_CATEGORY,
+    DME_QUICK_PICK_CATEGORY,
     IMMUNIZATION_QUICK_PICK_CATEGORY,
     IN_HOUSE_MEDICATION_QUICK_PICK_CATEGORY,
     INSURANCE_QUICK_PICK_CATEGORY,

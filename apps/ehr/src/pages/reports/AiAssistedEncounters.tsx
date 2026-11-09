@@ -121,7 +121,7 @@ const useAiAssistedEncounters = (
         // Transform the response to match our display requirements
         const processedEncounters: AiAssistedEncounterRow[] = response.encounters.map((encounter) => {
           const appointmentTime = encounter.appointmentStart
-            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy hh:mm a')
             : 'Unknown';
 
           return {
@@ -174,7 +174,7 @@ const useAiAssistedEncounters = (
       // Transform the combined response to match our display requirements
       const processedEncounters: AiAssistedEncounterRow[] = allEncounters.map((encounter) => {
         const appointmentTime = encounter.appointmentStart
-          ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+          ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy hh:mm a')
           : 'Unknown';
 
         return {

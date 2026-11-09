@@ -1,5 +1,6 @@
 import {
   Close as CloseIcon,
+  DynamicForm as DynamicFormIcon,
   FileDownloadOutlined as FileDownloadIcon,
   PrintOutlined as PrintIcon,
 } from '@mui/icons-material';
@@ -19,12 +20,15 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { ReactElement, useEffect, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import cms1500TemplateUrl from 'utils/lib/helpers/rcm/cms1500/cms1500-template.pdf?url';
+import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { Cms1500FormData } from 'utils/lib/types/data/billing/cms1500.types';
 import { getBillingClaimCms1500 } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
+import { ClaimSubmissionFields, ClaimSubmissionForm, ClaimSubmissionFormDefaults } from '../ClaimSubmissionFields';
 
 type PrintMode = 'form' | 'data-only';
 
@@ -100,38 +104,57 @@ async function downloadTemplate(): Promise<ArrayBuffer> {
 interface Cms1500DialogProps {
   open: boolean;
   onClose: () => void;
-  claimId: string;
+  claim: ClaimDetailResponse;
 }
 
-export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): ReactElement {
+export function Cms1500Dialog({ open, onClose, claim }: Cms1500DialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [form, setForm] = useState<Cms1500FormData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<PrintMode>('form');
   const [offset, setOffset] = useState<PrintOffset>(loadOffset);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
   // The blank form, downloaded the first time it's needed
   const template = useRef<Promise<ArrayBuffer> | undefined>(undefined);
+  const claimMethods = useForm<ClaimSubmissionForm>({ defaultValues: ClaimSubmissionFormDefaults });
 
   useEffect(() => {
+    claimMethods.reset();
     setForm(null);
     setError(null);
-    if (!open || !oystehrZambda) return undefined;
+    setLoading(false);
+  }, [claimMethods, open]);
 
-    let cancelled = false;
-    getBillingClaimCms1500(oystehrZambda, { claimId })
-      .then((data) => {
-        if (!cancelled) setForm(data);
+  const handleGenerate = useCallback(
+    (data: ClaimSubmissionForm) => {
+      setForm(null);
+      setError(null);
+      setLoading(true);
+      if (!open || !oystehrZambda) return undefined;
+
+      let cancelled = false;
+      getBillingClaimCms1500(oystehrZambda, {
+        claimId: claim.id,
+        submissionType: data.type,
+        submissionInsurance: data.insurance,
+        payerClaimControlNumber: data.type !== 'new' ? data.payerClaimControlNumber : undefined,
       })
-      .catch((err) => {
-        if (!cancelled)
-          setError(getApiError({ error: err, defaultError: 'Failed to load the claim for the CMS-1500' }));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, oystehrZambda, claimId]);
+        .then((data) => {
+          if (!cancelled) setForm(data);
+        })
+        .catch((err) => {
+          if (!cancelled)
+            setError(getApiError({ error: err, defaultError: 'Failed to load the claim for the CMS-1500' }));
+        })
+        .finally(() => setLoading(false));
+      return () => {
+        cancelled = true;
+      };
+    },
+    [open, oystehrZambda, claim]
+  );
 
   // The previous preview stays up while the next one renders, so nudging the offset doesn't flicker.
   useEffect(() => {
@@ -190,7 +213,7 @@ export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): R
     preview?.print();
   };
 
-  const fileName = `claim-${claimId}-cms1500${mode === 'data-only' ? '-data-only' : ''}.pdf`;
+  const fileName = `claim-${claim.id}-cms1500${mode === 'data-only' ? '-data-only' : ''}.pdf`;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 900, maxWidth: '95vw' } }}>
@@ -202,45 +225,50 @@ export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): R
       </DialogTitle>
       <DialogContent sx={{ px: 3, pb: 0 }}>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={mode}
-            onChange={(_, value: PrintMode | null) => value && setMode(value)}
-            aria-label="What to print"
-          >
-            <ToggleButton value="form">Form with claim data</ToggleButton>
-            <ToggleButton value="data-only">Data only, for pre-printed forms</ToggleButton>
-          </ToggleButtonGroup>
-          {mode === 'form' && (
-            <Typography variant="body2" color="text.secondary">
-              Every box is an editable field, so anything that&apos;s cut off or in the wrong place can be fixed by hand
-              in the PDF before printing.
-            </Typography>
-          )}
-          {mode === 'data-only' && (
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                Load red CMS-1500 (02/12) forms in the printer and print at actual size (100%, no scaling or fit to
-                page). If the text doesn&apos;t line up with the boxes, shift it below; the shift is saved in this
-                browser.
-              </Typography>
-              <Stack direction="row" spacing={2}>
-                <OffsetField
-                  label="Shift right (inches)"
-                  value={offset.right}
-                  onChange={(value) => updateOffset('right', value)}
-                />
-                <OffsetField
-                  label="Shift down (inches)"
-                  value={offset.down}
-                  onChange={(value) => updateOffset('down', value)}
-                />
-              </Stack>
-            </Box>
+          <FormProvider {...claimMethods}>{!loading && !form && <ClaimSubmissionFields claim={claim} />}</FormProvider>
+          {form && (
+            <>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={mode}
+                onChange={(_, value: PrintMode | null) => value && setMode(value)}
+                aria-label="What to print"
+              >
+                <ToggleButton value="form">Form with claim data</ToggleButton>
+                <ToggleButton value="data-only">Data only, for pre-printed forms</ToggleButton>
+              </ToggleButtonGroup>
+              {mode === 'form' && (
+                <Typography variant="body2" color="text.secondary">
+                  Every box is an editable field, so anything that&apos;s cut off or in the wrong place can be fixed by
+                  hand in the PDF before printing.
+                </Typography>
+              )}
+              {mode === 'data-only' && (
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                    Load red CMS-1500 (02/12) forms in the printer and print at actual size (100%, no scaling or fit to
+                    page). If the text doesn&apos;t line up with the boxes, shift it below; the shift is saved in this
+                    browser.
+                  </Typography>
+                  <Stack direction="row" spacing={2}>
+                    <OffsetField
+                      label="Shift right (inches)"
+                      value={offset.right}
+                      onChange={(value) => updateOffset('right', value)}
+                    />
+                    <OffsetField
+                      label="Shift down (inches)"
+                      value={offset.down}
+                      onChange={(value) => updateOffset('down', value)}
+                    />
+                  </Stack>
+                </Box>
+              )}
+            </>
           )}
           {error && <Alert severity="error">{error}</Alert>}
-          {!error && !pdfUrl && (
+          {!error && loading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
               <CircularProgress />
             </Box>
@@ -259,18 +287,30 @@ export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): R
         <Button onClick={onClose} sx={{ color: 'text.secondary' }}>
           Close
         </Button>
-        <Button
-          startIcon={<FileDownloadIcon />}
-          disabled={!pdfUrl}
-          component="a"
-          href={pdfUrl ?? undefined}
-          download={fileName}
-        >
-          Download
-        </Button>
-        <Button variant="contained" startIcon={<PrintIcon />} onClick={handlePrint} disabled={!pdfUrl}>
-          Print
-        </Button>
+        {form ? (
+          <>
+            <Button
+              startIcon={<FileDownloadIcon />}
+              disabled={!pdfUrl}
+              component="a"
+              href={pdfUrl ?? undefined}
+              download={fileName}
+            >
+              Download
+            </Button>
+            <Button variant="contained" startIcon={<PrintIcon />} onClick={handlePrint} disabled={!pdfUrl}>
+              Print
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="contained"
+            startIcon={<DynamicFormIcon />}
+            onClick={claimMethods.handleSubmit(handleGenerate)}
+          >
+            Generate Form
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

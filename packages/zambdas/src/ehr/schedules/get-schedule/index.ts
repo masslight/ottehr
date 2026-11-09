@@ -12,6 +12,7 @@ import {
 import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
 import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
 import { isLocationInPerson, isLocationManuallyCreated, isLocationVirtual } from 'utils/lib/fhir/location';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -150,12 +151,12 @@ const performEffect = (
   const healthcareServiceIds =
     ownerResource.resourceType === 'PractitionerRole'
       ? ((ownerResource as PractitionerRole).healthcareService ?? [])
-          .map((ref) => ref.reference?.split('/')[1])
+          .map((ref) => getIdFromReference(ref.reference))
           .filter((id): id is string => !!id)
       : undefined;
   const locationId =
     ownerResource.resourceType === 'PractitionerRole'
-      ? (ownerResource as PractitionerRole).location?.[0]?.reference?.split('/')[1]
+      ? getIdFromReference((ownerResource as PractitionerRole).location?.[0]?.reference)
       : undefined;
   const displayName =
     ownerResource.resourceType === 'PractitionerRole'

@@ -79,8 +79,14 @@ const { mockSaveChartData, mockSetPartialChartData } = vi.hoisted(() => ({
   mockSetPartialChartData: vi.fn(),
 }));
 
+// The visit's patient; tests that need a child set `birthDate` (reset to an adult before each test).
+const { mockPatient } = vi.hoisted(() => ({
+  mockPatient: { resourceType: 'Patient', birthDate: '1980-01-01' as string | undefined },
+}));
+
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useSaveChartData: () => ({ mutate: mockSaveChartData }),
+  useAppointmentData: () => ({ patient: mockPatient }),
 }));
 
 vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
@@ -112,25 +118,14 @@ const CURRENT_USER_NAME = 'Dr. Current';
 const ORDERING_PROVIDER_ID = 'practitioner-ordering';
 const PERFORMED_BY_LABEL = 'Performed by';
 const PERFORMED_BY_REQUIRED_MESSAGE = 'Performed by is required';
-const WRITE_FINAL_REPORT_CHECKBOX_LABEL = "Don't send to teleradiology, I will write the final report myself.";
-const SEND_FOR_FINAL_READ_BTN_LABEL = 'Send for Final Read';
-const SAVE_AS_FINAL_BTN_LABEL = 'Save as Final';
-const FINAL_REPORT_TEXTBOX_LABEL = 'Final Read';
+const INTERNAL_FINAL_READ_BTN_LABEL = 'Internal Final Read';
+const TELERADIOLOGY_FINAL_READ_BTN_LABEL = 'Teleradiology Final Read';
+const FINAL_REPORT_TEXTBOX_LABEL = 'Internal final read report';
 const FINAL_REPORT_REQUIRED_MESSAGE = 'Final report is required';
 const SAVE_PRELIMINARY_REPORT_BTN_LABEL = 'Save Preliminary Report';
 const PRELIMINARY_REPORT_TEXTBOX_LABEL = 'Preliminary Read';
 const DIAGNOSIS_REQUIRED_MESSAGE = 'Please enter a diagnosis to continue';
 const ADD_DX_BTN_LABEL = 'mock-add-dx';
-
-// MUI Checkbox doesn't create an accessible <label>. The text sits in a sibling
-// Typography element, so we find it by text then walk up to the flex container and
-// query for the actual <input type="checkbox"> within it.
-const getWriteFinalReportCheckbox = (): HTMLElement => {
-  const label = screen.getByText(WRITE_FINAL_REPORT_CHECKBOX_LABEL);
-  const checkbox = label.parentElement!.querySelector('input[type="checkbox"]');
-  if (!checkbox) throw new Error('Could not find write-final-report checkbox');
-  return checkbox as HTMLElement;
-};
 
 // By test id rather than accessible name: the section headings are display copy and get retitled.
 const editField = (reportType: 'preliminary' | 'final'): HTMLElement =>
@@ -184,6 +179,7 @@ const makeHookResult = (overrides = {}): ReturnType<typeof usePatientRadiologyOr
 describe('RadiologyOrderDetailsPage - final report', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPatient.birthDate = '1980-01-01';
     mockUseParams.mockReturnValue({ serviceRequestID: SERVICE_REQUEST_ID, id: 'appt-001' } as any);
     mockUseNavigate.mockReturnValue(vi.fn());
     mockUseRadiologyConsentExists.mockReturnValue(false);
@@ -208,121 +204,141 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       </BrowserRouter>
     );
 
-  describe('preliminary status — default view', () => {
-    it('shows the "write final report myself" checkbox text', () => {
+  describe('preliminary status — final read', () => {
+    it('shows the internal final read field and both final read buttons', () => {
       renderPage();
-      expect(screen.getByText(WRITE_FINAL_REPORT_CHECKBOX_LABEL)).toBeInTheDocument();
-    });
-
-    it('checkbox is unchecked by default', () => {
-      renderPage();
-      expect(getWriteFinalReportCheckbox()).not.toBeChecked();
-    });
-
-    it('shows "Send for Final Read" button by default', () => {
-      renderPage();
-      expect(screen.getByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL })).toBeInTheDocument();
-    });
-
-    it('does not show the final report text field by default', () => {
-      renderPage();
-      expect(screen.queryByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL })).not.toBeInTheDocument();
-    });
-
-    it('does not show "Save as Final" button by default', () => {
-      renderPage();
-      expect(screen.queryByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL })).not.toBeInTheDocument();
-    });
-  });
-
-  describe('checking "write final report myself"', () => {
-    it('reveals the final report text field when checked', async () => {
-      const user = userEvent.setup();
-      renderPage();
-
-      await user.click(getWriteFinalReportCheckbox());
-
       expect(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: INTERNAL_FINAL_READ_BTN_LABEL })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: TELERADIOLOGY_FINAL_READ_BTN_LABEL })).toBeInTheDocument();
     });
 
-    it('replaces "Send for Final Read" with "Save as Final" when checked', async () => {
-      const user = userEvent.setup();
+    it('no longer offers the "write final report myself" checkbox', () => {
       renderPage();
-
-      await user.click(getWriteFinalReportCheckbox());
-
-      expect(screen.queryByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL })).toBeInTheDocument();
+      expect(screen.queryByText(/I will write the final report myself/)).not.toBeInTheDocument();
     });
 
-    it('hides the final report text field and restores "Send for Final Read" when unchecked', async () => {
-      const user = userEvent.setup();
-      renderPage();
-
-      await user.click(getWriteFinalReportCheckbox());
-      await user.click(getWriteFinalReportCheckbox());
-
-      expect(screen.queryByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL })).toBeInTheDocument();
-    });
-  });
-
-  describe('"Save as Final" action', () => {
-    it('calls handleSaveReport with the typed report and "final" type', async () => {
+    it('"Internal Final Read" saves the typed report, trimmed, as final', async () => {
       const user = userEvent.setup();
       const mockHandleSaveReport = vi.fn();
-      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ handleSaveReport: mockHandleSaveReport }));
+      const mockHandleSendForFinalRead = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({ handleSaveReport: mockHandleSaveReport, handleSendForFinalRead: mockHandleSendForFinalRead })
+      );
 
       renderPage();
-
-      await user.click(getWriteFinalReportCheckbox());
-      await user.type(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL }), 'No acute findings');
-      await user.click(screen.getByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL }));
+      await user.type(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL }), '  No acute findings  ');
+      await user.click(screen.getByRole('button', { name: INTERNAL_FINAL_READ_BTN_LABEL }));
 
       expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, 'No acute findings', 'final');
+      expect(mockHandleSendForFinalRead).not.toHaveBeenCalled();
     });
 
-    it('shows a validation error and does not call handleSaveReport when no text is entered', async () => {
-      const user = userEvent.setup();
-      const mockHandleSaveReport = vi.fn();
-      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ handleSaveReport: mockHandleSaveReport }));
+    it.each(['', '   '])(
+      '"Internal Final Read" requires a report and does not save one (input "%s")',
+      async (input) => {
+        const user = userEvent.setup();
+        const mockHandleSaveReport = vi.fn();
+        mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ handleSaveReport: mockHandleSaveReport }));
 
-      renderPage();
+        renderPage();
+        if (input) await user.type(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL }), input);
+        await user.click(screen.getByRole('button', { name: INTERNAL_FINAL_READ_BTN_LABEL }));
 
-      await user.click(getWriteFinalReportCheckbox());
-      await user.click(screen.getByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL }));
-
-      expect(screen.getByText(FINAL_REPORT_REQUIRED_MESSAGE)).toBeInTheDocument();
-      expect(mockHandleSaveReport).not.toHaveBeenCalled();
-    });
+        expect(screen.getByText(FINAL_REPORT_REQUIRED_MESSAGE)).toBeInTheDocument();
+        expect(mockHandleSaveReport).not.toHaveBeenCalled();
+      }
+    );
 
     it('clears the validation error when the user starts typing in the text field', async () => {
       const user = userEvent.setup();
       renderPage();
 
-      await user.click(getWriteFinalReportCheckbox());
-      await user.click(screen.getByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL }));
-
+      await user.click(screen.getByRole('button', { name: INTERNAL_FINAL_READ_BTN_LABEL }));
       expect(screen.getByText(FINAL_REPORT_REQUIRED_MESSAGE)).toBeInTheDocument();
 
       await user.type(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL }), 'N');
 
       expect(screen.queryByText(FINAL_REPORT_REQUIRED_MESSAGE)).not.toBeInTheDocument();
     });
-  });
 
-  describe('"Send for Final Read" action', () => {
-    it('calls handleSendForFinalRead with the serviceRequestId', async () => {
+    it('"Teleradiology Final Read" sends the study for final read and saves nothing', async () => {
       const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
       const mockHandleSendForFinalRead = vi.fn();
       mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({ handleSendForFinalRead: mockHandleSendForFinalRead })
+        makeHookResult({ handleSaveReport: mockHandleSaveReport, handleSendForFinalRead: mockHandleSendForFinalRead })
       );
 
       renderPage();
-      await user.click(screen.getByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL }));
+      await user.click(screen.getByRole('button', { name: TELERADIOLOGY_FINAL_READ_BTN_LABEL }));
 
       expect(mockHandleSendForFinalRead).toHaveBeenCalledWith(SERVICE_REQUEST_ID);
+      expect(mockHandleSaveReport).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { busy: 'isSavingReport', disabledBtn: TELERADIOLOGY_FINAL_READ_BTN_LABEL },
+      { busy: 'isSendingForFinalRead', disabledBtn: INTERNAL_FINAL_READ_BTN_LABEL },
+    ])('disables $disabledBtn while $busy', ({ busy, disabledBtn }) => {
+      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ [busy]: true }));
+      renderPage();
+      expect(screen.getByRole('button', { name: disabledBtn })).toBeDisabled();
+    });
+
+    it('disables "Teleradiology Final Read" with a tooltip while the internal final read has text', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const textbox = screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL });
+      const teleradiologyBtn = (): HTMLElement =>
+        screen.getByRole('button', { name: TELERADIOLOGY_FINAL_READ_BTN_LABEL });
+
+      await user.type(textbox, '   ');
+      expect(teleradiologyBtn()).toBeEnabled();
+
+      await user.type(textbox, 'Normal');
+      expect(teleradiologyBtn()).toBeDisabled();
+      await user.hover(teleradiologyBtn().parentElement!);
+      expect(
+        await screen.findByRole('tooltip', { name: 'Clear the internal final read report to send to teleradiology.' })
+      ).toBeInTheDocument();
+
+      await user.clear(textbox);
+      expect(teleradiologyBtn()).toBeEnabled();
+    });
+
+    it('does not carry an unsaved internal final read over to the next order', async () => {
+      const user = userEvent.setup();
+      const otherId = 'sr-002';
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({ orders: [makeMockOrder(), makeMockOrder({ serviceRequestId: otherId })] })
+      );
+
+      const { rerender } = render(
+        <BrowserRouter>
+          <RadiologyOrderDetailsPage serviceRequestId={SERVICE_REQUEST_ID} />
+        </BrowserRouter>
+      );
+      await user.type(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL }), 'Draft');
+      rerender(
+        <BrowserRouter>
+          <RadiologyOrderDetailsPage serviceRequestId={otherId} />
+        </BrowserRouter>
+      );
+
+      expect(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL })).toHaveValue('');
+    });
+
+    it('disables the field and both buttons when the visit is read-only', () => {
+      mockUseGetAppointmentAccessibility.mockReturnValue({
+        isAppointmentReadOnly: true,
+        isPractitionerLicensedInState: true,
+        isEncounterAssignedToCurrentPractitioner: true,
+        visitType: 'main',
+      });
+      renderPage();
+      expect(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL })).toBeDisabled();
+      expect(screen.getByRole('button', { name: INTERNAL_FINAL_READ_BTN_LABEL })).toBeDisabled();
+      expect(screen.getByRole('button', { name: TELERADIOLOGY_FINAL_READ_BTN_LABEL })).toBeDisabled();
     });
   });
 
@@ -367,6 +383,114 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           'preliminary',
           ['A00'],
           // The performer select defaults to the current user, so a save always carries one.
+          CURRENT_USER_ID
+        )
+      );
+    });
+
+    it('offers suggested reads for a mapped study and appends the chosen one to the preliminary read', async () => {
+      const user = userEvent.setup();
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+        })
+      );
+
+      renderPage();
+      expect(screen.getByText('Suggested reads')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Add to read: Negative' }));
+
+      expect(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL })).toHaveValue(
+        'No acute fracture or dislocation. Ankle mortise intact.'
+      );
+      // The label must float even though the text arrived without the field ever being focused.
+      expect(document.querySelector('label[for="preliminary-report-field"]')).toHaveAttribute('data-shrink', 'true');
+    });
+
+    it.each([
+      { why: 'a preliminary read is already saved', status: RadiologyOrderStatus.performed, preliminaryReport: 'x' },
+      { why: 'the study is not yet performed', status: RadiologyOrderStatus.ordered, preliminaryReport: undefined },
+    ])('does not offer suggested reads when $why', ({ status, preliminaryReport }) => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [
+            makeMockOrder({
+              status,
+              cptCode: '73610',
+              laterality: 'LT',
+              preliminaryReport: preliminaryReport && btoa(preliminaryReport),
+            }),
+          ],
+        })
+      );
+
+      renderPage();
+      expect(screen.queryByText('Suggested reads')).not.toBeInTheDocument();
+    });
+
+    it('does not offer suggested reads while the visit is read-only', () => {
+      mockUseGetAppointmentAccessibility.mockReturnValue({
+        isAppointmentReadOnly: true,
+        isPractitionerLicensedInState: true,
+        isEncounterAssignedToCurrentPractitioner: true,
+        visitType: 'main',
+      });
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+        })
+      );
+
+      renderPage();
+      expect(screen.queryByText('Suggested reads')).not.toBeInTheDocument();
+    });
+
+    it.each([
+      // 17 when the study was ordered (2024-12-20), though an adult today: the order date decides.
+      { who: 'a patient under 18 on the order date', birthDate: '2007-06-01', child: true },
+      { who: 'an adult', birthDate: '1980-01-01', child: false },
+      { who: 'a patient with no birth date', birthDate: undefined, child: false },
+    ])('offers the child suggestions only to $who', ({ birthDate, child }) => {
+      mockPatient.birthDate = birthDate;
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+        })
+      );
+
+      renderPage();
+      const childBlanks = screen.queryAllByRole('button', { name: /^Growth plates? \(children only\)/ });
+      expect(childBlanks).toHaveLength(child ? 2 : 0);
+      expect(
+        screen.getByRole('button', { name: child ? 'Fracture type: Salter-Harris I' : 'Fracture type: (none)' })
+      ).toBeInTheDocument();
+    });
+
+    it('adds a suggestion on a new line after text already typed, and saves exactly the text in the field', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+          handleSaveReport: mockHandleSaveReport,
+        })
+      );
+
+      renderPage();
+      const field = screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL });
+      await user.type(field, 'Limited study.');
+      await user.click(screen.getByRole('button', { name: 'Add to read: Negative' }));
+      const expected = 'Limited study.\nNo acute fracture or dislocation. Ankle mortise intact.';
+      expect(field).toHaveValue(expected);
+
+      await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+      await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
+      await waitFor(() =>
+        expect(mockHandleSaveReport).toHaveBeenCalledWith(
+          SERVICE_REQUEST_ID,
+          expected,
+          'preliminary',
+          ['A00'],
           CURRENT_USER_ID
         )
       );
@@ -625,10 +749,10 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         RadiologyOrderStatus.pendingFinal,
         RadiologyOrderStatus.final,
         RadiologyOrderStatus.reviewed,
-      ])('does not show the final report checkbox for status "%s"', (status) => {
+      ])('does not show the internal final read field for status "%s"', (status) => {
         mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makeMockOrder({ status })] }));
         renderPage();
-        expect(screen.queryByText(WRITE_FINAL_REPORT_CHECKBOX_LABEL)).not.toBeInTheDocument();
+        expect(screen.queryByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL })).not.toBeInTheDocument();
       });
 
       it.each([
@@ -637,11 +761,11 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         RadiologyOrderStatus.pendingFinal,
         RadiologyOrderStatus.final,
         RadiologyOrderStatus.reviewed,
-      ])('does not show "Send for Final Read" or "Save as Final" for status "%s"', (status) => {
+      ])('does not show the final read buttons for status "%s"', (status) => {
         mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makeMockOrder({ status })] }));
         renderPage();
-        expect(screen.queryByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL })).not.toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: INTERNAL_FINAL_READ_BTN_LABEL })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: TELERADIOLOGY_FINAL_READ_BTN_LABEL })).not.toBeInTheDocument();
       });
     });
 

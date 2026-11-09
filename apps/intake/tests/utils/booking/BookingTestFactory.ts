@@ -625,12 +625,9 @@ async function fillPaperworkPages(params: FillPaperworkParams): Promise<void> {
   await page.waitForURL(/\/review/);
   console.log('On review page');
 
-  // Click the submit button on review page
-  // Virtual flows show "Finish", in-person flows show "Continue"
-  let submitButtonText: RegExp = /continue/i;
-  if (serviceMode === 'virtual' && visitType === 'prebook') {
-    submitButtonText = /finish/i;
-  } else if (serviceMode === 'virtual' && visitType === 'walk-in') {
+  // Click the submit button on review page.
+  let submitButtonText: RegExp = /^(finish|continue)$/i;
+  if (serviceMode === 'virtual' && visitType === 'walk-in') {
     submitButtonText = /Go to the Waiting Room/i;
   }
   const submitButton = page.getByRole('button', { name: submitButtonText });

@@ -1,35 +1,14 @@
 import { LoadingButton } from '@mui/lab';
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Paper,
-  Stack,
-  TextField as MuiTextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
-import { CheckboxInput } from 'src/components/input/CheckboxInput';
-import { CptCodesInput } from 'src/components/input/CptCodesInput';
-import { DateInput } from 'src/components/input/DateInput';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
-import { TimeInput } from 'src/components/input/TimeInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import {
@@ -37,6 +16,7 @@ import {
   useCancelImmunizationOrder,
 } from 'src/features/visits/in-person/hooks/useImmunization';
 import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
+import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -49,8 +29,10 @@ import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
+import { AdministeringImmunizationFields } from './AdministeringImmunizationFields';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import { OrderDetailsSection } from './OrderDetailsSection';
 import { OrderStatusChip } from './OrderStatusChip';
@@ -72,9 +54,9 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
       ...order,
       administrationDetails: {
         ...order.administrationDetails,
-        administeredDateTime: DateTime.now().toISO(),
+        administeredDateTime: getInitialAdministeredDateTime(order),
+        visGiven: order.administrationDetails?.visGiven ?? false,
       },
-      visGiven: order.administrationDetails?.visGivenDate != null,
       otherReason: '',
     });
   }, [methods, order]);
@@ -90,7 +72,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const { mappedData } = useAppointmentData(appointmentId);
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
-  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
 
@@ -103,8 +85,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     setQuickPickName,
     existingQuickPicks,
     quickPickSaving,
-    overwriteTarget,
-    setOverwriteTarget,
     onQuickPickSelect,
     openQuickPickDialog,
     onSaveAsQuickPick,
@@ -112,7 +92,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
 
   const handleDeleteOrder = async (): Promise<void> => {
     try {
-      await cancelOrder({ orderId: order.id });
+      const response = await cancelOrder({ orderId: order.id });
+      enqueueOrderDeleteWarnings(response);
       if (onFinished) {
         onFinished();
       } else {
@@ -208,95 +189,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                     />
                   )}
                 </Grid>
-                <Grid xs={3} item>
-                  <TextInput
-                    name="administrationDetails.lot"
-                    label="LOT number"
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
-                  />
-                </Grid>
-                <Grid xs={3} item>
-                  <TextInput
-                    name="administrationDetails.ndc"
-                    label="NDC code"
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
-                  />
-                </Grid>
-                <Grid xs={3} item>
-                  <DateInput
-                    name="administrationDetails.expDate"
-                    label="Exp. Date"
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.expiredDate}
-                  />
-                </Grid>
-                <Grid xs={3} item>
-                  <TextInput
-                    name="administrationDetails.mvx"
-                    label="MVX code"
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
-                  />
-                </Grid>
-                <Grid xs={3} item>
-                  <TextInput
-                    name="administrationDetails.cvx"
-                    label="CVX code"
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
-                  />
-                </Grid>
-                <Grid xs={6} item>
-                  <ImmunizationCptCodesField
-                    methods={methods}
-                    isReadOnly={isReadOnly}
-                    dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
-                  />
-                </Grid>
-                <Grid xs={3} item>
-                  <DateInput
-                    name="administrationDetails.administeredDateTime"
-                    label="Administered date"
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.administeredDate}
-                  />
-                </Grid>
-                <Grid xs={3} item>
-                  <TimeInput
-                    name="administrationDetails.administeredDateTime"
-                    label="Administered time"
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.administeredTime}
-                  />
-                </Grid>
-                <Grid xs={6} item>
-                  <Box
-                    style={{
-                      background: '#2169F514',
-                      borderRadius: '8px',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <CheckboxInput
-                      name="visGiven"
-                      label="VIS was given to the patient"
-                      validate={requiredForAdministration}
-                      dataTestId={dataTestIds.vaccineDetailsPage.visCheckbox}
-                    />
-                  </Box>
-                </Grid>
-                <Grid xs={6} item>
-                  <DateInput
-                    name="administrationDetails.visGivenDate"
-                    label="VIS given date"
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.visGivenDate}
-                  />
-                </Grid>
+                <AdministeringImmunizationFields validate={requiredForAdministration} isReadOnly={isReadOnly} />
                 <Grid xs={12} item>
                   <Typography
                     variant="h5"
@@ -339,7 +232,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Stack direction="row" spacing={1} alignItems="center">
                       <OrderStatusChip status={order.status} />
-                      {order.status === 'pending' && !isReadOnly && (
+                      {order.status !== 'cancelled' && !isReadOnly && (
                         <>
                           <LoadingButton
                             variant="outlined"
@@ -421,68 +314,27 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
         </fieldset>
       </form>
 
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Save as Quick Pick</DialogTitle>
-        <DialogContent>
-          <MuiTextField
-            autoFocus
-            label="Quick pick name"
-            fullWidth
-            value={quickPickName}
-            onChange={(e) => setQuickPickName(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-          {existingQuickPicks.length > 0 && (
-            <>
-              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-                Or overwrite an existing quick pick:
-              </Typography>
-              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                {existingQuickPicks.map((qp) => (
-                  <ListItem key={qp.id} disablePadding>
-                    <ListItemButton
-                      selected={overwriteTarget?.id === qp.id}
-                      onClick={() => {
-                        setOverwriteTarget(qp);
-                        setQuickPickName(qp.name);
-                      }}
-                    >
-                      <ListItemText primary={qp.name} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <LoadingButton
-            loading={quickPickSaving}
-            variant="contained"
-            onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
-          >
-            {overwriteTarget ? 'Overwrite' : 'Save'}
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <QuickPickSaveDialogs
+        open={quickPickDialogOpen}
+        name={quickPickName}
+        onNameChange={setQuickPickName}
+        existingQuickPicks={existingQuickPicks}
+        saving={quickPickSaving}
+        onClose={() => setQuickPickDialogOpen(false)}
+        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="immunization"
+      />
     </FormProvider>
   );
 };
 
-// Wrapper to make cptCodes reactive via useWatch
-const ImmunizationCptCodesField: React.FC<{
-  methods: ReturnType<typeof useForm>;
-  isReadOnly?: boolean;
-  dataTestId?: string;
-}> = ({ methods, isReadOnly, dataTestId }) => {
-  const cptCodes = useWatch({ control: methods.control, name: 'administrationDetails.cptCodes' }) ?? [];
-  return (
-    <CptCodesInput
-      cptCodes={cptCodes}
-      onChange={(codes) => methods.setValue('administrationDetails.cptCodes', codes)}
-      isEditable={!isReadOnly}
-      dataTestId={dataTestId}
-    />
-  );
-};
+function getInitialAdministeredDateTime(order: ImmunizationOrder): string {
+  const now = DateTime.now();
+  const fromOrder = order.status === 'pending' ? order.administrationDetails?.administeredDateTime : undefined;
+  if (!fromOrder) return now.toISO();
+  // a date picked without a time on the order screen gets the current time instead of midnight
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fromOrder)) {
+    return DateTime.fromISO(fromOrder).set({ hour: now.hour, minute: now.minute, second: 0, millisecond: 0 }).toISO()!;
+  }
+  return fromOrder;
+}

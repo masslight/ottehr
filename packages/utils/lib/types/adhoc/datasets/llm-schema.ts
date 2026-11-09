@@ -37,6 +37,8 @@ export const LlmDatasetSchemaSchema = z.object({
   label: z.string(),
   description: z.string(),
   rowCount: z.number(),
+  /** Inclusive yyyy-MM-dd range the rows were fetched for (the page's date picker). */
+  dateRange: z.object({ start: z.string(), end: z.string() }).optional(),
   fields: z.array(LlmFieldSchema),
   /** Layers that EXIST but are NOT loaded — the generator names their ids in `needsLayers`. */
   availableLayers: z.array(LlmAvailableLayerSchema).optional(),

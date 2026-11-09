@@ -39,8 +39,17 @@ import {
 } from 'src/hooks/useGetPatientDocs';
 import PageContainer from 'src/layout/PageContainer';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, isInboundFaxDeleting, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
+
+// Someone else filed, completed or deleted the fax (or changed its folder) after this page loaded.
+// The API error may carry its code directly or nested under `output`.
+const isStaleFaxError = (e: unknown): boolean => {
+  const error = e as { code?: number; output?: { code?: number } } | undefined;
+  return (error?.code ?? error?.output?.code) === APIErrorCode.PRECONDITION_FAILED;
+};
+const STALE_FAX_MESSAGE = 'This fax was changed by someone else. The page has been refreshed.';
 
 export const InboundFaxMatch: React.FC = () => {
   const { communicationId } = useParams();
@@ -53,8 +62,13 @@ export const InboundFaxMatch: React.FC = () => {
   const [isFiling, setIsFiling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string>();
-  // True when the fax task is already completed (filed): show the PDF read-only, no match form.
-  const [readOnly, setReadOnly] = useState(false);
+  // Set when the fax is already filed or its task completed: show the PDF read-only with this notice,
+  // no match form.
+  const [readOnlyNotice, setReadOnlyNotice] = useState<string>();
+  const readOnly = !!readOnlyNotice;
+  const [reloadCount, setReloadCount] = useState(0);
+  // A previous delete reserved the fax but did not finish: it can only be deleted again, not filed.
+  const [deletionPending, setDeletionPending] = useState(false);
 
   const [taskId, setTaskId] = useState<string>();
   const [pdfUrl, setPdfUrl] = useState<string>();
@@ -105,12 +119,16 @@ export const InboundFaxMatch: React.FC = () => {
           })
         ).unbundle();
 
-        // Assigning a task moves it from ready to in-progress; both are still open for matching.
-        const openTask = tasks.find((t) => t.status === 'ready' || t.status === 'in-progress');
-        // Filing completes the task but the Communication + PDF still exist, so a completed fax
-        // can be viewed read-only. (Enhancement: the completed Task doesn't record the
-        // patient/DocumentReference it was filed to, so we can't deep-link to the filed chart doc.)
-        const completedTask = tasks.find((t) => t.status === 'completed');
+        // Assigning a task moves it from ready to in-progress; both are still open for matching
+        // until the fax is filed.
+        const openTask = tasks.find(
+          (t) => (t.status === 'ready' || t.status === 'in-progress') && !isInboundFaxFiled(t)
+        );
+        // Filing marks the task filed (it stays open until staff press Complete) and the Communication
+        // + PDF still exist, so a filed or completed fax can be viewed read-only. (Enhancement: the Task
+        // doesn't record the patient/DocumentReference it was filed to, so we can't deep-link to the
+        // filed chart doc.)
+        const completedTask = tasks.find((t) => t.status === 'completed' || isInboundFaxFiled(t));
         const task = openTask ?? completedTask;
         if (!task?.id) {
           // Deleting cancels the task and removes the Communication + PDF — nothing left to show.
@@ -123,9 +141,16 @@ export const InboundFaxMatch: React.FC = () => {
           return;
         }
         if (!openTask) {
-          setReadOnly(true);
+          // A completed task without the filed marker is ambiguous: tasks completed before filing stopped
+          // auto-completing were all filed, but carry no marker, so this can't claim either way.
+          setReadOnlyNotice(
+            tasks.some(isInboundFaxFiled)
+              ? 'This fax has already been filed.'
+              : "This fax's task was completed. It may not have been filed to a patient's chart."
+          );
         }
         setTaskId(task.id);
+        setDeletionPending(!!openTask && isInboundFaxDeleting(openTask));
 
         // Extract task input values
         const getInputValue = (code: string): string | undefined => {
@@ -158,7 +183,7 @@ export const InboundFaxMatch: React.FC = () => {
     };
 
     void loadData();
-  }, [oystehr, communicationId, loadPresignedUrl]);
+  }, [oystehr, communicationId, loadPresignedUrl, reloadCount]);
 
   // Load patient folders when patient is confirmed. Reuses the shared docs-folders hook so
   // custom folders and synthesized system folders (patients with no per-patient List yet)
@@ -204,7 +229,12 @@ export const InboundFaxMatch: React.FC = () => {
       navigate('/tasks');
     } catch (e) {
       console.error('Failed to file fax:', e);
-      enqueueSnackbar('Failed to file fax. Please try again.', { variant: 'error' });
+      if (isStaleFaxError(e)) {
+        enqueueSnackbar(STALE_FAX_MESSAGE, { variant: 'error' });
+        setReloadCount((count) => count + 1);
+      } else {
+        enqueueSnackbar('Failed to file fax. Please try again.', { variant: 'error' });
+      }
     } finally {
       setIsFiling(false);
     }
@@ -226,7 +256,12 @@ export const InboundFaxMatch: React.FC = () => {
       navigate('/tasks');
     } catch (e) {
       console.error('Failed to delete fax:', e);
-      enqueueSnackbar('Failed to delete fax. Please try again.', { variant: 'error' });
+      if (isStaleFaxError(e)) {
+        enqueueSnackbar(STALE_FAX_MESSAGE, { variant: 'error' });
+        setReloadCount((count) => count + 1);
+      } else {
+        enqueueSnackbar('Failed to delete fax. Please try again.', { variant: 'error' });
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -240,7 +275,8 @@ export const InboundFaxMatch: React.FC = () => {
     !!pdfUrl &&
     !!taskId &&
     // Staff must be able to see the document before filing it against a patient chart.
-    !!presignedPdfUrl;
+    !!presignedPdfUrl &&
+    !deletionPending;
 
   if (error) {
     return (
@@ -336,10 +372,16 @@ export const InboundFaxMatch: React.FC = () => {
             {/* Right side: matching form, or a read-only notice once the fax has been filed */}
             <Grid item xs={12} md={5}>
               {readOnly ? (
-                <Alert severity="info">This fax has already been filed.</Alert>
+                <Alert severity="info">{readOnlyNotice}</Alert>
               ) : (
                 <Paper sx={{ p: 3 }}>
                   <Stack spacing={3}>
+                    {deletionPending && (
+                      <Alert severity="warning">
+                        A previous attempt to delete this fax did not finish. It can no longer be filed; delete it
+                        again.
+                      </Alert>
+                    )}
                     {/* Patient search */}
                     <Stack spacing={1}>
                       <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>

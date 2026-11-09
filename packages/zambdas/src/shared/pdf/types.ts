@@ -23,6 +23,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { ExternalLabOrderResult, InHouseLabResult as InHouseLabResultPdfData } from 'utils/lib/types/api/lab';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -30,6 +31,7 @@ import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { QuantityDataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
 import { SupportedObsImgAttachmentTypes } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { testDataForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { UpcomingFollowUp } from './get-upcoming-follow-ups';
 import { Column, PdfInfo } from './pdf-utils';
@@ -402,14 +404,6 @@ export interface PatientInfo extends PdfData {
   ssn: string;
 }
 
-export interface PatientInfoForProgressNote extends PdfData {
-  patientName: string;
-  patientDOB: string;
-  patientId: string;
-  personAccompanying: string;
-  patientPhone: string;
-}
-
 export interface EncounterInfo extends PdfData {
   isFollowup: boolean;
 }
@@ -421,13 +415,11 @@ interface VisitDetailsForFollowUpVisit extends PdfData {
   message?: string;
   location?: Location;
   provider?: ProviderDetails;
+  personAccompanying?: string;
 }
 
 interface VisitDetailsForInitialVisit extends PdfData {
   visitType: 'initial';
-  type?: string;
-  serviceCategory?: string;
-  bookingType?: string;
   dateOfService: string;
   reasonForVisit: string;
   provider: string;
@@ -438,6 +430,7 @@ interface VisitDetailsForInitialVisit extends PdfData {
   insuranceCompany?: string;
   insuranceSubscriberId?: string;
   address: string;
+  personAccompanying?: string;
 }
 
 export type VisitDetailsForProgressNote = VisitDetailsForFollowUpVisit | VisitDetailsForInitialVisit;
@@ -504,10 +497,21 @@ export interface ExternalLabs extends PdfData {
   externalLabOrders: string[]; // names of all the tests ordered
 }
 
+/** A filled-out practice form as the note prints it. */
+export interface FormResponseLines {
+  title: string;
+  lines: { question: string; answer: string }[];
+}
+
 export interface AdditionalQuestions extends PdfData {
   additionalQuestions: Record<string, any>;
   currentASQ?: string;
   notes?: string[];
+  forms?: FormResponseLines[];
+}
+
+export interface QuestionnaireForms extends PdfData {
+  forms: FormResponseLines[];
 }
 
 export interface FollowupCompleted extends PdfData {
@@ -546,6 +550,7 @@ export interface RosObservations extends PdfData {
         label: string;
         abnormal: boolean;
       }>;
+      comment?: string;
     };
   };
 }
@@ -622,6 +627,10 @@ export interface Procedures extends PdfData {
     timeSpent?: string;
     documentedBy?: string;
   }[];
+}
+
+export interface DmeOrdersData extends PdfData {
+  dmeOrders: { itemName: string; lines: string[] }[];
 }
 
 export interface ContactInfo extends PdfData {
@@ -819,17 +828,11 @@ export interface VisitDataInput {
 export interface ProgressNoteVisitDataInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
-  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface PatientDataInput {
   patient: Patient;
   appointment: Appointment;
-}
-
-export interface ProgressNotePatientDataInput {
-  patient: Patient;
-  questionnaireResponse?: QuestionnaireResponse;
 }
 
 export interface EncounterDataInput {
@@ -999,6 +1002,7 @@ export interface DischargeSummaryData extends PdfData {
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
   procedures?: Procedures;
+  dmeOrders?: DmeOrdersData;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
@@ -1072,13 +1076,17 @@ export interface ProgressNoteInput {
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
+  dmeOrders?: DmeOrderDTO[];
   signatures?: ProgressNoteSignatures;
   signed?: boolean;
+  /** This visit's responses to practice forms that belong in the note (Screening and Questionnaires). */
+  formResponses?: StandaloneFormDTO[];
 }
 
 export interface ProgressNoteData extends PdfData {
   visit: VisitDetailsForProgressNote;
-  patient: PatientInfoForProgressNote;
+  visitHeader?: VisitInfo;
+  patient: PatientInfoForDischargeSummary;
   encounter: EncounterInfo;
   chiefComplaint: ChiefComplaint;
   historyOfPresentIllness: HistoryOfPresentIllness;
@@ -1095,6 +1103,7 @@ export interface ProgressNoteData extends PdfData {
   externalLabs?: ExternalLabs;
   radiology?: RadiologyData;
   screening: AdditionalQuestions;
+  questionnaires?: QuestionnaireForms;
   intakeNotes: IntakeNotes;
   vitals: Vitals;
   rosObservations: RosObservations;
@@ -1104,6 +1113,7 @@ export interface ProgressNoteData extends PdfData {
   emCode: EmCode;
   cptCodes: CptCodes;
   procedures: Procedures;
+  dmeOrders: DmeOrdersData;
   prescriptions: Prescriptions;
   plan: PlanData;
   followupCompleted: FollowupCompleted;
@@ -1123,6 +1133,7 @@ export interface DischargeSummaryInput {
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
+  dmeOrders?: DmeOrderDTO[];
 }
 
 export interface DischargeSummaryData extends PdfData {
@@ -1138,6 +1149,7 @@ export interface DischargeSummaryData extends PdfData {
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
   procedures?: Procedures;
+  dmeOrders?: DmeOrdersData;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;

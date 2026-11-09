@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   AdHocBillingInputSchema,
   AdHocBillingOutputSchema,
@@ -21,14 +22,18 @@ import {
   ADHOC_REPORT_PARAMS_CODE,
   ADHOC_REPORT_TASK_SYSTEM,
 } from 'utils/lib/types/adhoc/generation/report-task';
+import { createBillingClient } from '../../billing/shared';
 import { fetchAdHocBillingRows } from '../../shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../../shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../../shared/adhoc-datasets/patients';
 import { beginReportBudget, uploadAdHocReportJsonToZ3 } from '../../shared/adhoc-report';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { wrapTaskHandler } from '../task/helpers';
 
 const ZAMBDA_NAME = 'sub-adhoc-report';
+
+let m2mToken: string;
 
 interface ReportParams {
   datasetId: string;
@@ -42,29 +47,39 @@ function readParams(task: Task): ReportParams {
   return JSON.parse(raw) as ReportParams;
 }
 
-async function buildOutputJson(oystehr: Oystehr, params: ReportParams): Promise<{ json: string; rowCount: number }> {
+async function buildOutputJson(
+  oystehr: Oystehr,
+  billingOystehr: Oystehr,
+  params: ReportParams,
+  environment: string
+): Promise<{ json: string; rowCount: number }> {
   const { datasetId, dateRange, options } = params;
   switch (datasetId) {
     case 'encounters-comprehensive': {
       const input = AdHocEncountersInputSchema.parse({ dateRange, ...layerIncludeFlags(ENCOUNTER_LAYERS, options) });
-      const rows = await fetchAdHocEncounterRows(oystehr, input);
+      const rows = await fetchAdHocEncounterRows(oystehr, input, { environment });
+
       const json = JSON.stringify(
         validateOutputWithSchema(AdHocEncountersOutputSchema, { encounters: rows }, ZAMBDA_NAME)
       );
+
       return { json, rowCount: rows.length };
     }
+
     case 'patients': {
       const input = AdHocPatientsInputSchema.parse({ dateRange, ...layerIncludeFlags(PATIENT_LAYERS, options) });
       const rows = await fetchAdHocPatientRows(oystehr, input);
       const json = JSON.stringify(validateOutputWithSchema(AdHocPatientsOutputSchema, { patients: rows }, ZAMBDA_NAME));
       return { json, rowCount: rows.length };
     }
+
     case 'billing': {
       const input = AdHocBillingInputSchema.parse({ dateRange, ...layerIncludeFlags(BILLING_LAYERS, options) });
-      const rows = await fetchAdHocBillingRows(oystehr, input);
+      const rows = await fetchAdHocBillingRows(oystehr, input, billingOystehr);
       const json = JSON.stringify(validateOutputWithSchema(AdHocBillingOutputSchema, { rows }, ZAMBDA_NAME));
       return { json, rowCount: rows.length };
     }
+
     default:
       throw new Error(`Unknown ad-hoc dataset "${datasetId}"`);
   }
@@ -92,6 +107,9 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
   const { task, secrets } = input;
   const startedAt = Date.now();
 
+  // payments live in the billing app, which needs its own tag-scoped client
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+
   beginReportBudget();
   const params = await stage('read params', task.id, startedAt, async () => readParams(task));
 
@@ -101,7 +119,14 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
       `layers=${JSON.stringify(Object.keys(params.options ?? {}).filter((id) => params.options[id]))}`
   );
 
-  const { json, rowCount } = await stage('build data', task.id, startedAt, () => buildOutputJson(oystehr, params));
+  const { json, rowCount } = await stage('build data', task.id, startedAt, () =>
+    buildOutputJson(
+      oystehr,
+      createBillingClient(m2mToken, secrets),
+      params,
+      getSecret(SecretsKeys.ENVIRONMENT, secrets)
+    )
+  );
   console.log(`[adhoc] data ready task=${task.id} ms=${Date.now() - startedAt} rows=${rowCount} bytes=${json.length}`);
 
   const z3Url = await stage('upload', task.id, startedAt, () => uploadAdHocReportJsonToZ3(oystehr, secrets, json));
@@ -127,5 +152,6 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
   );
 
   console.log(`[adhoc] done task=${task.id} ms=${Date.now() - startedAt}`);
+
   return { taskStatus: 'completed' as const, statusReason: 'Ad-hoc report data generated' };
 });

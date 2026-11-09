@@ -168,12 +168,10 @@
       <thead>
         <tr>
           <th>Code</th><th>Procedure Description</th>
-          <th>Amount<br/>Charged</th><th>Insurance<br/>Paid</th><th>Patient<br/>Paid</th><th>Patient<br/>Owes</th>
+          <th>Amount<br/>Charged</th><th>Insurance<br/>Paid</th><th>Patient<br/>Paid</th><th>Write<br/>offs</th><th>Patient<br/>Owes</th>
         </tr>
       </thead>
-      <tbody id="services-tbody">
-        <!-- rows injected by JS below -->
-      </tbody>
+      <tbody id="services-tbody">{{serviceRows}}</tbody>
     </table>
 
   <!-- BALANCE LINE -->
@@ -182,6 +180,7 @@
       <span>Charged:&nbsp;<span class="val">{{totals.charged}}</span></span>
       <span>Ins.&nbsp;Paid:&nbsp;<span class="val">{{totals.insurancePaid}}</span></span>
       <span>Pt.&nbsp;Paid:&nbsp;<span class="val">{{totals.patientPaid}}</span></span>
+      <span>Write-offs&nbsp;<span class="val">{{totals.writeOffs}}</span></span>
       <span id="deductible-item" style="display:none">Applied to Deductible:&nbsp;<span class="val" id="deductible-val">{{totals.deductible}}</span></span>
     </div>
     <div style="display:flex;align-items:baseline;">
@@ -217,32 +216,9 @@
   if (!el) return;
   var val = el.getAttribute('data-val') || '';
   if (val && val.charAt(0) !== '{' && val.trim() !== '') {
-    el.innerHTML = val + '<br />';
+    el.textContent = val;
+    el.appendChild(document.createElement('br'));
   }
-})();
-
-// Render service lines from JSON merge variable
-(function() {
-  var raw = '{{service}}';
-  // If PostGrid hasn't substituted yet, bail out
-  if (!raw || raw.charAt(0) === '{') return;
-  try {
-    var lines = JSON.parse(raw);
-    var tbody = document.getElementById('services-tbody');
-    var html = '';
-    for (var i = 0; i < lines.length; i++) {
-      var l = lines[i];
-      html += '<tr>' +
-        '<td>' + l.cpt + '</td>' +
-        '<td>' + l.description + '</td>' +
-        '<td>' + l.charged + '</td>' +
-        '<td>' + l.insurancePaid + '</td>' +
-        '<td>' + l.patientPaid + '</td>' +
-        '<td>' + l.patientOwes + '</td>' +
-        '</tr>';
-    }
-    tbody.innerHTML = html;
-  } catch(e) {}
 })();
 
 // Show PAST DUE / PAST DUE - FINAL NOTICE badge
@@ -302,7 +278,7 @@
   if (!el) return;
   var val = '{{biller.addressLine2}}';
   if (val && val.charAt(0) !== '{' && val.trim() !== '') {
-    el.innerHTML = ', ' + val;
+    el.textContent = ', ' + val;
   }
 })();
 </script>

@@ -1,57 +1,58 @@
+import DownloadIcon from '@mui/icons-material/Download';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { Box, debounce, Grid, IconButton, Stack, styled, TextField, Typography, useTheme } from '@mui/material';
+import { Box, debounce, Grid, IconButton, Stack, TextField, Typography, useTheme } from '@mui/material';
+import { GridRowSelectionModel } from '@mui/x-data-grid-pro';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DateSearch, { CustomFormEventHandler } from 'src/components/DateSearch';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { ScannerModal } from 'src/components/ScannerModal';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
+import { useDownloadDocumentsZip } from 'src/hooks/useDownloadDocumentsZip';
 import {
   DocumentVisitRef,
-  hasVisitRef,
   PatientDocumentsFilters,
   PatientDocumentsFolder,
   useGetPatientDocs,
 } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
+import { describeIncompleteArchive, isSingleFileDownload, makeDocumentsZipFileName } from './documentsZip';
 import { PatientDocumentFoldersColumn, PatientDocumentFoldersColumnSkeleton } from './PatientDocumentFoldersColumn';
 import {
   DocumentTableActions,
   DocumentTableActionType,
   PatientDocumentsExplorerTable,
 } from './PatientDocumentsExplorerTable';
+import { UploadDocumentDialog, UploadDocumentMode } from './UploadDocumentDialog';
 import { VisitFilterAutocomplete } from './VisitFilterAutocomplete';
 
-const FileAttachmentHiddenInput = styled('input')({
-  clip: 'rect(0 0 0 0)',
-  clipPath: 'inset(50%)',
-  height: 1,
-  overflow: 'hidden',
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  whiteSpace: 'nowrap',
-  width: 1,
-});
-
-const VALID_FILE_NAME_PATTERN = /^[a-zA-Z0-9+!\-_'()\\.@$ ]+$/;
+const DOWNLOAD_ERROR_MESSAGES = {
+  file: {
+    tooLarge: 'The file is too large to download.',
+    noneDownloaded: 'The file could not be downloaded. Please try again.',
+    failed: 'The file could not be downloaded. Please try again.',
+  },
+  archive: {
+    tooLarge: 'The archive is too large. Please select fewer documents and try again.',
+    noneDownloaded: 'None of the selected documents could be downloaded. Please try again.',
+    failed: 'Failed to download the selected documents. Please try again.',
+  },
+};
 
 export type PatientDocumentsExplorerProps = {
   patientId: string;
+  patient?: Patient;
   /**
-   * Scopes the explorer to a single visit: documents and folder counters are filtered to it, uploads
-   * and scans are filed against it, and the visit filter is hidden (the visit is already fixed).
-   *
-   * Both ids are needed: EHR uploads link a document by encounter, while several intake documents
-   * link by appointment, so a visit's documents are only complete when both are matched.
-   * Omit for the patient-level Docs view.
+   * Visit that uploads and scans are filed against. Set by visit surfaces; the documents shown stay
+   * patient-wide. Omit for the patient-level Docs view.
    */
-  visit?: DocumentVisitRef;
+  uploadEncounterId?: string;
   /** Preselect this folder once folders have loaded, matched case-insensitively on display name. */
   initialFolderName?: string;
   /**
@@ -63,17 +64,17 @@ export type PatientDocumentsExplorerProps = {
 
 /**
  * The documents explorer shared by the patient Docs page, the Progress Note Documents tab and the
- * Visit Details "Visit Documents" section: search + date filter, folder sidebar, and the documents
- * table with upload/scan.
+ * Visit Details "All Documents" section: search + date + visit filters, folder sidebar, and the
+ * documents table with upload/scan.
  */
 export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   patientId,
-  visit,
+  patient,
+  uploadEncounterId,
   initialFolderName,
   readOnly = false,
 }) => {
   const theme = useTheme();
-  const isVisitScoped = hasVisitRef(visit);
 
   const {
     documents,
@@ -84,18 +85,19 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     downloadDocument,
     renameDocument,
     documentActions,
-  } = useGetPatientDocs(patientId, undefined, { uploadEncounterId: visit?.encounterId });
+  } = useGetPatientDocs(patientId, undefined, { uploadEncounterId });
 
-  const { visitOptions, isLoading: isLoadingVisits } = usePatientVisitOptions(isVisitScoped ? undefined : patientId);
-
+  const { visitOptions, isLoading: isLoadingVisits } = usePatientVisitOptions(patientId);
   const [searchDocNameFieldValue, setSearchDocNameFieldValue] = useState<string>('');
   const [docNameTextDebounced, setDocNameTextDebounced] = useState<string>('');
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
   const [selectedVisit, setSelectedVisit] = useState<PatientVisitOption | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
-  const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
+  const [uploadMode, setUploadMode] = useState<UploadDocumentMode | null>(null);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
   const [documentIdToFax, setDocumentIdToFax] = useState<string | null>(null);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<GridRowSelectionModel>([]);
+  const { downloadDocumentsZip, isDownloading: isDownloadingDocuments } = useDownloadDocumentsZip();
 
   const faxSource = useMemo(
     () =>
@@ -108,6 +110,16 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   useEffect(() => {
     if (!isFaxDialogOpen) setDocumentIdToFax(null);
   }, [isFaxDialogOpen]);
+
+  // A dialog left open across navigation must not file into another patient or visit.
+  const uploadTarget = useRef({ patientId, uploadEncounterId });
+  const uploadTargetChanged =
+    uploadTarget.current.patientId !== patientId || uploadTarget.current.uploadEncounterId !== uploadEncounterId;
+  useEffect(() => {
+    const previous = uploadTarget.current;
+    uploadTarget.current = { patientId, uploadEncounterId };
+    if (previous.patientId !== patientId || previous.uploadEncounterId !== uploadEncounterId) setUploadMode(null);
+  }, [patientId, uploadEncounterId]);
 
   const handleDocumentFax = useCallback(
     (documentId: string): void => {
@@ -126,6 +138,15 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     }
   }, [documentsFolders, pendingSelectInternalName]);
 
+  // The first upload into a catalog-only folder creates its real List.
+  useEffect(() => {
+    if (!selectedFolder?.internalName || !isSyntheticFolderId(selectedFolder.id)) return;
+    const real = documentsFolders.find(
+      (f) => f.internalName === selectedFolder.internalName && !isSyntheticFolderId(f.id)
+    );
+    if (real) setSelectedFolder(real);
+  }, [documentsFolders, selectedFolder]);
+
   // Used by the Patient Follow-up Task "Go To Task" deep link from completed practice-managed forms.
   useEffect(() => {
     if (!initialFolderName) return;
@@ -138,14 +159,12 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const shouldShowClearFilters =
     searchDocNameFieldValue.trim().length > 0 || !!searchDocAddedDate || !!selectedFolder || !!selectedVisit;
 
-  // When the explorer is visit-scoped the visit comes from the host page, not the filter row.
   const activeVisit: DocumentVisitRef | undefined = useMemo(
     () =>
-      visit ??
-      (selectedVisit
+      selectedVisit
         ? { encounterId: selectedVisit.encounterId, appointmentId: selectedVisit.appointmentId }
-        : undefined),
-    [visit, selectedVisit]
+        : undefined,
+    [selectedVisit]
   );
 
   useEffect(() => {
@@ -207,105 +226,41 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     setSearchDocNameFieldValue('');
   }, []);
 
-  const handleOpenScanModal = useCallback(() => setIsScanModalOpen(true), []);
-  const handleCloseScanModal = useCallback(() => setIsScanModalOpen(false), []);
+  // Selecting by internalName also picks up the real List created for a synthetic folder.
+  const handleUploaded = useCallback((folder: PatientDocumentsFolder) => {
+    setPendingSelectInternalName(folder.internalName ?? null);
+  }, []);
 
-  // First upload to a synthetic folder creates the real per-patient List; re-select by internalName
-  // so the doc search re-keys off the real id (the synthetic id short-circuits to an empty result set).
-  const reselectFolderIfSynthetic = useCallback(
-    (wasSynthetic: boolean) => {
-      if (wasSynthetic && selectedFolder?.internalName) {
-        setPendingSelectInternalName(selectedFolder.internalName);
+  const handleDownloadSelectedDocuments = useCallback(async (): Promise<void> => {
+    const selectedDocuments = (documents ?? []).filter((document) => selectedDocumentIds.includes(document.id));
+    if (selectedDocuments.length === 0) {
+      enqueueSnackbar('Please select the documents you want to download.');
+      return;
+    }
+
+    const messages = DOWNLOAD_ERROR_MESSAGES[isSingleFileDownload(selectedDocuments) ? 'file' : 'archive'];
+    try {
+      const result = await downloadDocumentsZip(selectedDocuments, makeDocumentsZipFileName(patient));
+      switch (result.status) {
+        case 'saved':
+          if (result.affectedDocumentNames.length > 0) {
+            enqueueSnackbar(describeIncompleteArchive(result.affectedDocumentNames), { variant: 'warning' });
+          }
+          break;
+        case 'too-large':
+          enqueueSnackbar(messages.tooLarge, { variant: 'error' });
+          break;
+        case 'none-downloaded':
+          enqueueSnackbar(messages.noneDownloaded, { variant: 'error' });
+          break;
+        case 'cancelled':
+          break;
       }
-    },
-    [selectedFolder?.internalName]
-  );
-
-  const handleScanComplete = useCallback(
-    async (fileBlob: Blob | Blob[], fileName: string): Promise<void> => {
-      const folderId = selectedFolder?.id;
-      if (!folderId) {
-        enqueueSnackbar('No folder selected', { variant: 'error' });
-        return;
-      }
-
-      try {
-        // This explorer uses PDF format (default), so fileBlob should be a single Blob.
-        if (Array.isArray(fileBlob)) {
-          console.error('Unexpected array of blobs for PDF output format');
-          enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
-          return;
-        }
-
-        const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
-        const file = new File([fileBlob], finalFileName, { type: 'application/pdf' });
-
-        const wasSynthetic = isSyntheticFolderId(folderId);
-        await documentActions.uploadDocumentAction({
-          docFile: file,
-          fileName: finalFileName,
-          fileFolderId: folderId,
-          internalName: selectedFolder?.internalName,
-        });
-        reselectFolderIfSynthetic(wasSynthetic);
-
-        enqueueSnackbar('Successfully uploaded scanned document', { variant: 'success' });
-      } catch (error) {
-        console.error('Error uploading scanned document:', error);
-        enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
-      }
-    },
-    [documentActions, reselectFolderIfSynthetic, selectedFolder?.id, selectedFolder?.internalName]
-  );
-
-  const handleDocumentUploadInputChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
-      const { files } = event.target;
-
-      const selectedFile = ((files && Array.from(files)) ?? []).at(0);
-
-      if (!selectedFile) {
-        console.warn('No file selected/available - earlier skip!');
-        return;
-      }
-
-      const fileName = selectedFile.name;
-
-      if (!VALID_FILE_NAME_PATTERN.test(fileName)) {
-        enqueueSnackbar(
-          "Invalid file name. Only letters, numbers, spaces, and these characters are allowed: + ! - _ ' ( ) . @ $",
-          { variant: 'error' }
-        );
-        event.target.value = '';
-        return;
-      }
-
-      const folderId = selectedFolder?.id;
-      if (!folderId) {
-        console.warn('No folder selected - earlier skip!');
-        return;
-      }
-
-      const wasSynthetic = isSyntheticFolderId(folderId);
-      try {
-        await documentActions.uploadDocumentAction({
-          docFile: selectedFile,
-          fileName: fileName,
-          fileFolderId: folderId,
-          internalName: selectedFolder?.internalName,
-        });
-        reselectFolderIfSynthetic(wasSynthetic);
-      } catch (error) {
-        console.error('Error uploading document:', error);
-        enqueueSnackbar('Failed to upload document', { variant: 'error' });
-      } finally {
-        // Always clear the input, or picking the same file again fires no change event and the
-        // retry silently does nothing.
-        event.target.value = '';
-      }
-    },
-    [documentActions, reselectFolderIfSynthetic, selectedFolder?.id, selectedFolder?.internalName]
-  );
+    } catch (error) {
+      console.error('Failed to download the selected documents', error);
+      enqueueSnackbar(messages.failed, { variant: 'error' });
+    }
+  }, [documents, downloadDocumentsZip, patient, selectedDocumentIds]);
 
   const documentTableActions: DocumentTableActions = useMemo(() => {
     return {
@@ -324,8 +279,8 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
 
   return (
     <Stack spacing={2}>
-      <Grid container sx={{ height: 'auto', width: isVisitScoped ? '50%' : '75%', backgroundColor: 'transparent' }}>
-        <Grid item xs={isVisitScoped ? 7 : 4}>
+      <Grid container sx={{ height: 'auto', width: '75%', backgroundColor: 'transparent' }}>
+        <Grid item xs={4}>
           <TextField
             value={searchDocNameFieldValue}
             onChange={handleSearchInputChange}
@@ -351,10 +306,10 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
           />
         </Grid>
 
-        <Grid item xs={isVisitScoped ? 4 : 3}>
+        <Grid item xs={3}>
           <Box sx={{ ml: 2, flexDirection: 'row' }}>
             <DateSearch
-              label="Added Date"
+              label="Added date"
               date={searchDocAddedDate}
               setDate={setSearchDocAddedDate}
               updateURL={false}
@@ -366,20 +321,18 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
           </Box>
         </Grid>
 
-        {!isVisitScoped && (
-          <Grid item xs={3}>
-            <Box sx={{ ml: 2, flexDirection: 'row' }}>
-              <VisitFilterAutocomplete
-                visitOptions={visitOptions}
-                isLoading={isLoadingVisits}
-                selectedVisit={selectedVisit}
-                onVisitSelected={setSelectedVisit}
-              />
-            </Box>
-          </Grid>
-        )}
+        <Grid item xs={3}>
+          <Box sx={{ ml: 2, flexDirection: 'row' }}>
+            <VisitFilterAutocomplete
+              visitOptions={visitOptions}
+              isLoading={isLoadingVisits}
+              selectedVisit={selectedVisit}
+              onVisitSelected={setSelectedVisit}
+            />
+          </Box>
+        </Grid>
 
-        <Grid item xs={isVisitScoped ? 1 : 2}>
+        <Grid item xs={2}>
           <Box sx={{ ml: 2, flexDirection: 'row' }}>
             {shouldShowClearFilters && (
               <RoundedButton variant="text" sx={{ color: theme.palette.error.main }} onClick={handleClearFilters}>
@@ -416,38 +369,33 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
             {!readOnly && (
               <>
                 <RoundedButton
-                  disabled={documentActions.isUploading}
-                  loading={documentActions.isUploading}
-                  component="label"
                   variant="outlined"
                   startIcon={<UploadFileIcon fontSize="small" />}
-                  onClick={(event) => {
-                    if (!selectedFolder) {
-                      event.preventDefault();
-                      enqueueSnackbar('Please select a folder where you want to upload the doc', {
-                        variant: 'warning',
-                      });
-                    }
-                  }}
+                  onClick={() => setUploadMode('upload')}
                 >
                   Upload
-                  <FileAttachmentHiddenInput
-                    onChange={handleDocumentUploadInputChange}
-                    type="file"
-                    capture="environment"
-                  />
                 </RoundedButton>
 
                 <RoundedButton
-                  disabled={!selectedFolder}
                   variant="outlined"
                   startIcon={<ScannerIcon fontSize="small" />}
-                  onClick={handleOpenScanModal}
+                  onClick={() => setUploadMode('scan')}
                 >
                   Scan
                 </RoundedButton>
               </>
             )}
+
+            <RoundedButton
+              disabled={isDownloadingDocuments}
+              loading={isDownloadingDocuments}
+              variant="outlined"
+              startIcon={<DownloadIcon fontSize="small" />}
+              onClick={() => void handleDownloadSelectedDocuments()}
+              data-testid={dataTestIds.patientDocsPage.downloadSelectedDocumentsButton}
+            >
+              Download
+            </RoundedButton>
           </Box>
 
           <PatientDocumentsExplorerTable
@@ -455,11 +403,23 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
             documents={documents}
             documentTableActions={documentTableActions}
             patientId={patientId}
+            selectedDocumentIds={selectedDocumentIds}
+            onSelectedDocumentIdsChange={setSelectedDocumentIds}
           />
         </Grid>
       </Grid>
 
-      <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
+      {uploadMode && !uploadTargetChanged && (
+        <UploadDocumentDialog
+          open
+          mode={uploadMode}
+          onClose={() => setUploadMode(null)}
+          patientId={patientId}
+          encounterId={uploadEncounterId}
+          defaultFolderId={selectedFolder?.id}
+          onUploaded={handleUploaded}
+        />
+      )}
       <SendFaxDialog controller={faxController} title="Send Document" />
     </Stack>
   );

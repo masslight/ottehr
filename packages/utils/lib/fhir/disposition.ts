@@ -15,7 +15,7 @@ export const mapDispositionTypeToLabel: Record<DispositionType, string> = {
 
 export const OTHER_SPECIALTY_TRANSFER_OPTION = 'Other';
 
-export const specialtyTransferOptions = [
+export const DEFAULT_SPECIALTY_TRANSFER_OPTIONS = [
   'Allergist',
   'Cardiologist',
   'Dermatology',
@@ -29,8 +29,18 @@ export const specialtyTransferOptions = [
   'Orthopedics',
   'Pediatrics',
   'Physical Therapy',
-  OTHER_SPECIALTY_TRANSFER_OPTION,
 ];
+
+export const getSpecialtyTransferSelectOptions = (configured: string[], current?: string): string[] => {
+  const options = new Set(configured);
+  if (current && current !== OTHER_SPECIALTY_TRANSFER_OPTION) {
+    options.add(current);
+  }
+
+  const sortedOptions = [...options].sort((a, b) => a.localeCompare(b));
+
+  return [...sortedOptions, OTHER_SPECIALTY_TRANSFER_OPTION];
+};
 
 /**
  * Builds the human-readable specialty-transfer string. When the selected specialty is "Other",

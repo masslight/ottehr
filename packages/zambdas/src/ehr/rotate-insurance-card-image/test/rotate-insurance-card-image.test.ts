@@ -48,7 +48,7 @@ vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) =
 });
 
 const DOC_REF_ID = '0a4f6f4e-2e1f-4a3b-9d5c-8e7f6a5b4c3d';
-const Z3_URL = 'https://project-api.zapehr.com/v1/z3/insurance-cards-bucket/patient-1/insurance-card-front.jpg';
+const Z3_URL = 'https://project-api.zapehr.com/v1/z3/test-project-insurance-cards/patient-1/insurance-card-front.jpg';
 const PRESIGNED_URL = 'https://signed.example.com/insurance-card-front.jpg';
 const PRESIGNED_UPLOAD_URL = 'https://signed.example.com/insurance-card-front.jpg?upload';
 
@@ -60,6 +60,8 @@ const IMAGE_BYTES = await makeOrientedSceneJpeg(1, SCENE_W, SCENE_H);
 
 const SECRETS = {
   AUTH0_AUDIENCE: 'https://api.zapehr.com',
+  PROJECT_API: 'https://project-api.zapehr.com/v1',
+  PROJECT_ID: 'test-project',
   ENVIRONMENT: 'local',
 };
 

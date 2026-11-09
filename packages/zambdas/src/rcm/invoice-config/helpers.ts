@@ -1,11 +1,20 @@
 import Oystehr from '@oystehr/sdk';
-import { Extension, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import {
+  Extension,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+} from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ParsedInvoiceConfig, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
+import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
 import {
   DEFAULT_INVOICE_DUE_DAYS,
+  DEFAULT_INVOICE_ISSUER_SOURCE,
   DEFAULT_INVOICE_MEMO_TEMPLATE,
   DEFAULT_INVOICE_SMS_TEMPLATE,
+  INVOICE_ISSUER_SOURCES,
 } from 'utils/lib/types/constants';
 import { rcmMeta } from '../../shared/helpers';
 
@@ -88,10 +97,81 @@ function buildDefaultQuestionnaire(): Questionnaire {
             initial: [{ valueString: DEFAULT_INVOICE_MEMO_TEMPLATE }],
             extension: buildTokenExtension(TOKENS),
           },
+          buildInvoiceIssuerSourceQuestionnaireItem(),
         ],
       },
     ],
   };
+}
+
+const INVOICE_ISSUER_SOURCE_LINK_ID = 'invoicing.invoiceIssuerSource';
+
+function buildInvoiceIssuerSourceQuestionnaireItem(): QuestionnaireItem {
+  return {
+    linkId: INVOICE_ISSUER_SOURCE_LINK_ID,
+    text: 'Invoice issuer',
+    type: 'choice',
+    required: true,
+    answerOption: INVOICE_ISSUER_SOURCES.map((source) => ({
+      valueString: source,
+      ...(source === DEFAULT_INVOICE_ISSUER_SOURCE && {
+        initialSelected: true,
+      }),
+    })),
+  };
+}
+
+// Questionnaires created before the invoice issuer setting lack its item. Undefined when present.
+export function withInvoiceIssuerSourceItem(questionnaire: Questionnaire): Questionnaire | undefined {
+  const group = questionnaire.item?.find((item) => item.linkId === 'invoicing');
+  if (!group) throw new Error(`Questionnaire/${questionnaire.id} has no invoicing group`);
+  if (group.item?.some((item) => item.linkId === INVOICE_ISSUER_SOURCE_LINK_ID)) return undefined;
+  return {
+    ...questionnaire,
+    item: questionnaire.item?.map((item) =>
+      item === group
+        ? {
+            ...group,
+            item: [...(group.item ?? []), buildInvoiceIssuerSourceQuestionnaireItem()],
+          }
+        : item
+    ),
+  };
+}
+
+function buildInvoicingConfigItems(config: ParsedInvoicingConfig): QuestionnaireResponseItem[] {
+  return [
+    {
+      linkId: 'invoicing',
+      text: 'Invoicing Settings',
+      item: [
+        {
+          linkId: 'invoicing.dueDaysFromGeneration',
+          text: 'Days until invoice due (from generation date)',
+          answer: [{ valueInteger: config.dueDaysFromGeneration }],
+        },
+        {
+          linkId: 'invoicing.defaultSmsTemplate',
+          text: 'Default SMS message template',
+          answer: [{ valueString: config.defaultSmsTemplate }],
+        },
+        {
+          linkId: 'invoicing.defaultInvoiceMemo',
+          text: 'Default invoice memo template',
+          answer: [{ valueString: config.defaultInvoiceMemo }],
+        },
+        {
+          linkId: INVOICE_ISSUER_SOURCE_LINK_ID,
+          text: 'Invoice issuer',
+          answer: [
+            {
+              valueString: config.invoiceIssuerSource,
+            },
+          ],
+        },
+      ],
+    },
+  ];
 }
 
 function buildDefaultQuestionnaireResponse(questionnaireId: string): Omit<QuestionnaireResponse, 'id'> {
@@ -100,35 +180,13 @@ function buildDefaultQuestionnaireResponse(questionnaireId: string): Omit<Questi
     questionnaire: `Questionnaire/${questionnaireId}`,
     status: 'completed',
     meta: rcmMeta('invoice-config'),
-    item: [
-      {
-        linkId: 'invoicing',
-        text: 'Invoicing Settings',
-        item: [
-          {
-            linkId: 'invoicing.dueDaysFromGeneration',
-            text: 'Days until invoice due (from generation date)',
-            answer: [{ valueInteger: DEFAULT_INVOICE_DUE_DAYS }],
-          },
-          {
-            linkId: 'invoicing.defaultSmsTemplate',
-            text: 'Default SMS message template',
-            answer: [{ valueString: DEFAULT_INVOICE_SMS_TEMPLATE }],
-          },
-          {
-            linkId: 'invoicing.defaultInvoiceMemo',
-            text: 'Default invoice memo template',
-            answer: [{ valueString: DEFAULT_INVOICE_MEMO_TEMPLATE }],
-          },
-        ],
-      },
-    ],
+    item: buildInvoicingConfigItems({
+      dueDaysFromGeneration: DEFAULT_INVOICE_DUE_DAYS,
+      defaultSmsTemplate: DEFAULT_INVOICE_SMS_TEMPLATE,
+      defaultInvoiceMemo: DEFAULT_INVOICE_MEMO_TEMPLATE,
+      invoiceIssuerSource: DEFAULT_INVOICE_ISSUER_SOURCE,
+    }),
   };
-}
-
-export interface InvoicingConfigPair {
-  questionnaire: Questionnaire;
-  questionnaireResponse: QuestionnaireResponse;
 }
 
 export type ParsedInvoicingConfig = ParsedInvoiceConfig;
@@ -143,7 +201,7 @@ export function parseInvoicingConfig(qr: QuestionnaireResponse): ParsedInvoicing
  * Guarantees at most one Questionnaire and one QuestionnaireResponse exist;
  * logs a warning if duplicates are detected.
  */
-export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<InvoicingConfigPair> {
+export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<InvoiceConfigResponse> {
   // Search for existing Questionnaire tagged as rcm + invoice-config
   const questionnaireBundle = await oystehr.fhir.search<Questionnaire>({
     resourceType: 'Questionnaire',
@@ -214,4 +272,30 @@ export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<Invo
   }
 
   return { questionnaire, questionnaireResponse };
+}
+
+export async function saveInvoicingConfig(
+  oystehr: Oystehr,
+  values: SaveInvoiceConfigInput
+): Promise<InvoiceConfigResponse> {
+  const { questionnaire, questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);
+  const stored = parseInvoicingConfig(questionnaireResponse);
+
+  const savedResponse = await oystehr.fhir.update<QuestionnaireResponse>({
+    ...questionnaireResponse,
+    questionnaire: `Questionnaire/${questionnaire.id}`,
+    status: 'completed',
+    authored: new Date().toISOString(),
+    item: buildInvoicingConfigItems({
+      dueDaysFromGeneration: values.dueDaysFromGeneration,
+      defaultSmsTemplate: values.defaultSmsTemplate,
+      defaultInvoiceMemo: values.defaultInvoiceMemo,
+      invoiceIssuerSource: values.invoiceIssuerSource ?? stored.invoiceIssuerSource,
+    }),
+  });
+
+  return {
+    questionnaire,
+    questionnaireResponse: savedResponse,
+  };
 }

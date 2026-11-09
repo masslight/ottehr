@@ -11,7 +11,7 @@ terraform {
     key          = "terraform.tfstate"
     use_lockfile = true
   }
-  required_version = ">= 1.12.0"
+  required_version = "~> 1.16.0"
   required_providers {
     sendgrid = {
       source  = "arslanbekov/sendgrid"
@@ -39,7 +39,8 @@ locals {
   not_local_env_resource_count = local.is_local ? 0 : 1
   # not_local_env_resource_count = 1
 
-  sendgrid_config         = jsondecode(file("../config/sendgrid/sendgrid.json"))
+  sendgrid_config_path    = "../config/sendgrid/sendgrid.json"
+  sendgrid_config         = jsondecode(fileexists(local.sendgrid_config_path) ? file(local.sendgrid_config_path) : "{}")
   sendgrid_enabled        = try(local.sendgrid_config.featureFlag, false)
   sendgrid_resource_count = local.sendgrid_enabled ? 1 : 0
 }
@@ -123,6 +124,7 @@ module "ottehr_apps" {
     PATIENT_APP_URL                  = var.patient_portal_domain == null ? one(module.infra[*].patient_portal_domain) == null ? "http://localhost:3002" : "https://${one(module.infra[*].patient_portal_domain)}" : "https://${var.patient_portal_domain}"
     STRIPE_PUBLIC_KEY                = module.oystehr.stripe_public_key
     DYNAMSOFT_LICENSE_KEY            = module.oystehr.DYNAMSOFT_LICENSE_KEY
+    BILLING_INTEGRATION              = module.oystehr.BILLING_INTEGRATION
     SENTRY_AUTH_TOKEN                = module.oystehr.sentry_auth_token
     SENTRY_ORG                       = module.oystehr.sentry_org
     SENTRY_PROJECT                   = module.oystehr.sentry_apps_project
@@ -162,4 +164,12 @@ module "apps_upload" {
   patient_portal_cdn_distribution_id = one(module.infra[*].patient_portal_cdn_distribution_id)
   ehr_hash                           = one(module.ottehr_apps[*].ehr_hash)
   patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
+}
+
+output "sendgrid_config_present" {
+  value = true
+  precondition {
+    condition     = fileexists(local.sendgrid_config_path)
+    error_message = "config/sendgrid/sendgrid.json is missing; run `npm run generate` first."
+  }
 }

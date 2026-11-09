@@ -26,8 +26,6 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
   }),
 }));
 vi.mock('../../src/hooks/useGetPatientDocs', () => ({
-  hasVisitRef: (visit?: { encounterId?: string; appointmentId?: string }) =>
-    !!visit && (!!visit.encounterId || !!visit.appointmentId),
   useGetPatientDocs: () => ({
     documents: [],
     isLoadingDocuments: false,
@@ -42,6 +40,9 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
       isUploading: false,
     },
   }),
+  useGetPatientDocsFolders: () => ({ data: undefined, isLoading: false, isError: false }),
+  parsePatientDocsFolders: () => [],
+  usePatientDocsActions: () => ({ uploadDocumentAction: vi.fn(), isUploading: false }),
 }));
 vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
   usePatientVisitOptions: () => ({
@@ -76,7 +77,6 @@ vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentsExpl
 }));
 vi.mock('../../src/components/CustomBreadcrumbs', () => ({ default: () => <div /> }));
 vi.mock('../../src/components/DateSearch', () => ({ default: () => <div /> }));
-vi.mock('../../src/components/ScannerModal', () => ({ ScannerModal: () => <div /> }));
 
 import { PatientDocumentsExplorer } from '../../src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import PatientDocumentsExplorerPage from '../../src/pages/PatientDocumentsExplorerPage';
@@ -121,7 +121,7 @@ describe('PatientDocumentsExplorerPage fax action', () => {
   it('still offers Send on a signed (read-only) visit, but not editing actions', () => {
     render(
       <MemoryRouter>
-        <PatientDocumentsExplorer patientId={PATIENT_ID} visit={{ appointmentId: 'appt-1' }} readOnly />
+        <PatientDocumentsExplorer patientId={PATIENT_ID} uploadEncounterId="enc-1" readOnly />
       </MemoryRouter>
     );
 

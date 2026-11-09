@@ -26,6 +26,8 @@ export const FLAGGED_REASONS_FOR_VISIT: string[] = [
   'Allergic reaction to medication or food',
 ];
 
+export const FLAGGED_REASON_FOR_VISIT_TOOLTIP = 'Alert clinical team for immediate evaluation';
+
 export const MOBILE_MODAL_STYLE = {
   position: 'absolute' as const,
   top: '50%',

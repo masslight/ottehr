@@ -11,6 +11,8 @@ import {
   RelatedPerson,
   Resource,
   Schedule,
+  Task,
+  TaskInput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
@@ -79,10 +81,12 @@ export async function resolveStatementAmountsSource(input: {
   secrets: Secrets;
   oystehr: Oystehr;
   m2mToken: string;
+  // An invoice the billing app sent is always for a billing claim, whatever PATIENT_BALANCE_SOURCE says.
+  billingAppInvoice?: boolean;
 }): Promise<StatementAmountsSource> {
-  const { secrets, oystehr, m2mToken } = input;
+  const { secrets, oystehr, m2mToken, billingAppInvoice } = input;
 
-  if (shouldUseOttehrBillingForPatientBalances(secrets)) {
+  if (billingAppInvoice || shouldUseOttehrBillingForPatientBalances(secrets)) {
     return {
       source: 'ottehr-billing',
       billingOystehr: createBillingClient(m2mToken, secrets),
@@ -95,6 +99,27 @@ export async function resolveStatementAmountsSource(input: {
     candidApiClient: await getOrCreateCandidApiClient(oystehr, secrets),
   };
 }
+
+const BILLING_APP_INVOICE_CODING = {
+  system: 'https://fhir.ottehr.com/CodeSystem/generate-statement-task-input',
+  code: 'billing-app',
+};
+
+// Marks a generate statement task the billing app asked for, so the PDF uses billing claim amounts too.
+export const BILLING_APP_INVOICE_STATEMENT_INPUT: TaskInput = {
+  type: { coding: [BILLING_APP_INVOICE_CODING] },
+  valueBoolean: true,
+};
+
+export const isBillingAppInvoiceStatement = (task: Task): boolean =>
+  task.input?.some(
+    (input) =>
+      input.valueBoolean === true &&
+      input.type.coding?.some(
+        (coding) =>
+          coding.system === BILLING_APP_INVOICE_CODING.system && coding.code === BILLING_APP_INVOICE_CODING.code
+      )
+  ) ?? false;
 
 const UNKNOWN_BILLER_VALUE = 'unknown';
 
@@ -271,6 +296,7 @@ async function getCandidStatementLines(
         charged: formatCurrencyFromCents(chargeAfterAdjustments),
         insurancePaid: formatCurrencyFromCents(insurancePaid),
         patientPaid: formatCurrencyFromCents(patientPaid),
+        writeOffs: formatCurrencyFromCents(0),
         patientOwes: formatCurrencyFromCents(patientOwes),
       };
     })
@@ -302,6 +328,7 @@ async function getCandidStatementLines(
       charged: formatCurrencyFromCents(totalsCents.charged),
       insurancePaid: formatCurrencyFromCents(totalsCents.insurancePaid),
       patientPaid: formatCurrencyFromCents(totalsCents.patientPaid),
+      writeOffs: formatCurrencyFromCents(0),
       deductible: formatCurrencyFromCents(totalsCents.deductible),
       balanceDue: formatCurrencyFromCents(totalsCents.balanceDue),
     },

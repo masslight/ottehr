@@ -26,12 +26,8 @@ import {
 import { useApiClients } from 'src/hooks/useAppClients';
 import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
-import {
-  AllChartValues,
-  NOTE_TYPE,
-  RequestedFields,
-  SchoolWorkNoteExcuseDocFileDTO,
-} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { AllChartValues, NOTE_TYPE, RequestedFields } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DeleteChartDataRequest } from 'utils/lib/types/api/chart-data/delete-chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { PromiseReturnType } from 'utils/lib/types/common';
@@ -49,6 +45,7 @@ import { getAppointmentValues, getEncounterValues } from './parser/extractors';
 import { parseBundle } from './parser/parser';
 import { VisitMappedData, VisitResources } from './parser/types';
 import { resetExamObservationsStore } from './reset-exam-observations';
+import { resetRosObservationsStore } from './reset-ros-observations';
 
 export type AppointmentTelemedState = {
   appointment: Appointment | undefined;
@@ -641,14 +638,14 @@ export const useSaveChartData = (): UseMutationResult<
 export const useDeleteChartData = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrTelemedAPIClient['deleteChartData']>>,
   Error,
-  AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }
+  Omit<DeleteChartDataRequest, 'encounterId'>
 > => {
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (chartDataFields: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
+    mutationFn: (chartDataFields: Omit<DeleteChartDataRequest, 'encounterId'>) => {
       if (apiClient && encounter?.id) {
         return apiClient.deleteChartData({
           encounterId: encounter.id,
@@ -661,6 +658,7 @@ export const useDeleteChartData = (): UseMutationResult<
       if ((error as any).code === APIErrorCode.FHIR_RESOURCE_IS_GONE) {
         // Usually this happens due to an attempt to delete an already deleted resource. Thus full state refresh is required.
         resetExamObservationsStore();
+        resetRosObservationsStore();
         await invalidateChart(queryClient, encounter.id);
       }
     },

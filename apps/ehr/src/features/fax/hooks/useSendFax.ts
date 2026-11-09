@@ -3,6 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import {
+  FAX_PACKET_MAX_BYTES,
   FaxPacketSource,
   FaxRecipientResult,
   GetFaxPacketPreviewOutput,
@@ -128,7 +129,12 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
 /** Surfaces a job's outcome as a snackbar: a whole-job failure, the recipients it could not reach, or success. */
 function resolveTerminal(data: GetFaxPacketStatusOutput): void {
   if (data.jobStatus === 'failed') {
-    enqueueSnackbar('The documents could not be sent. Please try again.', { variant: 'error' });
+    const message =
+      data.failureReason === 'too-large'
+        ? `The documents exceed the maximum size of ${FAX_PACKET_MAX_BYTES / (1024 * 1024)} MB. ` +
+          'Please send fewer documents or reduce their size and try again.'
+        : 'The documents could not be sent. Please try again.';
+    enqueueSnackbar(message, { variant: 'error' });
     return;
   }
 

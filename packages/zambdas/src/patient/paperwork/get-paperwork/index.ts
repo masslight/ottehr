@@ -10,6 +10,7 @@ import {
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import {
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
@@ -172,10 +173,10 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
   appointment = baseCategoryResources.find((resource) => {
     return resource.resourceType == 'Appointment';
   }) as Appointment;
-  const encounters = baseCategoryResources.filter((resource) => {
-    return resource.resourceType == 'Encounter';
-  }) as Encounter[];
-  const encounter = encounters?.[0];
+  // annotation follow-ups share the appointment and are always class VR, which would flip serviceMode to virtual
+  const encounter = baseCategoryResources.find(
+    (resource) => resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource as Encounter)
+  ) as Encounter;
   hsResources = extractHealthcareServiceAndSupportingLocations(baseCategoryResources);
   const fhirPatient = baseCategoryResources.find((resource) => {
     return resource.resourceType == 'Patient';

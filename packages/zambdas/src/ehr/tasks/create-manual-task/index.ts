@@ -1,10 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Practitioner } from 'fhir/r4b';
+import { Practitioner, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { CreateManualTaskRequest, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getM2MClientId, isM2MClient } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
@@ -19,12 +20,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, params.secrets);
-  const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const userPractitionerId = await getMyPractitionerId(userToken, params.secrets);
-  const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
-    resourceType: 'Practitioner',
-    id: userPractitionerId,
-  });
+  const token = input.headers.Authorization.replace('Bearer ', '');
+  const isM2M = isM2MClient(token);
+  let createdBy: string;
+  let requester: Reference | undefined;
+  if (isM2M) {
+    createdBy = params.createdBy ?? `M2M Client ${getM2MClientId(token)}`;
+  } else {
+    const userPractitionerId = await getMyPractitionerId(token, params.secrets);
+    const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: userPractitionerId,
+    });
+    createdBy = getFullName(currentUserPractitioner);
+    requester = { reference: 'Practitioner/' + userPractitionerId, display: createdBy };
+  }
 
   const taskBasedOn =
     params.category === MANUAL_TASK.category.radiology && params.orderId
@@ -50,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
       {
         type: MANUAL_TASK.input.providerName,
-        valueString: getFullName(currentUserPractitioner),
+        valueString: createdBy,
       },
       {
         type: MANUAL_TASK.input.appointmentId,
@@ -77,6 +87,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     basedOn: taskBasedOn,
   });
 
+  taskToCreate.requester = requester;
+
   if (params.assignee) {
     taskToCreate.owner = {
       reference: 'Practitioner/' + params.assignee.id,
@@ -100,8 +112,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export function validateRequestParameters(input: ZambdaInput): CreateManualTaskRequest & Pick<ZambdaInput, 'secrets'> {
-  const { category, appointmentId, orderId, encounterId, taskTitle, taskDetails, assignee, location, patient } =
-    validateJsonBody(input);
+  const {
+    category,
+    appointmentId,
+    orderId,
+    encounterId,
+    taskTitle,
+    taskDetails,
+    assignee,
+    location,
+    patient,
+    createdBy,
+  } = validateJsonBody(input);
 
   const missingFields: string[] = [];
   if (!category) missingFields.push('category');
@@ -119,6 +141,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     if (!patient.id) missingFields.push('patient.id');
     if (!patient.name) missingFields.push('patient.name');
   }
+  if (createdBy !== undefined && typeof createdBy !== 'string') throw INVALID_INPUT_ERROR('createdBy must be a string');
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
@@ -131,6 +154,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     assignee,
     location,
     patient,
+    createdBy: createdBy?.trim() || undefined,
     secrets: input.secrets,
   };
 }

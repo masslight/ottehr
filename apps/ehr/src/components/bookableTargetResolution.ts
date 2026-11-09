@@ -6,6 +6,7 @@ import {
   isPractitionerRoleMemberOfGroup,
   practitionerRoleOffersCategory,
 } from 'utils/lib/fhir/healthcareService';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ScheduleType } from 'utils/lib/types/common';
 
 /**
@@ -407,7 +408,7 @@ export const buildLocationInventories = (input: {
       const prsHere = prList.flatMap((pr) => {
         const schedules = pr.id ? prSchedulesByPrId.get(pr.id) ?? [] : [];
         if (schedules.length === 0) return [];
-        const pracId = pr.practitioner?.reference?.split('/')[1];
+        const pracId = getIdFromReference(pr.practitioner?.reference);
         return [
           {
             pr,

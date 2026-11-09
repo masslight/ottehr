@@ -47,7 +47,6 @@ export type ProcedureCodingEvaluationState = EvaluatingProcedureCodingState | Re
 
 export interface UseProcedureCodingResult {
   evaluationState: ProcedureCodingEvaluationState;
-  rulesVintage: string;
   fieldVisibility: ProcedureFieldVisibility;
   retrySuggestions: () => void;
 }
@@ -163,7 +162,6 @@ export function useProcedureCoding(facts: ProcedureFactsInput): UseProcedureCodi
 
   return {
     evaluationState,
-    rulesVintage: CPT_RULES_VINTAGE,
     fieldVisibility: procedureFieldVisibility(family, facts),
     retrySuggestions: () => {
       aiCache.current.delete(hashKey([aiProcedureInput(factsRef.current)]));

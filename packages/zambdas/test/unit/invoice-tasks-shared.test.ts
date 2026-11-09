@@ -1,5 +1,6 @@
 import { Encounter, Task, TaskInput } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
+import { ParsedInvoiceConfig } from 'utils/lib/helpers/rcm/invoice-config';
 import { parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -11,7 +12,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildInvoiceTask,
   isCandidInvoicingEnabled,
-  isOttehrBillingInvoicingEnabled,
+  isOttehrBillingInvoicingInBillingApp,
+  isOttehrBillingInvoicingInEhr,
 } from '../../src/shared/invoice-tasks';
 
 // These tests describe legacy Candid claims routing, which only exists with non-insurance
@@ -39,10 +41,11 @@ const encounter = (overrides: Partial<Encounter> = {}): Encounter => ({
   ...overrides,
 });
 
-const config = {
+const config: ParsedInvoiceConfig = {
   dueDaysFromGeneration: 30,
   defaultSmsTemplate: 'sms template',
   defaultInvoiceMemo: 'memo template',
+  invoiceIssuerSource: 'service-facility',
 };
 
 const buildParams = {
@@ -96,19 +99,35 @@ describe('producer gates', () => {
 
   it('runs the billing producer only for ottehr-integrated envs with the flag explicitly on', () => {
     for (const envIntegration of ['ottehr', 'all']) {
-      expect(
-        isOttehrBillingInvoicingEnabled(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: true })
-      ).toBe(true);
-      expect(isOttehrBillingInvoicingEnabled(secretsWith(envIntegration), {})).toBe(false);
-      expect(
-        isOttehrBillingInvoicingEnabled(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: false })
-      ).toBe(false);
+      expect(isOttehrBillingInvoicingInEhr(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: true })).toBe(
+        true
+      );
+      expect(isOttehrBillingInvoicingInEhr(secretsWith(envIntegration), {})).toBe(false);
+      expect(isOttehrBillingInvoicingInEhr(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: false })).toBe(
+        false
+      );
     }
     for (const envIntegration of ['candid', undefined]) {
-      expect(
-        isOttehrBillingInvoicingEnabled(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: true })
-      ).toBe(false);
+      expect(isOttehrBillingInvoicingInEhr(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: true })).toBe(
+        false
+      );
     }
+  });
+
+  it('moves Ottehr billing invoicing from the EHR to the billing app when the INVOICING_IN_BILLING_APP secret is on', () => {
+    const flags = { ottehrBillingInvoicingEnabled: true };
+    const switched = (billingIntegration: string, value = 'true'): Secrets => ({
+      ...secretsWith(billingIntegration),
+      INVOICING_IN_BILLING_APP: value,
+    });
+    for (const envIntegration of ['ottehr', 'all']) {
+      expect(isOttehrBillingInvoicingInEhr(switched(envIntegration), flags)).toBe(false);
+      expect(isOttehrBillingInvoicingInBillingApp(switched(envIntegration), flags)).toBe(true);
+      expect(isOttehrBillingInvoicingInBillingApp(switched(envIntegration, 'false'), flags)).toBe(false);
+      expect(isOttehrBillingInvoicingInBillingApp(secretsWith(envIntegration), flags)).toBe(false);
+    }
+    expect(isOttehrBillingInvoicingInBillingApp(switched('all'), { ottehrBillingInvoicingEnabled: false })).toBe(false);
+    expect(isOttehrBillingInvoicingInBillingApp(switched('candid'), flags)).toBe(false);
   });
 });
 

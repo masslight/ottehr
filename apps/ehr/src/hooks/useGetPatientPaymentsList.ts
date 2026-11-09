@@ -16,22 +16,22 @@ export const useGetPatientPaymentsList = (
   const { patientId, encounterId, disabled, onSuccess } = input;
 
   const queryResult = useQuery({
-    queryKey: [`patient-payments-list?patient=${patientId}&encounter=${encounterId ?? ''}`, patientId, encounterId],
+    queryKey: [`patient-payments-list?patient=${patientId}&encounter=${encounterId}`, patientId, encounterId],
 
     queryFn: async (): Promise<ListPatientPaymentResponse> => {
-      if (oystehrZambda && patientId) {
+      if (oystehrZambda && patientId && encounterId) {
         const result = await oystehrZambda.zambda.execute({
-          id: 'patient-payments-list',
+          id: 'list-billing-patient-payments',
           patientId,
           encounterId,
         });
         return result.output as ListPatientPaymentResponse;
       }
 
-      throw new Error('api client not defined or patient id is not provided');
+      throw new Error('api client not defined or patient or encounter id is not provided');
     },
 
-    enabled: Boolean(patientId) && Boolean(oystehrZambda) && !disabled,
+    enabled: Boolean(patientId) && Boolean(encounterId) && Boolean(oystehrZambda) && !disabled,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

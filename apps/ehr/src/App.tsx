@@ -25,6 +25,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteCreateTask } from './components/CommandPaletteCreateTask';
 import { CommandPalettePhraseDialog } from './components/CommandPalettePhraseDialog';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
+import { CommandPaletteUploadDocument } from './components/CommandPaletteUploadDocument';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
@@ -55,6 +56,7 @@ import { MedicalRecordExportWatcher } from './features/medical-record-export/com
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
+import DmeQuickPickDetailPage from './features/visits/telemed/components/admin/DmeQuickPickDetailPage';
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
@@ -94,6 +96,7 @@ import Reports from './pages/Reports';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
 import VisitDetailsPage from './pages/VisitDetailsPage';
+import { useOttehrBillingInvoicingInEhr } from './rcm/state/invoice-config/invoice-config.queries';
 import { useNavStore } from './state/nav.store';
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
@@ -116,6 +119,7 @@ export const showEnvironmentBanner = import.meta.env.VITE_APP_ENV !== 'productio
 function App(): ReactElement {
   useApiClients();
   const currentUser = useEvolveUser();
+  const ottehrBillingInvoicingInEhr = useOttehrBillingInvoicingInEhr();
   const currentTab = useNavStore((state) => state.currentTab) || 'Tracking Board';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -222,11 +226,13 @@ function App(): ReactElement {
                 <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                 <Route path="/reports/data-exports" element={<DataExports />} />
-                <Route
-                  path="/reports/invoiceable-patients"
-                  element={<InvoiceablePatientsReportPage source="candid" />}
-                />
-                {FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED && (
+                {FEATURE_FLAGS.CANDID_INVOICING_ENABLED && (
+                  <Route
+                    path="/reports/invoiceable-patients"
+                    element={<InvoiceablePatientsReportPage source="candid" />}
+                  />
+                )}
+                {ottehrBillingInvoicingInEhr && (
                   <Route
                     path="/reports/invoiceable-patients-billing"
                     element={<InvoiceablePatientsReportPage source="ottehr-billing" />}
@@ -265,6 +271,9 @@ function App(): ReactElement {
                   <Route path="/admin/form-templates/:templateId" element={<FormTemplateDetailPage />} />
                   <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                   <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
+                  {FEATURE_FLAGS.DME_ORDERS_ENABLED && (
+                    <Route path="/admin/quick-picks/dme/:quickPickId" element={<DmeQuickPickDetailPage />} />
+                  )}
                   <Route
                     path="/admin/quick-picks/immunization/:quickPickId"
                     element={<ImmunizationQuickPickDetailPage />}
@@ -348,6 +357,7 @@ function App(): ReactElement {
         <CommandPaletteRegistrations />
         <CommandPalette />
         <CommandPaletteCreateTask />
+        <CommandPaletteUploadDocument />
         <CommandPalettePhraseDialog />
         <SnackbarProvider
           maxSnack={5}

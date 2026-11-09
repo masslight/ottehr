@@ -13,6 +13,7 @@ import ReasonsForVisit from './ReasonForVisit';
 interface AppointmentTableRowMobileProps {
   appointment: InPersonAppointmentInformation;
   patientName: string;
+  patientFriendlyId?: string;
   appointmentDate: string | undefined;
   start: string | undefined;
   tab: ApptTab;
@@ -29,6 +30,7 @@ interface AppointmentTableRowMobileProps {
 export default function AppointmentTableRowMobile({
   appointment,
   patientName,
+  patientFriendlyId,
   appointmentDate,
   start,
   tab,
@@ -124,6 +126,11 @@ export default function AppointmentTableRowMobile({
                     <Typography variant="body1" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
                       {patientName}
                     </Typography>{' '}
+                    {patientFriendlyId && (
+                      <Typography variant="body2" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                        {patientFriendlyId}
+                      </Typography>
+                    )}
                     <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
                   </Box>
                 </Grid>

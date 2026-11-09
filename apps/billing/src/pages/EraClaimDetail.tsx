@@ -414,6 +414,12 @@ export default function EraClaimDetail(): ReactElement {
         </IconButton>
       </Box>
 
+      {era.status === 'voided' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          This ERA is voided. The amounts below are retained for reference and do not count toward claim balances.
+        </Alert>
+      )}
+
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
           <Stack direction="row" spacing={4} rowGap={1.5} alignItems="baseline" flexWrap="wrap" useFlexGap>

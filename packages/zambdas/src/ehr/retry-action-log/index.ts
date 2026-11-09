@@ -14,6 +14,7 @@ import {
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
@@ -78,7 +79,7 @@ export async function performEffect(
 
   const originalId = requireOutboundDeliveryValue(original.id, 'attempt id');
   const patientId = requireOutboundDeliveryValue(
-    removePrefix('Patient/', original.for?.reference ?? ''),
+    getIdFromReference(original.for?.reference, 'Patient'),
     'patient reference'
   );
   const appointmentId = removePrefix('Appointment/', original.focus?.reference ?? '') || undefined;
@@ -91,7 +92,7 @@ export async function performEffect(
   const media = requireOutboundDeliveryValue(documentReference.content[0]?.attachment.url, 'document URL');
   const userPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
-    id: requireOutboundDeliveryValue(removePrefix('Practitioner/', user.profile), 'user practitioner reference'),
+    id: requireOutboundDeliveryValue(getIdFromReference(user.profile, 'Practitioner'), 'user practitioner reference'),
   });
   const requesterReference = userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined;
   const senderDisplay = getFullestAvailableName(userPractitioner);

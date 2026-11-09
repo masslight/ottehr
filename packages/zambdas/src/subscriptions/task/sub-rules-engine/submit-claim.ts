@@ -26,9 +26,11 @@ export class ClaimSubmissionRejectedError extends Error {
 // with the Hold tag lifted in the same commit — recorded in the claim history with the rules-engine
 // agent.
 export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunResult> {
-  const { oystehr, model, agent, submissionType, payerClaimControlNumber } = input;
+  const { oystehr, model, agent, submissionType, submissionInsurance, payerClaimControlNumber } = input;
   const claimId = model.claim.id;
   if (!claimId) throw new Error('Claim id missing from the rules-engine model');
+  if (!submissionType) throw new Error('"submissionType" missing from the rules-engine model');
+  if (!submissionInsurance) throw new Error('"submissionInsurance" missing from the rules-engine model');
 
   if (getClaimStatusFieldValue(model.claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage) !== AR_STAGE.insurancePayer) {
     return { statusReason: 'Rules passed; claim was not submitted because it is not in Insurance Payer AR.' };
@@ -38,7 +40,8 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
   try {
     claimResponse = await oystehr.rcm.submitClaim({
       claimId,
-      action: submissionType ?? undefined,
+      action: submissionType,
+      insurance: submissionInsurance,
       payerClaimControlNumber: payerClaimControlNumber ?? undefined,
     });
   } catch (error) {

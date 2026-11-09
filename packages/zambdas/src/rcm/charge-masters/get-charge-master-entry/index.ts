@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { orgIdMatchesReference } from 'utils/lib/helpers/helpers';
+import { chargeMasterEntryNeedsOrgLookup, findChargeMasterEntry } from 'utils/lib/helpers/rcm/visit-pricing';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, RCM_TAG_SYSTEM } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -20,70 +20,35 @@ export const index = wrapHandler(
     const cutoffDate = dateOfService ?? new Date().toISOString().split('T')[0];
 
     // If looking for insurance/employer and an org is given, first look for org-specific charge masters
-    if (designation === 'default-insurance' && (payerOrganizationId || employerOrganizationId)) {
-      const allChargeMasters = await oystehr.fhir.search<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        params: [
-          {
-            name: '_tag',
-            value: `${RCM_TAG_SYSTEM}|charge-master`,
-          },
-        ],
-      });
+    const orgChargeMasters = chargeMasterEntryNeedsOrgLookup(designation, payerOrganizationId, employerOrganizationId)
+      ? (
+          await oystehr.fhir.search<ChargeItemDefinition>({
+            resourceType: 'ChargeItemDefinition',
+            params: [
+              {
+                name: '_tag',
+                value: `${RCM_TAG_SYSTEM}|charge-master`,
+              },
+            ],
+          })
+        ).unbundle()
+      : [];
 
-      const chargeMasters = allChargeMasters.unbundle();
+    const orgMatch = findChargeMasterEntry({
+      designation,
+      payerOrganizationId,
+      employerOrganizationId,
+      locationId,
+      cutoffDate,
+      orgChargeMasters,
+      designatedChargeMasters: [],
+    });
 
-      // Helper: find best org-specific charge master with location filtering
-      const findBestOrgMatch = (orgId: string): ChargeItemDefinition | undefined => {
-        const orgFiltered = chargeMasters
-          .filter(
-            (cm) =>
-              cm.status === 'active' &&
-              cm.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, orgId)) &&
-              cm.date &&
-              cm.date <= cutoffDate
-          )
-          .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-
-        if (orgFiltered.length === 0) return undefined;
-
-        if (locationId) {
-          const locationMatch = orgFiltered.find(
-            (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
-          );
-          if (locationMatch) return locationMatch;
-
-          // No location match — fall back to org charge masters with no location associations
-          const noLocationAssociations = orgFiltered.filter(
-            (cm) => !cm.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
-          );
-          return noLocationAssociations[0];
-        }
-
-        return orgFiltered[0];
+    if (orgMatch.source === 'payer') {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ chargeMaster: orgMatch.chargeMaster, source: 'payer' }),
       };
-
-      // Try employer first (higher priority)
-      if (employerOrganizationId) {
-        const employerMatch = findBestOrgMatch(employerOrganizationId);
-        if (employerMatch) {
-          return {
-            statusCode: 200,
-            body: JSON.stringify({ chargeMaster: employerMatch, source: 'payer' }),
-          };
-        }
-      }
-
-      // Then try insurance payer
-      if (payerOrganizationId) {
-        const payerMatch = findBestOrgMatch(payerOrganizationId);
-        if (payerMatch) {
-          return {
-            statusCode: 200,
-            body: JSON.stringify({ chargeMaster: payerMatch, source: 'payer' }),
-          };
-        }
-      }
     }
 
     // Fall back to the designated default charge master (by tag)
@@ -97,17 +62,19 @@ export const index = wrapHandler(
       ],
     });
 
-    const chargeMaster =
-      designatedResults
-        .unbundle()
-        .filter((cm) => cm.status === 'active' && cm.date && cm.date <= cutoffDate)
-        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))[0] ?? null;
+    const { chargeMaster, source } = findChargeMasterEntry({
+      designation,
+      locationId,
+      cutoffDate,
+      orgChargeMasters: [],
+      designatedChargeMasters: designatedResults.unbundle(),
+    });
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         chargeMaster,
-        source: chargeMaster ? 'chargemaster' : null,
+        source,
       }),
     };
   }

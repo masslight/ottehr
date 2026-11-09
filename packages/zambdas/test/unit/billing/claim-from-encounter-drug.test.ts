@@ -1,6 +1,14 @@
 import { MedicationAdministration, Procedure } from 'fhir/r4b';
-import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
+import {
+  IMMUNIZATION_ORDER_TAG_CODE,
+  IMMUNIZATION_ORDER_TAG_SYSTEM,
+  MEDICATION_CPT_CODES_EXTENSION_URL,
+} from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import {
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, it } from 'vitest';
 import { getProcedureDrug } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 
@@ -9,6 +17,14 @@ const medicationAdministration = (
 ): MedicationAdministration => ({
   resourceType: 'MedicationAdministration',
   id: 'ma-1',
+  meta: {
+    tag: [
+      {
+        system: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+        code: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+      },
+    ],
+  },
   status: 'completed',
   subject: { reference: 'Patient/patient-1' },
   effectiveDateTime: '2026-10-01T10:00:00Z',
@@ -103,5 +119,14 @@ describe('getProcedureDrug', () => {
     const ma = medicationAdministration();
     delete ma.extension;
     expect(getProcedureDrug(procedure('96372'), [ma])?.ndc).toBe('00409488802');
+  });
+
+  it('ignores procedures linked to a vaccine order, even when its Medication carries an NDC', () => {
+    const vaccine: MedicationAdministration = {
+      ...medicationAdministration(),
+      meta: { tag: [{ system: IMMUNIZATION_ORDER_TAG_SYSTEM, code: IMMUNIZATION_ORDER_TAG_CODE }] },
+    };
+    delete vaccine.extension;
+    expect(getProcedureDrug(procedure('90686'), [vaccine])).toBeUndefined();
   });
 });

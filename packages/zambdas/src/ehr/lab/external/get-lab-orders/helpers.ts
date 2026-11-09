@@ -12,8 +12,8 @@ import {
   DocumentReference,
   Encounter,
   Location,
-  Observation,
   Organization,
+  Patient,
   Practitioner,
   Provenance,
   Questionnaire,
@@ -27,7 +27,9 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   docRefIsAbnAndCurrent,
   docRefIsOrderPDFAndCurrent,
@@ -148,7 +150,6 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>({
   environment,
   ...resources
 }: MapResourcesToLabOrderDTOsInput<SearchBy>): LabOrderDTO<SearchBy>[] => {
-  console.log('mapResourcesToLabOrderDTOs');
   const { tasks, results } = resources;
   const result: LabOrderDTO<SearchBy>[] = [];
 
@@ -224,19 +225,15 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   coverages,
   cache,
 }: ParseOrderDataInput<SearchBy>): LabOrderDTO<SearchBy> => {
-  console.log('parsing external lab order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
-  console.log(serviceRequest.id);
 
   const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testName, fillerLab, testItemCode } = parseLabInfoFromServiceRequest(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
-  console.log('external lab orderStatus parsed', orderStatus);
 
-  console.log('formatting external lab listPageDTO');
   const requisitionNumber = getOrderNumber(serviceRequest);
   const abnPdfUrl =
     requisitionNumber && labDocuments?.abnPDFsByRequisitionNumber
@@ -266,6 +263,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
+    isStat: serviceRequest.priority === 'stat',
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
@@ -360,8 +358,6 @@ export const parseTasks = ({
     };
   }
 
-  console.log('parsing tasks for service request', serviceRequest.id);
-
   const PST = parseTaskPST(tasks, serviceRequest.id);
 
   // parseResults returns filtered prelim results if there are final results with the same code
@@ -412,8 +408,6 @@ export const parseTasks = ({
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  console.log('successfully parsed tasks');
-
   return {
     taskPST: PST,
     orderedPrelimTasks,
@@ -442,7 +436,6 @@ export const parseResults = (
   orderedCancelledResults: DiagnosticReport[];
   reflexCancelledResults: DiagnosticReport[];
 } => {
-  console.log('parsing results for serviceRequest', serviceRequest.id);
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -527,7 +520,6 @@ export const getLabResources = async (
   pagination: Pagination;
   encounters: Encounter[];
   locations: Location[];
-  observations: Observation[];
   appointments: Appointment[];
   provenances: Provenance[];
   organizations: Organization[];
@@ -540,15 +532,9 @@ export const getLabResources = async (
   coverages: Coverage[];
 }> => {
   // does not include the location on the SR
-  const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
-  console.log('labServiceRequestSearchParams', JSON.stringify(labServiceRequestSearchParams));
+  const labOrdersResponsePromise = fetchLabOrderResources(oystehr, params);
 
-  const labOrdersResponsePromise = oystehr.fhir.search({
-    resourceType: 'ServiceRequest',
-    params: labServiceRequestSearchParams,
-  });
-
-  const patientLabItemsPromise = (async (): Promise<PatientLabItem[]> => {
+  const getPatientLabItems = async (): Promise<PatientLabItem[]> => {
     if (searchBy.searchBy.field === 'patientId') {
       try {
         const allServiceRequestsForPatient = await getAllServiceRequestsForPatient(oystehr, searchBy.searchBy.value);
@@ -560,39 +546,18 @@ export const getLabResources = async (
       }
     }
     return [] as PatientLabItem[];
-  })();
+  };
 
-  const [labOrdersResponse, patientLabItems] = await Promise.all([labOrdersResponsePromise, patientLabItemsPromise]);
-
-  const labResources =
-    labOrdersResponse.entry
-      ?.map((entry) => entry.resource)
-      .filter(
-        (
-          res
-        ): res is
-          | ServiceRequest
-          | Task
-          | Encounter
-          | DiagnosticReport
-          | Provenance
-          | Organization
-          | QuestionnaireResponse
-          | DocumentReference
-          | Appointment
-          | Schedule
-          | Slot
-          | Specimen
-          | Communication
-          | Coverage => Boolean(res)
-      ) || [];
+  const [{ resources: labResources, pagination }, patientLabItems] = await Promise.all([
+    labOrdersResponsePromise,
+    getPatientLabItems(),
+  ]);
 
   const {
     serviceRequests,
     tasks: tasksBasedOnSrs,
     encounters,
     diagnosticReports,
-    observations,
     provenances,
     organizations,
     questionnaireResponses,
@@ -668,8 +633,6 @@ export const getLabResources = async (
   const locations = srLocationIds.length ? srLocationsBundle.unbundle() : [];
   console.log('These are the returned locations', JSON.stringify(locations));
 
-  const pagination = parsePaginationFromResponse(labOrdersResponse);
-
   return {
     serviceRequests,
     tasks: [...preSubmissionTasks, ...finalAndPrelimAndCorrectedTasks],
@@ -678,7 +641,6 @@ export const getLabResources = async (
     practitioners: allPractitioners,
     encounters,
     locations,
-    observations,
     appointments,
     provenances,
     organizations,
@@ -693,7 +655,8 @@ export const getLabResources = async (
   };
 };
 
-export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
+/** Paging, sorting and filtering params for the lab ServiceRequest search, without any includes */
+export const createLabServiceRequestFilterParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
   const { searchBy, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0, orderableItemCode } = params;
 
   const searchParams: SearchParam[] = [
@@ -722,57 +685,6 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: 'code:missing',
       value: 'false',
     },
-    {
-      name: '_include',
-      value: 'ServiceRequest:encounter',
-    },
-
-    {
-      name: '_revinclude',
-      value: 'Task:based-on',
-    },
-    {
-      name: '_revinclude',
-      value: 'DiagnosticReport:based-on',
-    },
-
-    // grab the coverage via patient
-    {
-      name: '_include',
-      value: 'ServiceRequest:patient',
-    },
-    {
-      name: '_revinclude:iterate',
-      value: 'Coverage:patient',
-    },
-
-    // include Observations
-    {
-      name: '_include:iterate',
-      value: 'DiagnosticReport:result',
-    },
-
-    // include Provenance
-    {
-      name: '_revinclude',
-      value: 'Provenance:target',
-    },
-
-    {
-      name: '_include:iterate',
-      value: 'Encounter:appointment',
-    },
-
-    // Include slot to get reliable timezone info
-    {
-      name: '_include:iterate',
-      value: 'Appointment:slot',
-    },
-    {
-      name: '_include:iterate',
-      value: 'Slot:schedule',
-    },
-
     // "revoked" SRs are essentially deleted
     {
       name: 'status:not',
@@ -785,18 +697,6 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     searchParams.push({
       name: 'encounter',
       value: `Encounter/${searchBy.value}`,
-    });
-
-    // to get the abn
-    searchParams.push({
-      name: '_revinclude:iterate',
-      value: 'DocumentReference:related',
-    });
-
-    // order level note
-    searchParams.push({
-      name: '_revinclude',
-      value: 'Communication:based-on',
     });
   }
 
@@ -822,7 +722,84 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_id',
       value: searchBy.value,
     });
+  }
 
+  if (visitDate) {
+    searchParams.push({
+      name: 'encounter.appointment.date',
+      value: visitDate,
+    });
+  }
+
+  return searchParams;
+};
+
+/** The resources included alongside each lab ServiceRequest */
+export const createLabServiceRequestIncludeParams = (searchBy: GetZambdaLabOrdersParams['searchBy']): SearchParam[] => {
+  const searchParams: SearchParam[] = [
+    {
+      name: '_include',
+      value: 'ServiceRequest:encounter',
+    },
+
+    {
+      name: '_revinclude',
+      value: 'Task:based-on',
+    },
+    {
+      name: '_revinclude',
+      value: 'DiagnosticReport:based-on',
+    },
+
+    // grab the coverage via patient
+    {
+      name: '_include',
+      value: 'ServiceRequest:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Coverage:patient',
+    },
+
+    // include Provenance
+    {
+      name: '_revinclude',
+      value: 'Provenance:target',
+    },
+
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+
+    // Include slot to get reliable timezone info
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
+    },
+  ];
+
+  // chart data case
+  if (searchBy.field === 'encounterId') {
+    // to get the abn
+    searchParams.push({
+      name: '_revinclude:iterate',
+      value: 'DocumentReference:related',
+    });
+
+    // order level note
+    searchParams.push({
+      name: '_revinclude',
+      value: 'Communication:based-on',
+    });
+  }
+
+  // detailed page case
+  if (searchBy.field === 'serviceRequestId') {
     // for retrieving accountNumber (from Organization); used on Detailed Page
     searchParams.push({
       name: '_include',
@@ -861,41 +838,89 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     });
   }
 
-  if (visitDate) {
-    searchParams.push({
-      name: 'encounter.appointment.date',
-      value: visitDate,
-    });
-  }
-
   return searchParams;
 };
 
+// A page of SRs fetched together with all of their includes can exceed Oystehr's 6 MB response limit,
+// so list searches fetch the page as ids only and then fetch the includes this many SRs at a time
+const LAB_ORDER_HYDRATION_CHUNK_SIZE = 10;
+
+type LabSearchResource =
+  | ServiceRequest
+  | Task
+  | DiagnosticReport
+  | Encounter
+  | Provenance
+  | Organization
+  | QuestionnaireResponse
+  | Specimen
+  | Patient
+  | Practitioner
+  | DocumentReference
+  | Appointment
+  | Schedule
+  | Slot
+  | Communication
+  | Coverage;
+
+export const fetchLabOrderResources = async (
+  oystehr: Oystehr,
+  params: GetZambdaLabOrdersParams
+): Promise<{ resources: LabSearchResource[]; pagination: Pagination }> => {
+  const filterParams = createLabServiceRequestFilterParams(params);
+  const includeParams = createLabServiceRequestIncludeParams(params.searchBy);
+
+  // the detail page only ever has one SR, so it is fetched with its includes in one search
+  if (params.searchBy.field === 'serviceRequestId') {
+    const bundle = await oystehr.fhir.search<LabSearchResource>({
+      resourceType: 'ServiceRequest',
+      params: [...filterParams, ...includeParams],
+    });
+    return { resources: bundle.unbundle(), pagination: parsePaginationFromResponse(bundle) };
+  }
+
+  console.log('labServiceRequestFilterParams', JSON.stringify(filterParams));
+  const pageBundle = await oystehr.fhir.search<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    params: [...filterParams, { name: '_elements', value: 'id' }],
+  });
+  const pagination = parsePaginationFromResponse(pageBundle);
+  const serviceRequestIds = pageBundle
+    .unbundle()
+    .map((sr) => sr.id)
+    .filter((id): id is string => Boolean(id));
+
+  console.log('labServiceRequestIncludeParams', JSON.stringify(includeParams));
+  const chunkBundles = await Promise.all(
+    chunkThings(serviceRequestIds, LAB_ORDER_HYDRATION_CHUNK_SIZE).map((chunk) =>
+      oystehr.fhir.search<LabSearchResource>({
+        resourceType: 'ServiceRequest',
+        params: [
+          { name: '_id', value: chunk.join(',') },
+          { name: '_count', value: `${chunk.length}` },
+          { name: '_sort', value: '-_lastUpdated' },
+          ...includeParams,
+        ],
+      })
+    )
+  );
+
+  // chunks share resources like the Patient, its Coverages and the Encounter, so drop the repeats
+  const resourcesByRef = new Map<string, LabSearchResource>();
+  for (const resource of chunkBundles.flatMap((bundle) => bundle.unbundle())) {
+    resourcesByRef.set(`${resource.resourceType}/${resource.id}`, resource);
+  }
+
+  return { resources: [...resourcesByRef.values()], pagination };
+};
+
 export const extractLabResources = (
-  resources: (
-    | ServiceRequest
-    | Task
-    | DiagnosticReport
-    | Encounter
-    | Observation
-    | Provenance
-    | Organization
-    | QuestionnaireResponse
-    | Specimen
-    | Practitioner
-    | DocumentReference
-    | Appointment
-    | Schedule
-    | Slot
-    | Communication
-    | Coverage
-  )[]
+  resources: LabSearchResource[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   encounters: Encounter[];
-  observations: Observation[];
   provenances: Provenance[];
   organizations: Organization[];
   questionnaireResponses: QuestionnaireResponse[];
@@ -914,7 +939,6 @@ export const extractLabResources = (
   const tasks: Task[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
-  const observations: Observation[] = [];
   const provenances: Provenance[] = [];
   const organizations: Organization[] = [];
   const questionnaireResponses: QuestionnaireResponse[] = [];
@@ -944,8 +968,6 @@ export const extractLabResources = (
       diagnosticReports.push(resource);
     } else if (resource.resourceType === 'Encounter') {
       encounters.push(resource);
-    } else if (resource.resourceType === 'Observation') {
-      observations.push(resource);
     } else if (resource.resourceType === 'Provenance') {
       provenances.push(resource);
     } else if (resource.resourceType === 'Organization') {
@@ -1003,7 +1025,6 @@ export const extractLabResources = (
     tasks,
     diagnosticReports,
     encounters,
-    observations,
     provenances,
     organizations,
     questionnaireResponses,
@@ -1188,9 +1209,10 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
  */
 export const filterFinalAndPrelimAndCorrectedTasks = (tasksResponse: Task[]): Task[] => {
   const getDrIdFromTask = (task: Task): string | undefined => {
-    return task.basedOn
-      ?.find((ref): ref is Reference => ref.reference?.startsWith('DiagnosticReport/') ?? false)
-      ?.reference?.split('/')[1];
+    return getIdFromReference(
+      task.basedOn?.find((ref): ref is Reference => ref.reference?.startsWith('DiagnosticReport/') ?? false)?.reference,
+      'DiagnosticReport'
+    );
   };
 
   // actually have to find whether or not there is a corrected result for a given DR.id.
@@ -1248,11 +1270,6 @@ export const filterFinalAndPrelimAndCorrectedTasks = (tasksResponse: Task[]): Ta
   });
 
   tasksToReturn.push(...drIdToLatestRFRTMap.values());
-
-  console.log(
-    `>>> These are the tasks returned from fetchFinalAndPrelimAndCorrectedTasks`,
-    JSON.stringify(tasksToReturn)
-  );
 
   return tasksToReturn;
 };
@@ -1472,22 +1489,19 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.reviewed;
   }
 
+  // Kept to one unindented line: the tracking board maps every order on every 30 s poll.
   console.log(
     `Alert: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
-    JSON.stringify(
-      {
-        pendingStatusConditions,
-        sentStatusConditions,
-        prelimStatusConditions,
-        correctedResultConditions,
-        receivedStatusConditions,
-        reviewedStatusConditions,
-      },
-      null,
-      2
-    )
+    JSON.stringify({
+      serviceRequestStatus: serviceRequest.status,
+      pendingStatusConditions,
+      sentStatusConditions,
+      prelimStatusConditions,
+      correctedResultConditions,
+      receivedStatusConditions,
+      reviewedStatusConditions,
+    })
   );
-  console.log('sr status: ', serviceRequest.status);
 
   return ExternalLabsStatus.unknown;
 };
@@ -1739,7 +1753,6 @@ const parseLabOrderSubmittedDate = (provenances: Provenance[]): string | undefin
           c.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code
       )
   );
-  console.log('submittedProvenance', submittedProvenance);
   return submittedProvenance?.recorded;
 };
 
@@ -2525,11 +2538,6 @@ export const getAllServiceRequestsForPatient = async (
 };
 
 const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): Location | undefined => {
-  console.log(`Parsing location for ServiceRequest/${serviceRequest.id}`);
-  console.log(
-    `These are the possible Locations`,
-    locations.map((location) => location.id)
-  );
   if (!serviceRequest.locationReference || !serviceRequest.locationReference.length || !locations.length)
     return undefined;
 
@@ -2539,10 +2547,7 @@ const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): L
     console.log(`Missing or misconfigured Location ref from ServiceRequest/${serviceRequest.id}`);
     return undefined;
   }
-  const location = locations.find((loc) => `Location/${loc.id}` === locationRef);
-
-  console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${location?.id}`);
-  return location;
+  return locations.find((loc) => `Location/${loc.id}` === locationRef);
 };
 
 export const labOrderCommunicationType = (

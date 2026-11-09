@@ -1,4 +1,5 @@
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import { StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { mergeOtherFromQuickPick, OTHER, splitOtherForQuickPick } from './procedureOtherFields';
@@ -25,6 +26,7 @@ const QUICK_PICK_APPLY_KEYS = [
   'postInstructions',
   'otherPostInstructions',
   'timeSpent',
+  'performerType',
   'documentedBy',
 ] as const satisfies readonly (keyof ProcedureQuickPickData)[];
 
@@ -75,6 +77,9 @@ export function mergeProcedureCptCodes(
   return mergedCodes;
 }
 
+const answeredFacts = (facts: StructuredFacts, excluded: readonly string[] = []): StructuredFacts =>
+  Object.fromEntries(Object.entries(facts).filter(([key, value]) => value !== undefined && !excluded.includes(key)));
+
 export function applyProcedureQuickPick(
   target: ProcedureQuickPickTarget,
   quickPick: ProcedureQuickPickData,
@@ -83,6 +88,10 @@ export function applyProcedureQuickPick(
   const values: ProcedureQuickPickTarget = {
     ...quickPick,
     cptCodes: mergeProcedureCptCodes(target.cptCodes, quickPick.cptCodes),
+    structuredFacts: quickPick.structuredFacts && {
+      ...target.structuredFacts,
+      ...answeredFacts(quickPick.structuredFacts),
+    },
     suppliesUsed: mergeOtherFromQuickPick(quickPick.suppliesUsed, quickPick.otherSuppliesUsed),
     postInstructions: mergeOtherFromQuickPick(quickPick.postInstructions, quickPick.otherPostInstructions),
   };
@@ -112,6 +121,8 @@ export function buildProcedureQuickPick(
 ): Omit<ProcedureQuickPickData, 'id'> {
   const supplies = splitOtherForQuickPick(source.suppliesUsed, source.otherSuppliesUsed);
   const postInstructions = splitOtherForQuickPick(source.postInstructions, source.otherPostInstructions);
+  const excluded = detectProcedureFamily({ procedureType })?.quickPickExcludes ?? [];
+  const structuredFacts = source.structuredFacts && answeredFacts(source.structuredFacts, excluded);
 
   return {
     name: name.trim(),
@@ -130,7 +141,7 @@ export function buildProcedureQuickPick(
     suppliesUsed: supplies.values,
     otherSuppliesUsed: supplies.other,
     procedureDetails: source.procedureDetails,
-    structuredFacts: source.structuredFacts,
+    structuredFacts,
     lengthCm: source.lengthCm,
     repairDepth: source.repairDepth,
     infusionStartTime: source.infusionStartTime,
@@ -142,6 +153,7 @@ export function buildProcedureQuickPick(
     postInstructions: postInstructions.values,
     otherPostInstructions: postInstructions.other,
     timeSpent: source.timeSpent,
+    performerType: source.performerType,
     documentedBy: source.documentedBy,
   };
 }

@@ -12,7 +12,10 @@ import {
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
   Receipt as ReceiptIcon,
+  RequestQuoteOutlined as RequestQuoteIcon,
   Rule as RuleIcon,
+  SettingsOutlined as SettingsIcon,
+  ViewList as ViewListIcon,
 } from '@mui/icons-material';
 import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
@@ -20,12 +23,15 @@ import { Link, useLocation } from 'react-router-dom';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
+import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
 
 const DRAWER_WIDTH = 220;
 
 const navItems = [
   // { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Invoices', path: '/invoices', icon: <RequestQuoteIcon sx={{ fontSize: 18 }} />, invoicing: true },
+  { label: 'Work Queues', path: '/work-queues', icon: <ViewListIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claim Creation Queue', path: '/claim-creation-queue', icon: <ListIcon sx={{ fontSize: 18 }} /> },
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
   {
@@ -61,6 +67,7 @@ const rulesNavItems = RULES_ENGINE_TYPES.map((engine) => ({
 export const Sidebar: FC = () => {
   const location = useLocation();
   const { logout } = useAuth0();
+  const invoicingInBillingApp = useInvoicingInBillingApp();
 
   const renderNavItem = ({ label, path, icon }: (typeof navItems)[number]): ReactElement => {
     const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
@@ -139,9 +146,19 @@ export const Sidebar: FC = () => {
       </Box>
 
       <List sx={{ px: 1.25, flex: 1, overflow: 'auto', minHeight: 0 }}>
-        {navItems.map(renderNavItem)}
+        {navItems.filter((item) => !item.invoicing || invoicingInBillingApp).map(renderNavItem)}
         <Divider sx={{ my: 1 }} />
         {rulesNavItems.map(renderNavItem)}
+        {invoicingInBillingApp && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            {renderNavItem({
+              label: 'Invoicing Configuration',
+              path: '/invoicing-configuration',
+              icon: <SettingsIcon sx={{ fontSize: 18 }} />,
+            })}
+          </>
+        )}
       </List>
 
       <List sx={{ px: 1.25 }}>

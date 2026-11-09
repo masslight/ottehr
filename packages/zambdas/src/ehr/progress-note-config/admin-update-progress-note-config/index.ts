@@ -65,11 +65,13 @@ const performEffect = async (
     anotherDispositionDefaultText,
     edDispositionDefaultText,
     vitalsUnitInputOrder,
+    vitalsHeaderUnitSystem,
+    specialtyTransferOptions,
     signReviewPrompt,
   } = validatedInput;
 
-  // One read backs both the sign-review-prompt check and the save's optimistic lock, so a prompt
-  // change landing in between is reported as a conflict rather than silently reverted.
+  // One read backs the sign-review-prompt check, the omitted-field fallbacks and the save's optimistic
+  // lock, so a change landing in between is reported as a conflict rather than silently reverted.
   const existingBasic = await findProgressNoteConfigBasic(oystehr);
   const storedConfig = progressNoteConfigPayloadFromBasic(existingBasic);
 
@@ -82,6 +84,8 @@ const performEffect = async (
       anotherDispositionDefaultText,
       edDispositionDefaultText,
       vitalsUnitInputOrder,
+      vitalsHeaderUnitSystem: vitalsHeaderUnitSystem ?? storedConfig.vitalsHeaderUnitSystem,
+      specialtyTransferOptions: specialtyTransferOptions ?? storedConfig.specialtyTransferOptions,
       signReviewPrompt: resolveSignReviewPrompt(user, signReviewPrompt, storedConfig.signReviewPrompt),
     },
     { existingBasic }

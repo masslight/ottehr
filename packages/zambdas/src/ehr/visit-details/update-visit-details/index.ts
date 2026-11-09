@@ -17,6 +17,7 @@ import {
   isScheduledFollowupEncounter,
 } from 'utils/lib/fhir/encounter';
 import { cleanUpStaffHistoryTag, getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
 import { extractNioIdFromReferenceUrl } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
@@ -60,7 +61,7 @@ interface EffectInput extends UpdateVisitDetailsValidatedInput {
   occupationalMedicineAccount?: Account;
 }
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
+export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
   const { patient, appointment, bookingDetails, user, encounter, workersCompAccount, occupationalMedicineAccount } =
     input;
 
@@ -297,8 +298,8 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
 
   if (bookingDetails.serviceCategory) {
     const newEncounterAccounts = (encounter.account ?? [])
-      .filter((reference) => reference.reference === 'Account/' + occupationalMedicineAccount?.id)
-      .filter((reference) => reference.reference === 'Account/' + workersCompAccount?.id);
+      .filter((reference) => reference.reference !== 'Account/' + occupationalMedicineAccount?.id)
+      .filter((reference) => reference.reference !== 'Account/' + workersCompAccount?.id);
 
     if (bookingDetails.serviceCategory.code === 'workers-comp' && workersCompAccount) {
       newEncounterAccounts.push({
@@ -509,7 +510,7 @@ export async function validateVisitEmployerSelection(oystehr: Oystehr, visitEmpl
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference a non-insurance organization');
   }
 
-  const organizationId = visitEmployer.reference?.split('/')[1];
+  const organizationId = getIdFromReference(visitEmployer.reference);
 
   if (!organizationId) {
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer.reference must be Organization/{id}');

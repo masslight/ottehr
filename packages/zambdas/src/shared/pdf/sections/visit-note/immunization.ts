@@ -42,7 +42,7 @@ function immunizationOrderToString(order: ImmunizationOrder, timezone: string): 
   const administratedDateTime = order.administrationDetails?.administeredDateTime
     ? DateTime.fromISO(order.administrationDetails?.administeredDateTime)
         ?.setZone(timezone)
-        ?.toFormat('MM/dd/yyyy HH:mm a')
+        ?.toFormat('MM/dd/yyyy hh:mm a')
     : '';
   return `${order.details.medication.name} - ${order.details.dose} ${order.details.units} / ${route} - ${location}\n${administratedDateTime}`;
 }

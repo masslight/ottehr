@@ -2,7 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { HealthcareService, Location, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { createClinicalOystehrClient } from 'ui-components/lib/utils/oystehr';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { GenerateAdHocReportInput, GenerateAdHocReportOutput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { AdHocGenerationStatus, GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
 import { InferAdHocLayersInput, InferAdHocLayersOutput } from 'utils/lib/types/adhoc/generation/infer.types';
 import {
   AdHocReportStatus,
@@ -81,11 +81,29 @@ import {
 } from 'utils/lib/types/api/daily-payments-report.types';
 import { DeleteUserZambdaInput, DeleteUserZambdaOutput } from 'utils/lib/types/api/delete-user.types';
 import {
+  CreateDmeOrderInput,
+  CreateDmeOrderResponse,
+  GetDmeOrderPdfInput,
+  GetDmeOrderPdfResponse,
+  GetDmeOrdersInput,
+  GetDmeOrdersResponse,
+  SendDmeOrderFaxInput,
+  SendDmeOrderFaxResponse,
+  UpdateDmeOrderInput,
+  UpdateDmeOrderResponse,
+} from 'utils/lib/types/api/dme.types';
+import {
   GetEmployeeChatsResponse,
   OpenEmployeeChatInput,
   OpenEmployeeChatResponse,
 } from 'utils/lib/types/api/employee-chat.types';
 import { ExtractCardInput, ExtractCardResponse } from 'utils/lib/types/api/extract-card.types';
+import {
+  DeleteFreeFormEncounterInput,
+  DeleteFreeFormEncounterOutput,
+  SaveFreeFormEncounterInput,
+  SaveFreeFormEncounterOutput,
+} from 'utils/lib/types/api/free-form-encounter.types';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { GetConversationInput, GetConversationZambdaOutput } from 'utils/lib/types/api/get-conversation.types';
 import { GetEmployeesResponse } from 'utils/lib/types/api/get-employees/get-employees.types';
@@ -125,13 +143,14 @@ import {
   UpdatePatientLoginPhoneNumbersInput,
 } from 'utils/lib/types/api/patient-login-phone-numbers.types';
 import {
-  CreatePatientNoteInput,
-  DeletePatientNoteInput,
+  CreateNoteInput,
+  DeleteNoteInput,
+  GetNotesInput,
+  GetNotesOutput,
   GetPatientNotesCountOutput,
-  GetPatientNotesInput,
-  GetPatientNotesOutput,
-  SavePatientNoteOutput,
-  UpdatePatientNoteInput,
+  MarkTaskNotesReadInput,
+  SaveNoteOutput,
+  UpdateNoteInput,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import {
   PracticeKpisReportZambdaInput,
@@ -162,6 +181,8 @@ import {
   AllergyQuickPickData,
   CreateAllergyQuickPickInput,
   CreateAllergyQuickPickResponse,
+  CreateDmeQuickPickInput,
+  CreateDmeQuickPickResponse,
   CreateImmunizationQuickPickInput,
   CreateImmunizationQuickPickResponse,
   CreateInHouseMedicationQuickPickInput,
@@ -180,7 +201,9 @@ import {
   CreateQuickTextQuickPickResponse,
   CreateRadiologyQuickPickInput,
   CreateRadiologyQuickPickResponse,
+  DmeQuickPickData,
   GetAllergyQuickPicksResponse,
+  GetDmeQuickPicksResponse,
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
   GetInsuranceQuickPicksResponse,
@@ -201,6 +224,7 @@ import {
   QuickTextQuickPickData,
   RadiologyQuickPickData,
   UpdateAllergyQuickPickResponse,
+  UpdateDmeQuickPickResponse,
   UpdateImmunizationQuickPickResponse,
   UpdateInHouseMedicationQuickPickResponse,
   UpdateInsuranceQuickPickResponse,
@@ -321,8 +345,10 @@ import {
   VisitDocuments,
 } from 'utils/lib/types/data/documents';
 import {
+  GetMedicalRecordDateSpanInput,
   GetMedicalRecordExportStatusInput,
   GetPatientMedicalRecordOutput,
+  MedicalRecordDateSpan,
   StartMedicalRecordExportInput,
 } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
@@ -383,10 +409,14 @@ import {
   GetPatientBalancesZambdaOutput,
 } from 'utils/lib/types/data/payment/payment-method-types';
 import {
+  GetPatientFormResponsesInput,
+  GetPatientFormResponsesOutput,
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
   PracticeManagedQuestionnaireGetOutput,
+  PracticeManagedQuestionnaireImportJsonInput,
+  PracticeManagedQuestionnaireImportJsonOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
@@ -431,6 +461,7 @@ const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const GENERATE_ADHOC_REPORT_ZAMBDA_ID = 'generate-adhoc-report';
 const INFER_ADHOC_REPORT_LAYERS_ZAMBDA_ID = 'infer-adhoc-report-layers';
 const ADHOC_REPORT_ZAMBDA_ID = 'adhoc-report';
+export const ADHOC_BILLING_DATASET_ZAMBDA_ID = 'adhoc-billing-dataset';
 const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
 const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
 const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
@@ -499,6 +530,11 @@ const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
+const CREATE_DME_ORDER_ZAMBDA_ID = 'create-dme-order';
+const GET_DME_ORDERS_ZAMBDA_ID = 'get-dme-orders';
+const UPDATE_DME_ORDER_ZAMBDA_ID = 'update-dme-order';
+const GET_DME_ORDER_PDF_ZAMBDA_ID = 'get-dme-order-pdf';
+const SEND_DME_ORDER_FAX_ZAMBDA_ID = 'send-dme-order-fax';
 const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
@@ -548,11 +584,13 @@ const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get'
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const MANAGED_QUESTIONNAIRE_IMPORT_JSON_ZAMBDA_ID = 'practice-managed-questionnaire-import-json';
 const PAPERWORK_FLOW_LIST_ZAMBDA_ID = 'paperwork-flow-list';
 const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
 const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
 const PAPERWORK_FLOW_DELETE_ZAMBDA_ID = 'paperwork-flow-delete';
 const SEND_PATIENT_FORM = 'send-patient-form';
+const GET_PATIENT_FORM_RESPONSES = 'get-patient-form-responses';
 const FILE_INBOUND_FAX_ZAMBDA_ID = 'file-inbound-fax';
 const DELETE_INBOUND_FAX_ZAMBDA_ID = 'delete-inbound-fax';
 
@@ -662,14 +700,30 @@ export const getAppointments = async (
   }
 };
 
-export const generateAdHocReport = async (
+export const startAdHocReportGeneration = async (
   oystehr: Oystehr,
   parameters: GenerateAdHocReportInput
-): Promise<GenerateAdHocReportOutput> => {
+): Promise<StartAdHocReportResponse> => {
   try {
     const response = await oystehr.zambda.execute({
       id: GENERATE_ADHOC_REPORT_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getAdHocReportGenerationStatus = async (
+  oystehr: Oystehr,
+  taskId: string
+): Promise<AdHocGenerationStatus> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GENERATE_ADHOC_REPORT_ZAMBDA_ID,
+      taskId,
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -696,11 +750,12 @@ export const inferAdHocReportLayers = async (
 
 export const startAdHocReport = async (
   oystehr: Oystehr,
-  parameters: StartAdHocReportInput
+  parameters: StartAdHocReportInput,
+  zambdaId: string = ADHOC_REPORT_ZAMBDA_ID
 ): Promise<StartAdHocReportResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADHOC_REPORT_ZAMBDA_ID,
+      id: zambdaId,
       ...parameters,
     });
     return chooseJson(response);
@@ -710,10 +765,14 @@ export const startAdHocReport = async (
   }
 };
 
-export const getAdHocReportStatus = async (oystehr: Oystehr, taskId: string): Promise<AdHocReportStatus> => {
+export const getAdHocReportStatus = async (
+  oystehr: Oystehr,
+  taskId: string,
+  zambdaId: string = ADHOC_REPORT_ZAMBDA_ID
+): Promise<AdHocReportStatus> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADHOC_REPORT_ZAMBDA_ID,
+      id: zambdaId,
       taskId,
     });
     return chooseJson(response);
@@ -976,6 +1035,38 @@ export const saveFollowup = async (
   } catch (error: unknown) {
     console.log(error);
     throw new Error(JSON.stringify(error));
+  }
+};
+
+export const saveFreeFormEncounter = async (
+  oystehr: Oystehr,
+  parameters: SaveFreeFormEncounterInput
+): Promise<SaveFreeFormEncounterOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'save-free-form-encounter',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteFreeFormEncounter = async (
+  oystehr: Oystehr,
+  parameters: DeleteFreeFormEncounterInput
+): Promise<DeleteFreeFormEncounterOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'delete-free-form-encounter',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
   }
 };
 
@@ -2055,6 +2146,31 @@ export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNur
   }
 };
 
+const executeDmeZambda = async <T>(oystehr: Oystehr, id: string, parameters: object): Promise<T> => {
+  try {
+    const response = await oystehr.zambda.execute({ id, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createDmeOrder = (oystehr: Oystehr, parameters: CreateDmeOrderInput): Promise<CreateDmeOrderResponse> =>
+  executeDmeZambda(oystehr, CREATE_DME_ORDER_ZAMBDA_ID, parameters);
+
+export const getDmeOrders = (oystehr: Oystehr, parameters: GetDmeOrdersInput): Promise<GetDmeOrdersResponse> =>
+  executeDmeZambda(oystehr, GET_DME_ORDERS_ZAMBDA_ID, parameters);
+
+export const updateDmeOrder = (oystehr: Oystehr, parameters: UpdateDmeOrderInput): Promise<UpdateDmeOrderResponse> =>
+  executeDmeZambda(oystehr, UPDATE_DME_ORDER_ZAMBDA_ID, parameters);
+
+export const getDmeOrderPdf = (oystehr: Oystehr, parameters: GetDmeOrderPdfInput): Promise<GetDmeOrderPdfResponse> =>
+  executeDmeZambda(oystehr, GET_DME_ORDER_PDF_ZAMBDA_ID, parameters);
+
+export const sendDmeOrderFax = (oystehr: Oystehr, parameters: SendDmeOrderFaxInput): Promise<SendDmeOrderFaxResponse> =>
+  executeDmeZambda(oystehr, SEND_DME_ORDER_FAX_ZAMBDA_ID, parameters);
+
 export const createDischargeSummary = async (
   oystehr: Oystehr,
   parameters: CreateDischargeSummaryInput
@@ -2209,6 +2325,23 @@ export const getMedicalRecordExportStatus = async (
     const response = await oystehr.zambda.execute({
       id: GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getMedicalRecordDateSpan = async (
+  oystehr: Oystehr,
+  parameters: Omit<GetMedicalRecordDateSpanInput, 'dateSpan'>
+): Promise<MedicalRecordDateSpan> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID,
+      ...parameters,
+      dateSpan: true,
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -2979,6 +3112,52 @@ export const createTemplate = async (
   }
 };
 
+export const getDmeQuickPicks = async (oystehr: Oystehr): Promise<GetDmeQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID, category: 'dme-quick-pick' });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createDmeQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateDmeQuickPickInput
+): Promise<CreateDmeQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'dme-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateDmeQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<DmeQuickPickData, 'id'>
+): Promise<UpdateDmeQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'dme-quick-pick',
+      quickPickId,
+      quickPick,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const getProcedureQuickPicks = async (oystehr: Oystehr): Promise<GetProcedureQuickPicksResponse> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -3703,6 +3882,22 @@ export const practiceManagedQuestionnaireCreate = async (
   }
 };
 
+export const practiceManagedQuestionnaireImportJson = async (
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireImportJsonInput
+): Promise<PracticeManagedQuestionnaireImportJsonOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_IMPORT_JSON_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export async function listPaperworkFlows(oystehr: Oystehr): Promise<PaperworkFlowListOutput> {
   try {
     const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_LIST_ZAMBDA_ID });
@@ -3752,6 +3947,19 @@ export const sendPatientForm = async (
       id: SEND_PATIENT_FORM,
       ...parameters,
     });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPatientFormResponses = async (
+  oystehr: Oystehr,
+  parameters: GetPatientFormResponsesInput
+): Promise<GetPatientFormResponsesOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_PATIENT_FORM_RESPONSES, ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -3924,10 +4132,7 @@ export const deleteInboundFax = async (oystehr: Oystehr, parameters: DeleteInbou
   }
 };
 
-export const getPatientNotes = async (
-  oystehr: Oystehr,
-  parameters: GetPatientNotesInput
-): Promise<GetPatientNotesOutput> => {
+export const getNotes = async (oystehr: Oystehr, parameters: GetNotesInput): Promise<GetNotesOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'get-patient-notes', ...parameters });
     return chooseJson(response);
@@ -3950,10 +4155,7 @@ export const getPatientNotesCount = async (
   }
 };
 
-export const createPatientNote = async (
-  oystehr: Oystehr,
-  parameters: CreatePatientNoteInput
-): Promise<SavePatientNoteOutput> => {
+export const createNote = async (oystehr: Oystehr, parameters: CreateNoteInput): Promise<SaveNoteOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'create-patient-note', ...parameters });
     return chooseJson(response);
@@ -3963,10 +4165,7 @@ export const createPatientNote = async (
   }
 };
 
-export const updatePatientNote = async (
-  oystehr: Oystehr,
-  parameters: UpdatePatientNoteInput
-): Promise<SavePatientNoteOutput> => {
+export const updateNote = async (oystehr: Oystehr, parameters: UpdateNoteInput): Promise<SaveNoteOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'update-patient-note', ...parameters });
     return chooseJson(response);
@@ -3976,9 +4175,18 @@ export const updatePatientNote = async (
   }
 };
 
-export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePatientNoteInput): Promise<void> => {
+export const deleteNote = async (oystehr: Oystehr, parameters: DeleteNoteInput): Promise<void> => {
   try {
     await oystehr.zambda.execute({ id: 'delete-patient-note', ...parameters });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const markTaskNotesRead = async (oystehr: Oystehr, parameters: MarkTaskNotesReadInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({ id: 'mark-task-notes-read', ...parameters });
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);

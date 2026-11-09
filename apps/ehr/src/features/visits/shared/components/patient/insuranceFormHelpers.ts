@@ -93,3 +93,30 @@ export const useCoverageFormRehydration = ({
     });
   }, [coveragesFormValues, methods, patientId, primaryCoverageId, secondaryCoverageId]);
 };
+
+/**
+ * Fully resets the form for a new patient; for the same patient re-applies defaults keeping dirty edits.
+ * The same-patient reset waits out a coverages refetch so stale coverages can't revert saved insurance fields.
+ */
+export const usePatientFormDefaultsSync = ({
+  defaultFormVals,
+  coveragesRefetching,
+  patientId,
+  methods,
+}: {
+  defaultFormVals: Record<string, unknown> | undefined;
+  coveragesRefetching: boolean;
+  patientId: string | undefined;
+  methods: UseFormReturn<any>;
+}): void => {
+  const initializedForPatientRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!defaultFormVals) return;
+    if (initializedForPatientRef.current !== (patientId ?? null)) {
+      methods.reset(defaultFormVals);
+      initializedForPatientRef.current = patientId ?? null;
+    } else if (!coveragesRefetching) {
+      methods.reset(defaultFormVals, { keepDirtyValues: true });
+    }
+  }, [defaultFormVals, coveragesRefetching, methods, patientId]);
+};

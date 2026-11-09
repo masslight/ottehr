@@ -8,6 +8,10 @@ import { ApptTab } from 'src/components/AppointmentTabs';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { DME_SECTION_TITLE } from 'src/features/dme/components/DmeBreadcrumbs';
+import { DmeOrdersInlineFlow } from 'src/features/dme/components/DmeOrdersInlineFlow';
+import { DmeOrdersReviewContainer } from 'src/features/dme/components/DmeOrdersReviewContainer';
+import { useDmeOrders } from 'src/features/dme/dme.queries';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
 import { AssessmentBody } from 'src/features/visits/shared/components/assessment-tab/AssessmentBody';
@@ -46,11 +50,17 @@ import { useRosObservationsStore } from 'src/features/visits/shared/stores/appoi
 import { useSignAppointmentMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { isRosObservationSet } from 'utils/lib/config-helpers/review-of-systems';
 import { INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils/lib/fhir/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
+import {
+  FormResponsesSummary,
+  PatientFormResponses,
+  useThisVisitFormResponses,
+} from '../../../shared/components/patient-forms/PatientFormResponses';
 import { useVisitNote } from '../../../shared/hooks/useVisitNote';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
@@ -106,6 +116,8 @@ export const ProgressNoteDetails: FC = () => {
     ['administered', 'administered-partly'].includes(order.status)
   );
 
+  const { data: dmeOrders } = useDmeOrders(encounter?.id);
+
   const screeningNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
   const allergyNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
@@ -136,13 +148,18 @@ export const ProgressNoteDetails: FC = () => {
   const showMechanismOfInjury = !!(mechanismOfInjury && mechanismOfInjury.length > 0);
   const showHpi = !!(hpi && hpi.length > 0);
   const showLegacyReviewOfSystems = !!(rosLegacyText && rosLegacyText.length > 0);
+  const visitForms = useThisVisitFormResponses();
+  const formsLoadState = { isLoading: visitForms.isLoading, isError: visitForms.isError };
   const showAdditionalQuestions =
-    !!(observations && observations.length > 0) || !!(screeningNotes && screeningNotes.length > 0);
+    !!(observations && observations.length > 0) ||
+    !!(screeningNotes && screeningNotes.length > 0) ||
+    visitForms.screening.length > 0 ||
+    visitForms.isError;
   const showAssessment = !!(diagnoses && diagnoses.length > 0);
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
-  const showRosReviewContainer = Object.values(rosState).filter((rosObs) => rosObs.value).length > 0;
+  const showRosReviewContainer = Object.values(rosState).some(isRosObservationSet);
 
   const externalLabResultsPending = !!(
     externalLabResults?.resultsPending && externalLabResults?.resultsPending.length > 0
@@ -153,7 +170,8 @@ export const ProgressNoteDetails: FC = () => {
   const showExternalLabsResultsContainer = externalLabResultsPending || externalLabResultsReceived;
 
   const inHouseLabResultsPending = !!(
-    inHouseLabResults?.resultsPending && inHouseLabResults?.resultsPending.length > 0
+    (inHouseLabResults?.resultsPending && inHouseLabResults?.resultsPending.length > 0) ||
+    (inHouseLabResults?.testsOrdered && inHouseLabResults?.testsOrdered.length > 0)
   );
   const inHouseLabResultsEntered = !!(
     inHouseLabResults?.labOrderResults && inHouseLabResults?.labOrderResults.length > 0
@@ -163,6 +181,7 @@ export const ProgressNoteDetails: FC = () => {
   const showRadiologyContainer = !!(radiologyOrders && radiologyOrders?.length > 0);
 
   const showProceduresContainer = (note?.assessment.procedures?.length ?? 0) > 0;
+  const showDmeOrders = (dmeOrders?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
   const showInHouseMedications =
@@ -337,7 +356,31 @@ export const ProgressNoteDetails: FC = () => {
         editLabel="Edit screening questions"
         editContent={<ScreeningBody />}
       >
-        <AdditionalQuestionsContainer notes={screeningNotes} emptyMessage="No screening information" />
+        <AdditionalQuestionsContainer
+          notes={screeningNotes}
+          emptyMessage={
+            visitForms.screening.length || visitForms.isLoading || visitForms.isError
+              ? undefined
+              : 'No screening information'
+          }
+        />
+        <FormResponsesSummary responses={visitForms.screening} {...formsLoadState} />
+      </InlineEditSection>
+    ),
+    (visitForms.questionnaires.length > 0 || visitForms.isError || inlineEditEnabled) && (
+      <InlineEditSection
+        key="questionnaires"
+        sectionName="questionnaires"
+        title="Clinical Forms"
+        iconKey="Questionnaires"
+        editLabel="Edit clinical forms"
+        editContent={<PatientFormResponses placement="questionnaires" scope="this-visit" />}
+      >
+        <FormResponsesSummary
+          responses={visitForms.questionnaires}
+          emptyMessage="No clinical forms"
+          {...formsLoadState}
+        />
       </InlineEditSection>
     ),
     (showVitalsObservations || inlineEditEnabled) && (
@@ -432,6 +475,19 @@ export const ProgressNoteDetails: FC = () => {
         editContent={<ProceduresInlineFlow />}
       >
         {showProceduresContainer ? <ProceduresContainer /> : <BlankSection message="No procedures" />}
+      </InlineEditSection>
+    ),
+    (showDmeOrders || (inlineEditEnabled && FEATURE_FLAGS.DME_ORDERS_ENABLED)) && (
+      <InlineEditSection
+        key="dme-orders"
+        sectionName="dme-orders"
+        title={DME_SECTION_TITLE}
+        iconKey="DME"
+        editLabel="Edit DME orders"
+        editContent={<DmeOrdersInlineFlow />}
+        disabled={!FEATURE_FLAGS.DME_ORDERS_ENABLED}
+      >
+        <DmeOrdersReviewContainer encounterId={encounter?.id} />
       </InlineEditSection>
     ),
     // Staff-facing only: nursing orders are shown here for the signing provider but are

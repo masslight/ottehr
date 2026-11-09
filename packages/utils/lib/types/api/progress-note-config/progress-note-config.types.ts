@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { OTHER_SPECIALTY_TRANSFER_OPTION } from '../../../fhir/disposition';
 import { Secrets } from '../../../secrets';
 
 const requiredDefaultTextMessage = (label: string): string => `${label} default text is required`;
@@ -15,6 +16,21 @@ export const VITALS_UNIT_INPUT_ORDER_LABELS: Record<VitalsUnitInputOrder, string
   'imperial-metric': 'Imperial / Metric',
 };
 
+export const VITALS_HEADER_UNIT_SYSTEMS = ['metric', 'imperial'] as const;
+export type VitalsHeaderUnitSystem = (typeof VITALS_HEADER_UNIT_SYSTEMS)[number];
+
+export const VITALS_HEADER_UNIT_SYSTEM_LABELS: Record<VitalsHeaderUnitSystem, string> = {
+  metric: 'Metric',
+  imperial: 'Imperial',
+};
+
+/**
+ * The header followed the input order before it had its own setting, so a config saved without one
+ * keeps showing the units its customer already sees.
+ */
+export const getDefaultVitalsHeaderUnitSystem = (inputOrder: VitalsUnitInputOrder): VitalsHeaderUnitSystem =>
+  inputOrder === 'imperial-metric' ? 'imperial' : 'metric';
+
 export interface ProgressNoteConfig {
   mdmRequired: boolean;
   medicalDecisionDefaultText: string;
@@ -22,9 +38,38 @@ export interface ProgressNoteConfig {
   anotherDispositionDefaultText: string;
   edDispositionDefaultText: string;
   vitalsUnitInputOrder: VitalsUnitInputOrder;
+  /** Units the visit header shows vitals in, independent of the order they are entered in. */
+  vitalsHeaderUnitSystem: VitalsHeaderUnitSystem;
+  specialtyTransferOptions: string[];
   /** AI note-review prompt shown at signing; empty/absent disables the feature. Edited by customer support only. */
   signReviewPrompt?: string;
 }
+
+const SpecialtyTransferOptionsSchema = z
+  .array(
+    z
+      .string()
+      .trim()
+      .min(1, 'Specialty is required')
+      .transform((option) => option.replace(/\s+/g, ' '))
+  )
+  .min(1, 'At least one specialty is required')
+  .superRefine((options, ctx) => {
+    const seen = new Set<string>();
+    options.forEach((option, index) => {
+      const key = option.toLowerCase();
+      if (key === OTHER_SPECIALTY_TRANSFER_OPTION.toLowerCase()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index],
+          message: `"${OTHER_SPECIALTY_TRANSFER_OPTION}" is always offered`,
+        });
+      } else if (seen.has(key)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index], message: 'Specialty is already in the list' });
+      }
+      seen.add(key);
+    });
+  });
 
 export type GetProgressNoteConfigInput = Record<string, never>;
 export type GetProgressNoteConfigOutput = ProgressNoteConfig;
@@ -38,6 +83,9 @@ export const UpdateProgressNoteConfigInputSchema = z.object({
   // Optional with a default so older Admin clients/scripts that omit this field keep working;
   // the read path applies the same default for stored configs that predate this setting.
   vitalsUnitInputOrder: z.enum(VITALS_UNIT_INPUT_ORDERS).default(DEFAULT_VITALS_UNIT_INPUT_ORDER),
+  // Absent means "leave the stored setting alone", so an older client can't reset it.
+  vitalsHeaderUnitSystem: z.enum(VITALS_HEADER_UNIT_SYSTEMS).optional(),
+  specialtyTransferOptions: SpecialtyTransferOptionsSchema.optional(),
   // Bounded because the value is stored on a FHIR extension and prepended to every note-review
   // call; absent means "leave the stored prompt alone", an empty string is a deliberate clear.
   signReviewPrompt: z.string().max(SIGN_REVIEW_PROMPT_MAX_LENGTH).optional(),

@@ -1,8 +1,10 @@
-import { BatchInputPostRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/orders/constants';
+import { UpdateNursingOrderInputValidated } from 'utils/lib/types/data/orders/types';
 import { fillMeta } from './helpers';
 
 export interface NursingOrderResourcesInput {
@@ -118,6 +120,99 @@ export const makeNursingOrderTransactionRequests = ({
       url: '/Task',
       resource: task,
     },
+    {
+      method: 'POST',
+      url: '/Provenance',
+      resource: provenance,
+    },
+  ];
+};
+
+type NursingOrderAction = UpdateNursingOrderInputValidated['action'];
+
+const getTaskStatusForAction = (action: NursingOrderAction): string => {
+  switch (action) {
+    case 'COMPLETE ORDER':
+      return 'completed';
+    case 'CANCEL ORDER':
+      return 'cancelled';
+    default:
+      throw new Error(`Unsupported action: ${action}`);
+  }
+};
+
+const getRequestStatusForAction = (action: NursingOrderAction): string => {
+  switch (action) {
+    case 'COMPLETE ORDER':
+      return 'completed';
+    case 'CANCEL ORDER':
+      return 'revoked';
+    default:
+      throw new Error(`Unsupported action: ${action}`);
+  }
+};
+
+const getProvenanceActivity = (action: NursingOrderAction): { code: string; display: string; system: string } => {
+  switch (action) {
+    case 'COMPLETE ORDER':
+      return NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY.completeOrder;
+    case 'CANCEL ORDER':
+      return NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY.cancelOrder;
+    default:
+      throw new Error(`Unsupported action: ${action}`);
+  }
+};
+
+export const makeNursingOrderStatusChangeRequests = ({
+  serviceRequest,
+  task,
+  action,
+  practitionerId,
+}: {
+  serviceRequest: ServiceRequest;
+  task: Task;
+  action: NursingOrderAction;
+  practitionerId: string;
+}): BatchInputRequest<FhirResource>[] => {
+  const locationRef: string | undefined = serviceRequest.locationReference?.[0].reference;
+  const provenance: Provenance = {
+    resourceType: 'Provenance',
+    activity: {
+      coding: [getProvenanceActivity(action)],
+    },
+    target: [{ reference: `ServiceRequest/${serviceRequest.id}` }],
+    ...(locationRef && { location: { reference: locationRef } }),
+    recorded: DateTime.now().toISO(),
+    agent: [
+      {
+        who: { reference: `Practitioner/${practitionerId}` },
+        onBehalfOf: { reference: serviceRequest.requester?.reference },
+      },
+    ],
+  };
+  return [
+    getPatchBinary({
+      resourceType: 'Task',
+      resourceId: task.id!,
+      patchOperations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: getTaskStatusForAction(action),
+        },
+      ],
+    }),
+    getPatchBinary({
+      resourceType: 'ServiceRequest',
+      resourceId: serviceRequest.id!,
+      patchOperations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: getRequestStatusForAction(action),
+        },
+      ],
+    }),
     {
       method: 'POST',
       url: '/Provenance',

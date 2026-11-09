@@ -2,7 +2,11 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent, Task } from 'fhir/r4b';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
-import { RulesEngineSubmissionType, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RulesEngineSubmissionInsurance,
+  RulesEngineSubmissionType,
+  RulesEngineType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   RunBillingRulesEngineInputSchema,
   RunBillingRulesEngineResponse,
@@ -42,6 +46,7 @@ export interface RulesEngineKickoff {
   engine: RulesEngineType;
   skipRules: boolean;
   submissionType?: RulesEngineSubmissionType;
+  submissionInsurance?: RulesEngineSubmissionInsurance;
   payerClaimControlNumber?: string;
 }
 
@@ -74,8 +79,9 @@ export async function complexValidation(
         claimId,
         engine,
         skipRules: params.skipRules,
-        submissionType: params.submissionType,
-        payerClaimControlNumber: params.payerClaimControlNumber,
+        submissionType: 'submissionType' in params ? params.submissionType : undefined,
+        submissionInsurance: 'submissionInsurance' in params ? params.submissionInsurance : undefined,
+        payerClaimControlNumber: 'payerClaimControlNumber' in params ? params.payerClaimControlNumber : undefined,
       });
     else noEngine.push(claimId);
   }
@@ -93,7 +99,7 @@ export async function performEffect(
   agent: ProvenanceAgent
 ): Promise<RunBillingRulesEngineResponse> {
   const requests: BatchInputPostRequest<Task>[] = kickoffs.map(
-    ({ engine, claimId, skipRules, submissionType, payerClaimControlNumber }) => ({
+    ({ engine, claimId, skipRules, submissionType, submissionInsurance, payerClaimControlNumber }) => ({
       method: 'POST',
       url: '/Task',
       resource: buildRulesEngineKickoffTask(
@@ -102,6 +108,7 @@ export async function performEffect(
         skipRules,
         agent.who,
         submissionType,
+        submissionInsurance,
         payerClaimControlNumber
       ),
     })

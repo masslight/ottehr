@@ -50,6 +50,7 @@ import {
 } from '../types/data/billing/custom-insurance-org.types';
 import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
 import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation/regex';
+import { zambdaApiUrlOverride } from './zambda-api-url-override';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -57,6 +58,7 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectApiUrl: projectAPI,
+    services: { zambdaApiUrl: zambdaApiUrlOverride() },
     ignoreTags: [BILLING_RESOURCE_TAG],
   };
   console.log('creating fhir client');
@@ -1650,7 +1652,8 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
     (paymentMethod !== 'cash' &&
       paymentMethod !== 'check' &&
       paymentMethod !== 'card-reader' &&
-      paymentMethod !== 'external-card-reader')
+      paymentMethod !== 'external-card-reader' &&
+      paymentMethod !== 'other')
   ) {
     return undefined;
   }
@@ -1662,7 +1665,7 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
   const takenBy = getPaymentNoticeSubmitterRef(paymentNotice)?.display;
 
   return {
-    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader' | 'external-card-reader',
+    paymentMethod: paymentMethod as CashPaymentDTO['paymentMethod'],
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,

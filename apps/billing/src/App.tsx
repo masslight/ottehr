@@ -13,6 +13,7 @@ import { UnauthorizedPage } from './components/UnauthorizedPage';
 import { ChargeItemDefinitionLabels } from './constants/chargeItemDefinition';
 import { useApiClients } from './hooks/useAppClients';
 import { useEvolveUser } from './hooks/useEvolveUser';
+import { useInvoicingInBillingApp } from './hooks/useInvoicingInBillingApp';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
 import CardsOnFileReport from './pages/CardsOnFileReport';
 import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/ChargeItemDefinitionsList';
@@ -25,6 +26,8 @@ import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
 import InvoiceReport from './pages/InvoiceReport';
+import InvoicesList from './pages/InvoicesList';
+import InvoicingConfiguration from './pages/InvoicingConfiguration';
 import ManualRemit from './pages/ManualRemit';
 import NetCollectionsReport from './pages/NetCollectionsReport';
 import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
@@ -40,6 +43,8 @@ import RuleDetail from './pages/RuleDetail';
 import Rules from './pages/Rules';
 import { ServiceFacilitiesList, ServiceFacilityDetail } from './pages/ServiceFacilities';
 import Tags from './pages/Tags';
+import WorkQueueDetail from './pages/WorkQueueDetail';
+import WorkQueues from './pages/WorkQueues';
 import { theme } from './themes/ottehr';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -49,6 +54,7 @@ export default function App(): ReactElement {
   useApiClients();
   const { logout } = useAuth0();
   const { currentUser, isLoadingUser } = useEvolveUser();
+  const invoicingInBillingApp = useInvoicingInBillingApp();
 
   const handleLogout = (): void => {
     void logout({ logoutParams: { returnTo: window.location.origin } });
@@ -84,8 +90,11 @@ export default function App(): ReactElement {
               <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
               <Route path="/claim-creation-queue" element={<ClaimCreationQueue />} />
+              <Route path="/work-queues" element={<WorkQueues />} />
+              <Route path="/work-queues/:id" element={<WorkQueueDetail />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
+              {invoicingInBillingApp && <Route path="/invoices" element={<InvoicesList />} />}
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
@@ -113,6 +122,7 @@ export default function App(): ReactElement {
               <Route path="/eras/:id/edit" element={<ManualRemit />} />
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
+              {invoicingInBillingApp && <Route path="/invoicing-configuration" element={<InvoicingConfiguration />} />}
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/payments" element={<PaymentsReport />} />
               <Route path="/reports/cards-on-file" element={<CardsOnFileReport />} />
