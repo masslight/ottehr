@@ -298,89 +298,99 @@ export async function fetchAdHocBillingRows(
     defaultInsurance: [] as ChargeItemDefinition[],
   };
 
-  if (encRefs.length) {
-    if (includePayments) {
-      // Scope to THIS batch's encounters (PaymentNotice.request → Encounter) rather than scanning
-      // every PaymentNotice project-wide on each of the ~52 concurrent 7-day batch calls — that
-      // whole-table scan grows unbounded as billing history accumulates.
-      // Payments live in the billing app (referencing the encounter's claim); notices the EHR wrote before
-      // the move reference the Encounter and are merged in as the payments list merges them.
-      const [billingNotices, legacyNotices] = await Promise.all([
-        fetchScopedResources<PaymentNotice>(
-          billingOystehr,
-          'PaymentNotice',
-          'request:identifier',
-          encIds.map((id) => `${CLAIM_ENCOUNTER_ID_SYSTEM}|${id}`),
-          [{ name: 'identifier', value: PATIENT_PAYMENT_IDENTIFIER_FILTER }]
-        ),
-        fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs),
-      ]);
-      const notices = mergeBillingAndLegacyPaymentNotices(billingNotices, legacyNotices);
+  // The layers do not depend on each other: they load at once.
+  const loadPayments = async (): Promise<void> => {
+    if (!includePayments) return;
+    // Scope to THIS batch's encounters (PaymentNotice.request → Encounter) rather than scanning
+    // every PaymentNotice project-wide on each of the ~52 concurrent 7-day batch calls — that
+    // whole-table scan grows unbounded as billing history accumulates.
+    // Payments live in the billing app (referencing the encounter's claim); notices the EHR wrote before
+    // the move reference the Encounter and are merged in as the payments list merges them.
+    const [billingNotices, legacyNotices] = await Promise.all([
+      fetchScopedResources<PaymentNotice>(
+        billingOystehr,
+        'PaymentNotice',
+        'request:identifier',
+        encIds.map((id) => `${CLAIM_ENCOUNTER_ID_SYSTEM}|${id}`),
+        [{ name: 'identifier', value: PATIENT_PAYMENT_IDENTIFIER_FILTER }]
+      ),
+      fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs),
+    ]);
+    const notices = mergeBillingAndLegacyPaymentNotices(billingNotices, legacyNotices);
 
-      // Voided as the payments list reads it: the notice is cancelled or carries the void record. The voided ones are
-      // kept apart (the EHR lists them struck out); only the rest of the active notices are money collected. Any other
-      // status (draft, entered-in-error) is not a payment.
-      for (const n of notices) {
-        if (!n.created) continue;
+    // Voided as the payments list reads it: the notice is cancelled or carries the void record. The voided ones are
+    // kept apart (the EHR lists them struck out); only the rest of the active notices are money collected. Any other
+    // status (draft, entered-in-error) is not a payment.
+    for (const n of notices) {
+      if (!n.created) continue;
 
-        const encId = encounterIdForPaymentNotice(n);
+      const encId = encounterIdForPaymentNotice(n);
 
-        if (n.status === 'cancelled' || (n.status === 'active' && parsePaymentVoidFromNotice(n))) {
-          pushTo(voidedPaymentsByEncId, encId, n);
-        } else if (n.status === 'active') {
-          pushTo(paymentsByEncId, encId, n);
-        }
+      if (n.status === 'cancelled' || (n.status === 'active' && parsePaymentVoidFromNotice(n))) {
+        pushTo(voidedPaymentsByEncId, encId, n);
+      } else if (n.status === 'active') {
+        pushTo(paymentsByEncId, encId, n);
       }
     }
+  };
 
-    if (includeCharges) {
-      // The same ChargeItemDefinitions find-applicable-fee-schedule and get-charge-master-entry search: a bounded,
-      // encounter-independent set, so it is loaded whole and sorted by its RCM tag.
-      const hasRcmTag = (cid: ChargeItemDefinition, code: string): boolean =>
-        !!cid.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === code);
-      const definitions = await fetchAll<ChargeItemDefinition>('ChargeItemDefinition', [
-        {
-          name: '_tag',
-          value: ['fee-schedule', 'charge-master', 'self-pay', 'default-insurance']
-            .map((code) => `${RCM_TAG_SYSTEM}|${code}`)
-            .join(','),
-        },
-      ]);
+  const loadCharges = async (): Promise<void> => {
+    if (!includeCharges) return;
+    // The same ChargeItemDefinitions find-applicable-fee-schedule and get-charge-master-entry search: a bounded,
+    // encounter-independent set, so it is loaded whole and sorted by its RCM tag.
+    const hasRcmTag = (cid: ChargeItemDefinition, code: string): boolean =>
+      !!cid.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === code);
+    const definitions = await fetchAll<ChargeItemDefinition>('ChargeItemDefinition', [
+      {
+        name: '_tag',
+        value: ['fee-schedule', 'charge-master', 'self-pay', 'default-insurance']
+          .map((code) => `${RCM_TAG_SYSTEM}|${code}`)
+          .join(','),
+      },
+    ]);
 
-      for (const cid of definitions) {
-        if (hasRcmTag(cid, 'fee-schedule')) pricing.feeSchedules.push(cid);
-        if (hasRcmTag(cid, 'charge-master')) pricing.chargeMasters.push(cid);
-        if (hasRcmTag(cid, 'self-pay')) pricing.selfPay.push(cid);
-        if (hasRcmTag(cid, 'default-insurance')) pricing.defaultInsurance.push(cid);
-      }
+    for (const cid of definitions) {
+      if (hasRcmTag(cid, 'fee-schedule')) pricing.feeSchedules.push(cid);
+      if (hasRcmTag(cid, 'charge-master')) pricing.chargeMasters.push(cid);
+      if (hasRcmTag(cid, 'self-pay')) pricing.selfPay.push(cid);
+      if (hasRcmTag(cid, 'default-insurance')) pricing.defaultInsurance.push(cid);
     }
-    if (includeCoverage || includeEligibility || includeCharges) {
-      // The patient-account page's coverage picture: primary / secondary by the Account's coverage priority,
-      // workers' comp kept apart on its own Account, payers resolved. Charges price by its payer / employer.
-      accountsByPatient = await fetchPatientAccounts(oystehr, Array.from(patientMap.values()));
-    }
+  };
 
-    if (includeEligibility) {
-      eligibility = await indexEligibilityChecks(oystehr, Array.from(patientMap.keys()));
-    }
+  const loadAccounts = async (): Promise<void> => {
+    if (!(includeCoverage || includeEligibility || includeCharges)) return;
+    // The patient-account page's coverage picture: primary / secondary by the Account's coverage priority,
+    // workers' comp kept apart on its own Account, payers resolved. Charges price by its payer / employer.
+    accountsByPatient = await fetchPatientAccounts(oystehr, Array.from(patientMap.values()));
+  };
 
-    if (includeCodes || includeCharges) {
-      const dxIds = Array.from(
-        new Set(
-          encounters.flatMap((e) =>
-            (e.diagnosis ?? []).map((d) => stripRef(d.condition?.reference, 'Condition')).filter(Boolean)
-          )
+  const loadEligibility = async (): Promise<void> => {
+    if (!includeEligibility) return;
+    eligibility = await indexEligibilityChecks(oystehr, Array.from(patientMap.keys()));
+  };
+
+  const loadCodes = async (): Promise<void> => {
+    if (!(includeCodes || includeCharges)) return;
+    const dxIds = Array.from(
+      new Set(
+        encounters.flatMap((e) =>
+          (e.diagnosis ?? []).map((d) => stripRef(d.condition?.reference, 'Condition')).filter(Boolean)
         )
-      ) as string[];
+      )
+    ) as string[];
 
-      const dxConditions = dxIds.length ? await fetchScoped<Condition>('Condition', '_id', dxIds) : [];
+    const [dxConditions, procedures] = await Promise.all([
+      fetchScoped<Condition>('Condition', '_id', dxIds),
+      fetchScoped<Procedure>('Procedure', 'encounter', encRefs),
+    ]);
 
-      for (const c of dxConditions) if (c.id) conditionById.set(c.id, c);
+    for (const c of dxConditions) if (c.id) conditionById.set(c.id, c);
 
-      const procedures = await fetchScoped<Procedure>('Procedure', 'encounter', encRefs);
+    for (const p of procedures) pushTo(proceduresByEncId, stripRef(p.encounter?.reference, 'Encounter'), p);
+  };
 
-      for (const p of procedures) pushTo(proceduresByEncId, stripRef(p.encounter?.reference, 'Encounter'), p);
-    }
+  if (encRefs.length) {
+    await Promise.all([loadPayments(), loadCharges(), loadAccounts(), loadEligibility(), loadCodes()]);
   }
 
   const hasChartTag = (resource: Resource, code: string): boolean =>

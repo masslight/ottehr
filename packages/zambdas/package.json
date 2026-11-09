@@ -11,6 +11,7 @@
     "start:labcorp": "ENV=labcorp-local npm run start",
     "start:local:iac": "ENV=local npm run start:iac",
     "start:demo:iac": "ENV=demo npm run start:iac",
+    "adhoc-m0-spike": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/adhoc-m0-spike.ts",
     "recreate-global-templates": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-global-templates.ts",
     "recreate-in-house-medications": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-in-house-medications.ts",
     "recreate-in-house-labs": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-in-house-labs.ts",

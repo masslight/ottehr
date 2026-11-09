@@ -88,6 +88,7 @@ import { inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { makeNoteResource } from '../src/shared/chart-data';
 import { makeExamObservationResource, makeObservationResource } from '../src/shared/chart-data';
+import { withAsyncBatch } from './helpers/adhoc-batch-fake';
 
 // Fixture tests for the Encounters layers that reuse the app's own mappers (tracking-board orders, chart
 // sections, visit-note signatures, tracking-board paperwork). The stubbed Oystehr serves each async-bulk
@@ -960,7 +961,7 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-const fakeOystehr = {
+const fakeOystehr = withAsyncBatch({
   fhir: {
     search: async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => ({
       jobId: jobIdFor(resourceType, params ?? []),
@@ -971,7 +972,7 @@ const fakeOystehr = {
     waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
-} as unknown as Oystehr;
+} as unknown as Oystehr);
 
 const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
 

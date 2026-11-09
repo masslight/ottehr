@@ -39,6 +39,7 @@ import { PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 import { makeProcedureResource } from '../src/shared/chart-data';
+import { withAsyncBatch } from './helpers/adhoc-batch-fake';
 
 // Fixture tests for the Patients layers that reuse app logic: the Recent Patients report's new-vs-existing
 // rule and the visit details face sheet's demographics / PCP / pharmacy composers.
@@ -519,7 +520,7 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-const fakeOystehr = {
+const fakeOystehr = withAsyncBatch({
   fhir: {
     search: async (
       { resourceType, params }: { resourceType: string; params: { name: string; value: string }[] },
@@ -532,15 +533,15 @@ const fakeOystehr = {
     waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
-} as unknown as Oystehr;
+} as unknown as Oystehr);
 
 // the billing app holds no payments in these fixtures; every payment is a legacy EHR notice
-const emptyBillingOystehr = {
+const emptyBillingOystehr = withAsyncBatch({
   fhir: {
     search: async () => ({ jobId: 'billing', contentLocation: '', mode: 'bulk' }),
     waitForAsyncJob: async () => ({ status: 200, mode: 'bulk', manifest: { output: [], requiresAccessToken: false } }),
   },
-} as unknown as Oystehr;
+} as unknown as Oystehr);
 
 const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
 
