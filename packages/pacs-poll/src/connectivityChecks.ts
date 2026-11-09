@@ -1,24 +1,25 @@
 import { existsSync, readFileSync } from 'node:fs';
 import net from 'node:net';
 import { Counter, Gauge, Registry } from 'prom-client';
-import { DicomEchoError, performDicomEcho } from './dicomEcho';
 
 /**
  * Network reachability checks run once per poll cycle, so Prometheus can tell "the tunnel to the
  * remote PACS is down" apart from "there was nothing to send".
  *
- * Every target gets a plain TCP connect (can we reach the host:port at all?). Targets with a
- * `dicomEcho` block additionally get a DICOM C-ECHO (does the thing listening there speak DICOM and
- * accept our AE title?). The two run on separate connections so the TCP metric stays a pure
- * transport-level signal.
+ * Every target gets a plain TCP connect from this host; bridgelink runs with host networking, so that
+ * exercises the same route Mirth uses. Targets with a `dicomEcho` block additionally get a DICOM
+ * C-ECHO, performed by Mirth itself: pacs-poll POSTs the target to a Mirth HTTP listener and Mirth
+ * answers 2xx when the echo succeeded. The echo therefore exercises the real sender, with its AE title
+ * and its DICOM stack, rather than a stand-in on this host.
  */
 
-export const DEFAULT_CHECK_TIMEOUT_MS = 5000;
-export const DEFAULT_CALLING_AE_TITLE = 'PACS_POLL';
+export const DEFAULT_CHECK_TIMEOUT_MS = 10000;
 
 export interface DicomEchoTargetConfig {
+  /** AE title of the SCP Mirth should echo. */
   calledAeTitle: string;
-  callingAeTitle: string;
+  /** AE title Mirth should present; when omitted the Mirth channel uses its own default. */
+  callingAeTitle?: string;
 }
 
 export interface ConnectivityTarget {
@@ -31,6 +32,8 @@ export interface ConnectivityTarget {
 
 export interface ConnectivityConfig {
   timeoutMs: number;
+  /** Mirth HTTP listener that performs C-ECHOs; required when any target has a `dicomEcho` block. */
+  mirthEchoUrl?: string;
   targets: ConnectivityTarget[];
 }
 
@@ -67,15 +70,28 @@ const parseTarget = (value: unknown, index: number): ConnectivityTarget => {
     if (!isRecord(dicomEcho)) {
       throw new Error(`${label}.dicomEcho must be an object`);
     }
-    target.dicomEcho = {
-      calledAeTitle: parseAeTitle(dicomEcho.calledAeTitle, `${label}.dicomEcho.calledAeTitle`),
-      callingAeTitle:
-        dicomEcho.callingAeTitle === undefined
-          ? DEFAULT_CALLING_AE_TITLE
-          : parseAeTitle(dicomEcho.callingAeTitle, `${label}.dicomEcho.callingAeTitle`),
-    };
+    target.dicomEcho = { calledAeTitle: parseAeTitle(dicomEcho.calledAeTitle, `${label}.dicomEcho.calledAeTitle`) };
+    if (dicomEcho.callingAeTitle !== undefined) {
+      target.dicomEcho.callingAeTitle = parseAeTitle(dicomEcho.callingAeTitle, `${label}.dicomEcho.callingAeTitle`);
+    }
   }
   return target;
+};
+
+const parseMirthEchoUrl = (value: unknown): string => {
+  if (typeof value !== 'string') {
+    throw new Error('mirthEchoUrl must be a string');
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`mirthEchoUrl "${value}" is not a valid URL`);
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('mirthEchoUrl must be an http or https URL');
+  }
+  return value;
 };
 
 export const parseConnectivityConfig = (raw: unknown): ConnectivityConfig => {
@@ -97,7 +113,11 @@ export const parseConnectivityConfig = (raw: unknown): ConnectivityConfig => {
     }
     names.add(target.name);
   }
-  return { timeoutMs, targets };
+  const mirthEchoUrl = raw.mirthEchoUrl === undefined ? undefined : parseMirthEchoUrl(raw.mirthEchoUrl);
+  if (mirthEchoUrl === undefined && targets.some((target) => target.dicomEcho)) {
+    throw new Error('mirthEchoUrl is required when a target has a dicomEcho block');
+  }
+  return mirthEchoUrl === undefined ? { timeoutMs, targets } : { timeoutMs, mirthEchoUrl, targets };
 };
 
 /** Returns undefined when no config file exists; throws when one exists but is unusable. */
@@ -185,6 +205,87 @@ export const tcpConnect = ({ host, port, timeoutMs }: TcpConnectOptions): Promis
     socket.once('connect', () => finish());
   });
 
+// ── DICOM echo via Mirth ────────────────────────────────────────────
+
+export type DicomEchoFailureReason = 'timeout' | 'mirth_unreachable' | 'echo_failed' | 'error';
+
+export class DicomEchoError extends Error {
+  readonly reason: DicomEchoFailureReason;
+
+  constructor(reason: DicomEchoFailureReason, message: string) {
+    super(message);
+    this.name = 'DicomEchoError';
+    this.reason = reason;
+  }
+}
+
+/** Body POSTed to the Mirth echo channel. */
+export interface MirthEchoRequest {
+  target: string;
+  host: string;
+  port: number;
+  calledAeTitle: string;
+  callingAeTitle?: string;
+}
+
+const MAX_LOGGED_BODY_LENGTH = 300;
+
+const summarizeBody = (body: string): string => {
+  const singleLine = body.replace(/\s+/g, ' ').trim();
+  return singleLine.length > MAX_LOGGED_BODY_LENGTH ? `${singleLine.slice(0, MAX_LOGGED_BODY_LENGTH)}…` : singleLine;
+};
+
+const isTimeoutError = (error: unknown): boolean =>
+  error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+
+const describeFetchError = (error: unknown): string => {
+  const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+  return cause?.code ?? cause?.message ?? (error as Error).message;
+};
+
+/**
+ * Asks Mirth to C-ECHO the target. Mirth answers 2xx when the echo succeeded and anything else when it
+ * failed; the response body (for example the dcm4che output) is passed back for logging either way.
+ */
+export const performMirthDicomEcho = async (
+  mirthEchoUrl: string,
+  request: MirthEchoRequest,
+  timeoutMs: number
+): Promise<string> => {
+  const signal = AbortSignal.timeout(timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(mirthEchoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    });
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      throw new DicomEchoError('timeout', `Mirth did not answer within ${timeoutMs}ms`);
+    }
+    throw new DicomEchoError(
+      'mirth_unreachable',
+      `could not reach Mirth at ${mirthEchoUrl}: ${describeFetchError(error)}`
+    );
+  }
+
+  let body: string;
+  try {
+    body = summarizeBody(await response.text());
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      throw new DicomEchoError('timeout', `Mirth did not finish answering within ${timeoutMs}ms`);
+    }
+    body = '';
+  }
+  if (!response.ok) {
+    throw new DicomEchoError('echo_failed', `Mirth answered ${response.status}${body ? `: ${body}` : ''}`);
+  }
+  return body;
+};
+
 // ── Metrics ─────────────────────────────────────────────────────────
 
 const tcpLabelNames = ['target', 'host', 'port'] as const;
@@ -220,28 +321,28 @@ const tcpConnectFailures = new Counter({
 
 const dicomEchoSuccess = new Gauge({
   name: 'pacs_poll_dicom_echo_success',
-  help: '1 if the last DICOM C-ECHO to the target succeeded, 0 if it failed',
+  help: '1 if the last DICOM C-ECHO sent by Mirth to the target succeeded, 0 if it failed',
   labelNames: dicomLabelNames,
   registers: [],
 });
 
 const dicomEchoDuration = new Gauge({
   name: 'pacs_poll_dicom_echo_duration_seconds',
-  help: 'Duration of the last DICOM C-ECHO to the target, association setup and release included',
+  help: 'Duration of the last DICOM C-ECHO round trip through Mirth to the target',
   labelNames: dicomLabelNames,
   registers: [],
 });
 
 const dicomEchoLastSuccess = new Gauge({
   name: 'pacs_poll_dicom_echo_last_success_timestamp_seconds',
-  help: 'Unix timestamp of the last successful DICOM C-ECHO to the target',
+  help: 'Unix timestamp of the last successful DICOM C-ECHO sent by Mirth to the target',
   labelNames: dicomLabelNames,
   registers: [],
 });
 
 const dicomEchoFailures = new Counter({
   name: 'pacs_poll_dicom_echo_failures_total',
-  help: 'Total failed DICOM C-ECHO attempts to the target, by failure reason',
+  help: 'Total failed DICOM C-ECHO attempts through Mirth to the target, by failure reason',
   labelNames: [...dicomLabelNames, 'reason'] as const,
   registers: [],
 });
@@ -294,23 +395,28 @@ const checkTcp = async (target: ConnectivityTarget, timeoutMs: number): Promise<
 const checkDicomEcho = async (
   target: ConnectivityTarget,
   echo: DicomEchoTargetConfig,
+  mirthEchoUrl: string,
   timeoutMs: number
 ): Promise<CheckOutcome> => {
   const labels = { target: target.name, host: target.host, port: target.port, called_ae: echo.calledAeTitle };
   const start = performance.now();
   try {
-    await performDicomEcho({
-      host: target.host,
-      port: target.port,
-      calledAeTitle: echo.calledAeTitle,
-      callingAeTitle: echo.callingAeTitle,
-      timeoutMs,
-    });
+    await performMirthDicomEcho(
+      mirthEchoUrl,
+      {
+        target: target.name,
+        host: target.host,
+        port: target.port,
+        calledAeTitle: echo.calledAeTitle,
+        ...(echo.callingAeTitle === undefined ? {} : { callingAeTitle: echo.callingAeTitle }),
+      },
+      timeoutMs
+    );
     const seconds = elapsedSeconds(start);
     dicomEchoSuccess.set(labels, 1);
     dicomEchoDuration.set(labels, seconds);
     dicomEchoLastSuccess.setToCurrentTime(labels);
-    return { ok: true, summary: `dicom echo to ${echo.calledAeTitle} ok in ${formatMs(seconds)}` };
+    return { ok: true, summary: `dicom echo to ${echo.calledAeTitle} via Mirth ok in ${formatMs(seconds)}` };
   } catch (error) {
     const seconds = elapsedSeconds(start);
     const reason = error instanceof DicomEchoError ? error.reason : 'error';
@@ -319,7 +425,7 @@ const checkDicomEcho = async (
     dicomEchoFailures.inc({ ...labels, reason });
     return {
       ok: false,
-      summary: `dicom echo to ${echo.calledAeTitle} FAILED (${reason}) after ${formatMs(seconds)}: ${
+      summary: `dicom echo to ${echo.calledAeTitle} via Mirth FAILED (${reason}) after ${formatMs(seconds)}: ${
         (error as Error).message
       }`,
     };
@@ -331,8 +437,8 @@ export const runConnectivityChecks = async (config: ConnectivityConfig): Promise
   await Promise.all(
     config.targets.map(async (target) => {
       const checks = [checkTcp(target, config.timeoutMs)];
-      if (target.dicomEcho) {
-        checks.push(checkDicomEcho(target, target.dicomEcho, config.timeoutMs));
+      if (target.dicomEcho && config.mirthEchoUrl) {
+        checks.push(checkDicomEcho(target, target.dicomEcho, config.mirthEchoUrl, config.timeoutMs));
       }
       const outcomes = await Promise.all(checks);
       const summaries = outcomes.map((outcome) => outcome.summary).join('; ');
