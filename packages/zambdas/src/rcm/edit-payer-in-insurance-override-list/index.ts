@@ -10,6 +10,7 @@ import {
   MISSING_REQUEST_SECRETS,
   PRECONDITION_FAILED,
 } from 'utils/lib/types/errors';
+import { optionalTextSchema, requiredTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
@@ -21,12 +22,12 @@ const payerInfoSchema = z.discriminatedUnion('listName', [
   z.object({
     listName: z.literal(ListName.EHR),
     payerId: z.string(),
-    payerNote: z.string(),
+    payerNote: requiredTextSchema,
   }),
   z.object({
     listName: z.literal(ListName.Patient),
     payerId: z.string(),
-    payerNameOverride: z.string().optional(),
+    payerNameOverride: optionalTextSchema,
   }),
 ]);
 
@@ -74,7 +75,7 @@ export const index = wrapHandler(
   }
 );
 
-async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: PayerInfo): Promise<List> {
+export async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: PayerInfo): Promise<List> {
   const list = await getInsuranceOverrideList(oystehr, payerInfo.listName);
   if (!list.entry) {
     throw INVALID_INPUT_ERROR('Cannot find insurance override list');
@@ -108,7 +109,7 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
           {
             op: 'replace',
             path: `/entry/${entryIndex}/extension`,
-            value: [extensionValue],
+            value: extensionValue ? [extensionValue] : [],
           },
         ],
       },
@@ -138,7 +139,7 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
               {
                 op: 'replace',
                 path: `/entry/${entryIndex}/extension`,
-                value: [extensionValue],
+                value: extensionValue ? [extensionValue] : [],
               },
             ],
           },
@@ -160,7 +161,7 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
   }
 }
 
-function validateInput(input: ZambdaInput): Input {
+export function validateInput(input: ZambdaInput): Input {
   const { body, secrets } = input;
   if (!body) {
     throw MISSING_REQUEST_BODY;

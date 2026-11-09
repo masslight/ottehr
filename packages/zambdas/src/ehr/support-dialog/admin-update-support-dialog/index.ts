@@ -45,11 +45,14 @@ const performEffect = async (validatedInput: AdminUpdateSupportDialogInput, oyst
     .unbundle()
     .find((r): r is Basic => r.resourceType === 'Basic');
 
+  const hasBody = cleanBodyHtml.trim() !== '';
+  if (!existing && !hasBody) return;
+
   const basicResource: Basic = {
     resourceType: 'Basic',
     meta: { tag: [SUPPORT_DIALOG_BASIC_TAG] },
     code: { coding: [SUPPORT_DIALOG_BASIC_TAG] },
-    extension: [{ url: SUPPORT_DIALOG_BODY_HTML_EXTENSION_URL, valueString: cleanBodyHtml }],
+    extension: hasBody ? [{ url: SUPPORT_DIALOG_BODY_HTML_EXTENSION_URL, valueString: cleanBodyHtml }] : undefined,
   };
 
   if (existing) {

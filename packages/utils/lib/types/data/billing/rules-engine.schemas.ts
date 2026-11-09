@@ -418,14 +418,14 @@ export const RunBillingRulesEngineInputSchema = z
       skipRules: z.boolean().default(false),
       submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES),
       submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES),
-      payerClaimControlNumber: z.string().min(1).optional(),
+      payerClaimControlNumber: z.string().trim().min(1).optional(),
     }),
     z.object({
       claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
       skipRules: z.boolean().default(false),
       submissionType: z.literal('new'),
       submissionInsurance: z.literal('primary'),
-      payerClaimControlNumber: z.string().min(1).optional(),
+      payerClaimControlNumber: z.string().trim().min(1).optional(),
     }),
   ])
   .superRefine((data, ctx) => {

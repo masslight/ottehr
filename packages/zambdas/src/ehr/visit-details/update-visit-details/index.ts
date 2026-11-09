@@ -184,6 +184,7 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
   }
 
   if (bookingDetails.authorizedNonLegalGuardians !== undefined) {
+    const guardians = bookingDetails.authorizedNonLegalGuardians.trim();
     const extension = patient.extension || [];
     const extensionIndex = (patient.extension || []).findIndex((ext) => {
       return ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url;
@@ -192,15 +193,15 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
     let skipUpdate = false;
 
     if (extensionIndex > -1) {
-      if (bookingDetails.authorizedNonLegalGuardians) {
-        extension[extensionIndex].valueString = bookingDetails.authorizedNonLegalGuardians;
+      if (guardians) {
+        extension[extensionIndex].valueString = guardians;
       } else {
         extension.splice(extensionIndex, 1);
       }
-    } else if (bookingDetails.authorizedNonLegalGuardians) {
+    } else if (guardians) {
       extension.push({
         url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
-        valueString: bookingDetails.authorizedNonLegalGuardians,
+        valueString: guardians,
       });
     } else {
       skipUpdate = true;

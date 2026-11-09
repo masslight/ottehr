@@ -45,7 +45,9 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
       open={open}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
-      disabled={administrationType !== ADMINISTERED && (!reason || (reason === ReasonListCodes.OTHER && !otherReason))}
+      disabled={
+        administrationType !== ADMINISTERED && (!reason || (reason === ReasonListCodes.OTHER && !otherReason?.trim()))
+      }
       description={''}
       title={'Order ' + administrationType.label}
       confirmText={'Mark as ' + administrationType.label}

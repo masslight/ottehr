@@ -119,6 +119,19 @@ describe('progress-note-config shared read/write', () => {
     expect((await getProgressNoteConfigPayload(readClient)).signReviewPrompt).toBe('');
   });
 
+  test.each([' ', '\n\t'])(
+    'save omits the sign review prompt extension when the prompt is whitespace (%j)',
+    async (prompt) => {
+      const { oystehr, create } = makeOystehr({ search: [] });
+      await saveProgressNoteConfig(oystehr, { ...customConfig, signReviewPrompt: prompt });
+
+      const persisted = create.mock.calls[0][0] as Basic;
+      expect(persisted.extension).not.toContainEqual(
+        expect.objectContaining({ url: PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL })
+      );
+    }
+  );
+
   test('save creates a new Basic with the vitals extension when none exists', async () => {
     const { oystehr, create, update } = makeOystehr({ search: [] });
     await saveProgressNoteConfig(oystehr, customConfig);
