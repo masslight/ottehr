@@ -38,7 +38,7 @@ Ottehr consists of three components:
 
 ### AI-prompt setup
 
-You can use an LLM to help you get up and running with Ottehr for the first time. First, [install Node.js 22](#install-nodejs-22x) and [Terraform 1.13](#install-terraform-113).
+You can use an LLM to help you get up and running with Ottehr for the first time. First, [install Node.js 22](#install-nodejs-22x) and [Terraform 1.16](#install-terraform-116).
 
 Clone the repository, start up Claude Code or similar at the root of the repository, and use a prompt like the one below and replacing the placeholders,
 
@@ -65,14 +65,14 @@ If you do not already have it, install [Node.js](https://nodejs.org/en/download)
 
 Ottehr also supports `nvm`, `asdf`, and tools that use `.node-version`.
 
-#### Install Terraform 1.13
+#### Install Terraform 1.16
 
-If you do not already have it, install Terraform version 1.13. You can download this directly from HashiCorp's [releases page](https://releases.hashicorp.com/terraform) and install it into your path, or use [Homebrew](https://brew.sh). For example to install from HashiCorp on an ARM Mac:
+If you do not already have it, install Terraform version 1.16. You can download this directly from HashiCorp's [releases page](https://releases.hashicorp.com/terraform) and install it into your path, or use [Homebrew](https://brew.sh). For example to install from HashiCorp on an ARM Mac:
 
 ```bash
 brew install wget # or use cURL
-wget https://releases.hashicorp.com/terraform/1.13.5/terraform_1.13.5_darwin_arm64.zip
-unzip terraform_1.13.5_darwin_arm64.zip -d /tmp
+wget https://releases.hashicorp.com/terraform/1.16.4/terraform_1.16.4_darwin_arm64.zip
+unzip terraform_1.16.4_darwin_arm64.zip -d /tmp
 sudo cp /tmp/terraform /usr/local/bin/terraform
 ```
 
@@ -83,7 +83,9 @@ brew tap hashicorp/tap
 brew install hashicorp/tap/terraform
 ```
 
-Check the [1.13 releases page](https://releases.hashicorp.com/terraform/1.13.5/) if you aren't sure which version to install.
+This Homebrew formula is not pinned and installs the latest Terraform release, which may be newer than 1.16.x and is not supported by this project. Run `terraform version` afterwards; if it does not report 1.16.x, use the download above instead.
+
+Check the [1.16.4 releases page](https://releases.hashicorp.com/terraform/1.16.4/) if you aren't sure which version to install.
 
 ### Fork & Clone
 

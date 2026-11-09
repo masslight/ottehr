@@ -174,6 +174,7 @@ export const AgeRangesEditor = ({
                   <Tooltip title={ageRanges.length === 1 ? 'At least one age range is required' : 'Remove age range'}>
                     <span>
                       <IconButton
+                        color="error"
                         aria-label={`Remove age range ${formatVitalAlertAgeRange(range)}`}
                         disabled={ageRanges.length === 1}
                         onClick={showDialog}

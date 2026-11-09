@@ -56,13 +56,13 @@ describe('Patient Profile header', () => {
     expect(screen.getByRole('button', { name: 'Print label' })).toHaveStyle({ color: 'rgb(33, 105, 245)' });
   });
 
-  it('keeps the dark print label icon by default for other headers', () => {
+  it('renders the print label icon in accent blue without a colour override, as the progress note header uses it', () => {
     render(
       <CustomThemeProvider>
         <PrintVisitLabelButton encounterId="encounter-1" />
       </CustomThemeProvider>
     );
 
-    expect(screen.getByRole('button', { name: 'Print label' })).toHaveStyle({ color: 'rgb(15, 52, 124)' });
+    expect(screen.getByRole('button', { name: 'Print label' })).toHaveStyle({ color: 'rgb(33, 105, 245)' });
   });
 });
