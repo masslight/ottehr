@@ -17,6 +17,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
 import { sendSmsForPatient } from '../../../shared/communication';
 import { createClinicalOystehrClient, resolveTimezone } from '../../../shared/helpers';
+import { isInvoicedFromBillingApp } from '../../../shared/invoice-tasks';
 import { getInvoiceVisitResources, resolveInvoiceStripeCustomerId } from '../../../shared/invoice-visit';
 import { wrapHandler } from '../../../shared/sentry';
 import { getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
@@ -40,6 +41,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Input task id: ', task.id);
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    if (await isInvoicedFromBillingApp(oystehr, encounterId)) {
+      const message = 'This visit is invoiced from the billing app.';
+      await updateTaskStatusAndOutput({
+        oystehr,
+        task,
+        status: mapDisplayToInvoiceTaskStatus('error'),
+        outputToAppend: [addErrorToInvoicingTaskOutput(message)],
+      });
+      return { statusCode: 200, body: JSON.stringify({ message }) };
+    }
     const stripe = getStripeClient(secrets);
 
     console.log('Fetching fhir resources');

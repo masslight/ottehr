@@ -197,9 +197,9 @@ describe('sub-send-invoice-to-patient source guard', () => {
       status: 'in-progress',
       intent: 'order',
     });
-    mockClinicalClient.fhir.search.mockResolvedValue({
-      unbundle: () => [encounter, patient, account, appointment],
-    });
+    mockClinicalClient.fhir.search.mockImplementation(async ({ resourceType }) => ({
+      unbundle: () => (resourceType === 'Basic' ? [] : [encounter, patient, account, appointment]),
+    }));
     mockClinicalClient.fhir.patch.mockResolvedValue({});
     mockClinicalClient.fhir.create.mockResolvedValue({});
     mockStripe.customers.retrieve.mockResolvedValue({
@@ -267,6 +267,36 @@ describe('sub-send-invoice-to-patient source guard', () => {
         },
       })
     );
+  });
+
+  it('fails a task for a visit the billing app invoices without touching Stripe', async () => {
+    mockClinicalClient.fhir.search.mockResolvedValueOnce({
+      unbundle: () => [{ resourceType: 'Basic', id: 'billing-marker' }],
+    });
+
+    const result = await runHandler(task());
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).message).toBe('This visit is invoiced from the billing app.');
+    expect(mockClinicalClient.fhir.patch.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        id: 'task-1',
+        operations: expect.arrayContaining([
+          expect.objectContaining({ path: '/status', value: 'failed' }),
+          expect.objectContaining({
+            path: '/output',
+            value: expect.arrayContaining([
+              {
+                type: RcmTaskCodings.sendInvoiceOutputError,
+                valueString: 'This visit is invoiced from the billing app.',
+              },
+            ]),
+          }),
+        ]),
+      })
+    );
+    expect(mockStripe.invoices.create).not.toHaveBeenCalled();
+    expect(mockSendSmsForPatient).not.toHaveBeenCalled();
   });
 
   it('still rejects candid and legacy untagged tasks without a Candid encounter id', async () => {
