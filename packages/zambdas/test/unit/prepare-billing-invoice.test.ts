@@ -112,17 +112,33 @@ describe('prepare-billing-invoice', () => {
   });
 
   it('takes over a ready task after preparing the visit', async () => {
-    ehrInvoiceTasks = [{ resourceType: 'Task', id: 'ready-task', status: 'ready', intent: 'order' }];
+    ehrInvoiceTasks = [
+      { resourceType: 'Task', id: 'ready-task', status: 'ready', intent: 'order', meta: { versionId: 'v1' } },
+    ];
 
     expect((await runHandler()).statusCode).toBe(200);
-    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledExactlyOnceWith({
-      resourceType: 'Task',
-      id: 'ready-task',
-      operations: [{ op: 'replace', path: '/status', value: 'cancelled' }],
-    });
-    expect(mockClinicalClient.fhir.create.mock.invocationCallOrder[0]).toBeLessThan(
-      mockClinicalClient.fhir.patch.mock.invocationCallOrder[0]
+    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledExactlyOnceWith(
+      {
+        resourceType: 'Task',
+        id: 'ready-task',
+        operations: [{ op: 'replace', path: '/status', value: 'cancelled' }],
+      },
+      { optimisticLockingVersionId: 'v1' }
     );
+    expect(mockClinicalClient.fhir.patch.mock.invocationCallOrder[0]).toBeLessThan(
+      mockClinicalClient.fhir.create.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('refuses when the EHR started sending the task while the visit was being prepared', async () => {
+    ehrInvoiceTasks = [{ resourceType: 'Task', id: 'ready-task', status: 'ready', intent: 'order' }];
+    mockClinicalClient.fhir.patch.mockRejectedValue({ code: 412 });
+
+    await expect(runHandler()).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'This visit is invoiced from the EHR.',
+    });
+    expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
   });
 
   it.each(['completed', 'in-progress', 'requested', 'failed'] as const)(

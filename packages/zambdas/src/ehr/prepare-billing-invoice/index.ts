@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { isVersionConflictError } from 'utils/lib/fhir/helpers';
 import { getInvoiceTaskOutputs } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { Secrets } from 'utils/lib/secrets';
 import { PREPARE_BILLING_INVOICE_ZAMBDA_KEY, PrepareBillingInvoiceResponse } from 'utils/lib/types/api/invoicing.types';
@@ -86,16 +87,22 @@ async function performEffect(
     },
   });
 
-  // Marked only once the visit can be invoiced, so a patient without an email does not lock the visit
-  // away from the EHR. The marker blocks EHR sends before the ready tasks are cancelled.
-  await markInvoicedFromBillingApp(oystehr, encounterId);
+  // Cancelled only while still untouched, so a send the EHR started during the awaits above wins and
+  // nothing is written here. The EHR hides cancelled tasks, so none can be sent before the marker lands.
   for (const task of ehrInvoiceTasks) {
-    await oystehr.fhir.patch<Task>({
-      resourceType: 'Task',
-      id: task.id!,
-      operations: [{ op: 'replace', path: '/status', value: 'cancelled' }],
-    });
+    try {
+      await oystehr.fhir.patch<Task>(
+        { resourceType: 'Task', id: task.id!, operations: [{ op: 'replace', path: '/status', value: 'cancelled' }] },
+        { optimisticLockingVersionId: task.meta?.versionId }
+      );
+    } catch (error) {
+      if (isVersionConflictError(error)) throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
+      throw error;
+    }
   }
+  // Marked only once the visit can be invoiced, so a patient without an email does not lock the visit
+  // away from the EHR.
+  await markInvoicedFromBillingApp(oystehr, encounterId);
 
   return {
     patientId: patient.id!,

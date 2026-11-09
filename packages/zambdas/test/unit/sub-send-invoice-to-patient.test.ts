@@ -269,12 +269,18 @@ describe('sub-send-invoice-to-patient source guard', () => {
     );
   });
 
-  it('fails a task for a visit the billing app invoices without touching Stripe', async () => {
+  it('cancels a task for a visit the billing app invoices before validating it or touching Stripe', async () => {
     mockClinicalClient.fhir.search.mockResolvedValueOnce({
       unbundle: () => [{ resourceType: 'Basic', id: 'billing-marker' }],
     });
+    const staleTask = task({
+      input: ['dueDate', 'smsTextMessage', 'amountCents'].map((code) => ({
+        type: { coding: [{ system: ottehrCodeSystemUrl('invoice-task-input'), code }] },
+        valueString: code === 'amountCents' ? '5050' : code === 'dueDate' ? '2000-01-01' : 'pay your invoice',
+      })),
+    });
 
-    const result = await runHandler(task());
+    const result = await runHandler(staleTask);
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).message).toBe('This visit is invoiced from the billing app.');
@@ -282,7 +288,7 @@ describe('sub-send-invoice-to-patient source guard', () => {
       expect.objectContaining({
         id: 'task-1',
         operations: expect.arrayContaining([
-          expect.objectContaining({ path: '/status', value: 'failed' }),
+          expect.objectContaining({ path: '/status', value: 'cancelled' }),
           expect.objectContaining({
             path: '/output',
             value: expect.arrayContaining([
