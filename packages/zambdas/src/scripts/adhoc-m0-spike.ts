@@ -6,7 +6,8 @@
 //
 // Answers:
 //   1. Does a batch job run at all, and what does its manifest look like (files, error files, next link)?
-//   2. Does an entry's own _count apply (per entry), or only a job-wide limit?
+//   2. Does an entry's own _count apply (per entry), or only a job-wide limit? Does a batch entry return
+//      everything the same search returns alone (no silent 1 000 cut-off, OTR-3686)?
 //   3. Is the 30 000 limit per job or per entry, and does a capped job send a next link?
 //   4. One job of N entries against N single jobs 8 at a time: which is faster, same resources?
 //   5. How many entries one job runs before "Internal Error".
@@ -222,6 +223,35 @@ async function main(config: Record<string, string>): Promise<void> {
     answer: perEntryCount.resources <= 10 ? 'per entry' : 'ignored',
   };
   console.log(report.perEntryCount);
+
+  // 2b. Completeness per entry (OTR-3686: without _count a search returns 1 000 and drops the rest, no error).
+  //     A batch entry's results cannot be told apart by entry, so a per-entry cut-off would be invisible to
+  //     the fetch helpers: the batch entry must return exactly what the same search returns as its own job.
+  const probeRefs = encounterRefs.slice(0, IDS_PER_ENTRY);
+  const probe = (count?: string): Entry => ({
+    resourceType: 'Observation',
+    params: [{ name: 'encounter', value: probeRefs.join(',') }, ...(count ? [{ name: '_count', value: count }] : [])],
+  });
+  const batchNoCount = await batchJob(oystehr, 'batch: 1 entry, no _count', [probe()]);
+  const batchMaxCount = await batchJob(oystehr, 'batch: 1 entry, _count=30000', [probe('30000')]);
+  const singleMaxCount = await singleJobs(oystehr, 'single job, _count=30000', [probe('30000')], 1);
+  const complete =
+    batchMaxCount.ids.size === singleMaxCount.ids.size &&
+    [...singleMaxCount.ids].every((id) => batchMaxCount.ids.has(id));
+  report.perEntryCompleteness = {
+    batchNoCount: batchNoCount.resources,
+    batchMaxCount: batchMaxCount.resources,
+    singleMaxCount: singleMaxCount.resources,
+    complete,
+    answer: !complete
+      ? 'DATA LOSS: a batch entry returns less than the same search alone — do not ship the batch path'
+      : singleMaxCount.resources <= 1000
+      ? 'complete, but under 1 000: not conclusive, run with a longer range'
+      : batchNoCount.resources === 1000
+      ? 'complete; without _count an entry stops at 1 000, so the per-entry _count is required (it is sent)'
+      : 'complete',
+  };
+  console.log(report.perEntryCompleteness);
 
   // 3. 30 000: all Observations (no tag) of many encounters in one job — more than 30 000 at production volume.
   const heavyEntries = obsEntries(encounterRefs.slice(0, IDS_PER_ENTRY * 40));
