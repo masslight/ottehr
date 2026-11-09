@@ -73,7 +73,7 @@ describe('sub-adhoc-billing-dataset', () => {
     await expect(capturedHandler({ task, secrets }, oystehr)).resolves.toMatchObject({ taskStatus: 'completed' });
 
     expect(oystehr.fhir.patch.mock.calls[0][0].operations[0].value[0].valueString).toBe(
-      'https://project.api/z3/proj-billing-claim-exports/adhoc-billing-dataset-task-1.json'
+      'https://project.api/z3/proj-billing-claim-exports/adhoc-billing-dataset-task-1.json.gz'
     );
     expect(oystehr.z3.deleteObject).not.toHaveBeenCalled();
   });
@@ -85,7 +85,7 @@ describe('sub-adhoc-billing-dataset', () => {
 
     expect(oystehr.z3.deleteObject).toHaveBeenCalledWith({
       bucketName: 'proj-billing-claim-exports',
-      'objectPath+': 'adhoc-billing-dataset-task-1.json',
+      'objectPath+': 'adhoc-billing-dataset-task-1.json.gz',
     });
   });
 });

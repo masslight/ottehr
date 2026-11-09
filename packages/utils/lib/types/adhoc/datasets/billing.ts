@@ -1,12 +1,20 @@
 import { z } from 'zod';
-import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+import {
+  AdHocLayerMap,
+  DatasetInput,
+  datasetInputSchema,
+  datasetRowSchema,
+  foreignLayers,
+  LayerRowFields,
+} from './dataset';
 import { ELIGIBILITY_STATUS_DESCRIPTION, ELIGIBILITY_STATUS_VALUES } from './eligibility';
 import { PAYMENT_VARIANT_VALUES } from './encounters';
+import { PATIENT_LAYERS } from './patients';
 
 export const BillingBaseRowSchema = z.object({
   // --- Visit ---
   appointmentId: z.string().describe('Visit id.'),
-  encounterId: z.string().optional().describe('Encounter id (internal — dedupe/joins).'),
+  encounterId: z.string().describe('Encounter id (internal — dedupe/joins; one row per encounter).'),
   date: z.string().nullable().describe('Visit date (yyyy-MM-dd).'),
   visitType: z.enum(['In-Person', 'Telemed', 'Unknown']).describe('Visit modality.'),
   serviceCategory: z.string().describe('Service line of the visit.'),
@@ -247,14 +255,30 @@ export const BILLING_LAYERS = {
 
 export type BillingLayerId = keyof typeof BILLING_LAYERS;
 
-export type AdHocBillingRow = z.infer<typeof BillingBaseRowSchema> & LayerRowFields<typeof BILLING_LAYERS>;
+// The patients dataset's layers, offered on every visit row by its patientId (`patients.allergies`, …).
+export const BILLING_FOREIGN_LAYERS: AdHocLayerMap = foreignLayers({
+  sourceId: 'patients',
+  sourceLabel: 'Patient',
+  source: PATIENT_LAYERS,
+  key: 'patientId',
+  base: BillingBaseRowSchema,
+  native: BILLING_LAYERS,
+});
 
-export const AdHocBillingRowSchema = datasetRowSchema(BillingBaseRowSchema, BILLING_LAYERS).describe(
+/** Every layer the billing dataset offers: its own, then the foreign ones. */
+export const BILLING_ALL_LAYERS: AdHocLayerMap = { ...BILLING_LAYERS, ...BILLING_FOREIGN_LAYERS };
+
+type BillingNativeRow = z.infer<typeof BillingBaseRowSchema> & LayerRowFields<typeof BILLING_LAYERS>;
+export type BillingForeignRowFields = Omit<LayerRowFields<typeof PATIENT_LAYERS>, keyof BillingNativeRow>;
+
+export type AdHocBillingRow = BillingNativeRow & BillingForeignRowFields;
+
+export const AdHocBillingRowSchema = datasetRowSchema(BillingBaseRowSchema, BILLING_ALL_LAYERS).describe(
   'One row per encounter (EHR-side visit payments & charges).'
 ) as unknown as z.ZodType<AdHocBillingRow>;
 
-export const AdHocBillingInputSchema = datasetInputSchema(BILLING_LAYERS);
-export type AdHocBillingInput = DatasetInput<typeof BILLING_LAYERS>;
+export const AdHocBillingInputSchema = datasetInputSchema(BILLING_ALL_LAYERS);
+export type AdHocBillingInput = DatasetInput<typeof BILLING_LAYERS> & Partial<Record<`include${string}`, boolean>>;
 
 export const AdHocBillingOutputSchema = z.object({
   rows: z.array(AdHocBillingRowSchema),

@@ -54,7 +54,10 @@ describe('billing-claims dataset fetch', () => {
     };
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({ ok: true, json: async () => ({ rows: [row] }) }))
+      vi.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new TextEncoder().encode(JSON.stringify({ rows: [row] })).buffer,
+      }))
     );
 
     const rows = await billingClaimsDataset.fetch({

@@ -4,10 +4,10 @@ import {
   AdHocEncountersOutput,
   ENCOUNTER_DOMAIN_FIELDS,
   ENCOUNTER_INTERNAL_FIELDS,
-  ENCOUNTER_LAYERS,
   EncounterBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocRow } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { layersForDataset } from 'utils/lib/types/adhoc/datasets/meta';
 import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { buildTrackingBoardPath } from '../../../pages/reports/trackingBoardLink';
@@ -15,7 +15,10 @@ import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/datas
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, FetchContext } from './types';
 
-export const ADHOC_ENCOUNTERS_OPTIONS: AdHocLayer[] = layerOptions(ENCOUNTER_LAYERS);
+// Own layers and the foreign `patients.*` ones (DATASET_META).
+const ENCOUNTER_ALL_LAYERS = layersForDataset('encounters-comprehensive');
+
+export const ADHOC_ENCOUNTERS_OPTIONS: AdHocLayer[] = layerOptions(ENCOUNTER_ALL_LAYERS);
 
 function localizeEncounterRow(row: AdHocEncounterRow): AdHocEncounterRow {
   return {
@@ -58,10 +61,11 @@ async function fetchAdHocEncounters({
 
 export const adhocEncountersDataset: AdHocDataset = {
   id: 'encounters-comprehensive',
+  rowKey: 'encounterId',
   label: 'Encounters',
   description: 'One row per encounter with visit, patient, contact, and location/provider detail.',
   options: ADHOC_ENCOUNTERS_OPTIONS,
-  layers: ENCOUNTER_LAYERS,
+  layers: ENCOUNTER_ALL_LAYERS,
   baseSchema: EncounterBaseRowSchema,
   internalFields: ENCOUNTER_INTERNAL_FIELDS,
   fetch: fetchAdHocEncounters,
@@ -73,7 +77,7 @@ export const adhocEncountersDataset: AdHocDataset = {
       description: 'One row per encounter — visit, patient, contact, location/provider, and any enabled layers.',
       rows,
       base: EncounterBaseRowSchema,
-      layers: ENCOUNTER_LAYERS,
+      layers: ENCOUNTER_ALL_LAYERS,
       selected: opts,
       internalFields: ENCOUNTER_INTERNAL_FIELDS,
       domainFields: ENCOUNTER_DOMAIN_FIELDS,

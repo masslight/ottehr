@@ -33,7 +33,7 @@ import {
   VisitPricingLineItem,
 } from 'utils/lib/helpers/rcm/visit-pricing';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
-import { AdHocBillingInput, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
+import { AdHocBillingInput, AdHocBillingRow, BILLING_FOREIGN_LAYERS } from 'utils/lib/types/adhoc/datasets/billing';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import {
@@ -54,6 +54,7 @@ import { mapResourceToChartDataResponse } from '../chart-data';
 import { fetchAllPages } from '../fhir';
 import { composeInsuranceData } from '../pdf/sections/insuranceInfo';
 import { eligibilityCheckFields, EligibilityCheckIndex, indexEligibilityChecks } from './eligibility-checks';
+import { fetchForeignPatientColumns, requestedForeignPatientLayers } from './foreign';
 import { fetchPatientAccounts } from './patient-accounts';
 
 const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
@@ -389,8 +390,19 @@ export async function fetchAdHocBillingRows(
     for (const p of procedures) pushTo(proceduresByEncId, stripRef(p.encounter?.reference, 'Encounter'), p);
   };
 
+  // The foreign patient layers (`patients.*`), for the patients of the visits.
+  let foreignColumns = new Map<string, Record<string, unknown>>();
+  const loadForeign = async (): Promise<void> => {
+    foreignColumns = await fetchForeignPatientColumns(oystehr, {
+      dateRange,
+      patients: Array.from(patientMap.values()),
+      foreign: BILLING_FOREIGN_LAYERS,
+      requested: requestedForeignPatientLayers(BILLING_FOREIGN_LAYERS, params),
+    });
+  };
+
   if (encRefs.length) {
-    await Promise.all([loadPayments(), loadCharges(), loadAccounts(), loadEligibility(), loadCodes()]);
+    await Promise.all([loadPayments(), loadCharges(), loadAccounts(), loadEligibility(), loadCodes(), loadForeign()]);
   }
 
   const hasChartTag = (resource: Resource, code: string): boolean =>
@@ -442,7 +454,7 @@ export async function fetchAdHocBillingRows(
 
     const row: AdHocBillingRow = {
       appointmentId: appointment.id || '',
-      encounterId: encounter.id,
+      encounterId: encounter.id ?? '',
       // RAW ISO instant — the server never zone-formats dates; the client dataset rewrites this
       // to the viewer-local yyyy-MM-dd day in the browser.
       date: start || '',
@@ -609,6 +621,7 @@ export async function fetchAdHocBillingRows(
       row.icdCodes = icdCodes;
     }
 
+    Object.assign(row, foreignColumns.get(row.patientId));
     rows.push(row);
   }
 

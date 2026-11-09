@@ -1,8 +1,14 @@
 // The encounters dataset: root → base rows, then every requested layer in parallel, each layer one module
 // (layers/*.ts) with its own fetch and map. Shared searches and by-id loaders live in the report context.
 import Oystehr from '@oystehr/sdk';
-import { AdHocEncounterRow, AdHocEncountersInput, EncounterLayerId } from 'utils/lib/types/adhoc/datasets/encounters';
+import {
+  AdHocEncounterRow,
+  AdHocEncountersInput,
+  ENCOUNTER_FOREIGN_LAYERS,
+  EncounterLayerId,
+} from 'utils/lib/types/adhoc/datasets/encounters';
 import { resolveEncounterAppointment } from '../../adhoc-report';
+import { fetchForeignPatientColumns, requestedForeignPatientLayers } from '../foreign';
 import { AnyEncounterLayerModule, createEncounterContext } from './context';
 import { aiLayer } from './layers/ai';
 import { chartingLayer } from './layers/charting';
@@ -81,9 +87,16 @@ export async function fetchAdHocEncounterRows(
 
   // 2. The base lookups and every requested layer, all at once: each needs only the root. The fetch helpers'
   //    job pool limits the requests, not the layers.
-  const [lookups, outs] = await Promise.all([
+  //    The foreign patient layers (`patients.*`) run with them, for the patients of the root.
+  const [lookups, outs, foreignColumns] = await Promise.all([
     fetchEncounterBaseLookups(oystehr, root),
     Promise.all(modules.map((module) => module.fetch(ctx))),
+    fetchForeignPatientColumns(oystehr, {
+      dateRange,
+      patients: Array.from(root.patientMap.values()),
+      foreign: ENCOUNTER_FOREIGN_LAYERS,
+      requested: requestedForeignPatientLayers(ENCOUNTER_FOREIGN_LAYERS, params),
+    }),
   ]);
 
   // 3. One row per encounter: the base, then each layer's columns.
@@ -105,6 +118,7 @@ export async function fetchAdHocEncounterRows(
     );
 
     modules.forEach((module, index) => Object.assign(row, module.map(input, outs[index], ctx)));
+    Object.assign(row, foreignColumns.get(row.patientId));
 
     rows.push(row);
   }

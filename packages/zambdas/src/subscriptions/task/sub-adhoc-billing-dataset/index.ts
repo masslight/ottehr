@@ -18,6 +18,7 @@ import {
 import { fetchAdHocClaimRows } from '../../../billing/adhoc/claims';
 import { fetchAdHocRuleRows } from '../../../billing/adhoc/rules';
 import { createBillingClient, createEraReadClient } from '../../../billing/shared';
+import { gzipReportJson } from '../../../shared/adhoc-report';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { validateOutputWithSchema } from '../../../shared/validate-zod';
 import { wrapTaskHandler } from '../helpers';
@@ -86,12 +87,12 @@ async function uploadJson(oystehr: Oystehr, secrets: Secrets, taskId: string, js
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
   const bucketName = `${projectId}-${BUCKET_NAMES.BILLING_CLAIM_EXPORTS}`;
-  const objectPath = `adhoc-billing-dataset-${taskId}.json`;
+  const objectPath = `adhoc-billing-dataset-${taskId}.json.gz`;
 
   await oystehr.z3.uploadFile({
     bucketName,
     'objectPath+': objectPath,
-    file: new Blob([json], { type: 'application/json' }),
+    file: gzipReportJson(json),
   });
 
   return { url: `${projectApi}/z3/${bucketName}/${objectPath}`, bucketName, objectPath };

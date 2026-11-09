@@ -11,15 +11,26 @@ export const toLocalYmd = (iso: string | null | undefined): string | null => {
 
 export const ADHOC_QUERY_STALE_MS = 5 * 60 * 1000;
 
+const isGzip = (bytes: Uint8Array): boolean => bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+
+/** The report data file: gzip from the report workers (inflated here), or plain JSON from an older Task. */
+export async function readReportDataBytes(bytes: Uint8Array): Promise<string> {
+  if (!isGzip(bytes)) return new TextDecoder().decode(bytes);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).text();
+}
+
 export async function downloadReportData<T>(downloadUrl: string): Promise<T> {
   const response = await fetch(downloadUrl);
   if (!response.ok) {
     throw new Error(`Report data download failed: ${response.status}`);
   }
-  return (await response.json()) as T;
+  return JSON.parse(await readReportDataBytes(new Uint8Array(await response.arrayBuffer()))) as T;
 }
 
-const ADHOC_POLL_INTERVAL_MS = 2000;
+// The first status check comes soon after the start (a small report is ready in about a second), then every second.
+const ADHOC_FIRST_POLL_MS = 500;
+const ADHOC_POLL_INTERVAL_MS = 1000;
 const ADHOC_TASK_WORKER_TIMEOUT_MS = 900 * 1000;
 const ADHOC_POLL_TIMEOUT_MS = ADHOC_TASK_WORKER_TIMEOUT_MS + 2 * 60 * 1000;
 
@@ -29,6 +40,8 @@ export async function pollAdHocTask<S extends { status: string; error?: string }
   { failedMessage, timeoutMessage }: { failedMessage: string; timeoutMessage: string }
 ): Promise<S> {
   const deadline = Date.now() + ADHOC_POLL_TIMEOUT_MS;
+
+  await new Promise((resolve) => setTimeout(resolve, ADHOC_FIRST_POLL_MS));
 
   while (Date.now() < deadline) {
     const status = await getStatus();

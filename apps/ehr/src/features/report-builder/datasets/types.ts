@@ -17,6 +17,8 @@ export interface AdHocDataset {
   id: string;
   label: string;
   description: string;
+  /** The base field that identifies a row; layer columns loaded later merge into the rows by it. */
+  rowKey: string;
   options?: AdHocLayer[];
   layers?: AdHocLayerMap;
   baseSchema?: z.ZodObject<z.ZodRawShape>;

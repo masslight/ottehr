@@ -4,13 +4,13 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   AdHocBillingInputSchema,
   AdHocBillingOutputSchema,
-  BILLING_LAYERS,
+  BILLING_ALL_LAYERS,
 } from 'utils/lib/types/adhoc/datasets/billing';
 import { layerIncludeFlags } from 'utils/lib/types/adhoc/datasets/dataset';
 import {
   AdHocEncountersInputSchema,
   AdHocEncountersOutputSchema,
-  ENCOUNTER_LAYERS,
+  ENCOUNTER_ALL_LAYERS,
 } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
   AdHocPatientsInputSchema,
@@ -56,7 +56,10 @@ async function buildOutputJson(
   const { datasetId, dateRange, options } = params;
   switch (datasetId) {
     case 'encounters-comprehensive': {
-      const input = AdHocEncountersInputSchema.parse({ dateRange, ...layerIncludeFlags(ENCOUNTER_LAYERS, options) });
+      const input = AdHocEncountersInputSchema.parse({
+        dateRange,
+        ...layerIncludeFlags(ENCOUNTER_ALL_LAYERS, options),
+      });
       const rows = await fetchAdHocEncounterRows(oystehr, input, { environment });
 
       const json = JSON.stringify(
@@ -74,7 +77,7 @@ async function buildOutputJson(
     }
 
     case 'billing': {
-      const input = AdHocBillingInputSchema.parse({ dateRange, ...layerIncludeFlags(BILLING_LAYERS, options) });
+      const input = AdHocBillingInputSchema.parse({ dateRange, ...layerIncludeFlags(BILLING_ALL_LAYERS, options) });
       const rows = await fetchAdHocBillingRows(oystehr, input, billingOystehr);
       const json = JSON.stringify(validateOutputWithSchema(AdHocBillingOutputSchema, { rows }, ZAMBDA_NAME));
       return { json, rowCount: rows.length };

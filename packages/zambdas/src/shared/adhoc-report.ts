@@ -31,6 +31,7 @@ import {
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { gzipSync } from 'zlib';
 import { ZambdaInput } from './types/common';
 import { safeJsonParse, safeValidate } from './validation';
 import { createPresignedUrl } from './z3Utils';
@@ -114,6 +115,14 @@ export async function adHocReportTaskStatus(
   return { status: task.status === 'in-progress' ? 'in-progress' : 'requested' };
 }
 
+/**
+ * The report data as stored in Z3: gzip, about 10–14 % of the JSON. The browser inflates it itself
+ * (DecompressionStream), so the stored object needs no Content-Encoding.
+ */
+export function gzipReportJson(json: string): Blob {
+  return new Blob([new Uint8Array(gzipSync(Buffer.from(json, 'utf8')))], { type: 'application/gzip' });
+}
+
 export async function uploadAdHocReportJsonToZ3(
   oystehr: Oystehr,
   secrets: Secrets | null,
@@ -122,12 +131,12 @@ export async function uploadAdHocReportJsonToZ3(
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
   const bucketName = `${projectId}-${BUCKET_NAMES.REPORTS}`;
-  const objectPath = `adhoc-report-${randomUUID()}.json`;
+  const objectPath = `adhoc-report-${randomUUID()}.json.gz`;
 
   await oystehr.z3.uploadFile({
     bucketName,
     'objectPath+': objectPath,
-    file: new Blob([json], { type: 'application/json' }),
+    file: gzipReportJson(json),
   });
 
   return `${projectApi}/z3/${bucketName}/${objectPath}`;
