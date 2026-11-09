@@ -2270,6 +2270,69 @@
           ]
         },
         {
+          "linkId": "patient-relationship-to-insured-other",
+          "type": "string",
+          "text": "Other relationship",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "payment-option",
+              "operator": "=",
+              "answerString": "I have insurance"
+            },
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "=",
+              "answerString": "Other"
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
+              "valueString": "Please specify..."
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "patient-relationship-to-insured"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "Other"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "payment-option"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "!="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueString": "I have insurance"
+                }
+              ]
+            }
+          ]
+        },
+        {
           "linkId": "display-secondary-insurance",
           "type": "boolean",
           "text": "Add secondary insurance",
@@ -2806,6 +2869,46 @@
                   "valueString": "Other"
                 }
               ]
+            },
+            {
+              "linkId": "patient-relationship-to-insured-other-2",
+              "type": "string",
+              "text": "Other relationship",
+              "required": false,
+              "enableWhen": [
+                {
+                  "question": "secondary-insurance.patient-relationship-to-insured-2",
+                  "operator": "=",
+                  "answerString": "Other"
+                }
+              ],
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                  "valueString": "hidden"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
+                  "valueString": "Please specify..."
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                  "extension": [
+                    {
+                      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                      "valueString": "secondary-insurance.patient-relationship-to-insured-2"
+                    },
+                    {
+                      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                      "valueString": "="
+                    },
+                    {
+                      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                      "valueString": "Other"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "Secondary insurance",
@@ -3064,6 +3167,46 @@
             },
             {
               "valueString": "Other"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-relationship-other",
+          "type": "string",
+          "text": "Other relationship",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "=",
+              "answerString": "Other"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
+              "valueString": "Please specify..."
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "responsible-party-relationship"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "Other"
+                }
+              ]
             }
           ]
         },

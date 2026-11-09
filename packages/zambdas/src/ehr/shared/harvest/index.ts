@@ -119,7 +119,11 @@ import {
 import { filterHiddenRemovableFields, isFieldExplicitlyCleared } from 'utils/lib/helpers/paperwork/paperwork';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { getConsentFormsForLocation } from 'utils/lib/ottehr-config/consent-forms';
-import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import {
+  RELATIONSHIP_OTHER_OPTION,
+  RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+  VALUE_SETS,
+} from 'utils/lib/ottehr-config/value-sets';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { ConsentSigner, DateComponents } from 'utils/lib/types/common';
 import { COVERAGE_ADDITIONAL_INFORMATION_URL, RESPONSIBLE_PARTY_NO_EMAIL_URL } from 'utils/lib/types/constants';
@@ -204,6 +208,7 @@ interface ResponsiblePartyContact {
   firstName: string;
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+  otherRelationship?: string;
   address: Address;
   email: string;
   number?: string;
@@ -233,6 +238,7 @@ interface PolicyHolder {
   lastName: string;
   memberId: string;
   relationship: SubscriberRelationship;
+  otherRelationship?: string;
 
   number?: string;
   email?: string;
@@ -1981,6 +1987,7 @@ const extractPolicyHolder = (
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
   const suffix = keySuffix ? `${keySuffix}` : '';
+  const relationship = findAnswer(`patient-relationship-to-insured${suffix}`) as SubscriberRelationship;
   const contact: any = {
     birthSex: findAnswer(`policy-holder-birth-sex${suffix}`) as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer(`policy-holder-date-of-birth${suffix}`) ?? '',
@@ -1990,7 +1997,11 @@ const extractPolicyHolder = (
     number: findAnswer(`policy-holder-number${suffix}`),
     email: findAnswer(`policy-holder-email${suffix}`),
     memberId: findAnswer(`insurance-member-id${suffix}`) ?? '',
-    relationship: findAnswer(`patient-relationship-to-insured${suffix}`) as SubscriberRelationship,
+    relationship,
+    otherRelationship:
+      relationship === RELATIONSHIP_TO_INSURED_OTHER_OPTION
+        ? findAnswer(`patient-relationship-to-insured-other${suffix}`)
+        : undefined,
   };
 
   const sameAsPatient = findBooleanAnswer(`policy-holder-address-as-patient${suffix}`) === true;
@@ -2059,17 +2070,15 @@ export function extractAccountGuarantor(
     };
   }
 
+  const relationship = findAnswer('responsible-party-relationship') as ResponsiblePartyContact['relationship'];
   const contact: ResponsiblePartyContact = {
     birthSex: findAnswer('responsible-party-birth-sex') as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer('responsible-party-date-of-birth') ?? '',
     firstName: findAnswer('responsible-party-first-name') ?? '',
     lastName: findAnswer('responsible-party-last-name') ?? '',
-    relationship: findAnswer('responsible-party-relationship') as
-      | 'Self'
-      | 'Spouse'
-      | 'Parent'
-      | 'Legal Guardian'
-      | 'Other',
+    relationship,
+    otherRelationship:
+      relationship === RELATIONSHIP_OTHER_OPTION ? findAnswer('responsible-party-relationship-other') : undefined,
     address: guarantorAddress,
     email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
@@ -2629,7 +2638,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
     payor: [{ reference: payorReference }],
     subscriberId: policyHolder.memberId,
-    relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship),
+    relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship, policyHolder.otherRelationship),
     class: [
       {
         type: {
@@ -3932,6 +3941,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
             display: guarantor.relationship,
           },
         ],
+        ...(guarantor.otherRelationship ? { text: guarantor.otherRelationship } : {}),
       },
     ],
   };

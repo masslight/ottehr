@@ -1224,7 +1224,7 @@ export interface CoverageSubscriberInput {
 }
 
 // CodeableConcept for Coverage.relationship.
-export const getSubscriberRelationshipCodeableConcept = (relationship: string): CodeableConcept => ({
+export const getSubscriberRelationshipCodeableConcept = (relationship: string, text?: string): CodeableConcept => ({
   coding: [
     {
       system: SUBSCRIBER_RELATIONSHIP_SYSTEM,
@@ -1232,6 +1232,7 @@ export const getSubscriberRelationshipCodeableConcept = (relationship: string): 
       display: relationship,
     },
   ],
+  ...(text ? { text } : {}),
 });
 
 // Build the RelatedPerson that represents a coverage's subscriber / policy holder. The clinical EHR

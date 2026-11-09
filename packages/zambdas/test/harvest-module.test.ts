@@ -1,8 +1,20 @@
 // cSpell:ignore rawAGQR1, rawPPHQR1, rawSPHQR1
 import { BatchInputPostRequest } from '@oystehr/sdk';
-import { Account, Coverage, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import {
+  Account,
+  Coverage,
+  Organization,
+  Patient,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  RelatedPerson,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ACCOUNT_TYPE_CODE_SYSTEM, COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils/lib/fhir/constants';
+import {
+  ACCOUNT_TYPE_CODE_SYSTEM,
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
+  SUBSCRIBER_RELATIONSHIP_SYSTEM,
+} from 'utils/lib/fhir/constants';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
 import { INSURANCE_PAY_OPTION } from 'utils/lib/ottehr-config/value-sets';
@@ -2986,6 +2998,93 @@ describe('Harvest Module', () => {
       items.push({ linkId: 'emergency-contact-middle-name', answer: [{ valueString: ' Mid ' }] });
       const contact = extractEmergencyContact(items);
       expect(contact).toMatchObject({ firstName: 'Em', middleName: 'Mid', lastName: 'Contact' });
+    });
+  });
+
+  describe('other relationship free text', () => {
+    const buildPolicyHolderItems = (relationship: string, suffix = ''): QuestionnaireResponseItem[] => [
+      { linkId: `policy-holder-first-name${suffix}`, answer: [{ valueString: 'Pat' }] },
+      { linkId: `policy-holder-last-name${suffix}`, answer: [{ valueString: 'Holder' }] },
+      { linkId: `policy-holder-date-of-birth${suffix}`, answer: [{ valueString: '1980-01-01' }] },
+      { linkId: `policy-holder-birth-sex${suffix}`, answer: [{ valueString: 'Female' }] },
+      { linkId: `insurance-member-id${suffix}`, answer: [{ valueString: 'MEM123' }] },
+      { linkId: `patient-relationship-to-insured${suffix}`, answer: [{ valueString: relationship }] },
+      { linkId: `patient-relationship-to-insured-other${suffix}`, answer: [{ valueString: ' Grandchild ' }] },
+    ];
+
+    const buildResponsiblePartyItems = (relationship: string): QuestionnaireResponseItem[] => [
+      { linkId: 'responsible-party-first-name', answer: [{ valueString: 'Jane' }] },
+      { linkId: 'responsible-party-last-name', answer: [{ valueString: 'Doe' }] },
+      { linkId: 'responsible-party-date-of-birth', answer: [{ valueString: '1980-01-01' }] },
+      { linkId: 'responsible-party-birth-sex', answer: [{ valueString: 'Female' }] },
+      { linkId: 'responsible-party-relationship', answer: [{ valueString: relationship }] },
+      { linkId: 'responsible-party-relationship-other', answer: [{ valueString: 'Grandparent' }] },
+    ];
+
+    const relationshipToInsuredLinkIds = ['patient-relationship-to-insured', 'patient-relationship-to-insured-2'];
+    const withOtherRelationshipToInsured = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[] =>
+      items.flatMap((item) => {
+        if (item.item) return [{ ...item, item: withOtherRelationshipToInsured(item.item) }];
+        if (!relationshipToInsuredLinkIds.includes(item.linkId)) return [item];
+        const suffix = item.linkId.replace('patient-relationship-to-insured', '');
+        return [
+          { ...item, answer: [{ valueString: 'Other' }] },
+          {
+            linkId: `patient-relationship-to-insured-other${suffix}`,
+            answer: [{ valueString: `Grandchild${suffix}` }],
+          },
+        ];
+      });
+
+    it('extracts the other relationship for primary and secondary policy holders when relationship is Other', () => {
+      expect(getPrimaryPolicyHolderFromAnswers(buildPolicyHolderItems('Other'), newPatient1)?.otherRelationship).toBe(
+        'Grandchild'
+      );
+      expect(
+        getSecondaryPolicyHolderFromAnswers(buildPolicyHolderItems('Other', '-2'), newPatient1)?.otherRelationship
+      ).toBe('Grandchild');
+    });
+
+    it('ignores a leftover other relationship when the policy holder relationship is not Other', () => {
+      expect(
+        getPrimaryPolicyHolderFromAnswers(buildPolicyHolderItems('Child'), newPatient1)?.otherRelationship
+      ).toBeUndefined();
+    });
+
+    it('writes the other relationship to Coverage.relationship.text', () => {
+      const { orderedCoverages } = getCoverageResources({
+        questionnaireResponse: {
+          ...questionnaireResponse1,
+          item: withOtherRelationshipToInsured(questionnaireResponse1.item ?? []),
+        },
+        patient: newPatient1,
+        organizationResources: organizations1,
+      });
+
+      expect(orderedCoverages.primary?.relationship).toEqual({
+        coding: [{ system: SUBSCRIBER_RELATIONSHIP_SYSTEM, code: 'other', display: 'Other' }],
+        text: 'Grandchild',
+      });
+      expect(orderedCoverages.secondary?.relationship?.text).toBe('Grandchild-2');
+    });
+
+    it('omits Coverage.relationship.text when relationship is not Other', () => {
+      expect(primary.relationship).not.toHaveProperty('text');
+      expect(secondary.relationship).not.toHaveProperty('text');
+    });
+
+    it('writes the responsible party other relationship to the guarantor relationship text', () => {
+      const guarantor = extractAccountGuarantor(buildResponsiblePartyItems('Other'), newPatient1);
+      assert(guarantor);
+      expect(guarantor.otherRelationship).toBe('Grandparent');
+      expect(createContainedGuarantor(guarantor, newPatient1.id!).relationship?.[0]?.text).toBe('Grandparent');
+    });
+
+    it('omits the guarantor relationship text when the responsible party relationship is not Other', () => {
+      const guarantor = extractAccountGuarantor(buildResponsiblePartyItems('Parent'), newPatient1);
+      assert(guarantor);
+      expect(guarantor.otherRelationship).toBeUndefined();
+      expect(createContainedGuarantor(guarantor, newPatient1.id!).relationship?.[0]).not.toHaveProperty('text');
     });
   });
 });

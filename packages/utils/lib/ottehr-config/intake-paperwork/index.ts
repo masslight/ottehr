@@ -16,6 +16,8 @@ import {
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
+  RELATIONSHIP_OTHER_OPTION,
+  RELATIONSHIP_TO_INSURED_OTHER_OPTION,
   SELF_PAY_OPTION,
   VALUE_SETS,
 } from '../value-sets';
@@ -972,6 +974,34 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
           ],
         },
+        patientRelationshipToInsuredOther: {
+          key: 'patient-relationship-to-insured-other',
+          label: 'Other relationship',
+          type: 'string',
+          placeholder: 'Please specify...',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['enable'],
+              operator: '=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+            {
+              targetQuestionLinkId: 'patient-relationship-to-insured',
+              effect: ['enable', 'require'],
+              operator: '=',
+              answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+            },
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['filter'],
+              operator: '!=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+          ],
+          enableBehavior: 'all',
+        },
         displaySecondaryInsurance: {
           key: 'display-secondary-insurance',
           label: 'Add secondary insurance',
@@ -1170,6 +1200,21 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               type: 'choice',
               options: valueSets.relationshipToInsuredOptions,
             },
+            patientRelationshipToInsuredOther: {
+              key: 'patient-relationship-to-insured-other-2',
+              label: 'Other relationship',
+              type: 'string',
+              placeholder: 'Please specify...',
+              disabledDisplay: 'hidden',
+              triggers: [
+                {
+                  targetQuestionLinkId: 'secondary-insurance.patient-relationship-to-insured-2',
+                  effect: ['enable', 'require'],
+                  operator: '=',
+                  answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+                },
+              ],
+            },
           },
           triggers: [
             {
@@ -1343,6 +1388,21 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           label: 'Relationship to the patient',
           type: 'choice',
           options: valueSets.relationshipOptions,
+        },
+        otherRelationship: {
+          key: 'responsible-party-relationship-other',
+          label: 'Other relationship',
+          type: 'string',
+          placeholder: 'Please specify...',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable', 'require'],
+              operator: '=',
+              answerString: RELATIONSHIP_OTHER_OPTION,
+            },
+          ],
         },
         firstName: {
           key: 'responsible-party-first-name',

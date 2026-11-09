@@ -136,7 +136,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldContentProps> = ({
     return null;
   }
 
-  let placeholder: string | undefined;
+  let placeholder = item.type !== 'display' && item.type !== 'group' ? item.placeholder : undefined;
   let mask: string | undefined;
   // ZIP stores the unmasked digits (matching what the backend persists and
   // returns), so IMaskInput's mount-time normalization round-trips cleanly
