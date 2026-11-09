@@ -2,7 +2,7 @@
   "name": "utils",
   "private": true,
   "type": "module",
-  "version": "1.47.2",
+  "version": "1.47.3",
   "sideEffects": false,
   "engines": {
     "node": ">=22.13.0",

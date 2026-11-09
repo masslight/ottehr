@@ -81,6 +81,7 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getClaimTypeCoding,
+  getPayerClaimControlNumber,
   getProviderLicense,
   getTaxonomy,
   prepareWorkingCopy,
@@ -513,15 +514,19 @@ const READERS: Record<string, FieldReader> = {
 
   ...coverageReaders('insurance', primaryCoverage),
   ...personReaders('policyHolder', policyHolder(primaryCoverage)),
+  'insurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'primary'),
 
   ...coverageReaders('secondaryInsurance', secondaryCoverage),
   ...personReaders('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
+  'secondaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'secondary'),
 
   ...coverageReaders('tertiaryInsurance', tertiaryCoverage),
   ...personReaders('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
+  'tertiaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'tertiary'),
 
   ...coverageReaders('quaternaryInsurance', quaternaryCoverage),
   ...personReaders('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
+  'quaternaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'quaternary'),
 
   'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
