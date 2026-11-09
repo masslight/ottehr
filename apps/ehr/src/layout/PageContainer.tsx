@@ -1,6 +1,7 @@
 import { Container, Typography } from '@mui/material';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
+import { DEFAULT_TAB_TITLE } from 'src/shared/utils/patientTabTitle';
 import { Sidebar, SidebarItem } from '../components/navigation/Sidebar';
 
 const { VITE_APP_ORGANIZATION_NAME_LONG: ORGANIZATION_NAME_LONG } = import.meta.env;
@@ -14,6 +15,8 @@ interface PageContainerProps {
   title?: string;
   children: ReactElement;
   showEnvFooter?: boolean;
+  /** Rendered full width above the page content, e.g. a sticky patient header. */
+  header?: ReactElement;
 }
 
 export default function PageContainer({
@@ -22,12 +25,24 @@ export default function PageContainer({
   title,
   children,
   showEnvFooter = true,
+  header,
 }: PageContainerProps): ReactElement {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  if (title != null || tabTitle != null) {
-    document.title = `${tabTitle != null ? tabTitle : title} | ${ORGANIZATION_NAME_LONG} EHR`;
-  }
+  const documentTitle =
+    title != null || tabTitle != null ? `${tabTitle ?? title} | ${ORGANIZATION_NAME_LONG} EHR` : undefined;
+
+  useEffect(() => {
+    if (!documentTitle) {
+      return;
+    }
+    document.title = documentTitle;
+    return () => {
+      if (document.title === documentTitle) {
+        document.title = DEFAULT_TAB_TITLE;
+      }
+    };
+  }, [documentTitle]);
 
   const container = (
     <Container sx={{ my: 5, maxWidth: '1600px !important' }}>
@@ -48,6 +63,7 @@ export default function PageContainer({
 
   return (
     <>
+      {header}
       {sidebarItems ? (
         <Sidebar sidebarItems={sidebarItems} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}>
           {container}

@@ -28,6 +28,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
 import { replaceOperation } from 'utils/lib/helpers/operations';
@@ -46,9 +47,12 @@ import {
 } from 'utils/lib/types/api/medication-administration.types';
 import { VITALS_RECHECK_NURSING_ORDER_NOTE } from 'utils/lib/types/data/orders/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
+import { fhirValidationErrorToApiError } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
+import { makeOrderDeleteRequests, makePendingRecheckCancelRequests } from '../../shared/medication-order-delete';
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
@@ -81,7 +85,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and clients.');
 
-  const response = await performEffect(oystehr, validatedParameters, practitionerId);
+  const billingOystehr = createBillingClient(m2mToken, validatedParameters.secrets);
+  let response: Awaited<ReturnType<typeof performEffect>>;
+  try {
+    response = await performEffect(oystehr, billingOystehr, validatedParameters, practitionerId);
+  } catch (error) {
+    throw fhirValidationErrorToApiError(error) ?? error;
+  }
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -90,11 +100,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(
   oystehr: Oystehr,
+  billingOystehr: Oystehr,
   params: UpdateMedicationOrderInput,
   practitionerIdCalledZambda: string
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
-  if (orderId && orderData) {
+  if (orderId && orderData && newStatus !== 'cancelled') {
     const orderResources = await getOrderResources(oystehr, orderId);
     // Captured before updateOrder writes the new status, so the vitals re-check can tell a real
     // transition into "administered" from a re-save of an already-administered order.
@@ -127,7 +138,13 @@ async function performEffect(
     };
   } else if (orderId && newStatus) {
     const orderResources = await getOrderResources(oystehr, orderId);
-    await changeOrderStatus(oystehr, orderResources, newStatus);
+    const { retainedCptCodes, billingReviewRequired } = await changeOrderStatus(
+      oystehr,
+      billingOystehr,
+      orderResources,
+      newStatus,
+      practitionerIdCalledZambda
+    );
 
     const encounterIdFromMA = getEncounterIdFromMA(orderResources.medicationAdministration);
     if (encounterIdFromMA) {
@@ -142,6 +159,8 @@ async function performEffect(
     return {
       message: 'Order status was changed successfully',
       id: orderId,
+      retainedCptCodes,
+      billingReviewRequired,
     };
   } else if (orderData) {
     const medicationAdministrationId = await createOrder(
@@ -202,6 +221,7 @@ async function updateOrder(
       administeredProviderId: newStatus !== undefined ? practitionerIdCalledZambda : undefined,
       orderedByProviderId: orderData.providerId,
       medicationResource: newMedicationCopy,
+      newStatus,
     });
   }
 
@@ -369,10 +389,17 @@ async function createOrder(
 
 async function changeOrderStatus(
   oystehr: Oystehr,
+  billingOystehr: Oystehr,
   pkg: OrderPackage,
-  newStatus: MedicationOrderStatusesType
-): Promise<MedicationAdministration> {
+  newStatus: MedicationOrderStatusesType,
+  practitionerId: string
+): Promise<{ retainedCptCodes: string[]; billingReviewRequired: boolean }> {
   console.log(`Changing status to: ${newStatus}`);
+
+  if (newStatus === 'cancelled' && mapFhirToOrderStatus(pkg.medicationAdministration) === 'cancelled') {
+    console.log(`Order ${pkg.medicationAdministration.id} is already cancelled, nothing to change`);
+    return { retainedCptCodes: [], billingReviewRequired: false };
+  }
 
   let operations: Operation[] = [];
 
@@ -396,22 +423,21 @@ async function changeOrderStatus(
     })
   );
 
-  // If we're cancelling a medication and there's a corresponding MedicationStatement, update its status to 'entered-in-error'
-  if (newStatus === 'cancelled' && pkg.medicationStatement && pkg.medicationStatement.id) {
-    transactionRequests.push(
-      getPatchBinary({
-        resourceType: 'MedicationStatement',
-        resourceId: pkg.medicationStatement.id,
-        patchOperations: [replaceOperation('/status', 'entered-in-error')],
-      })
-    );
-    console.log(`Adding MedicationStatement ${pkg.medicationStatement.id} status update to transaction`);
+  let retainedCptCodes: string[] = [];
+  let billingReviewRequired = false;
+  if (newStatus === 'cancelled') {
+    const [cleanup, recheckCancelRequests] = await Promise.all([
+      makeOrderDeleteRequests(oystehr, billingOystehr, pkg.medicationAdministration),
+      makePendingRecheckCancelRequests(oystehr, pkg.medicationAdministration, practitionerId),
+    ]);
+    transactionRequests.push(...cleanup.requests, ...recheckCancelRequests);
+    retainedCptCodes = cleanup.retainedCptCodes;
+    billingReviewRequired = cleanup.billingReviewRequired;
   }
 
-  const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
+  await oystehr.fhir.transaction({ requests: transactionRequests });
 
-  return transactionResult.entry?.find((entry) => entry.resource?.resourceType === 'MedicationAdministration')
-    ?.resource as MedicationAdministration;
+  return { retainedCptCodes, billingReviewRequired };
 }
 
 async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage> {
@@ -450,7 +476,7 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
     (res) => res.resourceType === 'MedicationStatement'
   ) as MedicationStatement;
 
-  const medicationRequestId = medicationAdministration.request?.reference?.split('/')[1];
+  const medicationRequestId = getIdFromReference(medicationAdministration.request?.reference);
   const medicationRequest = resources.find(
     (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
   ) as MedicationRequest;

@@ -29,6 +29,7 @@ import {
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
   VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
   VitalTemperatureObservationMethod,
 } from './chart-data.constants';
 import { GetChartDataResponse } from './get-chart-data.types';
@@ -167,6 +168,8 @@ export interface MedicationIntakeInfo {
   date?: string;
   dose?: string;
   patientCouldNotConfirmDosage?: boolean;
+  lastFilledDate?: string;
+  refills?: number;
 }
 
 export interface PrescribedMedicationDTO extends SaveableDTO {
@@ -316,9 +319,16 @@ export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   dotVisionScreening?: VitalsDotVisionScreening;
 }
 
+export interface VitalsSupplementalO2Details {
+  flowRate?: number;
+  deliveryType?: VitalsSupplementalO2DeliveryType;
+  deliveryTypeOther?: string;
+}
+
 export interface VitalsOxygenSatObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-oxygen-sat'>;
   observationMethod?: VitalsOxygenSatObservationMethod;
+  supplementalO2?: VitalsSupplementalO2Details;
 }
 
 export interface VitalsRespirationRateObservationDTO extends VitalsNumericValueObservationDTO {
@@ -441,6 +451,8 @@ export interface DiagnosisDTO extends SaveableDTO {
   display: string;
   isPrimary: boolean;
   addedViaLabOrder?: boolean;
+  /** Recorded only for diagnoses first created through procedure documentation. */
+  addedViaProcedure?: boolean;
 }
 
 export interface BirthHistoryDTO extends SaveableDTO {
@@ -612,6 +624,13 @@ export interface AccidentDTO extends SaveableDTO {
   date?: string;
   state?: string;
 }
+
+// Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
+export const ACCIDENT_TYPE_LABELS: Record<string, string> = {
+  AA: 'Auto Accident',
+  EM: 'Employment',
+  OA: 'Other Accident',
+};
 
 export interface MigrateExamDataInput {
   encounterId: string;

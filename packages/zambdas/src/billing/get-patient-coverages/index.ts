@@ -3,24 +3,28 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { RelatedPerson } from 'fhir/r4b';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
+import { GetPatientCoveragesInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingCoverageOption } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   createBillingClient,
   fetchPatientCoverages,
+  getGroupNumber,
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
-import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
+
+type GetPatientCoveragesParams = ValidatedZambdaInput<typeof GetPatientCoveragesInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-patient-coverages';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetPatientCoveragesInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -54,24 +58,29 @@ async function performEffect(
     records.map(({ coverage }) => coverage.payor?.[0]?.reference)
   );
 
-  const result = records.map(({ coverage, insuranceType, subscriber }): BillingCoverageOption => {
-    const payorRef = coverage.payor?.[0]?.reference;
-    const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+  const result = await Promise.all(
+    records.map(async ({ coverage, insuranceType, subscriber }): Promise<BillingCoverageOption> => {
+      const payorRef = coverage.payor?.[0]?.reference;
+      const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
 
-    return {
-      id: coverage.id,
-      status: coverage.status,
-      subscriberId: coverage.subscriberId ?? '',
-      payorName: payorOrg?.name ?? '',
-      payorId: resolvedPayerId(payorOrg) ?? '',
-      payorFhirId: payorOrg?.id ?? '',
-      insuranceType,
-      planType: getCoveragePlanType(coverage),
-      relationship: coverage.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
-      memberId: coverage.subscriberId ?? getMemberIdFromCoverage(coverage) ?? '',
-      policyHolder: extractPolicyHolder(subscriber),
-    };
-  });
+      const groupNumber = await getGroupNumber(oystehr, coverage, payersByRef);
+
+      return {
+        id: coverage.id,
+        status: coverage.status,
+        subscriberId: coverage.subscriberId ?? '',
+        payorName: payorOrg?.name ?? '',
+        payorId: resolvedPayerId(payorOrg) ?? '',
+        payorFhirId: payorOrg?.id ?? '',
+        insuranceType,
+        planType: getCoveragePlanType(coverage),
+        relationship: coverage.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
+        memberId: coverage.subscriberId ?? getMemberIdFromCoverage(coverage) ?? '',
+        groupNumber,
+        policyHolder: extractPolicyHolder(subscriber),
+      };
+    })
+  );
 
   return { coverages: result };
 }

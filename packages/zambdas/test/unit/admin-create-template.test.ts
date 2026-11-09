@@ -10,11 +10,14 @@ import { describe, expect, test } from 'vitest';
 import {
   deduplicateTemplateResourcesByMetaTag,
   filterEntriesToTemplateContent,
+  isDmeBillingCptLine,
+  isInHouseMedicationCptLine,
   isValidExternalLabServiceRequestForTemplate,
   isValidInHouseLabServiceRequest,
   isValidProcedureServiceRequest,
 } from '../../src/ehr/admin-create-template/index';
 import { isInHouseLabRepeatTestCptCode, TemplateEncounterResource } from '../../src/ehr/shared/template-helpers';
+import { DME_BILLED_ORDER_EXTENSION_URL } from '../../src/shared/dme';
 
 const makeDxCondition = (id: string, encounterId = 'enc-1'): Condition => ({
   resourceType: 'Condition',
@@ -589,5 +592,47 @@ describe('deduplicateTemplateResourcesByMetaTag', () => {
     };
     const result = deduplicateTemplateResourcesByMetaTag([enc]);
     expect(result.map((r) => r.id)).toEqual(['enc-1']);
+  });
+});
+
+describe('isInHouseMedicationCptLine', () => {
+  test('skips only CPT lines written by an in-house medication order, so vaccine and provider lines stay in the template', () => {
+    const cptLine = (partOf?: string): Procedure => ({
+      resourceType: 'Procedure',
+      status: 'completed',
+      subject: { reference: 'Patient/p1' },
+      meta: { tag: [{ system: chartDataTagSystem('cpt-code'), code: 'cpt-code' }] },
+      ...(partOf && { partOf: [{ reference: partOf }] }),
+    });
+    const inHouseMedicationOrderReferences = new Set(['MedicationAdministration/in-house']);
+
+    expect(
+      isInHouseMedicationCptLine(cptLine('MedicationAdministration/in-house'), inHouseMedicationOrderReferences)
+    ).toBe(true);
+    expect(
+      isInHouseMedicationCptLine(cptLine('MedicationAdministration/vaccine'), inHouseMedicationOrderReferences)
+    ).toBe(false);
+    expect(isInHouseMedicationCptLine(cptLine(), inHouseMedicationOrderReferences)).toBe(false);
+  });
+});
+
+describe('isDmeBillingCptLine', () => {
+  test("skips a DME order's billing lines even after a chart edit dropped their marker, and keeps other CPT lines", () => {
+    const cptLine = (id: string, extension?: Procedure['extension']): Procedure => ({
+      resourceType: 'Procedure',
+      id,
+      status: 'completed',
+      subject: { reference: 'Patient/p1' },
+      meta: { tag: [{ system: chartDataTagSystem('cpt-code'), code: 'cpt-code' }] },
+      ...(extension && { extension }),
+    });
+    const listedByOrder = new Set(['listed']);
+    const marked = cptLine('marked', [
+      { url: DME_BILLED_ORDER_EXTENSION_URL, valueReference: { reference: 'DeviceRequest/dr-1' } },
+    ]);
+
+    expect(isDmeBillingCptLine(cptLine('listed'), listedByOrder)).toBe(true);
+    expect(isDmeBillingCptLine(marked, new Set())).toBe(true);
+    expect(isDmeBillingCptLine(cptLine('manual'), listedByOrder)).toBe(false);
   });
 });

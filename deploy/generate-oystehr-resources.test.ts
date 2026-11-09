@@ -6,7 +6,10 @@ vi.mock('node:fs/promises');
 
 // FEATURE_FLAGS_CONFIG is a frozen compile-time constant, so tests toggle it through this
 // hoisted mutable object. Default off: existing tests describe the flag-off deploy path.
-const featureFlags = vi.hoisted(() => ({ customOrganizationsEnabled: false }));
+const featureFlags = vi.hoisted(() => ({
+  customOrganizationsEnabled: false,
+  ottehrBillingInvoicingEnabled: false,
+}));
 
 vi.mock('utils/lib/ottehr-config/branding', () => ({ BRANDING_CONFIG: { projectName: 'test-project' } }));
 vi.mock('utils/lib/ottehr-config/sendgrid', () => ({ SENDGRID_CONFIG: { templates: {} } }));
@@ -428,6 +431,13 @@ describe('generate-oystehr-resources', () => {
         expect(billingApp.login_redirect_uri).toBe('https://billing-local.ottehr.com');
         expect(billingApp.allowed_callback_urls).toEqual(['https://billing-local.ottehr.com']);
         expect(billingApp.name).toBe('Ottehr Billing');
+        expect(writtenJson('billing-output/apps.tf.json').locals.oystehr_application_OTTEHR_BILLING_config).toEqual(
+          billingApp
+        );
+        const coreApps = writtenJson('/output/apps.tf.json');
+        expect(coreApps.locals.oystehr_application_OTTEHR_CORE_config).toEqual(
+          coreApps.resource.oystehr_application.OTTEHR_CORE
+        );
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
         expect(billingSecret.value).toBe('');
         const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
@@ -455,6 +465,13 @@ describe('generate-oystehr-resources', () => {
         const billingApp = writtenJson('billing-output/apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
         expect(billingApp.login_redirect_uri).toBe('https://billing.example.com/');
         expect(billingApp.name).toBe('Ottehr Billing');
+        expect(writtenJson('billing-output/apps.tf.json').locals.oystehr_application_OTTEHR_BILLING_config).toEqual(
+          billingApp
+        );
+        const coreApps = writtenJson('/output/apps.tf.json');
+        expect(coreApps.locals.oystehr_application_OTTEHR_CORE_config).toEqual(
+          coreApps.resource.oystehr_application.OTTEHR_CORE
+        );
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
         expect(billingSecret.value).toBe('all');
         const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
@@ -548,6 +565,57 @@ describe('generate-oystehr-resources', () => {
         setupMocks({});
 
         await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();
+      });
+    });
+
+    describe('billing app invoicing guard', () => {
+      const minimalSpec = { 'schema-version': '2025-09-25', secrets: {} };
+      const setupMocks = (vars: VarsFile): void => {
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
+          if (String(dirPath) === '/config/oystehr') {
+            return [createMockDirent('spec.json', true)] as never;
+          }
+          return [];
+        });
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('spec.json')) return JSON.stringify(minimalSpec);
+          if (pathStr.includes('.env/')) return JSON.stringify(vars);
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+      };
+
+      beforeEach(() => {
+        featureFlags.ottehrBillingInvoicingEnabled = true;
+      });
+
+      afterEach(() => {
+        featureFlags.ottehrBillingInvoicingEnabled = false;
+      });
+
+      it.each(['ottehr', 'all'])('accepts BILLING_INTEGRATION=%s', async (value) => {
+        setupMocks({ BILLING_INTEGRATION: value, INVOICING_IN_BILLING_APP: 'true' });
+
+        await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();
+      });
+
+      it.each([['candid'], [undefined]])('rejects BILLING_INTEGRATION=%s', async (value) => {
+        setupMocks({ ...(value ? { BILLING_INTEGRATION: value } : {}), INVOICING_IN_BILLING_APP: 'true' });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
+          'Billing app invoicing needs Ottehr billing claims'
+        );
+      });
+
+      it('rejects INVOICING_IN_BILLING_APP without ottehrBillingInvoicingEnabled', async () => {
+        featureFlags.ottehrBillingInvoicingEnabled = false;
+        setupMocks({ BILLING_INTEGRATION: 'all', INVOICING_IN_BILLING_APP: 'true' });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
+          'ottehrBillingInvoicingEnabled is off'
+        );
       });
     });
   });

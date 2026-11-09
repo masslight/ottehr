@@ -1,41 +1,48 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { SearchChargeItemDefinitionsInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { vi } from 'vitest';
-import { performEffect } from '../../../src/billing/search-charge-item-definitions/index';
 import {
+  performEffect,
   SearchChargeItemDefinitionsParams,
-  validateRequestParameters,
-} from '../../../src/billing/search-charge-item-definitions/validateRequestParameters';
+} from '../../../src/billing/search-charge-item-definitions/index';
 import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../../../src/billing/shared';
+import { validateWithSchema } from '../../../src/shared/validation';
 
 describe('search-charge-item-definition', () => {
   describe('validation', () => {
     it('throws validation error on empty secrets', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: null })).toThrow(
-        expect.objectContaining(MISSING_REQUEST_SECRETS)
-      );
+      expect(() =>
+        validateWithSchema(SearchChargeItemDefinitionsInputSchema, { headers: null, body: '{}', secrets: null })
+      ).toThrow(expect.objectContaining(MISSING_REQUEST_SECRETS));
     });
     it('throws validation error on empty body', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: null, secrets: {} })).toThrow(
-        expect.objectContaining(MISSING_REQUEST_BODY)
-      );
+      expect(() =>
+        validateWithSchema(SearchChargeItemDefinitionsInputSchema, { headers: null, body: null, secrets: {} })
+      ).toThrow(expect.objectContaining(MISSING_REQUEST_BODY));
     });
     it('throws validation error on non-json body', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body'))
-      );
+      expect(() =>
+        validateWithSchema(SearchChargeItemDefinitionsInputSchema, { headers: null, body: 'some text', secrets: {} })
+      ).toThrow(expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body')));
     });
     it('throws validation error on missing required fields', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('Validation error: Required at "type"'))
-      );
+      expect(() =>
+        validateWithSchema(SearchChargeItemDefinitionsInputSchema, { headers: null, body: '{}', secrets: {} })
+      ).toThrow(expect.objectContaining(INVALID_INPUT_ERROR('Validation error: Required at "type"')));
     });
     it('throws validation error on invalid param types', async () => {
       const body = {
         type: 'purple-people-eater',
       };
-      expect(() => validateRequestParameters({ headers: null, body: JSON.stringify(body), secrets: {} })).toThrow(
+      expect(() =>
+        validateWithSchema(SearchChargeItemDefinitionsInputSchema, {
+          headers: null,
+          body: JSON.stringify(body),
+          secrets: {},
+        })
+      ).toThrow(
         expect.objectContaining(
           INVALID_INPUT_ERROR(
             "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\""
@@ -45,7 +52,7 @@ describe('search-charge-item-definition', () => {
     });
     it('succeeds with minimal input', async () => {
       const body = { type: 'charge-master' };
-      const input = validateRequestParameters({
+      const input = validateWithSchema(SearchChargeItemDefinitionsInputSchema, {
         headers: null,
         body: JSON.stringify(body),
         secrets: {},
@@ -54,7 +61,7 @@ describe('search-charge-item-definition', () => {
     });
     it('succeeds with maximal input', async () => {
       const body = { type: 'charge-master', name: 'test', offset: 20, pageSize: 10 };
-      const input = validateRequestParameters({
+      const input = validateWithSchema(SearchChargeItemDefinitionsInputSchema, {
         headers: null,
         body: JSON.stringify(body),
         secrets: {},

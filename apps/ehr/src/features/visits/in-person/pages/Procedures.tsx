@@ -57,6 +57,7 @@ export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: 
         await deleteChartData(
           {
             procedures: [procedureToDelete],
+            cleanupProcedureDiagnoses: true,
           },
           {
             onSuccess: async () => {
@@ -169,7 +170,7 @@ export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: 
                   <TableCell>
                     <Stack>
                       <Typography sx={{ fontSize: '14px' }}>
-                        {documentedDateTime != null ? documentedDateTime.toFormat('MM/dd/yyyy HH:mm a') : undefined}
+                        {documentedDateTime != null ? documentedDateTime.toFormat('MM/dd/yyyy hh:mm a') : undefined}
                       </Typography>
                       <Typography
                         sx={{ fontSize: '14px', color: '#00000099' }}

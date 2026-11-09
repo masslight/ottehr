@@ -1,4 +1,4 @@
-import { Attachment, Reference } from 'fhir/r4b';
+import { Attachment, QuestionnaireResponseItem, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
 import { isNioReferenceUrl } from '../../helpers/helpers';
@@ -142,5 +142,20 @@ export interface UpdateVisitFilesOutput {
 
 export interface DeleteVisitFilesInput {
   documentId: string;
+  patientId: string;
+}
+
+export interface UpdateVisitFormInput {
+  questionnaireResponseId: string;
+  /** The form being edited. A flow response is shared, so this is what says which pages are its own. */
+  questionnaireId: string;
+  patientId: string;
+  pages: QuestionnaireResponseItem[];
+  /** Values of the form's calculated items, worked out in the browser. See `PatchPaperworkParameters`. */
+  calculatedAnswers?: QuestionnaireResponseItem[];
+}
+
+export interface DeleteVisitFormInput {
+  questionnaireResponseId: string;
   patientId: string;
 }

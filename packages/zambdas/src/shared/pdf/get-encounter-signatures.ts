@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Practitioner, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ProgressNoteSignatures, SignatureProvenanceInfo } from './types';
 
 type SignatureRole = 'author' | 'verifier';
@@ -42,6 +43,13 @@ export const getEncounterSignatures = async (
       .map((practitioner) => [practitioner.id!, practitioner])
   );
 
+  return resolveEncounterSignatures(provenances, practitionerById);
+};
+
+export const resolveEncounterSignatures = (
+  provenances: Provenance[],
+  practitionerById: Map<string, Practitioner>
+): ProgressNoteSignatures => {
   const resolve = (role: SignatureRole): SignatureProvenanceInfo | undefined => {
     // Use the most recently recorded Provenance carrying this role.
     const provenance = provenances
@@ -49,7 +57,7 @@ export const getEncounterSignatures = async (
       .sort((a, b) => (b.recorded ?? '').localeCompare(a.recorded ?? ''))[0];
     if (!provenance) return undefined;
 
-    const practitionerId = getAgentForRole(provenance, role)?.who?.reference?.split('/')[1];
+    const practitionerId = getIdFromReference(getAgentForRole(provenance, role)?.who?.reference);
     const practitioner = practitionerId ? practitionerById.get(practitionerId) : undefined;
 
     return {

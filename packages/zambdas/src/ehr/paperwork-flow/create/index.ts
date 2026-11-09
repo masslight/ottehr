@@ -1,9 +1,9 @@
+import { randomBytes } from 'node:crypto';
 import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Coding, HealthcareService, Questionnaire } from 'fhir/r4b';
+import { HealthcareService, Questionnaire } from 'fhir/r4b';
 import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { slugify } from 'utils/lib/helpers/slugify';
 import { ServiceMode } from 'utils/lib/types/common';
 import { FlowService, PaperworkFlowBase } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
@@ -64,7 +64,7 @@ async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Pro
 async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void> {
   const { flow, flowServices, formQuestionnaires, flowQuestionnaires, services } = input;
 
-  const slug = await makeUniqueFlowSlug(oystehr, slugify(flow.name));
+  const slug = makeUniqueFlowSlug(flow.name);
 
   const ottehrManagedServices = flowServices.filter((s) => s.ottehrManagedService);
 
@@ -96,26 +96,12 @@ async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void
   await oystehr.fhir.transaction({ requests });
 }
 
-async function makeUniqueFlowSlug(oystehr: Oystehr, desired: string): Promise<string> {
-  const searchByTag = async (oystehr: Oystehr, tag: Coding): Promise<Questionnaire[]> => {
-    const { system, code } = tag;
+// create unique slug to ensure url is unique across all questionnaires
+function makeUniqueFlowSlug(desired: string): string {
+  const baseSlug = slugify(desired);
+  const suffix = randomBytes(3).toString('hex'); // e.g. "a3f9c1"
 
-    return getAllFhirSearchPages<Questionnaire>(
-      { resourceType: 'Questionnaire', params: [{ name: '_tag', value: `${system}|${code}` }] },
-      oystehr
-    );
-  };
-
-  const used = new Set(
-    (await searchByTag(oystehr, PAPERWORK_FLOW_TAG)).map((q) => q.url?.split('/').pop()).filter(Boolean)
-  );
-
-  const base = desired || 'flow';
-  if (!used.has(base)) return base;
-
-  let i = 2;
-  while (used.has(`${base}-${i}`)) i++;
-  return `${base}-${i}`;
+  return `${baseSlug}-${suffix}`;
 }
 
 function configFlowQuestionnaire(

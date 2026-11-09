@@ -8,6 +8,8 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   fetchById: vi.fn(),
 }));
 
+const SECRETS = { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' };
+
 function makeClient(): Oystehr {
   return {
     z3: {
@@ -25,11 +27,12 @@ describe('download-claim-attachment', () => {
       resourceType: 'DocumentReference',
       id: 'document-reference-id',
       status: 'current',
+      context: { related: [{ reference: 'Claim/claim-id' }] },
       content: [],
     });
     const oystehr = makeClient();
     await expect(() =>
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: {} })
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -42,6 +45,7 @@ describe('download-claim-attachment', () => {
       resourceType: 'DocumentReference',
       id: 'document-reference-id',
       status: 'current',
+      context: { related: [{ reference: 'Claim/claim-id' }] },
       content: [
         {
           attachment: {
@@ -53,7 +57,7 @@ describe('download-claim-attachment', () => {
     });
     const oystehr = makeClient();
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: {} })
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -66,6 +70,7 @@ describe('download-claim-attachment', () => {
       resourceType: 'DocumentReference',
       id: 'document-reference-id',
       status: 'current',
+      context: { related: [{ reference: 'Claim/claim-id' }] },
       content: [
         {
           attachment: {
@@ -78,7 +83,7 @@ describe('download-claim-attachment', () => {
     });
     const oystehr = makeClient();
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: {} })
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -86,15 +91,16 @@ describe('download-claim-attachment', () => {
       }
     `);
   });
-  it('succeeds deleting z3 object and doc ref, patches claim', async () => {
+  it('presigns a download of the claim attachment', async () => {
     (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
       resourceType: 'DocumentReference',
       id: 'document-reference-id',
       status: 'current',
+      context: { related: [{ reference: 'Claim/claim-id' }] },
       content: [
         {
           attachment: {
-            url: 'https://project-api.zapehr.com/v1/z3/some-bucket/some-path/File.pdf',
+            url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.pdf',
             contentType: 'application/pdf',
             title: 'File.pdf',
           },
@@ -106,14 +112,49 @@ describe('download-claim-attachment', () => {
       performEffect(oystehr, {
         claimId: 'claim-id',
         documentReferenceId: 'document-reference-id',
-        secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1' },
+        secrets: SECRETS,
       })
     ).resolves.toEqual({ downloadUrl: 'some-presigned-url' });
     expect(oystehr.z3.getPresignedUrl).toBeCalledTimes(1);
     expect(oystehr.z3.getPresignedUrl).toBeCalledWith({
-      bucketName: 'some-bucket',
-      'objectPath+': 'some-path/File.pdf',
+      bucketName: 'project-id-billing-app',
+      'objectPath+': 'claim-attachments/claim-id/File.pdf',
       action: 'download',
     });
+  });
+
+  it('refuses a document attached to another claim', async () => {
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
+      resourceType: 'DocumentReference',
+      id: 'document-reference-id',
+      status: 'current',
+      context: { related: [{ reference: 'Claim/other-claim' }] },
+      content: [
+        {
+          attachment: {
+            url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/other-claim/File.pdf',
+          },
+        },
+      ],
+    });
+    const oystehr = makeClient();
+    await expect(
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
+    ).rejects.toMatchObject({ message: 'DocumentReference document-reference-id is not attached to Claim/claim-id' });
+    expect(oystehr.z3.getPresignedUrl).not.toHaveBeenCalled();
+  });
+  it('refuses a file outside the claim folder of the billing app bucket', async () => {
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
+      resourceType: 'DocumentReference',
+      id: 'document-reference-id',
+      status: 'current',
+      context: { related: [{ reference: 'Claim/claim-id' }] },
+      content: [{ attachment: { url: 'https://project-api.zapehr.com/v1/z3/project-id-patient-photos/p1/File.pdf' } }],
+    });
+    const oystehr = makeClient();
+    await expect(
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
+    ).rejects.toMatchObject({ message: 'Invalid Z3 URL in DocumentReference document-reference-id' });
+    expect(oystehr.z3.getPresignedUrl).not.toHaveBeenCalled();
   });
 });

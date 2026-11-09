@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { orgIdMatchesReference } from 'utils/lib/helpers/helpers';
+import { findApplicableFeeSchedule } from 'utils/lib/helpers/rcm/visit-pricing';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, RCM_TAG_SYSTEM } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -36,62 +36,16 @@ export const index = wrapHandler(
 
     const allFeeSchedules = allResults.unbundle();
 
-    // Helper: given a set of org-filtered fee schedules, apply date + location filtering
-    const findBestMatch = (orgFeeSchedules: ChargeItemDefinition[]): ChargeItemDefinition | null => {
-      const dateFiltered = orgFeeSchedules
-        .filter((fs) => fs.date && fs.date <= dateOfService)
-        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-
-      if (dateFiltered.length === 0) return null;
-
-      if (locationId) {
-        const locationMatch = dateFiltered.find(
-          (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
-        );
-        if (locationMatch) return locationMatch;
-
-        // No location match — fall back to fee schedules with no location associations at all
-        const noLocationAssociations = dateFiltered.filter(
-          (fs) => !fs.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
-        );
-        return noLocationAssociations[0] ?? null;
-      }
-
-      return dateFiltered[0] ?? null;
-    };
-
-    // 1. If employer org provided, try employer-specific fee schedule first
-    if (employerOrganizationId) {
-      const employerFeeSchedules = allFeeSchedules.filter(
-        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
-      );
-      const employerMatch = findBestMatch(employerFeeSchedules);
-      if (employerMatch) {
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ feeSchedule: employerMatch }),
-        };
-      }
-    }
-
-    // 2. Fall back to payer (insurance) fee schedule
-    if (payerOrganizationId) {
-      const payerFeeSchedules = allFeeSchedules.filter(
-        (fs) => fs.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, payerOrganizationId))
-      );
-
-      const payerMatch = findBestMatch(payerFeeSchedules);
-      if (payerMatch) {
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ feeSchedule: payerMatch }),
-        };
-      }
-    }
+    const feeSchedule = findApplicableFeeSchedule(allFeeSchedules, {
+      payerOrganizationId,
+      dateOfService,
+      locationId,
+      employerOrganizationId,
+    });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ feeSchedule: null }),
+      body: JSON.stringify({ feeSchedule }),
     };
   }
 );

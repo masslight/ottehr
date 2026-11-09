@@ -4,6 +4,7 @@ import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { CustomDialog } from '../../../../../../components/dialogs/CustomDialog';
@@ -38,8 +39,7 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
   const isEditable = canEditMedication(medication);
   // Edit is available for pending (edit order) and completed (view/edit completed details)
   const showEdit = isEditable || isCompleted;
-  // Delete is available only for pending medications
-  const showDelete = isEditable;
+  const showDelete = medication.status !== 'cancelled';
 
   if (!showEdit && !showDelete) {
     return null;
@@ -58,7 +58,7 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
     setIsDeleting(true);
     setError(null);
     try {
-      await deleteMedication(medication.id);
+      enqueueOrderDeleteWarnings(await deleteMedication(medication.id));
       setIsDeleteDialogOpen(false);
     } catch (error) {
       const errorMessage = getApiError({

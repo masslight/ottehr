@@ -3,7 +3,8 @@ import { formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | undefined): string {
+  if (!iso) return '-';
   const date = DateTime.fromISO(iso, { zone: 'utc' });
   return date.isValid ? date.toFormat('MM/dd/yyyy') : iso;
 }
@@ -28,7 +29,6 @@ export function formatFacilityAddress(facility: ServiceFacilityItem | null): str
   return [facility.addressLine1, facility.addressLine2, facility.city, facility.state, zip].filter(Boolean).join(', ');
 }
 
-// Display names are "Last, First".
 export function splitDisplayName(name: string): { firstName: string; lastName: string } {
   const parts = name.split(', ');
   return { firstName: parts[1] ?? '', lastName: parts[0] ?? '' };
@@ -51,3 +51,6 @@ export function buildAddressInput(
   };
   return Object.keys(address).length ? address : undefined;
 }
+
+export const valueToText = (value: string | string[] | null | undefined): string =>
+  Array.isArray(value) ? value.join(', ') : value ?? '';

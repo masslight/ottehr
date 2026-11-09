@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { escapeTerraformTemplateSyntax } from './escape-terraform';
-import { Schema, SpecFile } from './schema';
+import { Schema, SpecFile, withConfigLocals } from './schema';
 
 export const VAR_REGEX = /#\{var\/([^}]+)\}/g;
 export const REF_REGEX = /#\{ref\/([^}/]+)\/([^}/]+)\/([^}]+)\}/g;
@@ -193,7 +193,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
       }
     }
     if (Object.keys(appResources.resource.oystehr_application).length) {
-      await fs.writeFile(appOutFile, JSON.stringify(appResources, null, 2));
+      await fs.writeFile(appOutFile, JSON.stringify(withConfigLocals(appResources), null, 2));
     } else {
       await fs.rm(appOutFile, { force: true });
     }

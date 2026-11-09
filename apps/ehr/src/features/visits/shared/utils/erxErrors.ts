@@ -71,3 +71,17 @@ export const getErxPatientSyncErrorMessage = (error: ErxError, phoneNumber?: str
   }
   return 'Something went wrong while trying to sync patient to eRx';
 };
+
+/**
+ * True when an eRx call failed because the patient has never been synced to the eRx provider, so the
+ * Patient resource carries no eRx identifier yet. Callers can recover by running `syncPatient` (which
+ * writes that identifier) and retrying. Like the sync errors above, this arrives under code `4006`, so
+ * the message text is the discriminator — matched loosely for the same reasons.
+ */
+export const isErxPatientNotSyncedError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const { code, message } = error as ErxError;
+  return String(code) === '4006' && /patient identifier/i.test(message ?? '');
+};

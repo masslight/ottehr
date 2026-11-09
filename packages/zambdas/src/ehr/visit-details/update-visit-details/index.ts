@@ -17,6 +17,7 @@ import {
   isScheduledFollowupEncounter,
 } from 'utils/lib/fhir/encounter';
 import { cleanUpStaffHistoryTag, getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
 import { extractNioIdFromReferenceUrl } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
@@ -60,7 +61,7 @@ interface EffectInput extends UpdateVisitDetailsValidatedInput {
   occupationalMedicineAccount?: Account;
 }
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
+export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
   const { patient, appointment, bookingDetails, user, encounter, workersCompAccount, occupationalMedicineAccount } =
     input;
 
@@ -90,22 +91,20 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     patchRequests.push(patientPatch);
   }
   if (bookingDetails.patientName) {
-    const {
-      first: patientFirstName,
-      middle: patientMiddleName,
-      last: patientLastName,
-      suffix: patientSuffix,
-    } = bookingDetails.patientName;
+    const patientFirstName = bookingDetails.patientName.first?.trim();
+    const patientMiddleName = bookingDetails.patientName.middle?.trim();
+    const patientLastName = bookingDetails.patientName.last?.trim();
+    const patientSuffix = bookingDetails.patientName.suffix?.trim();
     const patientPatchOps: Operation[] = [
       {
         op: 'replace',
         path: '/name/0/given/0',
-        value: patientFirstName?.trim(),
+        value: patientFirstName,
       },
       {
         op: 'replace',
         path: '/name/0/family',
-        value: patientLastName?.trim(),
+        value: patientLastName,
       },
     ];
 
@@ -114,7 +113,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
       patientPatchOps.push({
         op: 'add',
         path: '/name/0/given/1',
-        value: patientMiddleName?.trim(),
+        value: patientMiddleName,
       });
     } else if (!patientMiddleName && storedMiddleName) {
       patientPatchOps.push({
@@ -125,7 +124,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
       patientPatchOps.push({
         op: 'replace',
         path: '/name/0/given/1',
-        value: patientMiddleName?.trim(),
+        value: patientMiddleName,
       });
     }
 
@@ -299,8 +298,8 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
 
   if (bookingDetails.serviceCategory) {
     const newEncounterAccounts = (encounter.account ?? [])
-      .filter((reference) => reference.reference === 'Account/' + occupationalMedicineAccount?.id)
-      .filter((reference) => reference.reference === 'Account/' + workersCompAccount?.id);
+      .filter((reference) => reference.reference !== 'Account/' + occupationalMedicineAccount?.id)
+      .filter((reference) => reference.reference !== 'Account/' + workersCompAccount?.id);
 
     if (bookingDetails.serviceCategory.code === 'workers-comp' && workersCompAccount) {
       newEncounterAccounts.push({
@@ -511,7 +510,7 @@ export async function validateVisitEmployerSelection(oystehr: Oystehr, visitEmpl
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference a non-insurance organization');
   }
 
-  const organizationId = visitEmployer.reference?.split('/')[1];
+  const organizationId = getIdFromReference(visitEmployer.reference);
 
   if (!organizationId) {
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer.reference must be Organization/{id}');

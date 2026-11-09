@@ -3,7 +3,7 @@ import { Basic } from 'fhir/r4b';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/delete-billing-tag';
-import { DeleteBillingTagParams } from '../../../src/billing/delete-billing-tag/validateRequestParameters';
+import { DeleteBillingTagParams } from '../../../src/billing/delete-billing-tag/index';
 import { TAG_CODE_SYSTEM } from '../../../src/billing/shared';
 
 const search = vi.fn();
@@ -11,7 +11,7 @@ const batch = vi.fn();
 const deleteFn = vi.fn();
 const oystehr = { fhir: { search, batch, delete: deleteFn } } as unknown as Oystehr;
 
-const params: DeleteBillingTagParams = { tagId: 'tag-1', secrets: null } as DeleteBillingTagParams;
+const params: DeleteBillingTagParams = { tagId: 'tag-1', secrets: {} } as DeleteBillingTagParams;
 
 // Written onto seeded definitions by the releases that seeded system tags. Nothing writes or reads
 // it any more; it is still constructed here to pin that it never drives delete protection.

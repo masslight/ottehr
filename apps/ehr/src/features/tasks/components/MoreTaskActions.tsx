@@ -6,6 +6,7 @@ import { IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText,
 import React, { useState } from 'react';
 import { useAssignTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { EvolveUser } from 'src/hooks/useEvolveUser';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Task } from 'utils/lib/types/data/tasks/types';
 import { AssignTaskDialog } from './AssignTaskDialog';
 
@@ -24,7 +25,7 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
 
   const { mutateAsync: assignTask } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
-  const currentUserProviderId = currentUser?.profile?.split('/')[1];
+  const currentUserProviderId = getIdFromReference(currentUser?.profile);
 
   const closeMoreActionsPopover = (): void => {
     setMoreActionsPopoverData(null);
@@ -91,22 +92,19 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
                 </ListItemButton>
               </ListItem>
             )}
-            {!moreActionsPopoverData.task?.assignee?.id ||
-            moreActionsPopoverData.task.assignee.id === currentUserProviderId ? (
-              <ListItem disablePadding>
-                <ListItemButton
-                  onClick={() => {
-                    setTaskToAssign(moreActionsPopoverData.task);
-                    closeMoreActionsPopover();
-                  }}
-                >
-                  <ListItemIcon>
-                    <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                  </ListItemIcon>
-                  <ListItemText primary="Assign to someone else" />
-                </ListItemButton>
-              </ListItem>
-            ) : null}
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => {
+                  setTaskToAssign(moreActionsPopoverData.task);
+                  closeMoreActionsPopover();
+                }}
+              >
+                <ListItemIcon>
+                  <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                </ListItemIcon>
+                <ListItemText primary="Assign to someone else" />
+              </ListItemButton>
+            </ListItem>
           </List>
         </Popover>
       ) : null}

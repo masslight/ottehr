@@ -1,16 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Reference } from 'fhir/r4b';
+import { Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TIMEZONES } from 'utils/lib/types/constants';
+import { RecordBillingManualPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingManualPaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { practitionerRefForBillingUser } from '../clinical-practitioners';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } from '../payments';
-import { createBillingClient, fetchById } from '../shared';
-import { RecordBillingManualPaymentParams, validateRequestParameters } from './validateRequestParameters';
+import { createBillingClient } from '../shared';
+
+type RecordBillingManualPaymentParams = ValidatedZambdaInput<typeof RecordBillingManualPaymentInputSchema>;
 
 const ZAMBDA_NAME = 'record-billing-manual-payment';
 
@@ -23,24 +26,22 @@ interface ComplexValidationOutput extends RecordBillingManualPaymentParams {
 const complexValidation = async (
   input: ZambdaInput,
   params: RecordBillingManualPaymentParams,
-  token: string
+  oystehr: Oystehr
 ): Promise<ComplexValidationOutput> => {
   // TODO: Should every payment have a submitter?
   // For now we keep going if the caller has no profile or the lookup fails.
+  // The name is stamped on the reference so payment lists show who took it without a Practitioner lookup.
   let submitterRef: Reference | undefined;
   const authorization = input.headers?.Authorization;
   if (authorization) {
     try {
       const user = await getUser(authorization.replace('Bearer ', ''), params.secrets);
-      if (user.profile) submitterRef = { reference: user.profile };
+      // The billing client cannot read Practitioners, so the name comes from the EHR's zambda.
+      if (user.profile) submitterRef = await practitionerRefForBillingUser(user, oystehr);
     } catch (error) {
       console.log('could not resolve caller profile for submitter', error);
     }
   }
-
-  // The billing client cannot see Encounters, so check the ID before recording money against it.
-  const clinicalOystehr = createClinicalOystehrClient(token, params.secrets);
-  await fetchById<Encounter>(clinicalOystehr, 'Encounter', params.encounterId);
 
   return { ...params, submitterRef };
 };
@@ -80,12 +81,11 @@ const performEffect = async (
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(RecordBillingManualPaymentInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  const effectInput = await complexValidation(input, params, m2mToken);
-
-  const oystehr = createBillingClient(m2mToken, effectInput.secrets);
+  const oystehr = createBillingClient(m2mToken, params.secrets);
+  const effectInput = await complexValidation(input, params, oystehr);
   const response = await performEffect(oystehr, effectInput);
   return { statusCode: 200, body: JSON.stringify(response) };
 });

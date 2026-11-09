@@ -59,6 +59,31 @@ describe('deriveServiceModeFromPath', () => {
     });
   });
 
+  describe('walkin routes — explicit serviceMode query param', () => {
+    it('uses the explicit mode on /walkin/location and /walkin/schedule', () => {
+      expect(deriveServiceModeFromPath('/walkin/location/Asheville/select-service-category', 'virtual')).toBe(
+        'virtual'
+      );
+      expect(deriveServiceModeFromPath('/walkin/schedule/abc-123/select-service-category', 'virtual')).toBe('virtual');
+      expect(deriveServiceModeFromPath('/walkin/schedule/abc-123/select-service-category', 'in-person')).toBe(
+        'in-person'
+      );
+    });
+
+    it('falls back to the path-based default for a missing or unknown mode', () => {
+      expect(deriveServiceModeFromPath('/walkin/location/Asheville/select-service-category', null)).toBe('in-person');
+      expect(deriveServiceModeFromPath('/walkin/location/Asheville/select-service-category', 'bogus')).toBe(
+        'in-person'
+      );
+      expect(deriveServiceModeFromPath('/walkin/schedule/abc-123/select-service-category', 'bogus')).toBeUndefined();
+    });
+
+    it('ignores the param outside walk-in routes', () => {
+      expect(deriveServiceModeFromPath('/prebook/in-person/select-service-category', 'virtual')).toBe('in-person');
+      expect(deriveServiceModeFromPath('/start-virtual/select-service-category', 'in-person')).toBe('virtual');
+    });
+  });
+
   describe('unknown / unsupported paths', () => {
     it('returns undefined for a root path', () => {
       expect(deriveServiceModeFromPath('/')).toBeUndefined();

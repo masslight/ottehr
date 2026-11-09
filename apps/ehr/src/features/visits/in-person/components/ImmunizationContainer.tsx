@@ -34,5 +34,5 @@ function formatDateTime(dateTime: string | undefined): string {
   if (!dateTime) {
     return '';
   }
-  return DateTime.fromISO(dateTime)?.toFormat('MM/dd/yyyy HH:mm a');
+  return DateTime.fromISO(dateTime)?.toFormat('MM/dd/yyyy hh:mm a');
 }

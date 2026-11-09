@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 type FlagState = {
+  candid: boolean;
   billing: boolean;
 };
 
@@ -10,6 +11,7 @@ const loadNavGroups = async (
   vi.resetModules();
   vi.doMock('src/constants/feature-flags', () => ({
     FEATURE_FLAGS: {
+      CANDID_INVOICING_ENABLED: flags.candid,
       OTTEHR_BILLING_INVOICING_ENABLED: flags.billing,
     },
   }));
@@ -37,6 +39,7 @@ describe('admin nav invoicing gating', () => {
 
   it('shows only the candid entry, plainly labeled, when billing invoicing is off', async () => {
     const entries = await communicationsEntries({
+      candid: true,
       billing: false,
     });
     const candidEntry = entries.find((entry) => entry.path === '/admin/outreach/patient-invoices');
@@ -44,11 +47,23 @@ describe('admin nav invoicing gating', () => {
     expect(entries.map((entry) => entry.path)).not.toContain('/admin/outreach/patient-invoices-billing');
   });
 
-  it('shows both entries with source-suffixed labels when billing invoicing is on', async () => {
+  it('shows only the ottehr billing entry, plainly labeled, when candid invoicing is off', async () => {
     const entries = await communicationsEntries({
+      candid: false,
+      billing: true,
+    });
+    const billingEntry = entries.find((entry) => entry.path === '/admin/outreach/patient-invoices-billing');
+    expect(billingEntry?.label).toBe('Patient Invoicing');
+    expect(entries.map((entry) => entry.path)).not.toContain('/admin/outreach/patient-invoices');
+  });
+
+  it('shows both entries with source-suffixed labels when both invoicing sources are on', async () => {
+    const entries = await communicationsEntries({
+      candid: true,
       billing: true,
     });
     const paths = await communicationsPaths({
+      candid: true,
       billing: true,
     });
     expect(paths).toContain('/admin/outreach/patient-invoices');

@@ -3,10 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Coverage, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
 import { setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { UpdateBillingCoverageInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
@@ -21,7 +24,8 @@ import {
   setCoveragePayer,
   setCoverageRelationship,
 } from '../shared';
-import { UpdateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
+
+type UpdateBillingCoverageParams = ValidatedZambdaInput<typeof UpdateBillingCoverageInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'update-billing-coverage';
@@ -33,7 +37,7 @@ interface ComplexValidationResult {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(UpdateBillingCoverageInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -49,7 +53,7 @@ async function complexValidation(
   authorizationHeader: string | undefined
 ): Promise<ComplexValidationResult> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
-  const patientId = coverage.beneficiary?.reference?.split('/')[1];
+  const patientId = getIdFromReference(coverage.beneficiary?.reference);
   if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
   // Don't let this coverage take an insurance type another active coverage already holds.
@@ -88,14 +92,20 @@ export async function performEffect(
   coverage.status = 'active';
 
   const effectiveMemberId = params.memberId ?? coverage.subscriberId ?? '';
+  const effectiveGroupNumber = params.groupNumber ?? coverage.class?.[0]?.value ?? '';
   if (params.payerId) {
     // Re-pointing the payer rebuilds payor reference, coverage class, and the member-id identifier.
     const payerOrg = await resolvePayerOrganization(oystehr, params.payerId);
-    setCoveragePayer(coverage, payerOrg, effectiveMemberId);
+    setCoveragePayer(coverage, payerOrg, effectiveMemberId, effectiveGroupNumber);
     coverage.subscriberId = effectiveMemberId;
-  } else if (params.memberId !== undefined) {
-    coverage.subscriberId = params.memberId;
-    if (coverage.identifier?.[0]) coverage.identifier[0].value = params.memberId;
+  } else {
+    if (params.memberId !== undefined) {
+      coverage.subscriberId = params.memberId;
+      if (coverage.identifier?.[0]) coverage.identifier[0].value = params.memberId;
+    }
+    if (params.groupNumber !== undefined) {
+      if (coverage.class?.[0]) coverage.class[0].value = params.groupNumber;
+    }
   }
 
   // RelatedPerson create/update happens before the Coverage PUT; a delete happens after (so the
@@ -108,7 +118,7 @@ export async function performEffect(
   if (params.relationship) {
     setCoverageRelationship(coverage, params.relationship);
     const currentRef = coverage.subscriber?.reference;
-    currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
+    currentSubscriberId = getIdFromReference(currentRef, 'RelatedPerson');
 
     if (params.relationship === 'Self' || !params.policyHolder) {
       coverage.subscriber = { reference: `Patient/${patientId}` };

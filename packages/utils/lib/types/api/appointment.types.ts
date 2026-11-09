@@ -122,6 +122,7 @@ export interface UpdateAppointmentZambdaOutput {
 export interface WalkinAvailabilityCheckParams {
   scheduleId?: string;
   locationName?: string;
+  serviceMode?: ServiceMode;
 }
 
 export interface WalkinAvailabilityCheckResult {
@@ -134,6 +135,7 @@ export interface WalkinAvailabilityCheckResult {
   scheduleId: string;
   serviceMode?: ServiceMode;
 }
+
 export interface PatientAppointmentDTO {
   id: string;
   patientID: string;

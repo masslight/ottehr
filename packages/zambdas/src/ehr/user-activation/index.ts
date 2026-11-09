@@ -1,18 +1,20 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { captureException, captureMessage } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets } from 'utils/lib/secrets';
 import {
   ErxUnenrollmentOutcome,
   UserActivationZambdaInput,
+  UserActivationZambdaInputSchema,
   UserActivationZambdaOutput,
 } from 'utils/lib/types/api/user-activation.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
 
 export interface UserActivationZambdaInputValidated extends UserActivationZambdaInput {
   secrets: Secrets;
@@ -22,7 +24,7 @@ let oystehrToken: string;
 
 export const index = wrapHandler('user-activation', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(UserActivationZambdaInputSchema, input);
   const { userId, userActivationMode, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -182,7 +184,7 @@ async function unenrollPractitionerFromErx(user: User, oystehr: Oystehr): Promis
     console.log('user has no Practitioner profile; skipping eRx unenrollment', { userId: user.id, profile });
     return 'no-practitioner';
   }
-  const practitionerId = profile.split('/')[1];
+  const practitionerId = getIdFromReference(profile, 'Practitioner');
   if (!practitionerId) {
     console.log('malformed Practitioner profile reference; skipping eRx unenrollment', { userId: user.id, profile });
     return 'no-practitioner';
@@ -256,7 +258,7 @@ async function setPractitionerActive(user: User, active: boolean, oystehr: Oyste
     });
     return;
   }
-  const practitionerId = profile.split('/')[1];
+  const practitionerId = getIdFromReference(profile, 'Practitioner');
   if (!practitionerId) {
     const msg = `user-activation: malformed Practitioner profile reference; skipping .active sync`;
     console.warn(msg, { userId: user.id, profile });

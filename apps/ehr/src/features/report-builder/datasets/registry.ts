@@ -2,18 +2,33 @@ import { layerSchemas } from 'utils/lib/types/adhoc/datasets/dataset';
 import { llmFieldsFromZodObject } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { CatalogDataset } from 'utils/lib/types/adhoc/generation/infer.types';
 import { billingDataset } from './billing';
+import { billingClaimsDataset } from './billing-claims';
+import { billingRulesDataset } from './billing-rules';
 import { adhocEncountersDataset } from './encounters';
 import { patientsDataset } from './patients';
 import { AdHocDataset } from './types';
 
-export const AD_HOC_DATASETS: AdHocDataset[] = [adhocEncountersDataset, patientsDataset, billingDataset];
+export const AD_HOC_DATASETS: AdHocDataset[] = [
+  adhocEncountersDataset,
+  patientsDataset,
+  billingDataset,
+  billingClaimsDataset,
+  billingRulesDataset,
+];
 
 export function getDataset(id: string): AdHocDataset | undefined {
   return AD_HOC_DATASETS.find((d) => d.id === id);
 }
 
-export function otherDatasetsFor(id: string): { label: string; description: string }[] {
-  return AD_HOC_DATASETS.filter((d) => d.id !== id).map((d) => ({ label: d.label, description: d.description }));
+export function otherDatasetsFor(id: string): { id: string; label: string; description: string }[] {
+  return AD_HOC_DATASETS.filter((d) => d.id !== id).map((d) => ({
+    id: d.id,
+    label: d.label,
+    description: [
+      d.description,
+      ...(d.options ?? []).map((layer) => `${layer.label}${layer.description ? `: ${layer.description}` : ''}`),
+    ].join('; '),
+  }));
 }
 
 export function datasetCatalog(): CatalogDataset[] {

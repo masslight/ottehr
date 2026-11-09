@@ -1,16 +1,25 @@
 import Oystehr from '@oystehr/sdk';
-import { Basic } from 'fhir/r4b';
+import { Basic, Claim } from 'fhir/r4b';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { complexValidation } from '../../../src/billing/save-billing-tag';
-import { SaveBillingTagParams } from '../../../src/billing/save-billing-tag/validateRequestParameters';
+import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+import { resolveClaimActor } from '../../../src/billing/provenance';
+import { complexValidation, performEffect } from '../../../src/billing/save-billing-tag';
+import { SaveBillingTagParams } from '../../../src/billing/save-billing-tag/index';
 import { TAG_CODE_SYSTEM } from '../../../src/billing/shared';
+import { claimHistoryEntries, provenanceChanges, TEST_AGENT } from './claim-history-fixtures';
+
+vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveClaimActor: vi.fn(async () => TEST_AGENT),
+}));
 
 const search = vi.fn();
 const oystehr = { fhir: { search } } as unknown as Oystehr;
 
 const params = (name: string, tagId?: string): SaveBillingTagParams =>
-  ({ name, tagId, secrets: null }) as SaveBillingTagParams;
+  ({ name, tagId, secrets: {} }) as SaveBillingTagParams;
 
 const tagBasic = (id: string, name: string): Basic => ({
   resourceType: 'Basic',
@@ -63,5 +72,128 @@ describe('save-billing-tag complexValidation (system-managed tag names are reser
     };
     search.mockResolvedValue({ unbundle: () => [stale] });
     await expect(complexValidation(oystehr, params('Car crash', 'tag-2'))).resolves.toEqual(stale);
+  });
+});
+
+describe('save-billing-tag rename', () => {
+  const taggedClaim = (id: string): Claim =>
+    ({
+      resourceType: 'Claim',
+      id,
+      meta: {
+        versionId: '4',
+        tag: [
+          {
+            system: CLAIM_TAG_SYSTEM,
+            code: 'VIP',
+          },
+        ],
+      },
+    }) as Claim;
+
+  const makeRenameClient = (claims: Claim[]): { oystehr: Oystehr; transaction: Mock } => {
+    const transaction = vi.fn().mockResolvedValue({
+      entry: [],
+    });
+    return {
+      oystehr: {
+        fhir: {
+          patch: vi.fn().mockResolvedValue({}),
+          search: vi.fn().mockResolvedValue({
+            entry: [],
+            unbundle: () => claims,
+          }),
+          transaction,
+        },
+      } as unknown as Oystehr,
+      transaction,
+    };
+  };
+
+  const rename = (oystehr: Oystehr, name: string): Promise<unknown> =>
+    performEffect(
+      oystehr,
+      {
+        name,
+        tagId: 'tag-1',
+        secrets: {},
+        authorizationHeader: 'Bearer user-token',
+      } as SaveBillingTagParams & { authorizationHeader: string },
+      tagBasic('tag-1', 'VIP')
+    );
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it("records the rename in each retagged claim's history, by the biller who made it", async () => {
+    const { oystehr, transaction } = makeRenameClient([taggedClaim('claim-1'), taggedClaim('claim-2')]);
+
+    await rename(oystehr, 'Priority');
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+    const [entry] = claimHistoryEntries(transaction.mock.calls[0][0].requests);
+    expect(entry).toMatchObject({
+      target: [
+        {
+          reference: 'Claim/claim-1',
+        },
+      ],
+      activity: {
+        coding: [CLAIM_PROVENANCE_ACTIVITY.tagChange],
+      },
+      agent: [TEST_AGENT],
+    });
+    expect(provenanceChanges(entry)).toEqual([
+      {
+        field: 'tags',
+        label: 'Tags',
+        previousValue: 'VIP',
+        newValue: 'Priority',
+      },
+    ]);
+  });
+
+  it('locks each retagged claim to the version it was fetched at', async () => {
+    const { oystehr, transaction } = makeRenameClient([taggedClaim('claim-1')]);
+
+    await rename(oystehr, 'Priority');
+
+    const [patch] = transaction.mock.calls[0][0].requests;
+    expect(patch).toMatchObject({
+      method: 'PATCH',
+      url: '/Claim/claim-1',
+      ifMatch: 'W/"4"',
+      resource: {
+        resourceType: 'Binary',
+      },
+    });
+    expect(JSON.parse(atob(patch.resource.data))).toContainEqual({
+      op: 'add',
+      path: '/meta/tag',
+      value: [
+        {
+          system: CLAIM_TAG_SYSTEM,
+          code: 'Priority',
+        },
+      ],
+    });
+  });
+
+  it('reports a claim that failed to retag without undoing the others', async () => {
+    const { oystehr, transaction } = makeRenameClient([taggedClaim('claim-1'), taggedClaim('claim-2')]);
+    transaction.mockRejectedValueOnce(new Error('precondition failed'));
+
+    await expect(rename(oystehr, 'Priority')).rejects.toMatchObject({
+      message: 'Tag renamed but 1 claim(s) failed to update: claim-1',
+    });
+    expect(transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves claims and the caller alone when only the description changes', async () => {
+    const { oystehr, transaction } = makeRenameClient([taggedClaim('claim-1')]);
+
+    await rename(oystehr, 'VIP');
+
+    expect(resolveClaimActor).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

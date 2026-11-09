@@ -8,7 +8,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
 import { LocationScheduleSummary } from 'utils/lib/types/api/locations';
-import { buildPrebookModeLinks } from 'utils/lib/utils/scheduleUtils';
+import { buildPrebookModeLinks, buildWalkinModeLinks } from 'utils/lib/utils/scheduleUtils';
 
 const INTAKE_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
@@ -72,14 +72,17 @@ export function LocationBookingLinks({ location, schedules }: LocationBookingLin
       }))
     : [];
 
-  // One walk-in link per Schedule: the route is keyed to a Schedule id, and a Location may own
-  // several. `/walkin/location/:name` exists too but resolves by Location *name*, so any rename
-  // silently breaks previously-shared links — the Schedule-keyed form is the stable one.
-  const walkinLinks = schedules.map((schedule, index) => ({
-    label: schedules.length > 1 ? `Walk-in — ${scheduleLabel(schedule, index)}` : 'Walk-in',
-    url: `${INTAKE_URL}/walkin/schedule/${schedule.id}`,
-    key: `walkin-${schedule.id}`,
-  }));
+  // Walk-in links per Schedule and per enabled mode: the route is keyed to a Schedule id, and a
+  // Location may own several. `/walkin/location/:name` exists too but resolves by Location *name*, so
+  // any rename silently breaks previously-shared links — the Schedule-keyed form is the stable one.
+  // Each link pins its mode, so a Location that is both virtual and in-person gets one of each.
+  const walkinLinks = schedules.flatMap((schedule, index) =>
+    buildWalkinModeLinks({ scheduleId: schedule.id, isVirtual, isInPerson }).map((link) => ({
+      label: schedules.length > 1 ? `${link.label} — ${scheduleLabel(schedule, index)}` : link.label,
+      url: `${INTAKE_URL}${link.relativeUrl}`,
+      key: link.key,
+    }))
+  );
 
   const links = [...prebookLinks, ...walkinLinks];
 

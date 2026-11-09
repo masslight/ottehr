@@ -1,9 +1,12 @@
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
 import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
-import { QUESTIONNAIRE_RESPONSE_INVALID_ERROR } from 'utils/lib/types/errors';
+import {
+  QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
+} from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { validateSubmitInputs } from '../../../src/patient/paperwork/validateRequestParameters';
+import { validatePatchInputs, validateSubmitInputs } from '../../../src/patient/paperwork/validateRequestParameters';
 import { createMockZambdaInput } from './helpers';
 
 /**
@@ -217,6 +220,34 @@ describe('submit paperwork — conditional pages at the gate', () => {
     // missing signature cannot block the re-submission.
     const completed = primeQR({ ...VALID_STATE, signature: undefined, status: 'completed' });
     await expect(submit(completed)).resolves.toBeDefined();
+  });
+});
+
+// delete-visit-form soft-deletes a standalone form by setting its QuestionnaireResponse to
+// 'entered-in-error', and get-visit-details hides it on that status alone. A patient holding an
+// already-open form link would otherwise keep writing through these two endpoints — and submit
+// (plus patch-paperwork's consent-forms-page branch) moves the response back to 'completed',
+// resurrecting the deleted form on the visit with the patient's answers.
+describe('paperwork writes against a deleted form', () => {
+  test('submit is rejected once the form has been deleted', async () => {
+    const answers = primeQR({ ...VALID_STATE, status: 'entered-in-error' });
+    await expect(submit(answers)).rejects.toEqual(
+      QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('This form has been deleted and can no longer be submitted.')
+    );
+  });
+
+  test('a per-page patch is rejected once the form has been deleted', async () => {
+    primeQR({ ...VALID_STATE, status: 'entered-in-error' });
+    const patch = validatePatchInputs(
+      createMockZambdaInput({
+        answers: { linkId: CONTACT_PAGE, item: [answerOrBlank('first-name', 'Pat')] },
+        questionnaireResponseId: QR_ID,
+      }),
+      {} as never
+    );
+    await expect(patch).rejects.toEqual(
+      QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('This form has been deleted and can no longer be updated.')
+    );
   });
 });
 

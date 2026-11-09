@@ -2,7 +2,9 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
+  Checkbox,
   FormControl,
+  FormControlLabel,
   FormHelperText,
   Grid,
   InputLabel,
@@ -30,6 +32,7 @@ import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking
 import { SERVICE_CATEGORY_SYSTEM, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { SCHEDULED_FOLLOWUP_OTHER_REASON, SCHEDULED_FOLLOWUP_REASONS } from 'utils/lib/fhir/encounter';
 import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPhoneNumberDigits } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import {
@@ -43,7 +46,7 @@ import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/d
 import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { APIError, isApiError } from 'utils/lib/types/errors';
 import { getAppointmentDurationFromSlot, getTimezone } from 'utils/lib/utils/scheduleUtils';
-import { createAppointment, createSlot, getLocations, listServiceCategories } from '../api/api';
+import { createAppointment, createPatient, createSlot, getLocations, listServiceCategories } from '../api/api';
 import BookableSelect, { BookableMode, BookableTarget } from '../components/BookableSelect';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
@@ -131,7 +134,12 @@ export const getPostAppointmentSnackbar = ({
   return { message: 'Visit added successfully', variant: 'success' };
 };
 
-export default function AddPatient(): JSX.Element {
+interface AddPatientProps {
+  // creates only the patient, without visit fields
+  patientOnly?: boolean;
+}
+
+export default function AddPatient({ patientOnly = false }: AddPatientProps): JSX.Element {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const patientIdFromUrl = searchParams.get('patientId') ?? undefined;
@@ -181,6 +189,7 @@ export default function AddPatient(): JSX.Element {
     followUpState?.prefill?.serviceCategoryCode ?? defaultServiceCategory
   );
   const [slot, setSlot] = useState<Slot | undefined>();
+  const [showPastSlots, setShowPastSlots] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
     submit: false,
@@ -334,6 +343,20 @@ export default function AddPatient(): JSX.Element {
       }))
       .sort((a, b) => a.display.localeCompare(b.display));
   }, [mergedSourcedCategories, visitType]);
+
+  const slotListKey = visitType === VisitType.InPersonPostTelemed ? 'telemedAvailable' : 'available';
+
+  const isSlotPickerShown =
+    visitType === VisitType.InPersonPreBook ||
+    visitType === VisitType.InPersonPostTelemed ||
+    visitType === VisitType.VirtualScheduled;
+
+  const handleShowPastSlotsChange = (checked: boolean): void => {
+    setShowPastSlots(checked);
+    if (!checked && slot && DateTime.fromISO(slot.start) < DateTime.now()) {
+      setSlot(undefined);
+    }
+  };
 
   // Symmetric filter on the visit-type dropdown: when a service category is
   // picked first, only offer visit types the category actually supports. This
@@ -498,6 +521,11 @@ export default function AddPatient(): JSX.Element {
       return;
     }
 
+    if (patientOnly && patientInfo.id) {
+      navigate(`/patient/${patientInfo.id}`);
+      return;
+    }
+
     const validations: Array<{ invalid: boolean; field: keyof AddVisitErrorState }> = [
       // first name, last name, and phone are empty strings when untouched
       { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
@@ -511,11 +539,11 @@ export default function AddPatient(): JSX.Element {
         invalid: patientInfo.newPatient ? !birthDate : !patientInfo.dateOfBirth,
       },
       { field: 'sexAtBirth', invalid: !patientInfo.sex },
-      { field: 'visitType', invalid: !visitType },
-      { field: 'serviceCategory', invalid: !serviceCategory },
-      { field: 'location', invalid: !!visitType && !selectedBookable },
-      { field: 'reasonForVisit', invalid: shouldShowReasonForVisitFields && !reasonForVisit },
-      { field: 'otherReason', invalid: isOtherFollowUpReason && !otherReason.trim() },
+      { field: 'visitType', invalid: !patientOnly && !visitType },
+      { field: 'serviceCategory', invalid: !patientOnly && !serviceCategory },
+      { field: 'location', invalid: !patientOnly && !!visitType && !selectedBookable },
+      { field: 'reasonForVisit', invalid: !patientOnly && shouldShowReasonForVisitFields && !reasonForVisit },
+      { field: 'otherReason', invalid: !patientOnly && isOtherFollowUpReason && !otherReason.trim() },
     ];
     const fieldErrors = Object.fromEntries(validations.map((v) => [v.field, v.invalid]));
     setErrors((prev) => ({ ...prev, ...fieldErrors }));
@@ -523,12 +551,44 @@ export default function AddPatient(): JSX.Element {
       return;
     }
 
-    if (
-      (visitType === VisitType.InPersonPreBook ||
-        visitType === VisitType.InPersonPostTelemed ||
-        visitType === VisitType.VirtualScheduled) &&
-      slot === undefined
-    ) {
+    if (patientOnly) {
+      if (showFields.includes('PatientSearch')) {
+        setErrors({ search: true });
+        return;
+      }
+      if (!validDate) return;
+      if (!oystehrZambda) throw new Error('Zambda client not found');
+      setLoading(true);
+      try {
+        const { patientId } = await createPatient(oystehrZambda, {
+          patient: {
+            firstName: patientInfo.firstName,
+            middleName: patientInfo.middleName,
+            lastName: patientInfo.lastName,
+            dateOfBirth: patientInfo.dateOfBirth || birthDate?.toISODate() || undefined,
+            sex: patientInfo.sex,
+            phoneNumber: patientInfo.phoneNumber,
+          },
+        });
+        enqueueSnackbar('Patient added', { variant: 'success' });
+        navigate(`/patient/${patientId}/info`);
+      } catch (error) {
+        console.error(`Failed to add patient: ${error}`);
+        const errorMessage = isApiError(error)
+          ? (error as APIError).message
+          : 'An unexpected error occurred, please try again.';
+        enqueueSnackbar(errorMessage, { variant: 'error' });
+        setErrors({ submit: true });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const isSelectedSlotInPast = !!slot && DateTime.fromISO(slot.start) < DateTime.now();
+    const isSelectedSlotHidden = isSelectedSlotInPast && !showPastSlots;
+
+    if (isSlotPickerShown && (!slot || isSelectedSlotHidden)) {
       setSelectSlotDialogOpen(true);
       return;
     }
@@ -561,7 +621,7 @@ export default function AddPatient(): JSX.Element {
           timezone = getTimezone(selectedBookable.walkinSchedule ?? selectedBookable.rawLocation);
         } else {
           const candidate = locationWithSlotData?.available?.[0] ?? locationWithSlotData?.telemedAvailable?.[0];
-          walkinScheduleId = candidate?.slot.schedule?.reference?.split('/')[1];
+          walkinScheduleId = getIdFromReference(candidate?.slot.schedule?.reference);
           timezone = locationWithSlotData?.location?.timezone ?? 'UTC';
         }
         if (!walkinScheduleId) {
@@ -672,10 +732,17 @@ export default function AddPatient(): JSX.Element {
         <Grid item xs={3.5} />
         <Grid item xs={5}>
           <CustomBreadcrumbs
-            chain={[
-              { link: '/visits', children: 'Tracking Board' },
-              { link: '#', children: isScheduledFollowUp ? 'Add Scheduled Follow-up' : 'Add Visit' },
-            ]}
+            chain={
+              patientOnly
+                ? [
+                    { link: '/patients', children: 'Patients' },
+                    { link: '#', children: 'Add Patient' },
+                  ]
+                : [
+                    { link: '/visits', children: 'Tracking Board' },
+                    { link: '#', children: isScheduledFollowUp ? 'Add Scheduled Follow-up' : 'Add Visit' },
+                  ]
+            }
           />
 
           {/* page title */}
@@ -686,111 +753,116 @@ export default function AddPatient(): JSX.Element {
             color={'primary.dark'}
             data-testid={dataTestIds.addPatientPage.pageTitle}
           >
-            {isScheduledFollowUp ? 'Add Scheduled Follow-up Visit' : 'Add Visit'}
+            {patientOnly ? 'Add Patient' : isScheduledFollowUp ? 'Add Scheduled Follow-up Visit' : 'Add Visit'}
           </Typography>
 
           {/* form content */}
           <Paper>
             <form noValidate onSubmit={(e) => handleFormSubmit(e)}>
               <Stack spacing={2} padding={4}>
-                <FormControl fullWidth error={!!errors.visitType}>
-                  <InputLabel id="visit-type-label">Visit type *</InputLabel>
-                  <Select
-                    data-testid={dataTestIds.addPatientPage.visitTypeDropdown}
-                    labelId="visit-type-label"
-                    id="visit-type-select"
-                    value={visitType || ''}
-                    label="Visit type *"
-                    required
-                    onChange={(event) => {
-                      setSlot(undefined);
-                      setVisitType(event.target.value as VisitType);
-                    }}
-                  >
-                    {filteredVisitTypes.map((option) => (
-                      <MenuItem value={option.id} key={option.id}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.visitType && <FormHelperText>Visit type is required</FormHelperText>}
-                </FormControl>
+                {!patientOnly && (
+                  <>
+                    <FormControl fullWidth error={!!errors.visitType}>
+                      <InputLabel id="visit-type-label">Visit type *</InputLabel>
+                      <Select
+                        data-testid={dataTestIds.addPatientPage.visitTypeDropdown}
+                        labelId="visit-type-label"
+                        id="visit-type-select"
+                        value={visitType || ''}
+                        label="Visit type *"
+                        required
+                        onChange={(event) => {
+                          setSlot(undefined);
+                          setVisitType(event.target.value as VisitType);
+                        }}
+                      >
+                        {filteredVisitTypes.map((option) => (
+                          <MenuItem value={option.id} key={option.id}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {errors.visitType && <FormHelperText>Visit type is required</FormHelperText>}
+                    </FormControl>
 
-                <FormControl fullWidth error={!!errors.serviceCategory || isPickerEmpty}>
-                  <InputLabel id="service-category-label">Service *</InputLabel>
-                  <Select
-                    data-testid={dataTestIds.addPatientPage.serviceCategoryDropdown}
-                    labelId="service-category-label"
-                    id="service-category-select"
-                    value={serviceCategory || ''}
-                    label="Service *"
-                    required
-                    disabled={isPickerLocked}
-                    onChange={(event) => {
-                      setServiceCategory(event.target.value);
-                    }}
-                  >
-                    {filteredServiceCategories.map((sc) => (
-                      <MenuItem value={sc.code} key={sc.code}>
-                        {sc.display}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {isPickerEmpty ? (
-                    <FormHelperText>No services available — contact an administrator.</FormHelperText>
-                  ) : (
-                    errors.serviceCategory && <FormHelperText>Service is required</FormHelperText>
-                  )}
-                </FormControl>
+                    <FormControl fullWidth error={!!errors.serviceCategory || isPickerEmpty}>
+                      <InputLabel id="service-category-label">Service *</InputLabel>
+                      <Select
+                        data-testid={dataTestIds.addPatientPage.serviceCategoryDropdown}
+                        labelId="service-category-label"
+                        id="service-category-select"
+                        value={serviceCategory || ''}
+                        label="Service *"
+                        required
+                        disabled={isPickerLocked}
+                        onChange={(event) => {
+                          setServiceCategory(event.target.value);
+                          setSlot(undefined);
+                        }}
+                      >
+                        {filteredServiceCategories.map((sc) => (
+                          <MenuItem value={sc.code} key={sc.code}>
+                            {sc.display}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {isPickerEmpty ? (
+                        <FormHelperText>No services available — contact an administrator.</FormHelperText>
+                      ) : (
+                        errors.serviceCategory && <FormHelperText>Service is required</FormHelperText>
+                      )}
+                    </FormControl>
 
-                <BookableSelect
-                  dataTestId={dataTestIds.addPatientPage.bookableSelect}
-                  selected={selectedBookable}
-                  setSelected={(target) => {
-                    setSelectedBookable(target);
-                    // Reset slot when the target changes so we don't try to
-                    // book a slot belonging to a previously-picked target.
-                    setSlot(undefined);
-                    setLoadingSlotState({ status: 'initial', input: undefined });
-                  }}
-                  required
-                  disabled={!visitType}
-                  mode={
-                    visitType === VisitType.InPersonWalkIn ||
-                    visitType === VisitType.InPersonPreBook ||
-                    visitType === VisitType.InPersonPostTelemed
-                      ? [BookableMode.IN_PERSON]
-                      : [BookableMode.VIRTUAL]
-                  }
-                  // Location-rooted resolver mode: every option is anchored
-                  // to a Location (staff pick "the physical place"), but the
-                  // resolved target may be the Location itself OR a
-                  // Group/PR-direct surface at that Location that fulfills
-                  // the picked FHIR service. When a Location's own Schedule
-                  // covers the category, it's returned as-is; otherwise the
-                  // picker surfaces sub-options for the Group(s) / PR(s) at
-                  // the Location that offer the service. `selected.resourceType`
-                  // therefore isn't always 'Location' — the create-slot /
-                  // slot-loader downstream key off `resourceType` +
-                  // `atLocationSlug` to route to the right bookable surface.
-                  // See BookableSelect's `resourceTypes` prop docblock for
-                  // the full contract.
-                  resourceTypes={['Location']}
-                  serviceCategoryCode={serviceCategory || undefined}
-                  serviceCategoryFhirId={pickedCategoryFhirId}
-                  // Until the merged catalog resolves, an admin-created (FHIR) code has
-                  // no `pickedCategoryFhirId`, and without that id the resolver can't
-                  // admit the Group/PR tiers — a parent-seeded location would look
-                  // unsupported and be dropped before the id ever arrives.
-                  categoryFiltersReady={isCatalogLoaded}
-                  onLocationsLoaded={() => {
-                    // Side-load not strictly required by the new flow but kept
-                    // so existing callers that consumed setLocations stay
-                    // unaffected if they're added later.
-                  }}
-                  error={!!errors.location}
-                  helperText="Location is required"
-                />
+                    <BookableSelect
+                      dataTestId={dataTestIds.addPatientPage.bookableSelect}
+                      selected={selectedBookable}
+                      setSelected={(target) => {
+                        setSelectedBookable(target);
+                        // Reset slot when the target changes so we don't try to
+                        // book a slot belonging to a previously-picked target.
+                        setSlot(undefined);
+                        setLoadingSlotState({ status: 'initial', input: undefined });
+                      }}
+                      required
+                      disabled={!visitType}
+                      mode={
+                        visitType === VisitType.InPersonWalkIn ||
+                        visitType === VisitType.InPersonPreBook ||
+                        visitType === VisitType.InPersonPostTelemed
+                          ? [BookableMode.IN_PERSON]
+                          : [BookableMode.VIRTUAL]
+                      }
+                      // Location-rooted resolver mode: every option is anchored
+                      // to a Location (staff pick "the physical place"), but the
+                      // resolved target may be the Location itself OR a
+                      // Group/PR-direct surface at that Location that fulfills
+                      // the picked FHIR service. When a Location's own Schedule
+                      // covers the category, it's returned as-is; otherwise the
+                      // picker surfaces sub-options for the Group(s) / PR(s) at
+                      // the Location that offer the service. `selected.resourceType`
+                      // therefore isn't always 'Location' — the create-slot /
+                      // slot-loader downstream key off `resourceType` +
+                      // `atLocationSlug` to route to the right bookable surface.
+                      // See BookableSelect's `resourceTypes` prop docblock for
+                      // the full contract.
+                      resourceTypes={['Location']}
+                      serviceCategoryCode={serviceCategory || undefined}
+                      serviceCategoryFhirId={pickedCategoryFhirId}
+                      // Until the merged catalog resolves, an admin-created (FHIR) code has
+                      // no `pickedCategoryFhirId`, and without that id the resolver can't
+                      // admit the Group/PR tiers — a parent-seeded location would look
+                      // unsupported and be dropped before the id ever arrives.
+                      categoryFiltersReady={isCatalogLoaded}
+                      onLocationsLoaded={() => {
+                        // Side-load not strictly required by the new flow but kept
+                        // so existing callers that consumed setLocations stay
+                        // unaffected if they're added later.
+                      }}
+                      error={!!errors.location}
+                      helperText="Location is required"
+                    />
+                  </>
+                )}
 
                 {!isScheduledFollowUp && (
                   <AddVisitPatientInformationCard
@@ -812,7 +884,7 @@ export default function AddPatient(): JSX.Element {
                 )}
 
                 {/* Visit Information */}
-                {shouldShowReasonForVisitFields && (
+                {shouldShowReasonForVisitFields && !patientOnly && (
                   <Box marginTop={4}>
                     <Typography variant="h4" color="primary.dark">
                       Visit information
@@ -886,15 +958,12 @@ export default function AddPatient(): JSX.Element {
                         )}
                       </FormControl>
                     </Box>
-                    {(visitType === VisitType.InPersonPreBook ||
-                      visitType === VisitType.InPersonPostTelemed ||
-                      visitType === VisitType.VirtualScheduled) && (
+                    {isSlotPickerShown && (
                       <SlotPicker
-                        slotData={
-                          visitType === VisitType.InPersonPostTelemed
-                            ? locationWithSlotData?.telemedAvailable?.map((si) => si.slot)
-                            : locationWithSlotData?.available?.map((si) => si.slot)
-                        }
+                        key={`${selectedBookable?.slug}|${selectedBookable?.atLocationSlug ?? ''}|${
+                          serviceCategory ?? ''
+                        }|${slotListKey}`}
+                        slotData={locationWithSlotData?.[slotListKey]?.map((si) => si.slot)}
                         slotsLoading={loadingSlotState.status === 'loading'}
                         bookableSlug={selectedBookable?.slug}
                         bookableScheduleType={
@@ -904,7 +973,10 @@ export default function AddPatient(): JSX.Element {
                             ? ScheduleType.provider
                             : ScheduleType.location
                         }
+                        atLocationSlug={selectedBookable?.atLocationSlug}
                         serviceCategoryCode={serviceCategory as any}
+                        slotListKey={slotListKey}
+                        showPastSlots={showPastSlots}
                         timezone={locationWithSlotData?.location?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}
@@ -925,33 +997,58 @@ export default function AddPatient(): JSX.Element {
                       Please search for patients before adding
                     </Typography>
                   )}
-                  <LoadingButton
-                    data-testid={dataTestIds.addPatientPage.addButton}
-                    variant="contained"
-                    type="submit"
-                    loading={loading}
+                  <Box
                     sx={{
-                      borderRadius: 100,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      marginRight: 1,
+                      display: 'flex',
+                      flexWrap: 'wrap-reverse',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 2,
                     }}
                   >
-                    Add {visitType}
-                  </LoadingButton>
-                  <Button
-                    data-testid={dataTestIds.addPatientPage.cancelButton}
-                    sx={{
-                      borderRadius: 100,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                    }}
-                    onClick={() => {
-                      navigate('/visits');
-                    }}
-                  >
-                    Cancel
-                  </Button>
+                    <Box>
+                      <LoadingButton
+                        data-testid={dataTestIds.addPatientPage.addButton}
+                        variant="contained"
+                        type="submit"
+                        loading={loading}
+                        sx={{
+                          borderRadius: 100,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          marginRight: 1,
+                        }}
+                      >
+                        {patientOnly ? patientInfo?.id ? 'Open patient record' : 'Add patient' : <>Add {visitType}</>}
+                      </LoadingButton>
+                      <Button
+                        data-testid={dataTestIds.addPatientPage.cancelButton}
+                        sx={{
+                          borderRadius: 100,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                        }}
+                        onClick={() => {
+                          navigate(patientOnly ? '/patients' : '/visits');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </Box>
+                    {isSlotPickerShown && (
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={showPastSlots}
+                            onChange={(_, checked) => handleShowPastSlotsChange(checked)}
+                          />
+                        }
+                        label="Show past slots"
+                        sx={{ mr: 0 }}
+                      />
+                    )}
+                  </Box>
                 </Box>
               </Stack>
             </form>

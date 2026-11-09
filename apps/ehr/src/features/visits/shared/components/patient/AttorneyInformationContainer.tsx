@@ -1,8 +1,6 @@
 import { FC } from 'react';
-import { useFormContext } from 'react-hook-form';
-import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { useContactFields } from 'src/features/address-book/useContactFields';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
-import { AddressBookContact } from 'utils/lib/types/data/address-book';
 import { PatientRecordAddressBookField } from './PatientRecordAddressBookField';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
@@ -23,17 +21,14 @@ export const AttorneyInformationContainer: FC<AttorneyInformationContainerProps>
   encounterId,
 }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: attorneyInformation });
-  const { setValue } = useFormContext();
-
-  // Every field is set (to '' when the contact lacks it) so a re-pick leaves nothing stale.
-  const fillFromContact = (contact: AddressBookContact): void => {
-    const set = (item: { key: string }, value: string): void => setValue(item.key, value, { shouldDirty: true });
-    set(items.firstName, contact.firstName ?? '');
-    set(items.lastName, contact.lastName ?? '');
-    set(items.email, contact.email ?? '');
-    set(items.mobile, formatPhoneNumberDisplay(contact.phone));
-    set(items.fax, formatPhoneNumberDisplay(contact.fax));
-  };
+  const { onSelect, toContact } = useContactFields({
+    organizationName: items.firm.key,
+    firstName: items.firstName.key,
+    lastName: items.lastName.key,
+    email: items.email.key,
+    phone: items.mobile.key,
+    fax: items.fax.key,
+  });
 
   return (
     <PatientRecordFormSection
@@ -49,7 +44,8 @@ export const AttorneyInformationContainer: FC<AttorneyInformationContainerProps>
             hiddenFormFields={hiddenFields}
             requiredFormFields={requiredFields}
             tag="attorney"
-            onSelect={fillFromContact}
+            onSelect={onSelect}
+            toContact={toContact}
           />
         ) : (
           <PatientRecordFormField

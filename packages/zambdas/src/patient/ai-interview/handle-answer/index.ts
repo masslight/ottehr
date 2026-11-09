@@ -57,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   (questionnaireResponse.contained?.[0] as Questionnaire).item?.push({
     linkId: (parseInt(linkId) + 1).toString(),
-    text: chatbotResponse,
+    text: chatbotResponse.replace(INTERVIEW_COMPLETED, '').trim(),
     type: 'text',
   });
   if (chatbotResponse.includes(INTERVIEW_COMPLETED)) {

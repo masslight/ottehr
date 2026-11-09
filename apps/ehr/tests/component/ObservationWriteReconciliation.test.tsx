@@ -115,7 +115,7 @@ describe('Re-selecting a field that was just cleared', () => {
 
     const { result } = renderHook(() => useRosObservations());
 
-    // What "Clear ROS" and an unchecked "Select all" both send: value false with the resourceId.
+    // What "Clear ROS" and an unchecked "Denies all" both send: value false with the resourceId.
     act(() =>
       result.current.update([
         { field: 'ros-constitutional-fever-denies', label: 'Fever', value: false, resourceId: 'r-1' },

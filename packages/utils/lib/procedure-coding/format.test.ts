@@ -3,6 +3,7 @@ import {
   formatInfusionTimeRange,
   formatProcedureCptCode,
   formatStructuredFacts,
+  performerTypeDisplayLabel,
   repairDepthDisplayLabel,
 } from './format';
 import { PROCEDURE_NAMES } from './procedure-names';
@@ -11,6 +12,12 @@ describe('procedure coding display formatting', () => {
   it('formats known and unknown repair-depth values', () => {
     expect(repairDepthDisplayLabel('subcutaneous-layered')).toBe('Subcutaneous — layered closure');
     expect(repairDepthDisplayLabel('legacy-unknown-depth')).toBe('legacy-unknown-depth');
+  });
+
+  it('formats known and unknown performer types', () => {
+    expect(performerTypeDisplayLabel('Both')).toBe('Provider and healthcare staff');
+    expect(performerTypeDisplayLabel('Provider')).toBe('Provider');
+    expect(performerTypeDisplayLabel('Legacy performer')).toBe('Legacy performer');
   });
 
   it.each([

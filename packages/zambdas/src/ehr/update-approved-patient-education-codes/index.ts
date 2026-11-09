@@ -13,13 +13,24 @@ import {
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { ALREADY_EXISTS_WITH_MESSAGE } from 'utils/lib/types/errors';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { findConflictingApprovedEducationIcdCodes } from '../shared/approved-patient-education-helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+const icdCodeSchema = z.object({
+  code: z.string().min(1, 'Each icdCode must have a code'),
+  display: z.string(),
+});
+
+const updateApprovedPatientEducationCodesInputSchema: z.ZodType<UpdateApprovedPatientEducationCodesInput> = z.object({
+  documentReferenceId: z.string().min(1, 'documentReferenceId is required'),
+  icdCodes: z.array(icdCodeSchema).min(1, 'icdCodes must be a non-empty array'),
+});
 
 let m2mToken: string;
 
@@ -33,7 +44,7 @@ export const index = wrapHandler(
   'update-approved-patient-education-codes',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(updateApprovedPatientEducationCodesInputSchema, input);
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
       const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 

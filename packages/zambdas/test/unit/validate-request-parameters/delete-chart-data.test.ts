@@ -24,6 +24,18 @@ describe('delete-chart-data - validateRequestParameters', () => {
     expect(result).toHaveProperty('resourceId', 'res-456');
   });
 
+  test('accepts an explicit procedure cleanup flag without enabling it for legacy requests', () => {
+    expect(
+      validateRequestParameters(createMockZambdaInput({ encounterId: 'enc-123', cleanupProcedureDiagnoses: true }))
+    ).toHaveProperty('cleanupProcedureDiagnoses', true);
+    expect(validateRequestParameters(createMockZambdaInput({ encounterId: 'enc-123' }))).not.toHaveProperty(
+      'cleanupProcedureDiagnoses'
+    );
+    expect(() =>
+      validateRequestParameters(createMockZambdaInput({ encounterId: 'enc-123', cleanupProcedureDiagnoses: 'true' }))
+    ).toThrow('cleanupProcedureDiagnoses');
+  });
+
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { body: '' });
     expect(() => validateRequestParameters(input)).toThrow();

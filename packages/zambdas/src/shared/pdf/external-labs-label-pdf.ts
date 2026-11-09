@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { StandardFonts } from 'pdf-lib';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
-import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getPresignedURL, uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { LabelConfig } from 'utils/lib/types/common';
 import {
@@ -14,7 +14,7 @@ import {
 } from 'utils/lib/types/data/labs/labs.constants';
 import { ExternalLabsLabelConfig } from 'utils/lib/types/data/labs/labs.types';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
-import { createPresignedUrl, uploadObjectToZ3 } from './../z3Utils';
+import { createPresignedUrl } from './../z3Utils';
 import { getLabListResource } from './lab-pdf-utils';
 import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
 import { createPdfClient, PdfInfo } from './pdf-utils';

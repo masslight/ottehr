@@ -2,18 +2,18 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getClosingTime, getOpeningTime, isClosureOverride } from 'utils/lib/helpers/check-office-open';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { WalkinAvailabilityCheckParams, WalkinAvailabilityCheckResult } from 'utils/lib/types/api/appointment.types';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
-import { Closure, ServiceMode, Timezone } from 'utils/lib/types/common';
+import { ServiceMode, Timezone } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  SERVICE_MODE_NOT_AVAILABLE_ERROR,
 } from 'utils/lib/types/errors';
 import {
   getScheduleExtension,
@@ -27,6 +27,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
+import { computeWalkinAvailability } from './helpers';
 
 let oystehrToken: string;
 export const index = wrapHandler('check-availability', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -54,49 +55,14 @@ export const index = wrapHandler('check-availability', async (input: ZambdaInput
 });
 
 const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
-  const { scheduleExtension, serviceMode, timezone, scheduleOwnerName, scheduleId } = input;
-  // grab everything that is needed to perform the walkin availability check
+  const { scheduleExtension, serviceMode, timezone, scheduleOwnerName, scheduleId, scheduleOwner } = input;
   const timeNow = DateTime.now().setZone(timezone);
-  const tomorrow = timeNow.plus({ days: 1 });
-  const todayOpeningTime = getOpeningTime(scheduleExtension, timezone, timeNow);
-  const todayClosingTime = getClosingTime(scheduleExtension, timezone, timeNow);
+  const availability = computeWalkinAvailability({ scheduleExtension, timezone, timeNow, scheduleOwner });
 
-  const prebookStillOpenForToday =
-    todayOpeningTime !== undefined && (todayClosingTime === undefined || todayClosingTime > timeNow.plus({ hours: 1 }));
-
-  // todo: consider just sending the closures list and allow the client to check for closure overrides for whichever days
-  const officeHasClosureOverrideToday = isClosureOverride(scheduleExtension.closures ?? [], timezone, timeNow);
-  const officeHasClosureOverrideTomorrow = isClosureOverride(scheduleExtension.closures ?? [], timezone, tomorrow);
-
-  const officeOpen =
-    todayOpeningTime !== undefined &&
-    todayOpeningTime <= timeNow &&
-    (todayClosingTime === undefined || todayClosingTime > timeNow) &&
-    !officeHasClosureOverrideToday;
-
-  const walkinOpen = isWalkinOpen({
-    openingTime: todayOpeningTime,
-    closingTime: todayClosingTime,
-    closures: scheduleExtension.closures ?? [],
-    timezone,
-    timeNow,
-  });
-
-  console.log(
-    'officeOpen, walkinOpen, prebookStillOpenForToday, officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow',
-    officeOpen,
-    walkinOpen,
-    prebookStillOpenForToday,
-    officeHasClosureOverrideToday,
-    officeHasClosureOverrideTomorrow
-  );
+  console.log('walkin availability', JSON.stringify(availability));
 
   return {
-    officeOpen,
-    walkinOpen,
-    officeHasClosureOverrideTomorrow,
-    officeHasClosureOverrideToday,
-    prebookStillOpenForToday,
+    ...availability,
     serviceMode,
     scheduleOwnerName,
     scheduleId,
@@ -109,7 +75,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { scheduleId, locationName } = safeJsonParse(input.body);
+  const { scheduleId, locationName, serviceMode } = safeJsonParse(input.body);
 
   if (!scheduleId && !locationName) {
     throw INVALID_INPUT_ERROR('Either "scheduleId" or "scheduleName" must be provided');
@@ -123,7 +89,11 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw INVALID_INPUT_ERROR('"scheduleName" must be a string');
   }
 
-  return { scheduleId, locationName };
+  if (serviceMode !== undefined && !Object.values(ServiceMode).includes(serviceMode)) {
+    throw INVALID_INPUT_ERROR(`"serviceMode" must be one of: ${Object.values(ServiceMode).join(', ')}`);
+  }
+
+  return { scheduleId, locationName, serviceMode };
 };
 
 interface EffectInput {
@@ -132,9 +102,10 @@ interface EffectInput {
   scheduleOwnerName: string;
   scheduleId: string;
   serviceMode?: ServiceMode;
+  scheduleOwner?: ScheduleOwnerFhirResource;
 }
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { scheduleId, locationName } = input;
+  const { scheduleId, locationName, serviceMode: requestedServiceMode } = input;
 
   const params: SearchParam[] = [];
 
@@ -210,10 +181,22 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     }) as ScheduleOwnerFhirResource;
   }
 
-  let serviceMode: ServiceMode | undefined = undefined;
+  let serviceMode: ServiceMode | undefined = requestedServiceMode;
 
   if (scheduleOwner) {
-    serviceMode = getServiceModeFromScheduleOwner(scheduleOwner);
+    serviceMode = getServiceModeFromScheduleOwner(
+      scheduleOwner,
+      undefined,
+      requestedServiceMode ?? ServiceMode['in-person'] // walk-in links without an explicit mode prefer in-person to keep the In-Person Check-In home screen link working
+    );
+
+    if (requestedServiceMode && serviceMode !== requestedServiceMode) {
+      throw SERVICE_MODE_NOT_AVAILABLE_ERROR(
+        `${
+          requestedServiceMode === ServiceMode.virtual ? 'Virtual' : 'In-person'
+        } walk-in visits are not available at this location.`
+      );
+    }
   }
 
   const scheduleExtension = getScheduleExtension(schedule);
@@ -240,27 +223,12 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     throw new Error('Schedule ID could not be resolved');
   }
 
-  return { scheduleExtension, timezone, serviceMode, scheduleOwnerName, scheduleId: resolvedScheduleId };
+  return {
+    scheduleExtension,
+    timezone,
+    serviceMode,
+    scheduleOwnerName,
+    scheduleId: resolvedScheduleId,
+    scheduleOwner,
+  };
 };
-
-interface CheckWalkinOpenInput {
-  openingTime: DateTime | undefined;
-  closingTime: DateTime | undefined;
-  closures: Closure[];
-  timezone: Timezone;
-  timeNow: DateTime;
-  // this optional prop can be used to allow checking in for a walkin/ad-hoc appointment prior to the opening time
-  minutesWalkinAvailableBeforeOpening?: number;
-}
-
-function isWalkinOpen(input: CheckWalkinOpenInput): boolean {
-  const { openingTime, closingTime, closures, timezone, timeNow, minutesWalkinAvailableBeforeOpening = 0 } = input;
-  const officeHasClosureOverrideToday = isClosureOverride(closures, timezone, timeNow);
-
-  return (
-    openingTime !== undefined &&
-    openingTime.minus({ minute: minutesWalkinAvailableBeforeOpening }) <= timeNow &&
-    (closingTime === undefined || closingTime > timeNow) &&
-    !officeHasClosureOverrideToday
-  );
-}

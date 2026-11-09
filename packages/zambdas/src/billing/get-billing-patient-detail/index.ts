@@ -1,12 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient } from 'fhir/r4b';
+import { GetPatientDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { PatientDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { hasReachedPatientAr } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   fetchClaimResponsesByClaimIds,
   fetchPatientPaidByClaimId,
@@ -24,13 +26,15 @@ import {
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
-import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
+import { fetchWriteOffsByClaimIds, sumWriteOffs } from '../write-offs';
+
+type GetPatientDetailParams = ValidatedZambdaInput<typeof GetPatientDetailInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-patient-detail';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetPatientDetailInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -102,7 +106,7 @@ async function fetchPatientClaims(
     return bundle;
   }, 100);
 
-  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
+  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId, writeOffs] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
@@ -112,15 +116,18 @@ async function fetchPatientClaims(
       oystehr,
       claims,
     }),
+    fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
   ]);
 
-  const summaries = claims.map((c) =>
-    summarizeClaimPayments(
+  const summaries = claims.map((c) => {
+    const writeOffsTotal = sumWriteOffs(writeOffs.get(c.id ?? '') ?? []);
+    return summarizeClaimPayments(
       claimResponsesByClaimId.get(c.id ?? '') ?? [],
       c.total?.value ?? 0,
-      patientPaidByClaimId.get(c.id ?? '') ?? 0
-    )
-  );
+      patientPaidByClaimId.get(c.id ?? '') ?? 0,
+      writeOffsTotal
+    );
+  });
 
   const claimItems = claims.map((c, idx) => {
     const payments = summaries[idx];
@@ -134,6 +141,8 @@ async function fetchPatientClaims(
       insurancePaid: payments.insurancePaid,
       patientResp: payments.patientResp,
       patientPaid: payments.patientPaid,
+      writeOffsTotal: payments.writeOffsTotal,
+      claimBalance: payments.balance,
     };
   });
 

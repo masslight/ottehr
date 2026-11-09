@@ -2,10 +2,12 @@ import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Coverage } from 'fhir/r4b';
+import { CreateBillingCoverageInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import {
   BillingFhirResource,
@@ -17,13 +19,14 @@ import {
   getPatientAccounts,
   reconcileAccountsForCoverage,
 } from '../shared';
-import { CreateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
+
+type CreateBillingCoverageParams = ValidatedZambdaInput<typeof CreateBillingCoverageInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-billing-coverage';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(CreateBillingCoverageInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -75,6 +78,7 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     patientId: params.patientId,
     payerOrg,
     memberId: params.memberId,
+    groupNumber: params.groupNumber,
     // Coverage status is not part of the billing product model; every coverage is active.
     status: 'active',
     planType: params.planType,

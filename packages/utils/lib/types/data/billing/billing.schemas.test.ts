@@ -1,7 +1,14 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
-import { TAG_NAME_FORBIDDEN_CHARACTERS_ERROR } from './billing.constants';
-import { RecordBillingManualPaymentInputSchema, SaveBillingTagInputSchema } from './billing.schemas';
+import { BILLING_INVOICE_LIMITS, MANUAL_ERA_LIMITS, TAG_NAME_FORBIDDEN_CHARACTERS_ERROR } from './billing.constants';
+import {
+  AddEraAttachmentInputSchema,
+  RecordBillingManualPaymentInputSchema,
+  RenameEraAttachmentInputSchema,
+  SaveBillingTagInputSchema,
+  SearchBillingInvoicesInputSchema,
+  VoidBillingInvoiceInputSchema,
+} from './billing.schemas';
 import { SYSTEM_MANAGED_TAGS } from './system-tags';
 
 describe('SaveBillingTagInputSchema', () => {
@@ -71,5 +78,92 @@ describe('RecordBillingManualPaymentInputSchema', () => {
     ['future', DateTime.now().plus({ days: 2 }).toISO() ?? ''],
   ])('accepts a %s payment date', (_label, paymentDateISO) => {
     expect(RecordBillingManualPaymentInputSchema.safeParse({ ...base, paymentDateISO }).success).toBe(true);
+  });
+});
+
+describe('SearchBillingInvoicesInputSchema', () => {
+  it('takes NIO filters alongside the patient invoice filters', () => {
+    const input = {
+      status: 'issued',
+      searchText: 'Jane',
+      facilityId: 'facility-1',
+      issuedFrom: '2026-10-01',
+      issuedTo: '2026-10-31',
+      kind: 'nio',
+      recipientId: '4f4c1f5e-7f2f-4b7a-9a89-2f4f3a2f1b0c',
+    };
+
+    expect(SearchBillingInvoicesInputSchema.safeParse(input).data).toEqual(input);
+  });
+
+  it('takes a single-day window', () => {
+    expect(
+      SearchBillingInvoicesInputSchema.safeParse({
+        issuedFrom: '2026-10-01',
+        issuedTo: '2026-10-01',
+      }).success
+    ).toBe(true);
+  });
+
+  it.each([
+    ['an unknown kind', { kind: 'employer' }],
+    ['entered-in-error', { status: 'entered-in-error' }],
+    ['drafts', { status: 'draft' }],
+    ['more than one status', { status: ['issued', 'balanced'] }],
+    ['a date time', { issuedFrom: '2026-10-01T00:00:00Z' }],
+    [
+      'a window that ends before it starts',
+      {
+        issuedFrom: '2026-10-31',
+        issuedTo: '2026-10-01',
+      },
+    ],
+    ['a recipient that is not an id', { recipientId: 'fedex' }],
+  ])('rejects %s', (_label, input) => {
+    expect(SearchBillingInvoicesInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('VoidBillingInvoiceInputSchema', () => {
+  const invoiceId = '4f4c1f5e-7f2f-4b7a-9a89-2f4f3a2f1b0c';
+  const longest = 'r'.repeat(BILLING_INVOICE_LIMITS.voidReasonLength);
+
+  it('takes a reason up to the limit, and no longer', () => {
+    expect(
+      VoidBillingInvoiceInputSchema.safeParse({
+        invoiceId,
+        reason: longest,
+      }).success
+    ).toBe(true);
+    expect(
+      VoidBillingInvoiceInputSchema.safeParse({
+        invoiceId,
+        reason: `${longest}r`,
+      }).success
+    ).toBe(false);
+  });
+
+  it.each([undefined, '', '   '])('requires a reason, rejecting %j', (reason) => {
+    expect(
+      VoidBillingInvoiceInputSchema.safeParse({
+        invoiceId,
+        reason,
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('ERA attachment names', () => {
+  const longest = 'n'.repeat(MANUAL_ERA_LIMITS.attachmentNameLength);
+  it.each([
+    ['added', (name: string) => AddEraAttachmentInputSchema.safeParse({ eraId: 'era-1', name, fileName: 'scan.pdf' })],
+    [
+      'renamed',
+      (name: string) =>
+        RenameEraAttachmentInputSchema.safeParse({ eraId: 'era-1', documentReferenceId: 'doc-1', name }),
+    ],
+  ])('can be as long when %s, and no longer', (_when, parse) => {
+    expect(parse(longest).success).toBe(true);
+    expect(parse(`${longest}n`).success).toBe(false);
   });
 });

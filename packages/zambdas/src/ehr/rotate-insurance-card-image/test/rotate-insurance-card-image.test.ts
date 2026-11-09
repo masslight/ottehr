@@ -2,14 +2,14 @@ import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { Jimp } from 'jimp';
-import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getPresignedURL, uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction } from 'utils/lib/types/data/documents';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { ZambdaInput } from '../../../shared/types/common';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../../shared/z3Utils';
+import { createPresignedUrl } from '../../../shared/z3Utils';
 import { isRedAt, makeOrientedSceneJpeg } from '../../extract-insurance-card/test/image-fixtures';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -35,7 +35,6 @@ vi.mock('../../../shared/z3Utils', async (importOriginal) => {
   return {
     ...actual,
     createPresignedUrl: vi.fn(),
-    uploadObjectToZ3: vi.fn(),
   };
 });
 
@@ -44,11 +43,12 @@ vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) =
   return {
     ...actual,
     getPresignedURL: vi.fn(),
+    uploadObjectToZ3: vi.fn(),
   };
 });
 
 const DOC_REF_ID = '0a4f6f4e-2e1f-4a3b-9d5c-8e7f6a5b4c3d';
-const Z3_URL = 'https://project-api.zapehr.com/v1/z3/insurance-cards-bucket/patient-1/insurance-card-front.jpg';
+const Z3_URL = 'https://project-api.zapehr.com/v1/z3/test-project-insurance-cards/patient-1/insurance-card-front.jpg';
 const PRESIGNED_URL = 'https://signed.example.com/insurance-card-front.jpg';
 const PRESIGNED_UPLOAD_URL = 'https://signed.example.com/insurance-card-front.jpg?upload';
 
@@ -60,6 +60,8 @@ const IMAGE_BYTES = await makeOrientedSceneJpeg(1, SCENE_W, SCENE_H);
 
 const SECRETS = {
   AUTH0_AUDIENCE: 'https://api.zapehr.com',
+  PROJECT_API: 'https://project-api.zapehr.com/v1',
+  PROJECT_ID: 'test-project',
   ENVIRONMENT: 'local',
 };
 

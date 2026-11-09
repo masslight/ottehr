@@ -18,7 +18,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers/helpers';
+import { formatZipcodeForDisplay, isValidErxPhoneNumber } from '../helpers/helpers';
 import { RelatedPersonMaps } from '../types/api/messaging.types';
 import {
   PROVIDER_NOTIFICATION_METHOD_URL,
@@ -47,6 +47,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
 } from './constants';
 import { filterResources, getAllPractitionerCredentials, getCoding } from './helpers';
+import { getIdFromReference } from './reference';
 
 // Return true if a new user
 export async function createUserResourcesForPatient(
@@ -339,6 +340,9 @@ export function getLastName(
   return individual?.name?.[0]?.family;
 }
 
+export const getMergedIntoPatientReference = (patient: Patient): string | undefined =>
+  patient.active === false ? patient.link?.find((link) => link.type === 'replaced-by')?.other?.reference : undefined;
+
 export function getNickname(individual: Patient | Practitioner | RelatedPerson | Person): string | undefined {
   return individual.name?.[1]?.given?.[0];
 }
@@ -442,7 +446,7 @@ export const findPatientForAppointment = (appointment: Appointment, patients: Pa
 export const findPatientForEncounter = (encounter: Encounter, patients: Patient[]): Patient | undefined => {
   const patientRef = encounter.participant?.find((part) => part.individual?.reference?.includes('Patient/'))?.individual
     ?.reference;
-  const patientId = removePrefix('Patient/', patientRef ?? '');
+  const patientId = getIdFromReference(patientRef, 'Patient');
   if (patientId) return patients.find((patient) => patient.id === patientId);
   return undefined;
 };
@@ -696,7 +700,7 @@ function mapRelatedPersonToPatientId(allRps: RelatedPerson[]): Record<string, Re
   const rpsToPatientIdMap: Record<string, RelatedPerson[]> = {};
 
   allRps.forEach((rp) => {
-    const patientId = removePrefix('Patient/', rp.patient.reference || '');
+    const patientId = getIdFromReference(rp.patient.reference, 'Patient');
     if (patientId) {
       if (rpsToPatientIdMap[patientId]) rpsToPatientIdMap[patientId].push(rp);
       else rpsToPatientIdMap[patientId] = [rp];

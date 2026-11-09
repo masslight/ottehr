@@ -21,6 +21,7 @@ import {
   getClaimServiceDate,
   mapClaimToItem,
 } from '../../../src/billing/claim-search';
+import { getClaimTypeCoding } from '../../../src/billing/shared';
 
 type Lookups = Parameters<typeof mapClaimToItem>[1];
 
@@ -70,6 +71,7 @@ const makeLookups = (
   coverages: [],
   claimResponsesByClaimId,
   patientPaidByClaimId,
+  writeOffs: new Map([]),
 });
 
 describe('buildClaimFilterParams: non-insurance payer', () => {
@@ -239,14 +241,27 @@ describe('mapClaimToItem: patient payments', () => {
 });
 
 describe('mapClaimToItem: adjudicated flag', () => {
-  const claimResponse = {
+  const claimResponse: ClaimResponse = {
     resourceType: 'ClaimResponse',
     id: 'cr-1',
     status: 'active',
     request: {
       reference: 'Claim/claim-1',
     },
-  } as unknown as ClaimResponse;
+    created: '2026-01-01',
+    insurer: {
+      display: 'Unknown',
+    },
+    outcome: 'complete',
+    patient: {
+      reference: 'Patient/12345',
+    },
+    type: {
+      coding: [getClaimTypeCoding('professional')],
+      text: 'Unknown',
+    },
+    use: 'claim',
+  };
 
   it('marks a claim with no remittance as un-adjudicated, so the list can flag its balance', () => {
     const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map()));
@@ -335,6 +350,10 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     id: 'claim-1',
     status: 'active',
     created: '2026-07-21',
+    billablePeriod: {
+      start: '2026-07-18',
+      end: '2026-07-19',
+    },
     type: {
       coding: [
         {
@@ -506,6 +525,7 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     ],
     claimResponsesByClaimId: new Map(),
     patientPaidByClaimId: new Map([['claim-1', 25]]),
+    writeOffs: new Map([]),
   });
 
   // Every field each fixture carries that the list is meant to strip. The accounting test below
@@ -555,7 +575,7 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     );
     expect(fromNarrowed).toEqual(fromFull);
     // Guard against a list so narrow that everything collapses to defaults and the rows still match.
-    expect(fromFull.serviceDate).toBe('2026-07-19');
+    expect(fromFull.serviceDate).toBe('2026-07-18');
     expect(fromFull.memberId).toBe('MEM-1');
     expect(fromFull.rulesEngine).toBe('claim-submission');
     expect(fromFull.payerName).toBe('Acme Health');

@@ -17,7 +17,7 @@ interface SendFaxButtonProps {
 }
 
 /**
- * Single-number fax button used by the radiology order flow.
+ * Single-number fax button used by the radiology and DME order flows.
  *
  * Visit documents are faxed from the encounter header ("Fax Documents") instead — see `features/fax`.
  */

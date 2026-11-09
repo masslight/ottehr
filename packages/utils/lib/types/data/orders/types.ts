@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Secrets } from '../../../secrets';
 import { PrescribedMedicationDTO } from '../../api/chart-data/chart-data.types';
 import { ProcedureDTO } from '../../api/chart-data/chart-data.types';
+import { DmeOrderDTO } from '../../api/dme.types';
 import { ExtendedMedicationDataForResponse } from '../../api/medication-administration.types';
 import { GetRadiologyOrderListZambdaOrder } from '../../api/radiology';
 import { ImmunizationOrder } from '../immunization/types';
@@ -113,6 +114,8 @@ export interface OrdersForTrackingBoardTable {
   erxOrdersByEncounterId: Record<string, PrescribedMedicationDTO[]>;
   proceduresByEncounterId: Record<string, ProcedureDTO[]>;
   immunizationOrdersByEncounterId: Record<string, ImmunizationOrder[]>;
+  /** Pending in-house DME orders only */
+  dmeOrdersByEncounterId: Record<string, DmeOrderDTO[]>;
 }
 
 export interface OrdersForTrackingBoardRow {
@@ -124,4 +127,5 @@ export interface OrdersForTrackingBoardRow {
   erxOrders: PrescribedMedicationDTO[] | undefined;
   procedures: ProcedureDTO[] | undefined;
   immunizationOrders: ImmunizationOrder[] | undefined;
+  dmeOrders: DmeOrderDTO[] | undefined;
 }

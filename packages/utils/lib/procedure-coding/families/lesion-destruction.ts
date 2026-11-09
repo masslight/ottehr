@@ -23,11 +23,12 @@ const MULTIPLE_BENIGN_LESIONS_MIN_COUNT = 15;
 const fields: readonly CodingField[] = [
   {
     key: 'category',
+    neededForCoding: true,
     label: 'Lesion category',
     kind: 'select',
     options: ['benign (excluding tags/vascular)', 'premalignant', 'malignant', 'vascular', 'anogenital', 'skin tags'],
   },
-  { key: 'count', label: 'Lesion count', kind: 'number', defaultValue: 1, min: 0, step: 1 },
+  { key: 'count', neededForCoding: true, label: 'Lesion count', kind: 'number', defaultValue: 1, min: 0, step: 1 },
 ];
 
 export const lesionDestructionFamily: ProcedureFamilyModel<LesionDestructionCode> = {

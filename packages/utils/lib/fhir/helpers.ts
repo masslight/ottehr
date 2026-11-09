@@ -1,10 +1,17 @@
-import Oystehr, { BatchInputPostRequest, SearchParam, TransactionBundle } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputJSONPatchRequest,
+  BatchInputPostRequest,
+  BatchInputRequest,
+  SearchParam,
+  TransactionBundle,
+} from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
   Address,
   Appointment,
   Bundle,
+  BundleEntry,
   CodeableConcept,
   Coding,
   Consent,
@@ -90,7 +97,7 @@ import {
 } from './constants';
 import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
 import { PatientMasterRecordResourceType } from './patientMasterRecord';
-import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
+import { getPatchBinary, getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
 
 export function isFHIRError(error: any): boolean {
   return !(error instanceof Error) && typeof error === 'object' && error.resourceType === 'OperationOutcome';
@@ -393,6 +400,9 @@ export async function createFilesDocumentReferences(
       console.log('making DocumentReference results =>', JSON.stringify(docRefBundle, null, 2));
 
       const docRef = docRefBundle.entry?.[0]?.resource;
+      if (docRef) {
+        docRefs.push(docRef);
+      }
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
         let typeCode = type.coding[0].code;
@@ -415,7 +425,6 @@ export async function createFilesDocumentReferences(
             reference: `DocumentReference/${docRef.id}`,
           },
         });
-        docRefs.push(docRef);
       }
     }
 
@@ -646,17 +655,21 @@ export const getAppointmentMetaTagOpForStatusUpdate = (
     updatedByOverride?: string;
   }
 ): Operation[] => {
+  return getPatchOperationsForNewMetaTags(appointment, getAppointmentStatusUpdateTags(updatedStatus, updatedBy));
+};
+
+export const getAppointmentStatusUpdateTags = (
+  updatedStatus: VisitStatusWithoutUnknown,
+  updatedBy: {
+    user?: User;
+    updatedByOverride?: string;
+  }
+): Coding[] => {
   const { user, updatedByOverride } = updatedBy;
   const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus, display: updatedStatus };
   const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
   const updatedByText = updatedByOverride ? updatedByOverride : staffUpdateBy;
-  const updateTag = {
-    system: CRITICAL_CHANGE_SYSTEM,
-    display: updatedByText,
-    version: DateTime.now().toISO() || '',
-  };
-  const ops = getPatchOperationsForNewMetaTags(appointment, [statusTag, updateTag]);
-  return ops;
+  return [statusTag, createCriticalUpdateTag(updatedByText)];
 };
 
 /**
@@ -886,45 +899,84 @@ export function createReference(resource: Resource): Reference {
   };
 }
 
-function parseBundleIntoResources(bundle: Bundle): Resource[] {
+function assertBatchBundle(bundle: Bundle): void {
   if (bundle.resourceType !== 'Bundle' || bundle.entry === undefined) {
     console.log('search bundle malformed: ', JSON.stringify(bundle));
     throw new Error('could not parse search bundle');
   }
+}
 
+function getSearchsetFromBatchEntry(entry: BundleEntry): Bundle | undefined {
+  if (
+    entry.response?.outcome?.id === 'ok' &&
+    entry.resource &&
+    entry.resource.resourceType === 'Bundle' &&
+    entry.resource.type === 'searchset'
+  ) {
+    return entry.resource as Bundle;
+  }
+  return undefined;
+}
+
+/**
+ * The request for the page after `searchset`, or undefined when it is the last page. A `next` link means the
+ * page was full, so its match count is the page size. The follow-up is the original request with `_offset`
+ * advanced by that count (and `_count` pinned to it), rather than the server's link, which may percent-encode
+ * values the batch parser rejects.
+ */
+function getNextPageRequestUrl(requestUrl: string, searchset: Bundle): string | undefined {
+  if (!searchset.link?.some((link) => link.relation === 'next')) return undefined;
+  const matchCount = (searchset.entry ?? []).filter(
+    (entry) => entry.search?.mode !== 'include' && entry.search?.mode !== 'outcome'
+  ).length;
+  // A page with no matches advances nothing, so following it would request the same page forever.
+  if (matchCount === 0) return undefined;
+
+  const offsetMatch = /[?&]_offset=(\d+)(?=&|$)/.exec(requestUrl);
+  const nextOffset = (offsetMatch ? Number(offsetMatch[1]) : 0) + matchCount;
+  let url = offsetMatch
+    ? requestUrl.replace(/([?&])_offset=\d+(?=&|$)/, `$1_offset=${nextOffset}`)
+    : `${requestUrl}${requestUrl.includes('?') ? '&' : '?'}_offset=${nextOffset}`;
+  if (!/[?&]_count=\d+(?=&|$)/.test(url)) url += `&_count=${matchCount}`;
+  return url;
+}
+
+/**
+ * Runs the GET searches as one batch and returns the resources of every searchset, following each search's
+ * `next` links with further batches until all pages are fetched.
+ */
+export async function getResourcesFromBatchInlineRequests(oystehr: Oystehr, requests: string[]): Promise<Resource[]> {
   const result: Resource[] = [];
-  bundle.entry.forEach((entry) => {
-    if (
-      entry.response?.outcome?.id === 'ok' &&
-      entry.resource &&
-      entry.resource.resourceType === 'Bundle' &&
-      entry.resource.type === 'searchset'
-    ) {
-      const innerBundle = entry.resource as Bundle;
-      const innerEntry = innerBundle.entry;
-      if (!innerEntry) {
+  let pending = requests;
+  while (pending.length > 0) {
+    const batchResult = await oystehr.fhir.batch<FhirResource>({
+      requests: pending.map((url) => {
+        return {
+          method: 'GET',
+          url,
+        };
+      }),
+    });
+    assertBatchBundle(batchResult);
+
+    const nextRequests: string[] = [];
+    batchResult.entry?.forEach((entry, index) => {
+      const searchset = getSearchsetFromBatchEntry(entry);
+      if (!searchset) return;
+      if (!searchset.entry) {
         console.log('no inner entry found in bundle');
         // A FHIR searchset bundle with 0 results may omit the entry field entirely — that's valid.
         return;
       }
-      innerEntry.forEach((e) => {
+      searchset.entry.forEach((e) => {
         if (e.resource?.resourceType && e.resource?.id) result.push(e.resource);
       });
-    }
-  });
+      const nextRequest = getNextPageRequestUrl(pending[index], searchset);
+      if (nextRequest) nextRequests.push(nextRequest);
+    });
+    pending = nextRequests;
+  }
   return result;
-}
-
-export async function getResourcesFromBatchInlineRequests(oystehr: Oystehr, requests: string[]): Promise<Resource[]> {
-  const batchResult = await oystehr.fhir.batch<FhirResource>({
-    requests: requests.map((url) => {
-      return {
-        method: 'GET',
-        url,
-      };
-    }),
-  });
-  return parseBundleIntoResources(batchResult);
 }
 
 export async function getInsuranceOrgById(id: string, oystehr: Oystehr): Promise<Organization> {
@@ -1427,8 +1479,9 @@ export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   return outcomeEntry;
 };
 
+// Organizations that pay invoices store their Stripe customers the same way as an Account.
 export const getStripeCustomerIdFromAccount = (
-  account: Account,
+  account: Pick<Account, 'identifier'>,
   stripeAccount: string | undefined
 ): string | undefined => {
   if (!stripeAccount) {
@@ -1595,6 +1648,12 @@ export function getResponsiblePartyFromAccount(
   return takeContainedOrFind<RelatedPerson | Patient>(responsiblePartyRef, resources, account);
 }
 
+// The schedule owner among an appointment's actors: its Location, else its HealthcareService, else its Practitioner.
+export const scheduleOwnerAmong = (resources: Resource[]): Location | HealthcareService | Practitioner | undefined =>
+  (resources.find((resource) => resource.resourceType === 'Location') as Location | undefined) ??
+  (resources.find((resource) => resource.resourceType === 'HealthcareService') as HealthcareService | undefined) ??
+  (resources.find((resource) => resource.resourceType === 'Practitioner') as Practitioner | undefined);
+
 export const getScheduleOwnerFromAppointmentOrEncounter = async (
   input: { appointmentId?: string; encounterId?: string },
   oystehr: Oystehr
@@ -1642,18 +1701,7 @@ export const getScheduleOwnerFromAppointmentOrEncounter = async (
   ).unbundle();
   console.log(`successfully retrieved ${allResources.length} appointment resources`);
   const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
-  const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
-  const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
-  const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
-
-  let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
-  if (fhirLocation) {
-    scheduleOwner = fhirLocation as Location;
-  } else if (fhirHS) {
-    scheduleOwner = fhirHS as HealthcareService;
-  } else if (fhirPractitioner) {
-    scheduleOwner = fhirPractitioner as Practitioner;
-  }
+  const scheduleOwner = scheduleOwnerAmong(allResources);
 
   if (!fhirAppointment) {
     throw APPOINTMENT_NOT_FOUND_ERROR;
@@ -1789,4 +1837,55 @@ export function sanitizeStringForFhirCode(input: string): Coding['code'] {
 
 export function transactionWasSuccessful(transactionResponse: Pick<TransactionBundle<FhirResource>, 'entry'>): boolean {
   return transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2') ?? false;
+}
+
+export function reducePatchOperations<T extends FhirResource>(
+  requests: BatchInputRequest<T>[]
+): BatchInputRequest<T>[] {
+  const newRequests: BatchInputRequest<T>[] = [];
+  for (const request of requests) {
+    // Ignore non-patch
+    if (request.method !== 'PATCH') {
+      newRequests.push(request);
+      continue;
+    }
+    // Ignore binary patch
+    if (!('operations' in request)) {
+      newRequests.push(request);
+      continue;
+    }
+    const existingPatch = newRequests.find(
+      (existingReq): existingReq is BatchInputJSONPatchRequest =>
+        existingReq.method === 'PATCH' && existingReq.url === request.url && 'operations' in existingReq
+    );
+    // Not seen yet, nothing to merge
+    if (!existingPatch) {
+      newRequests.push(request);
+      continue;
+    }
+    existingPatch.operations.push(...request.operations);
+  }
+  return newRequests;
+}
+
+// A transaction sends a JSON patch without its ifMatch, so the resource's patches go as binary ones
+// locked to its version instead.
+export function versionLockedPatches<T extends FhirResource>({
+  requests,
+  resource,
+}: {
+  requests: BatchInputRequest<T>[];
+  resource: FhirResource;
+}): BatchInputRequest<T>[] {
+  const url = `/${resource.resourceType}/${resource.id}`;
+  return requests.map((request) =>
+    request.method === 'PATCH' && 'operations' in request && request.url === url
+      ? (getPatchBinary({
+          resourceType: resource.resourceType,
+          resourceId: resource.id!,
+          ifMatch: makeOptimisticLockIfMatchHeader(resource),
+          patchOperations: request.operations,
+        }) as BatchInputRequest<T>)
+      : request
+  );
 }

@@ -121,6 +121,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [fullyAdjudicatedRemit()],
       patientPaid: 50,
+      writeOffsTotal: 0,
     });
 
     expect(amounts.totals).toEqual({
@@ -128,6 +129,7 @@ describe('computeBillingStatementAmounts', () => {
       chargedCents: 34_332,
       insurancePaidCents: 25_532,
       patientPaidCents: 5000,
+      writeOffsCents: 0,
       balanceDueCents: 3800,
       deductibleCents: 0,
     });
@@ -136,12 +138,14 @@ describe('computeBillingStatementAmounts', () => {
         chargedCents: 7532,
         insurancePaidCents: 5532,
         patientPaidCents: 2000,
+        writeOffsCents: 0,
         patientOwesCents: 0,
       },
       {
         chargedCents: 26_800,
         insurancePaidCents: 20_000,
         patientPaidCents: 3000,
+        writeOffsCents: 0,
         patientOwesCents: 3800,
       },
     ]);
@@ -172,6 +176,7 @@ describe('computeBillingStatementAmounts', () => {
         claim: billingClaim(),
         claimResponses,
         patientPaid,
+        writeOffsTotal: 0,
       });
 
       expect(sumOf(lines, 'chargedCents')).toBe(totals.chargedCents);
@@ -201,6 +206,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [remit],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals.balanceDueCents).toBe(9800);
@@ -225,6 +231,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [fullyAdjudicatedRemit(), secondary],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals.insurancePaidCents).toBe(27_032);
@@ -252,6 +259,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [fullyAdjudicatedRemit(), takeBack],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals.insurancePaidCents).toBe(0);
@@ -261,12 +269,14 @@ describe('computeBillingStatementAmounts', () => {
         chargedCents: 2065,
         insurancePaidCents: 0,
         patientPaidCents: 0,
+        writeOffsCents: 0,
         patientOwesCents: 2065,
       },
       {
         chargedCents: 6735,
         insurancePaidCents: 0,
         patientPaidCents: 0,
+        writeOffsCents: 0,
         patientOwesCents: 6735,
       },
     ]);
@@ -294,12 +304,14 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [fullyAdjudicatedRemit(), reversal],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals).toEqual({
       chargedCents: 0,
       insurancePaidCents: 0,
       patientPaidCents: 0,
+      writeOffsCents: 0,
       balanceDueCents: 0,
       deductibleCents: 0,
     });
@@ -308,12 +320,14 @@ describe('computeBillingStatementAmounts', () => {
         chargedCents: 0,
         insurancePaidCents: 0,
         patientPaidCents: 0,
+        writeOffsCents: 0,
         patientOwesCents: 0,
       },
       {
         chargedCents: 0,
         insurancePaidCents: 0,
         patientPaidCents: 0,
+        writeOffsCents: 0,
         patientOwesCents: 0,
       },
     ]);
@@ -334,6 +348,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [remit],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals.deductibleCents).toBe(10_400);
@@ -366,6 +381,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [applied, reversal],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals.deductibleCents).toBe(0);
@@ -377,12 +393,14 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals).toEqual({
       chargedCents: 44_300,
       insurancePaidCents: 0,
       patientPaidCents: 0,
+      writeOffsCents: 0,
       balanceDueCents: 44_300,
       deductibleCents: 0,
     });
@@ -394,12 +412,14 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim({ arStage: AR_STAGE.insurancePayer }),
       claimResponses: [],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals).toEqual({
       chargedCents: 0,
       insurancePaidCents: 0,
       patientPaidCents: 0,
+      writeOffsCents: 0,
       balanceDueCents: 0,
       deductibleCents: 0,
     });
@@ -411,6 +431,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim({ arStage: AR_STAGE.insurancePayer }),
       claimResponses: [fullyAdjudicatedRemit()],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     // the remit is the authority once it exists, so the AR stage no longer gates anything
@@ -441,6 +462,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [remit],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(totals.insurancePaidCents).toBe(20_000);
@@ -453,6 +475,7 @@ describe('computeBillingStatementAmounts', () => {
       claim: billingClaim(),
       claimResponses: [fullyAdjudicatedRemit()],
       patientPaid: 120,
+      writeOffsTotal: 0,
     });
 
     expect(totals.patientPaidCents).toBe(12_000);
@@ -463,12 +486,14 @@ describe('computeBillingStatementAmounts', () => {
         insurancePaidCents: 5532,
         patientPaidCents: 2000,
         patientOwesCents: 0,
+        writeOffsCents: 0,
       },
       {
         chargedCents: 26_800,
         insurancePaidCents: 20_000,
         patientPaidCents: 10_000,
         patientOwesCents: -3200,
+        writeOffsCents: 0,
       },
     ]);
   });
@@ -481,6 +506,7 @@ describe('computeBillingStatementAmounts', () => {
       claim,
       claimResponses: [fullyAdjudicatedRemit()],
       patientPaid: 0,
+      writeOffsTotal: 0,
     });
 
     expect(lines).toEqual([]);

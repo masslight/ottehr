@@ -78,6 +78,7 @@ export interface BuildExternalLabOrderRequestsInput {
   currentUserPractitioner: Practitioner;
   attendingPractitionerId: string;
   clientOrgId: string;
+  isStat: boolean;
 }
 
 /**
@@ -108,6 +109,7 @@ export async function buildExternalLabOrderRequests(
     currentUserPractitioner,
     attendingPractitionerId,
     clientOrgId,
+    isStat,
   } = input;
 
   const testsGroupedByKey = groupTestsByKey(orderableItems);
@@ -138,8 +140,8 @@ export async function buildExternalLabOrderRequests(
 
     const orderableItems = testData.tests;
 
-    const requestsForRequsition = orderableItems.map((orderableItem) => {
-      const requestsForThisTest = formatAllResourceRequests(orderableItem, {
+    const formattedTests = orderableItems.map((orderableItem) =>
+      formatAllResourceRequests(orderableItem, {
         ...resources,
         requisitionNumber,
         encounter,
@@ -149,11 +151,30 @@ export async function buildExternalLabOrderRequests(
         clinicalInfoNoteByUser,
         selectedPaymentMethod,
         currentUserPractitioner,
-      });
-      return requestsForThisTest;
-    });
+        isStat,
+      })
+    );
 
-    return requestsForRequsition.flat();
+    const requestsForRequsition = formattedTests.flatMap(({ requests }) => requests);
+
+    const { orderLevelNote } = resources;
+    if (orderLevelNote) {
+      console.log(
+        'since an order level note exists for this order, we must add the new service request(s) to its based-on'
+      );
+      requestsForRequsition.push({
+        method: 'PATCH',
+        url: `Communication/${orderLevelNote.id}`,
+        operations: formattedTests.map(({ serviceRequestFullUrl }) => ({
+          op: 'add',
+          path: '/basedOn/-',
+          value: { reference: serviceRequestFullUrl },
+        })),
+        ifMatch: orderLevelNote.meta?.versionId ? `W/"${orderLevelNote.meta.versionId}"` : undefined,
+      });
+    }
+
+    return requestsForRequsition;
   });
 
   const resourceRequests = await Promise.all(resourceRequestPromises);
@@ -164,13 +185,12 @@ export async function buildExternalLabOrderRequests(
 const formatAllResourceRequests = (
   orderableItem: OrderableItemSearchResult,
   resources: ResourcesForRequestFormatting
-): BatchInputRequest<FhirResource>[] => {
+): { requests: BatchInputRequest<FhirResource>[]; serviceRequestFullUrl: string } => {
   const {
     labOrganization,
     patient,
     coverageDetails,
     orderingLocation,
-    orderLevelNote,
     requisitionNumber,
     encounter,
     selectedPaymentMethod,
@@ -269,16 +289,6 @@ const formatAllResourceRequests = (
     });
   }
 
-  if (orderLevelNote) {
-    console.log('since an order level note exists for this order, we must add the new service request to its based-on');
-    requests.push({
-      method: 'PATCH',
-      url: `Communication/${orderLevelNote.id}`,
-      operations: [{ op: 'add', path: `/basedOn/-`, value: { reference: serviceRequestFullUrl } }],
-      ifMatch: orderLevelNote.meta?.versionId ? `W/"${orderLevelNote.meta.versionId}"` : undefined,
-    });
-  }
-
   const serviceRequestConfig = formatServiceRequestConfig(
     orderableItem,
     resources,
@@ -348,7 +358,7 @@ const formatAllResourceRequests = (
     fullUrl: serviceRequestFullUrl,
   });
 
-  return requests;
+  return { requests, serviceRequestFullUrl };
 };
 
 const formatAoeQR = (

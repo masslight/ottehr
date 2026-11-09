@@ -38,6 +38,8 @@ export const CurrentMedicationsCard: FC = () => {
             dose: doseIsRedundantWithStrength ? undefined : selection.dose ?? undefined,
             date: selection.date,
             patientCouldNotConfirmDosage: selection.patientCouldNotConfirmDosage || undefined,
+            lastFilledDate: selection.lastFilledDate,
+            refills: selection.refills,
           },
           status: 'active',
         } as MedicationDTO);

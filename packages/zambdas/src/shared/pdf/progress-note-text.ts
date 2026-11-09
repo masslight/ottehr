@@ -1,6 +1,6 @@
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VITAL_LABELS } from './sections/visit-note/vitals';
-import { ProgressNoteData } from './types';
+import { FormResponseLines, ProgressNoteData } from './types';
 
 /**
  * Plain-text rendering of the composed progress note, for the configurable AI note review that runs
@@ -34,6 +34,13 @@ const textSection = (heading: string, value: string | undefined): Section => ({
   lines: value?.trim() ? [value.trim()] : [],
 });
 
+const formsSection = (heading: string, forms: FormResponseLines[] | undefined): Section =>
+  listSection(heading, [
+    forms?.map((form) =>
+      [form.title, ...form.lines.map(({ question, answer }) => `${question}: ${answer}`)].join(' | ')
+    ),
+  ]);
+
 const serializeVitals = (data: ProgressNoteData): Section => {
   const vitals = data.vitals?.vitals;
   if (!vitals) return { heading: 'VITALS', lines: [] };
@@ -56,18 +63,21 @@ const serializeVitals = (data: ProgressNoteData): Section => {
 };
 
 const serializeRos = (data: ProgressNoteData): Section => {
-  // The composer only emits a group once it has at least one checked item, so every entry counts.
   const groups = Object.entries(data.rosObservations?.rosObservations ?? {});
+  const documented = groups.filter(([, group]) => group.items.length > 0);
 
   return {
     heading: 'REVIEW OF SYSTEMS',
     lines: [
-      `Systems documented with at least one item: ${groups.length}`,
-      ...groups.map(([label, group]) =>
-        bullet(
-          `${label}: ${group.items.map((item) => `${item.label} (${item.abnormal ? 'reports' : 'denies'})`).join(', ')}`
-        )
-      ),
+      `Systems documented with at least one item: ${documented.length}`,
+      ...groups.map(([label, group]) => {
+        const parts: string[] = [];
+        if (group.items.length > 0) {
+          parts.push(group.items.map((item) => `${item.label} (${item.abnormal ? 'reports' : 'denies'})`).join(', '));
+        }
+        if (group.comment) parts.push(`comment: ${group.comment}`);
+        return bullet(`${label}: ${parts.join(' | ')}`);
+      }),
     ],
   };
 };
@@ -164,6 +174,8 @@ export function progressNoteDataToText(data: ProgressNoteData): string {
       data.surgicalHistory?.surgicalHistoryNotes,
     ]),
     listSection('HOSPITALIZATION', [data.hospitalization?.hospitalization, data.hospitalization?.hospitalizationNotes]),
+    formsSection('SCREENING FORMS', data.screening?.forms),
+    formsSection('CLINICAL FORMS', data.questionnaires?.forms),
     listSection('INTAKE NOTES', [data.intakeNotes?.intakeNotes]),
     serializeVitals(data),
     serializeRos(data),
@@ -177,6 +189,9 @@ export function progressNoteDataToText(data: ProgressNoteData): string {
     ]),
     listSection('IMMUNIZATIONS', [data.immunizationOrders?.immunizationOrders]),
     serializeProcedures(data),
+    listSection('DURABLE MEDICAL EQUIPMENT', [
+      data.dmeOrders?.dmeOrders?.map((order) => [order.itemName, ...order.lines].join(' | ')),
+    ]),
     serializeAssessment(data),
     textSection('MDM', data.medicalDecision?.medicalDecision),
     textSection('E&M CODE', data.emCode?.emCode),

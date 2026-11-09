@@ -7,7 +7,11 @@ import {
   ClaimStatusFieldKey,
   getClaimStatusFieldValue,
 } from 'utils/lib/types/data/billing/claim-status';
-import { RulesEngineSubmissionType, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RulesEngineSubmissionInsurance,
+  RulesEngineSubmissionType,
+  RulesEngineType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
@@ -23,6 +27,7 @@ export interface FinalizeRunInput {
   model: RulesEngineClaimModel;
   agent: ProvenanceAgent[];
   submissionType: RulesEngineSubmissionType | null;
+  submissionInsurance: RulesEngineSubmissionInsurance | null;
   payerClaimControlNumber: string | null;
 }
 
@@ -40,6 +45,11 @@ export async function finalizeEngineRun(engine: RulesEngineType, input: Finalize
         stageLabel: 'Non-insurance Payer AR',
         statusField: 'nonInsuranceArStatus',
       });
+    case 'post-adjudication':
+      // CW TODO
+      return {
+        statusReason: 'Rules passed.',
+      };
     case 'patient-ar-pre-invoice':
       return markReadyToInvoice(input, {
         requiredStage: AR_STAGE.patient,

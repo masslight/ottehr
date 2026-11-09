@@ -1,5 +1,6 @@
 import {
   ArrowBack as ArrowBackIcon,
+  EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
   MoreVert as MoreVertIcon,
   Search as SearchIcon,
@@ -28,15 +29,18 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { otherColors } from 'utils/lib/theme/billing-palette';
+import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
 import { EraClaimListItem, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency, formatTaxId } from 'utils/lib/utils/convert';
-import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
+import { downloadEraAttachment, getBillingEraDetail, unmatchClaimResponse, voidBillingEra } from '../api/api';
+import { AttachmentsSection } from '../components/attachments/AttachmentsSection';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { ReadOnlySection } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
+import { ERA_SOURCE_LABELS, paymentMethodLabel } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatDate } from '../utils/format';
 
@@ -76,6 +80,10 @@ export default function ERADetail(): ReactElement {
     claimResponseIds: string[];
   } | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voiding, setVoiding] = useState(false);
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const voided = era?.status === 'voided';
 
   const claimColumns: GridColDef[] = [
     {
@@ -84,6 +92,7 @@ export default function ERADetail(): ReactElement {
       width: 320,
       renderCell: ({ value, row }) => {
         if (!row.matched) {
+          if (voided) return '—';
           return (
             <Button
               onClick={(e) => {
@@ -107,33 +116,34 @@ export default function ERADetail(): ReactElement {
     currencyCol('posted', 'Posted', 100),
     currencyCol('patientResp', 'Patient Resp', 110),
     {
-      field: 'status',
+      // whether the remit claim is matched to a claim in the system; the FHIR outcome every ERA
+      // carries ("complete") means nothing to billers
+      field: 'matched',
       headerName: 'Status',
       width: 140,
-      renderCell: ({ value, row }) =>
-        value ? (
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Chip
-              label={!row.matched ? 'unmatched' : String(value)}
-              color={value === 'complete' && row.matched ? 'success' : 'warning'}
-              variant="outlined"
-              size="small"
-              sx={{ borderRadius: '4px', fontSize: 12 }}
-            />
-            {row.matched && (
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
-                }}
-              >
-                <MoreVertIcon fontSize="medium" />
-              </IconButton>
-            )}
-          </Stack>
-        ) : (
-          '—'
-        ),
+      valueGetter: (params: { row: EraClaimListItem }) => (params.row.matched ? 'Matched' : 'Unmatched'),
+      renderCell: ({ row }) => (
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Chip
+            label={row.matched ? 'Matched' : 'Unmatched'}
+            color={row.matched ? 'success' : 'warning'}
+            variant="outlined"
+            size="small"
+            sx={{ borderRadius: '4px', fontSize: 12 }}
+          />
+          {row.matched && !voided && (
+            <IconButton
+              aria-label="Claim actions"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
+              }}
+            >
+              <MoreVertIcon fontSize="medium" />
+            </IconButton>
+          )}
+        </Stack>
+      ),
     },
   ];
 
@@ -141,6 +151,7 @@ export default function ERADetail(): ReactElement {
     if (!oystehrZambda || !id) return;
     setLoading(true);
     setError(null);
+    setVoidError(null);
     try {
       const data = await getBillingEraDetail(oystehrZambda, { eraId: id });
       setEra(data);
@@ -184,6 +195,10 @@ export default function ERADetail(): ReactElement {
     );
   }
 
+  const manual = era.source === ERA_SOURCE.manual;
+  // a manual remit's details as keyed in, and who keyed it
+  const entry = era.manualEntry;
+
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
@@ -199,24 +214,67 @@ export default function ERADetail(): ReactElement {
             <HeaderField label="Payer" value={era.payerName} />
           </Box>
         </Box>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<FileDownloadIcon />}
-          sx={{ mt: 0.5 }}
-          onClick={() => setExportOpen(true)}
-        >
-          Export X12
-        </Button>
         <Chip
-          label={era.status}
-          color={era.status === 'complete' ? 'success' : 'warning'}
+          label={ERA_SOURCE_LABELS[era.source] ?? era.source}
+          color={era.source === ERA_SOURCE.clearingHouse ? 'default' : 'primary'}
           variant="outlined"
-          sx={{ borderRadius: '4px' }}
+          sx={{ borderRadius: '4px', mt: 0.5 }}
         />
+        {voided && <Chip label="Voided" color="error" variant="outlined" sx={{ borderRadius: '4px', mt: 0.5 }} />}
+        {manual && !voided && (
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<EditOutlinedIcon />}
+            sx={{ mt: 0.5 }}
+            onClick={() => navigate(`/eras/${era.id}/edit`)}
+          >
+            Edit
+          </Button>
+        )}
+        {!voided && (
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            disabled={voiding}
+            sx={{ mt: 0.5 }}
+            onClick={() => {
+              setVoidError(null);
+              setVoidOpen(true);
+            }}
+          >
+            Void ERA
+          </Button>
+        )}
+        {era.x12 && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            sx={{ mt: 0.5 }}
+            onClick={() => setExportOpen(true)}
+          >
+            Export X12
+          </Button>
+        )}
       </Box>
 
       <Box sx={{ ml: 5 }}>
+        {voided && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This ERA is voided. It is excluded from claim balances and from reports when they are refreshed.
+          </Alert>
+        )}
+        {voidError && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={<Button onClick={() => void fetchDetail()}>Reload ERA</Button>}
+          >
+            {voidError}
+          </Alert>
+        )}
         <TabContext value={tab}>
           <TabList
             onChange={(_, v) => setTab(v)}
@@ -230,8 +288,34 @@ export default function ERADetail(): ReactElement {
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 3 }}>
-              {era.paymentMethod && <Row label="Payment method" value={era.paymentMethod} hideBorder />}
+              {era.paymentMethod && (
+                <Row label="Payment method" value={paymentMethodLabel(era.paymentMethod)} hideBorder />
+              )}
+              {entry && (
+                <>
+                  <Row label="Remit date" value={formatDate(entry.header.remitDate)} hideBorder />
+                  {entry.header.depositDate && (
+                    <Row label="Deposit date" value={formatDate(entry.header.depositDate)} hideBorder />
+                  )}
+                  <Row
+                    label="Entered by"
+                    value={`${entry.enteredBy} on ${formatDate(entry.enteredAt.slice(0, 10))}`}
+                    hideBorder
+                  />
+                  {entry.header.notes && <Row label="Notes" value={entry.header.notes} hideBorder />}
+                </>
+              )}
             </Box>
+
+            {era.attachments.length > 0 && oystehrZambda && (
+              <AttachmentsSection
+                readOnly
+                attachments={era.attachments}
+                getDownloadUrl={async (documentReferenceId) =>
+                  (await downloadEraAttachment(oystehrZambda, { eraId: era.id, documentReferenceId })).downloadUrl
+                }
+              />
+            )}
 
             {era.payee && (
               <ReadOnlySection title="Payee">
@@ -261,7 +345,7 @@ export default function ERADetail(): ReactElement {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ minWidth: 280 }}
+                sx={{ flex: 1, minWidth: 280, maxWidth: 480 }}
               />
               {claimSearch && (
                 <Button
@@ -292,7 +376,34 @@ export default function ERADetail(): ReactElement {
           </TabPanel>
         </TabContext>
       </Box>
-      {claimToMatch && (
+      {voidOpen && !voided && (
+        <ConfirmDialog
+          open
+          title="Void ERA?"
+          confirmLabel="Void ERA"
+          confirmColor="error"
+          loading={voiding}
+          onCancel={() => setVoidOpen(false)}
+          onConfirm={async () => {
+            if (!oystehrZambda || voiding) return;
+            setVoiding(true);
+            try {
+              await voidBillingEra(oystehrZambda, { eraId: era.id });
+              setEra((current) => (current?.id === era.id ? { ...current, status: 'voided' } : current));
+            } catch (err) {
+              setVoidError(getApiError({ error: err, defaultError: 'Failed to void ERA' }));
+            } finally {
+              setVoiding(false);
+              setVoidOpen(false);
+            }
+          }}
+        >
+          Void ERA {era.checkNumber || era.id}? This cannot be undone. Its payments and adjustments will no longer count
+          toward claim balances. Reports will reflect the change after refresh. Existing invoices, patient payments, and
+          claim statuses will not change.
+        </ConfirmDialog>
+      )}
+      {!voided && claimToMatch && (
         <MatchClaimDialog
           claimResponseId={claimToMatch.claimResponseId}
           eraClaim={claimToMatch.eraClaim}
@@ -300,7 +411,7 @@ export default function ERADetail(): ReactElement {
           onClose={() => setClaimToMatch(null)}
         />
       )}
-      {claimResponsesToUnmatch && (
+      {!voided && claimResponsesToUnmatch && (
         <ConfirmDialog
           open={true}
           title="Unmatch"
@@ -326,7 +437,7 @@ export default function ERADetail(): ReactElement {
           Do you really want to unmatch?
         </ConfirmDialog>
       )}
-      {moreActionsPopoverData ? (
+      {!voided && moreActionsPopoverData ? (
         <Popover
           open={true}
           anchorEl={moreActionsPopoverData.element}
@@ -356,6 +467,7 @@ export default function ERADetail(): ReactElement {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           fileName={`era-${era.id}.txt`}
+          type="era"
           x12Provider={() => Promise.resolve(era.x12)}
         />
       )}

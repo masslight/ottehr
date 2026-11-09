@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   Box,
   Chip,
@@ -24,13 +25,29 @@ import { FC, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { FORM_PLACEMENT_LABELS } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { PracticeManagedQuestionnaireUpdateStatusData } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { usePracticeManagedQuestionnaires } from '../../../hooks/usePracticeManagedQuestionnaires';
 import { usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
+import { ImportQuestionnaireJsonDialog } from './components/ImportQuestionnaireJsonDialog';
+
+const tagChipSx = {
+  borderRadius: '4px',
+  height: '17px',
+  '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
+  fontSize: 12,
+  fontWeight: 500,
+};
 
 export const QuestionnaireAdminPage: FC = () => {
   const navigate = useNavigate();
   const [showDeleted, setShowDeleted] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  // only customer support can import json questionnaires, and only they can delete / restore imported ones
+  const isCustomerSupport = useEvolveUser()?.hasRole([RoleType.CustomerSupport]) ?? false;
 
   const { mutateAsync: updateQuestionnaire, isPending: isUpdating } = usePracticeManagedQuestionnaireUpdate();
 
@@ -77,6 +94,16 @@ export const QuestionnaireAdminPage: FC = () => {
               sx={{ mr: 1, '& .MuiFormControlLabel-label': { fontSize: 14, color: 'text.secondary' } }}
             />
           )}
+          {isCustomerSupport && (
+            <ButtonRounded
+              variant="outlined"
+              size="medium"
+              startIcon={<UploadFileIcon />}
+              onClick={() => setImportDialogOpen(true)}
+            >
+              Import JSON
+            </ButtonRounded>
+          )}
           <ButtonRounded
             variant="contained"
             size="medium"
@@ -115,6 +142,15 @@ export const QuestionnaireAdminPage: FC = () => {
   return (
     <Paper sx={{ padding: 2, marginTop: 2 }}>
       {PageHeader()}
+      <ImportQuestionnaireJsonDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onImported={({ questionnaireId }) => {
+          setImportDialogOpen(false);
+          enqueueSnackbar('Questionnaire imported', { variant: 'success' });
+          navigate(`/admin/questionnaires/${questionnaireId}`);
+        }}
+      />
 
       {visibleQuestionnaires.length === 0 ? (
         <Typography variant="body1" color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
@@ -128,6 +164,7 @@ export const QuestionnaireAdminPage: FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Where answers appear</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">
                   Actions
                 </TableCell>
@@ -136,6 +173,8 @@ export const QuestionnaireAdminPage: FC = () => {
             <TableBody>
               {visibleQuestionnaires.map((q) => {
                 const deleted = q.status === 'retired';
+                const canChangeStatus = !q.readOnly || isCustomerSupport;
+
                 return (
                   <TableRow
                     key={q.id}
@@ -146,52 +185,60 @@ export const QuestionnaireAdminPage: FC = () => {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {q.title || '(untitled)'}
+                        {q.readOnly && (
+                          <Chip
+                            label="Imported / Read Only"
+                            size="small"
+                            sx={{ ...tagChipSx, backgroundColor: 'rgba(15, 52, 124, 0.12)', color: '#0F347C' }}
+                          />
+                        )}
                         {deleted && (
                           <Chip
                             label="Deleted"
                             size="small"
-                            sx={{
-                              borderRadius: '4px',
-                              height: '17px',
-                              '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
-                              fontSize: 12,
-                              fontWeight: 500,
-                              backgroundColor: 'rgba(211, 47, 47, 0.3)',
-                              color: '#D32F2F',
-                            }}
+                            sx={{ ...tagChipSx, backgroundColor: 'rgba(211, 47, 47, 0.3)', color: '#D32F2F' }}
                           />
                         )}
                       </Box>
                     </TableCell>
+                    <TableCell sx={{ color: q.placement === 'visit-details' ? 'text.secondary' : 'primary.dark' }}>
+                      {FORM_PLACEMENT_LABELS[q.placement]}
+                    </TableCell>
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                       {deleted ? (
-                        <Tooltip title="Restore">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            disabled={isUpdating}
-                            onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'active' })}
-                          >
-                            <RestoreFromTrashIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      ) : (
-                        <>
-                          <Tooltip title="Edit">
-                            <IconButton size="small" onClick={() => navigate(`/admin/questionnaires/${q.id}`)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
+                        canChangeStatus && (
+                          <Tooltip title="Restore">
                             <IconButton
                               size="small"
-                              color="error"
+                              color="primary"
                               disabled={isUpdating}
-                              onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'retired' })}
+                              onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'active' })}
                             >
-                              <DeleteIcon fontSize="small" />
+                              <RestoreFromTrashIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
+                        )
+                      ) : (
+                        <>
+                          {!q.readOnly && (
+                            <Tooltip title="Edit">
+                              <IconButton size="small" onClick={() => navigate(`/admin/questionnaires/${q.id}`)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {canChangeStatus && (
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={isUpdating}
+                                onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'retired' })}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </>
                       )}
                     </TableCell>

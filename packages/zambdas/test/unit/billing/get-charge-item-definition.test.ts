@@ -1,33 +1,33 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { GetChargeItemDefinitionInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { vi } from 'vitest';
-import { performEffect } from '../../../src/billing/get-charge-item-definition/index';
-import {
-  GetChargeItemDefinitionParams,
-  validateRequestParameters,
-} from '../../../src/billing/get-charge-item-definition/validateRequestParameters';
+import { GetChargeItemDefinitionParams, performEffect } from '../../../src/billing/get-charge-item-definition/index';
 import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../../../src/billing/shared';
+import { validateWithSchema } from '../../../src/shared/validation';
 
 describe('get-charge-item-definition', () => {
   describe('validation', () => {
     it('throws validation error on empty secrets', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: null })).toThrow(
-        expect.objectContaining(MISSING_REQUEST_SECRETS)
-      );
+      expect(() =>
+        validateWithSchema(GetChargeItemDefinitionInputSchema, { headers: null, body: '{}', secrets: null })
+      ).toThrow(expect.objectContaining(MISSING_REQUEST_SECRETS));
     });
     it('throws validation error on empty body', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: null, secrets: {} })).toThrow(
-        expect.objectContaining(MISSING_REQUEST_BODY)
-      );
+      expect(() =>
+        validateWithSchema(GetChargeItemDefinitionInputSchema, { headers: null, body: null, secrets: {} })
+      ).toThrow(expect.objectContaining(MISSING_REQUEST_BODY));
     });
     it('throws validation error on non-json body', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body'))
-      );
+      expect(() =>
+        validateWithSchema(GetChargeItemDefinitionInputSchema, { headers: null, body: 'some text', secrets: {} })
+      ).toThrow(expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body')));
     });
     it('throws validation error on missing required fields', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
+      expect(() =>
+        validateWithSchema(GetChargeItemDefinitionInputSchema, { headers: null, body: '{}', secrets: {} })
+      ).toThrow(
         expect.objectContaining(
           INVALID_INPUT_ERROR('Validation error: Required at "type"; Required at "chargeItemDefinitionId"')
         )
@@ -38,7 +38,13 @@ describe('get-charge-item-definition', () => {
         type: 'purple-people-eater',
         chargeItemDefinitionId: 'some-not-uuid',
       };
-      expect(() => validateRequestParameters({ headers: null, body: JSON.stringify(body), secrets: {} })).toThrow(
+      expect(() =>
+        validateWithSchema(GetChargeItemDefinitionInputSchema, {
+          headers: null,
+          body: JSON.stringify(body),
+          secrets: {},
+        })
+      ).toThrow(
         expect.objectContaining(
           INVALID_INPUT_ERROR(
             "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\"; Invalid uuid at \"chargeItemDefinitionId\""
@@ -48,7 +54,7 @@ describe('get-charge-item-definition', () => {
     });
     it('succeeds with correct input', async () => {
       const body = { type: 'charge-master', chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9' };
-      const input = validateRequestParameters({
+      const input = validateWithSchema(GetChargeItemDefinitionInputSchema, {
         headers: null,
         body: JSON.stringify(body),
         secrets: {},

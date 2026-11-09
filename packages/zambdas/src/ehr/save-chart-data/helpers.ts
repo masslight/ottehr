@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Location, Resource, ServiceRequest } from 'fhir/r4b';
 import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import { getAddressString } from 'utils/lib/fhir/helpers';
@@ -56,59 +55,6 @@ export const validateBundleAndExtractSavedChartData = (
     chartResources: chartDataResources,
   };
 };
-
-export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounterId?: string): Promise<Resource[]> {
-  if (!encounterId) {
-    throw new Error('Encounter ID is required');
-  }
-  return (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [
-        {
-          name: '_id',
-          value: encounterId,
-        },
-        {
-          name: '_include',
-          value: 'Encounter:subject',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ServiceRequest:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'DocumentReference:encounter',
-        },
-        {
-          name: '_include',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_include',
-          value: 'Encounter:location',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'List:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Condition:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Observation:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ClinicalImpression:encounter',
-        },
-      ],
-    })
-  ).unbundle();
-}
 
 /**
  * Address of the clinic the visit took place at, printed under the logo on the school/work note.

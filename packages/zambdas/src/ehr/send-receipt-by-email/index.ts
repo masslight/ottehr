@@ -7,6 +7,7 @@ import { MIME_TYPES } from 'utils/lib/utils/file';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { EmailAttachment, getEmailClient } from '../../shared/communication';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { assertZ3UrlInProject } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -36,6 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`content: ${JSON.stringify(content)}, url: ${z3Url}`);
 
   if (z3Url) {
+    assertZ3UrlInProject(z3Url, secrets);
     const presignedUrl = await getPresignedURL(z3Url, m2mToken);
     const file = await fetch(presignedUrl, {
       method: 'GET',

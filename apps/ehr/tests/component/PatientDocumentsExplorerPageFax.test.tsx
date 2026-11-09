@@ -26,8 +26,6 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
   }),
 }));
 vi.mock('../../src/hooks/useGetPatientDocs', () => ({
-  hasVisitRef: (visit?: { encounterId?: string; appointmentId?: string }) =>
-    !!visit && (!!visit.encounterId || !!visit.appointmentId),
   useGetPatientDocs: () => ({
     documents: [],
     isLoadingDocuments: false,

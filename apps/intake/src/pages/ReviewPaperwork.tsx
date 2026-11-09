@@ -177,8 +177,14 @@ const ReviewPaperwork = (): JSX.Element => {
     if (validationState['contact-information-page'] !== undefined) {
       const photoIdFront = pickFirstValueFromAnswerItem(findAnswerWithLinkId('photo-id-front'), 'attachment');
       console.log('photoIdFront', photoIdFront, findAnswerWithLinkId('photo-id-front'));
+      const photoIdFrontItem = paperworkPages
+        ?.find((page) => page.linkId === 'contact-information-page')
+        ?.item?.find((item) => item.linkId === 'photo-id-front');
+      const photoIdFrontShown =
+        photoIdFrontItem !== undefined &&
+        evalEnableWhen(photoIdFrontItem, allItems, paperworkValuesForEval, questionnaireResponse);
       // this is a strange one-off; it is optional in the schema but we communicate to the user that it is required
-      if (photoIdFront === undefined) {
+      if (photoIdFrontShown && photoIdFront === undefined) {
         validationState['contact-information-page'] = false;
       }
     }

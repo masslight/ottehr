@@ -2,9 +2,12 @@ import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import { getExtensionValue } from 'utils/lib/fhir/helpers';
 import {
+  getDefaultVitalsHeaderUnitSystem,
   GetProgressNoteConfigOutput,
   ProgressNoteConfig,
+  VITALS_HEADER_UNIT_SYSTEMS,
   VITALS_UNIT_INPUT_ORDERS,
+  VitalsHeaderUnitSystem,
   VitalsUnitInputOrder,
 } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import {
@@ -16,6 +19,8 @@ import {
   PROGRESS_NOTE_CONFIG_MEDICAL_DECISION_DEFAULT_TEXT_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_PCP_NO_TYPE_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL,
+  PROGRESS_NOTE_CONFIG_SPECIALTY_TRANSFER_OPTION_EXTENSION_URL,
+  PROGRESS_NOTE_CONFIG_VITALS_HEADER_UNIT_SYSTEM_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
 } from 'utils/lib/utils/progress-note-config';
 
@@ -88,7 +93,20 @@ export function progressNoteConfigPayloadFromBasic(basic: Basic | undefined): Ge
   );
   const vitalsUnitInputOrder = VITALS_UNIT_INPUT_ORDERS.includes(vitalsUnitInputOrderRaw as VitalsUnitInputOrder)
     ? (vitalsUnitInputOrderRaw as VitalsUnitInputOrder)
+    : DEFAULT_PROGRESS_NOTE_CONFIG.vitalsUnitInputOrder;
+  const vitalsHeaderUnitSystemRaw = getExtensionValue(
+    basic,
+    PROGRESS_NOTE_CONFIG_VITALS_HEADER_UNIT_SYSTEM_EXTENSION_URL,
+    'valueString'
+  );
+  const vitalsHeaderUnitSystem = VITALS_HEADER_UNIT_SYSTEMS.includes(
+    vitalsHeaderUnitSystemRaw as VitalsHeaderUnitSystem
+  )
+    ? (vitalsHeaderUnitSystemRaw as VitalsHeaderUnitSystem)
     : undefined;
+  const specialtyTransferOptions = (basic?.extension ?? [])
+    .filter((extension) => extension.url === PROGRESS_NOTE_CONFIG_SPECIALTY_TRANSFER_OPTION_EXTENSION_URL)
+    .flatMap((extension) => (extension.valueString ? [extension.valueString] : []));
 
   return {
     mdmRequired: mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired,
@@ -98,7 +116,11 @@ export function progressNoteConfigPayloadFromBasic(basic: Basic | undefined): Ge
     anotherDispositionDefaultText:
       anotherDispositionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.anotherDispositionDefaultText,
     edDispositionDefaultText: edDispositionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.edDispositionDefaultText,
-    vitalsUnitInputOrder: vitalsUnitInputOrder ?? DEFAULT_PROGRESS_NOTE_CONFIG.vitalsUnitInputOrder,
+    vitalsUnitInputOrder,
+    vitalsHeaderUnitSystem: vitalsHeaderUnitSystem ?? getDefaultVitalsHeaderUnitSystem(vitalsUnitInputOrder),
+    specialtyTransferOptions: specialtyTransferOptions.length
+      ? specialtyTransferOptions
+      : DEFAULT_PROGRESS_NOTE_CONFIG.specialtyTransferOptions,
     signReviewPrompt: signReviewPrompt ?? DEFAULT_PROGRESS_NOTE_CONFIG.signReviewPrompt,
   };
 }
@@ -147,6 +169,14 @@ export async function saveProgressNoteConfig(
         url: PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
         valueString: config.vitalsUnitInputOrder,
       },
+      {
+        url: PROGRESS_NOTE_CONFIG_VITALS_HEADER_UNIT_SYSTEM_EXTENSION_URL,
+        valueString: config.vitalsHeaderUnitSystem,
+      },
+      ...config.specialtyTransferOptions.map((option) => ({
+        url: PROGRESS_NOTE_CONFIG_SPECIALTY_TRANSFER_OPTION_EXTENSION_URL,
+        valueString: option,
+      })),
       // FHIR forbids empty strings, so omit the extension entirely when the prompt is blank
       ...(config.signReviewPrompt
         ? [{ url: PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL, valueString: config.signReviewPrompt }]

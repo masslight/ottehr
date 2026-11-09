@@ -36,16 +36,42 @@ describe('run-billing-rules-engine - performEffect', () => {
     const response = await performEffect(
       oystehr,
       [
-        { claimId: 'claim-1', engine: 'claim-submission', skipRules: false },
-        { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', skipRules: true },
+        {
+          claimId: 'claim-1',
+          engine: 'claim-submission',
+          submissionType: 'new',
+          submissionInsurance: 'primary',
+          skipRules: false,
+        },
+        {
+          claimId: 'claim-2',
+          engine: 'non-insurance-payer-pre-invoice',
+          submissionType: 'new',
+          submissionInsurance: 'primary',
+          skipRules: true,
+        },
       ],
       agent
     );
 
     expect(response).toEqual({
       results: [
-        { claimId: 'claim-1', engine: 'claim-submission', taskId: 'task-1', skipRules: false },
-        { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', taskId: 'task-2', skipRules: true },
+        {
+          claimId: 'claim-1',
+          engine: 'claim-submission',
+          taskId: 'task-1',
+          submissionType: 'new',
+          submissionInsurance: 'primary',
+          skipRules: false,
+        },
+        {
+          claimId: 'claim-2',
+          engine: 'non-insurance-payer-pre-invoice',
+          taskId: 'task-2',
+          submissionType: 'new',
+          submissionInsurance: 'primary',
+          skipRules: true,
+        },
       ],
     });
     expect(transaction).toHaveBeenCalledTimes(1);
@@ -74,7 +100,19 @@ describe('run-billing-rules-engine - performEffect', () => {
     );
 
     await expect(
-      performEffect(oystehr, [{ claimId: 'claim-1', engine: 'claim-submission', skipRules: false }], agent)
+      performEffect(
+        oystehr,
+        [
+          {
+            claimId: 'claim-1',
+            engine: 'claim-submission',
+            submissionType: 'new',
+            submissionInsurance: 'primary',
+            skipRules: false,
+          },
+        ],
+        agent
+      )
     ).rejects.toThrow();
   });
 });
@@ -100,13 +138,27 @@ describe('run-billing-rules-engine - complexValidation', () => {
 
     const kickoffs = await complexValidation(oystehr, {
       claimIds: ['claim-1', 'claim-2'],
-      secrets: null,
+      secrets: {},
+      submissionType: 'new',
+      submissionInsurance: 'primary',
       skipRules: false,
     });
 
     expect(kickoffs).toEqual([
-      { claimId: 'claim-1', engine: 'claim-submission', skipRules: false },
-      { claimId: 'claim-2', engine: 'non-insurance-payer-pre-invoice', skipRules: false },
+      {
+        claimId: 'claim-1',
+        engine: 'claim-submission',
+        submissionType: 'new',
+        submissionInsurance: 'primary',
+        skipRules: false,
+      },
+      {
+        claimId: 'claim-2',
+        engine: 'non-insurance-payer-pre-invoice',
+        submissionType: 'new',
+        submissionInsurance: 'primary',
+        skipRules: false,
+      },
     ]);
     expect(search).toHaveBeenCalledTimes(1);
     expect(search).toHaveBeenCalledWith({
@@ -122,7 +174,13 @@ describe('run-billing-rules-engine - complexValidation', () => {
     const { oystehr } = makeSearchOystehr([makeClaim('claim-1', AR_STAGE.insurancePayer)]);
 
     await expect(
-      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2', 'claim-3'], secrets: null, skipRules: false })
+      complexValidation(oystehr, {
+        claimIds: ['claim-1', 'claim-2', 'claim-3'],
+        secrets: {},
+        submissionType: 'new',
+        submissionInsurance: 'primary',
+        skipRules: false,
+      })
     ).rejects.toMatchObject({ message: 'Claim(s) not found: claim-2, claim-3' });
   });
 
@@ -130,7 +188,13 @@ describe('run-billing-rules-engine - complexValidation', () => {
     const { oystehr } = makeSearchOystehr([makeClaim('claim-1', AR_STAGE.insurancePayer), makeClaim('claim-2')]);
 
     await expect(
-      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2'], secrets: null, skipRules: false })
+      complexValidation(oystehr, {
+        claimIds: ['claim-1', 'claim-2'],
+        secrets: {},
+        submissionType: 'new',
+        submissionInsurance: 'primary',
+        skipRules: false,
+      })
     ).rejects.toMatchObject({
       message: 'No rules engine applies to claim(s): claim-2. Set an AR Stage first.',
     });

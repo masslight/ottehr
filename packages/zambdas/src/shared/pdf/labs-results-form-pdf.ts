@@ -33,6 +33,7 @@ import {
   getTestItemCodeFromDr,
   isPSCOrder,
 } from 'utils/lib/helpers/labs/helpers';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -80,7 +81,7 @@ import {
   isLabDrTypeTagCode,
 } from '../../ehr/lab/shared/labs';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
-import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { createPresignedUrl } from '../z3Utils';
 import {
   drawFieldLine,
   drawFieldLineRight,
@@ -1853,6 +1854,7 @@ export const parseObservationForPDF = (
       (ext) => ext.url === OYSTEHR_LABS_OBSERVATION_RATIO_SEPARATOR_EXT_URL && ext.valueCode
     )?.valueCode;
     const numerator = observation.valueRatio.numerator;
+    const numeratorComparator = observation.valueRatio.numerator?.comparator;
     const denominator = observation.valueRatio.denominator;
     if (!numerator) console.warn(`Observation/${observation.id} had a missing valueRatio.numerator`);
     if (!denominator) console.warn(`Observation/${observation.id} had a missing valueRatio.denominator`);
@@ -1865,10 +1867,11 @@ export const parseObservationForPDF = (
     // we consolidate the unit because otherwise you end up with "1 titer : 180 titer" which isn't correct
     const consolidatedUnit = numerator?.code;
 
-    value = `${formatRatioValue(numerator, includeUnitOnEach)}${separator ?? ' '}${formatRatioValue(
-      denominator,
-      includeUnitOnEach
-    )}${!includeUnitOnEach && consolidatedUnit ? ` ${consolidatedUnit}` : ''}`;
+    value = `${numeratorComparator ?? ''}${formatRatioValue(numerator, includeUnitOnEach)}${
+      separator ?? ' '
+    }${formatRatioValue(denominator, includeUnitOnEach)}${
+      !includeUnitOnEach && consolidatedUnit ? ` ${consolidatedUnit}` : ''
+    }`;
   } else if (!isObrNoteObs(observation)) {
     console.error(`Observation/${observation.id} has an unrecognized value type`);
   }

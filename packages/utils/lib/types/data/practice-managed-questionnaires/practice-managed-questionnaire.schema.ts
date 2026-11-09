@@ -4,6 +4,7 @@ import {
   OTTEHR_DATA_TYPES,
   OTTEHR_INPUT_WIDTHS,
   QUESTIONNAIRE_ITEM_TYPES,
+  TAGGED_FORM_PLACEMENTS,
 } from './practice-managed-questionnaire.types';
 
 export const DataTypeSchema = z.enum(OTTEHR_DATA_TYPES);
@@ -32,4 +33,9 @@ export const PracticeManagedQuestionnaireUpdateStatusSchema = z.object({
 
 export const GetStandAlonePaperworkInputSchema = z.object({
   questionnaireResponseId: z.string().uuid(),
+});
+
+export const GetPatientFormResponsesInputSchema = z.object({
+  patientId: z.string().uuid(),
+  placements: z.array(z.enum(TAGGED_FORM_PLACEMENTS)).min(1),
 });

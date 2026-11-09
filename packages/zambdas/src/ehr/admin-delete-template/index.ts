@@ -5,13 +5,18 @@ import { List } from 'fhir/r4b';
 import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { AdminDeleteTemplateInput } from 'utils/lib/types/data/admin-template.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { findHolderList, verifyIsTemplate } from '../shared/template-helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+export const AdminDeleteTemplateSchema = z.object({
+  templateId: z.string().uuid(),
+});
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -20,7 +25,7 @@ export const index = wrapHandler(
   'admin-delete-template',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(AdminDeleteTemplateSchema, input);
 
       const { secrets } = validatedInput;
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

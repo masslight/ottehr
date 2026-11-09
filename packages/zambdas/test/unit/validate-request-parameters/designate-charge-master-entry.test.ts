@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/rcm/charge-masters/designate-charge-master-entry/validateRequestParameters';
+import { DesignateChargeMasterEntryBodySchema } from '../../../src/rcm/charge-masters/designate-charge-master-entry/index';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('designate-charge-master-entry - validateRequestParameters', () => {
@@ -11,7 +12,7 @@ describe('designate-charge-master-entry - validateRequestParameters', () => {
       { chargeMasterId: validChargeMasterId, designation: 'default-insurance' },
       { secrets }
     );
-    const result = validateRequestParameters(input);
+    const result = validateWithSchema(DesignateChargeMasterEntryBodySchema, input);
     expect(result).toEqual({
       chargeMasterId: validChargeMasterId,
       designation: 'default-insurance',
@@ -21,7 +22,7 @@ describe('designate-charge-master-entry - validateRequestParameters', () => {
 
   test('should return validated params for self-pay designation', () => {
     const input = createMockZambdaInput({ chargeMasterId: validChargeMasterId, designation: 'self-pay' }, { secrets });
-    const result = validateRequestParameters(input);
+    const result = validateWithSchema(DesignateChargeMasterEntryBodySchema, input);
     expect(result).toEqual({
       chargeMasterId: validChargeMasterId,
       designation: 'self-pay',
@@ -31,22 +32,22 @@ describe('designate-charge-master-entry - validateRequestParameters', () => {
 
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(DesignateChargeMasterEntryBodySchema, input)).toThrow();
   });
 
   test('should throw when chargeMasterId is missing', () => {
     const input = createMockZambdaInput({ designation: 'self-pay' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(DesignateChargeMasterEntryBodySchema, input)).toThrow();
   });
 
   test('should throw when chargeMasterId is not a valid UUID', () => {
     const input = createMockZambdaInput({ chargeMasterId: 'not-a-uuid', designation: 'self-pay' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(DesignateChargeMasterEntryBodySchema, input)).toThrow();
   });
 
   test('should throw when designation is missing', () => {
     const input = createMockZambdaInput({ chargeMasterId: validChargeMasterId }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(DesignateChargeMasterEntryBodySchema, input)).toThrow();
   });
 
   test('should throw when designation is an invalid enum value', () => {
@@ -54,6 +55,6 @@ describe('designate-charge-master-entry - validateRequestParameters', () => {
       { chargeMasterId: validChargeMasterId, designation: 'unknown-designation' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(DesignateChargeMasterEntryBodySchema, input)).toThrow();
   });
 });

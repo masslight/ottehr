@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
+import { ListCustomInsuranceOrganizationsInputSchema } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
   CUSTOM_INSURANCE_ORG_KIND_CODE,
   ListCustomInsuranceOrganizationsResponse,
@@ -10,9 +11,11 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { mapClinicalCustomInsuranceOrgOption } from '../custom-insurance-org.helpers';
 import { createBillingClient } from '../shared';
-import { ListCustomInsuranceOrganizationsParams, validateRequestParameters } from './validateRequestParameters';
+
+type ListCustomInsuranceOrganizationsParams = ValidatedZambdaInput<typeof ListCustomInsuranceOrganizationsInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'list-custom-insurance-organizations';
@@ -25,7 +28,7 @@ const PAGE_SIZE = 1000;
 // same door pattern as list-non-insurance-organizations.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(ListCustomInsuranceOrganizationsInputSchema, input);
   const { secrets, ...restOfParams } = params;
   console.groupEnd();
   console.debug('validateRequestParameters success', restOfParams);

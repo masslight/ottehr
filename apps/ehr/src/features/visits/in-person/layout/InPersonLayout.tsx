@@ -11,11 +11,16 @@ import React, { useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ThemeProvider } from 'styled-components';
+import { EASY_CHART_ROLES } from 'utils/lib/easy-chart/access';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getSelectors } from 'utils/lib/store';
 import { isVisitFinished } from 'utils/lib/utils/visitUtils';
+import { useScribePanelOffset } from '../../shared/components/scribe-recommendations/scribeRecommendations.store';
+import { ScribeRecommendationsDrawer } from '../../shared/components/scribe-recommendations/ScribeRecommendationsDrawer';
 import { Sidebar } from '../../shared/components/Sidebar';
 import { useAiResourcesPolling } from '../../shared/components/useAiResourcesPolling';
 import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPolling';
@@ -106,6 +111,14 @@ export const InPersonLayout: React.FC = () => {
     : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
+  // Gated by the feature flag and by the same role set the Easy Chart endpoints check. A signed, locked visit
+  // still shows the panel, read-only: its actions are turned off and say why (useAutochartLock).
+  const user = useEvolveUser();
+  const showScribeRecommendations =
+    FEATURE_FLAGS.EASY_CHART_ENABLED && Boolean(user?.hasRole([...EASY_CHART_ROLES])) && !isFollowup && canChart;
+  const scribePanelOffset = useScribePanelOffset();
+  // Keeps the fixed-position recorder controls clear of the panel.
+  const fixedControlsOffset = showScribeRecommendations ? scribePanelOffset : 0;
 
   return (
     <div style={layoutStyle}>
@@ -122,7 +135,7 @@ export const InPersonLayout: React.FC = () => {
                 color="primary"
                 aria-label=""
                 aria-describedby={recordingElementID}
-                sx={{ position: 'fixed', right: 8, bottom: virtual ? 130 : 8 }}
+                sx={{ position: 'fixed', right: 8 + fixedControlsOffset, bottom: virtual ? 130 : 8 }}
                 onClick={(event) =>
                   recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
                 }
@@ -133,7 +146,7 @@ export const InPersonLayout: React.FC = () => {
                 <Paper
                   sx={{
                     position: 'fixed',
-                    right: '15px',
+                    right: `${15 + fixedControlsOffset}px`,
                     bottom: '75px',
                     zIndex: '10',
                     ...(!recordingOpen && { display: 'none' }),
@@ -171,6 +184,7 @@ export const InPersonLayout: React.FC = () => {
           </div>
           <BottomNavigation />
         </div>
+        {showScribeRecommendations && <ScribeRecommendationsDrawer />}
       </div>
       {virtual && <VirtualAppointmentFooter />}
       {virtual && meetingData && (

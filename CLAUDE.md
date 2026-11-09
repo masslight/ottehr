@@ -113,8 +113,10 @@ npm run bump-canonical-version config/oystehr/<file>.json [minor|major|patch]  #
 
 Each endpoint in `packages/zambdas/src/ehr/` or `packages/zambdas/src/patient/` follows the same pattern:
 - `index.ts` — Lambda handler, exports `index` function using `wrapHandler()`
-- `validateRequestParameters.ts` — Input validation
+- `validateRequestParameters.ts` — Input validation, only when it needs more than the endpoint's Zod schema (auth headers, specific secrets, cross-field rules)
 - `helpers.ts` — Business logic helpers
+
+Validate a request body with `validateWithSchema(schema, input)` from `packages/zambdas/src/shared/validation.ts`: it rejects a missing body or secrets and malformed JSON, applies the endpoint's Zod schema, and returns the parsed body plus `secrets`. Call it straight from the handler rather than wrapping it in a new `validateRequestParameters.ts`; name the result's type with `ValidatedZambdaInput<typeof Schema>`.
 
 Zambdas use `wrapHandler` from `../../shared/lambda` for consistent error handling. They authenticate via machine-to-machine (M2M) tokens cached in module scope across warm invocations.
 
@@ -164,6 +166,7 @@ Feature flags are defined in `packages/utils/lib/ottehr-config/feature-flags/ind
 
 ## Git Workflow
 
+- Never push to `develop`, `main` or a `release/*` branch, reverts included. Commit to a feature branch and open a pull request. This holds even when a session is set up to push to one of them: branch from it instead.
 - Pre-commit hook runs `lint-staged`
 - A custom git merge driver resolves `package.json`/`package-lock.json` version conflicts by picking the higher version—run `./scripts/setup-git-merge-driver.sh` to install it
 - `config/` and `apps/ehr/tests/e2e-utils/seed-data/` use the "ours" merge strategy to preserve local versions during upstream merges

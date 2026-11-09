@@ -216,6 +216,8 @@ export default function CreateClaim(): ReactElement {
             placeOfService: l.placeOfService.trim(),
             ...(modifiers.length ? { modifiers } : {}),
             ...(pointers.length ? { diagnosisPointers: pointers } : {}),
+            ...(l.drug ? { drug: { ndc: l.drug.ndc, quantity: Number(l.drug.quantity), units: l.drug.units } } : {}),
+            ...(l.orderingProvider ? { orderingProvider: l.orderingProvider } : {}),
           };
         });
       }

@@ -1,12 +1,15 @@
-import { QuestionnaireResponse } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
+import { SaveInvoiceConfigBodySchema } from 'utils/lib/types/api/invoice-config.types';
 import { describe, expect, test, vi } from 'vitest';
 import {
   getOrCreateInvoicingConfig,
   INVOICING_CONFIG_QUESTIONNAIRE_URL,
   parseInvoicingConfig,
+  saveInvoicingConfig,
+  withInvoiceIssuerSourceItem,
 } from '../../src/rcm/invoice-config/helpers';
-import { validateRequestParameters } from '../../src/rcm/invoice-config/save-invoice-config/validateRequestParameters';
 import { ZambdaInput } from '../../src/shared/types/common';
+import { validateWithSchema } from '../../src/shared/validation';
 
 // ---------------------------------------------------------------------------
 // parseInvoicingConfig
@@ -16,8 +19,19 @@ function makeQuestionnaireResponse(overrides?: {
   dueDays?: number;
   smsTemplate?: string;
   memoTemplate?: string;
+  issuerSource?: string;
 }): QuestionnaireResponse {
   const items = [];
+  if (overrides?.issuerSource !== undefined) {
+    items.push({
+      linkId: 'invoicing.invoiceIssuerSource',
+      answer: [
+        {
+          valueString: overrides.issuerSource,
+        },
+      ],
+    });
+  }
   if (overrides?.dueDays !== undefined) {
     items.push({
       linkId: 'invoicing.dueDaysFromGeneration',
@@ -99,6 +113,146 @@ describe('parseInvoicingConfig', () => {
     expect(result.defaultSmsTemplate).toContain('{{clinic}}');
     expect(result.defaultInvoiceMemo).toContain('{{patient-portal-link}}');
   });
+
+  test.each([
+    [undefined, 'service-facility'],
+    ['billing-provider', 'billing-provider'],
+    ['rendering-provider', 'service-facility'],
+  ])('reads a stored invoice issuer of %s as %s', (issuerSource, expected) => {
+    const result = parseInvoicingConfig(
+      makeQuestionnaireResponse({
+        issuerSource,
+      })
+    );
+
+    expect(result.invoiceIssuerSource).toBe(expected);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// saveInvoicingConfig
+// ---------------------------------------------------------------------------
+
+describe('saveInvoicingConfig', () => {
+  const values = {
+    dueDaysFromGeneration: 14,
+    defaultSmsTemplate: 'Hello {{patient-full-name}}',
+    defaultInvoiceMemo: 'Memo for visit',
+  };
+
+  function createMockOystehr(issuerSource: string): any {
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'q-1',
+      url: INVOICING_CONFIG_QUESTIONNAIRE_URL,
+    };
+    const response = {
+      ...makeQuestionnaireResponse({
+        issuerSource,
+      }),
+      id: 'qr-1',
+      questionnaire: 'Questionnaire/q-1',
+    };
+    return {
+      fhir: {
+        search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
+          Promise.resolve({
+            unbundle: () => (resourceType === 'Questionnaire' ? [questionnaire] : [response]),
+          })
+        ),
+        update: vi.fn().mockImplementation((resource: QuestionnaireResponse) => Promise.resolve(resource)),
+      },
+    };
+  }
+
+  test('saves the given invoice issuer', async () => {
+    const oystehr = createMockOystehr('service-facility');
+
+    const result = await saveInvoicingConfig(oystehr, {
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
+
+    expect(parseInvoicingConfig(result.questionnaireResponse)).toEqual({
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
+  });
+
+  test('keeps the stored invoice issuer when a caller leaves it out', async () => {
+    const oystehr = createMockOystehr('billing-provider');
+
+    const result = await saveInvoicingConfig(oystehr, values);
+
+    expect(parseInvoicingConfig(result.questionnaireResponse)).toEqual({
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// withInvoiceIssuerSourceItem
+// ---------------------------------------------------------------------------
+
+describe('withInvoiceIssuerSourceItem', () => {
+  const dueDaysItem: QuestionnaireItem = {
+    linkId: 'invoicing.dueDaysFromGeneration',
+    type: 'integer',
+  };
+  const legacy: Questionnaire = {
+    resourceType: 'Questionnaire',
+    id: 'q-1',
+    status: 'active',
+    item: [
+      {
+        linkId: 'invoicing',
+        type: 'group',
+        item: [dueDaysItem],
+      },
+    ],
+  };
+
+  test('adds the issuer item after the existing settings', () => {
+    const updated = withInvoiceIssuerSourceItem(legacy);
+
+    expect(updated?.item?.[0].item).toEqual([
+      dueDaysItem,
+      expect.objectContaining({
+        linkId: 'invoicing.invoiceIssuerSource',
+      }),
+    ]);
+  });
+
+  test('preselects the default issuer through its option', () => {
+    const item = withInvoiceIssuerSourceItem(legacy)?.item?.[0].item?.[1];
+
+    expect(item?.initial).toBeUndefined();
+    expect(item?.answerOption).toEqual([
+      {
+        valueString: 'service-facility',
+        initialSelected: true,
+      },
+      {
+        valueString: 'billing-provider',
+      },
+    ]);
+  });
+
+  test('leaves a questionnaire that already has it alone', () => {
+    const updated = withInvoiceIssuerSourceItem(legacy);
+
+    expect(updated && withInvoiceIssuerSourceItem(updated)).toBeUndefined();
+  });
+
+  test('rejects a questionnaire without the invoicing group', () => {
+    expect(() =>
+      withInvoiceIssuerSourceItem({
+        ...legacy,
+        item: [],
+      })
+    ).toThrow();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -123,7 +277,7 @@ describe('validateRequestParameters (save-invoice-config)', () => {
   };
 
   test('accepts valid input', () => {
-    const result = validateRequestParameters(makeZambdaInput(validBody));
+    const result = validateWithSchema(SaveInvoiceConfigBodySchema, makeZambdaInput(validBody));
 
     expect(result.dueDaysFromGeneration).toBe(14);
     expect(result.defaultSmsTemplate).toBe('Hello {{patient-full-name}}');
@@ -133,57 +287,67 @@ describe('validateRequestParameters (save-invoice-config)', () => {
 
   test('throws when body is missing', () => {
     const input = { secrets: { KEY: 'val' } } as unknown as ZambdaInput;
-    expect(() => validateRequestParameters(input)).toThrow('The request was missing a required request body');
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow(
+      'The request was missing a required request body'
+    );
   });
 
   test('throws when secrets are missing', () => {
     const input = { body: JSON.stringify(validBody), secrets: null } as unknown as ZambdaInput;
-    expect(() => validateRequestParameters(input)).toThrow('The request was missing secrets required to process it');
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow(
+      'The request was missing secrets required to process it'
+    );
   });
 
   test('throws when dueDaysFromGeneration is less than 1', () => {
-    expect(() => validateRequestParameters(makeZambdaInput({ ...validBody, dueDaysFromGeneration: 0 }))).toThrow(
-      'dueDaysFromGeneration must be an integer between 1 and 365'
-    );
+    expect(() =>
+      validateWithSchema(SaveInvoiceConfigBodySchema, makeZambdaInput({ ...validBody, dueDaysFromGeneration: 0 }))
+    ).toThrow('dueDaysFromGeneration must be an integer between 1 and 365');
   });
 
   test('throws when dueDaysFromGeneration is greater than 365', () => {
-    expect(() => validateRequestParameters(makeZambdaInput({ ...validBody, dueDaysFromGeneration: 400 }))).toThrow(
-      'dueDaysFromGeneration must be an integer between 1 and 365'
-    );
+    expect(() =>
+      validateWithSchema(SaveInvoiceConfigBodySchema, makeZambdaInput({ ...validBody, dueDaysFromGeneration: 400 }))
+    ).toThrow('dueDaysFromGeneration must be an integer between 1 and 365');
   });
 
   test('throws when dueDaysFromGeneration is not a number', () => {
-    expect(() => validateRequestParameters(makeZambdaInput({ ...validBody, dueDaysFromGeneration: 'abc' }))).toThrow(
-      'dueDaysFromGeneration must be an integer between 1 and 365'
-    );
+    expect(() =>
+      validateWithSchema(SaveInvoiceConfigBodySchema, makeZambdaInput({ ...validBody, dueDaysFromGeneration: 'abc' }))
+    ).toThrow('dueDaysFromGeneration must be an integer between 1 and 365');
   });
 
   test('throws when defaultSmsTemplate is empty', () => {
-    expect(() => validateRequestParameters(makeZambdaInput({ ...validBody, defaultSmsTemplate: '   ' }))).toThrow(
-      'defaultSmsTemplate must be a non-empty string'
-    );
+    expect(() =>
+      validateWithSchema(SaveInvoiceConfigBodySchema, makeZambdaInput({ ...validBody, defaultSmsTemplate: '   ' }))
+    ).toThrow('defaultSmsTemplate must be a non-empty string');
   });
 
   test('throws when defaultSmsTemplate is not a string', () => {
-    expect(() => validateRequestParameters(makeZambdaInput({ ...validBody, defaultSmsTemplate: 123 }))).toThrow(
-      'defaultSmsTemplate must be a non-empty string'
-    );
+    expect(() =>
+      validateWithSchema(SaveInvoiceConfigBodySchema, makeZambdaInput({ ...validBody, defaultSmsTemplate: 123 }))
+    ).toThrow('defaultSmsTemplate must be a non-empty string');
   });
 
   test('throws when defaultInvoiceMemo is empty', () => {
-    expect(() => validateRequestParameters(makeZambdaInput({ ...validBody, defaultInvoiceMemo: '' }))).toThrow(
-      'defaultInvoiceMemo must be a non-empty string'
-    );
+    expect(() =>
+      validateWithSchema(SaveInvoiceConfigBodySchema, makeZambdaInput({ ...validBody, defaultInvoiceMemo: '' }))
+    ).toThrow('defaultInvoiceMemo must be a non-empty string');
   });
 
   test('accepts boundary value dueDaysFromGeneration = 1', () => {
-    const result = validateRequestParameters(makeZambdaInput({ ...validBody, dueDaysFromGeneration: 1 }));
+    const result = validateWithSchema(
+      SaveInvoiceConfigBodySchema,
+      makeZambdaInput({ ...validBody, dueDaysFromGeneration: 1 })
+    );
     expect(result.dueDaysFromGeneration).toBe(1);
   });
 
   test('accepts boundary value dueDaysFromGeneration = 365', () => {
-    const result = validateRequestParameters(makeZambdaInput({ ...validBody, dueDaysFromGeneration: 365 }));
+    const result = validateWithSchema(
+      SaveInvoiceConfigBodySchema,
+      makeZambdaInput({ ...validBody, dueDaysFromGeneration: 365 })
+    );
     expect(result.dueDaysFromGeneration).toBe(365);
   });
 });

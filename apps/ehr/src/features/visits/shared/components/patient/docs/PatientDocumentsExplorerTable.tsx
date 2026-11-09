@@ -16,7 +16,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef, GridRowSelectionModel } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useState } from 'react';
@@ -362,10 +362,19 @@ export type PatientDocumentsExplorerTableProps = {
   documentTableActions: DocumentTableActions;
   /** Used to resolve each document's visit into a date/time + visit id for the "Visit" column. */
   patientId: string;
+  selectedDocumentIds: GridRowSelectionModel;
+  onSelectedDocumentIdsChange: (selectedDocumentIds: GridRowSelectionModel) => void;
 };
 
 export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProps> = (props) => {
-  const { isLoadingDocs, documents, documentTableActions, patientId } = props;
+  const {
+    isLoadingDocs,
+    documents,
+    documentTableActions,
+    patientId,
+    selectedDocumentIds,
+    onSelectedDocumentIdsChange,
+  } = props;
 
   const { visitsByEncounterId, visitsByAppointmentId } = usePatientVisitOptions(patientId);
 
@@ -394,6 +403,9 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
       pagination
       disableColumnMenu
       pageSizeOptions={[10]}
+      checkboxSelection
+      rowSelectionModel={selectedDocumentIds}
+      onRowSelectionModelChange={onSelectedDocumentIdsChange}
       disableRowSelectionOnClick
       sx={{
         border: 0,

@@ -1,0 +1,238 @@
+// Vocabulary tables for the exam, ROS and medication matchers. Each entry fixes an observed wrong match, so an
+// entry that looks arbitrary is usually load-bearing.
+
+/** Words that carry no clinical signal in a search phrase. */
+export const EXAM_QUERY_STOPWORDS = new Set([
+  'add',
+  'exam',
+  'finding',
+  'abnormal',
+  'normal',
+  'the',
+  'a',
+  'an',
+  'on',
+  'of',
+  'has',
+  'patient',
+  'check',
+  'to',
+  'and',
+  'at',
+  'in',
+  'is',
+  'are',
+  'was',
+  'were',
+  'with',
+  'without',
+  'by',
+  'or',
+  'best',
+  'across',
+  'well',
+  'area',
+  'noted',
+  'please',
+]);
+
+/**
+ * Exam stopwords plus generic symptom modifiers, stripped from both query and label so the match rests on the
+ * symptom noun ("loss of sensation" must not match "Weight loss/gain").
+ */
+export const ROS_QUERY_STOPWORDS = new Set([
+  ...EXAM_QUERY_STOPWORDS,
+  'denies',
+  'reports',
+  'loss',
+  'gain',
+  'poor',
+  'changes',
+  'change',
+  'difficulty',
+  'problems',
+  'problem',
+  'recent',
+  'new',
+  'any',
+  'no',
+  'history',
+  'symptoms',
+  'symptom',
+]);
+
+/**
+ * Tokens that describe a finding but name no anatomy. A match resting only on these is rejected, so "groin
+ * pain" cannot land on "Eye pain".
+ */
+export const GENERIC_FINDING_TOKENS = new Set([
+  'pain',
+  'pains',
+  'painful',
+  'ache',
+  'aches',
+  'aching',
+  'tender',
+  'tenderness',
+  'sore',
+  'soreness',
+  'discomfort',
+  'swelling',
+  'swollen',
+  'edema',
+  'edematous',
+  'erythema',
+  'erythematous',
+  'red',
+  'redness',
+  'warm',
+  'warmth',
+  'induration',
+  'superficial',
+  'mild',
+  'moderate',
+  'severe',
+  'acute',
+  'chronic',
+  'localized',
+  'diffuse',
+  'bilateral',
+  'anterior',
+  'posterior',
+  'medial',
+  'lateral',
+  'proximal',
+  'distal',
+  'superior',
+  'inferior',
+  'left',
+  'right',
+  'upper',
+  'lower',
+  'mid',
+  'bilaterally',
+  'scattered',
+  'positive',
+  'appearing',
+  'second',
+  'seconds',
+  'minute',
+  'minutes',
+  'hour',
+  'hours',
+  'bleeding',
+  'bleed',
+  'point',
+  'sign',
+  'signs',
+  'grossly',
+  'gross',
+  'soft',
+  'flat',
+  'firm',
+  'linear',
+]);
+
+/**
+ * Phrases that assert a normal reading without a negation word. A 2+ grade is normal only for pulses and
+ * reflexes; an edema grade is an abnormality.
+ */
+export const NORMALCY_PATTERNS =
+  /\b(?:pulses?|reflex(?:es)?|dtrs?)\b[^.;]*\b2\s*(?:\+|plus)(?!\w)|\b2\s*(?:\+|plus)(?!\w)[^.;]*\b(?:pulses?|reflex(?:es)?|dtrs?)\b|\b5 out of 5\b|\b5\s*\/\s*5\b|\b20\/20\b|\bwell[- ]appearing\b|\bwell[- ]hydrated\b|\bcalm\b|\bcomfortable\b|\bplayful\b|\binteractive\b|\bconsolable\b/i;
+
+/**
+ * Anatomy word → exam card label (a test checks the labels). Ambiguous terms ("vestibule" is nasal or vaginal,
+ * "discharge" is any orifice) are left out on purpose: a wrong section guard is worse than none.
+ */
+export const EXAM_ANATOMY_SECTION_OF: Record<string, string> = {
+  vaginal: 'GU (Female)',
+  vagina: 'GU (Female)',
+  vulvar: 'GU (Female)',
+  vulva: 'GU (Female)',
+  labial: 'GU (Female)',
+  labia: 'GU (Female)',
+  introitus: 'GU (Female)',
+  adnexal: 'GU (Female)',
+  penile: 'GU (Male)',
+  penis: 'GU (Male)',
+  scrotal: 'GU (Male)',
+  scrotum: 'GU (Male)',
+  testicular: 'GU (Male)',
+  testicle: 'GU (Male)',
+  testicles: 'GU (Male)',
+  testis: 'GU (Male)',
+  testes: 'GU (Male)',
+  foreskin: 'GU (Male)',
+  cremasteric: 'GU (Male)',
+  rectal: 'Rectal',
+  rectum: 'Rectal',
+  anal: 'Rectal',
+  anus: 'Rectal',
+  perianal: 'Rectal',
+  perirectal: 'Rectal',
+  hemorrhoid: 'Rectal',
+  hemorrhoids: 'Rectal',
+  tympanic: 'Ears',
+  otoscopy: 'Ears',
+  otoscopic: 'Ears',
+  conjunctiva: 'Eyes',
+  conjunctival: 'Eyes',
+  sclera: 'Eyes',
+  scleral: 'Eyes',
+  pupil: 'Eyes',
+  pupils: 'Eyes',
+  cornea: 'Eyes',
+  corneal: 'Eyes',
+  pharynx: 'Oral Cavity',
+  pharyngeal: 'Oral Cavity',
+  oropharynx: 'Oral Cavity',
+  tonsil: 'Oral Cavity',
+  tonsils: 'Oral Cavity',
+  tonsillar: 'Oral Cavity',
+  uvula: 'Oral Cavity',
+  turbinate: 'Nose',
+  turbinates: 'Nose',
+  nares: 'Nose',
+  nostril: 'Nose',
+  nostrils: 'Nose',
+};
+
+/** Descriptor synonym classes. Each row collapses to one key, so "injected" matches "Erythematous pharynx". */
+const EXAM_DESCRIPTOR_SYNONYMS: string[][] = [
+  ['injected', 'erythematous', 'erythema', 'red', 'reddened', 'inflamed'],
+  ['tender', 'tenderness', 'painful'],
+  ['swollen', 'edematous', 'edema', 'swelling'],
+  ['bulging', 'bulge'],
+  ['exudate', 'pus', 'purulent'],
+  ['rales', 'crackles'],
+  ['discharge', 'drainage'],
+  ['lesion', 'ulcer', 'ulcers', 'vesicle', 'vesicles'],
+  ['rash', 'eruption', 'dermatitis'],
+  ['bruising', 'bruise', 'bruised', 'ecchymosis', 'ecchymotic', 'contusion'],
+  ['fluid', 'effusion'],
+];
+
+export const EXAM_DESCRIPTOR_CLASS_OF: Map<string, number> = new Map();
+EXAM_DESCRIPTOR_SYNONYMS.forEach((cls, i) => cls.forEach((token) => EXAM_DESCRIPTOR_CLASS_OF.set(token, i)));
+
+/**
+ * A product name that implies a site or indication ("athlete's foot", "vaginal") must not be
+ * selected unless the visit supports it. Maps the qualifier to the evidence words that justify it.
+ */
+export const MED_QUALIFIER_EVIDENCE: Record<string, string[]> = {
+  athlete: ['athlete', 'pedis'],
+  athletes: ['athlete', 'pedis'],
+  // OTC catalogues abbreviate athlete's-foot ("Lotrimin AF", "Clotrimazole AF").
+  af: ['af', 'athlete', 'pedis'],
+  foot: ['foot', 'feet', 'pedis', 'toe', 'plantar'],
+  jock: ['jock', 'cruris', 'groin'],
+  itch: ['itch', 'prurit'],
+  ringworm: ['ringworm', 'corporis', 'tinea'],
+  vaginal: ['vagin', 'vulv', 'yeast'],
+  diaper: ['diaper'],
+  otic: ['otic', 'ear', 'otitis'],
+  ear: ['ear', 'otic', 'otitis'],
+  ophthalmic: ['ophthalm', 'eye', 'ocular', 'conjunctiv'],
+  eye: ['eye', 'ophthalm', 'ocular', 'conjunctiv', 'stye'],
+  nasal: ['nasal', 'nose', 'nares', 'rhin', 'sinus'],
+};

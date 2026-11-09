@@ -24,11 +24,13 @@ import {
   mapFhirToOrderStatus,
 } from 'utils/lib/fhir/medication-administration';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import {
   ExtendedMedicationDataForResponse,
   GetMedicationOrdersInput,
+  GetMedicationOrdersInputSchema,
   GetMedicationOrdersResponse,
   OrderPackage,
 } from 'utils/lib/types/api/medication-administration.types';
@@ -36,13 +38,13 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-medication-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(GetMedicationOrdersInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
@@ -233,7 +235,7 @@ export function buildOrderPackage(
     ? (resources.find((res) => res.id === idOfProviderOrderedBy) as Practitioner)
     : undefined;
 
-  const medicationRequestId = ma.request?.reference?.split('/')[1];
+  const medicationRequestId = getIdFromReference(ma.request?.reference);
   const medicationRequest = resources.find(
     (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
   ) as MedicationRequest;

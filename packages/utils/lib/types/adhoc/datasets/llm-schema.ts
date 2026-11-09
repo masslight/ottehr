@@ -37,11 +37,13 @@ export const LlmDatasetSchemaSchema = z.object({
   label: z.string(),
   description: z.string(),
   rowCount: z.number(),
+  /** Inclusive yyyy-MM-dd range the rows were fetched for (the page's date picker). */
+  dateRange: z.object({ start: z.string(), end: z.string() }).optional(),
   fields: z.array(LlmFieldSchema),
   /** Layers that EXIST but are NOT loaded — the generator names their ids in `needsLayers`. */
   availableLayers: z.array(LlmAvailableLayerSchema).optional(),
   /** Other datasets the user could switch to, when the active one can't carry a concept. */
-  otherDatasets: z.array(z.object({ label: z.string(), description: z.string() })).optional(),
+  otherDatasets: z.array(z.object({ id: z.string(), label: z.string(), description: z.string() })).optional(),
 });
 export type LlmDatasetSchema = z.infer<typeof LlmDatasetSchemaSchema>;
 

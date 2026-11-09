@@ -28,7 +28,14 @@ vi.mock('../../src/features/visits/telemed/hooks/useGetErxConfig', () => ({
   useGetErxConfigQuery: () => erxConfigReturn,
 }));
 
-let vitalsReturn: { hasVitals: boolean; isVitalsLoading: boolean; isVitalsFetched: boolean };
+const missingVitalsMessage =
+  "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab";
+let vitalsReturn: {
+  hasVitals: boolean;
+  isVitalsLoading: boolean;
+  isVitalsFetched: boolean;
+  missingVitalsMessage: string;
+};
 // getErxPatientSyncErrorMessage lives in utils/erxErrors and stays real; only stub the vitals hook.
 vi.mock('../../src/features/visits/shared/hooks/useErxPatientVitals', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/features/visits/shared/hooks/useErxPatientVitals')>();
@@ -61,7 +68,7 @@ describe('ERXInteractionsReadiness', () => {
     vi.clearAllMocks();
     capturedSyncOnError = undefined;
     erxConfigReturn = { data: { configured: true }, isFetched: true };
-    vitalsReturn = { hasVitals: true, isVitalsLoading: false, isVitalsFetched: true };
+    vitalsReturn = { hasVitals: true, isVitalsLoading: false, isVitalsFetched: true, missingVitalsMessage };
     syncReturn = { isSuccess: true, isLoading: false };
   });
 
@@ -83,7 +90,7 @@ describe('ERXInteractionsReadiness', () => {
   });
 
   it('reports LOADING while vitals are loading', () => {
-    vitalsReturn = { hasVitals: false, isVitalsLoading: true, isVitalsFetched: false };
+    vitalsReturn = { hasVitals: false, isVitalsLoading: true, isVitalsFetched: false, missingVitalsMessage };
     const onStatusChanged = vi.fn();
     render(<ERXInteractionsReadiness onStatusChanged={onStatusChanged} />);
 
@@ -108,15 +115,12 @@ describe('ERXInteractionsReadiness', () => {
   });
 
   it('reports ERROR and prompts for vitals when required vitals are missing', () => {
-    vitalsReturn = { hasVitals: false, isVitalsLoading: false, isVitalsFetched: true };
+    vitalsReturn = { hasVitals: false, isVitalsLoading: false, isVitalsFetched: true, missingVitalsMessage };
     const onStatusChanged = vi.fn();
     render(<ERXInteractionsReadiness onStatusChanged={onStatusChanged} />);
 
     expect(onStatusChanged).toHaveBeenLastCalledWith(ERXStatus.ERROR);
-    expect(enqueueSnackbar).toHaveBeenCalledWith(
-      "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab",
-      expect.objectContaining({ variant: 'error' })
-    );
+    expect(enqueueSnackbar).toHaveBeenCalledWith(missingVitalsMessage, expect.objectContaining({ variant: 'error' }));
   });
 
   it('reports ERROR and surfaces a message when the patient sync fails', () => {

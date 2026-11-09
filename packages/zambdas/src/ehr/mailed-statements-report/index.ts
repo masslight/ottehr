@@ -1,22 +1,31 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { getPatientFirstName, getPatientLastName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { MailedStatementItem } from 'utils/lib/types/api/mailed-statements-report.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getMailedStatementSyncState } from '../../shared/mailed-statement-sync-state';
 import { MAIL_VENDOR_EXTENSION_URL } from '../../shared/postgrid';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
+
+export const dateRangeSchema = z.object({
+  dateRange: z.object({
+    start: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'start must be a valid ISO date string' }),
+    end: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'end must be a valid ISO date string' }),
+  }),
+});
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'mailed-statements-report';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(dateRangeSchema, input);
   const { dateRange, secrets }: { dateRange: { start: string; end: string }; secrets: Secrets } = validatedParameters;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -76,11 +85,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const patientIds = new Set<string>();
   const encounterIds = new Set<string>();
   for (const comm of allCommunications) {
-    const patientId = comm.subject?.reference?.split('/')[1];
+    const patientId = getIdFromReference(comm.subject?.reference);
     if (patientId) {
       patientIds.add(patientId);
     }
-    const encounterId = comm.encounter?.reference?.split('/')[1];
+    const encounterId = getIdFromReference(comm.encounter?.reference);
     if (encounterId) {
       encounterIds.add(encounterId);
     }
@@ -132,7 +141,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     for (const encounter of encounters) {
       if (!encounter.id) continue;
-      const appointmentRef = encounter.appointment?.[0]?.reference?.split('/')[1];
+      const appointmentRef = getIdFromReference(encounter.appointment?.[0]?.reference);
       const appointment = appointmentRef ? appointments.get(appointmentRef) : undefined;
       encounterAppointmentData.set(encounter.id, {
         appointmentDate: appointment?.start ?? encounter.period?.start ?? '',

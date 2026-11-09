@@ -2,6 +2,7 @@ import {
   ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE,
   ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE,
   ADDRESS_BOOK_TAG_MESSAGE,
+  ADDRESS_BOOK_ZIP_MESSAGE,
 } from 'utils/lib/types/data/address-book';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/address-book/create-address-book-contact/validateRequestParameters';
@@ -22,6 +23,20 @@ describe('create-address-book-contact - validateRequestParameters', () => {
     const result = validateRequestParameters(createMockZambdaInput(body, { secrets }));
 
     expect(result.contact).toEqual(body);
+  });
+
+  test('should accept the ZIP formats used in the app and reject anything else', () => {
+    for (const zip of ['62701', '62701-1234', '627011234']) {
+      const result = validateRequestParameters(
+        createMockZambdaInput({ organizationName: 'Acme', address: { zip } }, { secrets })
+      );
+      expect(result.contact.address?.zip).toBe(zip);
+    }
+    for (const zip of ['6270', 'ABCDE', '62701-12']) {
+      expect(() =>
+        validateRequestParameters(createMockZambdaInput({ organizationName: 'Acme', address: { zip } }, { secrets }))
+      ).toThrow(ADDRESS_BOOK_ZIP_MESSAGE);
+    }
   });
 
   test('should throw when body is missing', () => {

@@ -5,15 +5,18 @@ import { ReactElement, ReactNode } from 'react';
 // Table-header cell styling shared by the read-only tables on the detail screens.
 export const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
-// Outlined card with a section heading; string children render as muted empty-state text.
+// Outlined card with a section heading; string children render as muted empty-state text. The
+// heading's right side holds `action`, or an "Add" button when only `onAdd` is given.
 export function ReadOnlySection({
   title,
   children,
   onAdd,
+  action,
 }: {
   title: string;
   children: ReactNode;
   onAdd?: () => void;
+  action?: ReactNode;
 }): ReactElement {
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -22,13 +25,14 @@ export function ReadOnlySection({
           <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
             {title}
           </Typography>
-          {onAdd ? (
-            <Button size="small" variant="contained" startIcon={<AddIcon fontSize="small" />} onClick={() => onAdd()}>
-              Add
-            </Button>
-          ) : (
-            <></>
-          )}
+          {action ??
+            (onAdd ? (
+              <Button size="small" variant="contained" startIcon={<AddIcon fontSize="small" />} onClick={() => onAdd()}>
+                Add
+              </Button>
+            ) : (
+              <></>
+            ))}
         </Box>
         {typeof children === 'string' ? (
           <Typography variant="body2" color="text.secondary">

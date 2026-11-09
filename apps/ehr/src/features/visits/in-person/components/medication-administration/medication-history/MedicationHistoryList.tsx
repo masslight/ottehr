@@ -90,6 +90,8 @@ export const MedicationHistoryList: React.FC = () => {
                 <TableCell>Medication</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell>Who Added</TableCell>
+                <TableCell>Last Filled</TableCell>
+                <TableCell>Refills</TableCell>
                 <TableCell>Last Time Taken</TableCell>
                 <TableCell />
               </TableRow>
@@ -97,51 +99,16 @@ export const MedicationHistoryList: React.FC = () => {
             <TableBody>
               {showSkeletons ? (
                 <>
-                  <TableRow>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell />
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell />
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton width={'100%'} height={24} />
-                    </TableCell>
-                    <TableCell />
-                  </TableRow>
+                  {[0, 1, 2].map((row) => (
+                    <TableRow key={row}>
+                      {[0, 1, 2, 3, 4, 5].map((cell) => (
+                        <TableCell key={cell}>
+                          <Skeleton width={'100%'} height={24} />
+                        </TableCell>
+                      ))}
+                      <TableCell />
+                    </TableRow>
+                  ))}
                 </>
               ) : (
                 shownMeds.map((item) => <MedicationHistoryEntity key={item.resourceId} item={item} />)

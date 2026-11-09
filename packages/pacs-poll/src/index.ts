@@ -1,8 +1,10 @@
+import http from 'node:http';
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
 import { readdirSync } from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
+import { Counter, Gauge, Registry } from 'prom-client';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import {
@@ -15,6 +17,67 @@ import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ── Prometheus metrics ──────────────────────────────────────────────
+
+const register = new Registry();
+
+const pollTimestamp = new Gauge({
+  name: 'pacs_poll_last_run_timestamp_seconds',
+  help: 'Unix timestamp of the last completed poll cycle',
+  registers: [register],
+});
+
+const pollDuration = new Gauge({
+  name: 'pacs_poll_run_duration_seconds',
+  help: 'Duration of the last poll cycle per project',
+  labelNames: ['project_id'] as const,
+  registers: [register],
+});
+
+const serviceRequestsFound = new Gauge({
+  name: 'pacs_poll_service_requests_found',
+  help: 'Number of ServiceRequests found needing teleradiology send',
+  labelNames: ['project_id'] as const,
+  registers: [register],
+});
+
+const serviceRequestsSent = new Gauge({
+  name: 'pacs_poll_service_requests_sent',
+  help: 'Number of ServiceRequests successfully sent via Mirth',
+  labelNames: ['project_id'] as const,
+  registers: [register],
+});
+
+const mirthErrors = new Counter({
+  name: 'pacs_poll_mirth_errors_total',
+  help: 'Total Mirth send failures',
+  labelNames: ['project_id'] as const,
+  registers: [register],
+});
+
+const patchErrors = new Counter({
+  name: 'pacs_poll_patch_errors_total',
+  help: 'Total FHIR patch failures',
+  labelNames: ['project_id'] as const,
+  registers: [register],
+});
+
+const authErrors = new Counter({
+  name: 'pacs_poll_auth_errors_total',
+  help: 'Total OAuth token fetch failures',
+  labelNames: ['project_id'] as const,
+  registers: [register],
+});
+
+const pollErrors = new Counter({
+  name: 'pacs_poll_cycle_errors_total',
+  help: 'Total poll cycle errors per project',
+  labelNames: ['project_id'] as const,
+  registers: [register],
+});
+
+// ── Core logic (unchanged from cron version) ────────────────────────
 
 const createOystehrClientFromConfig = async (config: ProjectConfig): Promise<any> => {
   const tokenResponse = await fetch('https://auth.zapehr.com/oauth/token', {
@@ -31,6 +94,7 @@ const createOystehrClientFromConfig = async (config: ProjectConfig): Promise<any
   });
 
   if (!tokenResponse.ok) {
+    authErrors.inc({ project_id: config.projectId });
     throw new Error(
       `Failed to fetch token for projectId ${config.projectId} with statusText: ${tokenResponse.statusText}`
     );
@@ -55,7 +119,6 @@ interface ProjectConfig {
 const pathToEnvFiles = path.resolve(__dirname, '../.env');
 
 const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
-  // Load all JSON files from .env, parse them, and return ProjectConfig array
   const projectConfigs: ProjectConfig[] = [];
   const envFiles = readdirSync(pathToEnvFiles);
 
@@ -67,7 +130,6 @@ const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
       const config = configModule.default;
       if (!config.projectId || !config.clientId || !config.clientSecret || !config.advapacsTenant) {
         console.error('Invalid config in file: ', file);
-        // TODO: We don't want to let one bum config file break the whole thing. But we do want this to be a noisy error.
         continue;
       }
       projectConfigs.push(config);
@@ -128,7 +190,11 @@ const findServiceRequestsToSend = async (oystehr: Oystehr): Promise<ServiceReque
   return serviceRequestsToSend;
 };
 
-const sendWithMirth = async (serviceRequests: ServiceRequest[], advapacsTenant: string): Promise<ServiceRequest[]> => {
+const sendWithMirth = async (
+  serviceRequests: ServiceRequest[],
+  advapacsTenant: string,
+  projectId: string
+): Promise<ServiceRequest[]> => {
   const serviceRequestsSentWithMirth: ServiceRequest[] = [];
   for (const sr of serviceRequests) {
     try {
@@ -136,11 +202,13 @@ const sendWithMirth = async (serviceRequests: ServiceRequest[], advapacsTenant: 
       const fillerOrderNumber = sr.identifier?.find((id) => id.system === FILLER_ORDER_NUMBER_CODE_SYSTEM)?.value;
       if (!fillerOrderNumber) {
         console.error(`ServiceRequest ${sr.id} is missing filler order number, skipping.`);
+        mirthErrors.inc({ project_id: projectId });
         continue;
       }
       const placerOrderNumber = sr.identifier?.find((id) => id.system === PLACER_ORDER_NUMBER_CODE_SYSTEM)?.value;
       if (!placerOrderNumber) {
         console.error(`ServiceRequest ${sr.id} is missing placer order number, skipping.`);
+        mirthErrors.inc({ project_id: projectId });
         continue;
       }
 
@@ -162,27 +230,38 @@ const sendWithMirth = async (serviceRequests: ServiceRequest[], advapacsTenant: 
         console.error(
           `Failed to send ServiceRequest ${sr.id} via Mirth with status ${mirthResponse.status}: ${mirthResponse.statusText}`
         );
+        mirthErrors.inc({ project_id: projectId });
       }
     } catch (error) {
       console.error(`Failed to send ServiceRequest ${sr.id}:`, error);
+      mirthErrors.inc({ project_id: projectId });
     }
   }
   return serviceRequestsSentWithMirth;
 };
 
-const patchServiceRequests = async (serviceRequests: ServiceRequest[], oystehr: Oystehr): Promise<void> => {
+const patchServiceRequests = async (
+  serviceRequests: ServiceRequest[],
+  oystehr: Oystehr,
+  projectId: string
+): Promise<void> => {
   for (const sr of serviceRequests) {
     const hasBeenSentOperation = getPatchOperationToUpdateExtension(sr, {
       url: SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
       valueDateTime: DateTime.now().toISO(),
     });
     if (hasBeenSentOperation) {
-      await oystehr.fhir.patch({
-        resourceType: 'ServiceRequest',
-        id: sr.id as string,
-        operations: [hasBeenSentOperation],
-      });
-      console.log(`Patched ServiceRequest ${sr.id} as sent to teleradiology.`);
+      try {
+        await oystehr.fhir.patch({
+          resourceType: 'ServiceRequest',
+          id: sr.id as string,
+          operations: [hasBeenSentOperation],
+        });
+        console.log(`Patched ServiceRequest ${sr.id} as sent to teleradiology.`);
+      } catch (error) {
+        console.error(`Failed to patch ServiceRequest ${sr.id}:`, error);
+        patchErrors.inc({ project_id: projectId });
+      }
     }
   }
 };
@@ -190,28 +269,83 @@ const patchServiceRequests = async (serviceRequests: ServiceRequest[], oystehr: 
 const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> => {
   const oystehr = await createOystehrClientFromConfig(config);
   const serviceRequestsToSend = await findServiceRequestsToSend(oystehr);
+
+  serviceRequestsFound.set({ project_id: config.projectId }, serviceRequestsToSend.length);
+
   if (serviceRequestsToSend.length === 0) {
     console.log(`No ServiceRequests to send to teleradiology for project ${config.projectId}`);
+    serviceRequestsSent.set({ project_id: config.projectId }, 0);
     return;
   }
-  const serviceRequestsToPatchAsSent = await sendWithMirth(serviceRequestsToSend, config.advapacsTenant);
-  await patchServiceRequests(serviceRequestsToPatchAsSent, oystehr);
+  const serviceRequestsToPatchAsSent = await sendWithMirth(
+    serviceRequestsToSend,
+    config.advapacsTenant,
+    config.projectId
+  );
+  serviceRequestsSent.set({ project_id: config.projectId }, serviceRequestsToPatchAsSent.length);
+  await patchServiceRequests(serviceRequestsToPatchAsSent, oystehr, config.projectId);
+};
+
+// ── Poll loop ───────────────────────────────────────────────────────
+
+const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS ?? '60000', 10);
+const METRICS_PORT = parseInt(process.env.METRICS_PORT ?? '9090', 10);
+
+const pollOnce = async (): Promise<void> => {
+  console.log('Starting poll cycle at', new Date().toISOString());
+  const projectConfigs = await loadProjectConfigurations();
+  for (const config of projectConfigs) {
+    console.log(`Processing projectId ${config.projectId} and tenant ${config.advapacsTenant}`);
+    const start = performance.now();
+    try {
+      await sendStudiesToTeleradiology(config);
+    } catch (error) {
+      console.error(`Error processing project ${config.projectId}:`, error);
+      pollErrors.inc({ project_id: config.projectId });
+    }
+    const durationSec = (performance.now() - start) / 1000;
+    pollDuration.set({ project_id: config.projectId }, durationSec);
+    console.log(`Finished processing projectId ${config.projectId} in ${durationSec.toFixed(2)}s`);
+  }
+  pollTimestamp.setToCurrentTime();
+  console.log('Finished poll cycle at', new Date().toISOString());
 };
 
 const main = async (): Promise<void> => {
-  console.log('Starting PACS Poll Teleradiology Sender at ', new Date().toISOString());
-  const projectConfigs = await loadProjectConfigurations();
-  for await (const config of projectConfigs) {
-    console.log(`Processing projectId ${config.projectId} and tenant ${config.advapacsTenant}`);
-    console.time('Processing time');
-    await sendStudiesToTeleradiology(config);
-    console.timeEnd('Processing time');
-    console.log('Finished processing projectId:', config.projectId);
-  }
-  console.log('Finished PACS Poll Teleradiology Sender at ', new Date().toISOString());
+  const server = http.createServer(async (req, res) => {
+    if (req.url === '/metrics' && req.method === 'GET') {
+      res.setHeader('Content-Type', register.contentType);
+      res.end(await register.metrics());
+    } else if (req.url === '/health' && req.method === 'GET') {
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ status: 'ok' }));
+    } else {
+      res.statusCode = 404;
+      res.end();
+    }
+  });
+
+  server.listen(METRICS_PORT, () => {
+    console.log(`Metrics server listening on port ${METRICS_PORT}`);
+  });
+
+  await pollOnce();
+  const interval = setInterval(pollOnce, POLL_INTERVAL_MS);
+
+  const shutdown = (): void => {
+    console.log('Shutting down...');
+    clearInterval(interval);
+    server.close(() => {
+      console.log('Metrics server closed');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 };
 
 main().catch((error) => {
-  console.log('error', error);
-  throw error;
+  console.error('Fatal error:', error);
+  process.exit(1);
 });

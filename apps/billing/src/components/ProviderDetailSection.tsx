@@ -120,7 +120,7 @@ export function ProviderDetailForm({
                 <TextField
                   {...p}
                   size="small"
-                  label={provider ? 'Replace billing provider' : 'Choose billing provider'}
+                  label={provider ? `Replace ${role} provider` : `Choose ${role} provider`}
                 />
               )}
               isOptionEqualToValue={(o, v) => o.id === v.id}

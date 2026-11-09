@@ -1,8 +1,10 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ScheduleStrategy } from 'utils/lib/fhir/constants';
 import { scheduleStrategyForHealthcareService } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
 import {
@@ -17,6 +19,12 @@ const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
 });
 
 export const APPOINTMENT_SEARCH_PAGE_SIZE = 100;
+
+// Lambda refuses to return a result whose JSON exceeds 6 MiB (6,291,456 bytes); this keeps headroom below it.
+export const MAX_RESPONSE_BYTES = 6_000_000;
+
+export const lambdaResultBytes = (result: APIGatewayProxyResult): number => Buffer.byteLength(JSON.stringify(result));
+
 // WARNING: this list must cover every field read from resources returned by the appointment search bundle.
 // If you access a new field on any of these resource types downstream (including via utils helpers),
 // you MUST add it here — otherwise the server strips it via _elements and it arrives as undefined.
@@ -33,6 +41,7 @@ export const APPOINTMENT_SEARCH_ELEMENTS = [
   'Appointment.extension',
   'Appointment.serviceCategory',
   'Patient.id',
+  'Patient.identifier',
   'Patient.name',
   'Patient.gender',
   'Patient.birthDate',
@@ -241,10 +250,6 @@ export const getAppointmentQueryInput = async (input: {
         value: 'Person:link',
       },
       {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
         name: '_include',
         value: 'Appointment:location',
       },
@@ -364,19 +369,19 @@ export const getTimezoneResourceIdFromAppointment = (appointment: Appointment): 
   const locationRef = appointment.participant.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
     ?.reference;
   if (locationRef) {
-    return locationRef.split('/')[1];
+    return getIdFromReference(locationRef, 'Location');
   }
 
   const practitionerRef = appointment.participant.find((p) => p.actor?.reference?.startsWith('Practitioner/'))?.actor
     ?.reference;
   if (practitionerRef) {
-    return practitionerRef.split('/')[1];
+    return getIdFromReference(practitionerRef, 'Practitioner');
   }
 
   const healthcareServiceRef = appointment.participant.find((p) => p.actor?.reference?.startsWith('HealthcareService/'))
     ?.actor?.reference;
   if (healthcareServiceRef) {
-    return healthcareServiceRef.split('/')[1];
+    return getIdFromReference(healthcareServiceRef, 'HealthcareService');
   }
 
   return undefined;

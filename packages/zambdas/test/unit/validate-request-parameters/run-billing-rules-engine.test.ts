@@ -1,7 +1,10 @@
 import { randomUUID } from 'crypto';
-import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  MAX_RUN_RULES_ENGINE_CLAIMS,
+  RunBillingRulesEngineInputSchema,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/billing/run-billing-rules-engine/validateRequestParameters';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('run-billing-rules-engine - validateRequestParameters', () => {
@@ -9,79 +12,99 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
   const claimIds = [randomUUID(), randomUUID()];
 
   test('returns validated params for a list of claim ids', () => {
-    const input = createMockZambdaInput({ claimIds }, { secrets });
-    expect(validateRequestParameters(input)).toEqual({
+    const input = createMockZambdaInput(
+      { claimIds, submissionType: 'new', submissionInsurance: 'primary' },
+      { secrets }
+    );
+    expect(validateWithSchema(RunBillingRulesEngineInputSchema, input)).toEqual({
       claimIds,
       secrets,
       skipRules: false,
+      submissionType: 'new',
+      submissionInsurance: 'primary',
     });
   });
 
   test('throws when a claim id is empty', () => {
     const input = createMockZambdaInput(
-      {
-        claimIds: [''],
-      },
+      { claimIds: [''], submissionType: 'new', submissionInsurance: 'primary' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('throws when claimIds is empty', () => {
     const input = createMockZambdaInput(
-      {
-        claimIds: [],
-      },
+      { claimIds: [], submissionType: 'new', submissionInsurance: 'primary' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('throws when claimIds is missing', () => {
-    const input = createMockZambdaInput({}, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    const input = createMockZambdaInput({ submissionType: 'new', submissionInsurance: 'primary' }, { secrets });
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('throws when more than the maximum number of claim ids is provided', () => {
     const input = createMockZambdaInput(
       {
         claimIds: Array.from({ length: MAX_RUN_RULES_ENGINE_CLAIMS + 1 }, () => randomUUID()),
+        submissionType: 'new',
+        submissionInsurance: 'primary',
       },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('throws when the body is missing', () => {
     const input = createMockZambdaInput(null, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('returns validated params for valid submission type params', () => {
     expect(
-      validateRequestParameters(
-        createMockZambdaInput({ claimIds, skipRules: true, submissionType: 'new' }, { secrets })
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
+        createMockZambdaInput(
+          { claimIds, skipRules: true, submissionType: 'new', submissionInsurance: 'primary' },
+          { secrets }
+        )
       )
     ).toEqual({
       claimIds,
       secrets,
       skipRules: true,
       submissionType: 'new',
+      submissionInsurance: 'primary',
     });
     expect(
-      validateRequestParameters(
-        createMockZambdaInput({ claimIds, skipRules: false, submissionType: 'new' }, { secrets })
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
+        createMockZambdaInput(
+          { claimIds, skipRules: false, submissionType: 'new', submissionInsurance: 'primary' },
+          { secrets }
+        )
       )
     ).toEqual({
       claimIds,
       secrets,
       skipRules: false,
       submissionType: 'new',
+      submissionInsurance: 'primary',
     });
     expect(
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
-          { claimIds, skipRules: true, submissionType: 'correction', payerClaimControlNumber: 'PCCN-12345' },
+          {
+            claimIds,
+            skipRules: true,
+            submissionType: 'correction',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: 'PCCN-12345',
+          },
           { secrets }
         )
       )
@@ -90,12 +113,20 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       secrets,
       skipRules: true,
       submissionType: 'correction',
+      submissionInsurance: 'primary',
       payerClaimControlNumber: 'PCCN-12345',
     });
     expect(
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
-          { claimIds, skipRules: true, submissionType: 'void', payerClaimControlNumber: 'PCCN-12345' },
+          {
+            claimIds,
+            skipRules: true,
+            submissionType: 'void',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: 'PCCN-12345',
+          },
           { secrets }
         )
       )
@@ -104,6 +135,7 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       secrets,
       skipRules: true,
       submissionType: 'void',
+      submissionInsurance: 'primary',
       payerClaimControlNumber: 'PCCN-12345',
     });
   });
@@ -111,43 +143,78 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
   test('throws for invalid submission type params', () => {
     // New submissions should not have PCCN
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
-          { claimIds, skipRules: true, submissionType: 'new', payerClaimControlNumber: 'PCCN-12345' },
+          {
+            claimIds,
+            skipRules: true,
+            submissionType: 'new',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: 'PCCN-12345',
+          },
           { secrets }
         )
       )
     ).toThrow();
     // Corrections and voids require PCCN
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
-          { claimIds, skipRules: true, submissionType: 'correction', payerClaimControlNumber: undefined },
+          {
+            claimIds,
+            skipRules: true,
+            submissionType: 'correction',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: undefined,
+          },
           { secrets }
         )
       )
     ).toThrow();
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
-          { claimIds, skipRules: true, submissionType: 'void', payerClaimControlNumber: undefined },
+          {
+            claimIds,
+            skipRules: true,
+            submissionType: 'void',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: undefined,
+          },
           { secrets }
         )
       )
     ).toThrow();
     // Only "new" can be used when skipRules is false
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
-          { claimIds, skipRules: false, submissionType: 'correction', payerClaimControlNumber: undefined },
+          {
+            claimIds,
+            skipRules: false,
+            submissionType: 'correction',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: undefined,
+          },
           { secrets }
         )
       )
     ).toThrow();
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
-          { claimIds, skipRules: false, submissionType: 'correction', payerClaimControlNumber: undefined },
+          {
+            claimIds,
+            skipRules: false,
+            submissionType: 'correction',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: undefined,
+          },
           { secrets }
         )
       )

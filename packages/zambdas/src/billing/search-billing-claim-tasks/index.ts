@@ -3,11 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Organization, Patient, Task } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { buildAppointmentStartMap, getEncounterDateTime } from 'utils/lib/fhir/encounter';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   BILLING_CLAIM_TASK_CODING,
   BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT,
 } from 'utils/lib/types/data/billing/billing.constants';
+import { SearchBillingClaimTasksInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -15,15 +17,17 @@ import { fetchAllPages } from '../../shared/fhir';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient, fhirName } from '../shared';
 import { getClaimTaskPayerNames } from './payers';
-import { SearchBillingClaimTasksParams, validateRequestParameters } from './validateRequestParameters';
+
+type SearchBillingClaimTasksParams = ValidatedZambdaInput<typeof SearchBillingClaimTasksInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-claim-tasks';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(SearchBillingClaimTasksInputSchema, input);
   complexValidation(params);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
@@ -151,15 +155,15 @@ async function getTaskRows(
   const appointmentStarts = buildAppointmentStartMap(visitResources);
   const payerNames = await getClaimTaskPayerNames(clinicalOystehr, oystehr, visitResources, payerCache);
   return taskResources.map((task) => {
-    const encounterId = task.encounter?.reference?.split('/')[1];
-    const patientId = task.for?.reference?.split('/')[1];
+    const encounterId = getIdFromReference(task.encounter?.reference);
+    const patientId = getIdFromReference(task.for?.reference);
     const encounter = encounterId ? encountersById.get(encounterId) : undefined;
     return {
       id: task.id!,
       status: task.status,
       encounterId,
       encounterDate: encounter ? getEncounterDateTime(encounter, appointmentStarts) : undefined,
-      appointmentId: encounter?.appointment?.[0]?.reference?.split('/')[1],
+      appointmentId: getIdFromReference(encounter?.appointment?.[0]?.reference),
       patientId,
       patientName: fhirName(patientsById.get(patientId)) || undefined,
       payerNames: payerNames.get(encounterId ?? '') ?? [],

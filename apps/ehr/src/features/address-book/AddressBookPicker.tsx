@@ -54,12 +54,21 @@ interface AddressBookPickerProps {
   /** Narrows the search to contacts with this tag, and tags contacts created from this picker with it. */
   tag?: string;
   onSelect: (contact: AddressBookContact) => void;
+  toContact?: () => Partial<AddressBookContactInput>;
   dataTestId?: string;
 }
 
 type DialogState = Pick<React.ComponentProps<typeof AddressBookDialog>, 'contact' | 'initialValues'>;
 
-export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, variant, tag, onSelect, dataTestId }) => {
+export const AddressBookPicker: FC<AddressBookPickerProps> = ({
+  name,
+  label,
+  variant,
+  tag,
+  onSelect,
+  toContact,
+  dataTestId,
+}) => {
   const { control } = useFormContext();
   const { data } = useSearchAddressBookQuery(tag);
   const contacts = data?.contacts ?? [];
@@ -99,7 +108,8 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, var
               onChange={(_event, option) => {
                 if (!option || typeof option === 'string') return;
                 if (isAddNew(option)) {
-                  setDialog({ initialValues: { ...prefillFromText(text), tags: tag ? [tag] : undefined } });
+                  const values = toContact ? toContact() : prefillFromText(text);
+                  setDialog({ initialValues: { ...values, tags: tag ? [tag] : undefined } });
                 } else pick(option);
               }}
               renderOption={(props, option) => (

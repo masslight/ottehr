@@ -3,11 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CREATE_TIMELY_FILING_REPORT_ZAMBDA } from 'utils/lib/types/data/billing/billing.constants';
+import { CreateTimelyFilingReportInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { CreateTimelyFilingReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { composeTimelyFilingReportData, renderTimelyFilingReportPdf } from '../../shared/pdf/timely-filing-report-pdf';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { claimAcknowledgmentEvents, claimTransmitEvent, fetchClaimHistoryProvenances } from '../claim-acknowledgments';
 import { fetchClaimResponsesByClaimIds } from '../claim-amounts';
 import {
@@ -18,7 +20,8 @@ import {
   getEraExtensionString,
   resolvePayersByRef,
 } from '../shared';
-import { CreateTimelyFilingReportParams, validateRequestParameters } from './validateRequestParameters';
+
+type CreateTimelyFilingReportParams = ValidatedZambdaInput<typeof CreateTimelyFilingReportInputSchema>;
 
 const ZAMBDA_NAME = CREATE_TIMELY_FILING_REPORT_ZAMBDA;
 
@@ -26,7 +29,7 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(CreateTimelyFilingReportInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 

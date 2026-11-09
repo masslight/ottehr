@@ -21,6 +21,7 @@ type CerumenCode = (typeof CERUMEN_CODES)[keyof typeof CERUMEN_CODES];
 const fields: readonly CodingField[] = [
   {
     key: 'impaction',
+    neededForCoding: true,
     label: 'Impaction established by',
     kind: 'select',
     options: [
@@ -33,6 +34,7 @@ const fields: readonly CodingField[] = [
   },
   {
     key: 'leftMethod',
+    neededForCoding: true,
     label: 'Left ear removal method',
     kind: 'select',
     options: ['not treated', 'irrigation', 'instruments', 'both'],
@@ -40,6 +42,7 @@ const fields: readonly CodingField[] = [
   },
   {
     key: 'rightMethod',
+    neededForCoding: true,
     label: 'Right ear removal method',
     kind: 'select',
     options: ['not treated', 'irrigation', 'instruments', 'both'],

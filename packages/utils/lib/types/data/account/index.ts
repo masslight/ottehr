@@ -6,6 +6,11 @@ export interface OrderedCoverages {
   workersComp?: Coverage;
 }
 
+export interface CoverageSlotChanges {
+  primaryCoverageChanged: boolean;
+  secondaryCoverageChanged: boolean;
+}
+
 export interface OrderedCoveragesWithSubscribers extends OrderedCoverages {
   primarySubscriber?: RelatedPerson;
   secondarySubscriber?: RelatedPerson;
