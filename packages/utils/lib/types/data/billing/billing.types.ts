@@ -417,9 +417,35 @@ export type BillingPatientAccountPayment = PatientPaymentDTO & {
   claimServiceDate?: string;
 };
 
+// a clinical visit of the patient a payment can be recorded against
+export interface BillingPatientVisit {
+  encounterId: string;
+  appointmentId?: string;
+  visitDateISO?: string;
+}
+
 export interface ListBillingPatientAccountPaymentsResponse {
   // newest first
   payments: BillingPatientAccountPayment[];
+  // every visit of the patient, newest first; payments are recorded against one of them
+  visits: BillingPatientVisit[];
+}
+
+// a saved card on the Stripe customer a visit takes payments on
+export interface BillingPatientCard {
+  // Stripe PaymentMethod id
+  id: string;
+  brand: string;
+  lastFour: string;
+  expMonth: number;
+  expYear: number;
+  // the customer's default payment method
+  default: boolean;
+}
+
+export interface ListBillingPatientPaymentMethodsResponse {
+  // unexpired cards, the default first
+  cards: BillingPatientCard[];
 }
 
 // One X12 CAS adjustment carried on a remit: group code (X12_ADJUSTMENT_GROUP_CODE) + CARC reason

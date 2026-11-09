@@ -971,6 +971,13 @@ export const ListBillingPatientAccountPaymentsInputSchema = z.object({
   patientId: nonEmptyString,
 });
 
+// the billing patient's saved cards usable to pay for one of their visits: cards live on the Stripe
+// account the visit takes payments on
+export const ListBillingPatientPaymentMethodsInputSchema = z.object({
+  patientId: nonEmptyString,
+  encounterId: nonEmptyString.uuid(),
+});
+
 // client key, stable across retries of one logical payment; embedded in a FHIR token search
 // (`system|value`), so no `|` or whitespace
 const patientPaymentIdempotencyKey = z
@@ -1316,6 +1323,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type ListBillingPatientPaymentMethodsInput = z.output<typeof ListBillingPatientPaymentMethodsInputSchema>;
 export type CreateBillingInvoiceInput = z.output<typeof CreateBillingInvoiceInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
 export type SearchBillingInvoicesInput = z.output<typeof SearchBillingInvoicesInputSchema>;

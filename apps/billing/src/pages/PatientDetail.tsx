@@ -232,7 +232,12 @@ export default function PatientDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
-            <PatientPaymentsTab key={patient.id} patientId={patient.id} />
+            <PatientPaymentsTab
+              key={patient.id}
+              patientId={patient.id}
+              clinicalPatientId={patient.clinicalId || undefined}
+              onPaymentAdded={refetch}
+            />
           </TabPanel>
         </TabContext>
       </Box>

@@ -1,4 +1,5 @@
-import { Alert, Box, capitalize, Link, Typography } from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
+import { Alert, Box, Button, capitalize, Link, Tooltip, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -6,11 +7,16 @@ import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBran
 import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
-import { BillingPatientAccountPayment, BillingPatientPaymentMethod } from 'utils/lib/types/data/billing/billing.types';
+import {
+  BillingPatientAccountPayment,
+  BillingPatientPaymentMethod,
+  BillingPatientVisit,
+} from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { listBillingPatientAccountPayments } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatDate } from '../utils/format';
+import { AddPatientPaymentDialog } from './AddPatientPaymentDialog';
 import { dataGridSlots, dataGridSx } from './BillingDataGrid';
 
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
@@ -126,9 +132,20 @@ const columns: GridColDef<PaymentRow>[] = [
   },
 ];
 
-export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactElement {
+export function PatientPaymentsTab({
+  patientId,
+  clinicalPatientId,
+  onPaymentAdded,
+}: {
+  patientId: string;
+  // absent for a patient created in billing alone, who has no visits to take payments for
+  clinicalPatientId?: string;
+  onPaymentAdded?: () => Promise<void> | void;
+}): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [payments, setPayments] = useState<BillingPatientAccountPayment[]>([]);
+  const [visits, setVisits] = useState<BillingPatientVisit[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,6 +156,7 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
     try {
       const res = await listBillingPatientAccountPayments(oystehrZambda, { patientId });
       setPayments(res.payments);
+      setVisits(res.visits);
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to load payments' }));
     } finally {
@@ -160,8 +178,28 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
     [payments]
   );
 
+  const handlePaymentAdded = useCallback(async (): Promise<void> => {
+    await Promise.all([fetchPayments(), onPaymentAdded?.()]);
+  }, [fetchPayments, onPaymentAdded]);
+
+  const canAddPayment = Boolean(clinicalPatientId) && visits.length > 0;
+
   return (
     <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+        <Tooltip title={!loading && !canAddPayment ? 'The patient has no visits to record a payment for' : ''}>
+          <span>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setAddOpen(true)}
+              disabled={loading || !canAddPayment}
+            >
+              Add Payment
+            </Button>
+          </span>
+        </Tooltip>
+      </Box>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -182,6 +220,16 @@ export function PatientPaymentsTab({ patientId }: { patientId: string }): ReactE
         slots={dataGridSlots()}
         sx={dataGridSx}
       />
+      {clinicalPatientId && (
+        <AddPatientPaymentDialog
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onPaymentAdded={handlePaymentAdded}
+          billingPatientId={patientId}
+          clinicalPatientId={clinicalPatientId}
+          visits={visits}
+        />
+      )}
     </Box>
   );
 }
