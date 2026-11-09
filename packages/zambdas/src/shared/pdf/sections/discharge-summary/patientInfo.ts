@@ -9,6 +9,14 @@ import { ICON_STYLE } from '../../pdf-consts';
 import { PatientInfoForDischargeSummary, PdfSection } from '../../types';
 import { FullAppointmentResourcePackage } from '../../visit-details-pdf/types';
 
+// standardizePhoneNumber is US-only, so a non-US number is printed as entered
+export const formatPhoneForPdf = (rawPhone: string | undefined): string | undefined => {
+  const phone = rawPhone?.trim();
+  if (!phone) return undefined;
+  if (/^\+(?!1)/.test(phone)) return phone;
+  return standardizePhoneNumber(phone) ?? phone;
+};
+
 export const composePatientInformationForDischargeSummary: DataComposer<
   { appointmentPackage: FullAppointmentResourcePackage },
   PatientInfoForDischargeSummary
@@ -20,9 +28,7 @@ export const composePatientInformationForDischargeSummary: DataComposer<
   const dob = formatDOB(patient?.birthDate) ?? '';
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = getPatientFriendlyId(patient);
-  const phone = standardizePhoneNumber(
-    patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value
-  );
+  const phone = formatPhoneForPdf(patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value);
   return {
     fullName,
     dob,
@@ -41,7 +47,9 @@ export const createCompactPatientHeader = <TData extends { patient?: PatientInfo
     client.drawText(data.fullName, styles.textStyles.patientName);
 
     client.drawText(`DOB: ${data.dob} | ${data.sex}`, styles.textStyles.regular);
-    client.drawText(`PID: ${data.id}`, styles.textStyles.regular);
+    if (data.id) {
+      client.drawText(`PID: ${data.id}`, styles.textStyles.regular);
+    }
     if (data.phone) {
       client.drawImage(assets.icons!.call, ICON_STYLE, styles.textStyles.text);
       client.drawTextSequential(` ${data.phone}`, styles.textStyles.regular);
