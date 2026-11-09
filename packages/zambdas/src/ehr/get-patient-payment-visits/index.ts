@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, FhirResource, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, PaymentNotice } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getAllStripeCustomerAccountPairs, scheduleOwnerAmong } from 'utils/lib/fhir/helpers';
-import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import { getPaymentNoticeSubmitterRef, getStripeAccountForScheduleOwner } from 'utils/lib/fhir/payments';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
@@ -14,6 +13,7 @@ import {
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { fetchPractitionerFirstLastNames } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
@@ -23,8 +23,6 @@ import { getAllFhirEncountersAndAppointmentsForPatient } from '../shared/patient
 const ZAMBDA_NAME = 'get-patient-payment-visits';
 // keeps each request= OR list within URL limits
 const ENCOUNTER_BATCH_SIZE = 50;
-// keeps each _id OR list within URL limits
-const PRACTITIONER_BATCH_SIZE = 100;
 
 let m2mToken: string;
 
@@ -161,27 +159,13 @@ const nameSubmitters = async (oystehr: Oystehr, notices: PaymentNotice[]): Promi
   });
   if (unnamed.length === 0) return;
 
-  const names = new Map<string, string>();
+  let names = new Map<string, string>();
   try {
-    for (const batch of chunkThings(
-      [...new Set(unnamed.map(({ practitionerId }) => practitionerId))],
-      PRACTITIONER_BATCH_SIZE
-    )) {
-      const practitioners = (
-        await oystehr.fhir.search<Practitioner>({
-          resourceType: 'Practitioner',
-          params: [
-            { name: '_id', value: batch.join(',') },
-            { name: '_count', value: String(batch.length) },
-          ],
-        })
-      ).unbundle();
-      for (const practitioner of practitioners) {
-        // first + last only, matching the display stamped at write time
-        const name = [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
-        if (practitioner.id && name) names.set(practitioner.id, name);
-      }
-    }
+    // first + last only, matching the display stamped at write time
+    names = await fetchPractitionerFirstLastNames(
+      oystehr,
+      unnamed.map(({ practitionerId }) => practitionerId)
+    );
   } catch (error) {
     // an unnamed submitter only leaves "taken by" blank; it must not fail the payments
     console.error('Error resolving payment submitter names', error);

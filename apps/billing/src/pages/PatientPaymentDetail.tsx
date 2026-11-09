@@ -22,12 +22,12 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
 import { commaFormattedName } from 'utils/lib/fhir/billing';
+import { isLocallyRecordedRefund, isSettledRefund } from 'utils/lib/fhir/paymentRefunds';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
-import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { BillingPatientAccountPayment } from 'utils/lib/types/data/billing/billing.types';
-import { formatCurrency } from 'utils/lib/utils/convert';
+import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { getBillingPatientAccountPayment } from '../api/api';
 import { Amount } from '../components/Amount';
 import { EHR_URL, paymentDetailPath, paymentMethodLabel } from '../components/PatientPaymentsTab';
@@ -51,11 +51,6 @@ const VOIDABLE_METHODS = ['cash', 'check', 'external-card-reader'];
 // the refund and void zambdas allow only this role
 const PAYMENT_MANAGEMENT_ROLES = [RoleType.BillingAdmin];
 const NOT_ALLOWED_HINT = 'Only users with the Billing Admin role can refund or void payments';
-
-const isSettledRefund = (refund: PaymentRefundDTO): boolean =>
-  refund.status !== 'failed' && refund.status !== 'canceled';
-
-const cents = (amountInCents: number): string => formatCurrency(amountInCents / 100);
 
 export default function PatientPaymentDetail(): ReactElement {
   const { id: patientId, encounterId, paymentId } = useParams();
@@ -304,9 +299,9 @@ export default function PatientPaymentDetail(): ReactElement {
               ? `This payment has been fully refunded${
                   refundedToCard ? ' to the credit card' : ''
                 } and is not counted toward the total collected.`
-              : `${cents(refundedCents)} of this payment has been refunded${
+              : `${formatCurrencyFromCents(refundedCents)} of this payment has been refunded${
                   refundedToCard ? ' to the credit card' : ''
-                }. Only the remaining ${cents(netCents)} counts toward the total collected.`}
+                }. Only the remaining ${formatCurrencyFromCents(netCents)} counts toward the total collected.`}
           </Alert>
         )}
 
@@ -386,7 +381,7 @@ export default function PatientPaymentDetail(): ReactElement {
                   <TableCell>{payment.voidReason || '-'}</TableCell>
                   <TableCell>{payment.voidNotes || '-'}</TableCell>
                   <TableCell>{payment.takenBy || '-'}</TableCell>
-                  <TableCell align="right">{cents(payment.amountInCents)}</TableCell>
+                  <TableCell align="right">{formatCurrencyFromCents(payment.amountInCents)}</TableCell>
                 </TableRow>
                 {refunds.map((refund) => {
                   const settled = isSettledRefund(refund);
@@ -400,7 +395,7 @@ export default function PatientPaymentDetail(): ReactElement {
                             via {REFUND_MEDIUM_LABELS[refund.medium].toLowerCase()}
                           </Typography>
                         )}
-                        {!refund.stripeRefundId.startsWith('manual_') && (
+                        {!isLocallyRecordedRefund(refund) && (
                           <Typography
                             variant="caption"
                             color="text.secondary"
@@ -420,7 +415,7 @@ export default function PatientPaymentDetail(): ReactElement {
                         align="right"
                         sx={settled ? { color: 'error.main' } : { ...mutedSx, textDecoration: 'line-through' }}
                       >
-                        -{cents(refund.amountInCents)}
+                        -{formatCurrencyFromCents(refund.amountInCents)}
                       </TableCell>
                     </TableRow>
                   );
@@ -428,7 +423,7 @@ export default function PatientPaymentDetail(): ReactElement {
                 {refundState !== 'none' && (
                   <TableRow sx={{ '& td': { borderBottom: 0, fontWeight: 600 } }}>
                     <TableCell colSpan={6}>Net</TableCell>
-                    <TableCell align="right">{cents(netCents)}</TableCell>
+                    <TableCell align="right">{formatCurrencyFromCents(netCents)}</TableCell>
                   </TableRow>
                 )}
               </TableBody>

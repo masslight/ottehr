@@ -1,6 +1,7 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Practitioner, Reference } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
@@ -64,4 +65,30 @@ export async function practitionerRefForUser(user: User, oystehr: Oystehr): Prom
 // A Practitioner's first + last name, no credentials; empty when the record names neither.
 export function practitionerFirstLastName(practitioner: Practitioner): string {
   return [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
+}
+
+const PRACTITIONER_NAMES_BATCH_SIZE = 100;
+
+// First + last names by Practitioner id, batched into id searches; ids without a named record are left out.
+export async function fetchPractitionerFirstLastNames(
+  oystehr: Oystehr,
+  practitionerIds: string[]
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  for (const batch of chunkThings([...new Set(practitionerIds)], PRACTITIONER_NAMES_BATCH_SIZE)) {
+    const practitioners = (
+      await oystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [
+          { name: '_id', value: batch.join(',') },
+          { name: '_count', value: String(batch.length) },
+        ],
+      })
+    ).unbundle();
+    for (const practitioner of practitioners) {
+      const name = practitionerFirstLastName(practitioner);
+      if (practitioner.id && name) names.set(practitioner.id, name);
+    }
+  }
+  return names;
 }

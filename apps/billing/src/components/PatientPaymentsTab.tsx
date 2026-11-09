@@ -7,7 +7,7 @@ import { getRefundState, RefundChip } from 'ui-components/lib/components/Payment
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
 import { BillingPatientAccountPayment, BillingPatientPaymentMethod } from 'utils/lib/types/data/billing/billing.types';
-import { formatCurrency } from 'utils/lib/utils/convert';
+import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { listBillingPatientAccountPayments } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatDate } from '../utils/format';
@@ -61,7 +61,7 @@ const stopRowClick = (e: MouseEvent): void => e.stopPropagation();
 
 function AmountCell({ payment }: { payment: BillingPatientAccountPayment }): ReactElement {
   const refundState = getRefundState(payment);
-  const amount = formatCurrency(payment.amountInCents / 100);
+  const amount = formatCurrencyFromCents(payment.amountInCents);
   const netCents = payment.amountInCents - (payment.refundedAmountInCents ?? 0);
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, width: '100%' }}>
@@ -73,7 +73,7 @@ function AmountCell({ payment }: { payment: BillingPatientAccountPayment }): Rea
           <Typography variant="body2" sx={{ textDecoration: 'line-through', color: 'text.disabled' }}>
             {amount}
           </Typography>
-          {refundState === 'partial' && <Typography variant="body2">{formatCurrency(netCents / 100)}</Typography>}
+          {refundState === 'partial' && <Typography variant="body2">{formatCurrencyFromCents(netCents)}</Typography>}
         </>
       )}
     </Box>

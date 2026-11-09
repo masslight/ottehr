@@ -24,7 +24,7 @@ import {
   PaymentRefundVoidReason,
 } from 'utils/lib/types/api/patient-payment-types';
 import { BillingPatientAccountPayment } from 'utils/lib/types/data/billing/billing.types';
-import { formatCurrency } from 'utils/lib/utils/convert';
+import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { refundBillingPatientPayment, voidBillingPatientPayment } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 
@@ -45,8 +45,6 @@ const TITLES: Record<PaymentAction, string> = {
   'external-refund': 'Record External Refund',
   void: 'Void Payment',
 };
-
-const cents = (amountInCents: number): string => formatCurrency(amountInCents / 100);
 
 export function PaymentActionDialog({
   action,
@@ -100,7 +98,7 @@ export function PaymentActionDialog({
   const amountValid = !isRefund || (Number.isFinite(amountCents) && amountCents > 0 && amountCents <= remainingCents);
   const amountError =
     isRefund && amountText.trim() !== '' && !amountValid
-      ? `Enter an amount between $0.01 and ${cents(remainingCents)}`
+      ? `Enter an amount between $0.01 and ${formatCurrencyFromCents(remainingCents)}`
       : undefined;
   const canSubmit = !!reason && amountValid && (action !== 'external-refund' || !!medium) && !submitting;
   const operation = isRefund ? 'refund' : 'void';
@@ -109,14 +107,14 @@ export function PaymentActionDialog({
     action === 'void'
       ? 'The payment will be voided and no longer counted toward the total collected.'
       : action === 'external-refund'
-      ? `Up to ${cents(
+      ? `Up to ${formatCurrencyFromCents(
           remainingCents
         )} can be recorded as refunded. No money moves through Stripe — return it to the patient separately; this only records the refund.`
       : isManual
-      ? `Up to ${cents(
+      ? `Up to ${formatCurrencyFromCents(
           remainingCents
         )} can be recorded as refunded. Return the money to the patient directly — this only records the refund.`
-      : `Up to ${cents(remainingCents)} can be refunded to the original card.`;
+      : `Up to ${formatCurrencyFromCents(remainingCents)} can be refunded to the original card.`;
 
   const submit = async (): Promise<void> => {
     if (!oystehrZambda || !reason || !target.paymentNoticeId) return;

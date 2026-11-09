@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Account, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { Account, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
-import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import {
   isLocallyRecordedRefund,
   isPendingReservation,
@@ -20,6 +19,7 @@ import {
   checkForStripeCustomerDeletedError,
   SCHEDULE_NOT_FOUND_ERROR,
 } from 'utils/lib/types/errors';
+import { fetchPractitionerFirstLastNames } from '../shared/practitioners';
 import {
   applyRefundsToPaymentNotice,
   stripeEncounterMetadataQuery,
@@ -54,23 +54,8 @@ export const fhirClinicalPaymentLookups = (
 ): ClinicalPaymentLookups => ({
   scheduleStripeAccount: (encounterId) => getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr),
   stripeCustomerId: (stripeAccount) => (account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined),
-  practitionerNames: async (practitionerIds) => {
-    const practitioners = (
-      await clinicalOystehr.fhir.search<Practitioner>({
-        resourceType: 'Practitioner',
-        params: [{ name: '_id', value: practitionerIds.join(',') }],
-      })
-    ).unbundle();
-    return new Map(
-      practitioners
-        // first + last only, matching the display stamped at write time
-        .map((practitioner) => [
-          practitioner.id ?? '',
-          [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' '),
-        ])
-        .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1]))
-    );
-  },
+  // first + last only, matching the display stamped at write time
+  practitionerNames: (practitionerIds) => fetchPractitionerFirstLastNames(clinicalOystehr, practitionerIds),
 });
 
 interface GetPaymentsForEncounterInput {
