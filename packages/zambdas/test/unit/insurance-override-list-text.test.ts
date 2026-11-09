@@ -41,21 +41,40 @@ describe.each([
     expect(() => validateInput(input({ listName: ListName.EHR, payerId: 'payer-1', payerNote }))).toThrow();
   });
 
-  it('drops a whitespace-only patient display name', () => {
-    const { payerInfo } = validateInput(
-      input({ listName: ListName.Patient, payerId: 'payer-1', payerNameOverride: '  ' })
-    );
-    expect(payerInfo).toEqual({ listName: ListName.Patient, payerId: 'payer-1', payerNameOverride: undefined });
-  });
-
   it('keeps a non-blank EHR note', () => {
     const { payerInfo } = validateInput(input({ listName: ListName.EHR, payerId: 'payer-1', payerNote: 'Call ahead' }));
     expect(payerInfo).toEqual({ listName: ListName.EHR, payerId: 'payer-1', payerNote: 'Call ahead' });
   });
 });
 
+describe('add-payer-to-insurance-override-list validateInput', () => {
+  it('drops a whitespace-only patient display name', () => {
+    const { payerInfo } = validateAddInput(
+      input({ listName: ListName.Patient, payerId: 'payer-1', payerNameOverride: '  ' })
+    );
+    expect(payerInfo).toEqual({ listName: ListName.Patient, payerId: 'payer-1', payerNameOverride: undefined });
+  });
+});
+
+describe('edit-payer-in-insurance-override-list validateInput', () => {
+  it.each(['', '  ', undefined])(
+    'rejects a blank patient display name %j, since a listed payer is shown by its name',
+    (payerNameOverride) => {
+      expect(() =>
+        validateEditInput(input({ listName: ListName.Patient, payerId: 'payer-1', payerNameOverride }))
+      ).toThrow();
+    }
+  );
+});
+
 describe('editPayerInInsuranceOverrideList', () => {
-  it('replaces the entry extension with an empty array when the display name is cleared', async () => {
+  it('adds the name extension even when the stored entry has none, which replace cannot do', async () => {
+    const { getInsuranceOverrideList } = await import('../../src/rcm/get-insurance-override-list/handler');
+    vi.mocked(getInsuranceOverrideList).mockResolvedValueOnce({
+      ...structuredClone(overrideList),
+      id: 'list-1',
+      entry: [{ item: { reference: 'payer/payer-1' } }],
+    });
     const patch = vi.fn(async () => overrideList);
     const oystehr = {
       rcm: { constructPayerUrl: ({ id }: { id: string }) => `payer/${id}` },
@@ -65,12 +84,18 @@ describe('editPayerInInsuranceOverrideList', () => {
     await editPayerInInsuranceOverrideList(oystehr, {
       listName: ListName.Patient,
       payerId: 'payer-1',
-      payerNameOverride: undefined,
+      payerNameOverride: 'New name',
     });
 
     expect(patch).toHaveBeenCalledWith(
       expect.objectContaining({
-        operations: [{ op: 'replace', path: '/entry/0/extension', value: [] }],
+        operations: [
+          {
+            op: 'add',
+            path: '/entry/0/extension',
+            value: [{ url: expect.stringContaining('insurance-override-name'), valueString: 'New name' }],
+          },
+        ],
       }),
       expect.anything()
     );

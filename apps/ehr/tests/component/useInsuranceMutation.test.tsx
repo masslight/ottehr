@@ -60,6 +60,14 @@ describe('useInsuranceMutation blank text', () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it('does not send a cleared display name for a payer shown in paperwork', async () => {
+    const { result } = renderHook(() => useInsuranceMutation('payer-1'), { wrapper });
+
+    await result.current.mutateAsync({ existingName: 'Acme', name: '  ', showInPaperwork: true });
+
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('does not rewrite an unchanged display name that only gained surrounding spaces', async () => {
     const { result } = renderHook(() => useInsuranceMutation('payer-1'), { wrapper });
 

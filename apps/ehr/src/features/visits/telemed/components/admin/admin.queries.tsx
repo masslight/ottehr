@@ -157,7 +157,7 @@ export const useInsuranceMutation = (
             payerNameOverride: name,
           });
         }
-        if (data.existingName && data.existingName !== name) {
+        if (data.existingName && name && data.existingName !== name) {
           await oystehrZambda?.zambda.execute({
             id: 'edit-payer-in-insurance-override-list',
             listName: 'patient',

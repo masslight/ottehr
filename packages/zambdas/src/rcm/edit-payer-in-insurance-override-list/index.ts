@@ -10,7 +10,7 @@ import {
   MISSING_REQUEST_SECRETS,
   PRECONDITION_FAILED,
 } from 'utils/lib/types/errors';
-import { optionalTextSchema, requiredTextSchema } from 'utils/lib/types/text-schemas';
+import { requiredTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
@@ -27,7 +27,7 @@ const payerInfoSchema = z.discriminatedUnion('listName', [
   z.object({
     listName: z.literal(ListName.Patient),
     payerId: z.string(),
-    payerNameOverride: optionalTextSchema,
+    payerNameOverride: requiredTextSchema,
   }),
 ]);
 
@@ -87,18 +87,16 @@ export async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerIn
     throw INVALID_INPUT_ERROR('Cannot find insurance override list entry');
   }
 
-  const extensionValue: Extension | undefined =
+  const extensionValue: Extension =
     payerInfo.listName === ListName.EHR
       ? {
           url: ottehrExtensionUrl('insurance-override-note'),
           valueString: payerInfo.payerNote,
         }
-      : payerInfo.payerNameOverride
-      ? {
+      : {
           url: ottehrExtensionUrl('insurance-override-name'),
           valueString: payerInfo.payerNameOverride,
-        }
-      : undefined;
+        };
 
   try {
     return await oystehr.fhir.patch<List>(
@@ -107,9 +105,9 @@ export async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerIn
         id: list.id,
         operations: [
           {
-            op: 'replace',
+            op: 'add',
             path: `/entry/${entryIndex}/extension`,
-            value: extensionValue ? [extensionValue] : [],
+            value: [extensionValue],
           },
         ],
       },
@@ -137,9 +135,9 @@ export async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerIn
             id: list.id,
             operations: [
               {
-                op: 'replace',
+                op: 'add',
                 path: `/entry/${entryIndex}/extension`,
-                value: extensionValue ? [extensionValue] : [],
+                value: [extensionValue],
               },
             ],
           },
