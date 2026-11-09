@@ -62,7 +62,7 @@ export class InPersonHeader {
   }
 
   async verifyWeight(weight: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveText(`${weight}kg`, {
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveText(weight, {
       timeout: 30000,
     });
   }
