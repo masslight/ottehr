@@ -22,8 +22,9 @@ export const MedicationInventoryBaseRowSchema = z.object({
   dateTime: z
     .string()
     .describe(
-      "Full ISO instant of the entry. Format in the user's LOCAL timezone via new Date(dateTime).toLocaleTimeString(...); " +
-        'do NOT slice the ISO string (shows UTC).'
+      "Full ISO instant the entry was recorded. Format in the user's LOCAL timezone via new Date(dateTime).toLocaleTimeString(...); " +
+        'do NOT slice the ISO string (shows UTC). A reversal is dated when the order was changed or deleted, which can be ' +
+        'in a later period than the administration it reverses.'
     ),
   entryType: z
     .enum(INVENTORY_ENTRY_TYPES)
@@ -36,23 +37,26 @@ export const MedicationInventoryBaseRowSchema = z.object({
     .enum(INVENTORY_ENTRY_REASONS)
     .nullable()
     .describe(
-      `Why stock changed, on adjustments, counts and administrations with waste (${REASON_DESCRIPTION}). ` +
-        'Waste by reason = adjustments plus partial-dose-waste. Null when the entry has no reason (received, plain ' +
-        'administrations, reversals).'
+      `Why stock changed, on adjustments, counts, and administrations and reversals with waste (${REASON_DESCRIPTION}). ` +
+        'Waste by reason = adjustments plus partial-dose-waste. Null when the entry has no reason (received, and ' +
+        'administrations and reversals without waste).'
     ),
   note: z.string().describe('Free text entered with reason "other". "" when none.'),
   quantity: z
     .number()
     .describe(
       'Signed change in stock, in unit: positive adds stock (received, administration reversed, count up), negative ' +
-        "takes it off the shelf. Usage = the negative administered quantities; the sum of a lot's entries is its on hand."
+        'takes it off the shelf. Usage = minus the sum of quantity over administered AND administration-reversed rows ' +
+        "(a reversal puts back what an earlier administration took, so it cancels that usage); the sum of a lot's " +
+        'entries is its on hand.'
     ),
   unit: z.string().describe("Stock unit: the drug's counting unit (vial, tablet, tube …)."),
   wasteAmount: z
     .number()
     .nullable()
     .describe(
-      'Dose wasted on an administration (the unused part of a single-use container), in wasteUnit. Null when no waste.'
+      'Dose wasted on an administration (the unused part of a single-use container), in wasteUnit; negative on a ' +
+        'reversal, cancelling the waste it takes back, so total waste is the plain sum. Null when no waste.'
     ),
   wasteUnit: z.string().describe('Unit of wasteAmount (mg, ml …). "" when no waste.'),
   performer: z.string().describe('Staff member who made the entry (full name). "" when unknown.'),

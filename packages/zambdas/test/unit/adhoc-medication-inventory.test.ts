@@ -16,7 +16,11 @@ import {
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { AdHocMedicationInventoryOutputSchema } from 'utils/lib/types/adhoc/datasets/medication-inventory';
+import {
+  AdHocMedicationInventoryOutputSchema,
+  AdHocMedicationInventoryRow,
+  MedicationInventoryBaseRowSchema,
+} from 'utils/lib/types/adhoc/datasets/medication-inventory';
 import { InHouseMedicationInventory } from 'utils/lib/types/api/config/in-house-medications';
 import {
   INVENTORY_MEDICATION_TYPE_CODE,
@@ -25,6 +29,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  buildMedicationInventoryRows,
   fetchAdHocMedicationInventoryRows,
   medicationInventorySearchParams,
 } from '../../src/shared/adhoc-datasets/medication-inventory';
@@ -243,5 +248,43 @@ describe('medication inventory dataset', () => {
 
     // a count that matched the shelf
     expect(rows[3]).toMatchObject({ entryType: 'count', reason: 'no-difference', quantity: 0 });
+  });
+
+  it('shows an administration and its reversal in the periods they were recorded, netting to zero across both', () => {
+    const included = [lot, location, nurse, administration, encounter, patient];
+    const october = buildMedicationInventoryRows([entries[1], ...included]);
+    const november = buildMedicationInventoryRows([
+      {
+        ...makeInventoryStockEntry({
+          ...base,
+          type: 'administration-reversed',
+          reason: 'partial-dose-waste',
+          quantity: 2,
+          medicationAdministrationId: 'ma-1',
+          reversesEntryId: 'entry-administered',
+          administrationDeleted: true,
+          effectiveDateTime: '2026-11-03T10:00:00Z',
+          components: [{ code: 'waste-amount', value: -2, unit: 'mg' }],
+        }),
+        id: 'entry-reversed',
+      },
+      ...included,
+    ]);
+    const usage = (rows: AdHocMedicationInventoryRow[]): number =>
+      rows
+        .filter((row) => row.entryType === 'administered' || row.entryType === 'administration-reversed')
+        .reduce((total, row) => total - row.quantity, 0);
+    const waste = (rows: AdHocMedicationInventoryRow[]): number =>
+      rows.reduce((total, row) => total + (row.wasteAmount ?? 0), 0);
+
+    expect(usage(october)).toBe(2);
+    expect(waste(october)).toBe(2);
+    expect(november).toMatchObject([
+      { entryType: 'administration-reversed', dateTime: '2026-11-03T10:00:00Z', appointmentId: 'appt-1' },
+    ]);
+    expect(usage(november)).toBe(-2);
+    expect(usage([...october, ...november])).toBe(0);
+    expect(waste([...october, ...november])).toBe(0);
+    expect(MedicationInventoryBaseRowSchema.shape.quantity.description).toContain('administration-reversed');
   });
 });
