@@ -20,7 +20,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { StatementDetails } from 'utils/lib/statements/generate-statement';
 import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
-import { createBillingClient, createEraReadClient } from '../../billing/shared';
+import { createBillingClient, createUnscopedReadClient } from '../../billing/shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { getDefaultBillingProviderResource } from '../../patient/get-eligibility/validation';
 import { getCandidEncounterIdFromEncounter, shouldUseOttehrBillingForPatientBalances } from '../candid';
@@ -86,7 +86,7 @@ export async function resolveStatementAmountsSource(input: {
     return {
       source: 'ottehr-billing',
       billingOystehr: createBillingClient(m2mToken, secrets),
-      eraReadOystehr: createEraReadClient(m2mToken, secrets),
+      eraReadOystehr: createUnscopedReadClient(m2mToken, secrets),
     };
   }
 

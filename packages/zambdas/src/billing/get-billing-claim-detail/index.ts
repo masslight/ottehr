@@ -56,7 +56,7 @@ import {
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
-  createEraReadClient,
+  createUnscopedReadClient,
   ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
@@ -92,15 +92,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const unscopedReadClient = createUnscopedReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, unscopedReadClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 export async function performEffect(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  unscopedReadClient: Oystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -137,8 +137,8 @@ export async function performEffect(
     writeOffResources,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
-    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
+    fetchClaimResponsesByClaimIds(unscopedReadClient, [claimId]),
+    fetchClaimFirstSubmittedDate(unscopedReadClient, claimId),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
@@ -147,7 +147,7 @@ export async function performEffect(
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
-    eraReadClient,
+    unscopedReadClient,
     claimResponses
   );
   const paymentReconciliationById = new Map(

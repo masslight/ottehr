@@ -146,10 +146,13 @@ export async function fetchClaimCoverages(oystehr: Oystehr, claims: Claim[]): Pr
 export const coveragePayorRefs = (coverages: Map<string, Coverage>): (string | undefined)[] =>
   [...coverages.values()].map((coverage) => coverage.payor?.[0]?.reference);
 
-export async function fetchEraLinksForClaims(eraReadClient: Oystehr, lookups: ClaimLookups): Promise<ClaimEraLinks> {
+export async function fetchEraLinksForClaims(
+  unscopedReadClient: Oystehr,
+  lookups: ClaimLookups
+): Promise<ClaimEraLinks> {
   const claimResponses = [...lookups.claimResponsesByClaimId.values()].flat();
   if (claimResponses.length === 0) return emptyClaimExtras().eraLinks;
-  return fetchClaimEraLinks(eraReadClient, claimResponses);
+  return fetchClaimEraLinks(unscopedReadClient, claimResponses);
 }
 
 export const paymentIssuerRefs = (eraLinks: ClaimEraLinks): (string | undefined)[] =>

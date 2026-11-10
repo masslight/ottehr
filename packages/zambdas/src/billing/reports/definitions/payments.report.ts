@@ -114,13 +114,13 @@ export const paymentsReport: ReportDefinition<
 // window; the waterfall matrix (DOS month × check month) and the drilldown detail span all ERAs.
 async function computeInsurancePayments(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  unscopedReadClient: Oystehr,
   params: ReportDateWindowParams
 ): Promise<{ rows: PaymentsReportPayerRow[]; waterfall: PaymentsReportWaterfallCell[]; detail: PaymentsReportDetail }> {
-  const allEras = await fetchAllEras(eraReadClient);
+  const allEras = await fetchAllEras(unscopedReadClient);
   if (allEras.length === 0) return { rows: [], waterfall: [], detail: { eras: [] } };
 
-  const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, allEras);
+  const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(unscopedReadClient, allEras);
   const allClaimResponses = [...claimResponsesByPrId.values()].flat();
   const harvestedNamesByRef = payerNamesByRef(allClaimResponses);
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the ClaimResponses' payer

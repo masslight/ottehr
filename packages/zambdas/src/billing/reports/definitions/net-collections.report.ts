@@ -148,7 +148,7 @@ const emptyMatched = (): MatchedClaimKeys => ({ claimIds: new Set(), encounterId
 // ClaimResponses' insurer).
 async function computeInsuranceSide(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  unscopedReadClient: Oystehr,
   params: ReportDateWindowParams
 ): Promise<{
   payerRows: NetCollectionsPayerRow[];
@@ -158,7 +158,7 @@ async function computeInsuranceSide(
   // claim-chain telescoped: expected shares retired in the window + final patient responsibility
   totals: { insuranceExpected: number; patientResp: number };
 }> {
-  const allEras = await fetchAllEras(eraReadClient);
+  const allEras = await fetchAllEras(unscopedReadClient);
   const eras = allEras.filter((era) => checkDateInRange(era, params.dateFrom, params.dateTo));
   if (allEras.length === 0)
     return {
@@ -171,7 +171,7 @@ async function computeInsuranceSide(
 
   // ClaimResponses come from ALL posted ERAs: the patient-side eligibility set and each claim's
   // adjudication history are window-independent; only the rollup below is window-scoped
-  const fetched = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, allEras);
+  const fetched = await fetchClaimResponsesByPaymentReconciliations(unscopedReadClient, allEras);
   const claimResponsesByPrId = new Map(
     [...fetched].map(([prId, claimResponses]) => [prId, claimResponses.filter(isMatchedToClaim)])
   );

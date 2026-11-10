@@ -3,7 +3,7 @@ import { SearchBillingWorkQueueOwnersResponse } from 'utils/lib/types/data/billi
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createBillingClient, createEraReadClient } from '../shared';
+import { createBillingClient, createUnscopedReadClient } from '../shared';
 import { listWorkQueueOwners } from '../work-queues/owners';
 
 let m2mToken: string;
@@ -15,7 +15,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const owners = await listWorkQueueOwners(
     createBillingClient(m2mToken, input.secrets),
     // The owners' Practitioners aren't billing resources, so read them without the workspace tag.
-    createEraReadClient(m2mToken, input.secrets)
+    createUnscopedReadClient(m2mToken, input.secrets)
   );
 
   const response: SearchBillingWorkQueueOwnersResponse = { owners };

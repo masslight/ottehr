@@ -652,7 +652,7 @@ export function firstSubmittedDate(claimResponses: ClaimResponse[]): string {
   return submissions[0]?.created ?? '';
 }
 
-// Submission responses are untagged, so this needs the ERA read client.
+// Submission responses are untagged, so this needs the unscoped read client.
 export async function fetchClaimFirstSubmittedDate(oystehr: Oystehr, claimId: string): Promise<string> {
   const claimResponsesByClaimId = await fetchResourcesGrouped<ClaimResponse>({
     oystehr,

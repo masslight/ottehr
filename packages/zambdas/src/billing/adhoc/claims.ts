@@ -101,13 +101,13 @@ const extraElementsFor = (flags: LayerFlags): string[] => [
 ];
 
 /**
- * `oystehr` is the billing client. `eraReadClient` (untagged) is needed only for the insurancePayments
+ * `oystehr` is the billing client. `unscopedReadClient` (untagged) is needed only for the insurancePayments
  * layer: the ERA PaymentReconciliations and their processing Provenances carry no billing tag.
  */
 export async function fetchAdHocClaimRows(
   oystehr: Oystehr,
   input: AdHocBillingClaimsInput,
-  { eraReadClient }: { eraReadClient?: Oystehr } = {}
+  { unscopedReadClient }: { unscopedReadClient?: Oystehr } = {}
 ): Promise<AdHocBillingClaimsRow[]> {
   const flags: LayerFlags = {
     codes: !!input.includeCodes,
@@ -121,8 +121,8 @@ export async function fetchAdHocClaimRows(
     history: !!input.includeHistory,
   };
 
-  if ((flags.insurancePayments || flags.remits) && !eraReadClient) {
-    throw new Error('The remits and insurancePayments layers need the untagged ERA read client');
+  if ((flags.insurancePayments || flags.remits) && !unscopedReadClient) {
+    throw new Error('The remits and insurancePayments layers need the unscoped read client');
   }
 
   const extraElements = extraElementsFor(flags);
@@ -147,7 +147,8 @@ export async function fetchAdHocClaimRows(
     }
   };
 
-  const emCodes = flags.codes && eraReadClient ? await withinBudget(loadEmCodes(eraReadClient)) : new Set<string>();
+  const emCodes =
+    flags.codes && unscopedReadClient ? await withinBudget(loadEmCodes(unscopedReadClient)) : new Set<string>();
 
   const scanned = await withinBudget(scanAllClaims(oystehr, assertWithinBudget));
 
@@ -185,8 +186,8 @@ export async function fetchAdHocClaimRows(
           const extras = emptyClaimExtras();
           const [coveragesById, eraLinks, historyByClaimId, patientKeys] = await Promise.all([
             flags.coverage ? fetchClaimCoverages(oystehr, page.claims) : extras.coveragesById,
-            (flags.remits || flags.insurancePayments) && eraReadClient
-              ? fetchEraLinksForClaims(eraReadClient, lookups)
+            (flags.remits || flags.insurancePayments) && unscopedReadClient
+              ? fetchEraLinksForClaims(unscopedReadClient, lookups)
               : extras.eraLinks,
             flags.history
               ? fetchClaimHistories(
@@ -198,8 +199,8 @@ export async function fetchAdHocClaimRows(
           ]);
 
           const actorNames =
-            eraReadClient && (flags.history || flags.insurancePayments)
-              ? await actorNameResolver.namesFor(eraReadClient, actorRefs({ eraLinks, historyByClaimId }))
+            unscopedReadClient && (flags.history || flags.insurancePayments)
+              ? await actorNameResolver.namesFor(unscopedReadClient, actorRefs({ eraLinks, historyByClaimId }))
               : new Map<string, string>();
 
           const morePayerRefs = [
@@ -245,9 +246,9 @@ export async function fetchAdHocClaimRows(
   return rows;
 }
 
-async function loadEmCodes(eraReadClient: Oystehr): Promise<ReadonlySet<string>> {
+async function loadEmCodes(unscopedReadClient: Oystehr): Promise<ReadonlySet<string>> {
   try {
-    return new Set((await getEmCodes(eraReadClient)).map((option) => option.code));
+    return new Set((await getEmCodes(unscopedReadClient)).map((option) => option.code));
   } catch (error) {
     if (error !== FHIR_RESOURCE_NOT_FOUND) throw error;
     console.warn('[adhoc-billing] the E&M code list is not configured; emCode is ""');

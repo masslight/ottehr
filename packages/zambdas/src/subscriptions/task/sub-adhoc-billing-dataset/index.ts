@@ -17,7 +17,7 @@ import {
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { fetchAdHocClaimRows } from '../../../billing/adhoc/claims';
 import { fetchAdHocRuleRows } from '../../../billing/adhoc/rules';
-import { createBillingClient, createEraReadClient } from '../../../billing/shared';
+import { createBillingClient, createUnscopedReadClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { validateOutputWithSchema } from '../../../shared/validate-zod';
 import { wrapTaskHandler } from '../helpers';
@@ -26,9 +26,9 @@ const ZAMBDA_NAME = 'sub-adhoc-billing-dataset';
 
 let m2mToken: string;
 
-async function eraReadClientFor(secrets: Secrets): Promise<Oystehr> {
+async function unscopedReadClientFor(secrets: Secrets): Promise<Oystehr> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  return createEraReadClient(m2mToken, secrets);
+  return createUnscopedReadClient(m2mToken, secrets);
 }
 
 interface ReportParams {
@@ -47,7 +47,7 @@ function readParams(task: Task): ReportParams {
 
 async function buildOutputJson(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  unscopedReadClient: Oystehr,
   params: ReportParams
 ): Promise<{ json: string; rowCount: number }> {
   const { datasetId, dateRange, options } = params;
@@ -59,7 +59,7 @@ async function buildOutputJson(
         ...layerIncludeFlags(BILLING_CLAIMS_LAYERS, options),
       });
 
-      const rows = await fetchAdHocClaimRows(oystehr, input, { eraReadClient });
+      const rows = await fetchAdHocClaimRows(oystehr, input, { unscopedReadClient });
       const json = JSON.stringify(validateOutputWithSchema(AdHocBillingClaimsOutputSchema, { rows }, ZAMBDA_NAME));
 
       return { json, rowCount: rows.length };
@@ -134,7 +134,7 @@ export const index = wrapTaskHandler(
     );
 
     const { json, rowCount } = await stage('build data', taskId, startedAt, async () =>
-      buildOutputJson(oystehr, await eraReadClientFor(secrets), params)
+      buildOutputJson(oystehr, await unscopedReadClientFor(secrets), params)
     );
 
     console.log(

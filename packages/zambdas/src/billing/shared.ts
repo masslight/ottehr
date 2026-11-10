@@ -913,8 +913,9 @@ export function createBillingClient(
   });
 }
 
-// ERA resources are untagged by Oystehr
-export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+// No workspaceTag, so it is not scoped to BILLING_RESOURCE_TAG. Use it for resources outside the
+// billing workspace, such as ERAs (untagged by Oystehr) and clinical resources.
+export function createUnscopedReadClient(token: string, secrets: Secrets | null): Oystehr {
   return new Oystehr({
     accessToken: token,
     services: {

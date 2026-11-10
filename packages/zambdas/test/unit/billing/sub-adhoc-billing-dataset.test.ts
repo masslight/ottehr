@@ -27,7 +27,7 @@ vi.mock('../../../src/shared/auth', async (importOriginal) => ({
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  createEraReadClient: vi.fn(() => ({})),
+  createUnscopedReadClient: vi.fn(() => ({})),
 }));
 
 vi.mock('../../../src/billing/adhoc/rules', () => ({

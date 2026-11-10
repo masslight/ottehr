@@ -14,7 +14,7 @@ import { resolveEraPayee } from '../era-remits';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   createBillingClient,
-  createEraReadClient,
+  createUnscopedReadClient,
   CURRENT_STATUS_TAG_SYSTEM,
   eraCheckNumberMatches,
   getEraCheckNumber,
@@ -30,15 +30,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const unscopedReadClient = createUnscopedReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, unscopedReadClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 export async function performEffect(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
+  unscopedReadClient: Oystehr,
   params: SearchErasParams
 ): Promise<{ eras: EraListItem[]; total: number; offset: number; pageSize: number }> {
   const pageSize = params.pageSize ?? 25;
@@ -70,7 +70,7 @@ export async function performEffect(
     const claimIds = await findMatchingClaimIds(oystehr, params);
     if (claimIds.size === 0) return { eras: [], total: 0, offset, pageSize };
 
-    const prIds = await findEraPaymentReconciliationIds(eraReadClient, claimIds);
+    const prIds = await findEraPaymentReconciliationIds(unscopedReadClient, claimIds);
     if (prIds.size === 0) return { eras: [], total: 0, offset, pageSize };
 
     filterParams.push({
@@ -90,10 +90,10 @@ export async function performEffect(
 
   const normalizedCheckNumber = params.checkNumber?.trim();
   const { payments, total } = normalizedCheckNumber
-    ? await findErasByCheckNumber(eraReadClient, filterParams, normalizedCheckNumber, offset, pageSize)
-    : await fetchErasPage(eraReadClient, filterParams, offset, pageSize);
+    ? await findErasByCheckNumber(unscopedReadClient, filterParams, normalizedCheckNumber, offset, pageSize)
+    : await fetchErasPage(unscopedReadClient, filterParams, offset, pageSize);
 
-  const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, payments);
+  const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(unscopedReadClient, payments);
   // process-era PaymentReconciliations carry no paymentIssuer; resolve the ClaimResponses' payers
   // as the fallback
   const payersByRef = await resolvePayersByRef(oystehr, [
@@ -113,7 +113,7 @@ const ERA_SORT_PARAM = {
 const SCAN_PAGE_SIZE = 200;
 
 async function fetchErasPage(
-  eraReadClient: Oystehr,
+  unscopedReadClient: Oystehr,
   filterParams: SearchParam[],
   offset: number,
   pageSize: number
@@ -121,7 +121,7 @@ async function fetchErasPage(
   payments: PaymentReconciliation[];
   total: number;
 }> {
-  const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
+  const bundle = await unscopedReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [
       ERA_SORT_PARAM,
@@ -143,7 +143,7 @@ async function fetchErasPage(
 }
 
 async function findErasByCheckNumber(
-  eraReadClient: Oystehr,
+  unscopedReadClient: Oystehr,
   filterParams: SearchParam[],
   checkNumber: string,
   offset: number,
@@ -155,7 +155,7 @@ async function findErasByCheckNumber(
   const matchingIds: string[] = [];
 
   await fetchAllPages(async (scanOffset, count) => {
-    const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
+    const bundle = await unscopedReadClient.fhir.search<PaymentReconciliation>({
       resourceType: 'PaymentReconciliation',
       params: [
         ERA_SORT_PARAM,
@@ -188,7 +188,7 @@ async function findErasByCheckNumber(
     };
   }
 
-  const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
+  const bundle = await unscopedReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [
       {
@@ -210,13 +210,16 @@ async function findErasByCheckNumber(
 }
 
 // For the given claims, return the ids of the PaymentReconciliations that adjudicated them.
-async function findEraPaymentReconciliationIds(eraReadClient: Oystehr, claimIds: Set<string>): Promise<Set<string>> {
+async function findEraPaymentReconciliationIds(
+  unscopedReadClient: Oystehr,
+  claimIds: Set<string>
+): Promise<Set<string>> {
   const claimResponses: ClaimResponse[] = [];
   const ids = [...claimIds];
   const BATCH = 100;
   for (let i = 0; i < ids.length; i += BATCH) {
     const batch = ids.slice(i, i + BATCH).map((id) => `Claim/${id}`);
-    const bundle = await eraReadClient.fhir.search<ClaimResponse>({
+    const bundle = await unscopedReadClient.fhir.search<ClaimResponse>({
       resourceType: 'ClaimResponse',
       params: [
         { name: 'request', value: batch.join(',') },
@@ -227,7 +230,7 @@ async function findEraPaymentReconciliationIds(eraReadClient: Oystehr, claimIds:
     claimResponses.push(...bundle.unbundle());
   }
 
-  const { paymentReconciliations } = await fetchClaimEraLinks(eraReadClient, claimResponses);
+  const { paymentReconciliations } = await fetchClaimEraLinks(unscopedReadClient, claimResponses);
   return new Set(paymentReconciliations.map((pr) => pr.id).filter((id): id is string => !!id));
 }
 

@@ -609,7 +609,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     const rows = await fetchAdHocClaimRows(
       oystehr,
       { dateRange: DATE_RANGE, ...allLayers },
-      { eraReadClient: oystehr }
+      { unscopedReadClient: oystehr }
     );
 
     expect(() => AdHocBillingClaimsOutputSchema.parse({ rows })).not.toThrow();
@@ -623,7 +623,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     const rows = await fetchAdHocClaimRows(
       oystehr,
       { dateRange: DATE_RANGE, ...allLayers },
-      { eraReadClient: oystehr }
+      { unscopedReadClient: oystehr }
     );
 
     const lookups = await buildClaimLookups({
@@ -671,7 +671,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     const rows = await fetchAdHocClaimRows(
       oystehr,
       { dateRange: DATE_RANGE, ...allLayers },
-      { eraReadClient: oystehr }
+      { unscopedReadClient: oystehr }
     );
     const insured = rows.find((r) => r.claimId === 'claim-1')!;
 
@@ -711,7 +711,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
   it('asks the server for the claim fields the layers read beyond the claims list', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const { oystehr, search } = stubBillingClient();
-    await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, ...allLayers }, { eraReadClient: oystehr });
+    await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, ...allLayers }, { unscopedReadClient: oystehr });
 
     const hydration = search.mock.calls
       .map(([arg]) => arg as { resourceType: string; params: Param[] })
@@ -838,7 +838,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     (oystehr.fhir.batch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('batch down'));
 
     await expect(
-      fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeHistory: true }, { eraReadClient: oystehr })
+      fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeHistory: true }, { unscopedReadClient: oystehr })
     ).rejects.toThrow('batch down');
   });
 
@@ -850,7 +850,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     });
 
     await expect(
-      fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeHistory: true }, { eraReadClient: oystehr })
+      fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeHistory: true }, { unscopedReadClient: oystehr })
     ).rejects.toThrow('Actor name lookup failed with status 500');
   });
 
@@ -937,7 +937,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     const rows = await fetchAdHocClaimRows(
       oystehr,
       { dateRange: DATE_RANGE, ...allLayers },
-      { eraReadClient: oystehr }
+      { unscopedReadClient: oystehr }
     );
     const insured = rows.find((r) => r.claimId === 'claim-1')!;
 
@@ -1025,13 +1025,13 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     const { oystehr } = stubBillingClient();
     await expect(
       fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeInsurancePayments: true })
-    ).rejects.toThrow('untagged ERA read client');
+    ).rejects.toThrow('unscoped read client');
   });
 
   it('refuses the remits layer without the untagged ERA client', async () => {
     const { oystehr } = stubBillingClient();
     await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeRemits: true })).rejects.toThrow(
-      'untagged ERA read client'
+      'unscoped read client'
     );
   });
 
@@ -1099,7 +1099,7 @@ describe('billing-claims review fixes', () => {
     const rows = await fetchAdHocClaimRows(
       withList.oystehr,
       { dateRange: DATE_RANGE, includeCodes: true },
-      { eraReadClient: withList.oystehr }
+      { unscopedReadClient: withList.oystehr }
     );
     expect(rows.find((r) => r.claimId === 'claim-1')?.emCode).toBe('99213');
 
@@ -1109,7 +1109,7 @@ describe('billing-claims review fixes', () => {
       const bare = await fetchAdHocClaimRows(
         withoutList.oystehr,
         { dateRange: DATE_RANGE, includeCodes: true },
-        { eraReadClient: withoutList.oystehr }
+        { unscopedReadClient: withoutList.oystehr }
       );
       expect(bare.find((r) => r.claimId === 'claim-1')?.emCode).toBe('');
     } finally {
@@ -1126,7 +1126,7 @@ describe('billing-claims review fixes', () => {
       const rows = await fetchAdHocClaimRows(
         oystehr,
         { dateRange: DATE_RANGE, includeRemits: true },
-        { eraReadClient: oystehr }
+        { unscopedReadClient: oystehr }
       );
       const row = rows.find((r) => r.claimId === 'claim-1')!;
       expect(row.remits?.map((r) => r.payerName)).toEqual(['Payer B']);
@@ -1142,7 +1142,7 @@ describe('billing-claims review fixes', () => {
     const rows = await fetchAdHocClaimRows(
       oystehr,
       { dateRange: DATE_RANGE, ...allLayers },
-      { eraReadClient: oystehr }
+      { unscopedReadClient: oystehr }
     );
     const { fields, nested } = dayFieldsOf(datasetRowSchema(BillingClaimsBaseRowSchema, BILLING_CLAIMS_LAYERS));
 
@@ -1176,7 +1176,7 @@ describe('billing-claims review fixes', () => {
       const rows = await fetchAdHocClaimRows(
         oystehr,
         { dateRange: DATE_RANGE, includeInsurancePayments: true },
-        { eraReadClient: oystehr }
+        { unscopedReadClient: oystehr }
       );
       return rows.find((r) => r.claimId === 'claim-1')?.insurancePayments?.[0]?.enteredBy;
     };
@@ -1218,7 +1218,7 @@ describe('billing-claims review fixes', () => {
     const rows = await fetchAdHocClaimRows(
       oystehr,
       { dateRange: DATE_RANGE, includeInsurancePayments: true },
-      { eraReadClient: oystehr }
+      { unscopedReadClient: oystehr }
     );
     expect(rows.find((r) => r.claimId === 'claim-1')?.insurancePayments?.[0]?.eraId).toBe('era-1');
   });
@@ -1235,7 +1235,7 @@ describe('billing-claims review fixes', () => {
       const rows = await fetchAdHocClaimRows(
         oystehr,
         { dateRange: DATE_RANGE, includeRemits: true },
-        { eraReadClient: oystehr }
+        { unscopedReadClient: oystehr }
       );
       const row = rows.find((r) => r.claimId === 'claim-1')!;
       expect(row.remits?.map((r) => r.date)).toEqual(['2026-10-11', '2026-10-12']);
