@@ -73,6 +73,18 @@ describe('revoke-action-log', () => {
     expect(cancelledIds(fhir.patch)).toEqual(['attempt-1']);
   });
 
+  it('fails rather than revoke part of a chain longer than the walk bound', async () => {
+    const chain = Array.from({ length: 51 }, (_, index) =>
+      attempt(`attempt-${index}`, index > 0 ? { partOf: [{ reference: `Task/attempt-${index - 1}` }] } : {})
+    );
+    const fhir = fhirOver(chain);
+
+    await expect(performEffect({ attemptId: 'attempt-0', secrets: null }, { fhir } as any, user)).rejects.toThrow(
+      'longer than 50 attempts'
+    );
+    expect(fhir.patch).not.toHaveBeenCalled();
+  });
+
   it('refuses anything that is not an emailed link', async () => {
     const fax = { ...attempt('attempt-1'), code: { coding: [{ system: 'other', code: 'fax' }] } };
     const fhir = fhirOver([fax]);

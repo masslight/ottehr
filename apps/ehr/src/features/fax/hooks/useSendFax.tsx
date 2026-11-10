@@ -1,5 +1,6 @@
+import { Button } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { enqueueSnackbar } from 'notistack';
+import { closeSnackbar, enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import {
@@ -148,6 +149,11 @@ function resolveTerminal(data: GetFaxPacketStatusOutput): void {
   enqueueSnackbar(`Could not send to ${failed.map(describeRecipient).join(', ')}`, {
     variant: 'error',
     persist: true,
+    action: (snackbarId) => (
+      <Button color="inherit" size="small" onClick={() => closeSnackbar(snackbarId)}>
+        Dismiss
+      </Button>
+    ),
   });
 }
 

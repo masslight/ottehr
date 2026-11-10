@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
 import {
   getOutboundDeliveryChannel,
+  getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryInput,
   getOutboundDeliveryRecipientSnapshot,
   getOutboundDeliverySenderOrganizationId,
@@ -27,7 +28,11 @@ import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { collectResendChain, findResendChainRoot, requireOutboundDeliveryValue } from '../../shared/outbound-delivery';
+import {
+  collectResendChain,
+  collectResendChainAncestors,
+  requireOutboundDeliveryValue,
+} from '../../shared/outbound-delivery';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
@@ -50,23 +55,28 @@ export interface LinkClient {
  * attempt Task, from which the document and the recipient are resolved. A live token yields a short-lived
  * download URL; an expired token re-sends a fresh link to the recipient recorded on that Task.
  */
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { token, secrets } = validateWithSchema(OpenDocumentLinkInputSchema, input);
-  const { attemptId, expired } = await verifyDocumentLinkToken(token, secrets);
+export const index = wrapHandler(
+  ZAMBDA_NAME,
+  async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+    const { token, secrets } = validateWithSchema(OpenDocumentLinkInputSchema, input);
+    const { attemptId, expired } = await verifyDocumentLinkToken(token, secrets);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const output = await performEffect({
-    attemptId,
-    expired,
-    secrets,
-    oystehr,
-    accessToken: m2mToken,
-    client: readLinkClient(input.headers),
-  });
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
+    const output = await performEffect({
+      attemptId,
+      expired,
+      secrets,
+      oystehr,
+      accessToken: m2mToken,
+      client: readLinkClient(input.headers),
+    });
+    return { statusCode: 200, body: JSON.stringify(output) };
+  },
+  // The body is the link token, a bearer credential for the patient's documents.
+  { redactInputBody: true }
+);
 
 export async function verifyDocumentLinkToken(
   token: string,
@@ -113,11 +123,14 @@ export async function performEffect(args: {
   const task = await loadLinkAttempt(oystehr, attemptId);
   const documentReferenceId = getOutboundDeliveryRecipientSnapshot(task).documentReferenceId;
   if (getOutboundDeliveryChannel(task) !== 'email' || !documentReferenceId) throw LINK_NOT_FOUND;
-  if (task.status === 'cancelled') throw FHIR_RESOURCE_IS_GONE();
+  // A revoke cancels the send from its original attempt on, so a link re-sent while the revoke ran (or one whose
+  // pending completion overwrote the cancel) is still refused through a cancelled attempt above it.
+  const ancestors = await collectResendChainAncestors(oystehr, task);
+  if ([task, ...ancestors].some((attempt) => attempt.status === 'cancelled')) throw FHIR_RESOURCE_IS_GONE();
 
   if (expired) {
     // One live link per send: an old link re-sends only once the newest link has expired too.
-    const newest = await findNewestAttempt(oystehr, task);
+    const newest = await findNewestAttempt(oystehr, ancestors.at(-1) ?? task);
     if (newest.id !== task.id && isLinkLive(newest)) {
       return { status: 'expired', resent: false, sentAt: newest.authoredOn! };
     }
@@ -146,14 +159,14 @@ async function loadLinkAttempt(oystehr: Oystehr, attemptId: string): Promise<Tas
 }
 
 /** The most recent attempt in this send's resend chain, across every branch of it. */
-async function findNewestAttempt(oystehr: Oystehr, opened: Task): Promise<Task> {
-  const chain = await collectResendChain(oystehr, await findResendChainRoot(oystehr, opened));
+async function findNewestAttempt(oystehr: Oystehr, root: Task): Promise<Task> {
+  const chain = await collectResendChain(oystehr, root);
   return chain.reduce((newest, attempt) => ((attempt.authoredOn ?? '') > (newest.authoredOn ?? '') ? attempt : newest));
 }
 
-/** A sent attempt whose token has not reached the link lifetime yet. */
+/** A sent, or still sending, attempt whose token has not reached the link lifetime yet. */
 function isLinkLive(attempt: Task): boolean {
-  if (attempt.status !== 'completed' || !attempt.authoredOn) return false;
+  if ((attempt.status !== 'completed' && attempt.status !== 'in-progress') || !attempt.authoredOn) return false;
   return DateTime.fromISO(attempt.authoredOn).plus({ minutes: DOCUMENT_LINK_TTL_MINUTES }) > DateTime.now();
 }
 
@@ -194,6 +207,7 @@ async function resendDocumentLink(
     getOutboundDeliverySenderOrganizationId(task) || getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
   const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '') || undefined;
   const location = appointmentId ? await getVisitLocation(oystehr, appointmentId) : undefined;
+  const packet = getOutboundDeliveryFaxPacketSnapshot(task);
 
   await sendDocumentLinkEmailAttempt({
     oystehr,
@@ -205,6 +219,8 @@ async function resendDocumentLink(
     recipientOrganization: recipient.organization,
     recipientPhone: recipient.phone,
     documentReferenceId,
+    faxPacketPageCount: packet.pageCount,
+    faxPacketParts: packet.parts,
     organizationId,
     contactPhone: getLocationContactPhone(location),
     senderDisplay: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderDisplay)?.valueString,

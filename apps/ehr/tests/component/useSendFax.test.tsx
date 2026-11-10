@@ -1,13 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { FaxJobFailureReason, FaxPacketSource, GetFaxPacketStatusOutput } from 'utils/lib/types/api/fax.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FaxFormValues } from '../../src/features/fax/model/types';
 
 const mockEnqueueSnackbar = vi.fn();
+const mockCloseSnackbar = vi.fn();
 vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: unknown[]) => mockEnqueueSnackbar(...args),
+  closeSnackbar: (...args: unknown[]) => mockCloseSnackbar(...args),
 }));
 
 let mockJobStatus: GetFaxPacketStatusOutput | undefined;
@@ -50,8 +53,8 @@ const VALUES: FaxFormValues = {
   ],
 };
 
-const sendAndFail = async (failureReason?: FaxJobFailureReason): Promise<void> => {
-  mockJobStatus = { jobStatus: 'failed', recipients: [], failureReason };
+const sendAndSettle = async (status: GetFaxPacketStatusOutput): Promise<void> => {
+  mockJobStatus = status;
   const queryClient = new QueryClient();
   const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -60,8 +63,13 @@ const sendAndFail = async (failureReason?: FaxJobFailureReason): Promise<void> =
 
   await act(() => result.current.send(VALUES));
 
-  await waitFor(() => expect(mockEnqueueSnackbar).toHaveBeenCalledWith(expect.any(String), { variant: 'error' }));
+  await waitFor(() =>
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ variant: 'error' }))
+  );
 };
+
+const sendAndFail = (failureReason?: FaxJobFailureReason): Promise<void> =>
+  sendAndSettle({ jobStatus: 'failed', recipients: [], failureReason });
 
 describe('useSendFax', () => {
   beforeEach(() => {
@@ -84,5 +92,21 @@ describe('useSendFax', () => {
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('The documents could not be sent. Please try again.', {
       variant: 'error',
     });
+  });
+
+  it('keeps a recipient failure on screen until the user dismisses it', async () => {
+    await sendAndSettle({
+      jobStatus: 'completed',
+      recipients: [{ name: 'Olivia Green', faxNumber: '+12125551234', status: 'failed' }],
+    });
+
+    const [message, options] = mockEnqueueSnackbar.mock.calls.find(([, opts]) => opts?.variant === 'error')!;
+    expect(message).toBe('Could not send to Olivia Green ((212) 555-1234)');
+    expect(options.persist).toBe(true);
+
+    render(<>{options.action('snackbar-1')}</>);
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+    expect(mockCloseSnackbar).toHaveBeenCalledWith('snackbar-1');
   });
 });

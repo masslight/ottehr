@@ -132,6 +132,8 @@ export const deliverFaxPacket = async (args: {
           recipientOrganization: recipient.organization,
           recipientPhone: recipient.phoneNumber,
           documentReferenceId: uploaded.documentReference.id!,
+          faxPacketPageCount: uploaded.pageCount,
+          faxPacketParts: body.parts.map((part) => part.title),
           organizationId,
           contactPhone: getLocationContactPhone(plan.location),
           senderDisplay: getFullestAvailableName(senderPractitioner),

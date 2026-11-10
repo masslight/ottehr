@@ -45,7 +45,7 @@ const sentLog: ActionLogEntry = {
   recipientName: 'Dr. Green',
   appointmentId: 'e2e6b8f0-0000-0000-0000-000000000001',
   visitDate: '2024-07-29T14:30:00.000Z',
-  documentTitle: 'Fax packet (2 documents)',
+  documentTitle: 'Document packet (2 documents)',
   canRetry: false,
   canRevoke: false,
 };
@@ -82,7 +82,7 @@ describe('ActionLogsTable', () => {
     expect(screen.getAllByText('(999) 888-7777')).toHaveLength(2);
     expect(screen.getByText('sent')).toBeVisible();
     expect(screen.getByText('failed')).toBeVisible();
-    expect(screen.getAllByText('Fax packet (2 documents)')).toHaveLength(2);
+    expect(screen.getAllByText('Document packet (2 documents)')).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1);
   });
 

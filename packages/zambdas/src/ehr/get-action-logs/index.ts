@@ -255,6 +255,6 @@ function composeEntry(
 
 const getDocumentTitle = (documentReferenceId: string | undefined, faxPacketParts: string[]): string | undefined => {
   if (faxPacketParts.length === 1) return faxPacketParts[0];
-  if (faxPacketParts.length > 1) return `Fax packet (${faxPacketParts.length} documents)`;
+  if (faxPacketParts.length > 1) return `Document packet (${faxPacketParts.length} documents)`;
   return documentReferenceId ? 'Visit Note' : undefined;
 };

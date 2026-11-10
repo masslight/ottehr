@@ -1,15 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import { SignJWT } from 'jose';
+import { OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
+import { makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
 import { escapeHtml, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { GenericOutreachTemplateData } from 'utils/lib/ottehr-config/sendgrid';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { OutboundDeliveryAttemptData } from 'utils/lib/types/api/action-logs.types';
 import { DOCUMENT_LINK_AUDIENCE, DOCUMENT_LINK_TTL } from 'utils/lib/types/api/fax.types';
 import { EmailSendOptions, getEmailClient } from './communication';
 import {
   completeOutboundDeliveryAttempt,
   createOutboundDeliveryAttempt,
+  createOutboundDeliveryAttemptIdempotently,
   failOutboundDeliveryAttempt,
   requireOutboundDeliveryValue,
 } from './outbound-delivery';
@@ -27,6 +31,9 @@ export interface DocumentLinkEmailInput {
   recipientPhone?: string;
   /** The packet PDF the link opens. */
   documentReferenceId: string;
+  /** What went into the packet, recorded on the attempt so Action Logs can name it. */
+  faxPacketPageCount?: number;
+  faxPacketParts?: string[];
   organizationId: string;
   /** The number a recipient who got the email in error is told to call (see `getLocationContactPhone`). */
   contactPhone?: string;
@@ -114,7 +121,11 @@ export function buildDocumentLinkEmail(input: {
   };
 }
 
-/** Records the outbound delivery attempt, then emails a link to the packet and settles the attempt's outcome. */
+/**
+ * Records the outbound delivery attempt, then emails a link to the packet and settles the attempt's outcome.
+ * A re-send claims the one successor of its parent attempt first; when another request already holds that claim,
+ * its attempt is returned and nothing is emailed, so concurrent opens of one expired link send one new link.
+ */
 export async function sendDocumentLinkEmailAttempt(
   input: DocumentLinkEmailInput,
   existingEmailClient?: DocumentLinkEmailClient
@@ -124,7 +135,7 @@ export async function sendDocumentLinkEmailAttempt(
   requireOutboundDeliveryValue(input.email, 'Email recipient');
   requireOutboundDeliveryValue(input.documentReferenceId, 'Document packet DocumentReference');
 
-  const attempt = await createOutboundDeliveryAttempt(input.oystehr, {
+  const data: OutboundDeliveryAttemptData = {
     channel: 'email',
     patientId: input.patientId,
     appointmentId: input.appointmentId,
@@ -133,12 +144,22 @@ export async function sendDocumentLinkEmailAttempt(
     recipientOrganization: input.recipientOrganization,
     recipientPhone: input.recipientPhone,
     documentReferenceId: input.documentReferenceId,
+    faxPacketPageCount: input.faxPacketPageCount,
+    faxPacketParts: input.faxPacketParts,
     requesterReference: input.requesterReference,
     senderOrganizationReference: `Organization/${input.organizationId}`,
     parentAttemptId: input.parentAttemptId,
     senderId: input.senderId,
     senderDisplay: input.senderDisplay,
-  });
+  };
+  const claim = input.parentAttemptId
+    ? await createOutboundDeliveryAttemptIdempotently(input.oystehr, makeOutboundDeliveryAttempt(data), {
+        system: OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
+        value: `Task/${input.parentAttemptId}`,
+      })
+    : { status: 'created' as const, attempt: await createOutboundDeliveryAttempt(input.oystehr, data) };
+  if (claim.status === 'existing') return claim.attempt;
+  const attempt = claim.attempt;
   if (!attempt.id) throw new Error('Outbound email attempt was created without an id');
 
   try {

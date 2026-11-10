@@ -228,6 +228,47 @@ describe('open-document-link', () => {
     expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
   });
 
+  it('does not re-send while the newest link in the chain is still being sent', async () => {
+    const sending = childAttempt('attempt-2', 'attempt-1', hoursAgo(0.01));
+    sending.status = 'in-progress';
+    mockFhirSearch.mockImplementation(async ({ params }: { params: { name: string; value: string }[] }) => ({
+      unbundle: () => (params.some((p) => p.value === 'Task/attempt-1') ? [sending] : []),
+    }));
+
+    const output = await call(await expiredToken());
+
+    expect(output).toEqual({ status: 'expired', resent: false, sentAt: sending.authoredOn });
+    expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
+  });
+
+  it('carries what went into the packet onto the re-sent attempt', async () => {
+    mockFhirGet.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task') {
+        return {
+          ...makeOutboundDeliveryAttempt({
+            channel: 'email',
+            patientId: 'patient-1',
+            recipientAddress: 'olivia@example.com',
+            documentReferenceId: 'packet-1',
+            senderOrganizationReference: 'Organization/org-1',
+            faxPacketPageCount: 7,
+            faxPacketParts: ['Medical Record'],
+          }),
+          id: 'attempt-1',
+          status: 'completed',
+          authoredOn: hoursAgo(2),
+        };
+      }
+      throw new Error(`unexpected get ${resourceType}`);
+    });
+
+    await call(await expiredToken());
+
+    expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ faxPacketPageCount: 7, faxPacketParts: ['Medical Record'] })
+    );
+  });
+
   it('ignores a failed newest attempt and re-sends', async () => {
     const failed = childAttempt('attempt-2', 'attempt-1', hoursAgo(0.1));
     failed.status = 'failed';
@@ -275,6 +316,16 @@ describe('open-document-link', () => {
 
     await expect(call(token)).rejects.toMatchObject({ statusCode: 401 });
     expect(mockFhirGet).not.toHaveBeenCalled();
+  });
+
+  it('returns 410 for a link whose send was revoked further up its chain, even if the link itself was not', async () => {
+    const resent = childAttempt('attempt-2', 'attempt-1', hoursAgo(0.1));
+    mockFhirGet.mockImplementation(async ({ id }: { id: string }) =>
+      id === 'attempt-2' ? resent : emailAttempt({ status: 'cancelled' })
+    );
+
+    await expect(call(await mintDocumentLinkToken('attempt-2', secrets))).rejects.toMatchObject({ statusCode: 410 });
+    expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
   });
 
   it('returns 410 for a cancelled attempt', async () => {

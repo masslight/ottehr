@@ -105,7 +105,8 @@ as a link rather than an attachment: `shared/document-link-email.ts` emails a si
 - A live token returns a short-lived download URL and records a `link-opened` output on the attempt Task.
 - An expired token re-sends a fresh link to the recipient recorded on the Task (never to an address from the
   request). The new attempt is `partOf` the one it replaces, and there is one live link per send: while any link
-  in the chain is still live, nothing is re-sent.
+  in the chain is still live or still being sent, nothing is re-sent, and concurrent opens of one expired link
+  claim a single successor, so only one new link goes out.
 - Revoking a link from Action Logs (`revoke-action-log`) cancels every attempt in its resend chain, from the
   original send on, so no link of that send opens or re-sends again.
 

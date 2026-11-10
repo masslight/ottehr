@@ -115,26 +115,39 @@ async function patchAttemptWithRetry(
   throw lastError;
 }
 
-/** A resend chain is never deep; this only guards against a malformed `partOf` loop. */
+/**
+ * Bounds the FHIR round trips of a chain walk. A walk that would pass it fails instead of returning part of the
+ * chain, so a revoke never reports success over links it did not reach.
+ */
 const MAX_RESEND_CHAIN_SIZE = 50;
 
-/** The first attempt of the send this attempt belongs to, found by following `partOf` back. */
-export async function findResendChainRoot(oystehr: Oystehr, attempt: Task): Promise<Task> {
-  let root = attempt;
+const resendChainTooLong = (attempt: Task): Error =>
+  new Error(`The resend chain of Task/${attempt.id} is longer than ${MAX_RESEND_CHAIN_SIZE} attempts`);
+
+/** The attempts this one descends from through `partOf`, nearest first, ending with the original send. */
+export async function collectResendChainAncestors(oystehr: Oystehr, attempt: Task): Promise<Task[]> {
+  const ancestors: Task[] = [];
   const seen = new Set([attempt.id]);
-  while (seen.size < MAX_RESEND_CHAIN_SIZE) {
-    const parentId = getIdFromReference(root.partOf?.[0]?.reference, 'Task');
-    if (!parentId || seen.has(parentId)) break;
+  let current = attempt;
+  for (;;) {
+    const parentId = getIdFromReference(current.partOf?.[0]?.reference, 'Task');
+    if (!parentId || seen.has(parentId)) return ancestors;
+    if (seen.size >= MAX_RESEND_CHAIN_SIZE) throw resendChainTooLong(attempt);
     seen.add(parentId);
-    root = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: parentId });
+    current = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: parentId });
+    ancestors.push(current);
   }
-  return root;
+}
+
+/** The first attempt of the send this attempt belongs to. */
+export async function findResendChainRoot(oystehr: Oystehr, attempt: Task): Promise<Task> {
+  return (await collectResendChainAncestors(oystehr, attempt)).at(-1) ?? attempt;
 }
 
 /** The attempt and every later attempt linked to it through `partOf`, including branches, oldest first. */
 export async function collectResendChain(oystehr: Oystehr, start: Task): Promise<Task[]> {
   const chain: Task[] = [start];
-  for (let index = 0; index < chain.length && chain.length < MAX_RESEND_CHAIN_SIZE; index++) {
+  for (let index = 0; index < chain.length; index++) {
     const children = (
       await oystehr.fhir.search<Task>({
         resourceType: 'Task',
@@ -144,6 +157,7 @@ export async function collectResendChain(oystehr: Oystehr, start: Task): Promise
       .unbundle()
       .filter((resource) => resource.resourceType === 'Task' && !chain.some((seen) => seen.id === resource.id));
     chain.push(...children);
+    if (chain.length > MAX_RESEND_CHAIN_SIZE) throw resendChainTooLong(start);
   }
   return chain;
 }

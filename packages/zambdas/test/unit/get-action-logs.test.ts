@@ -245,7 +245,7 @@ describe('get-action-logs', () => {
 
     expect(result.logs[0]).toMatchObject({
       appointmentId: undefined,
-      documentTitle: 'Fax packet (2 documents)',
+      documentTitle: 'Document packet (2 documents)',
       canRetry: true,
     });
   });

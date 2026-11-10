@@ -207,6 +207,8 @@ describe('deliverFaxPacket', () => {
         recipientOrganization: 'Green FP',
         recipientPhone: '(212) 555-9999',
         documentReferenceId: 'docref-olivia@example.com',
+        faxPacketPageCount: 5,
+        faxPacketParts: ['Visit/Progress Note'],
         organizationId: 'org-1',
         contactPhone: '+12125552222',
         senderDisplay: 'Sam Stone',

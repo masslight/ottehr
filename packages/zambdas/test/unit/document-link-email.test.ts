@@ -1,7 +1,7 @@
 import { Task } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
-import { OUTBOUND_DELIVERY_INPUT_CODES } from 'utils/lib/fhir/constants';
-import { getOutboundDeliveryInput } from 'utils/lib/fhir/outbound-delivery';
+import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
+import { getOutboundDeliveryFaxPacketSnapshot, getOutboundDeliveryInput } from 'utils/lib/fhir/outbound-delivery';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/fax.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -117,10 +117,38 @@ describe('document link email attempt', () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
-  it('records the parent attempt on a resend', async () => {
+  it('records the parent attempt on a resend, claiming it as the one successor of that parent', async () => {
     await sendDocumentLinkEmailAttempt({ ...baseInput(), parentAttemptId: 'attempt-0' });
 
     expect((create.mock.calls[0][0] as Task).partOf).toEqual([{ reference: 'Task/attempt-0' }]);
+    expect(create.mock.calls[0][1]).toEqual({
+      ifNoneExist: [{ name: 'identifier', value: `${OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM}|Task/attempt-0` }],
+    });
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends nothing when a concurrent re-send of the same link already holds the claim', async () => {
+    const existing = { resourceType: 'Task', id: 'attempt-other', status: 'in-progress', identifier: [] };
+    create.mockResolvedValue(existing);
+
+    const result = await sendDocumentLinkEmailAttempt({ ...baseInput(), parentAttemptId: 'attempt-0' });
+
+    expect(result).toBe(existing);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('records what went into the packet, so Action Logs can name it', async () => {
+    await sendDocumentLinkEmailAttempt({
+      ...baseInput(),
+      faxPacketPageCount: 7,
+      faxPacketParts: ['Medical Record'],
+    });
+
+    expect(getOutboundDeliveryFaxPacketSnapshot(create.mock.calls[0][0] as Task)).toEqual({
+      pageCount: 7,
+      parts: ['Medical Record'],
+    });
   });
 
   it('reuses a supplied email client instead of initializing another one', async () => {
