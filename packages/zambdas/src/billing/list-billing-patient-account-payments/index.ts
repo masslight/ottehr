@@ -11,6 +11,7 @@ import {
   BillingPatientVisit,
   ListBillingPatientAccountPaymentsResponse,
 } from 'utils/lib/types/data/billing/billing.types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient } from '../../shared/stripeIntegration';
@@ -72,7 +73,7 @@ export const accountVisits = (visits: PatientPaymentVisit[]): BillingPatientVisi
       locationName,
       visitReason,
     }))
-    .sort((a, b) => (b.visitDateISO ?? '').localeCompare(a.visitDateISO ?? ''));
+    .sort((a, b) => compareDates(a.visitDateISO, b.visitDateISO));
 
 export const listAccountPayments = async (params: {
   billingOystehr: Oystehr;
