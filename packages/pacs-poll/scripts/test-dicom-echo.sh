@@ -140,6 +140,7 @@ else
     [ -n "$CALLING" ] && CMD+=(-b "$CALLING")
     CMD+=("${STORESCU_EXTRA[@]}")
     echo "    running: ${CMD[*]}"
+    HINT=''
     if timeout "$((TIMEOUT + 10))" "${DOCKER[@]}" exec "$CONTAINER" "${CMD[@]}" >"$TMP/storescu.out" 2>&1; then
       pass 'storescu exited 0: the SCP accepted the association and answered the C-ECHO'
     else
@@ -147,10 +148,18 @@ else
       if [ "$RC" -eq 124 ]; then
         fail "storescu did not finish within $((TIMEOUT + 10))s"
       else
-        fail "storescu exited $RC; its output below says why (A-ASSOCIATE-RJ: the SCP does not accept these AE titles; connect error: the network path)"
+        fail "storescu exited $RC; its output below says why"
+      fi
+      if grep -q 'A-ASSOCIATE-AC timeout expired' "$TMP/storescu.out"; then
+        HINT='the port accepted the TCP connection but nothing answered the association. Usual causes: AE titles or a source IP the SCP silently ignores, a proxy in front of a dead backend, or a TLS-only listener (retry with: -- --tls)'
+      elif grep -q 'A-ASSOCIATE-RJ' "$TMP/storescu.out"; then
+        HINT='the SCP rejected the association; the reason above usually names the AE title it did not accept'
+      elif grep -q -i -E 'connection refused|timed out|unreachable' "$TMP/storescu.out"; then
+        HINT='no TCP connection from inside the container; compare with step 1'
       fi
     fi
-    show "$TMP/storescu.out"
+    show "$TMP/storescu.out" 40
+    [ -n "$HINT" ] && echo "    hint: $HINT"
   fi
 fi
 
