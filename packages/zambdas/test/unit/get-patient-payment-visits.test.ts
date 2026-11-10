@@ -214,6 +214,63 @@ describe('getPatientPaymentVisits', () => {
     expect(encounterSearchParams(oystehr)).toContainEqual({ name: '_include', value: 'Encounter:location' });
   });
 
+  it('describes a follow-up by its own date, location and reason, not its initial visit appointment', async () => {
+    const oystehr = searchClient({
+      Encounter: [
+        {
+          resourceType: 'Encounter',
+          id: 'enc-initial',
+          status: 'finished',
+          class: { code: 'AMB' },
+          appointment: [{ reference: 'Appointment/appt-initial' }],
+        },
+        // the follow-up form keeps the initial visit's appointment on the follow-up it creates
+        {
+          resourceType: 'Encounter',
+          id: 'enc-follow-up',
+          status: 'finished',
+          class: { code: 'AMB' },
+          type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+          appointment: [{ reference: 'Appointment/appt-initial' }],
+          period: { start: '2026-10-08T15:00:00.000Z' },
+          location: [{ location: { reference: 'Location/annex' } }],
+          reasonCode: [{ text: 'Lab results' }],
+        },
+        {
+          resourceType: 'Appointment',
+          id: 'appt-initial',
+          status: 'fulfilled',
+          start: '2026-10-01T10:00:00.000Z',
+          description: 'Fever',
+          participant: [{ actor: { reference: 'Location/clinic' }, status: 'accepted' }],
+        },
+        { resourceType: 'Location', id: 'clinic', name: 'Main Clinic' },
+        { resourceType: 'Location', id: 'annex', name: 'Annex' },
+      ],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    expect(visits).toEqual([
+      expect.objectContaining({
+        encounterId: 'enc-initial',
+        visitDateISO: '2026-10-01T10:00:00.000Z',
+        serviceMode: 'in-person',
+        locationName: 'Main Clinic',
+        visitReason: 'Fever',
+      }),
+      expect.objectContaining({
+        encounterId: 'enc-follow-up',
+        appointmentId: 'appt-initial',
+        visitDateISO: '2026-10-08T15:00:00.000Z',
+        serviceMode: undefined,
+        followUp: true,
+        locationName: 'Annex',
+        visitReason: 'Lab results',
+      }),
+    ]);
+  });
+
   it("finds a schedule owner linked only through the appointment's slot schedule", async () => {
     const oystehr = searchClient({
       Encounter: [

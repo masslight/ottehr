@@ -97,25 +97,27 @@ const fetchVisits = async (
       const scheduleOwner = appointment
         ? scheduleOwnerAmong(scheduleOwnerCandidates(appointment, relatedResourcesByReference))
         : undefined;
+      const followUp = isFollowupEncounter(encounter);
+      const describedBy = followUp ? undefined : appointment;
       return {
         encounterId: encounter.id,
         appointmentId: appointment?.id,
-        visitDateISO: appointment?.start ?? encounter.period?.start,
-        serviceMode: appointment
-          ? isTelemedAppointment(appointment)
+        visitDateISO: describedBy?.start ?? encounter.period?.start,
+        serviceMode: describedBy
+          ? isTelemedAppointment(describedBy)
             ? ServiceMode.virtual
             : ServiceMode['in-person']
           : undefined,
-        followUp: isFollowupEncounter(encounter),
-        locationName: visitLocation(encounter, appointment, relatedResourcesByReference)?.name,
-        visitReason: getReasonForVisitFromAppointment(appointment) ?? encounter.reasonCode?.[0]?.text,
+        followUp,
+        locationName: visitLocation(encounter, describedBy, relatedResourcesByReference)?.name,
+        visitReason: getReasonForVisitFromAppointment(describedBy) ?? encounter.reasonCode?.[0]?.text,
         ...(scheduleOwner ? { scheduleOwner: { stripeAccount: getStripeAccountForScheduleOwner(scheduleOwner) } } : {}),
       };
     });
 };
 
 // The appointment's location, as the EHR visit history shows it, else the encounter's own (a
-// follow-up without an appointment has only that).
+// follow-up is described by only that).
 const visitLocation = (
   encounter: Encounter,
   appointment: Appointment | undefined,
