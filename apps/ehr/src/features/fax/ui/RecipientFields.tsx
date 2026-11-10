@@ -121,7 +121,7 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
         dataTestId={`${dataTestIds.faxDialog.phoneNumber}-${index}`}
       />
 
-      {onSaveAsPcpChange && (
+      {onSaveAsPcpChange && channel === 'fax' && (
         <FormControlLabel
           control={
             <Checkbox

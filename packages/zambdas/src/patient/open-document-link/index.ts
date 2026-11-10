@@ -19,6 +19,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
   DOCUMENT_LINK_AUDIENCE,
   DOCUMENT_LINK_TTL_MINUTES,
+  OpenDocumentLinkInputSchema,
   OpenDocumentLinkOutput,
 } from 'utils/lib/types/api/fax.types';
 import { FHIR_RESOURCE_IS_GONE, FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED } from 'utils/lib/types/errors';
@@ -26,10 +27,10 @@ import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { collectResendChain, requireOutboundDeliveryValue } from '../../shared/outbound-delivery';
+import { collectResendChain, findResendChainRoot, requireOutboundDeliveryValue } from '../../shared/outbound-delivery';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
 
 const ZAMBDA_NAME = 'open-document-link';
 let m2mToken: string;
@@ -50,7 +51,7 @@ export interface LinkClient {
  * download URL; an expired token re-sends a fresh link to the recipient recorded on that Task.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { token, secrets } = validateRequestParameters(input);
+  const { token, secrets } = validateWithSchema(OpenDocumentLinkInputSchema, input);
   const { attemptId, expired } = await verifyDocumentLinkToken(token, secrets);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -145,8 +146,8 @@ async function loadLinkAttempt(oystehr: Oystehr, attemptId: string): Promise<Tas
 }
 
 /** The most recent attempt in this send's resend chain, across every branch of it. */
-async function findNewestAttempt(oystehr: Oystehr, start: Task): Promise<Task> {
-  const chain = await collectResendChain(oystehr, start);
+async function findNewestAttempt(oystehr: Oystehr, opened: Task): Promise<Task> {
+  const chain = await collectResendChain(oystehr, await findResendChainRoot(oystehr, opened));
   return chain.reduce((newest, attempt) => ((attempt.authoredOn ?? '') > (newest.authoredOn ?? '') ? attempt : newest));
 }
 

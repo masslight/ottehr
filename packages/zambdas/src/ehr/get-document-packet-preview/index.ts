@@ -25,7 +25,7 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedInput = validateRequestParameters(input);
-  console.log('get-fax-packet-preview for appointment', validatedInput.appointmentId ?? '(none)');
+  console.log('get-document-packet-preview for appointment', validatedInput.appointmentId ?? '(none)');
 
   const authorization = input.headers.Authorization;
   await getUser(authorization.replace('Bearer ', ''), validatedInput.secrets);

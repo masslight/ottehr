@@ -79,11 +79,11 @@ const location: Location = {
   telecom: [{ system: 'phone', value: '+12125551111' }],
 };
 
-const expiredToken = (): Promise<string> => {
+const expiredToken = (attemptId = 'attempt-1'): Promise<string> => {
   const issuedAt = Math.floor(Date.now() / 1000) - 2 * 60 * 60;
   return new SignJWT({})
     .setProtectedHeader({ alg: 'HS256' })
-    .setSubject('attempt-1')
+    .setSubject(attemptId)
     .setIssuer(PROJECT_WEBSITE)
     .setAudience(DOCUMENT_LINK_AUDIENCE)
     .setIssuedAt(issuedAt)
@@ -212,6 +212,20 @@ describe('open-document-link', () => {
     expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledWith(
       expect.objectContaining({ parentAttemptId: 'attempt-2' })
     );
+  });
+
+  it('finds a live link on another branch of the send, not only after the opened link', async () => {
+    const opened = childAttempt('attempt-2', 'attempt-1', hoursAgo(1.5));
+    const live = childAttempt('attempt-3', 'attempt-1', hoursAgo(0.5));
+    mockFhirGet.mockImplementation(async ({ id }: { id: string }) => (id === 'attempt-2' ? opened : emailAttempt()));
+    mockFhirSearch.mockImplementation(async ({ params }: { params: { name: string; value: string }[] }) => ({
+      unbundle: () => (params.some((p) => p.value === 'Task/attempt-1') ? [opened, live] : []),
+    }));
+
+    const output = await call(await expiredToken('attempt-2'));
+
+    expect(output).toEqual({ status: 'expired', resent: false, sentAt: live.authoredOn });
+    expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
   });
 
   it('ignores a failed newest attempt and re-sends', async () => {

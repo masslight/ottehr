@@ -4,7 +4,7 @@ Faxing the documents of a visit to an outside recipient, typically the patient's
 
 ## Entry point
 
-Encounter header → kebab menu (⋮) → **Fax Documents**. Available on in-person, telemed and follow-up visits
+Encounter header → kebab menu (⋮) → **Send Documents**. Available on in-person, telemed and follow-up visits
 (they all render `features/visits/in-person/components/Header.tsx`). There is no signed-note gating: a fax can
 be sent at any point in the visit.
 
@@ -71,8 +71,9 @@ runs as a background Task — the same pattern as merge-patients:
    per-recipient results onto the Task's `output`. The raw cause of any failure stays in the server logs and
    `Task.statusReason`; it is never returned to the UI.
 3. The UI polls `get-document-packet-status` (2 s interval, stops on a terminal state). On completion it shows a
-   success snackbar, or a dialog naming the recipients that failed (name + number only, no cause). A hard job
-   failure shows a generic error.
+   success snackbar, or a persistent error snackbar naming the recipients that failed (name + fax number or
+   email only, no cause). A hard job failure shows a generic error, or the size limit when the packet was too
+   large (`failureReason: 'too-large'`).
 
 ## Storage and audit
 
@@ -90,15 +91,35 @@ phone, the packet page count and the list of documents that went into it.
 - 100 pages / 20 MB per packet (`FAX_PACKET_MAX_PAGES`, `FAX_PACKET_MAX_BYTES`), checked before upload.
 - Up to 5 recipients per send.
 - One recipient failing does not abort the others; the status poll reports each one and the UI lists the
-  failures (name + number, no raw cause) in a dialog.
+  failures (name + fax number or email, no raw cause) in a snackbar. A packet over the size limit is the
+  exception: it fails the whole send before anything is uploaded.
 - Saving a recipient as the patient's PCP never fails the send — a failure is logged and swallowed.
+
+## Sending by email
+
+Each recipient row has a Fax / Email toggle. An email recipient gets the same packet, cover sheet included, but
+as a link rather than an attachment: `shared/document-link-email.ts` emails a signed token that expires after
+`DOCUMENT_LINK_TTL_MINUTES` (60). The link opens the intake page `OpenDocumentLink`, which calls the public
+`open-document-link` zambda:
+
+- A live token returns a short-lived download URL and records a `link-opened` output on the attempt Task.
+- An expired token re-sends a fresh link to the recipient recorded on the Task (never to an address from the
+  request). The new attempt is `partOf` the one it replaces, and there is one live link per send: while any link
+  in the chain is still live, nothing is re-sent.
+- Revoking a link from Action Logs (`revoke-action-log`) cancels every attempt in its resend chain, from the
+  original send on, so no link of that send opens or re-sends again.
+
+A failed link email is not retried from Action Logs; it is usually a bad address and is sent again from the
+Send dialog.
 
 ## Saving a recipient as the PCP
 
 The patient record holds exactly one PCP (a contained `Practitioner` with the fixed id
 `primary-care-physician`), so "Save as patient's PCP" behaves like a radio across recipients. It is pre-ticked
 on the first recipient only when the patient has no PCP on file — an existing PCP is never overwritten
-silently. Persistence goes through the same `getPCPPatchOps` path that `update-patient-account` uses.
+silently. Persistence goes through the same `getPCPPatchOps` path that `update-patient-account` uses. Only a
+fax recipient can be saved: the PCP record holds a fax number but no email, so the checkbox is hidden on the
+Email channel.
 
 Each recipient has a name and, beside it, an optional credential ("MD", "DO", "NP"). The cover sheet, the delivery
 attempt and the status report address the recipient as "Jane Doe, MD" when a credential is given, the name alone
@@ -121,6 +142,7 @@ organization empty. Free text works as before.
 | PDF merge helpers | `packages/zambdas/src/shared/pdf/merge-pdfs.ts` |
 | Delivery core (build body, send, cover, save PCP) | `packages/zambdas/src/shared/fax/run-fax-packet.ts` |
 | Zambdas | `packages/zambdas/src/ehr/{send-document-packet,get-document-packet-preview,get-document-packet-status}` |
+| Email link | `packages/zambdas/src/shared/document-link-email.ts`, `packages/zambdas/src/patient/open-document-link`, `packages/zambdas/src/ehr/revoke-action-log`, `apps/intake/src/pages/OpenDocumentLink.tsx` |
 | Subscription | `packages/zambdas/src/subscriptions/task/sub-send-document-packet` |
 | EHR feature slice | `apps/ehr/src/features/fax` (public API: `SendFaxDialog`, `useSendFax`) |
 

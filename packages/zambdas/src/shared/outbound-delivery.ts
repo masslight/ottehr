@@ -4,6 +4,7 @@ import { Identifier, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM, OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
 import { makeOutboundDeliveryAttempt, makeOutboundDeliveryOutput } from 'utils/lib/fhir/outbound-delivery';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { OutboundDeliveryAttemptData } from 'utils/lib/types/api/action-logs.types';
 
 const ATTEMPT_PATCH_RETRIES = 3;
@@ -116,6 +117,19 @@ async function patchAttemptWithRetry(
 
 /** A resend chain is never deep; this only guards against a malformed `partOf` loop. */
 const MAX_RESEND_CHAIN_SIZE = 50;
+
+/** The first attempt of the send this attempt belongs to, found by following `partOf` back. */
+export async function findResendChainRoot(oystehr: Oystehr, attempt: Task): Promise<Task> {
+  let root = attempt;
+  const seen = new Set([attempt.id]);
+  while (seen.size < MAX_RESEND_CHAIN_SIZE) {
+    const parentId = getIdFromReference(root.partOf?.[0]?.reference, 'Task');
+    if (!parentId || seen.has(parentId)) break;
+    seen.add(parentId);
+    root = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: parentId });
+  }
+  return root;
+}
 
 /** The attempt and every later attempt linked to it through `partOf`, including branches, oldest first. */
 export async function collectResendChain(oystehr: Oystehr, start: Task): Promise<Task[]> {

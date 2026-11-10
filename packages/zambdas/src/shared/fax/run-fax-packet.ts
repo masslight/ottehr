@@ -261,13 +261,16 @@ export const splitRecipientName = (name: string | undefined): { firstName?: stri
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 };
 
-/** Persists the flagged recipient as the patient's PCP. Never throws — a failure here must not fail the send. */
+/**
+ * Persists the flagged recipient as the patient's PCP. Never throws — a failure here must not fail the send.
+ * The PCP record holds a fax number but no email, so an email recipient is never saved.
+ */
 export const savePcpIfRequested = async (
   recipients: FaxRecipient[],
   patient: Patient,
   oystehr: Oystehr
 ): Promise<void> => {
-  const toSave = recipients.filter((recipient) => recipient.saveAsPcp);
+  const toSave = recipients.filter((recipient) => recipient.saveAsPcp && !isEmailRecipient(recipient));
 
   if (toSave.length !== 1) return;
 
@@ -292,9 +295,7 @@ export const savePcpIfRequested = async (
 
     await oystehr.fhir.patch<Patient>({ resourceType: 'Patient', id: patient.id!, operations });
 
-    console.log(
-      `[fax-packet] saved recipient ${recipient.faxNumber ?? recipient.email} as PCP for Patient/${patient.id}`
-    );
+    console.log(`[fax-packet] saved recipient ${recipient.faxNumber} as PCP for Patient/${patient.id}`);
   } catch (error) {
     console.error('[fax-packet] failed to save the recipient as the patient PCP', error);
     captureException(error);

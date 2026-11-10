@@ -458,6 +458,15 @@ describe('savePcpIfRequested', () => {
     expect(contained[0]).toMatchObject({ resourceType: 'Practitioner', id: 'primary-care-physician', active: true });
   });
 
+  it('never saves an email recipient, since the PCP record has no email and would keep the old PCP fax', async () => {
+    await savePcpIfRequested(
+      [{ name: 'Olivia Green', email: 'olivia@example.com', saveAsPcp: true }],
+      basePatient(),
+      oystehr
+    );
+    expect(patch).not.toHaveBeenCalled();
+  });
+
   it('keeps the credential out of the PCP name', async () => {
     await savePcpIfRequested(
       [{ name: 'Jane Doe', credential: 'MD', faxNumber: '+12125551234', saveAsPcp: true }],

@@ -177,6 +177,14 @@ describe('faxRecipients', () => {
     expect(input.recipients.filter((entry) => entry.saveAsPcp)).toHaveLength(1);
   });
 
+  it('drops saveAsPcp from an email recipient, since the PCP record has no email', () => {
+    const input = toSendFaxPacketInput(visitSource, {
+      recipients: [recipient({ channel: 'email', email: 'olivia@example.com', saveAsPcp: true })],
+    });
+
+    expect(input.recipients[0].saveAsPcp).toBeUndefined();
+  });
+
   it('drops stale saveAsPcp state from patient-level sources', () => {
     const input = toSendFaxPacketInput(medicalRecordSource, { recipients: [recipient({ saveAsPcp: true })] });
 
