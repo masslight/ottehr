@@ -8,6 +8,7 @@ import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { EASY_CHART_VISIT_LOCKED_MESSAGE } from 'utils/lib/easy-chart/access';
 import { ChartPlanResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
 import { narrativeExtension, TRANSCRIPT_ATTACHMENT_TITLE } from 'utils/lib/easy-chart/narrative';
+import { DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -581,21 +582,31 @@ describe('ScribeRecommendationsDrawer', () => {
       expect(mocks.plan).toHaveBeenCalledTimes(2);
     });
 
-    it('unselects the selected chip when it is clicked again, leaving the box blank for a new transcript', async () => {
+    it('joins several transcripts into one read-only text, intake chat first, and writes one narrative from it', async () => {
       const user = userEvent.setup();
-      visitWith(transcriptDoc('doc-a', TEXT_A, LINES_A));
+      const chat = {
+        ...transcriptDoc('doc-chat', TEXT_B, LINES_B),
+        description: DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+        date: '2026-11-10T09:50:00Z',
+      };
+      visitWith(chat, { ...transcriptDoc('doc-a', TEXT_A, LINES_A), date: '2026-11-10T10:15:00Z' });
+      const narrative = vi.fn(async () => ({ lines: LINES_A }));
+      mocks.apiClient = { easyChartNarrative: narrative };
 
       await openTranscriptBox(user);
-      await user.click(screen.getByTestId(testIds.transcriptChip('doc-a')));
-      await waitFor(() => expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue(TEXT_A));
-
-      await user.click(screen.getByTestId(testIds.transcriptChip('doc-a')));
-      expect(useScribeRecommendationsStore.getState().sourceDocumentId).toBeUndefined();
-      expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe('');
-      expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue('');
-      // typing now adds a new transcript rather than editing the one unselected
-      await replaceTranscript(user, TEXT_B);
-      expect(screen.getByTestId(testIds.transcriptSaveButton)).toHaveTextContent('Add transcript');
+      await waitFor(() => expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe(LINES_A[0].text));
+      // one call, for the joined text, stored on no single document
+      expect(narrative).toHaveBeenCalledTimes(1);
+      const [{ transcript, documentId }] = narrative.mock.calls[0] as unknown as [
+        { transcript: string; documentId?: string },
+      ];
+      expect(documentId).toBeUndefined();
+      expect(transcript.indexOf('— Patient intake chat')).toBe(0);
+      expect(transcript.indexOf(TEXT_B)).toBeLessThan(transcript.indexOf('— Recording 1'));
+      expect(transcript).toContain(TEXT_A);
+      // shown as it was sent, and not editable
+      expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue(transcript);
+      expect(screen.getByTestId(testIds.transcriptPreview)).toHaveAttribute('readonly');
     });
 
     it('keeps the edit and says why when the transcript cannot be saved', async () => {
@@ -1625,7 +1636,7 @@ describe('plans read ahead of the click', () => {
 
   it('reads the plan when a transcript with a stored narrative is picked, once per document', async () => {
     const analyzer = fakeAnalyzer();
-    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    await store().loadTranscripts([DOC_A], generate, analyzer);
     expect(analyzer.calls).toHaveBeenCalledTimes(1);
     // the same call the button would make for the unedited narrative: the draft text, its lines, the transcript
     expect(analyzer.calls).toHaveBeenCalledWith(TEXT_A, LINES_A, store().transcript);
@@ -1635,9 +1646,9 @@ describe('plans read ahead of the click', () => {
     expect(store().recommendations).toEqual([]);
 
     // another document gets its own read; coming back to the first costs nothing
-    await store().selectTranscriptDocument(DOC_B, generate, analyzer);
+    await store().loadTranscripts([DOC_B], generate, analyzer);
     expect(analyzer.calls).toHaveBeenCalledTimes(2);
-    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    await store().loadTranscripts([DOC_A], generate, analyzer);
     expect(analyzer.calls).toHaveBeenCalledTimes(2);
     expect(heldPlanFor('doc-a')).toMatchObject({ narrative: TEXT_A });
     expect(heldPlanFor('doc-b')).toMatchObject({ narrative: LINES_B[0].text });
@@ -1645,7 +1656,7 @@ describe('plans read ahead of the click', () => {
 
   it('drops the plan on the first change to the narrative text, and not before', async () => {
     const analyzer = fakeAnalyzer();
-    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    await store().loadTranscripts([DOC_A], generate, analyzer);
     // the editor opening writes the draft back unchanged
     store().setNarrativeDraft(TEXT_A);
     expect(heldPlanFor('doc-a')).toBeDefined();
@@ -1661,7 +1672,7 @@ describe('plans read ahead of the click', () => {
   it('uses the plan it read ahead on "Plan note", waiting for it when it is still in flight', async () => {
     let answer: (plan: ChartPlanResponse) => void = () => undefined;
     const analyzer = fakeAnalyzer(() => new Promise((resolve) => (answer = resolve)));
-    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    await store().loadTranscripts([DOC_A], generate, analyzer);
     expect(heldPlanFor('doc-a')).toMatchObject({ narrative: TEXT_A });
     expect(heldPlanFor('doc-a')?.plan).toBeUndefined();
 
@@ -1676,7 +1687,7 @@ describe('plans read ahead of the click', () => {
 
   it('plans live when the narrative was edited, and after a read-ahead that failed', async () => {
     const analyzer = fakeAnalyzer();
-    await store().selectTranscriptDocument(DOC_A, generate, analyzer);
+    await store().loadTranscripts([DOC_A], generate, analyzer);
     const edited = `${TEXT_A} Also reports headache.`;
     store().setNarrativeDraft(edited);
     await store().analyze(analyzer);
@@ -1690,7 +1701,7 @@ describe('plans read ahead of the click', () => {
       if (flaky.calls.mock.calls.length === 1) throw new Error('model timed out');
       return PLAN;
     });
-    await store().selectTranscriptDocument(DOC_B, generate, flaky);
+    await store().loadTranscripts([DOC_B], generate, flaky, { replaceEdits: true });
     await waitFor(() => expect(heldPlanFor('doc-b')).toBeUndefined());
     expect(store().analysisError).toBeUndefined();
     await store().analyze(flaky);
@@ -1699,10 +1710,33 @@ describe('plans read ahead of the click', () => {
     consoleError.mockRestore();
   });
 
+  it('writes one narrative from all transcripts, and rewrites it for a new one only while unedited', async () => {
+    const analyzer = fakeAnalyzer();
+    await store().loadTranscripts([DOC_A, DOC_B], generate, analyzer);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate).toHaveBeenLastCalledWith(expect.stringContaining('— Recording 2 —'), undefined);
+    expect(store().sourceDocumentId).toBeUndefined();
+    // the same transcripts again, as on every chart refetch, cost nothing
+    await store().loadTranscripts([DOC_A, DOC_B], generate, analyzer);
+    expect(generate).toHaveBeenCalledTimes(1);
+
+    // a new recording rewrites a narrative the provider hasn't touched
+    const DOC_C = transcriptDocument('doc-c', 'Provider: Any cough?\nPatient: A little.');
+    await store().loadTranscripts([DOC_A, DOC_B, DOC_C], generate, analyzer);
+    expect(generate).toHaveBeenCalledTimes(2);
+
+    // once edited, the provider's words stay
+    store().setNarrativeDraft('My own words.');
+    const DOC_D = transcriptDocument('doc-d', 'Provider: Any fever?\nPatient: No.');
+    await store().loadTranscripts([DOC_A, DOC_B, DOC_C, DOC_D], generate, analyzer);
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(store().narrativeDraft).toBe('My own words.');
+  });
+
   it('reads ahead for a generated narrative, and again for a regenerated one', async () => {
     const analyzer = fakeAnalyzer();
     const unstamped = transcriptDocument('doc-c', 'Provider: What brings you in?\nPatient: Sore throat.');
-    await store().selectTranscriptDocument(unstamped, generate, analyzer);
+    await store().loadTranscripts([unstamped], generate, analyzer);
     expect(generate).toHaveBeenCalledTimes(1);
     expect(analyzer.calls).toHaveBeenCalledTimes(1);
     expect(analyzer.calls).toHaveBeenLastCalledWith(LINES_B[0].text, LINES_B, store().transcript);
