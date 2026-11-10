@@ -5,6 +5,8 @@ import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -130,6 +132,8 @@ describe('getPatientPaymentVisits', () => {
         encounterId: 'enc-1',
         appointmentId: 'appt-1',
         visitDateISO: '2026-10-01T14:00:00.000Z',
+        serviceMode: 'in-person',
+        followUp: false,
         // a Location owner wins over the appointment's practitioner
         scheduleOwner: { stripeAccount: 'acct_clinic' },
         legacyPaymentNotices: [expect.objectContaining({ id: 'pn-1' }), expect.objectContaining({ id: 'pn-2' })],
@@ -138,12 +142,15 @@ describe('getPatientPaymentVisits', () => {
         encounterId: 'enc-2',
         appointmentId: 'appt-2',
         visitDateISO: '2026-09-01T14:00:00.000Z',
+        serviceMode: 'in-person',
+        followUp: false,
         legacyPaymentNotices: [],
       },
       {
         encounterId: 'enc-3',
         appointmentId: undefined,
         visitDateISO: '2026-08-01T10:00:00.000Z',
+        followUp: false,
         legacyPaymentNotices: [],
       },
     ]);
@@ -151,6 +158,60 @@ describe('getPatientPaymentVisits', () => {
       { stripeAccount: undefined, customerId: 'cus_platform' },
       { stripeAccount: 'acct_clinic', customerId: 'cus_clinic' },
     ]);
+  });
+
+  it('describes each visit by its type, location and reason', async () => {
+    const oystehr = searchClient({
+      Encounter: [
+        {
+          resourceType: 'Encounter',
+          id: 'enc-telemed',
+          status: 'finished',
+          class: { code: 'AMB' },
+          appointment: [{ reference: 'Appointment/appt-telemed' }],
+        },
+        // a follow-up has no appointment, so only its own location and reason describe it
+        {
+          resourceType: 'Encounter',
+          id: 'enc-follow-up',
+          status: 'finished',
+          class: { code: 'AMB' },
+          type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+          location: [{ location: { reference: 'Location/annex' } }],
+          reasonCode: [{ text: 'Lab results' }],
+        },
+        {
+          resourceType: 'Appointment',
+          id: 'appt-telemed',
+          status: 'fulfilled',
+          meta: { tag: [{ code: OTTEHR_MODULE.TM }] },
+          description: 'Fever,  Cough',
+          participant: [{ actor: { reference: 'Location/clinic' }, status: 'accepted' }],
+        },
+        { resourceType: 'Location', id: 'clinic', name: 'Main Clinic' },
+        { resourceType: 'Location', id: 'annex', name: 'Annex' },
+      ],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    expect(visits).toEqual([
+      expect.objectContaining({
+        encounterId: 'enc-telemed',
+        serviceMode: 'virtual',
+        followUp: false,
+        locationName: 'Main Clinic',
+        visitReason: 'Fever, Cough',
+      }),
+      expect.objectContaining({
+        encounterId: 'enc-follow-up',
+        serviceMode: undefined,
+        followUp: true,
+        locationName: 'Annex',
+        visitReason: 'Lab results',
+      }),
+    ]);
+    expect(encounterSearchParams(oystehr)).toContainEqual({ name: '_include', value: 'Encounter:location' });
   });
 
   it("finds a schedule owner linked only through the appointment's slot schedule", async () => {

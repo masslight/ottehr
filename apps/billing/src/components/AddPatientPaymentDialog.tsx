@@ -15,6 +15,7 @@ import {
   IconButton,
   InputAdornment,
   InputLabel,
+  ListItemText,
   MenuItem,
   Radio,
   RadioGroup,
@@ -28,6 +29,7 @@ import { Control, Controller, useForm } from 'react-hook-form';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
+import { ServiceMode } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { BillingPatientCard, BillingPatientVisit } from 'utils/lib/types/data/billing/billing.types';
 import { DISPLAY_DATE_AND_TIME_FORMAT } from 'utils/lib/utils/dateUtils';
@@ -69,9 +71,26 @@ const defaultValues = (visits: BillingPatientVisit[]): PaymentForm => ({
   checkNumber: '',
 });
 
-const visitLabel = (visit: BillingPatientVisit): string => {
+const visitTypeLabel = (visit: BillingPatientVisit): string | undefined => {
+  if (visit.followUp) return 'Follow-up';
+  if (visit.serviceMode === ServiceMode.virtual) return 'Telemed';
+  if (visit.serviceMode === ServiceMode['in-person']) return 'In-Person';
+  return undefined;
+};
+
+const visitLabel = (visit: BillingPatientVisit): { primary: string; secondary: string } => {
   const visitDate = visit.visitDateISO ? DateTime.fromISO(visit.visitDateISO) : undefined;
-  return visitDate?.isValid ? visitDate.toFormat(DISPLAY_DATE_AND_TIME_FORMAT) : 'Visit with no date';
+  const date = visitDate?.isValid ? visitDate.toFormat(DISPLAY_DATE_AND_TIME_FORMAT) : 'Visit with no date';
+  const join = (parts: (string | undefined)[]): string => parts.filter(Boolean).join(' · ');
+  return {
+    primary: join([date, visitTypeLabel(visit)]),
+    secondary: join([visit.locationName, visit.visitReason]),
+  };
+};
+
+const visitSummary = (visit: BillingPatientVisit): string => {
+  const { primary, secondary } = visitLabel(visit);
+  return [primary, secondary].filter(Boolean).join(' · ');
 };
 
 const cardLabel = (card: BillingPatientCard): string => {
@@ -225,12 +244,19 @@ export function AddPatientPaymentDialog({
                   label="Visit *"
                   value={field.value}
                   onChange={(e) => field.onChange(e.target.value)}
+                  renderValue={(encounterId) => {
+                    const visit = visits.find((v) => v.encounterId === encounterId);
+                    return visit ? visitSummary(visit) : '';
+                  }}
                 >
-                  {visits.map((visit) => (
-                    <MenuItem key={visit.encounterId} value={visit.encounterId}>
-                      {visitLabel(visit)}
-                    </MenuItem>
-                  ))}
+                  {visits.map((visit) => {
+                    const { primary, secondary } = visitLabel(visit);
+                    return (
+                      <MenuItem key={visit.encounterId} value={visit.encounterId}>
+                        <ListItemText primary={primary} secondary={secondary || undefined} sx={{ my: 0 }} />
+                      </MenuItem>
+                    );
+                  })}
                 </Select>
                 {error && <FormHelperText>{error.message}</FormHelperText>}
               </FormControl>

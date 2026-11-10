@@ -63,7 +63,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // the visits a payment can be recorded against, newest first; undated visits last
 export const accountVisits = (visits: PatientPaymentVisit[]): BillingPatientVisit[] =>
   visits
-    .map(({ encounterId, appointmentId, visitDateISO }) => ({ encounterId, appointmentId, visitDateISO }))
+    .map(({ encounterId, appointmentId, visitDateISO, serviceMode, followUp, locationName, visitReason }) => ({
+      encounterId,
+      appointmentId,
+      visitDateISO,
+      serviceMode,
+      followUp,
+      locationName,
+      visitReason,
+    }))
     .sort((a, b) => (b.visitDateISO ?? '').localeCompare(a.visitDateISO ?? ''));
 
 export const listAccountPayments = async (params: {

@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { PatientPaymentVisit } from 'utils/lib/types/api/patient-payment-visits.types';
+import { ServiceMode } from 'utils/lib/types/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
@@ -220,11 +221,27 @@ describe('accountVisits', () => {
     const visits = accountVisits([
       visit('enc-old', { visitDateISO: '2026-01-01T10:00:00.000Z', legacyPaymentNotices: [notice('pn-1')] }),
       visit('enc-undated'),
-      visit('enc-new', { appointmentId: 'appt-new', visitDateISO: '2026-10-01T10:00:00.000Z' }),
+      visit('enc-new', {
+        appointmentId: 'appt-new',
+        visitDateISO: '2026-10-01T10:00:00.000Z',
+        serviceMode: ServiceMode.virtual,
+        followUp: false,
+        locationName: 'Main Clinic',
+        visitReason: 'Fever',
+        scheduleOwner: { stripeAccount: 'acct_clinic' },
+      }),
     ]);
 
     expect(visits).toEqual([
-      { encounterId: 'enc-new', appointmentId: 'appt-new', visitDateISO: '2026-10-01T10:00:00.000Z' },
+      {
+        encounterId: 'enc-new',
+        appointmentId: 'appt-new',
+        visitDateISO: '2026-10-01T10:00:00.000Z',
+        serviceMode: ServiceMode.virtual,
+        followUp: false,
+        locationName: 'Main Clinic',
+        visitReason: 'Fever',
+      },
       { encounterId: 'enc-old', appointmentId: undefined, visitDateISO: '2026-01-01T10:00:00.000Z' },
       { encounterId: 'enc-undated', appointmentId: undefined, visitDateISO: undefined },
     ]);
