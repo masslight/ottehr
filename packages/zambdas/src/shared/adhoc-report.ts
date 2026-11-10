@@ -223,12 +223,19 @@ async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]>
 // runs too long fails with "Internal Error". Such a search is split in two (its window or its id list) and run
 // again, up to MAX_SPLIT_DEPTH levels; then the report fails. A part of the data is never returned.
 
-/** Ids in one search (`_id=a,b,…` / `encounter=…`). 1 000 was much slower than 250 on production (SC). */
-export const IDS_PER_ENTRY = 250;
+// Two knobs can be overridden by environment variables for tuning runs (bench, local server); when unset or not a
+// positive whole number, the defaults below apply. Change the defaults here once the runs have settled them.
+const tuning = (name: string, fallback: number): number => {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+};
+
+/** Ids in one search (`_id=a,b,…` / `encounter=…`). 250 was set for sync searches (14 s limit); ADHOC_IDS_PER_SEARCH. */
+export const IDS_PER_ENTRY = tuning('ADHOC_IDS_PER_SEARCH', 250);
 /** Days in one date window: ~1 400 appointments at ~91 a day on production, far under one 30 000 page. */
 export const DEFAULT_WINDOW_DAYS = 15;
-/** Async jobs one report runs at once; 8 was the knee on production (SC: 4 → 18.3 s, 8 → 11.0 s, 16 → 9.0 s). */
-export const JOBS_IN_PARALLEL = 8;
+/** Async jobs one report runs at once; 8 was the knee on production (SC: 4 → 18.3 s, 8 → 11.0 s, 16 → 9.0 s); ADHOC_JOBS_IN_PARALLEL. */
+export const JOBS_IN_PARALLEL = tuning('ADHOC_JOBS_IN_PARALLEL', 8);
 /** Halvings of one search before the report fails. */
 const MAX_SPLIT_DEPTH = 3;
 /** The most resources one async-bulk result page holds; without _count a job returns 1 000 (OTR-3686). */

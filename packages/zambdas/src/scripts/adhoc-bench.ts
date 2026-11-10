@@ -11,6 +11,7 @@
 import { createHash } from 'crypto';
 import { writeFileSync } from 'fs';
 import { fetchAdHocEncounterRows } from '../shared/adhoc-datasets/encounters';
+import * as adhocReport from '../shared/adhoc-report';
 import { getAuth0Token } from '../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../shared/helpers';
 import { performEffectWithEnvFile } from './helpers';
@@ -80,6 +81,9 @@ async function main(config: Record<string, string>): Promise<void> {
     out,
     JSON.stringify({
       ms,
+      // The fetch settings of this run, when the code has them (the code before the redesign does not).
+      idsPerSearch: (adhocReport as Record<string, unknown>).IDS_PER_ENTRY,
+      jobsInParallel: (adhocReport as Record<string, unknown>).JOBS_IN_PARALLEL,
       overBudget: ms > REPORT_BUDGET_MS,
       networkRetries,
       rows: rows.length,
@@ -90,7 +94,11 @@ async function main(config: Record<string, string>): Promise<void> {
       ),
     })
   );
-  console.log(`[bench] rows=${rows.length} ms=${ms} networkRetries=${networkRetries}`);
+  console.log(
+    `[bench] rows=${rows.length} ms=${ms} networkRetries=${networkRetries} ` +
+      `idsPerSearch=${(adhocReport as Record<string, unknown>).IDS_PER_ENTRY} ` +
+      `jobsInParallel=${(adhocReport as Record<string, unknown>).JOBS_IN_PARALLEL}`
+  );
 }
 
 performEffectWithEnvFile(main).catch((error) => {
