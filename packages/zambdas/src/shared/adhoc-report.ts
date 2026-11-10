@@ -230,12 +230,18 @@ const tuning = (name: string, fallback: number): number => {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 };
 
-/** Ids in one search (`_id=a,b,…` / `encounter=…`). 250 was set for sync searches (14 s limit); ADHOC_IDS_PER_SEARCH. */
-export const IDS_PER_ENTRY = tuning('ADHOC_IDS_PER_SEARCH', 250);
+/**
+ * Ids in one search (`_id=a,b,…` / `encounter=…`); ADHOC_IDS_PER_SEARCH. Measured on local, a year, 43 500 visits:
+ * 250 → 336 s, 500 → 185 s, both without a split; at 1 000 an Observation search ran into the 30 s database limit.
+ */
+export const IDS_PER_ENTRY = tuning('ADHOC_IDS_PER_SEARCH', 500);
 /** Days in one date window: ~1 400 appointments at ~91 a day on production, far under one 30 000 page. */
 export const DEFAULT_WINDOW_DAYS = 15;
-/** Async jobs one report runs at once; 8 was the knee on production (SC: 4 → 18.3 s, 8 → 11.0 s, 16 → 9.0 s); ADHOC_JOBS_IN_PARALLEL. */
-export const JOBS_IN_PARALLEL = tuning('ADHOC_JOBS_IN_PARALLEL', 8);
+/**
+ * Async jobs one report runs at once; ADHOC_JOBS_IN_PARALLEL. Measured on local with 500 ids: 8 → 185 s, 16 → 101 s
+ * (SC on production, sync searches: 8 → 11.0 s, 16 → 9.0 s).
+ */
+export const JOBS_IN_PARALLEL = tuning('ADHOC_JOBS_IN_PARALLEL', 16);
 /** Halvings of one search before the report fails. */
 const MAX_SPLIT_DEPTH = 3;
 /** The most resources one async-bulk result page holds; without _count a job returns 1 000 (OTR-3686). */
