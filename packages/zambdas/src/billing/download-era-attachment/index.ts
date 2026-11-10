@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DownloadEraAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -7,7 +8,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { eraAttachmentOwner, ownedAttachmentLocation, presignAttachment } from '../attachments';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type DownloadEraAttachmentParams = ValidatedZambdaInput<typeof DownloadEraAttachmentInputSchema>;
 
@@ -23,7 +24,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: DownloadEraAttachmentParams
 ): Promise<DownloadEraAttachmentResponse> {
   const documentReference = await fetchById<DocumentReference>(

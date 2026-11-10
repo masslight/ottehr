@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
@@ -15,7 +16,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 import { ExportBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -42,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: ExportBillingClaimsParams
 ): Promise<BillingClaimsExportResponse> {
   if ('taskId' in params) return getExportStatus(oystehr, params.taskId);
@@ -84,7 +85,7 @@ async function performEffect(
   };
 }
 
-async function getExportStatus(oystehr: BillingOystehr, taskId: string): Promise<BillingClaimsExportStatusResponse> {
+async function getExportStatus(oystehr: Oystehr, taskId: string): Promise<BillingClaimsExportStatusResponse> {
   const task = await oystehr.fhir.get<Task>({
     resourceType: 'Task',
     id: taskId,

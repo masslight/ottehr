@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -48,7 +48,6 @@ import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../
 import {
   assertOrderingProvidersExist,
   attachCoverageToClaim,
-  BillingOystehr,
   buildAddress,
   buildClaimCoverageCopies,
   buildClaimItemDrugDetail,
@@ -98,7 +97,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // Only fields present in the request are touched. Each branch snapshots the resource before mutating
 // so the change can be recorded as a Provenance written in the same transaction as the update.
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: UpdateBillingClaimParams,
   agent: ProvenanceAgent
 ): Promise<{ id: string | undefined }> {
@@ -171,7 +170,7 @@ export async function performEffect(
 // working-copy subscriber RelatedPerson, so the coverage and the person are written in one transaction.
 // Policy-holder edits are recorded as `policyHolder.*` change entries on the Coverage's Provenance.
 async function saveCoverageSubscriber(input: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   coverage: Coverage;
   relationship: BillingSubscriberRelationship;
   policyHolder?: BillingPolicyHolderInput;
@@ -228,7 +227,7 @@ async function saveCoverageSubscriber(input: {
 
 // Working copy of the chosen original + claim reference, same wiring as create-billing-claim.
 async function attachClaimResources(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: Extract<UpdateBillingClaimParams, { resourceType: 'Claim' }>,
   agent: ProvenanceAgent
 ): Promise<{ id: string | undefined }> {
@@ -516,7 +515,7 @@ async function attachClaimResources(
 }
 
 async function createCopy(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   resourceType: 'Practitioner' | 'Organization' | 'Location',
   resourceId: string
 ): Promise<FhirResource> {

@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, OrganizationAffiliation } from 'fhir/r4b';
 import { SearchNonInsuranceOrgsInputSchema } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
@@ -18,7 +19,7 @@ import {
   referencedId,
   resolvePayerOptionsByRef,
 } from '../non-insurance-org.helpers';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 type SearchNonInsuranceOrgsParams = ValidatedZambdaInput<typeof SearchNonInsuranceOrgsInputSchema>;
 
@@ -48,7 +49,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // Serves both the list page (paginated) and the detail page (nioId filter); rows come back as
 // full DTOs — contacts and covers included — so both views share one shape.
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: SearchNonInsuranceOrgsParams
 ): Promise<SearchNonInsuranceOrgsResponse> {
   const pageSize = params.pageSize ?? 50;

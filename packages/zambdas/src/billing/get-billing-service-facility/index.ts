@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import { GetServiceFacilityInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -9,7 +10,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { mapServiceFacility } from '../service-facility.helpers';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 type GetServiceFacilityParams = ValidatedZambdaInput<typeof GetServiceFacilityInputSchema>;
 
@@ -36,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function performEffect(oystehr: BillingOystehr, params: GetServiceFacilityParams): Promise<ServiceFacilityItem> {
+async function performEffect(oystehr: Oystehr, params: GetServiceFacilityParams): Promise<ServiceFacilityItem> {
   const searchParams: {
     name: string;
     value: string;

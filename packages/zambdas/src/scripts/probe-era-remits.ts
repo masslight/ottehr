@@ -1,5 +1,6 @@
 // Dev probe: run the real ERA detail mappers over a live ERA and print what the detail screen
 // would show. Usage: npx tsx src/scripts/probe-era-remits.ts <paymentReconciliationId>
+import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import * as fs from 'fs';
 import { fetchClaimResponsesByPaymentReconciliations } from '../billing/claim-amounts';
@@ -9,7 +10,7 @@ import {
   eraPatientAccountNumber,
   resolveEraPayee,
 } from '../billing/era-remits';
-import { createEraReadClient, getEraCheckNumber } from '../billing/shared';
+import { getEraCheckNumber } from '../billing/shared';
 import { getAuth0Token } from '../shared/getAuth0Token';
 
 const ENV = process.env.ENV || 'local';
@@ -20,7 +21,13 @@ async function main(): Promise<void> {
   if (!prId) throw new Error('usage: probe-era-remits.ts <paymentReconciliationId>');
 
   const token = await getAuth0Token(secrets);
-  const oystehr = createEraReadClient(token, secrets);
+  const oystehr = new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: secrets.FHIR_API.replace(/\/r4/g, ''),
+      projectApiUrl: secrets.PROJECT_API,
+    },
+  });
 
   const prBundle = await oystehr.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',

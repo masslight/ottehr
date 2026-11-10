@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { BillingChargeItemDefinition } from 'utils/lib/types/data/billing/billing.types';
@@ -5,7 +6,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { transformChargeItemDefinition } from '../get-charge-item-definition';
-import { BillingOystehr, createBillingClient, procedureCodesToPropertyGroups } from '../shared';
+import { createBillingClient, procedureCodesToPropertyGroups } from '../shared';
 import {
   BulkAddChargeItemDefinitionProcedureCodesParams,
   complexValidation,
@@ -33,7 +34,7 @@ export const index = wrapHandler(
 );
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: BulkAddChargeItemDefinitionProcedureCodesParams,
   cvo: { definition: ChargeItemDefinition }
 ): Promise<BillingChargeItemDefinition> {

@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, PaymentReconciliation } from 'fhir/r4b';
 import { RenameEraAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -8,7 +9,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { eraAttachmentOwner, ownedAttachmentLocation, renamedAttachmentContent } from '../attachments';
 import { assertEraNotVoided } from '../era-write';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type RenameEraAttachmentParams = ValidatedZambdaInput<typeof RenameEraAttachmentInputSchema>;
 
@@ -24,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // Changes the name shown for the attachment; the stored file keeps its name.
-export async function performEffect(oystehr: BillingOystehr, params: RenameEraAttachmentParams): Promise<OkResponse> {
+export async function performEffect(oystehr: Oystehr, params: RenameEraAttachmentParams): Promise<OkResponse> {
   const documentReference = await fetchById<DocumentReference>(
     oystehr,
     'DocumentReference',

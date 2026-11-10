@@ -14,7 +14,6 @@ import {
   searchClaimsBySearchText,
 } from '../../../src/billing/claim-search';
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CLAIM_ID = '3f2b9c1a-7d4e-4a8b-9c6d-0e1f2a3b4c5d';
 const PATIENT_ID = '8a1c4e2f-5b6d-4c3a-9e8f-1d2c3b4a5e6f';
@@ -156,7 +155,7 @@ const stubClient = ({
   personLinks?: string[][];
   claimsPerClause?: Claim[][];
 } = {}): {
-  oystehr: OystehrMock;
+  oystehr: Oystehr;
   search: Mock;
 } => {
   let clauseIndex = 0;
@@ -182,7 +181,7 @@ const stubClient = ({
       fhir: {
         search,
       },
-    } as unknown as OystehrMock,
+    } as unknown as Oystehr,
     search,
   };
 };
@@ -206,7 +205,7 @@ describe('scanClaimIds', () => {
       omitTotal?: boolean;
     } = {}
   ): {
-    oystehr: OystehrMock;
+    oystehr: Oystehr;
     search: Mock;
   } => {
     let sizeFailuresLeft = failSizeFor;
@@ -229,7 +228,7 @@ describe('scanClaimIds', () => {
         fhir: {
           search,
         },
-      } as unknown as OystehrMock,
+      } as unknown as Oystehr,
       search,
     };
   };
@@ -404,7 +403,7 @@ describe('scanClaimIds', () => {
         fhir: {
           search,
         },
-      } as unknown as OystehrMock,
+      } as unknown as Oystehr,
       params: [],
       maxMatches: CLAIM_SCAN_MATCH_LIMIT,
       withServiceDate: false,
@@ -762,7 +761,7 @@ describe('searchClaimsBySearchText', () => {
 const stubPageClient = (
   resources: Resource[]
 ): {
-  oystehr: OystehrMock;
+  oystehr: Oystehr;
   search: Mock;
 } => {
   const search = vi.fn().mockResolvedValue({
@@ -775,14 +774,14 @@ const stubPageClient = (
       fhir: {
         search,
       },
-    } as unknown as OystehrMock,
+    } as unknown as Oystehr,
     search,
   };
 };
 
 describe('enrichAndMapClaims', () => {
   const stubEnrichClient = (): {
-    oystehr: OystehrMock;
+    oystehr: Oystehr;
     search: Mock;
   } => {
     const search = vi.fn().mockResolvedValue({
@@ -794,7 +793,7 @@ describe('enrichAndMapClaims', () => {
         fhir: {
           search,
         },
-      } as unknown as OystehrMock,
+      } as unknown as Oystehr,
       search,
     };
   };
@@ -916,7 +915,7 @@ describe('enrichAndMapClaims', () => {
         fhir: {
           search,
         },
-      } as unknown as OystehrMock,
+      } as unknown as Oystehr,
       claims: coverages.map((coverage, index) => claimWithCoverage(`claim-${index}`, coverage.id)),
       includedResources: [],
     });

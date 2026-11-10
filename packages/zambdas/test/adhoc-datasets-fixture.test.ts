@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
   Condition,
@@ -54,7 +55,6 @@ import { CONTAINED_MEDICATION_ID } from '../src/ehr/immunization/common';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
-import { OystehrMock } from './helpers/oystehr-mock';
 
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
@@ -591,7 +591,7 @@ const fakeOystehr = {
     waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
-} as unknown as OystehrMock;
+} as unknown as Oystehr;
 
 // the billing app holds no payments in these fixtures; every payment is a legacy EHR notice
 const emptyBillingOystehr = {
@@ -599,7 +599,7 @@ const emptyBillingOystehr = {
     search: async () => ({ jobId: 'billing', contentLocation: '', mode: 'bulk' }),
     waitForAsyncJob: async () => ({ status: 200, mode: 'bulk', manifest: { output: [], requiresAccessToken: false } }),
   },
-} as unknown as OystehrMock;
+} as unknown as Oystehr;
 
 const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
 

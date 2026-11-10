@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { BillingInvoiceStatementInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
@@ -7,7 +8,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { getInvoiceEncounterId } from '../invoices';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 const ZAMBDA_NAME = 'create-billing-invoice-statement';
 const CREATE_GENERATE_STATEMENT_TASK_ZAMBDA_KEY = 'create-generate-statement-task';
@@ -26,7 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // The EHR makes the PDF and files it in the patient's chart, where the patient portal shows it too.
-export async function performEffect(oystehr: BillingOystehr, invoiceId: string): Promise<void> {
+export async function performEffect(oystehr: Oystehr, invoiceId: string): Promise<void> {
   const encounterId = await getInvoiceEncounterId(oystehr, invoiceId);
   await oystehr.zambda.execute({ id: CREATE_GENERATE_STATEMENT_TASK_ZAMBDA_KEY, encounterId, billingAppInvoice: true });
 }

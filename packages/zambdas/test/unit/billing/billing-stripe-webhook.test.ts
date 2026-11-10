@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, FhirResource, Invoice, Organization, PaymentNotice, Provenance } from 'fhir/r4b';
 import Stripe from 'stripe';
@@ -19,7 +19,6 @@ import {
 } from 'utils/lib/types/data/billing/claim-history';
 import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
 
 const SYSTEM_AGENT = {
@@ -139,7 +138,7 @@ const makeOystehr = (
   orgResults: Organization[][] = [],
   storedNotices: PaymentNotice[] = [],
   provenances: Provenance[] = []
-): { oystehr: OystehrMock; transaction: Mock; patch: Mock; get: Mock } => {
+): { oystehr: Oystehr; transaction: Mock; patch: Mock; get: Mock } => {
   const claimQueue = [...claimResults];
   const orgQueue = [...orgResults];
   const notices = [...storedNotices];
@@ -200,7 +199,7 @@ const makeOystehr = (
         batch,
         get,
       },
-    } as unknown as OystehrMock,
+    } as unknown as Oystehr,
     transaction,
     patch,
     get,
@@ -1295,12 +1294,12 @@ describe('billing-stripe-webhook billing app invoices', () => {
     meta: { versionId: '3' },
   });
 
-  const makeInvoiceOystehr = (invoices: Invoice[]): { oystehr: OystehrMock; search: Mock; update: Mock } => {
+  const makeInvoiceOystehr = (invoices: Invoice[]): { oystehr: Oystehr; search: Mock; update: Mock } => {
     const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
       unbundle: () => (resourceType === 'Invoice' ? invoices : []),
     }));
     const update = vi.fn(async (resource: Invoice) => resource);
-    return { oystehr: { fhir: { search, update } } as unknown as OystehrMock, search, update };
+    return { oystehr: { fhir: { search, update } } as unknown as Oystehr, search, update };
   };
 
   it('marks the invoice paid and fills in its Stripe page', async () => {

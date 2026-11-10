@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import { createWorkingCopies } from '../../../src/billing/create-billing-claim';
@@ -8,7 +9,6 @@ import {
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // The main billing patient a user picks in the Create Claim dialog: its source-resource extension
 // references the clinical patient, and its identifiers index the clinical ids.
@@ -47,7 +47,7 @@ function mainBillingPatient(clinicalId: string, friendlyId?: string): Patient {
 }
 
 function mockOystehr(): {
-  oystehr: OystehrMock;
+  oystehr: Oystehr;
   transaction: ReturnType<typeof vi.fn>;
   search: ReturnType<typeof vi.fn>;
 } {
@@ -68,7 +68,7 @@ function mockOystehr(): {
         transaction,
         search,
       },
-    } as unknown as OystehrMock,
+    } as unknown as Oystehr,
     transaction,
     search,
   };

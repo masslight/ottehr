@@ -1,4 +1,4 @@
-import { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { Account, Coverage, Organization } from 'fhir/r4b';
 import { ACCOUNT_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { getCustomInsuranceOrgReferenceUrl } from 'utils/lib/helpers/helpers';
@@ -13,7 +13,6 @@ import {
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 import { buildCustomInsuranceOrganization } from '../../../src/billing/custom-insurance-org.helpers';
 import { payerDisplay, resolvedPayerId } from '../../../src/billing/shared';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // A clinical Coverage paid by a custom insurance organization stores the reference token, never a
 // direct Organization reference; the org itself lives in the billing project.
@@ -55,7 +54,7 @@ const clinicalAccount: Account = {
 
 const billingOystehr = {
   rcm: { constructPayerUrl: ({ id }: { id: string }) => `https://rcm-api.zapehr.com/v1/payer/${id}` },
-} as unknown as OystehrMock;
+} as unknown as Oystehr;
 
 const postedCoverage = (ops: ReturnType<typeof copyCoverageAndSubscriber>[0]): Coverage =>
   ops.find((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')!.resource;
@@ -66,8 +65,8 @@ describe('create-billing-claim-from-encounter — custom insurance organization 
       const billingGet = vi.fn().mockResolvedValue(billingCustomOrg);
       const clinicalGet = vi.fn();
       const getPayerByUrl = vi.fn();
-      const clinical = { fhir: { get: clinicalGet }, rcm: { getPayerByUrl } } as unknown as OystehrMock;
-      const billing = { fhir: { get: billingGet } } as unknown as OystehrMock;
+      const clinical = { fhir: { get: clinicalGet }, rcm: { getPayerByUrl } } as unknown as Oystehr;
+      const billing = { fhir: { get: billingGet } } as unknown as Oystehr;
 
       const payors = await resolveCoveragePayors(clinical, billing, [clinicalCoverage]);
 
@@ -83,8 +82,8 @@ describe('create-billing-claim-from-encounter — custom insurance organization 
       const clinicalGet = vi.fn().mockResolvedValue(clinicalOrg);
       const getPayerByUrl = vi.fn().mockResolvedValue(rcmPayer);
       const billingGet = vi.fn();
-      const clinical = { fhir: { get: clinicalGet }, rcm: { getPayerByUrl } } as unknown as OystehrMock;
-      const billing = { fhir: { get: billingGet } } as unknown as OystehrMock;
+      const clinical = { fhir: { get: clinicalGet }, rcm: { getPayerByUrl } } as unknown as Oystehr;
+      const billing = { fhir: { get: billingGet } } as unknown as Oystehr;
 
       const payors = await resolveCoveragePayors(clinical, billing, [
         { ...clinicalCoverage, payor: [{ reference: RCM_PAYER_URL }] },

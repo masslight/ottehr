@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -31,7 +32,7 @@ import {
 } from 'utils/lib/types/errors';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared/auth';
-import { ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
@@ -50,7 +51,7 @@ import {
   stripeAccountExtension,
 } from '../payments';
 import { humanClaimActor } from '../provenance';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 type PostBillingPatientPaymentParams = ValidatedZambdaInput<typeof PostBillingPatientPaymentInputSchema>;
 
@@ -87,8 +88,8 @@ interface EffectInput extends PostBillingPatientPaymentParams {
 
 const performEffect = async (
   input: EffectInput,
-  clinicalOystehr: ClinicalOystehr,
-  billingOystehr: BillingOystehr
+  clinicalOystehr: Oystehr,
+  billingOystehr: Oystehr
 ): Promise<PaymentNotice> => {
   const { encounterId, paymentDetails, secrets } = input;
   // every payment carries the identifier so billing AR picks it up; a request without a client
@@ -194,7 +195,7 @@ const performEffect = async (
 const chargeSavedCard = async (
   input: EffectInput,
   paymentMethodId: string,
-  clinicalOystehr: ClinicalOystehr
+  clinicalOystehr: Oystehr
 ): Promise<{ paymentIntent: Stripe.PaymentIntent; stripeAccount: string | undefined }> => {
   const { patientId, encounterId, paymentDetails, secrets } = input;
   const { account } = await getAccountAndCoverageResourcesForPatient(patientId, clinicalOystehr);
@@ -244,7 +245,7 @@ const chargeSavedCard = async (
 // claim link, which only reconcile adds so the history recorded before it comes along. The write is
 // locked to the version it read, so a refund stamped since is re-read instead of overwritten.
 const mergeIntoWebhookNotice = async (
-  billingOystehr: BillingOystehr,
+  billingOystehr: Oystehr,
   storedNotice: PaymentNotice,
   desiredNotice: PaymentNotice,
   agent: ProvenanceAgent

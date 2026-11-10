@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse, PaymentReconciliation, Provenance, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -17,13 +18,7 @@ import {
   fetchEraProcessingProvenances,
 } from '../claim-amounts';
 import { getEraActor } from '../era-write';
-import {
-  BillingOystehr,
-  createBillingClient,
-  ERA_VOID_ACTIVITY_CODE,
-  fetchById,
-  PROVENANCE_ACTIVITY_TYPE_SYSTEM,
-} from '../shared';
+import { createBillingClient, ERA_VOID_ACTIVITY_CODE, fetchById, PROVENANCE_ACTIVITY_TYPE_SYSTEM } from '../shared';
 
 type VoidEraParams = ValidatedZambdaInput<typeof VoidEraInputSchema>;
 
@@ -42,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 // Voids the ERA and its ClaimResponses, so claim balances leave them out with a plain status filter.
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: VoidEraParams,
   actor: Reference,
   now: string

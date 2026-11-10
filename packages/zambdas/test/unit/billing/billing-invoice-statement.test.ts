@@ -1,10 +1,10 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, Invoice } from 'fhir/r4b';
 import { buildBillingInvoice } from 'utils/lib/fhir/billing-invoice';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect as createStatement } from '../../../src/billing/create-billing-invoice-statement';
 import { performEffect as getStatement } from '../../../src/billing/get-billing-invoice-statement';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const { mockGetPresignedURL } = vi.hoisted(() => ({
   mockGetPresignedURL: vi.fn(async () => 'https://signed.test/statement.pdf'),
@@ -34,12 +34,12 @@ const claim = {
 // Zambda outputs by zambda id, as the clinical endpoints would answer.
 const makeBillingClient = (
   outputs: Record<string, unknown> = {}
-): { oystehr: OystehrMock; execute: ReturnType<typeof vi.fn> } => {
+): { oystehr: Oystehr; execute: ReturnType<typeof vi.fn> } => {
   const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
     unbundle: () => [resourceType === 'Invoice' ? invoice : claim],
   }));
   const execute = vi.fn(async ({ id }: { id: string }) => ({ output: outputs[id] ?? {} }));
-  return { oystehr: { fhir: { search }, zambda: { execute } } as unknown as OystehrMock, execute };
+  return { oystehr: { fhir: { search }, zambda: { execute } } as unknown as Oystehr, execute };
 };
 
 describe('billing invoice statement', () => {

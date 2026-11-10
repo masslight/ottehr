@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, PaymentReconciliation } from 'fhir/r4b';
 import { DeleteEraAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -8,7 +9,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { deleteAttachmentObject, eraAttachmentOwner, ownedAttachmentLocation } from '../attachments';
 import { assertEraNotVoided } from '../era-write';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type DeleteEraAttachmentParams = ValidatedZambdaInput<typeof DeleteEraAttachmentInputSchema>;
 
@@ -23,10 +24,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(result) };
 });
 
-export async function performEffect(
-  oystehr: BillingOystehr,
-  params: DeleteEraAttachmentParams
-): Promise<DeletedResponse> {
+export async function performEffect(oystehr: Oystehr, params: DeleteEraAttachmentParams): Promise<DeletedResponse> {
   const documentReference = await fetchById<DocumentReference>(
     oystehr,
     'DocumentReference',

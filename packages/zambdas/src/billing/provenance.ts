@@ -1,4 +1,4 @@
-import { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Claim,
@@ -84,7 +84,6 @@ import { eraContainedMemberId, keyedLineDate, resolveEraPayee } from './era-remi
 import { patientNameText } from './manual-era';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
-  BillingOystehr,
   buildUpdatedClaimStatusTags,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_ICN_EXTENSION,
@@ -634,7 +633,7 @@ let systemDeviceId: string | undefined;
  * Resolve (and lazily provision) the singleton Device representing the automated billing rules engine.
  * Uses a FHIR conditional create so concurrent cold starts cannot create duplicates.
  */
-export async function ensureRulesEngineDevice(oystehr: BillingOystehr): Promise<string> {
+export async function ensureRulesEngineDevice(oystehr: Oystehr): Promise<string> {
   if (rulesEngineDeviceId) return rulesEngineDeviceId;
 
   const identifierToken = `${CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER.system}|${CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER.value}`;
@@ -672,7 +671,7 @@ export async function ensureRulesEngineDevice(oystehr: BillingOystehr): Promise<
  * Resolve (and lazily provision) the singleton Device representing general system automation
  * that is not specifically attributable to the rules engine.
  */
-export async function ensureSystemDevice(oystehr: BillingOystehr): Promise<string> {
+export async function ensureSystemDevice(oystehr: Oystehr): Promise<string> {
   if (systemDeviceId) return systemDeviceId;
 
   const identifierToken = `${CLAIM_SYSTEM_DEVICE_IDENTIFIER.system}|${CLAIM_SYSTEM_DEVICE_IDENTIFIER.value}`;
@@ -716,7 +715,7 @@ type ClaimProvenanceActorWho = 'caller' | 'system' | 'rules';
  */
 export async function resolveClaimActor(
   who: ClaimProvenanceActorWho,
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   authorizationHeader: string | undefined,
   secrets: Secrets | null
 ): Promise<ProvenanceAgent> {
@@ -1021,7 +1020,7 @@ export async function claimHistoryLinkRequests({
   claimId,
   targetReferences,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   claimId: string;
   targetReferences: string[];
 }): Promise<Map<string, BatchInputPatchRequest<Provenance>[]>> {
@@ -1074,7 +1073,7 @@ export async function claimHistoryHasEntryFor({
   claimId,
   targetReference,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   claimId: string;
   targetReference: string;
 }): Promise<boolean> {
@@ -1098,7 +1097,7 @@ export async function claimHistoryHasEntryFor({
  * with other requests that must ride along (e.g. a subscriber create/delete).
  */
 export async function commitClaimResourceChange(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   change: ClaimResourceChange & {
     preRequests?: BatchInputRequest<FhirResource>[];
     postRequests?: BatchInputRequest<FhirResource>[];
@@ -1118,7 +1117,7 @@ export async function commitClaimResourceChange(
  * Provenance, atomically. Shared by set-billing-claim-status and tag-billing-claim.
  */
 export async function commitClaimMetaTagsWithProvenance(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   claim: Claim,
   updatedTags: Coding[],
   activity: Extract<ClaimProvenanceActivityKey, 'statusChange' | 'tagChange'>,
@@ -1180,7 +1179,7 @@ export async function recordClaimTransmit({
   claimResponse,
   agent,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   claimId: string;
   claimResponse: ClaimResponse;
   agent: ProvenanceAgent | ProvenanceAgent[];
@@ -1209,7 +1208,7 @@ export async function recordClaimTransmit({
  * history entry.
  */
 export async function commitClaimNote(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   claim: Claim,
   message: string,
   agent: ProvenanceAgent
@@ -1229,7 +1228,7 @@ export async function commitClaimNote(
 }
 
 export async function addErrorProvenanceForClaimSubmission(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   claim: Claim,
   error: Error,
   agent: ProvenanceAgent[],
@@ -1264,7 +1263,7 @@ export async function addErrorProvenanceForClaimSubmission(
  * status (set-billing-claim-status, the rules engine's claim submission, ...).
  */
 export async function applyClaimStatusField(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   claim: Claim,
   field: ClaimStatusFieldKey,
   value: string,
@@ -1280,7 +1279,7 @@ export async function applyClaimStatusField(
  * by an earlier run or an AR stage change no longer applies.
  */
 export async function applyClaimStatusFieldClearingHold(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   claim: Claim,
   field: ClaimStatusFieldKey,
   value: string,

@@ -1,13 +1,12 @@
-import { User } from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { practitionerRefForBillingUser } from '../../../src/billing/clinical-practitioners';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const PRACTITIONER_ID = '0f6c1d8e-3a2b-4c5d-9e8f-7a6b5c4d3e2f';
 const user = { id: 'user-1', profile: `Practitioner/${PRACTITIONER_ID}`, name: 'ada@example.com' } as User;
 
 const execute = vi.fn();
-const oystehr = { zambda: { execute }, fhir: { get: vi.fn(), search: vi.fn() } } as unknown as OystehrMock;
+const oystehr = { zambda: { execute }, fhir: { get: vi.fn(), search: vi.fn() } } as unknown as Oystehr;
 
 beforeEach(() => {
   vi.clearAllMocks();

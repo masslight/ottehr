@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient, ProvenanceAgent } from 'fhir/r4b';
 import { UpdateBillingPatientInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -6,7 +7,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
-import { BillingOystehr, buildAddress, createBillingClient, fetchById } from '../shared';
+import { buildAddress, createBillingClient, fetchById } from '../shared';
 
 type UpdateBillingPatientParams = ValidatedZambdaInput<typeof UpdateBillingPatientInputSchema>;
 
@@ -28,7 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // that claim's history, so it needs the acting user; master-screen edits carry no claim context
 // and keep working without a resolvable caller.
 async function complexValidation(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: UpdateBillingPatientParams,
   authorizationHeader: string | undefined
 ): Promise<ProvenanceAgent | undefined> {
@@ -37,7 +38,7 @@ async function complexValidation(
 }
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: UpdateBillingPatientParams,
   agent?: ProvenanceAgent
 ): Promise<{ id: string }> {

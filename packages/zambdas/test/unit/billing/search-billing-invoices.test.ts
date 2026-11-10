@@ -1,8 +1,8 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, Invoice, Patient, Person } from 'fhir/r4b';
 import { buildBillingInvoice, withHostedInvoiceUrl } from 'utils/lib/fhir/billing-invoice';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/search-billing-invoices';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const patient: Patient = {
   resourceType: 'Patient',
@@ -35,7 +35,7 @@ const makeOystehr = (
   invoices: Invoice[],
   patients: Patient[] = [],
   persons: Person[] = []
-): { oystehr: OystehrMock; search: ReturnType<typeof vi.fn> } => {
+): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
   const search = vi.fn(
     async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
       if (resourceType === 'Invoice') return { total: invoices.length, unbundle: () => [...invoices, patient] };
@@ -45,7 +45,7 @@ const makeOystehr = (
       return { unbundle: () => patients.filter((patient) => patient.id === id) };
     }
   );
-  return { oystehr: { fhir: { search } } as unknown as OystehrMock, search };
+  return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
 };
 
 describe('search-billing-invoices', () => {

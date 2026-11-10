@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { GetBillingPatientBalanceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -10,7 +11,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { fetchAllActivePatientArClaims } from '../search-billing-patient-ar-claims/handler';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 type GetBillingPatientBalanceParams = ValidatedZambdaInput<typeof GetBillingPatientBalanceInputSchema>;
 
@@ -27,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: GetBillingPatientBalanceParams
 ): Promise<GetBillingPatientBalanceResponse> {
   const claims = await fetchAllActivePatientArClaims(oystehr, {

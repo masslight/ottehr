@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Location, Organization } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { getStripeCustomerIdFromAccount, patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
@@ -5,7 +6,7 @@ import { InvoiceIssuerSource } from 'utils/lib/types/constants';
 import { stripeExtValue } from '../ehr/locations/update-location/helpers';
 import { makeStripeCustomerId } from '../patient/payment-methods/helpers';
 import { STRIPE_METADATA_KEYS } from '../shared/stripeIntegration';
-import { BillingOystehr, getStripeAccountId } from './shared';
+import { getStripeAccountId } from './shared';
 
 // Undefined means the platform account.
 export function getStripeAccountForInvoiceIssuer({
@@ -28,7 +29,7 @@ export async function ensureOrganizationStripeCustomerId({
   organization,
   stripeAccount,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   stripe: Stripe;
   organization: Organization;
   stripeAccount: string | undefined;

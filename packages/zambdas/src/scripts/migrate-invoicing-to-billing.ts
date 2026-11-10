@@ -24,10 +24,10 @@ import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status'
 import { getServiceFacilityId } from '../billing/invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../billing/provenance';
 import { listStripeAccounts } from '../billing/reports/shared';
-import { BillingOystehr, createBillingClient, findById } from '../billing/shared';
+import { createBillingClient, findById } from '../billing/shared';
 import { getOrCreateInvoicingConfig } from '../rcm/invoice-config/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
-import { ClinicalOystehr, createClinicalOystehrClient, RCM_TAG_SYSTEM } from '../shared/helpers';
+import { createClinicalOystehrClient, RCM_TAG_SYSTEM } from '../shared/helpers';
 import { isOttehrBillingInvoicingInBillingApp } from '../shared/invoice-tasks';
 import { getStripeClient } from '../shared/stripeIntegration';
 import { performEffectWithEnvFile } from './helpers';
@@ -81,8 +81,8 @@ interface TaskHandover {
 }
 
 async function findTaskHandover(
-  clinicalOystehr: ClinicalOystehr,
-  billingOystehr: BillingOystehr,
+  clinicalOystehr: Oystehr,
+  billingOystehr: Oystehr,
   stripe: Stripe
 ): Promise<TaskHandover> {
   const coding = RcmTaskCodings.sendInvoiceToPatient.coding?.[0];
@@ -133,7 +133,7 @@ async function findTaskHandover(
 }
 
 async function buildInvoiceCopy(
-  billingOystehr: BillingOystehr,
+  billingOystehr: Oystehr,
   task: Task,
   stripeInvoice: Stripe.Invoice,
   stripeAccount: string | undefined

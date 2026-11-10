@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Appointment, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
@@ -7,7 +8,7 @@ import { CardOnFileReportRow, GetBillingCardsOnFileReportResponse } from 'utils/
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchAllPages } from '../../../shared/fhir';
 import { getRateLimitedStripeClient, patientIdFromStripeMetadata } from '../../../shared/stripeIntegration';
-import { BillingOystehr, fhirName, ScopedOystehr, UnscopedOystehr } from '../../shared';
+import { fhirName } from '../../shared';
 import { lookupCardsWithDirectory } from '../card-directory';
 import { ProgressFn, ReportComputeContext, ReportDefinition } from '../framework/types';
 import { listStripeAccounts } from '../shared';
@@ -128,9 +129,9 @@ async function advanceCardsReport(
 // One listing chunk: page customers from the checkpoint, build their rows (cards from the
 // listing expansions only — the rest queue for drain runs), and either checkpoint or finalize.
 async function buildChunk(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   stripe: Stripe,
-  untaggedClient: UnscopedOystehr,
+  untaggedClient: Oystehr,
   served: CardsOnFilePayload,
   building: CardsBuildState,
   onProgress?: ProgressFn
@@ -223,7 +224,7 @@ export function finalizeBuild(served: CardsOnFilePayload, building: CardsBuildSt
 
 // One batch of queued card lookups against the served rows
 async function drainChunk(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   secrets: Secrets | null,
   stripe: Stripe,
   state: CardsOnFilePayload,
@@ -365,7 +366,7 @@ function resolveExpandedCards(customers: CustomerWithAccount[]): {
   return { cardByCustomerId, needLookup };
 }
 
-async function fetchPatientsById(oystehr: ScopedOystehr, patientIds: string[]): Promise<Map<string, Patient>> {
+async function fetchPatientsById(oystehr: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
   const byId = new Map<string, Patient>();
   for (let i = 0; i < patientIds.length; i += PATIENT_BATCH_SIZE) {
     const batch = patientIds.slice(i, i + PATIENT_BATCH_SIZE);
@@ -386,7 +387,7 @@ async function fetchPatientsById(oystehr: ScopedOystehr, patientIds: string[]): 
 
 // most recent non-cancelled appointment per patient
 async function fetchLastVisits(
-  oystehr: ScopedOystehr,
+  oystehr: Oystehr,
   patientIds: string[]
 ): Promise<Map<string, { id: string; start: string }>> {
   const lastByPatientId = new Map<string, { id: string; start: string }>();

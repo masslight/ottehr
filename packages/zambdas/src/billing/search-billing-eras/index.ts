@@ -1,4 +1,4 @@
-import { SearchParam } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
@@ -12,7 +12,6 @@ import { countEraClaims, fetchClaimEraLinks, fetchClaimResponsesByPaymentReconci
 import { resolvePayerIssuerFilter } from '../custom-insurance-org.helpers';
 import { resolveEraPayee } from '../era-remits';
 import {
-  BillingOystehr,
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -36,7 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: SearchErasParams
 ): Promise<{ eras: EraListItem[]; total: number; offset: number; pageSize: number }> {
   const pageSize = params.pageSize ?? 25;
@@ -111,7 +110,7 @@ const ERA_SORT_PARAM = {
 const SCAN_PAGE_SIZE = 200;
 
 async function fetchErasPage(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   filterParams: SearchParam[],
   offset: number,
   pageSize: number
@@ -141,7 +140,7 @@ async function fetchErasPage(
 }
 
 async function findErasByCheckNumber(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   filterParams: SearchParam[],
   checkNumber: string,
   offset: number,
@@ -208,7 +207,7 @@ async function findErasByCheckNumber(
 }
 
 // For the given claims, return the ids of the PaymentReconciliations that adjudicated them.
-async function findEraPaymentReconciliationIds(oystehr: BillingOystehr, claimIds: Set<string>): Promise<Set<string>> {
+async function findEraPaymentReconciliationIds(oystehr: Oystehr, claimIds: Set<string>): Promise<Set<string>> {
   const claimResponses: ClaimResponse[] = [];
   const ids = [...claimIds];
   const BATCH = 100;
@@ -229,7 +228,7 @@ async function findEraPaymentReconciliationIds(oystehr: BillingOystehr, claimIds
   return new Set(paymentReconciliations.map((pr) => pr.id).filter((id): id is string => !!id));
 }
 
-async function findMatchingClaimIds(oystehr: BillingOystehr, params: SearchErasParams): Promise<Set<string>> {
+async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams): Promise<Set<string>> {
   const baseParams: SearchParam[] = [{ name: '_elements', value: 'id' }];
   if (params.claimStatus)
     baseParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.claimStatus}` });

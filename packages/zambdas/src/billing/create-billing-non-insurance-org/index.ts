@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { FhirResource, Organization } from 'fhir/r4b';
@@ -18,7 +18,7 @@ import {
   NioPayerReference,
   resolveWcPayerReference,
 } from '../non-insurance-org.helpers';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 type CreateNonInsuranceOrgParams = ValidatedZambdaInput<typeof CreateNonInsuranceOrgInputSchema>;
 
@@ -53,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // The NIO org, one coverage org per checked category, and the affiliations linking them are
 // written in one transaction so they all succeed or fail together.
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: CreateNonInsuranceOrgParams,
   payerRef?: NioPayerReference
 ): Promise<CreatedResourceResponse> {

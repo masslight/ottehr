@@ -7,7 +7,6 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
 
@@ -55,9 +54,9 @@ import {
   stripeAccountExtension,
 } from '../../../src/billing/payments';
 import { index } from '../../../src/billing/refund-billing-patient-payment';
-import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import { BillingOystehr, createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM } from '../../../src/shared/candid';
-import { createClinicalOystehrClient } from '../../../src/shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../../src/shared/helpers';
 import {
   applyRefundsToPaymentNotice,
   getStripeClient,
@@ -171,11 +170,11 @@ beforeEach(() => {
 
   vi.mocked(createClinicalOystehrClient).mockReturnValue({
     fhir: { get: clinicalGet, search: clinicalSearch },
-  } as unknown as OystehrMock);
+  } as unknown as ClinicalOystehr);
   vi.mocked(createBillingClient).mockReturnValue({
     zambda: { execute: ehr.execute },
     fhir: { get: billingGet, search: billingSearch, create: billingCreate, patch: billingPatch },
-  } as unknown as OystehrMock);
+  } as unknown as BillingOystehr);
   vi.mocked(getOrCreateCandidApiClient).mockResolvedValue({
     patientRefunds: { v1: { getMulti: candidGetMulti, create: candidCreate } },
   } as any);

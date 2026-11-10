@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import { OkResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -6,7 +7,7 @@ import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimNote, resolveClaimActor } from '../provenance';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 import { AddClaimNoteParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -38,7 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function complexValidation(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: AddClaimNoteParams,
   authorizationHeader: string | undefined
 ): Promise<ProvenanceAgent> {
@@ -46,7 +47,7 @@ async function complexValidation(
 }
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: AddClaimNoteParams,
   agent: ProvenanceAgent
 ): Promise<OkResponse> {

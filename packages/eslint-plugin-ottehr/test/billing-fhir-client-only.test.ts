@@ -78,6 +78,27 @@ ruleTester.run('billing-fhir-client-only', rule, {
       )
     ),
     valid(
+      "a client a function receives as a parameter is its callers' to answer for",
+      lines(
+        "import Oystehr from '@oystehr/sdk';",
+        'declare function readAll(oystehr: Oystehr): void;',
+        'declare function compute(context: object): void;',
+        'export const patients = (oystehr: Oystehr): Promise<unknown> =>',
+        "  oystehr.fhir.search({ resourceType: 'Patient' });",
+        'export async function claims({ billingOystehr }: { billingOystehr: Oystehr }): Promise<void> {',
+        "  await billingOystehr.fhir.search({ resourceType: 'Claim' });",
+        '}',
+        'export function encounters(input: { oystehr: Oystehr }): void {',
+        '  const { oystehr } = input;',
+        '  const { fhir } = oystehr;',
+        "  void fhir.search({ resourceType: 'Encounter' });",
+        '  readAll(input.oystehr);',
+        '  compute({ oystehr });',
+        '  [1, 2].forEach(() => readAll(oystehr));',
+        '}'
+      )
+    ),
+    valid(
       'a clinical client got under a justified exception, then used and handed on freely',
       lines(
         "import { createClinicalClient } from './clinical';",
@@ -186,23 +207,25 @@ ruleTester.run('billing-fhir-client-only', rule, {
       [fhirUse(2)]
     ),
     invalid(
-      'a helper that takes any client',
+      'the calls that hand a helper its client are checked instead',
       lines(
         "import Oystehr from '@oystehr/sdk';",
+        "import { createClient } from './billing';",
         'export const patients = (oystehr: Oystehr): Promise<unknown> =>',
-        "  oystehr.fhir.search({ resourceType: 'Patient' });"
+        "  oystehr.fhir.search({ resourceType: 'Patient' });",
+        'export const all = patients(createClient());'
       ),
-      [fhirUse(3)]
+      [handOff(5)]
     ),
     invalid(
-      'a helper that takes the billing client or any other',
+      'a client destructured from anything but a parameter is checked',
       lines(
         "import Oystehr from '@oystehr/sdk';",
-        "import { BillingOystehr } from './billing';",
-        'export const patients = (oystehr: BillingOystehr | Oystehr): Promise<unknown> =>',
-        "  oystehr.fhir.search({ resourceType: 'Patient' });"
+        'declare const context: { oystehr: Oystehr };',
+        'const { oystehr } = context;',
+        "export const patients = oystehr.fhir.search({ resourceType: 'Patient' });"
       ),
-      [fhirUse(4, 'BillingOystehr | Oystehr')]
+      [fhirUse(4)]
     ),
     invalid(
       'a look-alike of the billing client type, declared outside its module',
@@ -211,8 +234,8 @@ ruleTester.run('billing-fhir-client-only', rule, {
         'interface BillingOystehr extends Oystehr {',
         '  readonly billing: true;',
         '}',
-        'export const claims = (oystehr: BillingOystehr): Promise<unknown> =>',
-        "  oystehr.fhir.search({ resourceType: 'Claim' });"
+        'declare function lookAlike(): BillingOystehr;',
+        "export const claims = lookAlike().fhir.search({ resourceType: 'Claim' });"
       ),
       [fhirUse(6, 'BillingOystehr')]
     ),
@@ -312,11 +335,10 @@ ruleTester.run('billing-fhir-client-only', rule, {
         ');'
       ),
       [
-        taskHandler(4, 'ClinicalOystehr'),
-        taskHandler(7, 'ClinicalOystehr'),
+        taskHandler(4, 'the clinical client, by default'),
+        taskHandler(7, 'the clinical client, by default'),
         taskHandler(8, 'ClinicalOystehr'),
         taskHandler(9, 'Oystehr'),
-        fhirUse(11),
       ]
     ),
   ],

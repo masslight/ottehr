@@ -8,7 +8,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 import { findWorkQueuesList, withoutWorkQueue } from '../work-queues/serialization';
 
 let m2mToken: string;
@@ -28,10 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(
-  oystehr: BillingOystehr,
-  params: DeleteBillingWorkQueueParams
-): Promise<DeletedResponse> {
+export async function performEffect(oystehr: Oystehr, params: DeleteBillingWorkQueueParams): Promise<DeletedResponse> {
   for (let attempt = 1; ; attempt++) {
     const existing = await findWorkQueuesList(oystehr);
     const holdsQueue = existing?.contained?.some((r) => r.resourceType === 'Basic' && r.id === params.queueId);

@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { VoidClaimWriteOffInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -5,7 +6,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 import { buildWriteOffVoidExtension, WRITE_OFF_SYSTEM, WRITE_OFF_VOID_EXT_URL } from '../write-offs';
 
 type VoidClaimWriteOffParams = ValidatedZambdaInput<typeof VoidClaimWriteOffInputSchema>;
@@ -21,7 +22,7 @@ export const index = wrapHandler('void-claim-write-off', async (input: ZambdaInp
   return { statusCode: 200, body: JSON.stringify(result) };
 });
 
-export async function performEffect(oystehr: BillingOystehr, params: VoidClaimWriteOffParams): Promise<void> {
+export async function performEffect(oystehr: Oystehr, params: VoidClaimWriteOffParams): Promise<void> {
   const notice = await fetchById<PaymentNotice>(oystehr, 'PaymentNotice', params.writeOffId);
   if (
     notice.status !== 'active' ||

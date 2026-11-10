@@ -1,11 +1,10 @@
-import { FhirResourceReturnValue } from '@oystehr/sdk';
+import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { Mock, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/delete-claim-attachment';
 import { fetchById } from '../../../src/billing/shared';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 import { claimHistoryRequest, historyChanges, TEST_AGENT } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -15,7 +14,7 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 
 const SECRETS = { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' };
 
-function makeClient(): OystehrMock {
+function makeClient(): Oystehr {
   return {
     fhir: {
       transaction: vi.fn(),
@@ -24,7 +23,7 @@ function makeClient(): OystehrMock {
     z3: {
       deleteObject: vi.fn(),
     },
-  } as unknown as OystehrMock;
+  } as unknown as Oystehr;
 }
 
 describe('delete-claim-attachment', () => {
@@ -525,7 +524,7 @@ describe('delete-claim-attachment', () => {
       ...overrides,
     });
 
-    const deleteAttachment = (oystehr: OystehrMock): Promise<void> =>
+    const deleteAttachment = (oystehr: Oystehr): Promise<void> =>
       performEffect(oystehr, {
         claimId: 'claim-id',
         documentReferenceId: 'document-reference-id',

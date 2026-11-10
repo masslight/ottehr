@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Account, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
@@ -18,7 +19,6 @@ import {
   checkForStripeCustomerDeletedError,
   SCHEDULE_NOT_FOUND_ERROR,
 } from 'utils/lib/types/errors';
-import { ClinicalOystehr } from '../shared/helpers';
 import { fetchPractitionerFirstLastNames } from '../shared/practitioners';
 import {
   applyRefundsToPaymentNotice,
@@ -34,7 +34,6 @@ import {
   stripePaymentIntentIdForNotice,
 } from './patient-payments';
 import { stampedStripeAccount } from './payments';
-import { BillingOystehr } from './shared';
 
 // What listing an encounter's payments needs from the clinical workspace. Callers with clinical access
 // read it from FHIR (fhirClinicalPaymentLookups); billing endpoints get it from the EHR's zambdas.
@@ -49,7 +48,7 @@ export interface ClinicalPaymentLookups {
 }
 
 export const fhirClinicalPaymentLookups = (
-  clinicalOystehr: ClinicalOystehr,
+  clinicalOystehr: Oystehr,
   // holds the patient's Stripe customer ids; without it card details come from each payment alone
   account: Account | undefined
 ): ClinicalPaymentLookups => ({
@@ -61,9 +60,9 @@ export const fhirClinicalPaymentLookups = (
 
 interface GetPaymentsForEncounterInput {
   // reads Account, Encounter and legacy EHR PaymentNotices
-  clinicalOystehr: ClinicalOystehr;
+  clinicalOystehr: Oystehr;
   // reads billing PaymentNotices and keeps their refund stamps current
-  billingOystehr: BillingOystehr;
+  billingOystehr: Oystehr;
   stripeClient: Stripe;
   // holds the patient's Stripe customer ids; without it card details come from each payment alone
   account: Account | undefined;
@@ -102,7 +101,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
 export const listEncounterPayments = async (input: {
   clinical: ClinicalPaymentLookups;
   // keeps billing notices' refund stamps current and resolves their payees' Stripe accounts
-  billingOystehr: BillingOystehr;
+  billingOystehr: Oystehr;
   stripeClient: Stripe;
   encounterId: string;
   fhirPaymentNotices: PaymentNotice[];
@@ -293,7 +292,7 @@ const resolveRefundsForPaymentNotice = async (
   paymentIntent: Stripe.PaymentIntent | undefined,
   stripeClient: Stripe,
   stripeAccount: string | undefined,
-  billingOystehr: BillingOystehr
+  billingOystehr: Oystehr
 ): Promise<{ refunds: PaymentRefundDTO[] | undefined; stripeLookupFailed?: boolean }> => {
   // legacy EHR notices are read-only here; their state is re-derived from Stripe on every read
   const persistRefunds = async (refunds: PaymentRefundDTO[], removeIds: string[]): Promise<void> => {
@@ -404,7 +403,7 @@ const buildChargeOnlyPaymentDTOs = async (
   paymentNotice: PaymentNotice,
   stripeClient: Stripe,
   stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
-  billingOystehr: BillingOystehr,
+  billingOystehr: Oystehr,
   takenBy: string | undefined
 ): Promise<PatientPaymentDTO[]> => {
   const chargeId = stripeIdsForPaymentNotice(paymentNotice).find((id) => id.startsWith('ch_') || id.startsWith('py_'));
@@ -450,7 +449,7 @@ async function buildPaymentDTOs(
   stripeClient: Stripe,
   stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
   practitionerNames: ClinicalPaymentLookups['practitionerNames'],
-  billingOystehr: BillingOystehr,
+  billingOystehr: Oystehr,
   // undefined keeps every card payment
   cardPaymentLimit: number | undefined
 ): Promise<PatientPaymentDTO[]> {

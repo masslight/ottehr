@@ -6,7 +6,6 @@ import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
 
@@ -59,8 +58,8 @@ import {
   stripeAccountExtension,
 } from '../../../src/billing/payments';
 import { index } from '../../../src/billing/post-billing-patient-payment';
-import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
-import { createClinicalOystehrClient } from '../../../src/shared/helpers';
+import { BillingOystehr, createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
@@ -136,10 +135,10 @@ beforeEach(() => {
   );
   vi.mocked(createBillingClient).mockReturnValue({
     fhir: { search: billingSearch, get: billingGet, transaction: billingTransaction },
-  } as unknown as OystehrMock);
+  } as unknown as BillingOystehr);
   vi.mocked(createClinicalOystehrClient).mockReturnValue({
     fhir: { create: clinicalCreate },
-  } as unknown as OystehrMock);
+  } as unknown as ClinicalOystehr);
   paymentIntentsCreate.mockResolvedValue({ id: 'pi_1', status: 'succeeded', latest_charge: 'ch_1' });
   vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue('acct_1');
 });

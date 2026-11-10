@@ -1,8 +1,9 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 import {
   complexValidation,
   DeleteChargeItemDefinitionParams,
@@ -29,7 +30,7 @@ export const index = wrapHandler(
   }
 );
 
-export async function performEffect(oystehr: BillingOystehr, params: DeleteChargeItemDefinitionParams): Promise<void> {
+export async function performEffect(oystehr: Oystehr, params: DeleteChargeItemDefinitionParams): Promise<void> {
   await oystehr.fhir.delete({
     resourceType: 'ChargeItemDefinition',
     id: params.chargeItemDefinitionId,

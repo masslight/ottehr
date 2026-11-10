@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim } from 'fhir/r4b';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
@@ -7,7 +8,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { getInvoiceableEncounterId } from '../invoices';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-billing-invoice-recipient';
@@ -26,10 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(
-  oystehr: BillingOystehr,
-  claimId: string
-): Promise<GetBillingInvoiceRecipientResponse> {
+export async function performEffect(oystehr: Oystehr, claimId: string): Promise<GetBillingInvoiceRecipientResponse> {
   const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
   const encounterId = getInvoiceableEncounterId(claim);
   return chooseJson<GetBillingInvoiceRecipientResponse>(

@@ -1,4 +1,4 @@
-import { User } from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { Reference } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
@@ -8,13 +8,12 @@ import {
   GetPractitionerNamesResponse,
   MAX_PRACTITIONER_NAMES_IDS,
 } from 'utils/lib/types/api/practitioner-names.types';
-import { ScopedOystehr } from './shared';
 
 // Billing's door to Practitioner names: the EHR zambda interface, invoked over the wire. Billing
 // never reads clinical FHIR for them. Any client works, only its zambda API is used.
 
 export const getPractitionerNames = async (
-  oystehr: ScopedOystehr,
+  oystehr: Oystehr,
   input: GetPractitionerNamesInput
 ): Promise<Record<string, string>> => {
   const response = await oystehr.zambda.execute({ id: 'get-practitioner-names', ...input });
@@ -23,7 +22,7 @@ export const getPractitionerNames = async (
 
 // Practitioner names by id for listings that name many submitters, batched to the zambda's input limit
 export const practitionerNamesFromEhr =
-  (oystehr: ScopedOystehr) =>
+  (oystehr: Oystehr) =>
   async (practitionerIds: string[]): Promise<Map<string, string>> => {
     const batches = await Promise.all(
       chunkThings([...new Set(practitionerIds)], MAX_PRACTITIONER_NAMES_IDS).map((ids) =>
@@ -38,7 +37,7 @@ export const practitionerNamesFromEhr =
  * them. Never throws: a failed name lookup falls back to the Oystehr user name rather than blocking
  * the caller's action.
  */
-export const practitionerRefForBillingUser = async (user: User, oystehr: ScopedOystehr): Promise<Reference> => {
+export const practitionerRefForBillingUser = async (user: User, oystehr: Oystehr): Promise<Reference> => {
   const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) return { reference: user.profile, display: user.name };
   try {

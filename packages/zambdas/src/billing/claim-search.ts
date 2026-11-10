@@ -1,4 +1,4 @@
-import { FhirResourceReturnValue } from '@oystehr/sdk';
+import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import {
   Claim,
   ClaimResponse,
@@ -36,7 +36,6 @@ import {
 } from './claim-amounts';
 import { resolvePayerIssuerFilter } from './custom-insurance-org.helpers';
 import {
-  BillingOystehr,
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ClaimSearchParam,
   determineRulesEngineForClaim,
@@ -152,7 +151,7 @@ export async function buildClaimFilterParams({
   params,
   sort = '-_lastUpdated',
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   params: ClaimFilterInput;
   sort?: string;
 }): Promise<ClaimSearchParam[]> {
@@ -387,7 +386,7 @@ export async function scanClaimIds({
   withTotal,
   beforePage,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   params: ClaimSearchParam[];
   maxMatches: number;
   withServiceDate: boolean;
@@ -453,7 +452,7 @@ export async function searchClaimsBySearchText({
   withTotalElements,
   patientNameOnly,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   searchText: string;
   filterParams: ClaimSearchParam[];
   withServiceDateElements: boolean;
@@ -525,7 +524,7 @@ export async function scanMatchingClaims({
   withServiceDate,
   withTotal,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   params: Pick<SearchBillingClaimsInput, 'searchText' | 'patientNameOnly' | 'serviceDateFrom' | 'serviceDateTo'>;
   filterParams: ClaimSearchParam[];
   withServiceDate?: boolean;
@@ -588,7 +587,7 @@ export async function fetchClaimsPageByIds({
   claimIds,
   extraElements = [],
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   claimIds: string[];
   // Claim fields a caller reads beyond what the claims list renders (CLAIM_LIST_ELEMENTS).
   extraElements?: string[];
@@ -646,7 +645,7 @@ export async function enrichAndMapClaims({
   claims,
   includedResources,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   claims: Claim[];
   includedResources: Resource[];
 }): Promise<BillingClaimItem[]> {
@@ -664,7 +663,7 @@ export async function buildClaimLookups({
   includedResources,
   payersByRef,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   claims: Claim[];
   includedResources: Resource[];
   payersByRef?: Map<string, Organization>;

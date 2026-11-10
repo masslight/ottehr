@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Invoice, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -14,14 +15,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { getClaimServiceDate } from '../claim-search';
 import { toBillingInvoiceSummary } from '../invoices';
-import {
-  BillingOystehr,
-  createBillingClient,
-  fhirName,
-  findById,
-  patientSearchParam,
-  resolveLinkedPatientIds,
-} from '../shared';
+import { createBillingClient, fhirName, findById, patientSearchParam, resolveLinkedPatientIds } from '../shared';
 import { SearchBillingInvoicesParams, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'search-billing-invoices';
@@ -40,7 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: SearchBillingInvoicesParams
 ): Promise<SearchBillingInvoicesResponse> {
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
@@ -91,7 +85,7 @@ export async function performEffect(
 }
 
 // Claim links use extensions, so load the claims separately.
-async function fetchClaims(oystehr: BillingOystehr, invoices: Invoice[]): Promise<Map<string, Claim>> {
+async function fetchClaims(oystehr: Oystehr, invoices: Invoice[]): Promise<Map<string, Claim>> {
   const claimIds = [
     ...new Set(invoices.flatMap((invoice) => getBillingInvoiceClaims(invoice).map((line) => line.claimId))),
   ];

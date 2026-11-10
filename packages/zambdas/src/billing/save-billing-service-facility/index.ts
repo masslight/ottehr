@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location, ProvenanceAgent } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
@@ -9,7 +10,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import { applyServiceFacilityInput } from '../service-facility.helpers';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type SaveServiceFacilityParams = ValidatedZambdaInput<typeof SaveServiceFacilityInputSchema>;
 
@@ -42,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function complexValidation(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: SaveServiceFacilityParams,
   authorizationHeader: string | undefined
 ): Promise<{ existing: Location | undefined; agent: ProvenanceAgent | undefined }> {
@@ -63,7 +64,7 @@ export async function complexValidation(
 }
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: SaveServiceFacilityParams,
   existing: Location | undefined,
   agent?: ProvenanceAgent

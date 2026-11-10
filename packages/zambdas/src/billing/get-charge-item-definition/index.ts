@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
@@ -16,7 +17,6 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
-  BillingOystehr,
   CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
   createBillingClient,
   getDefaultSettingForChargeItemDefinition,
@@ -44,7 +44,7 @@ export const index = wrapHandler(
 );
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: GetChargeItemDefinitionParams
 ): Promise<BillingChargeItemDefinition> {
   const cid = await getChargeItemDefinition(oystehr, params);
@@ -52,7 +52,7 @@ export async function performEffect(
 }
 
 export async function getChargeItemDefinition(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: GetChargeItemDefinitionInput
 ): Promise<ChargeItemDefinition> {
   const definitions = (

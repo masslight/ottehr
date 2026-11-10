@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import {
@@ -10,7 +11,6 @@ import {
   isEraProcessingProvenance,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
 } from '../../../src/billing/shared';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const provenance = (
   id: string,
@@ -86,7 +86,7 @@ type ResultsByType = {
   PaymentReconciliation?: PaymentReconciliation[];
 };
 
-const makeOystehr = (resultsByType: ResultsByType): { oystehr: OystehrMock; search: Mock } => {
+const makeOystehr = (resultsByType: ResultsByType): { oystehr: Oystehr; search: Mock } => {
   const search = vi.fn().mockImplementation(({ resourceType }: SearchInput) => {
     const results = resultsByType[resourceType as keyof ResultsByType] ?? [];
     return Promise.resolve(searchBundle(results));
@@ -96,7 +96,7 @@ const makeOystehr = (resultsByType: ResultsByType): { oystehr: OystehrMock; sear
       fhir: {
         search,
       },
-    } as unknown as OystehrMock,
+    } as unknown as Oystehr,
     search,
   };
 };

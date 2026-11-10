@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
 import { codeableConcept, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
@@ -16,7 +17,7 @@ import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, matchFieldsPatchOperations, UNMATCH_FIELDS } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
 import { resolveClaimActor } from '../provenance';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {
   display: 'Unknown',
@@ -43,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: Params & { agent: ProvenanceAgent }
 ): Promise<ClaimResponse> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({

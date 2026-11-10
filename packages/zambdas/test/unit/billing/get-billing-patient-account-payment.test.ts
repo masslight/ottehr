@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { STRIPE_INVOICE_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
@@ -7,7 +8,6 @@ import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { PatientPaymentVisit } from 'utils/lib/types/api/patient-payment-visits.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -63,7 +63,7 @@ const payment = (id: string, dateISO: string, extra: Partial<PatientPaymentDTO> 
     ...extra,
   }) as PatientPaymentDTO;
 
-const searchClient = (byType: Record<string, unknown[]>): OystehrMock =>
+const searchClient = (byType: Record<string, unknown[]>): Oystehr =>
   ({
     fhir: {
       search: vi.fn(async ({ resourceType }: { resourceType: string }) => ({
@@ -71,13 +71,9 @@ const searchClient = (byType: Record<string, unknown[]>): OystehrMock =>
         unbundle: () => byType[resourceType] ?? [],
       })),
     },
-  }) as unknown as OystehrMock;
+  }) as unknown as Oystehr;
 
-const get = (
-  billingOystehr: OystehrMock,
-  paymentId: string,
-  encounterId = 'enc-1'
-): ReturnType<typeof getAccountPayment> =>
+const get = (billingOystehr: Oystehr, paymentId: string, encounterId = 'enc-1'): ReturnType<typeof getAccountPayment> =>
   getAccountPayment({
     billingOystehr,
     clinicalPatientId: 'patient-1',

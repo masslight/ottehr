@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, ClaimSupportingInfo, DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
@@ -12,7 +12,7 @@ import {
   resolveAttachmentContentType,
 } from './attachments';
 import { claimEventProvenanceRequest } from './provenance';
-import { BillingOystehr, CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM } from './shared';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM } from './shared';
 
 const CLAIM_INFORMATION_CATEGORY_SYSTEM = 'http://terminology.hl7.org/CodeSystem/claiminformationcategory';
 const DOCUMENT_REFERENCE_PLACEHOLDER = 'urn:uuid:doc-ref';
@@ -32,7 +32,7 @@ export async function attachClaimDocument({
   secrets,
   agent,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   claim: Claim & { id: string };
   name: string;
   fileName: string;

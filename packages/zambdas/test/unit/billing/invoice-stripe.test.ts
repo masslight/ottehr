@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Location, Organization } from 'fhir/r4b';
 import Stripe from 'stripe';
 import {
@@ -11,7 +12,6 @@ import {
   getStripeAccountForInvoiceIssuer,
 } from '../../../src/billing/invoice-stripe';
 import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const organization: Organization & { id: string } = {
   resourceType: 'Organization',
@@ -40,14 +40,14 @@ const versionConflict = (): Error =>
     code: 412,
   });
 
-function makeClients(): { oystehr: OystehrMock; stripe: Stripe } {
+function makeClients(): { oystehr: Oystehr; stripe: Stripe } {
   return {
     oystehr: {
       fhir: {
         get: vi.fn(),
         patch: vi.fn(),
       },
-    } as unknown as OystehrMock,
+    } as unknown as Oystehr,
     stripe: {
       customers: {
         create: vi.fn().mockResolvedValue({

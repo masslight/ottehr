@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
@@ -13,7 +14,7 @@ import { getHTMLStatementTemplate } from '../../shared/statements/get-statement-
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { getInvoiceEncounterId } from '../invoices';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 const ZAMBDA_NAME = 'get-billing-invoice-statement';
 const GET_STATEMENT_DETAILS_ZAMBDA_KEY = 'get-statement-details';
@@ -44,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   token: string,
   params: GetBillingInvoiceStatementParams
 ): Promise<GetBillingInvoiceStatementResponse> {

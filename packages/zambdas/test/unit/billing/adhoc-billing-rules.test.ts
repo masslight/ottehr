@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { List } from 'fhir/r4b';
 import { AdHocBillingRulesOutputSchema } from 'utils/lib/types/adhoc/datasets/billing-rules';
 import { SERVICE_LINE_CONDITION_FIELDS } from 'utils/lib/types/adhoc/datasets/billing-rules';
@@ -6,7 +7,6 @@ import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { describe, expect, it, vi } from 'vitest';
 import { fetchAdHocRuleRows } from '../../../src/billing/adhoc/rules';
 import { rulesToList } from '../../../src/billing/rules-engine/serialization';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const lineRule: BillingRule = {
   id: 'r-1',
@@ -68,7 +68,7 @@ describe('fetchAdHocRuleRows (billing-rules dataset)', () => {
           return { unbundle: () => (list ? [list] : []) };
         }),
       },
-    } as unknown as OystehrMock;
+    } as unknown as Oystehr;
     const rows = await fetchAdHocRuleRows(oystehr);
 
     expect(() => AdHocBillingRulesOutputSchema.parse({ rows })).not.toThrow();

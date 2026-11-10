@@ -1,14 +1,14 @@
+import Oystehr from '@oystehr/sdk';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { GetPatientPaymentVisitsResponse } from 'utils/lib/types/api/patient-payment-visits.types';
 import { SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { ClinicalPaymentLookups } from './patient-payment-dtos';
-import { ScopedOystehr } from './shared';
 
 // Billing's one door to the clinical side of patient payments: the EHR zambda interface, invoked over
 // the wire. Billing code never imports EHR modules and never reads clinical FHIR resources directly.
 
 export const getPatientPaymentVisits = async (
-  oystehr: ScopedOystehr,
+  oystehr: Oystehr,
   clinicalPatientId: string,
   // narrows the response to this one of the patient's visits
   encounterId?: string

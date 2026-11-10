@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { PaymentNotice } from 'fhir/r4b';
@@ -25,7 +26,7 @@ import { RefundBillingPatientPaymentInputSchema } from 'utils/lib/types/data/bil
 import { INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { shouldUseCandid, syncCandidPatientRefunds } from '../../shared/candid';
-import { ClinicalOystehr, createClinicalOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import {
   applyRefundsToPaymentNotice,
@@ -46,7 +47,7 @@ import {
 } from '../patient-payments';
 import { recordPaymentNoticeChange } from '../payments';
 import { humanClaimActor } from '../provenance';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 const ZAMBDA_NAME = 'refund-billing-patient-payment';
 
@@ -102,8 +103,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 interface RefundContext {
-  clinicalOystehr: ClinicalOystehr;
-  billingOystehr: BillingOystehr;
+  clinicalOystehr: Oystehr;
+  billingOystehr: Oystehr;
   secrets: Secrets;
   recordChange: PaymentNoticeChangeRecorder;
 }

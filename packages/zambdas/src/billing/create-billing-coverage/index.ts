@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Coverage } from 'fhir/r4b';
@@ -11,7 +11,6 @@ import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validatio
 import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import {
   BillingFhirResource,
-  BillingOystehr,
   buildBillingCoverage,
   buildSubscriberRelatedPerson,
   coverageInsuranceTypeLabel,
@@ -37,7 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function complexValidation(params: CreateBillingCoverageParams, oystehr: BillingOystehr): Promise<void> {
+async function complexValidation(params: CreateBillingCoverageParams, oystehr: Oystehr): Promise<void> {
   if (params.insuranceType) {
     // Only one coverage may hold each insurance type per patient.
     const occupying = await findCoverageOfType(oystehr, params.patientId, params.insuranceType);
@@ -52,7 +51,7 @@ async function complexValidation(params: CreateBillingCoverageParams, oystehr: B
   }
 }
 
-async function performEffect(oystehr: BillingOystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
+async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
   const [payerOrg, accounts] = await Promise.all([
     resolvePayerOrganization(oystehr, params.payerId),
     getPatientAccounts(oystehr, params.patientId),

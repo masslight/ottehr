@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
 import { CreateCustomInsuranceOrgInput } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
@@ -18,7 +19,6 @@ import { performEffect as deleteInsuranceOrg } from '../../../src/billing/delete
 import { performEffect as listCustomInsuranceOrgs } from '../../../src/billing/list-custom-insurance-organizations';
 import { performEffect as searchInsuranceOrgs } from '../../../src/billing/search-billing-custom-insurance-orgs';
 import { performEffect as updateInsuranceOrg } from '../../../src/billing/update-billing-custom-insurance-org';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -39,7 +39,7 @@ const orgResource: Organization = {
 };
 
 interface MockOystehr {
-  oystehr: OystehrMock;
+  oystehr: Oystehr;
   transaction: ReturnType<typeof vi.fn>;
   search: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
@@ -55,7 +55,7 @@ function makeOystehr(): MockOystehr {
   );
   const search = vi.fn();
   const create = vi.fn();
-  const oystehr = { fhir: { transaction, search, create } } as unknown as OystehrMock;
+  const oystehr = { fhir: { transaction, search, create } } as unknown as Oystehr;
   return { oystehr, transaction, search, create };
 }
 

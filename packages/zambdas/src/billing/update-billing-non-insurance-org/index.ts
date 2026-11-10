@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { FhirResource, Organization } from 'fhir/r4b';
@@ -22,7 +22,7 @@ import {
   NioPayerReference,
   resolveWcPayerReference,
 } from '../non-insurance-org.helpers';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type UpdateNonInsuranceOrgParams = ValidatedZambdaInput<typeof UpdateNonInsuranceOrgInputSchema>;
 
@@ -55,7 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function complexValidation(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: UpdateNonInsuranceOrgParams
 ): Promise<{ existing: Organization; pairs: NioCoveragePair[]; payerRef?: NioPayerReference }> {
   const existing = await fetchById<Organization>(oystehr, 'Organization', params.nioId);
@@ -73,7 +73,7 @@ async function complexValidation(
 // categories create (or reactivate) their pair, unchecked ones deactivate theirs — in one
 // transaction with an optimistic lock on every updated resource.
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: UpdateNonInsuranceOrgParams,
   existing: Organization,
   pairs: NioCoveragePair[],

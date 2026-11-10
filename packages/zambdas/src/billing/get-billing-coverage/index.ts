@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, RelatedPerson } from 'fhir/r4b';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
@@ -8,14 +9,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import {
-  BillingOystehr,
-  createBillingClient,
-  getGroupNumber,
-  resolvedPayerId,
-  resolvePayersByRef,
-  toAddressParts,
-} from '../shared';
+import { createBillingClient, getGroupNumber, resolvedPayerId, resolvePayersByRef, toAddressParts } from '../shared';
 
 type GetBillingCoverageParams = ValidatedZambdaInput<typeof GetBillingCoverageInputSchema>;
 
@@ -44,10 +38,7 @@ function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingCove
   };
 }
 
-async function performEffect(
-  oystehr: BillingOystehr,
-  params: GetBillingCoverageParams
-): Promise<GetBillingCoverageResponse> {
+async function performEffect(oystehr: Oystehr, params: GetBillingCoverageParams): Promise<GetBillingCoverageResponse> {
   const coverageBundle = await oystehr.fhir.search<Coverage | RelatedPerson>({
     resourceType: 'Coverage',
     params: [

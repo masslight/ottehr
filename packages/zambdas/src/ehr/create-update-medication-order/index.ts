@@ -47,7 +47,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.types';
 import { VITALS_RECHECK_NURSING_ORDER_NOTE } from 'utils/lib/types/data/orders/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { BillingOystehr, createBillingClient } from '../../billing/shared';
+import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
 import { fhirValidationErrorToApiError } from '../../shared/errors';
@@ -100,7 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(
   oystehr: Oystehr,
-  billingOystehr: BillingOystehr,
+  billingOystehr: Oystehr,
   params: UpdateMedicationOrderInput,
   practitionerIdCalledZambda: string
 ): Promise<any> {
@@ -389,7 +389,7 @@ async function createOrder(
 
 async function changeOrderStatus(
   oystehr: Oystehr,
-  billingOystehr: BillingOystehr,
+  billingOystehr: Oystehr,
   pkg: OrderPackage,
   newStatus: MedicationOrderStatusesType,
   practitionerId: string

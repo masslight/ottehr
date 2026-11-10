@@ -7,10 +7,9 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index } from '../../src/ehr/clinical-stripe-webhook';
 import { checkOrCreateM2MClientToken } from '../../src/shared/auth';
-import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../src/shared/types/common';
-import { OystehrMock } from '../helpers/oystehr-mock';
 
 vi.mock('../../src/shared/sentry', () => ({ wrapHandler: (_name: string, handler: unknown) => handler }));
 vi.mock('../../src/shared/auth', () => ({ checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('token') }));
@@ -80,7 +79,7 @@ beforeEach(() => {
       patch,
       transaction,
     },
-  } as unknown as OystehrMock);
+  } as unknown as ClinicalOystehr);
 });
 
 describe('clinical-stripe-webhook', () => {

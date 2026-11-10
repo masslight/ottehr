@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
@@ -18,7 +19,7 @@ import { ehrClinicalPaymentLookups, getPatientPaymentVisits } from '../ehr-payme
 import { fetchClaimsByEncounter, toAccountPayments } from '../patient-account-payments';
 import { listEncounterPayments } from '../patient-payment-dtos';
 import { mergeBillingAndLegacyPaymentNotices, shadowsLegacyNotice } from '../patient-payments';
-import { BillingOystehr, createBillingClient, fetchById, resolveClinicalPatientIds } from '../shared';
+import { createBillingClient, fetchById, resolveClinicalPatientIds } from '../shared';
 
 const ZAMBDA_NAME = 'get-billing-patient-account-payment';
 const STRIPE_REQUEST_TIMEOUT_MS = 10_000;
@@ -54,7 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export const getAccountPayment = async (params: {
-  billingOystehr: BillingOystehr;
+  billingOystehr: Oystehr;
   clinicalPatientId: string;
   encounterId: string;
   paymentId: string;

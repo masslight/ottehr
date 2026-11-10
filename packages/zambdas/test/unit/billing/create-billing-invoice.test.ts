@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, Invoice, Location, Organization, ProvenanceAgent } from 'fhir/r4b';
 import Stripe from 'stripe';
 import {
@@ -19,7 +20,6 @@ import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/create-billing-invoice';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const { mockApplyClaimStatusField, mockGetOrCreateInvoicingConfig } = vi.hoisted(() => ({
   mockApplyClaimStatusField: vi.fn(),
@@ -123,7 +123,7 @@ const existingInvoice = (status: Invoice['status'], key: string): Invoice =>
 const makeOystehr = (
   claim: Claim,
   existing: Invoice[] = []
-): { oystehr: OystehrMock; invoices: Invoice[]; execute: ReturnType<typeof vi.fn> } => {
+): { oystehr: Oystehr; invoices: Invoice[]; execute: ReturnType<typeof vi.fn> } => {
   const invoices = [...existing];
   const create = vi.fn(async (invoice: Invoice) => {
     const open = invoices.find((stored) => ['draft', 'issued', 'balanced'].includes(stored.status));
@@ -153,7 +153,7 @@ const makeOystehr = (
     unbundle: () => (resourceType === 'Location' ? [facilityCopy] : [claim, facilityCopy, billingProvider]),
   }));
   return {
-    oystehr: { fhir: { search, create, update }, zambda: { execute } } as unknown as OystehrMock,
+    oystehr: { fhir: { search, create, update }, zambda: { execute } } as unknown as Oystehr,
     invoices,
     execute,
   };

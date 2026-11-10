@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import {
   Claim,
   Coverage,
@@ -42,7 +42,6 @@ import {
   resolvePayersByRef,
 } from '../../../src/billing/shared';
 import { performEffect as updateBillingClaim } from '../../../src/billing/update-billing-claim';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -251,7 +250,7 @@ async function saveAccidentInfo(
   const search = vi.fn().mockResolvedValue({ unbundle: () => [structuredClone(current)] });
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
   await updateBillingClaim(
-    { fhir: { search, transaction } } as unknown as OystehrMock,
+    { fhir: { search, transaction } } as unknown as Oystehr,
     {
       resourceType: 'Claim',
       resourceId: 'claim-1',
@@ -439,7 +438,7 @@ describe('buildCms1500FormData', () => {
 });
 
 describe('get-billing-claim-cms1500 performEffect', () => {
-  const oystehr = { fhir: { get: vi.fn(), search: vi.fn() } } as unknown as OystehrMock;
+  const oystehr = { fhir: { get: vi.fn(), search: vi.fn() } } as unknown as Oystehr;
 
   beforeEach(() => {
     vi.clearAllMocks();

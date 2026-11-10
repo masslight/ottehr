@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { ListCustomInsuranceOrganizationsInputSchema } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
@@ -12,7 +13,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { mapClinicalCustomInsuranceOrgOption } from '../custom-insurance-org.helpers';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 type ListCustomInsuranceOrganizationsParams = ValidatedZambdaInput<typeof ListCustomInsuranceOrganizationsInputSchema>;
 
@@ -47,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: ListCustomInsuranceOrganizationsParams
 ): Promise<ListCustomInsuranceOrganizationsResponse> {
   const searchParams: { name: string; value: string }[] = [

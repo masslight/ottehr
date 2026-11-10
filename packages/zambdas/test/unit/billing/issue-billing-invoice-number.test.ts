@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import billingZambdasSpec from '../../../../../config/billing-app-core/zambdas.json';
@@ -7,7 +8,6 @@ import {
   FHIR_COUNTER_LAST_ISSUED_EXTENSION_URL,
   nextCounterValue,
 } from '../../../src/shared/fhir-counter';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 vi.mock('../../../src/shared/fhir-counter', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/shared/fhir-counter')>()),
@@ -41,7 +41,7 @@ describe('invoice number counter seed', () => {
 
 describe('issue-billing-invoice-number', () => {
   it('formats the next value of the invoice number counter', async () => {
-    const oystehr = {} as OystehrMock;
+    const oystehr = {} as Oystehr;
     vi.mocked(nextCounterValue).mockResolvedValueOnce(42);
 
     expect(await performEffect(oystehr)).toEqual({

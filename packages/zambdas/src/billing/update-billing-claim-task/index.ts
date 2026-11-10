@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
@@ -8,7 +9,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { BillingOystehr, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type UpdateBillingClaimTaskParams = ValidatedZambdaInput<typeof UpdateBillingClaimTaskInputSchema>;
 
@@ -25,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function complexValidation(oystehr: BillingOystehr, params: UpdateBillingClaimTaskParams): Promise<Task> {
+async function complexValidation(oystehr: Oystehr, params: UpdateBillingClaimTaskParams): Promise<Task> {
   const task = await fetchById<Task>(oystehr, 'Task', params.taskId);
   const isBillingClaimTask = task.code?.coding?.some(
     ({ system, code }) => system === BILLING_CLAIM_TASK_CODING.system && code === BILLING_CLAIM_TASK_CODING.code
@@ -36,7 +37,7 @@ async function complexValidation(oystehr: BillingOystehr, params: UpdateBillingC
 }
 
 async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: UpdateBillingClaimTaskParams,
   task: Task
 ): Promise<{ taskId: string }> {

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Claim,
@@ -41,7 +41,6 @@ import {
 } from '../manual-era';
 import { claimEventProvenanceRequest, humanClaimActor } from '../provenance';
 import {
-  BillingOystehr,
   createBillingClient,
   fetchById,
   fhirName,
@@ -91,7 +90,7 @@ export interface ValidatedManualEraSave {
 // to save with their payer and billing provider, the claims being edited or removed, and the Claims
 // new remit claims are associated with.
 export async function complexValidation(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: SaveManualEraParams
 ): Promise<ValidatedManualEraSave> {
   const stored = params.eraId ? await loadManualEra(oystehr, params.eraId, params.expectedVersionId) : undefined;
@@ -134,7 +133,7 @@ export async function complexValidation(
 // updates that Provenance's target list in place; its author and time stay those of whoever keyed the
 // remit in, which the remit shows as "Entered by".
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: SaveManualEraParams,
   validated: ValidatedManualEraSave,
   actor: Reference,
@@ -292,11 +291,7 @@ export async function performEffect(
   };
 }
 
-async function loadManualEra(
-  oystehr: BillingOystehr,
-  eraId: string,
-  expectedVersionId?: string
-): Promise<StoredManualEra> {
+async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?: string): Promise<StoredManualEra> {
   const pr = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', eraId);
   assertEraNotVoided(pr);
   if (getEraSource(pr) !== ERA_SOURCE.manual) {
@@ -314,7 +309,7 @@ async function loadManualEra(
 // The payer as PayerSelect names it: an RCM payer, referenced by its payer list URL as the ERA
 // converters reference it, or a billing-app custom insurance organization, referenced directly as
 // Organization/{id} (as billing claims reference it, and as the ERA list's payer filter matches it).
-async function resolvePayer(oystehr: BillingOystehr, payerId: string): Promise<ManualEraPayer> {
+async function resolvePayer(oystehr: Oystehr, payerId: string): Promise<ManualEraPayer> {
   const payer = await resolvePayerOrganization(oystehr, payerId).catch(() => undefined);
   if (!payer) throw INVALID_INPUT_ERROR(`Payer ${payerId} was not found`);
   const reference = isCustomInsuranceOrganization(payer)
@@ -324,7 +319,7 @@ async function resolvePayer(oystehr: BillingOystehr, payerId: string): Promise<M
 }
 
 async function resolveManualEraBillingProviderAndPayer(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   header: ManualEraHeader
 ): Promise<ManualEraBillingProviderAndPayer> {
   const payer = await resolvePayer(oystehr, header.payerId);
@@ -345,7 +340,7 @@ async function resolveManualEraBillingProviderAndPayer(
   };
 }
 
-async function loadMatchedClaims(oystehr: BillingOystehr, claims: ManualEraClaim[]): Promise<Map<string, Claim>> {
+async function loadMatchedClaims(oystehr: Oystehr, claims: ManualEraClaim[]): Promise<Map<string, Claim>> {
   const ids = [...new Set(claims.flatMap((claim) => (claim.matchedClaimId ? [claim.matchedClaimId] : [])))];
   if (ids.length === 0) return new Map();
   const found = (

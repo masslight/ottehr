@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse, PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { sleep } from 'utils/lib/helpers/helpers';
@@ -6,7 +7,7 @@ import {
   fetchClaimResponsesFromEraProvenances,
   fetchEraProcessingProvenances,
 } from '../../../billing/claim-amounts';
-import { createEraReadClient, fetchById, tagEraResources, UnscopedOystehr } from '../../../billing/shared';
+import { createEraReadClient, fetchById, tagEraResources } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
@@ -55,10 +56,7 @@ export interface ValidatedTagging {
   claimResponses: ClaimResponse[];
 }
 
-export async function complexValidation(
-  oystehr: UnscopedOystehr,
-  paymentReconciliationId: string
-): Promise<ValidatedTagging> {
+export async function complexValidation(oystehr: Oystehr, paymentReconciliationId: string): Promise<ValidatedTagging> {
   const targetRef = `PaymentReconciliation/${paymentReconciliationId}`;
   let found: ValidatedTagging | undefined;
 
@@ -92,10 +90,7 @@ export async function complexValidation(
   throw new Error(`No era-processing Provenance found for ${targetRef} after ${PROVENANCE_LOOKUP_ATTEMPTS} attempts`);
 }
 
-export async function performEffect(
-  oystehr: UnscopedOystehr,
-  validated: ValidatedTagging
-): Promise<{ tagged: number }> {
+export async function performEffect(oystehr: Oystehr, validated: ValidatedTagging): Promise<{ tagged: number }> {
   const { paymentReconciliationId, provenances, claimResponses } = validated;
   const paymentReconciliation = await fetchById<PaymentReconciliation>(
     oystehr,

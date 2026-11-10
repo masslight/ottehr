@@ -1,10 +1,10 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { DailyPaymentsReportZambdaOutput } from 'utils/lib/types/api/daily-payments-report.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OystehrMock } from '../helpers/oystehr-mock';
 
 vi.mock('../../src/shared/sentry', () => ({ wrapHandler: (_name: string, handler: unknown) => handler }));
 vi.mock('../../src/shared/auth', () => ({ checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('token') }));
@@ -17,9 +17,9 @@ vi.mock('../../src/billing/shared', async (importOriginal) => ({
   createBillingClient: vi.fn(),
 }));
 
-import { createBillingClient } from '../../src/billing/shared';
+import { BillingOystehr, createBillingClient } from '../../src/billing/shared';
 import { index } from '../../src/ehr/daily-payments-report';
-import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../src/shared/types/common';
 
@@ -62,7 +62,7 @@ const createdWithin = (notice: PaymentNotice, params: SearchArgs['params']): boo
 };
 
 // a window search filters by created; a counterpart search matches by identifier, whatever the date
-const fakeWorkspace = (notices: PaymentNotice[]): OystehrMock =>
+const fakeWorkspace = (notices: PaymentNotice[]): Oystehr =>
   ({
     fhir: {
       search: vi.fn(async ({ params }: SearchArgs) => {
@@ -75,7 +75,7 @@ const fakeWorkspace = (notices: PaymentNotice[]): OystehrMock =>
         return { unbundle: () => matches };
       }),
     },
-  }) as unknown as OystehrMock;
+  }) as unknown as Oystehr;
 
 const report = async (start: string, end: string): Promise<DailyPaymentsReportZambdaOutput> => {
   const result = await (index as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)({
@@ -87,8 +87,8 @@ const report = async (start: string, end: string): Promise<DailyPaymentsReportZa
 };
 
 beforeEach(() => {
-  vi.mocked(createBillingClient).mockReturnValue(fakeWorkspace([billingCopy]));
-  vi.mocked(createClinicalOystehrClient).mockReturnValue(fakeWorkspace([legacyNotice]));
+  vi.mocked(createBillingClient).mockReturnValue(fakeWorkspace([billingCopy]) as BillingOystehr);
+  vi.mocked(createClinicalOystehrClient).mockReturnValue(fakeWorkspace([legacyNotice]) as ClinicalOystehr);
 });
 
 describe('daily-payments-report', () => {

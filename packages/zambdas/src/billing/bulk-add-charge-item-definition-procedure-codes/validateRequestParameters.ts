@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import {
   BulkAddChargeItemDefinitionProcedureCodesInput,
@@ -8,7 +9,6 @@ import { validateJsonBody } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { getChargeItemDefinition } from '../get-charge-item-definition';
-import { BillingOystehr } from '../shared';
 
 export interface BulkAddChargeItemDefinitionProcedureCodesParams
   extends BulkAddChargeItemDefinitionProcedureCodesInput {
@@ -28,7 +28,7 @@ export function validateRequestParameters(input: ZambdaInput): BulkAddChargeItem
 }
 
 export async function complexValidation(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: BulkAddChargeItemDefinitionProcedureCodesParams
 ): Promise<{ definition: ChargeItemDefinition }> {
   const definition = await getChargeItemDefinition(oystehr, {

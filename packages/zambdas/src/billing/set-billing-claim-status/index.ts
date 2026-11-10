@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -7,13 +8,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { applyClaimStatusField, commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
-import {
-  assertValidClaimStatusField,
-  BillingOystehr,
-  buildUpdatedClaimStatusTags,
-  createBillingClient,
-  fetchById,
-} from '../shared';
+import { assertValidClaimStatusField, buildUpdatedClaimStatusTags, createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -30,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: SetClaimStatusParams,
   agent: ProvenanceAgent
 ): Promise<{ ok: true }> {

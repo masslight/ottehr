@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, Invoice, Location } from 'fhir/r4b';
 import {
   getBillingInvoiceClaims,
@@ -14,15 +15,15 @@ import {
 import { BillingInvoiceSummary } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues, isInvoiceableClaimStatus } from 'utils/lib/types/data/billing/claim-status';
 import { INVALID_INPUT_ERROR, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
-import { BillingOystehr, copySourceId, fetchById, findById } from './shared';
+import { copySourceId, fetchById, findById } from './shared';
 
 // The claim points at its own copy of the service facility. The copy records which facility it came from.
-export async function getServiceFacilityId(oystehr: BillingOystehr, claim: Claim): Promise<string | undefined> {
+export async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
   const copyId = getIdFromReference(claim.facility?.reference, 'Location');
   return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
 }
 
-export async function fetchClaimInvoices(oystehr: BillingOystehr, claimId: string): Promise<Invoice[]> {
+export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Promise<Invoice[]> {
   return (
     await oystehr.fhir.search<Invoice>({
       resourceType: 'Invoice',
@@ -55,7 +56,7 @@ export function getInvoiceableEncounterId(claim: Claim): string {
 }
 
 // Returns the clinical visit behind an invoice's claim.
-export async function getInvoiceEncounterId(oystehr: BillingOystehr, invoiceId: string): Promise<string> {
+export async function getInvoiceEncounterId(oystehr: Oystehr, invoiceId: string): Promise<string> {
   const [{ claimId }] = getBillingInvoiceClaims(await fetchById<Invoice>(oystehr, 'Invoice', invoiceId));
   return getClaimEncounterId(await fetchById<Claim>(oystehr, 'Claim', claimId));
 }

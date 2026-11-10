@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { formatInvoiceNumber } from 'utils/lib/fhir/billing-invoice';
 import { IssueBillingInvoiceNumberResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -6,7 +7,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { nextCounterValue } from '../../shared/fhir-counter';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'issue-billing-invoice-number';
@@ -32,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export async function performEffect(oystehr: BillingOystehr): Promise<IssueBillingInvoiceNumberResponse> {
+export async function performEffect(oystehr: Oystehr): Promise<IssueBillingInvoiceNumberResponse> {
   return {
     invoiceNumber: formatInvoiceNumber(await nextCounterValue(oystehr, INVOICE_NUMBER_COUNTER_KEY)),
   };

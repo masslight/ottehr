@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, PaymentNotice } from 'fhir/r4b';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -8,14 +9,13 @@ import { fetchResourcesGrouped } from './claim-amounts';
 import { getClaimServiceDate } from './claim-search';
 import { invoiceIdForPaymentNotice } from './patient-payments';
 import { manualPaymentDescription } from './payments';
-import { BillingOystehr } from './shared';
 
 // Shared by the patient account payment list and the single-payment lookup.
 
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 
 export const fetchClaimsByEncounter = (
-  billingOystehr: BillingOystehr,
+  billingOystehr: Oystehr,
   encounterIds: string[]
 ): Promise<Map<string, Claim[]>> =>
   fetchResourcesGrouped<Claim>({

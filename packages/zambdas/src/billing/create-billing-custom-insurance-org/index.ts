@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import { CreatedResourceResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -9,7 +10,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { buildCustomInsuranceOrganization, findCustomInsuranceOrgByBusinessId } from '../custom-insurance-org.helpers';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 type CreateInsuranceOrgParams = ValidatedZambdaInput<typeof CreateCustomInsuranceOrgInputSchema>;
 
@@ -41,7 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(oystehr: BillingOystehr, params: CreateInsuranceOrgParams): Promise<void> {
+async function complexValidation(oystehr: Oystehr, params: CreateInsuranceOrgParams): Promise<void> {
   const duplicate = await findCustomInsuranceOrgByBusinessId(oystehr, params.orgId);
   if (duplicate) {
     throw INVALID_INPUT_ERROR(`Insurance organization id "${params.orgId}" is already in use`);
@@ -49,7 +50,7 @@ async function complexValidation(oystehr: BillingOystehr, params: CreateInsuranc
 }
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: CreateInsuranceOrgParams
 ): Promise<CreatedResourceResponse> {
   const created = await oystehr.fhir.create(buildCustomInsuranceOrganization(params));

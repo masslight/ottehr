@@ -11,10 +11,10 @@ const { ESLintUtils } = require('@typescript-eslint/utils');
  * token, so nothing server-side backs it up: any other client in billing code silently sees, and
  * writes, the wrong resources.
  *
- * So what a client can see is part of its type. createBillingClient returns the branded BillingOystehr,
- * and the other clients billing code may need are branded too (ClinicalOystehr, UnscopedOystehr), each
- * by the one function that makes it. This rule uses TypeScript's types to check every SDK client billing
- * code touches, however it was made:
+ * So what a client can see is part of its type where billing code gets it. createBillingClient returns
+ * the branded BillingOystehr, and the other clients billing code may need are branded too
+ * (ClinicalOystehr, UnscopedOystehr), each by the one function that makes it. This rule uses
+ * TypeScript's types to check every SDK client billing code gets, however it was made:
  * - the billing client is used freely;
  * - getting another branded client takes a justified exception, on the call that returns it (or, where
  *   a function returns the client as its own, on the calls to that function). The client's type carries
@@ -23,8 +23,11 @@ const { ESLintUtils } = require('@typescript-eslint/utils');
  *     // eslint-disable-next-line ottehr/billing-fhir-client-only -- checks the clinical encounter exists
  *     const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
  *
- * - a client whose type doesn't say what it can see (`new Oystehr`, a plain Oystehr from any helper, a
- *   value typed any) is reported wherever it is used for FHIR or handed to other code;
+ * - a client a function receives as a parameter, directly, destructured or through a const taken from
+ *   one, is its callers' to answer for: they are checked where they hand it over. So billing helpers
+ *   take a plain Oystehr;
+ * - any other client whose type doesn't say what it can see (`new Oystehr`, a plain Oystehr a helper
+ *   returns, a value typed any) is reported wherever it is used for FHIR or handed to other code;
  * - asserting a branded type, and passing a value typed any where a client is expected, are reported,
  *   since either lets any client pass as a branded one;
  * - wrapTaskHandler marks the Task through the client createClient makes (the clinical one by default)
@@ -159,7 +162,7 @@ module.exports = {
     function checkFhirUse(node, client) {
       const type = services.getTypeAtLocation(client);
       const scope = clientScope(type);
-      if (scope === 'unbranded') {
+      if (scope === 'unbranded' && !fromParameter(client)) {
         context.report({ node, messageId: 'fhirUse', data: { client: checker.typeToString(type), remedy } });
       } else if (scope === 'any') {
         context.report({ node, messageId: 'untypedFhirUse', data: { remedy } });
@@ -171,11 +174,57 @@ module.exports = {
       if (!node || node.type === 'SpreadElement') return;
       const type = services.getTypeAtLocation(node);
       const scope = clientScope(type);
-      if (scope === 'unbranded') {
+      if (scope === 'unbranded' && !fromParameter(node)) {
         context.report({ node, messageId: 'clientHandOff', data: { client: checker.typeToString(type), remedy } });
       } else if (scope === 'any') {
         checkUntypedClient(node);
       }
+    }
+
+    /**
+     * Whether a client came in through a function parameter: directly, destructured, or through a const
+     * taken from one.
+     * @param {Node} node an expression, or an object pattern destructuring the client
+     * @returns {boolean}
+     */
+    function fromParameter(node) {
+      if (node.type === 'ObjectPattern') {
+        if (node.parent?.type === 'VariableDeclarator') return !!node.parent.init && fromParameter(node.parent.init);
+        return ts.isParameter(bindingRoot(services.esTreeNodeToTSNodeMap.get(node)));
+      }
+      return expressionFromParameter(services.esTreeNodeToTSNodeMap.get(node), 0);
+    }
+
+    /**
+     * @param {import('typescript').Node} expression
+     * @param {number} depth how many consts it has been traced through
+     * @returns {boolean}
+     */
+    function expressionFromParameter(expression, depth) {
+      let root = expression;
+      while (
+        ts.isPropertyAccessExpression(root) ||
+        ts.isElementAccessExpression(root) ||
+        ts.isNonNullExpression(root) ||
+        ts.isParenthesizedExpression(root)
+      ) {
+        root = root.expression;
+      }
+      if (!ts.isIdentifier(root) || depth > 8) return false;
+      // The value of a shorthand property, { oystehr }, is the variable rather than the property it fills.
+      const symbol =
+        ts.isShorthandPropertyAssignment(root.parent) && root.parent.name === root
+          ? checker.getShorthandAssignmentValueSymbol(root.parent)
+          : checker.getSymbolAtLocation(root);
+      const declaration = symbol?.valueDeclaration && bindingRoot(symbol.valueDeclaration);
+      if (!declaration) return false;
+      if (ts.isParameter(declaration)) return true;
+      return (
+        ts.isVariableDeclaration(declaration) &&
+        !!declaration.initializer &&
+        !!(ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) &&
+        expressionFromParameter(declaration.initializer, depth + 1)
+      );
     }
 
     /** @param {Node} node an expression typed any */
@@ -198,28 +247,29 @@ module.exports = {
       }
     }
 
-    /** @param {CallExpression} call */
+    /**
+     * wrapTaskHandler marks the Task through, and hands the handler, the client its options' createClient
+     * returns, or the clinical client when there is none.
+     * @param {CallExpression} call
+     */
     function checkTaskHandler(call) {
-      const client = taskHandlerClient(call);
+      const options = call.arguments[2];
+      const createClient = options && services.getTypeAtLocation(options).getProperty('createClient');
+      const client =
+        createClient &&
+        checker
+          .getNonNullableType(
+            checker.getTypeOfSymbolAtLocation(createClient, services.esTreeNodeToTSNodeMap.get(options))
+          )
+          .getCallSignatures()[0]
+          ?.getReturnType();
       if (!client || clientScope(client) !== 'billing') {
         context.report({
           node: call.callee,
           messageId: 'taskHandlerClient',
-          data: { client: client ? checker.typeToString(client) : 'of a type the rule cannot tell' },
+          data: { client: client ? checker.typeToString(client) : 'the clinical client, by default' },
         });
       }
-    }
-
-    /**
-     * The client wrapTaskHandler hands this call's handler: its handler parameter's second parameter, in
-     * the overload the call resolves to.
-     * @param {CallExpression} call
-     */
-    function taskHandlerClient(call) {
-      const signature = checker.getResolvedSignature(services.esTreeNodeToTSNodeMap.get(call));
-      const handler = signature?.getParameters()[1];
-      const client = handler && checker.getTypeOfSymbol(handler).getCallSignatures()[0]?.getParameters()[1];
-      return client && checker.getTypeOfSymbol(client);
     }
 
     /** @param {CallExpression} call */
@@ -299,6 +349,18 @@ function returnedToCaller(node) {
   while (value.parent?.type === 'AwaitExpression') value = value.parent;
   const { parent } = value;
   return parent?.type === 'ReturnStatement' || (parent?.type === 'ArrowFunctionExpression' && parent.body === value);
+}
+
+/**
+ * The parameter or variable declaration a binding belongs to, out of any destructuring.
+ * @param {import('typescript').Node} node
+ */
+function bindingRoot(node) {
+  let root = node;
+  while (ts.isBindingElement(root) || ts.isObjectBindingPattern(root) || ts.isArrayBindingPattern(root)) {
+    root = root.parent;
+  }
+  return root;
 }
 
 /** @param {MemberExpression} member */

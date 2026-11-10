@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -6,7 +7,7 @@ import { BillingReportHistoryEntry } from 'utils/lib/types/data/billing/billing.
 import { REPORT_CACHE_WRITE_FAILED_ERROR } from 'utils/lib/types/errors';
 import { gunzipSync, gzipSync } from 'zlib';
 import { fetchAllPages } from '../../../shared/fhir';
-import { BILLING_APP_BUCKET, BillingOystehr } from '../../shared';
+import { BILLING_APP_BUCKET } from '../../shared';
 import { isVersionConflict } from './refresh-task';
 import { ReportPayload } from './types';
 
@@ -78,7 +79,7 @@ const generationPath = (cacheKey: string, revision: string, isPublic: boolean): 
 const servedObjectPath = (meta: ReportCacheMeta, definition: { sanitizePayload?: unknown }): string =>
   definition.sanitizePayload ? meta.publicObjectPath ?? meta.objectPath : meta.objectPath;
 
-async function presignDownload(oystehr: BillingOystehr, secrets: Secrets | null, objectPath: string): Promise<string> {
+async function presignDownload(oystehr: Oystehr, secrets: Secrets | null, objectPath: string): Promise<string> {
   const result = await oystehr.z3.getPresignedUrl({
     bucketName: bucketNameOf(secrets),
     'objectPath+': objectPath,
@@ -89,7 +90,7 @@ async function presignDownload(oystehr: BillingOystehr, secrets: Secrets | null,
 
 // undefined = object does not exist (a cache miss, not an error)
 async function downloadObject(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   secrets: Secrets | null,
   objectPath: string
 ): Promise<Buffer | undefined> {
@@ -102,7 +103,7 @@ async function downloadObject(
 }
 
 async function uploadObject(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   secrets: Secrets | null,
   objectPath: string,
   bytes: Buffer,
@@ -118,11 +119,7 @@ async function uploadObject(
 const gzipJson = (value: unknown): Buffer => gzipSync(new Uint8Array(Buffer.from(JSON.stringify(value), 'utf8')));
 
 // best-effort: an orphaned generation costs storage, not correctness
-async function deleteObjectQuietly(
-  oystehr: BillingOystehr,
-  secrets: Secrets | null,
-  objectPath: string
-): Promise<void> {
+async function deleteObjectQuietly(oystehr: Oystehr, secrets: Secrets | null, objectPath: string): Promise<void> {
   try {
     await oystehr.z3.deleteObject({ bucketName: bucketNameOf(secrets), 'objectPath+': objectPath });
   } catch (err) {
@@ -131,7 +128,7 @@ async function deleteObjectQuietly(
 }
 
 export async function loadReportCache<Payload extends ReportPayload>(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   secrets: Secrets | null,
   cacheKey: string
 ): Promise<Payload | undefined> {
@@ -140,7 +137,7 @@ export async function loadReportCache<Payload extends ReportPayload>(
 
 // raw payload plus its stored (gzip) size; server-side use only (drilldown filtering, previous)
 export async function loadReportCacheWithSize<Payload extends ReportPayload>(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   secrets: Secrets | null,
   cacheKey: string
 ): Promise<{ payload: Payload; sizeBytes: number } | undefined> {
@@ -177,10 +174,7 @@ function metaOf(doc: DocumentReference): ReportCacheMeta | undefined {
 }
 
 // cheap existence + status probe; undefined = never computed
-export async function loadReportCacheMeta(
-  oystehr: BillingOystehr,
-  cacheKey: string
-): Promise<ReportCacheMeta | undefined> {
+export async function loadReportCacheMeta(oystehr: Oystehr, cacheKey: string): Promise<ReportCacheMeta | undefined> {
   try {
     const bundle = await oystehr.fhir.search<DocumentReference>({
       resourceType: 'DocumentReference',
@@ -214,7 +208,7 @@ const paramsOf = (doc: DocumentReference): Record<string, unknown> => {
 // All cached runs of one kind at its current cacheVersion, newest first. Meta DocumentReferences
 // are tiny, so every page is fetched — the popover list scrolls, and nothing is silently dropped.
 export async function listReportCacheHistory(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   definition: { kind: string; cacheVersion: string }
 ): Promise<BillingReportHistoryEntry[]> {
   const docs: DocumentReference[] = [];
@@ -251,7 +245,7 @@ export async function listReportCacheHistory(
 // Short-lived presigned URL for the served object the given meta committed, minted on demand at
 // display time. Callers must have loaded the meta first — presigning does not verify existence.
 export async function getReportDownloadUrl(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   secrets: Secrets | null,
   definition: { sanitizePayload?: unknown },
   meta: ReportCacheMeta
@@ -297,7 +291,7 @@ function buildCacheDoc(input: {
 // save won the commit — the caller must then discard its sibling artifacts (detail cache,
 // continuation) so the winner's snapshot never pairs with a loser's data.
 export async function saveReportCache<Payload extends ReportPayload>(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   secrets: Secrets | null,
   definition: { sanitizePayload?: (payload: Payload) => Payload },
   cacheKey: string,

@@ -1,4 +1,4 @@
-import { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, FhirResource, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
@@ -39,15 +39,12 @@ import {
   resolveClaimActor,
 } from '../../../billing/provenance';
 import {
-  BillingOystehr,
   buildUpdatedClaimStatusTags,
   createBillingClient,
   createEraReadClient,
   fetchById,
   findById,
   hasTag,
-  ScopedOystehr,
-  UnscopedOystehr,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { sendErrors } from '../../../shared/errors';
@@ -112,7 +109,7 @@ export interface ComplexValidationOutput {
 }
 
 export async function complexValidation(
-  projectClient: UnscopedOystehr,
+  projectClient: Oystehr,
   claimResponseId: string
 ): Promise<ComplexValidationOutput | undefined> {
   // New ClaimResponses do not have the billing tag yet.
@@ -133,7 +130,7 @@ export async function complexValidation(
 }
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   validated: ComplexValidationOutput,
   secrets: Secrets
 ): Promise<void> {
@@ -291,7 +288,7 @@ const isLinkedToClaimResponse = (provenance: Provenance): boolean =>
     (entity) => entity.role === 'source' && entity.what.reference?.startsWith('ClaimResponse/')
   ) ?? false;
 
-export async function loadClaimStatusHistory(projectClient: UnscopedOystehr, claimId: string): Promise<Set<string>> {
+export async function loadClaimStatusHistory(projectClient: Oystehr, claimId: string): Promise<Set<string>> {
   const history = await getAllFhirSearchPages<Provenance>(
     {
       resourceType: 'Provenance',
@@ -324,7 +321,7 @@ export async function loadClaimStatusHistory(projectClient: UnscopedOystehr, cla
 }
 
 export async function resolveClaimForStatusResponse(
-  oystehr: ScopedOystehr,
+  oystehr: Oystehr,
   response: Pick<ClaimResponse, 'id' | 'request'>
 ): Promise<Claim | undefined> {
   const referenceParts = response.request?.reference?.split('/') ?? [];

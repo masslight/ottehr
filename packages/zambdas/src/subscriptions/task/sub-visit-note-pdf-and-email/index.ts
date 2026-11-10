@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -15,7 +16,7 @@ import { performEffect as generateVisitDetailsPdf } from '../../../ehr/visit-det
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import { getEmailClient } from '../../../shared/communication';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
-import { ClinicalOystehr, createClinicalOystehrClient } from '../../../shared/helpers';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { createOutboundDeliveryAttempt, failOutboundDeliveryAttempt } from '../../../shared/outbound-delivery';
 import { assembleProgressNoteInput } from '../../../shared/pdf/assemble-progress-note-input';
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
@@ -33,7 +34,7 @@ export interface TaskSubscriptionInput {
 }
 
 let oystehrToken: string;
-let oystehr: ClinicalOystehr;
+let oystehr: Oystehr;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-visit-note-pdf-and-email';

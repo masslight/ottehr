@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
 import { DeleteBillingTagInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -6,7 +7,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { BillingOystehr, countClaimsByTag, createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
+import { countClaimsByTag, createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
 
 export type DeleteBillingTagParams = ValidatedZambdaInput<typeof DeleteBillingTagInputSchema>;
 
@@ -22,10 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(
-  oystehr: BillingOystehr,
-  params: DeleteBillingTagParams
-): Promise<{ deleted: true }> {
+export async function performEffect(oystehr: Oystehr, params: DeleteBillingTagParams): Promise<{ deleted: true }> {
   const tagBundle = await oystehr.fhir.search<Basic>({
     resourceType: 'Basic',
     params: [

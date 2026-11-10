@@ -11,7 +11,6 @@ import {
   refreshTaskChain,
   updateRefreshTaskProgress,
 } from '../../../src/billing/reports/framework/refresh-task';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CACHE_KEY = 'payments:v1:all';
 const freshISO = DateTime.now().minus({ minutes: 1 }).toUTC().toISO() ?? '';
@@ -35,7 +34,7 @@ interface FhirMocks {
   get?: ReturnType<typeof vi.fn>;
 }
 
-const clientWith = (fhir: FhirMocks): OystehrMock => ({ fhir }) as unknown as OystehrMock;
+const clientWith = (fhir: FhirMocks): Oystehr => ({ fhir }) as unknown as Oystehr;
 
 const searchResult = (tasks: Task[]): { unbundle: () => Task[] } => ({ unbundle: () => tasks });
 

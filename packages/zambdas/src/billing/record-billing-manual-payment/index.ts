@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -10,7 +11,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { practitionerRefForBillingUser } from '../clinical-practitioners';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } from '../payments';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 
 type RecordBillingManualPaymentParams = ValidatedZambdaInput<typeof RecordBillingManualPaymentInputSchema>;
 
@@ -25,7 +26,7 @@ interface ComplexValidationOutput extends RecordBillingManualPaymentParams {
 const complexValidation = async (
   input: ZambdaInput,
   params: RecordBillingManualPaymentParams,
-  oystehr: BillingOystehr
+  oystehr: Oystehr
 ): Promise<ComplexValidationOutput> => {
   // TODO: Should every payment have a submitter?
   // For now we keep going if the caller has no profile or the lookup fails.
@@ -46,7 +47,7 @@ const complexValidation = async (
 };
 
 const performEffect = async (
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   effectInput: ComplexValidationOutput
 ): Promise<RecordBillingManualPaymentResponse> => {
   // Keep the creation time separate from the payment date.

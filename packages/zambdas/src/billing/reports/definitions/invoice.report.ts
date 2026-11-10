@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
@@ -15,7 +16,7 @@ import {
   getRateLimitedStripeClient,
   patientIdFromStripeMetadata,
 } from '../../../shared/stripeIntegration';
-import { BillingOystehr, fhirName, ScopedOystehr } from '../../shared';
+import { fhirName } from '../../shared';
 import { CardSummary, lookupCardsWithDirectory } from '../card-directory';
 import { ProgressFn, ReportComputeContext, ReportDefinition } from '../framework/types';
 import { listStripeAccounts } from '../shared';
@@ -330,7 +331,7 @@ interface CardSummaryLike {
 
 // default payment method, else legacy default card source, else the shared card directory
 async function resolveCards(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   secrets: Secrets | null,
   stripe: Stripe,
   customers: { customerId: string; stripeAccount: string | undefined }[],
@@ -383,7 +384,7 @@ async function resolveCards(
   return cardByCustomerId;
 }
 
-async function fetchPatientsById(oystehr: ScopedOystehr, patientIds: string[]): Promise<Map<string, Patient>> {
+async function fetchPatientsById(oystehr: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
   const byId = new Map<string, Patient>();
   for (let i = 0; i < patientIds.length; i += PATIENT_BATCH_SIZE) {
     const batch = patientIds.slice(i, i + PATIENT_BATCH_SIZE);
@@ -407,10 +408,7 @@ interface VisitSummary {
   appointmentId: string;
 }
 
-async function fetchVisitsByEncounterId(
-  oystehr: ScopedOystehr,
-  encounterIds: string[]
-): Promise<Map<string, VisitSummary>> {
+async function fetchVisitsByEncounterId(oystehr: Oystehr, encounterIds: string[]): Promise<Map<string, VisitSummary>> {
   const byEncounterId = new Map<string, VisitSummary>();
   for (let i = 0; i < encounterIds.length; i += PATIENT_BATCH_SIZE) {
     const batch = encounterIds.slice(i, i + PATIENT_BATCH_SIZE);

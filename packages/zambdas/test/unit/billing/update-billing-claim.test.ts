@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, Coverage, FhirResource, Organization, ProvenanceAgent } from 'fhir/r4b';
 import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { UpdateBillingResourceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -10,7 +10,6 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateWithSchema } from '../../../src/shared/validation';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const CLAIM_ID = '5f2b8c9e-1a3d-4e6f-8a7b-9c0d1e2f3a4b';
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
@@ -272,7 +271,7 @@ describe('update-billing-claim performEffect', () => {
   const makeOystehr = (
     claimOverride: Claim = claim
   ): {
-    oystehr: OystehrMock;
+    oystehr: Oystehr;
     create: ReturnType<typeof vi.fn>;
     search: ReturnType<typeof vi.fn>;
     transaction: ReturnType<typeof vi.fn>;
@@ -291,7 +290,7 @@ describe('update-billing-claim performEffect', () => {
       identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id', value: 'PAYER1' }],
     });
     return {
-      oystehr: { fhir: { create, search, transaction }, rcm: { getPayer } } as unknown as OystehrMock,
+      oystehr: { fhir: { create, search, transaction }, rcm: { getPayer } } as unknown as Oystehr,
       create,
       search,
       transaction,
@@ -452,7 +451,7 @@ describe('update-billing-claim non-insurance payer', () => {
   const makeOystehr = (
     organization: Organization | undefined,
     existingClaim: Claim = claim
-  ): { oystehr: OystehrMock; transaction: ReturnType<typeof vi.fn> } => {
+  ): { oystehr: Oystehr; transaction: ReturnType<typeof vi.fn> } => {
     const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(existingClaim)] });
       if (resourceType === 'Organization')
@@ -460,7 +459,7 @@ describe('update-billing-claim non-insurance payer', () => {
       return Promise.resolve({ unbundle: () => [] });
     });
     const transaction = vi.fn().mockResolvedValue({ entry: [] });
-    return { oystehr: { fhir: { search, transaction } } as unknown as OystehrMock, transaction };
+    return { oystehr: { fhir: { search, transaction } } as unknown as Oystehr, transaction };
   };
 
   const fieldsUpdate = (fields: Record<string, unknown>): Parameters<typeof performEffect>[1] =>

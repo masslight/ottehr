@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
@@ -8,7 +9,6 @@ import {
   performEffect,
 } from '../../../src/subscriptions/payment-reconciliation/sub-tag-era-resources';
 import { validateRequestParameters } from '../../../src/subscriptions/payment-reconciliation/sub-tag-era-resources/validateRequestParameters';
-import { OystehrMock } from '../../helpers/oystehr-mock';
 
 const provenance = (id: string, targets: string[], tagged = false): Provenance => ({
   resourceType: 'Provenance',
@@ -106,7 +106,7 @@ const makeOystehr = (
   resultsByType: ResultsByType,
   provenancePages?: Provenance[][],
   claimResponsePages?: ClaimResponse[][]
-): { oystehr: OystehrMock; search: Mock; transaction: Mock } => {
+): { oystehr: Oystehr; search: Mock; transaction: Mock } => {
   let provenanceCall = 0;
   let claimResponseCall = 0;
   const search = vi.fn().mockImplementation(({ resourceType }: SearchInput) => {
@@ -129,7 +129,7 @@ const makeOystehr = (
         search,
         transaction,
       },
-    } as unknown as OystehrMock,
+    } as unknown as Oystehr,
     search,
     transaction,
   };

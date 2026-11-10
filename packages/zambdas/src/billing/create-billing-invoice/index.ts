@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Invoice, Location, Organization, Practitioner, ProvenanceAgent, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -41,7 +42,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from '../invoice-issuer';
 import { getInvoiceableEncounterId, getServiceFacilityId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
-import { BillingOystehr, createBillingClient } from '../shared';
+import { createBillingClient } from '../shared';
 import { CreateBillingInvoiceParams, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'create-billing-invoice';
@@ -62,7 +63,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   stripe: Stripe,
   params: CreateBillingInvoiceParams,
   agent: ProvenanceAgent
@@ -117,7 +118,7 @@ const idempotencyKeyOf = (invoice: Invoice): string | undefined =>
   invoice.identifier?.find((identifier) => identifier.system === BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM)?.value;
 
 async function findOrCreateDraft(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   stripe: Stripe,
   claim: Claim,
   params: CreateBillingInvoiceParams,
@@ -151,7 +152,7 @@ async function findOrCreateDraft(
 
 // Returns the claim's invoice when it has one that isn't cancelled or entered in error.
 async function createDraftUnlessClaimHasInvoice(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   claim: Claim,
   params: CreateBillingInvoiceParams,
   issuer: Reference
@@ -178,7 +179,7 @@ async function createDraftUnlessClaimHasInvoice(
 }
 
 // A draft whose Stripe invoice was never finalized never reached the patient, so it can be replaced.
-async function discardUnsentDraft(oystehr: BillingOystehr, stripe: Stripe, invoice: Invoice): Promise<boolean> {
+async function discardUnsentDraft(oystehr: Oystehr, stripe: Stripe, invoice: Invoice): Promise<boolean> {
   const link = getStripeInvoiceLink(invoice);
   if (link) {
     const options = { stripeAccount: link.stripeAccount };
@@ -192,7 +193,7 @@ async function discardUnsentDraft(oystehr: BillingOystehr, stripe: Stripe, invoi
 
 // Every step checks what an earlier attempt already did, so a retry picks up where it stopped.
 async function sendDraft(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   stripe: Stripe,
   draft: Invoice,
   context: { encounterId: string; visit: PrepareBillingInvoiceResponse; params: CreateBillingInvoiceParams }
@@ -282,5 +283,5 @@ async function sendDraft(
 }
 
 // Versioned, so a request working on an invoice another request has replaced stops here.
-const updateInvoice = (oystehr: BillingOystehr, invoice: Invoice): Promise<Invoice> =>
+const updateInvoice = (oystehr: Oystehr, invoice: Invoice): Promise<Invoice> =>
   oystehr.fhir.update<Invoice>(invoice, { optimisticLockingVersionId: invoice.meta?.versionId });

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import {
   Claim,
   Coding,
@@ -40,7 +40,7 @@ import {
   humanClaimActor,
   resolveClaimActor,
 } from './provenance';
-import { BillingOystehr, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
+import { STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from './shared';
 
 // dedup identifier for record-billing-manual-payment calls: value is the caller's idempotency key
 export const MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('manual-payment-idempotency-key');
@@ -168,7 +168,7 @@ export const recordPaymentNoticeChange =
   };
 
 export async function findPaymentNotice(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   identifier: PaymentNoticeIdentifier
 ): Promise<PaymentNotice | undefined> {
   const [notice] = (
@@ -193,7 +193,7 @@ export async function createPaymentNotice({
   dedupIdentifier,
   agent,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   notice: PaymentNotice;
   dedupIdentifier: PaymentNoticeIdentifier;
   agent: ProvenanceAgent;
@@ -245,7 +245,7 @@ export async function createPaymentNotice({
 
 // Attributed to whoever took the payment or issued the refund, else to the system.
 export const paymentActor = async (
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   recordedBy: Reference | undefined,
   secrets: Secrets | null
 ): Promise<ProvenanceAgent> =>
@@ -254,7 +254,7 @@ export const paymentActor = async (
 // Mirrors the stripe webhook's negative refund notice so patient AR stays a plain sum over a
 // claim's notices; used for cash/check/external-reader refunds, which have no processor events.
 export const recordBillingManualRefund = async (
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   input: {
     encounterId: string;
     refundId: string;
@@ -336,7 +336,7 @@ export const recordBillingManualRefund = async (
 // the payee does not depend on which one stores it first. Providers sharing an account share a TIN,
 // so the first match is fine.
 export const billingProviderRefForStripeAccount = async (
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   stripeAccount: string | undefined,
   secrets: Secrets | null
 ): Promise<Reference> => {
@@ -354,7 +354,7 @@ export const billingProviderRefForStripeAccount = async (
 };
 
 export const findBillingClaimForEncounter = async (
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   encounterId: string
 ): Promise<Claim | undefined> => {
   const claims = (
@@ -437,7 +437,7 @@ const paymentFingerprint = (notice: PaymentNotice): string => {
 // immutable, which is why the webhook's upsert (it refreshes notices on charge.updated) is not
 // reused here.
 export const recordBillingPatientPayment = async (
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   input: RecordBillingPatientPaymentInput
 ): Promise<{ notice: PaymentNotice; claimId?: string }> => {
   const {
@@ -538,7 +538,7 @@ async function noticeLinkHistory({
   claimId,
   notices,
 }: {
-  oystehr: BillingOystehr;
+  oystehr: Oystehr;
   claimId: string;
   notices: PaymentNotice[];
 }): Promise<(notice: PaymentNotice) => BatchInputRequest<FhirResource>[]> {
@@ -573,7 +573,7 @@ async function noticeLinkHistory({
 }
 
 // Links notices stored before the claim existed, and the claim history entries recorded with them.
-export async function reconcilePaymentNoticesForClaim(oystehr: BillingOystehr, claim: Claim): Promise<void> {
+export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
   const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
   const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
   if (!claim.id || !encounterId) return;

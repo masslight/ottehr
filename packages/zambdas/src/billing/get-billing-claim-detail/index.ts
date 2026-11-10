@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Invoice, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -51,7 +52,6 @@ import { buildEraRemitServiceLines } from '../era-remits';
 import { fetchClaimInvoices, toBillingInvoiceSummary } from '../invoices';
 import { getCLIA } from '../service-facility.helpers';
 import {
-  BillingOystehr,
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
@@ -80,7 +80,6 @@ import {
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
-  UnscopedOystehr,
 } from '../shared';
 import { fetchWriteOffs, sumWriteOffs, writeOffFromPaymentNotice } from '../write-offs';
 
@@ -104,8 +103,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // untaggedClient reads only the claim's submission ClaimResponses, which never get the billing tag; its
 // ERA remits are tagged by sub-tag-era-resources, so they come through the billing client.
 export async function performEffect(
-  oystehr: BillingOystehr,
-  untaggedClient: UnscopedOystehr,
+  oystehr: Oystehr,
+  untaggedClient: Oystehr,
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
@@ -410,7 +409,7 @@ export async function performEffect(
 // name so renames show through, falling back to the display snapshotted on the claim when the
 // Organization is gone.
 async function resolveNonInsurancePayerDetail(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   claim: Claim
 ): Promise<{ fhirId: string; name: string }> {
   const payerRef = getClaimNonInsurancePayer(claim);
@@ -442,7 +441,7 @@ function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingPoli
 }
 
 async function fetchOtherClaims(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   patientId: string | undefined,
   currentClaimId: string
 ): Promise<ClaimDetailResponse['otherClaims']> {

@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -38,14 +39,12 @@ import {
 } from '../payments';
 import { resolveActorNames } from '../reports/shared';
 import {
-  BillingOystehr,
   copySourceId,
   ERA_STATUS_CODE_EXTENSION,
   isWorkingCopy,
   MAX_COPY_CHAIN_HOPS,
   resolvePayersByRef,
   SOURCE_IDENTIFIER_SYSTEM,
-  UnscopedOystehr,
 } from '../shared';
 import { writeOffFromPaymentNotice } from '../write-offs';
 import {
@@ -106,9 +105,9 @@ const extraElementsFor = (flags: LayerFlags): string[] => [
  * layer: the ERA PaymentReconciliations and their processing Provenances carry no billing tag.
  */
 export async function fetchAdHocClaimRows(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   input: AdHocBillingClaimsInput,
-  { eraReadClient }: { eraReadClient?: UnscopedOystehr } = {}
+  { eraReadClient }: { eraReadClient?: Oystehr } = {}
 ): Promise<AdHocBillingClaimsRow[]> {
   const flags: LayerFlags = {
     codes: !!input.includeCodes,
@@ -246,7 +245,7 @@ export async function fetchAdHocClaimRows(
   return rows;
 }
 
-async function loadEmCodes(eraReadClient: UnscopedOystehr): Promise<ReadonlySet<string>> {
+async function loadEmCodes(eraReadClient: Oystehr): Promise<ReadonlySet<string>> {
   try {
     return new Set((await getEmCodes(eraReadClient)).map((option) => option.code));
   } catch (error) {
@@ -257,7 +256,7 @@ async function loadEmCodes(eraReadClient: UnscopedOystehr): Promise<ReadonlySet<
 }
 
 async function scanAllClaims(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   beforePage: () => void
 ): Promise<Awaited<ReturnType<typeof scanClaimIds>>['claims']> {
   const existing =
@@ -279,7 +278,7 @@ async function scanAllClaims(
   return claims;
 }
 
-function createPayerResolver(oystehr: BillingOystehr): {
+function createPayerResolver(oystehr: Oystehr): {
   resolve: (refs: (string | undefined)[]) => Promise<Map<string, Organization>>;
   unresolvedCount: () => number;
 } {
@@ -329,7 +328,7 @@ const toYmd = (value: string | undefined): string | null => {
 };
 
 function createActorNameResolver(): {
-  namesFor: (untaggedClient: UnscopedOystehr, refs: string[]) => Promise<Map<string, string>>;
+  namesFor: (untaggedClient: Oystehr, refs: string[]) => Promise<Map<string, string>>;
 } {
   const cache = new Map<string, Promise<string>>();
 
@@ -354,7 +353,7 @@ function createActorNameResolver(): {
 
 const PATIENT_FETCH_BATCH = 100;
 
-function createPatientKeyResolver(oystehr: BillingOystehr): {
+function createPatientKeyResolver(oystehr: Oystehr): {
   keysFor: (patients: Patient[]) => Promise<Map<string, string>>;
 } {
   const ancestors = new Map<string, Patient | null>();

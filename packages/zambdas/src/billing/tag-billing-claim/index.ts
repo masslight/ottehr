@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coding, ProvenanceAgent } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -9,7 +10,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
-import { BillingOystehr, createBillingClient, fetchById, fetchDefinedTagNames } from '../shared';
+import { createBillingClient, fetchById, fetchDefinedTagNames } from '../shared';
 
 export type TagBillingClaimParams = ValidatedZambdaInput<typeof TagBillingClaimInputSchema>;
 
@@ -31,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // tags; this closes the API path). Removal stays unrestricted so an orphaned tag — one whose
 // definition was deleted — can still be taken off a claim. System-managed tags are built into the
 // system and always allowed.
-export async function complexValidation(oystehr: BillingOystehr, params: TagBillingClaimParams): Promise<void> {
+export async function complexValidation(oystehr: Oystehr, params: TagBillingClaimParams): Promise<void> {
   if (params.action !== 'add' || isSystemManagedTagName(params.tagName)) return;
   const defined = await fetchDefinedTagNames(oystehr);
   if (!defined.has(params.tagName)) {
@@ -40,7 +41,7 @@ export async function complexValidation(oystehr: BillingOystehr, params: TagBill
 }
 
 async function performEffect(
-  oystehr: BillingOystehr,
+  oystehr: Oystehr,
   params: TagBillingClaimParams,
   agent: ProvenanceAgent
 ): Promise<{ ok: true }> {
