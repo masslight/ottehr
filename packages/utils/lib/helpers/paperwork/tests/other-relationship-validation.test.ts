@@ -50,16 +50,12 @@ describe.each([
     }
   };
 
-  it('requires the other relationship to insured only when "Other" is selected', async () => {
+  it('does not require the other relationship to insured when "Other" is selected', async () => {
     expect(secondaryOtherRelationshipIndex).toBeGreaterThan(-1);
 
     const withOther = await getErrorPaths('payment-option-page', insurancePageValues('Other', 'Other'));
-    expect(withOther).toContain('patient-relationship-to-insured-other.answer');
-    expect(withOther).toContain(secondaryOtherRelationshipPath);
-
-    const withChild = await getErrorPaths('payment-option-page', insurancePageValues('Child', 'Child'));
-    expect(withChild).not.toContain('patient-relationship-to-insured-other.answer');
-    expect(withChild).not.toContain(secondaryOtherRelationshipPath);
+    expect(withOther).not.toContain('patient-relationship-to-insured-other.answer');
+    expect(withOther).not.toContain(secondaryOtherRelationshipPath);
   });
 
   it('exposes the "Please specify..." placeholder on the other relationship items', () => {
@@ -75,11 +71,8 @@ describe.each([
     });
   });
 
-  it('requires the responsible party other relationship only when "Other" is selected', async () => {
+  it('does not require the responsible party other relationship when "Other" is selected', async () => {
     const withOther = await getErrorPaths('responsible-party-page', responsiblePartyPageValues('Other'));
-    expect(withOther).toContain('responsible-party-relationship-other.answer');
-
-    const withParent = await getErrorPaths('responsible-party-page', responsiblePartyPageValues('Parent'));
-    expect(withParent).not.toContain('responsible-party-relationship-other.answer');
+    expect(withOther).not.toContain('responsible-party-relationship-other.answer');
   });
 });

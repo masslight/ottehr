@@ -405,7 +405,7 @@ const FormFields: PatientRecordFormFields = {
           triggers: [
             {
               targetQuestionLinkId: 'patient-relationship-to-insured',
-              effect: ['require', 'enable'],
+              effect: ['enable'],
               operator: '=',
               answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
             },
@@ -553,7 +553,7 @@ const FormFields: PatientRecordFormFields = {
           triggers: [
             {
               targetQuestionLinkId: 'patient-relationship-to-insured-2',
-              effect: ['require', 'enable'],
+              effect: ['enable'],
               operator: '=',
               answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
             },
@@ -670,7 +670,7 @@ const FormFields: PatientRecordFormFields = {
         triggers: [
           {
             targetQuestionLinkId: 'responsible-party-relationship',
-            effect: ['require', 'enable'],
+            effect: ['enable'],
             operator: '=',
             answerString: RELATIONSHIP_OTHER_OPTION,
           },

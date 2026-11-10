@@ -854,17 +854,14 @@ describe('patientRecordValidation', () => {
       ['patient-relationship-to-insured-other-2', 'patient-relationship-to-insured-2', 'insurance'],
       ['responsible-party-relationship-other', 'responsible-party-relationship', 'responsibleParty'],
     ] as const)(
-      'should require %s only when %s is "Other"',
+      'should not require %s when %s is "Other"',
       async (otherRelationshipKey, relationshipKey, sectionKey) => {
         if (isSectionHidden(PATIENT_RECORD_CONFIG.FormFields[sectionKey])) return;
 
         const resolver = createDynamicValidationResolver();
 
         const withOther = await resolver({ [relationshipKey]: 'Other', [otherRelationshipKey]: '' });
-        expect(withOther.errors[otherRelationshipKey]).toBeDefined();
-
-        const withParent = await resolver({ [relationshipKey]: 'Parent', [otherRelationshipKey]: '' });
-        expect(withParent.errors[otherRelationshipKey]).toBeUndefined();
+        expect(withOther.errors[otherRelationshipKey]).toBeUndefined();
       }
     );
 

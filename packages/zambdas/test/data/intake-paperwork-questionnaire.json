@@ -2297,23 +2297,6 @@
               "valueString": "Please specify..."
             },
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                  "valueString": "patient-relationship-to-insured"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                  "valueString": "Other"
-                }
-              ]
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
               "extension": [
                 {
@@ -2890,23 +2873,6 @@
                 {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
                   "valueString": "Please specify..."
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-                  "extension": [
-                    {
-                      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                      "valueString": "secondary-insurance.patient-relationship-to-insured-2"
-                    },
-                    {
-                      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                      "valueString": "="
-                    },
-                    {
-                      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                      "valueString": "Other"
-                    }
-                  ]
                 }
               ]
             }
@@ -3190,23 +3156,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
               "valueString": "Please specify..."
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                  "valueString": "responsible-party-relationship"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                  "valueString": "Other"
-                }
-              ]
             }
           ]
         },

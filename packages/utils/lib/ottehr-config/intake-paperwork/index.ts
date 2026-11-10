@@ -989,7 +989,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
             {
               targetQuestionLinkId: 'patient-relationship-to-insured',
-              effect: ['enable', 'require'],
+              effect: ['enable'],
               operator: '=',
               answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
             },
@@ -1209,7 +1209,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               triggers: [
                 {
                   targetQuestionLinkId: 'secondary-insurance.patient-relationship-to-insured-2',
-                  effect: ['enable', 'require'],
+                  effect: ['enable'],
                   operator: '=',
                   answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
                 },
@@ -1398,7 +1398,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
-              effect: ['enable', 'require'],
+              effect: ['enable'],
               operator: '=',
               answerString: RELATIONSHIP_OTHER_OPTION,
             },
