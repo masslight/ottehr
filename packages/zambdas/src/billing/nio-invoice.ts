@@ -4,7 +4,6 @@ import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { BuildBillingInvoiceInput, getBillingInvoiceClaims, isSameInvoiceIssuer } from 'utils/lib/fhir/billing-invoice';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
-import { parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import { AR_STAGE, formatAntCaseString, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import {
   BILLING_INVOICE_CONFLICT_ERROR,
@@ -12,7 +11,7 @@ import {
   INVALID_INPUT_ERROR,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
-import { getOrCreateInvoicingConfig } from '../rcm/invoice-config/helpers';
+import { readInvoicingConfig } from '../rcm/invoice-config/helpers';
 import { NioInvoicePdfData } from '../shared/pdf/nio-invoice-pdf';
 import { buildClaimLookups, mapClaimToItem } from './claim-search';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from './invoice-issuer';
@@ -89,8 +88,8 @@ export async function assembleNioInvoice({
     throw INVALID_INPUT_ERROR('All claims must have the same non-insurance payer');
   }
 
-  const [{ questionnaireResponse }, lookups, activeInvoices, nio] = await Promise.all([
-    getOrCreateInvoicingConfig(oystehr),
+  const [{ invoiceIssuerSource, dueDaysFromGeneration }, lookups, activeInvoices, nio] = await Promise.all([
+    readInvoicingConfig(oystehr),
     buildClaimLookups({
       oystehr,
       claims,
@@ -100,7 +99,6 @@ export async function assembleNioInvoice({
     fetchById<Organization>(oystehr, 'Organization', nioId),
   ]);
 
-  const { invoiceIssuerSource, dueDaysFromGeneration } = parseInvoiceConfigFromQR(questionnaireResponse);
   const issuers = claims.map((claim) => resolveClaimInvoiceIssuer(claim, resources, invoiceIssuerSource));
   if (!issuers.every((issuer) => isSameInvoiceIssuer(issuer, issuers[0]))) {
     throw INVALID_INPUT_ERROR(`All claims must have the same ${ISSUER_SOURCE_LABELS[invoiceIssuerSource]}`);

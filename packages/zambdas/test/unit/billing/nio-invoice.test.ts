@@ -4,21 +4,22 @@ import { DateTime } from 'luxon';
 import { claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { buildBillingInvoice } from 'utils/lib/fhir/billing-invoice';
 import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
+import { parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import { AR_STAGE, ClaimStatusValues, claimStatusValuesToTags } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClaimLookups } from '../../../src/billing/claim-search';
 import { assembleNioInvoice } from '../../../src/billing/nio-invoice';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
-const { mockGetOrCreateInvoicingConfig, mockBuildClaimLookups, mockFetchActiveClaimInvoices } = vi.hoisted(() => ({
-  mockGetOrCreateInvoicingConfig: vi.fn(),
+const { mockReadInvoicingConfig, mockBuildClaimLookups, mockFetchActiveClaimInvoices } = vi.hoisted(() => ({
+  mockReadInvoicingConfig: vi.fn(),
   mockBuildClaimLookups: vi.fn(),
   mockFetchActiveClaimInvoices: vi.fn(),
 }));
 
 vi.mock('../../../src/rcm/invoice-config/helpers', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  getOrCreateInvoicingConfig: (...args: unknown[]) => mockGetOrCreateInvoicingConfig(...args),
+  readInvoicingConfig: (...args: unknown[]) => mockReadInvoicingConfig(...args),
 }));
 vi.mock('../../../src/billing/claim-search', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -199,9 +200,7 @@ const assemble = (oystehr: Oystehr, claimIds: string[]): ReturnType<typeof assem
 describe('assembleNioInvoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetOrCreateInvoicingConfig.mockResolvedValue({
-      questionnaireResponse: {},
-    });
+    mockReadInvoicingConfig.mockResolvedValue(parseInvoiceConfigFromQR(undefined));
     mockFetchActiveClaimInvoices.mockResolvedValue([]);
   });
 
@@ -353,24 +352,9 @@ describe('assembleNioInvoice', () => {
   });
 
   it('groups by billing provider when configured, leaving the facility filter unset', async () => {
-    mockGetOrCreateInvoicingConfig.mockResolvedValue({
-      questionnaireResponse: {
-        item: [
-          {
-            linkId: 'invoicing',
-            item: [
-              {
-                linkId: 'invoicing.invoiceIssuerSource',
-                answer: [
-                  {
-                    valueString: 'billing-provider',
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
+    mockReadInvoicingConfig.mockResolvedValue({
+      ...parseInvoiceConfigFromQR(undefined),
+      invoiceIssuerSource: 'billing-provider',
     });
     const oystehr = setup({
       claims: [

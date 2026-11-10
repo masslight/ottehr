@@ -1,10 +1,13 @@
+import Oystehr from '@oystehr/sdk';
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import { SaveInvoiceConfigBodySchema } from 'utils/lib/types/api/invoice-config.types';
+import { DEFAULT_INVOICE_DUE_DAYS, DEFAULT_INVOICE_ISSUER_SOURCE } from 'utils/lib/types/constants';
 import { describe, expect, test, vi } from 'vitest';
 import {
   getOrCreateInvoicingConfig,
   INVOICING_CONFIG_QUESTIONNAIRE_URL,
   parseInvoicingConfig,
+  readInvoicingConfig,
   saveInvoicingConfig,
   withInvoiceIssuerSourceItem,
 } from '../../src/rcm/invoice-config/helpers';
@@ -427,5 +430,59 @@ describe('getOrCreateInvoicingConfig', () => {
     expect(client.fhir.create).toHaveBeenCalledTimes(1);
     expect(result.questionnaire.id).toBe('q-existing');
     expect(result.questionnaireResponse.id).toBe('created-0');
+  });
+});
+
+describe('readInvoicingConfig', () => {
+  const clientWithResponses = (responses: QuestionnaireResponse[]): Oystehr =>
+    ({
+      fhir: {
+        search: vi.fn().mockResolvedValue({
+          unbundle: () => responses,
+        }),
+        create: vi.fn(),
+        patch: vi.fn(),
+      },
+    }) as unknown as Oystehr;
+
+  test('parses the saved config', async () => {
+    const client = clientWithResponses([
+      makeQuestionnaireResponse({
+        dueDays: 14,
+      }),
+    ]);
+
+    const result = await readInvoicingConfig(client);
+
+    expect(result.dueDaysFromGeneration).toBe(14);
+  });
+
+  test('warns and uses the first config when there are several', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const client = clientWithResponses([
+      makeQuestionnaireResponse({
+        dueDays: 14,
+      }),
+      makeQuestionnaireResponse({
+        dueDays: 30,
+      }),
+    ]);
+
+    const result = await readInvoicingConfig(client);
+
+    expect(result.dueDaysFromGeneration).toBe(14);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Found 2 invoicing config QuestionnaireResponses'));
+    warn.mockRestore();
+  });
+
+  test('returns the defaults without saving anything when no config exists', async () => {
+    const client = clientWithResponses([]);
+
+    const result = await readInvoicingConfig(client);
+
+    expect(result.dueDaysFromGeneration).toBe(DEFAULT_INVOICE_DUE_DAYS);
+    expect(result.invoiceIssuerSource).toBe(DEFAULT_INVOICE_ISSUER_SOURCE);
+    expect(client.fhir.create).not.toHaveBeenCalled();
+    expect(client.fhir.patch).not.toHaveBeenCalled();
   });
 });
