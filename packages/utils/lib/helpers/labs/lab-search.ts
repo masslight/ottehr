@@ -12,26 +12,28 @@ export interface ParsedLabSearch<T extends LabSearchCandidate> {
 
 const normalize = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-// A project has a small, fixed set of labs, so every word is checked against them, however short:
-// "a" means every lab starting with A. Words that start no lab name are test words.
+// shorter words like "d" in "Vitamin D" or "b" in "B12" are too likely to be part of a test name
+const MIN_LAB_TOKEN_LENGTH = 3;
+
+// Every word is checked against the project's labs. Words that start no lab name are test words.
 const tokenMatchesLabName = (token: string, labName: string): boolean => {
   const normalizedToken = normalize(token);
-  // punctuation-only words like "/" or "-" normalize to "" and would otherwise match every lab
-  if (!normalizedToken) return false;
-  // "labcorp" matches "Lab Corp", "path" matches "PathGroup"
-  if (normalize(labName).startsWith(normalizedToken)) return true;
-  return labName.split(/\s+/).some((word) => normalize(word).startsWith(normalizedToken));
+  // also rules out punctuation-only words like "/" or "-", which normalize to "" and would match every lab
+  if (normalizedToken.length < MIN_LAB_TOKEN_LENGTH) return false;
+  // only the start of the full name counts: "labcorp" matches "Lab Corp" and "path" matches "PathGroup",
+  // but "d" does not match "Quest Diagnostics", so "Vitamin D quest" keeps its "D"
+  return normalize(labName).startsWith(normalizedToken);
 };
 
 /**
  * Splits a lab test search such as "TSH quest" or "TSH path" into the test name part ("TSH")
- * and the labs named in it (Quest, PathGroup), matching each word against the start of a lab name
- * or of any word in it.
+ * and the labs named in it (Quest, PathGroup), matching each word against the start of a lab's
+ * full name. Consecutive words are joined while they still start a lab name, so a name typed
+ * with spaces ("quest diagnostics", "lab corp") is one lab. Several labs can be named at once
+ * ("TSH quest labcorp").
  *
  * A search made only of lab-name words ("auto" for Autolab) comes back with an empty testSearch,
- * meaning "everything at that lab". When the lab words point at different labs, labs matching
- * every lab word win ("quest diagnostics" is Quest, not every "... Diagnostics" lab); if none
- * match them all, every lab matching any of them is kept ("tsh quest labcorp").
+ * meaning "everything at that lab".
  */
 export const parseLabSearch = <T extends LabSearchCandidate>(search: string, labs: T[]): ParsedLabSearch<T> => {
   const tokens = search.trim().split(/\s+/).filter(Boolean);
@@ -56,10 +58,7 @@ export const parseLabSearch = <T extends LabSearchCandidate>(search: string, lab
     return { testSearch: search.trim(), matchedLabs: [] };
   }
 
-  const matchesAll = labs.filter((lab) => labTokens.every((token) => tokenMatchesLabName(token, lab.labName)));
-  const matchedLabs = matchesAll.length
-    ? matchesAll
-    : labs.filter((lab) => labTokens.some((token) => tokenMatchesLabName(token, lab.labName)));
+  const matchedLabs = labs.filter((lab) => labTokens.some((token) => tokenMatchesLabName(token, lab.labName)));
 
   return { testSearch: testTokens.join(' '), matchedLabs };
 };

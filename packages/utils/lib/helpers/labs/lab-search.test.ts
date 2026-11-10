@@ -36,17 +36,25 @@ describe('parseLabSearch', () => {
     });
   });
 
-  it('prefers labs matching every lab word', () => {
+  it('treats a full multi-word lab name as that one lab', () => {
     expect(parseLabSearch('TSH quest diagnostics', labs)).toEqual({ testSearch: 'TSH', matchedLabs: [quest] });
   });
 
-  it('keeps every lab named when no single lab matches all lab words', () => {
+  it('only matches the start of the full lab name, not a later word in it', () => {
+    expect(parseLabSearch('Vitamin D quest', labs)).toEqual({ testSearch: 'Vitamin D', matchedLabs: [quest] });
+    expect(parseLabSearch('Vitamin D', labs)).toEqual({ testSearch: 'Vitamin D', matchedLabs: [] });
+    expect(parseLabSearch('TSH diag', labs)).toEqual({ testSearch: 'TSH diag', matchedLabs: [] });
+  });
+
+  it('keeps every lab named', () => {
     expect(parseLabSearch('TSH quest labcorp', labs)).toEqual({ testSearch: 'TSH', matchedLabs: [quest, labCorp] });
   });
 
-  it('treats even a single letter as a lab word when it starts a lab name', () => {
-    expect(parseLabSearch('TSH q', labs)).toEqual({ testSearch: 'TSH', matchedLabs: [quest] });
-    expect(parseLabSearch('TSH a', labs)).toEqual({ testSearch: 'TSH', matchedLabs: [acme] });
+  it('needs at least three characters to treat a word as a lab word', () => {
+    expect(parseLabSearch('TSH q', labs)).toEqual({ testSearch: 'TSH q', matchedLabs: [] });
+    expect(parseLabSearch('TSH qu', labs)).toEqual({ testSearch: 'TSH qu', matchedLabs: [] });
+    expect(parseLabSearch('TSH que', labs)).toEqual({ testSearch: 'TSH', matchedLabs: [quest] });
+    expect(parseLabSearch('TSH acm', labs)).toEqual({ testSearch: 'TSH', matchedLabs: [acme] });
   });
 
   it('never treats punctuation-only words as lab words', () => {
