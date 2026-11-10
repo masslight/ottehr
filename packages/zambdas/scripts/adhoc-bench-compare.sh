@@ -50,11 +50,20 @@ END=$(node -e 'console.log(new Date().toISOString())')
 START=$(node -e "console.log(new Date(Date.now() - $DAYS * 86400000).toISOString())")
 echo "range $START .. $END, layers: $LAYERS, rounds: $ROUNDS"
 
+# A run that fails (a dropped connection — "fetch failed" — fails the old code, which has no retry) is run
+# again, up to 3 attempts; the failed attempts' logs are kept.
 run() { # <tree> <label> <n>
-  (cd "$1/packages/zambdas" && NODE_OPTIONS='--preserve-symlinks' npx tsx src/scripts/adhoc-bench.ts \
-    "$ENV_NAME" "$START" "$END" "$LAYERS" "$OUT/$2-$3.json" >"$OUT/$2-$3.log" 2>&1) ||
-    { echo "$2 run $3 failed, log: $OUT/$2-$3.log"; tail -20 "$OUT/$2-$3.log"; exit 1; }
-  echo "  $2 #$3: $(node -e "const r=require('$OUT/$2-$3.json'); console.log(r.ms + ' ms, ' + r.rows + ' rows')")"
+  local attempt
+  for attempt in 1 2 3; do
+    if (cd "$1/packages/zambdas" && NODE_OPTIONS='--preserve-symlinks' npx tsx src/scripts/adhoc-bench.ts \
+      "$ENV_NAME" "$START" "$END" "$LAYERS" "$OUT/$2-$3.json" >"$OUT/$2-$3.attempt$attempt.log" 2>&1); then
+      echo "  $2 #$3: $(node -e "const r=require('$OUT/$2-$3.json'); console.log(r.ms + ' ms, ' + r.rows + ' rows')")"
+      return
+    fi
+    echo "  $2 #$3 attempt $attempt failed: $(grep -m1 -E 'Error|FAILED' "$OUT/$2-$3.attempt$attempt.log" | cut -c1-200)"
+  done
+  echo "$2 run $3 failed 3 times, logs: $OUT/$2-$3.attempt*.log"
+  exit 1
 }
 
 for ((i = 1; i <= ROUNDS; i++)); do
