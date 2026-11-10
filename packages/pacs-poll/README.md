@@ -94,6 +94,16 @@ responseStatus = exitCode === 0 ? 200 : 502; // map to the HTTP Listener's respo
 channelMap.put('echoOutput', output);
 ```
 
+#### Testing the echo mechanism on the gateway
+
+`scripts/test-dicom-echo.sh` exercises the mechanism one layer at a time (TCP connect from the host, `storescu` inside the bridgelink container, the Mirth channel with a positive and a negative request, and the pacs-poll metrics), so a failure points at the layer that is broken. Copy it to the gateway and run it as a user that can talk to docker:
+
+```bash
+./test-dicom-echo.sh -c LIFESYS_AE -H 172.30.3.149 -p 6696 -b BRIDGELINK
+```
+
+`-h` lists the options, including the Mirth and metrics URLs and `-s` to skip layers. Anything after `--` is passed to `storescu`, for example TLS options.
+
 ## Metrics
 
 | Metric                                                 | Type    | Labels                                          | Meaning                                                      |
