@@ -12,8 +12,8 @@ vi.mock('../../../src/shared/auth', () => ({
   getUserToken: vi.fn().mockReturnValue('user-token'),
   requireUserWithRole: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/pr-1', name: 'Pat Admin' }),
 }));
-vi.mock('../../../src/shared/practitioners', () => ({
-  practitionerRefForUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Pat Admin' }),
+vi.mock('../../../src/billing/clinical-practitioners', () => ({
+  practitionerRefForBillingUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Pat Admin' }),
 }));
 vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -28,10 +28,6 @@ vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   voidPaymentNotice: vi.fn(),
   getStripeClient: vi.fn(() => ({ paymentIntents: { retrieve: paymentIntentsRetrieve } })),
-}));
-vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_1'),
 }));
 vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -55,6 +51,7 @@ import { index } from '../../../src/billing/void-billing-patient-payment';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM, voidPaymentNotice } from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
+import { fakeEhrPaymentNoticeZambda } from './ehr-payment-notice-zambda-fake';
 
 const NOTICE_ID = '2e9e1a9e-5a1f-4b6e-9a51-9f6a3f1c2d3e';
 const LEGACY_NOTICE_ID = '7b1c4a2e-0d3f-4c5b-8e6a-1f2d3c4b5a69';
@@ -84,7 +81,8 @@ const legacyNotice = (
     extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' }, ...(extension ?? [])],
   }) as PaymentNotice;
 
-const clinicalGet = vi.fn();
+// legacy notices and the schedule's Stripe account come from the EHR zambda, never clinical FHIR
+const ehr = fakeEhrPaymentNoticeZambda('acct_1');
 const billingGet = vi.fn();
 const billingSearch = vi.fn();
 const billingCreate = vi.fn();
@@ -115,8 +113,9 @@ const refundOffsetCreates = (): PaymentNotice[] => offsetCreateRequests().map((r
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { get: clinicalGet } } as unknown as Oystehr);
+  ehr.serve();
   vi.mocked(createBillingClient).mockReturnValue({
+    zambda: { execute: ehr.execute },
     fhir: {
       get: billingGet,
       search: billingSearch,
@@ -142,7 +141,7 @@ beforeEach(() => {
 
 describe('void-billing-patient-payment', () => {
   it('voids the billing notice', async () => {
-    clinicalGet.mockResolvedValue(legacyNotice([]));
+    ehr.serve(legacyNotice([]));
 
     const result = await invoke();
 
@@ -150,10 +149,15 @@ describe('void-billing-patient-payment', () => {
     expect(vi.mocked(voidPaymentNotice).mock.calls[0][1].id).toBe(NOTICE_ID);
     expect(vi.mocked(voidPaymentNotice).mock.calls[0][2]).toMatchObject({ reason: 'Other', voidedBy: 'Pat Admin' });
     expect(JSON.parse(result.body)).toEqual({ paymentNoticeId: NOTICE_ID, voidedBillingNoticeCount: 1 });
+    // the bridged copy's legacy notice is read over the wire, scoped to the encounter
+    expect(ehr.noticeRequests()).toEqual([
+      expect.objectContaining({ encounterId: ENCOUNTER_ID, paymentNoticeId: LEGACY_NOTICE_ID }),
+    ]);
+    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
   });
 
   it('records the void in claim history, credited to the user who voided it', async () => {
-    clinicalGet.mockResolvedValue(legacyNotice([]));
+    ehr.serve(legacyNotice([]));
 
     await invoke();
 
@@ -168,7 +172,7 @@ describe('void-billing-patient-payment', () => {
   });
 
   it('rejects voiding a payment refunded before its billing copy existed', async () => {
-    clinicalGet.mockResolvedValue(
+    ehr.serve(
       legacyNotice([
         buildPaymentRefundsExtension([
           {
@@ -189,7 +193,7 @@ describe('void-billing-patient-payment', () => {
   });
 
   it('treats a payment voided only on the legacy notice as already voided', async () => {
-    clinicalGet.mockResolvedValue(
+    ehr.serve(
       legacyNotice([buildPaymentVoidExtension({ reason: 'Other', voidedAtISO: '2026-04-20T13:00:00Z' })], 'cancelled')
     );
 
@@ -204,7 +208,7 @@ describe('void-billing-patient-payment', () => {
 
   it('copies a legacy card payment keyed by its charge id, so the webhook merges into the copy', async () => {
     billingGet.mockRejectedValue({ code: 404 });
-    clinicalGet.mockResolvedValue({
+    ehr.serve({
       ...legacyNotice([]),
       identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
       extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }],
@@ -216,6 +220,8 @@ describe('void-billing-patient-payment', () => {
       message: 'Only cash, check, and external card reader payments can be voided.',
     });
 
+    // the account the EHR took the payment on, resolved by the EHR zambda from the encounter's schedule
+    expect(ehr.stripeAccountRequests()).toEqual([expect.objectContaining({ encounterId: ENCOUNTER_ID })]);
     expect(paymentIntentsRetrieve).toHaveBeenCalledWith('pi_1', undefined, { stripeAccount: 'acct_1' });
     expect(billingSearch.mock.calls[0][0].params[0].value).toContain(`${STRIPE_PAYMENT_ID_SYSTEM}|ch_1`);
     const [copy, options] = billingCreate.mock.calls[0];
@@ -236,11 +242,12 @@ describe('void-billing-patient-payment', () => {
 
   it('does not touch Stripe when copying a cash payment', async () => {
     billingGet.mockRejectedValue({ code: 404 });
-    clinicalGet.mockResolvedValue(legacyNotice([]));
+    ehr.serve(legacyNotice([]));
 
     await invoke(LEGACY_NOTICE_ID);
 
     expect(paymentIntentsRetrieve).not.toHaveBeenCalled();
+    expect(ehr.stripeAccountRequests()).toHaveLength(0);
     // a payment outside Stripe names no account
     expect(billingCreate.mock.calls[0][0].extension).not.toContainEqual(
       expect.objectContaining({ url: stripeAccountExtension(undefined).url })
@@ -254,7 +261,7 @@ describe('void-billing-patient-payment', () => {
 
   it('records the billing offset of a refund that only the legacy notice carries, before rejecting', async () => {
     billingGet.mockRejectedValue({ code: 404 });
-    clinicalGet.mockResolvedValue(legacyNotice([legacyRefund]));
+    ehr.serve(legacyNotice([legacyRefund]));
 
     await expect(invoke(LEGACY_NOTICE_ID, { BILLING_INTEGRATION: 'ottehr' })).rejects.toMatchObject({
       message: 'This payment has refunds recorded and can no longer be voided.',
@@ -270,7 +277,7 @@ describe('void-billing-patient-payment', () => {
   });
 
   it('records the offset again when a retry finds the copy already made', async () => {
-    clinicalGet.mockResolvedValue(legacyNotice([legacyRefund]));
+    ehr.serve(legacyNotice([legacyRefund]));
 
     await expect(invoke(NOTICE_ID, { BILLING_INTEGRATION: 'ottehr' })).rejects.toMatchObject({
       message: 'This payment has refunds recorded and can no longer be voided.',
@@ -281,7 +288,7 @@ describe('void-billing-patient-payment', () => {
 
   it('writes no offsets while Ottehr billing is off', async () => {
     billingGet.mockRejectedValue({ code: 404 });
-    clinicalGet.mockResolvedValue(legacyNotice([legacyRefund]));
+    ehr.serve(legacyNotice([legacyRefund]));
 
     await expect(invoke(LEGACY_NOTICE_ID)).rejects.toThrow();
 
@@ -299,7 +306,7 @@ describe('void-billing-patient-payment', () => {
     it('links the new copy to the claim', async () => {
       vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(undefined).mockResolvedValueOnce(lateClaim);
       billingGet.mockRejectedValueOnce({ code: 404 }).mockResolvedValueOnce(linkedCopy);
-      clinicalGet.mockResolvedValue(legacyNotice([]));
+      ehr.serve(legacyNotice([]));
 
       await invoke(LEGACY_NOTICE_ID);
 
@@ -316,7 +323,7 @@ describe('void-billing-patient-payment', () => {
       billingSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
         unbundle: () => (resourceType === 'PaymentNotice' ? [{ ...bridgedCopy, id: 'adopted-1' }] : []),
       }));
-      clinicalGet.mockResolvedValue(legacyNotice([]));
+      ehr.serve(legacyNotice([]));
 
       await invoke(LEGACY_NOTICE_ID);
 
@@ -330,7 +337,7 @@ describe('void-billing-patient-payment', () => {
       billingSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
         unbundle: () => (resourceType === 'PaymentNotice' ? [linkedCopy] : []),
       }));
-      clinicalGet.mockResolvedValue(legacyNotice([]));
+      ehr.serve(legacyNotice([]));
 
       await invoke(LEGACY_NOTICE_ID);
 

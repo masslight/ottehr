@@ -1,18 +1,26 @@
-import { LoadingButton } from '@mui/lab';
-import { Box, Button, FormControlLabel, Grid, Paper, Switch, Typography, useTheme } from '@mui/material';
+import { Autocomplete, Box, Divider, FormHelperText, Paper, Stack, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Controller, FormProvider, PathValue, useForm } from 'react-hook-form';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Controller, FormProvider, PathValue, useController, useForm } from 'react-hook-form';
 import { createDmeQuickPick, getDmeQuickPicks, updateDmeQuickPick } from 'src/api/api';
-import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
-import { PhoneInput } from 'src/components/input/PhoneInput';
-import { SelectInput } from 'src/components/input/SelectInput';
-import { TextInput } from 'src/components/input/TextInput';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { RadiologyDiagnosis, RadiologyDiagnosisField } from 'src/features/radiology/components/RadiologyDiagnosisField';
+import { RadiologyDiagnosis } from 'src/features/radiology/components/RadiologyDiagnosisField';
+import {
+  PopoverBlank,
+  SectionLabel,
+  SelectBlank,
+  Sentence,
+  TextBlank,
+} from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
+import { ProcedureDiagnosesSentence } from 'src/features/visits/in-person/components/procedures/narrative/ProcedureDiagnosesSentence';
+import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { toProviderDetails, useGetEmployeesWithDetails } from 'src/features/visits/shared/hooks/useGetEmployees';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
@@ -20,6 +28,9 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { sortQuickPicks, useMergedDmeQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
+import { CreateDmeOrderDraft, useDmeOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -38,19 +49,89 @@ import {
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { useCreateDmeOrder, useUpdateDmeOrder } from '../dme.queries';
-import { DmeBillingCodesField } from './DmeBillingCodesField';
+import { DmeBillingCodesSentence } from './DmeBillingCodesSentence';
 import {
   applyDmeQuickPick,
   buildDmeQuickPick,
   DmeOrderFormValues,
   DmeQuickPickPatch,
+  normalizePhone,
   toCodeDisplay,
 } from './dmeQuickPick';
-import { DmeQuickPickDialogs } from './DmeQuickPickDialogs';
 
 const DME_ITEM_NAME_MAX_LENGTH = 200;
 
-const DURATION_UNIT_LABELS: Record<DmeDurationUnit, string> = { days: 'Days', weeks: 'Weeks' };
+const FULFILLMENT_OPTIONS = [
+  { value: 'in-house', label: 'in-house' },
+  { value: 'external', label: 'an external site / third party' },
+];
+
+/** Ten digits, optionally after a leading 1 / +1, however they are spaced or punctuated. */
+const validatePhone = (value: string): true | string => {
+  const digits = value.replace(/\D/g, '');
+  return (
+    !value.trim() ||
+    isPhoneNumberValid(digits.length === 11 && digits.startsWith('1') ? `+${digits}` : digits) ||
+    'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
+  );
+};
+
+type OrderedBy = DmeOrderFormValues['orderedBy'];
+
+const OrderedByBlank: React.FC<{
+  value: OrderedBy;
+  onChange: (value: OrderedBy) => void;
+  readOnly: boolean;
+  dataTestId?: string;
+  invalid?: boolean;
+  describedBy?: string;
+}> = ({ value, onChange, readOnly, dataTestId, invalid, describedBy }) => {
+  const { oystehrZambda } = useApiClients();
+  const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
+  const options = useMemo(
+    () =>
+      (employees?.nonProviders ?? [])
+        .filter(PROVIDERS_FILTER)
+        .map((employee) => {
+          const details = toProviderDetails(employee);
+          return { id: details.practitionerId, name: details.name };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [employees]
+  );
+  const name = (value && (options.find((option) => option.id === value.id)?.name ?? value.name)) || undefined;
+  return (
+    <PopoverBlank
+      label="ordered by"
+      title="Ordered by"
+      value={name}
+      need
+      readOnly={readOnly}
+      dataTestId={dataTestId}
+      invalid={invalid}
+      describedBy={describedBy}
+    >
+      {(close) => (
+        <Autocomplete
+          size="small"
+          openOnFocus
+          options={options}
+          loading={isLoading}
+          value={value && options.find((option) => option.id === value.id) ? value : null}
+          getOptionLabel={(option) => option.name ?? option.id}
+          isOptionEqualToValue={(option, selected) => option.id === selected.id}
+          onChange={(_event, option) => {
+            if (!option) return;
+            onChange(option);
+            close();
+          }}
+          renderInput={(params) => <TextField {...params} label="Ordered by" />}
+          sx={{ width: 320, maxWidth: '100%', pt: 0.5 }}
+        />
+      )}
+    </PopoverBlank>
+  );
+};
 
 const optional = (value: string): string | undefined => value.trim() || undefined;
 
@@ -58,8 +139,9 @@ export const buildDmeOrderFields = (values: DmeOrderFormValues): DmeOrderFields 
   const thirdParty = {
     name: optional(values.thirdParty.name),
     address: optional(values.thirdParty.address),
-    phone: optional(values.thirdParty.phone),
-    fax: optional(values.thirdParty.fax),
+    // Stored as "(xxx) xxx-xxxx", the shape the masked phone fields saved.
+    phone: optional(normalizePhone(values.thirdParty.phone)),
+    fax: optional(normalizePhone(values.thirdParty.fax)),
   };
   return {
     itemName: values.itemName.trim(),
@@ -99,6 +181,9 @@ const orderToFormValues = (order: DmeOrderDTO): DmeOrderFormValues => ({
   },
 });
 
+const draftFormValues = ({ hasNavigatedAway: _, ...values }: CreateDmeOrderDraft): Partial<DmeOrderFormValues> =>
+  values;
+
 const primaryFirst = (diagnoses: DiagnosisDTO[]): RadiologyDiagnosis[] =>
   [...diagnoses].sort((a, b) => Number(!!b.isPrimary) - Number(!!a.isPrimary)).map(toCodeDisplay);
 
@@ -110,11 +195,12 @@ export interface DmeOrderFormProps {
 }
 
 export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, onCancel }) => {
-  const theme = useTheme();
   const { encounter } = useAppointmentData();
   const encounterId = order?.encounterId ?? encounter?.id;
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { isAppointmentReadOnly: isReadOnly, visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
   const { chartData, setPartialChartData } = useChartData();
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
   const { mutate: saveChartData } = useSaveChartData();
   const { mutateAsync: createOrder } = useCreateDmeOrder();
   const { mutateAsync: updateOrder } = useUpdateDmeOrder(encounterId);
@@ -131,7 +217,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
   const [quickPickSaving, setQuickPickSaving] = useState(false);
 
   const currentUser = useEvolveUser();
-  const currentPractitionerId = currentUser?.profile?.split('/')[1];
+  const currentPractitionerId = getIdFromReference(currentUser?.profile);
   const isProvider = !!currentUser?.hasRole([RoleType.Provider]);
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
   const currentUserName = currentUser?.userName;
@@ -140,39 +226,81 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
     [currentPractitionerId, isProvider, currentUserName]
   );
 
-  const chartDiagnoses = useMemo(() => chartData?.diagnosis ?? [], [chartData?.diagnosis]);
+  const encounterDiagnoses = useMemo(() => chartData?.diagnosis ?? [], [chartData?.diagnosis]);
+  // An annotation follow-up has no assessment of its own; its orders use the main visit's diagnoses.
+  const chartDiagnoses = useMemo(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis ?? [] : encounterDiagnoses),
+    [isFollowup, mainEncounterChartData?.diagnosis, encounterDiagnoses]
+  );
+
+  const draftEncounterId = order || isReadOnly ? '' : encounterId ?? '';
+  const setDraft = useDmeOrderStore((state) => state.setDraft);
+  const clearDraft = useDmeOrderStore((state) => state.clearDraft);
+  const hasDraft = useDmeOrderStore((state) => state.hasDraft);
+  const hasDmeDraft = useDmeOrderStore((state) => !!draftEncounterId && state.hasDraft(draftEncounterId));
+  const draftNavigatedAway = useDmeOrderStore(
+    (state) => !!state.draftsByEncounterId[draftEncounterId]?.hasNavigatedAway
+  );
+  const [restoredDraft, setRestoredDraft] = useState(hasDmeDraft);
+  useMarkDraftNavigatedAway({ encounterId: draftEncounterId, setDraft, hasDraft });
+
+  const emptyFormValues = (): DmeOrderFormValues => ({
+    itemName: '',
+    diagnoses: primaryFirst(chartDiagnoses),
+    quantity: '1',
+    laterality: null,
+    modifier: null,
+    durationValue: '',
+    durationUnit: 'days',
+    orderedBy: defaultOrderedBy,
+    instructions: '',
+    billingCodes: [],
+    external: false,
+    thirdParty: { name: '', address: '', phone: '', fax: '' },
+  });
 
   const methods = useForm<DmeOrderFormValues>({
     defaultValues: order
       ? orderToFormValues(order)
-      : {
-          itemName: '',
-          diagnoses: primaryFirst(chartDiagnoses),
-          quantity: '1',
-          laterality: null,
-          modifier: null,
-          durationValue: '',
-          durationUnit: 'days',
-          orderedBy: defaultOrderedBy,
-          instructions: '',
-          billingCodes: [],
-          external: false,
-          thirdParty: { name: '', address: '', phone: '', fax: '' },
-        },
+      : { ...emptyFormValues(), ...draftFormValues(useDmeOrderStore.getState().getDraft(draftEncounterId)) },
   });
-  const { control, watch, setValue, getValues, getFieldState, handleSubmit, formState } = methods;
+  const { control, watch, setValue, getValues, getFieldState, handleSubmit, formState, reset } = methods;
   const external = watch('external');
+
+  useEffect(() => {
+    if (!draftEncounterId) return;
+    const subscription = watch((values, { type }) => {
+      // Programmatic defaults alone do not start a draft, but they keep an existing one current.
+      if (type === 'change' || useDmeOrderStore.getState().hasDraft(draftEncounterId)) {
+        setDraft(draftEncounterId, structuredClone(values) as CreateDmeOrderDraft);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [draftEncounterId, watch, setDraft]);
 
   // chart data and the user's profile can arrive after the form mounts
   useEffect(() => {
-    if (order || !chartDiagnoses.length || getFieldState('diagnoses').isDirty || getValues('diagnoses').length) return;
+    if (order || restoredDraft) return;
+    if (!chartDiagnoses.length || getFieldState('diagnoses').isDirty || getValues('diagnoses').length) return;
     setValue('diagnoses', primaryFirst(chartDiagnoses));
-  }, [order, chartDiagnoses, getFieldState, getValues, setValue]);
+  }, [order, restoredDraft, chartDiagnoses, getFieldState, getValues, setValue]);
 
   useEffect(() => {
-    if (order || !defaultOrderedBy || getFieldState('orderedBy').isDirty || getValues('orderedBy')) return;
+    if (order || restoredDraft) return;
+    if (!defaultOrderedBy || getFieldState('orderedBy').isDirty || getValues('orderedBy')) return;
     setValue('orderedBy', defaultOrderedBy);
-  }, [order, defaultOrderedBy, getFieldState, getValues, setValue]);
+  }, [order, restoredDraft, defaultOrderedBy, getFieldState, getValues, setValue]);
+
+  const handleClearForm = (): void => {
+    clearDraft(draftEncounterId);
+    setRestoredDraft(false);
+    reset(emptyFormValues());
+  };
+
+  const handleCancel = (): void => {
+    if (draftEncounterId) clearDraft(draftEncounterId);
+    onCancel();
+  };
 
   const externalLocked = order?.status === DmeOrderStatus.dispensed;
 
@@ -185,6 +313,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
       if (value !== undefined) setValue(key, value as PathValue<DmeOrderFormValues, K>, options);
     };
     (Object.keys(patch) as (keyof DmeQuickPickPatch)[]).forEach(apply);
+    if (draftEncounterId) setDraft(draftEncounterId, structuredClone(getValues()));
   };
 
   const onQuickPickSelectRef = useRef(onQuickPickSelect);
@@ -252,7 +381,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
   };
 
   const addAdditionalDxToEncounter = async (orderDx: RadiologyDiagnosis[]): Promise<void> => {
-    const newDx = orderDx.filter((dx) => !chartDiagnoses.some((d) => d.code === dx.code));
+    const newDx = orderDx.filter((dx) => ![...chartDiagnoses, ...encounterDiagnoses].some((d) => d.code === dx.code));
     if (newDx.length === 0) return;
 
     await new Promise<void>((resolve, reject) => {
@@ -261,7 +390,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
         {
           onSuccess: (data) => {
             const returnedDiagnosis = data.chartData.diagnosis || [];
-            setPartialChartData({ diagnosis: [...returnedDiagnosis, ...chartDiagnoses] });
+            setPartialChartData({ diagnosis: [...returnedDiagnosis, ...encounterDiagnoses] });
             resolve();
           },
           onError: (err) => reject(err),
@@ -281,6 +410,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
         onFinished(order.id);
       } else {
         const response = await createOrder({ ...fields, encounterId });
+        if (draftEncounterId) clearDraft(draftEncounterId);
         onFinished(response.deviceRequestId);
       }
     } catch (error) {
@@ -291,204 +421,340 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
     }
   };
 
+  // Third-party contacts only count when the order is fulfilled externally, as when their fields were hidden.
+  const validateThirdPartyPhone = (value: string): true | string => !getValues('external') || validatePhone(value);
+  // Text blanks sit straight in their sentence, so its punctuation stays on their line.
+  const { field: quantityField } = useController({
+    name: 'quantity',
+    control,
+    rules: {
+      validate: (value) =>
+        (/^\d+$/.test(String(value)) && Number(value) > 0) || 'Quantity dispensed must be a positive whole number',
+    },
+  });
+  const { field: itemNameField } = useController({
+    name: 'itemName',
+    control,
+    rules: { validate: (value) => !!value.trim() || 'DME is required' },
+  });
+  const { field: durationValueField } = useController({
+    name: 'durationValue',
+    control,
+    rules: { validate: (value) => !value || Number(value) > 0 || 'Duration must be a positive number' },
+  });
+  const { field: thirdPartyNameField } = useController({ name: 'thirdParty.name', control });
+  const { field: thirdPartyAddressField } = useController({ name: 'thirdParty.address', control });
+  const { field: thirdPartyPhoneField } = useController({
+    name: 'thirdParty.phone',
+    control,
+    rules: { validate: validateThirdPartyPhone },
+  });
+  const { field: thirdPartyFaxField } = useController({
+    name: 'thirdParty.fax',
+    control,
+    rules: { validate: validateThirdPartyPhone },
+  });
   const ids = dataTestIds.dmeOrders.form;
+  const { errors } = formState;
+  const errorIdPrefix = useId();
+  const orderErrorId = `${errorIdPrefix}-order`;
+  const orderedByErrorId = `${errorIdPrefix}-ordered-by`;
+  const thirdPartyErrorId = `${errorIdPrefix}-third-party`;
+  const invalidProps = (invalid: boolean, describedBy: string): { invalid?: boolean; describedBy?: string } =>
+    invalid ? { invalid, describedBy } : {};
+  const errorText = (id: string, ...messages: (string | undefined)[]): React.ReactNode => {
+    const shown = messages.filter(Boolean);
+    return (
+      shown.length > 0 && (
+        <FormHelperText id={id} error sx={{ mt: '-8px' }}>
+          {shown.join(' ')}
+        </FormHelperText>
+      )
+    );
+  };
 
   return (
     <FormProvider {...methods}>
+      {hasDmeDraft && (
+        <UnsavedDraftWarning
+          message={
+            draftNavigatedAway
+              ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+              : 'You have a DME order in progress. Your draft will be saved'
+          }
+        />
+      )}
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <Paper sx={{ p: 3 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
-                Order Details
-              </Typography>
-            </Grid>
+        <Paper>
+          <Stack spacing={1.5} sx={{ p: 3 }}>
             {!isReadOnly && (
-              <Grid item xs={12}>
-                <QuickPicksButton
-                  quickPicks={quickPicks}
-                  loading={quickPicksLoading}
-                  getLabel={(quickPick) => quickPick.name}
-                  onSelect={onQuickPickSelect}
-                  showAddOption
-                  isAdmin={isAdmin}
-                  onAddOrUpdate={() => void openQuickPickDialog()}
-                  searchable
-                />
-              </Grid>
-            )}
-            <Grid item xs={12}>
-              <TextInput
-                name="itemName"
-                label="DME"
-                required
-                inputProps={{ maxLength: DME_ITEM_NAME_MAX_LENGTH }}
-                validate={(value) => !!value?.trim() || 'DME is required'}
-                dataTestId={ids.item}
+              <QuickPicksButton
+                quickPicks={quickPicks}
+                loading={quickPicksLoading}
+                getLabel={(quickPick) => quickPick.name}
+                onSelect={onQuickPickSelect}
+                showAddOption
+                isAdmin={isAdmin}
+                onAddOrUpdate={() => void openQuickPickDialog()}
+                searchable
               />
-            </Grid>
-            <Grid item xs={12} data-testid={ids.diagnoses}>
+            )}
+
+            <SectionLabel>Order</SectionLabel>
+            <Sentence>
+              {'Dispense '}
+              <TextBlank
+                label="Quantity dispensed"
+                placeholder="#"
+                kind="number"
+                min={1}
+                value={quantityField.value}
+                onChange={quantityField.onChange}
+                readOnly={isReadOnly}
+                need
+                dataTestId={ids.quantity}
+                {...invalidProps(!!errors.quantity, orderErrorId)}
+              />{' '}
+              <TextBlank
+                label="DME"
+                value={itemNameField.value}
+                onChange={(value) => itemNameField.onChange(value.slice(0, DME_ITEM_NAME_MAX_LENGTH))}
+                readOnly={isReadOnly}
+                need
+                dataTestId={ids.item}
+                {...invalidProps(!!errors.itemName, orderErrorId)}
+              />
+              {', '}
+              <Controller
+                name="laterality"
+                control={control}
+                render={({ field }) => (
+                  <SelectBlank
+                    label="laterality"
+                    title="Laterality"
+                    options={DME_LATERALITY_OPTIONS.map((option) => ({
+                      value: option,
+                      label: DME_LATERALITY_LABELS[option] ?? option,
+                    }))}
+                    value={field.value ?? undefined}
+                    onChange={(value) => field.onChange((value as DmeLaterality | undefined) ?? null)}
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={ids.laterality}
+                  />
+                )}
+              />
+              {', '}
+              <Controller
+                name="modifier"
+                control={control}
+                render={({ field }) => (
+                  <SelectBlank
+                    label="modifier"
+                    title="Modifiers"
+                    options={DME_MODIFIER_OPTIONS.map((option) => ({
+                      value: option,
+                      label: DME_MODIFIER_LABELS[option] ?? option,
+                    }))}
+                    value={field.value ?? undefined}
+                    onChange={(value) => field.onChange((value as DmeModifier | undefined) ?? null)}
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={ids.modifier}
+                  />
+                )}
+              />
+              {', for '}
+              <TextBlank
+                label="Duration of use"
+                placeholder="#"
+                kind="number"
+                min={0}
+                value={durationValueField.value}
+                onChange={durationValueField.onChange}
+                readOnly={isReadOnly}
+                dataTestId={ids.durationValue}
+                {...invalidProps(!!errors.durationValue, orderErrorId)}
+              />{' '}
+              <Controller
+                name="durationUnit"
+                control={control}
+                render={({ field }) => (
+                  <SelectBlank
+                    label="days/weeks"
+                    title="Days/Weeks"
+                    options={DME_DURATION_UNITS}
+                    value={field.value ?? undefined}
+                    onChange={(value) => field.onChange((value as DmeDurationUnit | undefined) ?? null)}
+                    readOnly={isReadOnly}
+                    dataTestId={ids.durationUnit}
+                  />
+                )}
+              />
+              {' of use.'}
+            </Sentence>
+            {errorText(orderErrorId, errors.quantity?.message, errors.itemName?.message, errors.durationValue?.message)}
+            <Box data-testid={ids.diagnoses}>
               <Controller
                 name="diagnoses"
                 control={control}
                 render={({ field }) => (
-                  <RadiologyDiagnosisField
-                    label="Associated Dx"
-                    value={field.value}
-                    onChange={field.onChange}
-                    quickPickOptions={chartDiagnoses.map(toCodeDisplay)}
+                  <ProcedureDiagnosesSentence
+                    diagnoses={field.value as DiagnosisDTO[]}
+                    visitDiagnoses={chartDiagnoses}
+                    readOnly={isReadOnly}
+                    need={false}
+                    onChange={(diagnoses) => field.onChange(diagnoses.map(toCodeDisplay))}
                   />
                 )}
               />
-            </Grid>
-            <Grid item xs={6}>
-              <TextInput
-                name="quantity"
-                label="Quantity Dispensed"
-                type="number"
-                required
-                inputProps={{ min: 1, step: 1 }}
-                validate={(value) =>
-                  (/^\d+$/.test(String(value)) && Number(value) > 0) ||
-                  'Quantity dispensed must be a positive whole number'
-                }
-                dataTestId={ids.quantity}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <SelectInput<DmeLaterality>
-                name="laterality"
-                label="Laterality"
-                options={[...DME_LATERALITY_OPTIONS]}
-                getOptionLabel={(option) => DME_LATERALITY_LABELS[option] ?? option}
-                dataTestId={ids.laterality}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <SelectInput<DmeModifier>
-                name="modifier"
-                label="Modifiers"
-                options={[...DME_MODIFIER_OPTIONS]}
-                getOptionLabel={(option) => DME_MODIFIER_LABELS[option] ?? option}
-                dataTestId={ids.modifier}
-              />
-            </Grid>
-            <Grid item xs={3}>
-              <TextInput
-                name="durationValue"
-                label="Duration of use"
-                type="number"
-                inputProps={{ min: 0 }}
-                validate={(value) => !value || Number(value) > 0 || 'Duration must be a positive number'}
-                dataTestId={ids.durationValue}
-              />
-            </Grid>
-            <Grid item xs={3}>
-              <SelectInput<DmeDurationUnit>
-                name="durationUnit"
-                label="Days/Weeks"
-                options={[...DME_DURATION_UNITS]}
-                getOptionLabel={(option) => DURATION_UNIT_LABELS[option] ?? option}
-                validate={(value) => !getValues('durationValue') || !!value || 'Select a unit'}
-                dataTestId={ids.durationUnit}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <EmployeeSelectInput
-                name="orderedBy"
-                label="Ordered by"
-                required
-                filter={PROVIDERS_FILTER}
-                dataTestId={ids.orderedBy}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextInput name="instructions" label="Instructions" multiline dataTestId={ids.instructions} />
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Sentence>
+              {'Ordered by '}
               <Controller
-                name="billingCodes"
+                name="orderedBy"
                 control={control}
+                rules={{ validate: (value) => !!value?.id || 'This field is required' }}
                 render={({ field }) => (
-                  <DmeBillingCodesField value={field.value} onChange={field.onChange} dataTestId={ids.billingCodes} />
+                  <OrderedByBlank
+                    value={field.value}
+                    onChange={field.onChange}
+                    readOnly={isReadOnly}
+                    dataTestId={ids.orderedBy}
+                    {...invalidProps(!!errors.orderedBy, orderedByErrorId)}
+                  />
                 )}
               />
-            </Grid>
-            <Grid item xs={12}>
+              .
+            </Sentence>
+            {errorText(orderedByErrorId, errors.orderedBy?.message)}
+
+            <SectionLabel>Billing</SectionLabel>
+            <Controller
+              name="billingCodes"
+              control={control}
+              render={({ field }) => (
+                <DmeBillingCodesSentence
+                  value={field.value}
+                  onChange={field.onChange}
+                  readOnly={isReadOnly}
+                  dataTestId={ids.billingCodes}
+                />
+              )}
+            />
+
+            <SectionLabel>Fulfillment</SectionLabel>
+            <Sentence>
+              {external ? 'Fulfilled by ' : 'Fulfilled '}
               <Controller
                 name="external"
                 control={control}
                 render={({ field }) => (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={field.value}
-                        disabled={order?.status === DmeOrderStatus.dispensed}
-                        onChange={(_e, checked) => field.onChange(checked)}
-                        inputProps={
-                          { 'data-testid': ids.externalSwitch } as React.InputHTMLAttributes<HTMLInputElement>
-                        }
-                      />
-                    }
-                    label={<Typography variant="body2">Fulfilled by External Site / Third Party</Typography>}
+                  <SelectBlank
+                    label="fulfilled by"
+                    title="Fulfilled by"
+                    options={FULFILLMENT_OPTIONS}
+                    value={field.value ? FULFILLMENT_OPTIONS[1].value : FULFILLMENT_OPTIONS[0].value}
+                    onChange={(value) => field.onChange(value === FULFILLMENT_OPTIONS[1].value)}
+                    readOnly={isReadOnly || externalLocked}
+                    dataTestId={ids.externalSwitch}
                   />
                 )}
               />
-            </Grid>
+              .
+            </Sentence>
             {external && (
-              <>
-                <Grid item xs={12}>
-                  <Typography variant="h6" sx={{ color: theme.palette.primary.dark }}>
-                    Third Party Information
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextInput name="thirdParty.name" label="Clinic name" dataTestId={ids.thirdPartyName} />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextInput name="thirdParty.address" label="Address" dataTestId={ids.thirdPartyAddress} />
-                </Grid>
-                <Grid item xs={6}>
-                  <PhoneInput name="thirdParty.phone" label="Phone" dataTestId={ids.thirdPartyPhone} />
-                </Grid>
-                <Grid item xs={6}>
-                  <PhoneInput name="thirdParty.fax" label="Fax" dataTestId={ids.thirdPartyFax} />
-                </Grid>
-              </>
+              <Sentence>
+                {'Third party: '}
+                <TextBlank
+                  label="clinic name"
+                  value={thirdPartyNameField.value}
+                  onChange={thirdPartyNameField.onChange}
+                  readOnly={isReadOnly}
+                  dataTestId={ids.thirdPartyName}
+                />
+                {', '}
+                <TextBlank
+                  label="address"
+                  value={thirdPartyAddressField.value}
+                  onChange={thirdPartyAddressField.onChange}
+                  readOnly={isReadOnly}
+                  dataTestId={ids.thirdPartyAddress}
+                />
+                {', phone '}
+                <TextBlank
+                  label="phone"
+                  value={thirdPartyPhoneField.value}
+                  onChange={thirdPartyPhoneField.onChange}
+                  readOnly={isReadOnly}
+                  dataTestId={ids.thirdPartyPhone}
+                  {...invalidProps(!!errors.thirdParty?.phone, thirdPartyErrorId)}
+                />
+                {', fax '}
+                <TextBlank
+                  label="fax"
+                  value={thirdPartyFaxField.value}
+                  onChange={thirdPartyFaxField.onChange}
+                  readOnly={isReadOnly}
+                  dataTestId={ids.thirdPartyFax}
+                  {...invalidProps(!!errors.thirdParty?.fax, thirdPartyErrorId)}
+                />
+                .
+              </Sentence>
             )}
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 1 }}>
-                <Button
-                  variant="outlined"
-                  onClick={onCancel}
-                  sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                  data-testid={ids.cancelButton}
-                >
+            {external &&
+              errorText(thirdPartyErrorId, errors.thirdParty?.phone?.message, errors.thirdParty?.fax?.message)}
+
+            <SectionLabel>Instructions</SectionLabel>
+            <Controller
+              name="instructions"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  placeholder="Instructions (optional)"
+                  inputProps={{ 'aria-label': 'Instructions' }}
+                  multiline
+                  rows={3}
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={isReadOnly}
+                  data-testid={ids.instructions}
+                />
+              )}
+            />
+
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Stack direction="row" spacing={2}>
+                <RoundedButton color="primary" onClick={handleCancel} data-testid={ids.cancelButton}>
                   Cancel
-                </Button>
-                <LoadingButton
-                  type="submit"
-                  variant="contained"
-                  loading={formState.isSubmitting}
-                  disabled={isReadOnly || !encounterId}
-                  sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                  data-testid={ids.submitButton}
-                >
-                  {order ? 'Save' : 'Order'}
-                </LoadingButton>
-              </Box>
-            </Grid>
+                </RoundedButton>
+                {hasDmeDraft && (
+                  <RoundedButton color="primary" onClick={handleClearForm} data-testid={ids.clearFormButton}>
+                    Clear Form
+                  </RoundedButton>
+                )}
+              </Stack>
+              <RoundedButton
+                type="submit"
+                color="primary"
+                variant="contained"
+                loading={formState.isSubmitting}
+                disabled={isReadOnly || !encounterId}
+                data-testid={ids.submitButton}
+              >
+                {order ? 'Save' : 'Order'}
+              </RoundedButton>
+            </Box>
             {submitError && (
-              <Grid item xs={12} sx={{ textAlign: 'right' }}>
-                <Typography color="error" data-testid={ids.error}>
-                  {submitError}
-                </Typography>
-              </Grid>
+              <Typography color="error" sx={{ textAlign: 'right' }} data-testid={ids.error}>
+                {submitError}
+              </Typography>
             )}
-          </Grid>
+          </Stack>
         </Paper>
       </form>
-      <DmeQuickPickDialogs
+      <QuickPickSaveDialogs
         open={quickPickDialogOpen}
         name={quickPickName}
         onNameChange={setQuickPickName}
@@ -496,6 +762,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
         saving={quickPickSaving}
         onClose={() => setQuickPickDialogOpen(false)}
         onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="DME order"
       />
     </FormProvider>
   );

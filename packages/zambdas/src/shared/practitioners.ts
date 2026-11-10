@@ -1,8 +1,9 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Practitioner, Reference } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 
 /**
@@ -16,7 +17,7 @@ import { Secrets } from 'utils/lib/secrets';
  * from invoking zambdas that depend on this helper.
  */
 export async function getMyPractitionerId(token: string, secrets: Secrets | null): Promise<string> {
-  const myPractitionerId = removePrefix('Practitioner/', (await userMe(token, secrets)).profile);
+  const myPractitionerId = getIdFromReference((await userMe(token, secrets)).profile, 'Practitioner');
   if (!myPractitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
   return myPractitionerId;
 }
@@ -37,7 +38,7 @@ export async function resolveCallerPractitionerRef(
   oystehr: Oystehr
 ): Promise<Reference> {
   const user = await userMe(token, secrets);
-  const practitionerId = removePrefix('Practitioner/', user.profile);
+  const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
 
   const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
@@ -50,14 +51,44 @@ export async function resolveCallerPractitionerRef(
  * Display is first + last name only — no credentials.
  */
 export async function practitionerRefForUser(user: User, oystehr: Oystehr): Promise<Reference> {
-  const practitionerId = removePrefix('Practitioner/', user.profile ?? '');
+  const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) return { reference: user.profile, display: user.name };
   try {
     const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
-    const name = [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
-    return { reference: user.profile, display: name || user.name };
+    return { reference: user.profile, display: practitionerFirstLastName(practitioner) || user.name };
   } catch (error) {
     console.error('Failed to resolve practitioner name for user', user.id, error);
     return { reference: user.profile, display: user.name };
   }
+}
+
+// A Practitioner's first + last name, no credentials; empty when the record names neither.
+export function practitionerFirstLastName(practitioner: Practitioner): string {
+  return [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' ');
+}
+
+const PRACTITIONER_NAMES_BATCH_SIZE = 100;
+
+// First + last names by Practitioner id, batched into id searches; ids without a named record are left out.
+export async function fetchPractitionerFirstLastNames(
+  oystehr: Oystehr,
+  practitionerIds: string[]
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  for (const batch of chunkThings([...new Set(practitionerIds)], PRACTITIONER_NAMES_BATCH_SIZE)) {
+    const practitioners = (
+      await oystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [
+          { name: '_id', value: batch.join(',') },
+          { name: '_count', value: String(batch.length) },
+        ],
+      })
+    ).unbundle();
+    for (const practitioner of practitioners) {
+      const name = practitionerFirstLastName(practitioner);
+      if (practitioner.id && name) names.set(practitioner.id, name);
+    }
+  }
+  return names;
 }

@@ -1,10 +1,16 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
-import { BillingRule, RuleConditional } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  AddServiceLineInput,
+  BillingRule,
+  effectiveDiagnosisMode,
+  RuleConditional,
+  RuleConditionalSchema,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
@@ -113,15 +119,17 @@ describe('Rules list', () => {
 // submit button drives handleSubmit, mirroring RuleDetail's save.
 function ConditionalForm({
   conditional,
+  engine,
   onValid,
 }: {
   conditional: RuleConditional;
+  engine: RulesEngineType;
   onValid?: (data?: { conditional: RuleConditional }) => void;
 }): ReactElement {
   const methods = useForm<{ conditional: RuleConditional }>({ defaultValues: { conditional } });
   return (
     <FormProvider {...methods}>
-      <ConditionalEditor name="conditional" />
+      <ConditionalEditor name="conditional" engine={engine} />
       <button onClick={() => void methods.handleSubmit((data) => onValid?.(data))()}>Save</button>
     </FormProvider>
   );
@@ -129,13 +137,13 @@ function ConditionalForm({
 
 describe('ConditionalEditor', () => {
   it('renders IF / THEN for a single-branch conditional', () => {
-    render(<ConditionalForm conditional={ruleA.conditional} />);
+    render(<ConditionalForm conditional={ruleA.conditional} engine="claim-submission" />);
     expect(screen.getByText('IF')).toBeInTheDocument();
     expect(screen.getByText('THEN')).toBeInTheDocument();
   });
 
   it('uses the searchable payer picker (not a text field) for payerId in both the condition and the action', () => {
-    render(<ConditionalForm conditional={ruleA.conditional} />);
+    render(<ConditionalForm conditional={ruleA.conditional} engine="claim-submission" />);
     // ruleA has a payerId condition and a setField-payerId action — both should be payer pickers.
     expect(screen.getAllByPlaceholderText(/Search payers/)).toHaveLength(2);
   });
@@ -151,7 +159,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
     expect(screen.getAllByPlaceholderText(/Search non-insurance organizations/)).toHaveLength(2);
   });
 
@@ -170,7 +178,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     await waitFor(() =>
       expect(screen.getByPlaceholderText(/Search non-insurance organizations/)).toHaveValue('Acme Trucking')
@@ -202,7 +210,7 @@ describe('ConditionalEditor', () => {
       ],
     };
     const onValid = vi.fn();
-    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+    render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
 
     const input = screen.getByPlaceholderText(/Search non-insurance organizations/);
     fireEvent.mouseDown(input);
@@ -234,7 +242,7 @@ describe('ConditionalEditor', () => {
         ],
       };
       const onValid = vi.fn();
-      render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+      render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
 
       fireEvent.mouseDown(screen.getByPlaceholderText('Pick a service…'));
       expect(await screen.findByRole('option', { name: 'Urgent Care' })).toBeInTheDocument();
@@ -262,7 +270,7 @@ describe('ConditionalEditor', () => {
       };
       const onValid = vi.fn();
       const user = userEvent.setup();
-      render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+      render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
       const input = screen.getByPlaceholderText('Pick a service…');
 
       await user.type(input, 'Sports');
@@ -289,7 +297,7 @@ describe('ConditionalEditor', () => {
           },
         ],
       };
-      render(<ConditionalForm conditional={conditional} />);
+      render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
       const [conditionInput, actionInput] = screen.getAllByPlaceholderText('Pick a service…');
 
       await waitFor(() => expect(conditionInput).toHaveValue('Workers Comp'));
@@ -310,7 +318,7 @@ describe('ConditionalEditor', () => {
       };
       const onValid = vi.fn();
       const user = userEvent.setup();
-      render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+      render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
       const input = screen.getByPlaceholderText('Pick services…');
 
       await user.click(input);
@@ -329,7 +337,7 @@ describe('ConditionalEditor', () => {
           { condition: { type: 'field', field: 'service', operator: 'eq', value: '' }, outcome: { type: 'noop' } },
         ],
       };
-      render(<ConditionalForm conditional={conditional} />);
+      render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
       fireEvent.mouseDown(screen.getByText('equals'));
       const offered = (await screen.findAllByRole('option')).map((option) => option.textContent);
@@ -355,7 +363,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
     expect(screen.getAllByText('Lines to match').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Line property').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Set line property').length).toBeGreaterThan(0);
@@ -376,7 +384,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
     // The action picker shows the action, the reusable line-match editor renders, and the helper
     // text explains how the charge master is chosen.
     expect(screen.getByText('Apply charge master prices')).toBeInTheDocument();
@@ -397,7 +405,7 @@ describe('ConditionalEditor', () => {
       ],
     };
     const onValid = vi.fn();
-    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+    render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
 
     expect(screen.getByLabelText(/CPT code/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Service date/)).toBeInTheDocument();
@@ -409,6 +417,69 @@ describe('ConditionalEditor', () => {
     expect(onValid).not.toHaveBeenCalled();
   });
 
+  describe('add-service-line Diagnoses picker', () => {
+    const addLineConditional = (line: AddServiceLineInput): RuleConditional => ({
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'addServiceLine', line }] },
+        },
+      ],
+    });
+    const clearDiagnoses = (): void => {
+      const picker = screen.getByLabelText('Diagnoses (optional)').closest('.MuiAutocomplete-root') as HTMLElement;
+      fireEvent.click(within(picker).getByTitle('Clear'));
+    };
+
+    it('saves a cleared picker as blank, which the save schema accepts', async () => {
+      const onValid = vi.fn();
+      render(
+        <ConditionalForm
+          conditional={addLineConditional({ cptCode: '00210', charges: '1', diagnosisMode: 'primary' })}
+          onValid={onValid}
+          engine="claim-submission"
+        />
+      );
+      expect(screen.getByLabelText('Diagnoses (optional)')).toHaveValue("Claim's primary diagnosis");
+
+      clearDiagnoses();
+      expect(screen.getByLabelText('Diagnoses (optional)')).toHaveValue('');
+
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() => expect(onValid).toHaveBeenCalled());
+      const saved: RuleConditional = onValid.mock.calls[0][0].conditional;
+      expect(saved).toEqual(addLineConditional({ cptCode: '00210', charges: '1', diagnosisMode: '' }));
+      // RuleDetail sends the conditional as-is, and save-billing-rules parses it with this schema.
+      expect(RuleConditionalSchema.safeParse(saved).success).toBe(true);
+    });
+
+    it('drops diagnosis pointers once the picker leaves "Specific diagnoses", so blank means the primary diagnosis', async () => {
+      const onValid = vi.fn();
+      render(
+        <ConditionalForm
+          conditional={addLineConditional({
+            cptCode: '00210',
+            charges: '1',
+            diagnosisMode: 'specific',
+            diagnosisPointers: '2',
+          })}
+          onValid={onValid}
+          engine="claim-submission"
+        />
+      );
+      expect(screen.getByLabelText(/Diagnosis pointers/)).toHaveValue('2');
+
+      clearDiagnoses();
+      expect(screen.queryByLabelText(/Diagnosis pointers/)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() => expect(onValid).toHaveBeenCalled());
+      const line: AddServiceLineInput = onValid.mock.calls[0][0].conditional.branches[0].outcome.actions[0].line;
+      expect(line).toMatchObject({ diagnosisMode: '', diagnosisPointers: '' });
+      expect(effectiveDiagnosisMode(line)).toBe('primary');
+    });
+  });
+
   it('blocks submit, highlights, and focuses an empty tag name instead of round-tripping to the server', async () => {
     const conditional: RuleConditional = {
       branches: [
@@ -416,7 +487,7 @@ describe('ConditionalEditor', () => {
       ],
     };
     const onValid = vi.fn();
-    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+    render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
 
     fireEvent.click(screen.getByText('Save'));
 
@@ -434,7 +505,7 @@ describe('ConditionalEditor', () => {
         { condition: { type: 'all' }, outcome: { type: 'actions', actions: [{ type: 'applyTag', tag: '' }] } },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     // Opening the picker triggers the one-time tag fetch.
     fireEvent.mouseDown(screen.getByLabelText(/Tag name/));
@@ -454,7 +525,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     // The stored code renders with its full-name label, and the menu offers the other states.
     const display = screen.getByText('CA - California');
@@ -473,7 +544,7 @@ describe('ConditionalEditor', () => {
       ],
     };
     const onValid = vi.fn();
-    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+    render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
 
     fireEvent.click(screen.getByText('Save'));
 
@@ -513,7 +584,7 @@ describe('ConditionalEditor', () => {
       ],
     };
     const onValid = vi.fn();
-    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+    render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
 
     const input = screen.getByPlaceholderText('Search providers…');
     fireEvent.mouseDown(input);
@@ -536,7 +607,7 @@ describe('ConditionalEditor', () => {
       ],
     };
     const onValid = vi.fn();
-    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+    render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
 
     fireEvent.click(screen.getByText('Save'));
 
@@ -560,7 +631,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     expect(screen.getByLabelText('Value *')).toBeInTheDocument();
     expect(screen.getByLabelText('Tag name *')).toBeInTheDocument();
@@ -592,7 +663,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     expect(screen.getByLabelText('Value *')).toBeInTheDocument();
     expect(screen.getByLabelText('Modifiers (comma-separated)')).toBeInTheDocument();
@@ -611,7 +682,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     expect(screen.getByLabelText('Values (comma-separated) *')).toHaveValue('A1, B2');
 
@@ -641,7 +712,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     // The POS field normally renders a select of CMS codes; in regex mode it's a plain pattern box.
     const pattern = screen.getByLabelText('Pattern *');
@@ -660,7 +731,7 @@ describe('ConditionalEditor', () => {
       ],
     };
     const onValid = vi.fn();
-    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+    render(<ConditionalForm conditional={conditional} onValid={onValid} engine="claim-submission" />);
 
     fireEvent.click(screen.getByText('Save'));
 
@@ -682,7 +753,7 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(screen.getByLabelText('Value *')).toHaveAttribute('aria-invalid', 'true'));
@@ -707,9 +778,51 @@ describe('ConditionalEditor', () => {
         },
       ],
     };
-    render(<ConditionalForm conditional={conditional} />);
+    render(<ConditionalForm conditional={conditional} engine="claim-submission" />);
 
     expect(screen.getByText('Secondary insurance - Member ID')).toBeInTheDocument();
     expect(screen.getByText('Tax ID (TIN)')).toBeInTheDocument();
+  });
+
+  it('does not show submit claim action for claim submission', async () => {
+    render(
+      <ConditionalForm
+        conditional={{
+          branches: [
+            {
+              condition: { type: 'all' },
+              outcome: { type: 'actions', actions: [{ type: 'setField', field: 'claimId', value: '' }] },
+            },
+          ],
+        }}
+        engine="claim-submission"
+      />
+    );
+    const combobox = screen
+      .getAllByText('Set a property')
+      .find((element) => element.getAttribute('role') === 'combobox');
+    fireEvent.mouseDown(combobox!);
+    await expect(async () => screen.findByRole('option', { name: 'Submit claim' })).rejects.toThrow();
+  });
+
+  it('shows submit claim action for post-adjudication', async () => {
+    render(
+      <ConditionalForm
+        conditional={{
+          branches: [
+            {
+              condition: { type: 'all' },
+              outcome: { type: 'actions', actions: [{ type: 'setField', field: 'claimId', value: '' }] },
+            },
+          ],
+        }}
+        engine="post-adjudication"
+      />
+    );
+    const postAdjCombobox = screen
+      .getAllByText('Set a property')
+      .find((element) => element.getAttribute('role') === 'combobox');
+    fireEvent.mouseDown(postAdjCombobox!);
+    await expect(screen.findByRole('option', { name: 'Submit claim' })).resolves.toBeDefined();
   });
 });

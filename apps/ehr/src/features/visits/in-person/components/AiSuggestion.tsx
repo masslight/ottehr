@@ -22,6 +22,7 @@ import { SURGICAL_HISTORY_OPTIONS } from 'src/features/visits/shared/components/
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   AllergyDTO,
@@ -493,7 +494,7 @@ export default function AiSuggestion({
     observation: ObservationTextFieldDTO,
     documentReferences: DocumentReference[]
   ): DocumentReference | undefined {
-    return documentReferences.find((document) => document.id === observation.derivedFrom?.split('/')[1]);
+    return documentReferences.find((document) => document.id === getIdFromReference(observation.derivedFrom));
   }
 
   function SuggestionsItem(): React.ReactElement {

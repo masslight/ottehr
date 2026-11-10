@@ -14,6 +14,7 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getPatientContactEmail, getPatientFirstName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { formatPhoneNumberDisplay, getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -217,7 +218,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     patchOperations: encounterPatchOperations,
   });
 
-  const slotId = appointment.slot?.[0]?.reference?.split('/')[1];
+  const slotId = getIdFromReference(appointment.slot?.[0]?.reference);
   const deleteSlotRequests: BatchInputDeleteRequest[] = [];
 
   if (slotId) {

@@ -118,6 +118,7 @@ import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
+import { ClaimInvoicesSection } from '../components/ClaimInvoicesSection';
 import {
   ClaimSubmissionFields,
   ClaimSubmissionForm,
@@ -166,6 +167,10 @@ type UpdateFn = (
 
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
   const arStage = claim.statuses.arStage;
+  const insuranceARStatus = claim.statuses.insuranceArStatus;
+  // For the purposes of the ClaimDetail page, only adjudicated Insurance AR claims run the post-adjudication rules engine.
+  if (arStage === AR_STAGE.insurancePayer && insuranceARStatus === 'adjudicated')
+    return RULES_ENGINES['post-adjudication'];
   if (arStage === AR_STAGE.insurancePayer) return RULES_ENGINES['claim-submission'];
   if (arStage === AR_STAGE.nonInsurancePayer) return RULES_ENGINES['non-insurance-payer-pre-invoice'];
   if (arStage === AR_STAGE.patient) return RULES_ENGINES['patient-ar-pre-invoice'];
@@ -349,6 +354,8 @@ export default function ClaimDetail(): ReactElement {
           : {
               claimIds: [id],
               skipRules,
+              submissionType: 'new',
+              submissionInsurance: 'primary',
             }
       );
       const messageSegment = skipRules
@@ -574,7 +581,7 @@ export default function ClaimDetail(): ReactElement {
           claim={claim}
         />
       )}
-      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
+      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claim={claim} />
 
       <ClaimNotesDrawer
         key={claim.id}
@@ -743,6 +750,7 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+            <ClaimInvoicesSection claim={claim} refetchClaim={fetchDetail} />
             <PatientPaymentsSection payments={claim.patientPayments} />
             <WriteOffsSection
               claimId={claim.id}
@@ -791,15 +799,17 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
-            <FormControlLabel
-              control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
-              label="Skip rules"
-              slotProps={{
-                typography: {
-                  variant: 'body2',
-                },
-              }}
-            />
+            {rulesEngine !== 'post-adjudication' && (
+              <FormControlLabel
+                control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
+                label="Skip rules"
+                slotProps={{
+                  typography: {
+                    variant: 'body2',
+                  },
+                }}
+              />
+            )}
           </Box>
         </ConfirmDialog>
       )}
@@ -817,6 +827,9 @@ function getSubmitClaimLabel(
     case rulesEngine === 'non-insurance-payer-pre-invoice':
     case rulesEngine === 'patient-ar-pre-invoice':
       action = 'Prepare for invoice';
+      break;
+    case rulesEngine === 'post-adjudication':
+      action = 'Run rules';
       break;
     case submissionType === 'new':
       action = 'Submit claim';
@@ -1029,6 +1042,7 @@ export function InsuranceSection({
           />
           <Row label="Payer ID" value={coverage.payorId} />
           <Row label="Member ID" value={coverage.memberId ?? ''} />
+          <Row label="Group Number" value={coverage.groupNumber} />
           <Row label="Relationship to insured" value={coverage.relationship ?? ''} />
           {coverage.policyHolder && (
             <Row

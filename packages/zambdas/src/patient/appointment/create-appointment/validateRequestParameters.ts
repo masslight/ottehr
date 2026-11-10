@@ -9,6 +9,7 @@ import {
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { isLocationVirtual, locationSupportsServiceMode } from 'utils/lib/fhir/location';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
@@ -545,7 +546,7 @@ export const createAppointmentComplexValidation = async (
 
   if (scheduleOwner.resourceType === 'PractitionerRole') {
     const role = scheduleOwner as PractitionerRole;
-    const practitionerId = role.practitioner?.reference?.split('/')[1];
+    const practitionerId = getIdFromReference(role.practitioner?.reference);
     if (practitionerId) {
       const resolved = await oystehrClient.fhir
         .search<Practitioner>({

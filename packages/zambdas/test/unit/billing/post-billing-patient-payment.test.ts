@@ -18,8 +18,8 @@ vi.mock('../../../src/shared/auth', () => ({
   getUserToken: vi.fn().mockReturnValue('user-token'),
   getUser: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/pr-1', name: 'Front Desk' }),
 }));
-vi.mock('../../../src/shared/practitioners', () => ({
-  practitionerRefForUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Front Desk' }),
+vi.mock('../../../src/billing/clinical-practitioners', () => ({
+  practitionerRefForBillingUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Front Desk' }),
 }));
 vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -28,7 +28,6 @@ vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createBillingClient: vi.fn(),
-  fetchById: vi.fn().mockResolvedValue({ resourceType: 'Encounter', id: 'enc' }),
 }));
 vi.mock('../../../src/billing/payments', async (importOriginal) => ({
   ...(await importOriginal<object>()),

@@ -1,5 +1,6 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
@@ -434,7 +435,8 @@ const applyServiceLineRemoval = (
 // (deduped); noop does nothing. Returns an error message when the action could not be applied — the
 // engine holds the claim rather than submit it with a silently skipped change.
 export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): string | undefined => {
-  switch (action.type) {
+  const comparator = action.type;
+  switch (comparator) {
     case RULE_ACTION_TYPE.noop:
       return undefined;
     case RULE_ACTION_TYPE.setField:
@@ -456,6 +458,11 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): s
       claim.meta.tag = [...(claim.meta.tag ?? []), { system: CLAIM_TAG_SYSTEM, code: action.tag }];
       return undefined;
     }
+    case RULE_ACTION_TYPE.submitClaim:
+      return undefined;
+    default:
+      // exhaustive switch check
+      throw comparator satisfies never;
   }
 };
 
@@ -463,6 +470,13 @@ export interface RuleExecutionResult {
   // Actions that were applied (in order). Stops at the Hold action when held, or at a failed action.
   appliedActions: RuleAction[];
   held: boolean;
+  // Set when claim should be submitted at end of rule execution
+  submit?: boolean;
+  submissionParams?: {
+    submissionType: RulesEngineSubmissionType | null;
+    submissionInsurance: RulesEngineInsurance | null;
+    payerClaimControlNumber: string | null;
+  };
   // Set when an action could not be applied; the run stops at that action.
   error?: string;
 }
@@ -478,7 +492,29 @@ export const executeRule = (rule: BillingRule, model: RulesEngineClaimModel): Ru
     const error = applyAction(action, model);
     if (error) return { appliedActions, held: false, error };
     appliedActions.push(action);
-    if (isHoldAction(action)) return { appliedActions, held: true };
+    if (action.type === RULE_ACTION_TYPE.submitClaim) {
+      return {
+        appliedActions,
+        held: true,
+        submit: true,
+        submissionParams: {
+          submissionType: action.submissionType,
+          submissionInsurance: action.submissionInsurance,
+          payerClaimControlNumber:
+            asScalar(
+              readField(
+                model,
+                action.submissionInsurance === 'primary'
+                  ? 'insurance.pccn'
+                  : `${action.submissionInsurance}Insurance.pccn`
+              )
+            ) ?? null,
+        },
+      };
+    }
+    if (isHoldAction(action)) {
+      return { appliedActions, held: true };
+    }
   }
   return { appliedActions, held: false };
 };

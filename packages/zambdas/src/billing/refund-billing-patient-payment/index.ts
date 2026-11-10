@@ -14,6 +14,7 @@ import {
   settledRefundTotalInCents,
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -26,7 +27,6 @@ import { INVALID_INPUT_ERROR, parseStripeError } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { shouldUseCandid, syncCandidPatientRefunds } from '../../shared/candid';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import {
   applyRefundsToPaymentNotice,
@@ -36,6 +36,7 @@ import {
 } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
+import { practitionerRefForBillingUser } from '../clinical-practitioners';
 import {
   createStripeAccountResolver,
   PAYMENT_MANAGEMENT_ROLES,
@@ -66,7 +67,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const stripeClient = getStripeClient(secrets);
 
   const notice = await resolvePaymentNoticeForWrite({
-    clinicalOystehr,
     billingOystehr,
     getStripe: () => stripeClient,
     paymentNoticeId: validatedParameters.paymentNoticeId,
@@ -79,13 +79,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const stripeAccount = stripePaymentIntentIdForNotice(notice)
     ? await createStripeAccountResolver({
         billingOystehr,
-        clinicalOystehr,
-        encounterId: validatedParameters.encounterId,
+        lookUpScheduleAccount: () =>
+          getStripeAccountForAppointmentOrEncounter({ encounterId: validatedParameters.encounterId }, clinicalOystehr),
       })(notice)
     : undefined;
   const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);
 
-  const refundedBy = await practitionerRefForUser(user, clinicalOystehr);
+  const refundedBy = await practitionerRefForBillingUser(user, billingOystehr);
   // changes no refund entry attributes, such as a pending reservation, are credited to the issuer too
   const recordChange = recordPaymentNoticeChange(humanClaimActor(refundedBy));
 

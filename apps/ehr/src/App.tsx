@@ -25,6 +25,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteCreateTask } from './components/CommandPaletteCreateTask';
 import { CommandPalettePhraseDialog } from './components/CommandPalettePhraseDialog';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
+import { CommandPaletteUploadDocument } from './components/CommandPaletteUploadDocument';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
@@ -95,6 +96,7 @@ import Reports from './pages/Reports';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
 import VisitDetailsPage from './pages/VisitDetailsPage';
+import { useOttehrBillingInvoicingInEhr } from './rcm/state/invoice-config/invoice-config.queries';
 import { useNavStore } from './state/nav.store';
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
@@ -117,6 +119,7 @@ export const showEnvironmentBanner = import.meta.env.VITE_APP_ENV !== 'productio
 function App(): ReactElement {
   useApiClients();
   const currentUser = useEvolveUser();
+  const ottehrBillingInvoicingInEhr = useOttehrBillingInvoicingInEhr();
   const currentTab = useNavStore((state) => state.currentTab) || 'Tracking Board';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -229,7 +232,7 @@ function App(): ReactElement {
                     element={<InvoiceablePatientsReportPage source="candid" />}
                   />
                 )}
-                {FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED && (
+                {ottehrBillingInvoicingInEhr && (
                   <Route
                     path="/reports/invoiceable-patients-billing"
                     element={<InvoiceablePatientsReportPage source="ottehr-billing" />}
@@ -354,6 +357,7 @@ function App(): ReactElement {
         <CommandPaletteRegistrations />
         <CommandPalette />
         <CommandPaletteCreateTask />
+        <CommandPaletteUploadDocument />
         <CommandPalettePhraseDialog />
         <SnackbarProvider
           maxSnack={5}

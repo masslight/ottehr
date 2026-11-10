@@ -9,7 +9,7 @@ import {
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { createOutboundDeliveryAttemptIdempotently } from '../shared/outbound-delivery';
 
 const BACKFILL_PAGE_SIZE = 100;
@@ -24,7 +24,7 @@ export interface OutboundFaxBackfillStats {
 }
 
 export function buildLegacyFaxAttempt(communication: Communication, provenance?: Provenance): Task | undefined {
-  const patientId = removePrefix('Patient/', communication.subject?.reference ?? '');
+  const patientId = getIdFromReference(communication.subject?.reference, 'Patient');
   const recipientReference = communication.recipient?.[0]?.reference;
   const faxRecipient = recipientReference?.startsWith('#')
     ? communication.contained?.find((resource) => resource.id === recipientReference.slice(1))
@@ -37,7 +37,7 @@ export function buildLegacyFaxAttempt(communication: Communication, provenance?:
   if (!communication.id || !patientId || !recipientAddress) return undefined;
 
   const appointmentId = provenance?.target
-    .map((target) => removePrefix('Appointment/', target.reference ?? ''))
+    .map((target) => getIdFromReference(target.reference, 'Appointment'))
     .find(Boolean);
   const recipientName = provenanceRecipient?.name?.length
     ? getFullestAvailableName(provenanceRecipient)
@@ -104,7 +104,7 @@ export async function backfillOutboundFaxAttempts(
     const provenanceByCommunication = new Map<string, Provenance>();
     for (const provenance of provenances) {
       const communicationId = provenance.target
-        .map((target) => removePrefix('Communication/', target.reference ?? ''))
+        .map((target) => getIdFromReference(target.reference, 'Communication'))
         .find(Boolean);
       if (communicationId) provenanceByCommunication.set(communicationId, provenance);
     }

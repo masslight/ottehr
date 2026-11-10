@@ -20,7 +20,7 @@
  * contracts change, new zambdas are added to the pipeline, or new clinical
  * features need representation.
  */
-import { OTHER_SPECIALTY_TRANSFER_OPTION, specialtyTransferOptions } from 'utils/lib/fhir/disposition';
+import { DEFAULT_SPECIALTY_TRANSFER_OPTIONS, OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
 import { followUpInOptions } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { z } from 'zod';
 
@@ -635,7 +635,7 @@ const DispositionSchema = z
       ),
     reason: z.enum(REASONS_FOR_TRANSFER).optional().describe('Reason for transfer — only for type "another".'),
     specialty: z
-      .enum(specialtyTransferOptions as [string, ...string[]])
+      .enum(DEFAULT_SPECIALTY_TRANSFER_OPTIONS.concat(OTHER_SPECIALTY_TRANSFER_OPTION) as [string, ...string[]])
       .optional()
       .describe(
         'Specialty the patient is referred to — only for type "specialty". For a specialty not in the list ' +

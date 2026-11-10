@@ -9,12 +9,11 @@ import { VoidPatientPaymentResponse } from 'utils/lib/types/api/patient-payment-
 import { VoidBillingPatientPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, voidPaymentNotice } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
+import { practitionerRefForBillingUser } from '../clinical-practitioners';
 import {
   PAYMENT_MANAGEMENT_ROLES,
   paymentMethodForNotice,
@@ -42,11 +41,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
   const notice = await resolvePaymentNoticeForWrite({
-    clinicalOystehr,
     billingOystehr,
     getStripe: () => getStripeClient(secrets),
     paymentNoticeId,
@@ -65,7 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR('This payment has refunds recorded and can no longer be voided.');
   }
 
-  const voidedBy = await practitionerRefForUser(user, clinicalOystehr);
+  const voidedBy = await practitionerRefForBillingUser(user, billingOystehr);
   await voidPaymentNotice(
     billingOystehr,
     notice,

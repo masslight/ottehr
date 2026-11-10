@@ -11,6 +11,7 @@ import {
   VitalBloodPressureObservationMethod,
   VitalHeartbeatObservationMethod,
   VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
   VitalTemperatureObservationMethod,
 } from '../../api/chart-data/chart-data.constants';
 import { DispositionType, NOTE_TYPE, VitalsVisionOption } from '../../api/chart-data/chart-data.types';
@@ -63,6 +64,7 @@ const TEMPERATURE_METHOD_VALUES = enumValues(Object.values(VitalTemperatureObser
 const HEARTBEAT_METHOD_VALUES = enumValues(Object.values(VitalHeartbeatObservationMethod));
 const BLOOD_PRESSURE_METHOD_VALUES = enumValues(Object.values(VitalBloodPressureObservationMethod));
 const OXYGEN_SAT_METHOD_VALUES = enumValues(Object.values(VitalsOxygenSatObservationMethod));
+const SUPPLEMENTAL_O2_DELIVERY_TYPE_VALUES = enumValues(Object.values(VitalsSupplementalO2DeliveryType));
 
 // Record<…, true> requires every chart vision option as a key.
 const VISION_OPTIONS = { child_too_young: true, with_glasses: true, without_glasses: true } satisfies Record<
@@ -304,6 +306,8 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'followUpReason',
   'procedureTypes',
   'occupationalMedicineEmployer',
+  'workersCompEmployer',
+  'workersCompCarrier',
   'examAbnormalSystems',
 ];
 
@@ -459,7 +463,8 @@ export const ENCOUNTER_LAYERS = {
     label: 'Vital signs',
     description:
       'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
-      'inches, feet/inches), BMI, how each was taken (route / position / room air), weight refused, vision ' +
+      'inches, feet/inches), BMI, how each was taken (route / position / room air or supplemental O₂ with its ' +
+      'flow rate and delivery type), weight refused, vision ' +
       '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when.',
     schema: z.object({
       temperatureF: z
@@ -564,6 +569,17 @@ export const ENCOUNTER_LAYERS = {
         .enum(OXYGEN_SAT_METHOD_VALUES)
         .nullable()
         .describe('Room air or supplemental O₂ for the most recent SpO₂. Null when not recorded / not taken.'),
+      oxygenSaturationFlowRate: z
+        .number()
+        .nullable()
+        .describe('Supplemental O₂ flow rate, L/min, for the most recent SpO₂. Null when not recorded / not on O₂.'),
+      oxygenSaturationDeliveryType: z
+        .enum(SUPPLEMENTAL_O2_DELIVERY_TYPE_VALUES)
+        .nullable()
+        .describe('How supplemental O₂ was delivered for the most recent SpO₂. Null when not recorded / not on O₂.'),
+      oxygenSaturationDeliveryTypeOther: z
+        .string()
+        .describe('The delivery type as charted when oxygenSaturationDeliveryType is Other. "" otherwise.'),
       weightRefused: z
         .boolean()
         .describe('The most recent weight entry is "patient refused" (no value). False when weighed or not entered.'),
@@ -929,8 +945,10 @@ export const ENCOUNTER_LAYERS = {
     }),
   },
   employer: {
-    label: 'Occupational medicine employer',
-    description: 'The occupational-medicine employer of the visit, as printed on the visit details face sheet.',
+    label: 'Employers',
+    description:
+      "The visit's employers as printed on the visit details face sheet: the occupational-medicine employer and " +
+      'the workers\' comp employer / carrier. Use for questions like "workers\' comp visits of employer X".',
     schema: z.object({
       occupationalMedicineEmployer: z
         .string()
@@ -938,6 +956,19 @@ export const ENCOUNTER_LAYERS = {
           'Employer name: for pre-op visits the employer picked for THIS visit; otherwise the occupational-' +
             "medicine employer on the patient's account (it may be set on any visit — filter by serviceCategory " +
             'for occupational-medicine visits). "" when none.'
+        ),
+      workersCompEmployer: z
+        .string()
+        .describe(
+          "Workers' comp employer on the patient's account (entered in paperwork), i.e. the employer of a " +
+            "workers' comp visit. Patient-level: it is the CURRENT value, so an older visit shows the patient's " +
+            "latest employer. Set on any visit of such a patient — filter by serviceCategory for workers' comp " +
+            'visits. "" when none.'
+        ),
+      workersCompCarrier: z
+        .string()
+        .describe(
+          'Workers\' comp insurance carrier on the patient\'s account (patient-level, current value). "" when none.'
         ),
     }),
   },
