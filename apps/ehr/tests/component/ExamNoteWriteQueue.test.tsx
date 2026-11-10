@@ -105,4 +105,20 @@ describe('Note writes queued for different fields on one hook instance', () => {
 
     expect(saveCalls.map((call) => savedObservation(call).field)).toEqual(['finding-a', 'finding-c', 'finding-b']);
   });
+
+  it('keeps writes queued for two fields behind the same in-flight save', async () => {
+    const { result } = renderHook(() => useExamObservations(['finding-a', 'finding-b', 'finding-c']));
+
+    act(() => result.current.update({ field: 'finding-a', value: true, note: 'a' }));
+    act(() => result.current.update({ field: 'finding-b', value: true, note: 'b' }));
+    act(() => result.current.update({ field: 'finding-c', value: true, note: 'c' }));
+    await settle(saveCalls[0], saved('finding-a', 'a', 'obs-a'));
+    act(() => vi.advanceTimersByTime(1000));
+    await settle(saveCalls[1], saved('finding-b', 'b', 'obs-b'));
+    act(() => vi.advanceTimersByTime(1000));
+    await settle(saveCalls[2], saved('finding-c', 'c', 'obs-c'));
+
+    expect(saveCalls.map((call) => savedObservation(call).field)).toEqual(['finding-a', 'finding-b', 'finding-c']);
+    expect(usePendingObservationFieldsStore.getState().counts).toEqual({});
+  });
 });
