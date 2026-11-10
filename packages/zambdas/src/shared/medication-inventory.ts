@@ -127,38 +127,44 @@ export async function getInventoryLotHistoryResources(oystehr: Oystehr, lotId: s
 export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
 
 /**
- * Appends one entry to a lot's ledger and refreshes the lot's on-hand cache in a single transaction.
+ * Appends entries to a lot's ledger and refreshes the lot's on-hand cache in a single transaction.
  *
  * `lot` is either an existing lot (has an id; its current version guards the write with If-Match and the
  * write retries from a fresh read on a 412, at most 3 attempts) or a lot built with `makeInventoryLot` that
  * does not exist yet (created in the same bundle; the entry references it by transaction-local urn).
- * On hand is recomputed from every entry of the lot plus this one, never incremented. `reviseLot` changes
+ * On hand is recomputed from every entry of the lot plus these, never incremented. `reviseLot` changes
  * other lot fields (e.g. `batch.expirationDate`) in the same write; it is applied to whichever version of
  * the lot is written, so a retry from a fresh read keeps the change.
  */
 export async function writeInventoryStockEntry(
   oystehr: Oystehr,
   lot: Medication,
-  entry: StockEntryWrite,
+  entry: StockEntryWrite | StockEntryWrite[],
   reviseLot: (lot: Medication) => Medication = (lot) => lot
 ): Promise<{ lot: Medication; entry: Observation }> {
+  const entries = Array.isArray(entry) ? entry : [entry];
+  const quantity = entries.reduce((total, written) => total + written.quantity, 0);
   if (!lot.id) {
     const lotUrn = `urn:uuid:${randomUUID()}`;
     const createLot: BatchInputPostRequest<Medication> = {
       method: 'POST',
       url: '/Medication',
       fullUrl: lotUrn,
-      resource: withLotOnHand(lot, entry.quantity),
+      resource: withLotOnHand(lot, quantity),
     };
-    const createEntry: BatchInputPostRequest<Observation> = {
-      method: 'POST',
-      url: '/Observation',
-      resource: makeInventoryStockEntry({ ...entry, lotReference: lotUrn }),
-    };
-    const result = await oystehr.fhir.transaction<Medication | Observation>({ requests: [createLot, createEntry] });
+    const createEntries = entries.map(
+      (written): BatchInputPostRequest<Observation> => ({
+        method: 'POST',
+        url: '/Observation',
+        resource: makeInventoryStockEntry({ ...written, lotReference: lotUrn }),
+      })
+    );
+    const result = await oystehr.fhir.transaction<Medication | Observation>({
+      requests: [createLot, ...createEntries],
+    });
     return {
       lot: result.entry?.[0]?.resource as Medication,
-      entry: result.entry?.[1]?.resource as Observation,
+      entry: result.entry?.[entries.length]?.resource as Observation,
     };
   }
 
@@ -170,22 +176,26 @@ export async function writeInventoryStockEntry(
         current = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: lotId });
       }
       const existingEntries = await getInventoryLotEntries(oystehr, lotId);
-      const onHand = sumStockEntries(existingEntries) + entry.quantity;
-      const createEntry: BatchInputPostRequest<Observation> = {
-        method: 'POST',
-        url: '/Observation',
-        resource: makeInventoryStockEntry({ ...entry, lotReference: `Medication/${lotId}` }),
-      };
+      const onHand = sumStockEntries(existingEntries) + quantity;
+      const createEntries = entries.map(
+        (written): BatchInputPostRequest<Observation> => ({
+          method: 'POST',
+          url: '/Observation',
+          resource: makeInventoryStockEntry({ ...written, lotReference: `Medication/${lotId}` }),
+        })
+      );
       const updateLot: BatchInputPutRequest<Medication> = {
         method: 'PUT',
         url: `/Medication/${lotId}`,
         resource: withLotOnHand(reviseLot(current), onHand),
         ifMatch: makeOptimisticLockIfMatchHeader(current),
       };
-      const result = await oystehr.fhir.transaction<Medication | Observation>({ requests: [createEntry, updateLot] });
+      const result = await oystehr.fhir.transaction<Medication | Observation>({
+        requests: [...createEntries, updateLot],
+      });
       return {
-        entry: result.entry?.[0]?.resource as Observation,
-        lot: result.entry?.[1]?.resource as Medication,
+        entry: result.entry?.[entries.length - 1]?.resource as Observation,
+        lot: result.entry?.[entries.length]?.resource as Medication,
       };
     },
     {

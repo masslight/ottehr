@@ -430,6 +430,23 @@ describe('receive-medication-shipment - performEffect', () => {
     expect(parseInventoryStockEntry({ ...requests[0].resource, id: 'x' })?.vendor).toBe(vendor);
   });
 
+  it("keeps the receipt's vendor on the lot when the write is retried after a version conflict", async () => {
+    const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
+    oystehr.fhir.get.mockImplementation(async ({ id }: { id: string }) =>
+      id === 'lot-1' ? { ...existingLot, meta: { versionId: '4' } } : catalog
+    );
+    oystehr.fhir.transaction.mockRejectedValueOnce(Object.assign(new Error('412 Precondition Failed'), { code: 412 }));
+
+    const result = written(
+      await receivePerformEffect(oystehr, { ...receiveBody, quantity: 10, vendor: 'Henry Schein' }, performer)
+    );
+
+    const retry = oystehr.fhir.transaction.mock.calls[1][0].requests;
+    expect(retry[1].ifMatch).toBe('W/"4"');
+    expect(parseInventoryLot(retry[1].resource)?.vendor).toBe('Henry Schein');
+    expect(result.lot.vendor).toBe('Henry Schein');
+  });
+
   describe('same lot number with a different expiration date', () => {
     const newDate = { ...receiveBody, quantity: 10, expirationDate: '2028-01-01' };
 
@@ -456,7 +473,7 @@ describe('receive-medication-shipment - performEffect', () => {
       expect(result).not.toMatchObject({ lot: { id: 'lot-1' } });
     });
 
-    it('correct-existing changes the expiration, records it as a zero entry, then receives into the lot', async () => {
+    it('correct-existing changes the expiration, records it as a zero entry and receives into the lot in one transaction', async () => {
       const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
       oystehr.fhir.get.mockResolvedValue(catalog);
       const result = await receivePerformEffect(
@@ -465,22 +482,23 @@ describe('receive-medication-shipment - performEffect', () => {
         performer
       );
 
-      expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(2);
-      const correction = oystehr.fhir.transaction.mock.calls[0][0].requests;
-      expect(correction.map((r: any) => r.method)).toEqual(['POST', 'PUT']);
-      expect(parseInventoryStockEntry({ ...correction[0].resource, id: 'x' })).toMatchObject({
+      expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
+      const requests = oystehr.fhir.transaction.mock.calls[0][0].requests;
+      expect(requests.map((r: any) => r.method)).toEqual(['POST', 'POST', 'PUT']);
+      expect(parseInventoryStockEntry({ ...requests[0].resource, id: 'x' })).toMatchObject({
         type: 'adjustment',
         reason: 'expiration-corrected',
         quantity: 0,
         note: 'Expiration changed from 03/31/2027 to 01/01/2028',
         performerReference: performer,
       });
-      expect(correction[1].ifMatch).toBe('W/"3"');
-      expect(correction[1].resource.batch).toEqual({ lotNumber: 'A123', expirationDate: '2028-01-01' });
-
-      const receipt = oystehr.fhir.transaction.mock.calls[1][0].requests;
-      expect(receipt.map((r: any) => r.method)).toEqual(['POST', 'PUT']);
-      expect(receipt[0].resource.subject).toEqual({ reference: 'Medication/lot-1' });
+      expect(parseInventoryStockEntry({ ...requests[1].resource, id: 'y' })).toMatchObject({
+        type: 'received',
+        quantity: 10,
+        lotId: 'lot-1',
+      });
+      expect(requests[2].ifMatch).toBe('W/"3"');
+      expect(requests[2].resource.batch).toEqual({ lotNumber: 'A123', expirationDate: '2028-01-01' });
       expect(result).toMatchObject({
         lot: { id: 'lot-1', expirationDate: '2028-01-01', onHand: 35 },
         entry: { type: 'received', quantity: 10 },
