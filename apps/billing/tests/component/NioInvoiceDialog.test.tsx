@@ -143,14 +143,14 @@ describe('NIO invoice dialog', () => {
 
   it('keeps the dialog open on a failed create and retries with the same idempotency key', async () => {
     const user = userEvent.setup();
-    mocks.create.mockRejectedValueOnce(new Error('Claims claim-2 are already on an invoice'));
+    mocks.create.mockRejectedValueOnce(new Error('1 claim is already on an invoice'));
     const { onCreated } = renderDialog();
 
     const createButton = await screen.findByRole('button', { name: 'Create Invoice' });
     await waitFor(() => expect(createButton).toBeEnabled());
     await user.click(createButton);
 
-    expect(await screen.findByText('Claims claim-2 are already on an invoice')).toBeInTheDocument();
+    expect(await screen.findByText('1 claim is already on an invoice')).toBeInTheDocument();
     expect(onCreated).not.toHaveBeenCalled();
 
     await user.click(createButton);

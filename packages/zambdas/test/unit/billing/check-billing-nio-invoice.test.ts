@@ -43,12 +43,13 @@ describe('check-billing-nio-invoice', () => {
     expect(mockAssembleNioInvoice).toHaveBeenCalledWith({
       oystehr,
       claimIds,
+      nameClaims: true,
     });
   });
 
   it.each([
     INVALID_INPUT_ERROR('All claims must have the same service facility'),
-    BILLING_INVOICE_CONFLICT_ERROR('Claims claim-2 are already on an invoice'),
+    BILLING_INVOICE_CONFLICT_ERROR('Pruitt, Jordan (2026-09-14) is already on an invoice'),
     FHIR_RESOURCE_NOT_FOUND_CUSTOM('Claims not found: claim-2'),
     RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR('Non-insurance payer nio-1 has no name'),
   ])('returns the broken rule "$message" as the reason', async (error) => {

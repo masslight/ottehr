@@ -57,6 +57,7 @@ export async function performEffect({
     await assembleNioInvoice({
       oystehr,
       claimIds,
+      nameClaims: true,
     });
     return {
       invoiceable: true,

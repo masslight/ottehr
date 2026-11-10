@@ -194,6 +194,7 @@ const assemble = (oystehr: Oystehr, claimIds: string[]): ReturnType<typeof assem
   assembleNioInvoice({
     oystehr,
     claimIds,
+    nameClaims: true,
     now: NOW,
   });
 
@@ -311,7 +312,7 @@ describe('assembleNioInvoice', () => {
     });
 
     await expect(assemble(oystehr, ['claim-1', 'claim-2'])).rejects.toMatchObject({
-      message: 'Claims claim-2 must be in Non-Insurance Payer AR with a status of Ready to invoice',
+      message: 'Pruitt, Jordan (2026-09-14) must be in Non-Insurance Payer AR with a status of Ready to invoice',
     });
   });
 
@@ -382,6 +383,56 @@ describe('assembleNioInvoice', () => {
         makeClaim({
           id: 'claim-1',
         }),
+        makeClaim({
+          id: 'claim-2',
+          patientId: 'pat-2',
+        }),
+      ],
+      patientPaid: {
+        'claim-1': 180,
+        'claim-2': 180,
+      },
+    });
+
+    await expect(assemble(oystehr, ['claim-1', 'claim-2'])).rejects.toMatchObject({
+      message: 'Pruitt, Jordan (2026-09-14); Collins, Jordan (2026-09-14) have no balance to invoice',
+    });
+  });
+
+  it('counts claims without naming patients unless asked to', async () => {
+    const oystehr = setup({
+      claims: [
+        makeClaim({
+          id: 'claim-1',
+        }),
+        makeClaim({
+          id: 'claim-2',
+          patientId: 'pat-2',
+        }),
+      ],
+      patientPaid: {
+        'claim-1': 180,
+        'claim-2': 180,
+      },
+    });
+
+    await expect(
+      assembleNioInvoice({
+        oystehr,
+        claimIds: ['claim-1', 'claim-2'],
+        now: NOW,
+      })
+    ).rejects.toMatchObject({
+      message: '2 claims have no balance to invoice',
+    });
+  });
+
+  it('names a single claim with nothing left to pay in the singular', async () => {
+    const oystehr = setup({
+      claims: [
+        makeClaim({
+          id: 'claim-1',
+        }),
       ],
       patientPaid: {
         'claim-1': 180,
@@ -389,7 +440,7 @@ describe('assembleNioInvoice', () => {
     });
 
     await expect(assemble(oystehr, ['claim-1'])).rejects.toMatchObject({
-      message: 'Claims claim-1 have no balance to invoice',
+      message: 'Pruitt, Jordan (2026-09-14) has no balance to invoice',
     });
   });
 
@@ -402,6 +453,10 @@ describe('assembleNioInvoice', () => {
         reference: 'Organization/nio-1',
       },
       claims: [
+        {
+          claimId: 'claim-1',
+          amountCents: 18000,
+        },
         {
           claimId: 'claim-2',
           amountCents: 18000,
@@ -416,13 +471,14 @@ describe('assembleNioInvoice', () => {
         }),
         makeClaim({
           id: 'claim-2',
+          patientId: 'pat-2',
         }),
       ],
     });
 
     await expect(assemble(oystehr, ['claim-1', 'claim-2'])).rejects.toMatchObject({
       statusCode: 409,
-      message: 'Claims claim-2 are already on an invoice',
+      message: 'Pruitt, Jordan (2026-09-14); Collins, Jordan (2026-09-14) are already on an invoice',
     });
   });
 
@@ -497,7 +553,7 @@ describe('assembleNioInvoice', () => {
 
     await expect(assemble(oystehr, ['claim-1'])).rejects.toMatchObject({
       statusCode: 409,
-      message: 'Claims claim-1 are already on an invoice',
+      message: 'Pruitt, Jordan (2026-09-14) is already on an invoice',
     });
   });
 });
