@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { Patient } from 'fhir/r4b';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { CustomThemeProvider } from '../../src/CustomThemeProvider';
 
@@ -36,7 +37,9 @@ describe('Patient Profile header', () => {
   it('vertically centers the name, notes and print icons, and summary on one line', () => {
     render(
       <CustomThemeProvider>
-        <Header id="patient-1" handleDiscard={vi.fn()} />
+        <MemoryRouter>
+          <Header id="patient-1" handleDiscard={vi.fn()} />
+        </MemoryRouter>
       </CustomThemeProvider>
     );
 
@@ -49,7 +52,9 @@ describe('Patient Profile header', () => {
   it('renders the print label icon in the accent blue used by the notes icon', () => {
     render(
       <CustomThemeProvider>
-        <Header id="patient-1" handleDiscard={vi.fn()} />
+        <MemoryRouter>
+          <Header id="patient-1" handleDiscard={vi.fn()} />
+        </MemoryRouter>
       </CustomThemeProvider>
     );
 

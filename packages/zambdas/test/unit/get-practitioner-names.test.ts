@@ -40,7 +40,7 @@ describe('get-practitioner-names', () => {
       resourceType: 'Practitioner',
       params: [
         { name: '_id', value: `${ADA_ID},${NAMELESS_ID},${MISSING_ID}` },
-        { name: '_count', value: '4' },
+        { name: '_count', value: '3' },
       ],
     });
     // unknown and nameless Practitioners are left out; credentials are not part of the name

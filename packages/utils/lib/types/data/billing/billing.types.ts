@@ -408,6 +408,8 @@ export type BillingPatientPaymentMethod = PatientPaymentDTO['paymentMethod'] | '
 
 export type BillingPatientAccountPayment = PatientPaymentDTO & {
   method: BillingPatientPaymentMethod;
+  // when the payment was taken or recorded; dateISO is the (possibly backdated, date-only) payment date
+  recordedDateISO: string;
   encounterId: string;
   // the visit's appointment, which the EHR visit page is keyed by
   appointmentId?: string;
@@ -446,6 +448,10 @@ export interface BillingPatientCard {
 export interface ListBillingPatientPaymentMethodsResponse {
   // unexpired cards, the default first
   cards: BillingPatientCard[];
+}
+
+export interface GetBillingPatientAccountPaymentResponse {
+  payment: BillingPatientAccountPayment;
 }
 
 // One X12 CAS adjustment carried on a remit: group code (X12_ADJUSTMENT_GROUP_CODE) + CARC reason

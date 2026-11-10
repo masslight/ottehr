@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { isVersionConflictError } from 'utils/lib/fhir/helpers';
+import { getInvoiceTaskOutputs } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { Secrets } from 'utils/lib/secrets';
 import { PREPARE_BILLING_INVOICE_ZAMBDA_KEY, PrepareBillingInvoiceResponse } from 'utils/lib/types/api/invoicing.types';
 import { BILLING_INVOICE_CONFLICT_ERROR } from 'utils/lib/types/errors';
@@ -47,20 +49,17 @@ async function performEffect(
   secrets: Secrets,
   encounterId: string
 ): Promise<PrepareBillingInvoiceResponse> {
-  // A visit with an EHR invoice task is invoiced from the EHR. Checked before any Stripe customer is created.
-  // The EHR never cancels these tasks. The migrate-invoicing-to-billing script cancels the unsent ones
-  // to hand their visits to the billing app.
+  // Only a ready task without a Stripe invoice id is safe to take over. A failed one may have sent
+  // its invoice before the id was saved.
   const ehrInvoiceTasks = (
     await oystehr.fhir.search<Task>({
       resourceType: 'Task',
-      params: [
-        ...sendInvoiceTaskDedupeQuery(encounterId),
-        { name: 'status:not', value: 'cancelled' },
-        { name: '_count', value: '1' },
-      ],
+      params: [...sendInvoiceTaskDedupeQuery(encounterId), { name: 'status:not', value: 'cancelled' }],
     })
   ).unbundle();
-  if (ehrInvoiceTasks.length > 0) throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
+  if (ehrInvoiceTasks.some((task) => task.status !== 'ready' || getInvoiceTaskOutputs(task).invoiceId)) {
+    throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
+  }
 
   const { patient, account, appointment, location, schedule, stripeAccountId } = await getInvoiceVisitResources(
     oystehr,
@@ -73,10 +72,6 @@ async function performEffect(
     account,
     stripeAccountId,
   });
-  // Marked only once the visit can be invoiced, so a patient without an email does not lock the visit
-  // away from the EHR.
-  await markInvoicedFromBillingApp(oystehr, encounterId);
-
   const timezone = resolveTimezone(schedule, location);
   const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
   if (!visitDate) throw new Error('visit date is missing required field');
@@ -91,6 +86,23 @@ async function performEffect(
       visitDate,
     },
   });
+
+  // Cancelled only while still untouched, so a send the EHR started during the awaits above wins and
+  // nothing is written here. The EHR hides cancelled tasks, so none can be sent before the marker lands.
+  for (const task of ehrInvoiceTasks) {
+    try {
+      await oystehr.fhir.patch<Task>(
+        { resourceType: 'Task', id: task.id!, operations: [{ op: 'replace', path: '/status', value: 'cancelled' }] },
+        { optimisticLockingVersionId: task.meta?.versionId }
+      );
+    } catch (error) {
+      if (isVersionConflictError(error)) throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
+      throw error;
+    }
+  }
+  // Marked only once the visit can be invoiced, so a patient without an email does not lock the visit
+  // away from the EHR.
+  await markInvoicedFromBillingApp(oystehr, encounterId);
 
   return {
     patientId: patient.id!,

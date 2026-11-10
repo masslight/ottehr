@@ -49,6 +49,7 @@ const MEDICAL_CONDITION = 'Paratyphoid fever A';
 let SURGERY: string;
 let mdmDefaultText = DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
 let mdmRequired = DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
+let vitalsHeaderUnitSystem = DEFAULT_PROGRESS_NOTE_CONFIG.vitalsHeaderUnitSystem;
 
 const DIAGNOSIS_CODE = 'J45.901';
 const DIAGNOSIS_NAME = 'injury';
@@ -72,6 +73,7 @@ const BLOOD_PRESSURE_DIASTOLIC_INVALID = '115';
 const INVALID_BLOOD_PRESSURE_MESSAGE = /Diastolic value cannot be greater than or equal to Systolic value/;
 const OXYGEN_SAT = '98';
 const WEIGHT_KG = '70';
+const WEIGHT_LBS = '154.3';
 const HEIGHT_CM = '175';
 const VISION_LEFT = '2.5';
 const VISION_RIGHT = '3.1';
@@ -129,6 +131,8 @@ test.describe('In-Person Visit Chart Data', async () => {
     mdmDefaultText =
       progressNoteConfig?.medicalDecisionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
     mdmRequired = progressNoteConfig?.mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
+    vitalsHeaderUnitSystem =
+      progressNoteConfig?.vitalsHeaderUnitSystem ?? DEFAULT_PROGRESS_NOTE_CONFIG.vitalsHeaderUnitSystem;
 
     context = await browser.newContext();
     page = await context.newPage();
@@ -234,7 +238,9 @@ test.describe('In-Person Visit Chart Data', async () => {
         });
         await test.step('VIT-1.6 Add weight observation', async () => {
           await vitalsPage.addWeightObservation(WEIGHT_KG);
-          await new InPersonHeader(page).verifyWeight(WEIGHT_KG);
+          await new InPersonHeader(page).verifyWeight(
+            vitalsHeaderUnitSystem === 'imperial' ? `${WEIGHT_LBS}lbs` : `${WEIGHT_KG}kg`
+          );
         });
         await test.step('VIT-1.7 Add weight observation with Patient Refused', async () => {
           await vitalsPage.addWeightObservationPatientRefused();
