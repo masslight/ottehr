@@ -1,169 +1,52 @@
-// M0 spike for ad-hoc reports (DESIGN-adhoc-layer-graph.md, 2.6): confirms how Oystehr runs a batch Bundle as one
-// async-bulk job before the constants of the fetch helpers are trusted. READ-ONLY: searches only. Prints counts and
-// times, never resource content.
+// M0 check for ad-hoc reports: runs the report fetch helpers against a real project and checks that nothing is
+// cut off, by comparing what an async job returned with an exact count of the same search. READ-ONLY: searches
+// only. Prints counts and times, never resource content.
 //
-//   npx tsx src/scripts/adhoc-m0-spike.ts <env> [days=60]
+//   npm run adhoc-m0-spike -- <env> [days=60]      (env = a file in config/.env, e.g. local)
 //
-// Answers:
-//   1. Does a batch job run at all, and what does its manifest look like (files, error files, next link)?
-//   2. Does an entry's own _count apply (per entry), or only a job-wide limit? Does a batch entry return
-//      everything the same search returns alone (no silent 1 000 cut-off, OTR-3686)?
-//   3. Is the 30 000 limit per job or per entry, and does a capped job send a next link?
-//   4. One job of N entries against N single jobs 8 at a time: which is faster, same resources?
-//   5. How many entries one job runs before "Internal Error".
+// What it shows:
+//   1. root: time, and per date window the appointments returned against an exact count of that window;
+//   2. a by-id search (every Observation of 250 visits) against an exact count;
+//   3. the time of a whole layer search (vital readings of every visit of the range).
+// Any "MISSING" line means the reports would lose data: do not ship.
 import Oystehr from '@oystehr/sdk';
-import { Encounter, FhirResource } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, Observation } from 'fhir/r4b';
 import { writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
-import { fetchAppointmentReportResources, IDS_PER_ENTRY } from '../shared/adhoc-report';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import {
+  fetchAppointmentReportResources,
+  fetchScopedResources,
+  IDS_PER_ENTRY,
+  reportWindows,
+} from '../shared/adhoc-report';
 import { getAuth0Token } from '../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../shared/helpers';
 import { performEffectWithEnvFile } from './helpers';
 
-type Entry = { resourceType: FhirResource['resourceType']; params: { name: string; value: string }[] };
+type Param = { name: string; value: string };
 
-const entryUrl = (e: Entry): string => `${e.resourceType}?${e.params.map((p) => `${p.name}=${p.value}`).join('&')}`;
+const ROOT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow';
 
-async function download(url: string): Promise<FhirResource[]> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`download ${response.status}`);
-  return (await response.text())
-    .split('\n')
-    .filter((l) => l.trim())
-    .map((l) => JSON.parse(l) as FhirResource);
-}
-
-interface JobReport {
-  label: string;
-  entries: number;
-  ms: number;
-  status: number;
-  resources: number;
-  files: number;
-  errorFiles: number;
-  errorSample?: string;
-  next: boolean;
-  perType: Record<string, number>;
-  failure?: string;
-}
-
-async function batchJob(oystehr: Oystehr, label: string, entries: Entry[]): Promise<JobReport & { ids: Set<string> }> {
-  const startedAt = Date.now();
-  const ids = new Set<string>();
-  try {
-    const handle = await oystehr.fhir.batch(
-      { requests: entries.map((e) => ({ method: 'GET' as const, url: entryUrl(e) })) },
-      { mode: 'async-bulk' }
-    );
-    const status = await oystehr.fhir.waitForAsyncJob(handle.jobId, { pollIntervalMs: 1000, timeoutMs: 10 * 60_000 });
-    if (status.status !== 200 || !('manifest' in status)) {
-      return {
-        label,
-        entries: entries.length,
-        ms: Date.now() - startedAt,
-        status: status.status,
-        resources: 0,
-        files: 0,
-        errorFiles: 0,
-        next: false,
-        perType: {},
-        failure: JSON.stringify(status).slice(0, 500),
-        ids,
-      };
-    }
-    const manifest = status.manifest as typeof status.manifest & { link?: { relation?: string }[] };
-    const perType: Record<string, number> = {};
-    for (const file of manifest.output ?? []) {
-      for (const r of await download(file.url)) {
-        perType[r.resourceType] = (perType[r.resourceType] ?? 0) + 1;
-        ids.add(`${r.resourceType}/${r.id}`);
-      }
-    }
-    const errorSample = manifest.error?.[0]
-      ? (await fetch(manifest.error[0].url).then((r) => r.text())).slice(0, 300)
-      : undefined;
-    return {
-      label,
-      entries: entries.length,
-      ms: Date.now() - startedAt,
-      status: 200,
-      resources: Object.values(perType).reduce((a, b) => a + b, 0),
-      files: manifest.output?.length ?? 0,
-      errorFiles: manifest.error?.length ?? 0,
-      errorSample,
-      next: !!manifest.link?.some((l) => l.relation === 'next'),
-      perType,
-      ids,
-    };
-  } catch (error) {
-    return {
-      label,
-      entries: entries.length,
-      ms: Date.now() - startedAt,
-      status: -1,
-      resources: 0,
-      files: 0,
-      errorFiles: 0,
-      next: false,
-      perType: {},
-      failure: error instanceof Error ? error.message.slice(0, 500) : String(error),
-      ids,
-    };
-  }
-}
-
-async function singleJobs(
+/** Exact number of matches. `_summary=count` reports 1 for an empty result, so a 1 is confirmed with one entry. */
+async function exactCount(
   oystehr: Oystehr,
-  label: string,
-  entries: Entry[],
-  parallel: number
-): Promise<JobReport & { ids: Set<string> }> {
-  const startedAt = Date.now();
-  const ids = new Set<string>();
-  const perType: Record<string, number> = {};
-  let failure: string | undefined;
-  for (let i = 0; i < entries.length; i += parallel) {
-    await Promise.all(
-      entries.slice(i, i + parallel).map(async (e) => {
-        try {
-          const handle = await oystehr.fhir.search(
-            { resourceType: e.resourceType, params: e.params },
-            { mode: 'async-bulk' }
-          );
-          const status = await oystehr.fhir.waitForAsyncJob(handle.jobId, {
-            pollIntervalMs: 1000,
-            timeoutMs: 10 * 60_000,
-          });
-          if (status.status !== 200 || !('manifest' in status)) throw new Error(`status ${status.status}`);
-          for (const file of status.manifest.output ?? []) {
-            for (const r of await download(file.url)) {
-              perType[r.resourceType] = (perType[r.resourceType] ?? 0) + 1;
-              ids.add(`${r.resourceType}/${r.id}`);
-            }
-          }
-        } catch (error) {
-          failure ??= error instanceof Error ? error.message : String(error);
-        }
-      })
-    );
-  }
-  return {
-    label,
-    entries: entries.length,
-    ms: Date.now() - startedAt,
-    status: failure ? -1 : 200,
-    resources: Object.values(perType).reduce((a, b) => a + b, 0),
-    files: 0,
-    errorFiles: 0,
-    next: false,
-    perType,
-    failure,
-    ids,
-  };
+  resourceType: FhirResource['resourceType'],
+  params: Param[]
+): Promise<number> {
+  const bundle = await oystehr.fhir.search({
+    resourceType,
+    params: [
+      ...params,
+      { name: '_elements', value: 'id' },
+      { name: '_count', value: '1' },
+      { name: '_total', value: 'accurate' },
+    ],
+  });
+  const found = bundle.unbundle().length;
+  return found > 0 ? Math.max(bundle.total ?? found, found) : 0;
 }
-
-const chunk = <T>(items: T[], size: number): T[][] =>
-  Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, i * size + size));
 
 async function main(config: Record<string, string>): Promise<void> {
   const days = Number(process.argv[3] ?? 60);
@@ -174,132 +57,74 @@ async function main(config: Record<string, string>): Promise<void> {
   const end = DateTime.now();
   const dateRange = { start: end.minus({ days }).toISO()!, end: end.toISO()! };
   const report: Record<string, unknown> = { env: config.env, days, at: end.toISO() };
+  const missing: string[] = [];
 
-  // 0. Root through the new fetch helpers (count → windows → one batch job; patients / locations by id).
+  // 1. Root, and each window's appointments against an exact count of that window.
   let startedAt = Date.now();
   const root = await fetchAppointmentReportResources<FhirResource>(oystehr, { dateRange });
+  const appointments = root.filter((r): r is Appointment => r.resourceType === 'Appointment');
   const encounterRefs = root
     .filter((r): r is Encounter => r.resourceType === 'Encounter' && !!r.id)
     .map((r) => `Encounter/${r.id}`);
-  report.root = { ms: Date.now() - startedAt, resources: root.length, encounters: encounterRefs.length };
+  report.root = {
+    ms: Date.now() - startedAt,
+    resources: root.length,
+    appointments: appointments.length,
+    encounters: encounterRefs.length,
+  };
   console.log('root', report.root);
 
-  const obsEntries = (refs: string[], extra: Entry['params'] = []): Entry[] =>
-    chunk(refs, IDS_PER_ENTRY).map((ids) => ({
-      resourceType: 'Observation',
-      params: [{ name: 'encounter', value: ids.join(',') }, { name: '_count', value: '30000' }, ...extra],
-    }));
-
-  const vitalTag = [
-    {
-      name: '_tag',
-      value:
-        'vital-temperature,vital-heartbeat,vital-blood-pressure,vital-oxygen-sat,vital-respiration-rate,vital-weight,vital-height,vital-bmi,vital-vision,vital-last-menstrual-period',
-    },
-  ];
-
-  // 1. A small batch job: does it run, what is in the manifest?
-  const small = await batchJob(
-    oystehr,
-    'batch: 2 entries, vitals',
-    obsEntries(encounterRefs.slice(0, IDS_PER_ENTRY * 2), vitalTag)
-  );
-  report.smallBatch = { ...small, ids: undefined };
-  console.log(report.smallBatch);
-
-  // 2. Per-entry _count: one entry asking for 10.
-  const perEntryCount = await batchJob(oystehr, 'batch: 1 entry, _count=10', [
-    {
-      resourceType: 'Observation',
-      params: [
-        { name: 'encounter', value: encounterRefs.slice(0, IDS_PER_ENTRY).join(',') },
-        { name: '_count', value: '10' },
-      ],
-    },
-  ]);
-  report.perEntryCount = {
-    ...perEntryCount,
-    ids: undefined,
-    answer: perEntryCount.resources <= 10 ? 'per entry' : 'ignored',
-  };
-  console.log(report.perEntryCount);
-
-  // 2b. Completeness per entry (OTR-3686: without _count a search returns 1 000 and drops the rest, no error).
-  //     A batch entry's results cannot be told apart by entry, so a per-entry cut-off would be invisible to
-  //     the fetch helpers: the batch entry must return exactly what the same search returns as its own job.
-  const probeRefs = encounterRefs.slice(0, IDS_PER_ENTRY);
-  const probe = (count?: string): Entry => ({
-    resourceType: 'Observation',
-    params: [{ name: 'encounter', value: probeRefs.join(',') }, ...(count ? [{ name: '_count', value: count }] : [])],
-  });
-  const batchNoCount = await batchJob(oystehr, 'batch: 1 entry, no _count', [probe()]);
-  const batchMaxCount = await batchJob(oystehr, 'batch: 1 entry, _count=30000', [probe('30000')]);
-  const singleMaxCount = await singleJobs(oystehr, 'single job, _count=30000', [probe('30000')], 1);
-  const complete =
-    batchMaxCount.ids.size === singleMaxCount.ids.size &&
-    [...singleMaxCount.ids].every((id) => batchMaxCount.ids.has(id));
-  report.perEntryCompleteness = {
-    batchNoCount: batchNoCount.resources,
-    batchMaxCount: batchMaxCount.resources,
-    singleMaxCount: singleMaxCount.resources,
-    complete,
-    answer: !complete
-      ? 'DATA LOSS: a batch entry returns less than the same search alone — do not ship the batch path'
-      : singleMaxCount.resources <= 1000
-      ? 'complete, but under 1 000: not conclusive, run with a longer range'
-      : batchNoCount.resources === 1000
-      ? 'complete; without _count an entry stops at 1 000, so the per-entry _count is required (it is sent)'
-      : 'complete',
-  };
-  console.log(report.perEntryCompleteness);
-
-  // 3. 30 000: all Observations (no tag) of many encounters in one job — more than 30 000 at production volume.
-  const heavyEntries = obsEntries(encounterRefs.slice(0, IDS_PER_ENTRY * 40));
-  const heavy = await batchJob(oystehr, 'batch: up to 40 entries, all Observations', heavyEntries);
-  report.cap = {
-    ...heavy,
-    ids: undefined,
-    answer:
-      heavy.resources === 30000
-        ? heavy.next
-          ? 'per job, with next link'
-          : 'per job, NO next link (split needed)'
-        : heavy.resources > 30000
-        ? 'not per job (per entry or none)'
-        : 'under 30 000: not reached, use a longer range',
-  };
-  console.log(report.cap);
-
-  // 4. One job of N entries against N single jobs, 8 at a time (vitals).
-  const compareEntries = obsEntries(encounterRefs.slice(0, IDS_PER_ENTRY * 40), vitalTag);
-  const oneJob = await batchJob(oystehr, `batch: ${compareEntries.length} entries, vitals`, compareEntries);
-  const single = await singleJobs(oystehr, `single jobs: ${compareEntries.length}, 8 at a time`, compareEntries, 8);
-  const sameIds = oneJob.ids.size === single.ids.size && [...oneJob.ids].every((id) => single.ids.has(id));
-  report.compare = {
-    batch: { ...oneJob, ids: undefined },
-    single: { ...single, ids: undefined },
-    sameResources: sameIds,
-  };
-  console.log(report.compare);
-
-  // 5. Entries per job before Internal Error (vitals, duplicated chunks if the range is small).
-  const limits: unknown[] = [];
-  for (const n of [40, 80, 160]) {
-    const entries = Array.from({ length: n }, (_, i) => compareEntries[i % Math.max(1, compareEntries.length)]).filter(
-      Boolean
-    );
-    if (!entries.length) break;
-    startedAt = Date.now();
-    const result = await batchJob(oystehr, `batch: ${n} entries`, entries);
-    limits.push({ n, ms: result.ms, status: result.status, resources: result.resources, failure: result.failure });
-    console.log(limits.at(-1));
-    if (result.status !== 200) break;
+  const windows: unknown[] = [];
+  for (const window of reportWindows(dateRange)) {
+    const from = DateTime.fromISO(window.start);
+    const to = DateTime.fromISO(window.end);
+    const returned = appointments.filter((a) => {
+      const start = a.start ? DateTime.fromISO(a.start) : undefined;
+      return !!start && start >= from && start <= to;
+    }).length;
+    const expected = await exactCount(oystehr, 'Appointment', [
+      { name: 'date', value: `ge${window.start}` },
+      { name: 'date', value: `le${window.end}` },
+      { name: 'status', value: ROOT_STATUSES },
+      { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+    ]);
+    windows.push({ window: `${window.start.slice(0, 10)}..${window.end.slice(0, 10)}`, returned, expected });
+    if (returned < expected) missing.push(`root window ${window.start.slice(0, 10)}: ${returned} of ${expected}`);
   }
-  report.entriesPerJob = limits;
+  report.rootWindows = windows;
+  console.table(windows);
+
+  // 2. A by-id search: every Observation of 250 visits, against an exact count.
+  const probe = encounterRefs.slice(0, IDS_PER_ENTRY);
+  startedAt = Date.now();
+  const observations = await fetchScopedResources<Observation>(oystehr, 'Observation', 'encounter', probe);
+  const expectedObservations = await exactCount(oystehr, 'Observation', [
+    { name: 'encounter', value: probe.join(',') },
+  ]);
+  report.byIds = { ms: Date.now() - startedAt, returned: observations.length, expected: expectedObservations };
+  console.log('Observation by 250 encounters', report.byIds);
+  if (observations.length < expectedObservations) {
+    missing.push(`Observation by encounter: ${observations.length} of ${expectedObservations}`);
+  }
+
+  // 3. A whole layer search: the vital readings of every visit.
+  startedAt = Date.now();
+  const vitals = await fetchScopedResources<Observation>(oystehr, 'Observation', 'encounter', encounterRefs, [
+    { name: '_tag', value: Object.values(VitalFieldNames).join(',') },
+  ]);
+  report.vitalsLayer = {
+    ms: Date.now() - startedAt,
+    searches: Math.ceil(encounterRefs.length / IDS_PER_ENTRY),
+    resources: vitals.length,
+  };
+  console.log('vitals layer', report.vitalsLayer);
+
+  report.missing = missing;
+  console.log(missing.length ? `\nMISSING:\n  ${missing.join('\n  ')}` : '\nnothing missing');
 
   const file = `adhoc-m0-${config.env}-${days}d-${end.toFormat('yyyyMMdd-HHmm')}.json`;
   writeFileSync(file, JSON.stringify(report, null, 2));
-  console.log(`\nwritten ${file}`);
+  console.log(`written ${file}`);
 }
 
 performEffectWithEnvFile(main).catch((error) => {

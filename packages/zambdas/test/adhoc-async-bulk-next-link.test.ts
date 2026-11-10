@@ -2,10 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { FhirResource, Practitioner } from 'fhir/r4b';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchScopedResources, IDS_PER_ENTRY } from '../src/shared/adhoc-report';
-import { parseBatchEntryUrl } from './helpers/adhoc-batch-fake';
 
 type Param = { name: string; value: string };
-type Request = { method: string; url: string };
 
 const practitioner = (id: string): Practitioner => ({ resourceType: 'Practitioner', id });
 const ndjson = (resources: FhirResource[]): string => resources.map((resource) => JSON.stringify(resource)).join('\n');
@@ -26,27 +24,21 @@ type JobAnswer =
   | { status: 200; resources: FhirResource[]; next?: string; errorFile?: string }
   | { status: number; outcome?: unknown };
 
-/**
- * A fake batch-job API: `answer` decides each job's result from its entries. Every job's requests are kept.
- */
-function fakeClient(answer: (entries: { resourceType: string; params: Param[] }[], jobIndex: number) => JobAnswer): {
+/** A fake async-bulk search: `answer` decides each job's result from its parameters. Every job's params are kept. */
+function fakeClient(answer: (params: Param[], jobIndex: number) => JobAnswer): {
   oystehr: Oystehr;
-  jobs: { resourceType: string; params: Param[] }[][];
+  jobs: Param[][];
 } {
-  const jobs: { resourceType: string; params: Param[] }[][] = [];
+  const jobs: Param[][] = [];
   const answers = new Map<string, JobAnswer>();
 
   const oystehr = {
     fhir: {
-      batch: vi.fn(async ({ requests }: { requests: Request[] }, options: { mode?: string }) => {
+      search: vi.fn(async ({ params }: { resourceType: string; params: Param[] }, options: { mode?: string }) => {
         expect(options.mode).toBe('async-bulk');
-        const entries = requests.map((r) => {
-          expect(r.method).toBe('GET');
-          return parseBatchEntryUrl(r.url);
-        });
-        jobs.push(entries);
+        jobs.push(params);
         const jobId = `job-${jobs.length}`;
-        answers.set(jobId, answer(entries, jobs.length - 1));
+        answers.set(jobId, answer(params, jobs.length - 1));
         return { jobId, contentLocation: '', mode: 'bulk' };
       }),
       waitForAsyncJob: async (jobId: string) => {
@@ -57,7 +49,7 @@ function fakeClient(answer: (entries: { resourceType: string; params: Param[] }[
         const url = `https://example.test/${jobId}.ndjson`;
         bodyByUrl.set(url, ndjson(result.resources));
         const error = result.errorFile
-          ? [{ type: 'OperationOutcome', url: `https://example.test/${jobId}-error.ndjson` }]
+          ? [{ type: 'OperationOutcome', url: `https://example.test/${jobId}-error` }]
           : [];
         if (result.errorFile) bodyByUrl.set(error[0].url, result.errorFile);
         return {
@@ -78,17 +70,14 @@ function fakeClient(answer: (entries: { resourceType: string; params: Param[] }[
 }
 
 const values = (params: Param[], name: string): string[] => params.filter((p) => p.name === name).map((p) => p.value);
-const idsOf = (entry: { params: Param[] }): string[] => values(entry.params, '_id')[0]?.split(',') ?? [];
+const idsOf = (params: Param[]): string[] => values(params, '_id')[0]?.split(',') ?? [];
 const ids = (n: number): string[] => Array.from({ length: n }, (_, i) => `p-${i}`);
 
-describe('fetch helpers: one async batch job per search set', () => {
+describe('fetch helpers: one async-bulk job per search', () => {
   beforeEach(() => bodyByUrl.clear());
 
-  it('puts every id chunk into one job, each entry with its own _count and the extra params', async () => {
-    const { oystehr, jobs } = fakeClient((entries) => ({
-      status: 200,
-      resources: entries.flatMap((e) => idsOf(e).map(practitioner)),
-    }));
+  it('runs one job per id chunk, each asking for _count=30000 with the extra params', async () => {
+    const { oystehr, jobs } = fakeClient((params) => ({ status: 200, resources: idsOf(params).map(practitioner) }));
 
     const all = ids(IDS_PER_ENTRY * 2 + 10);
     const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', all, [
@@ -97,14 +86,12 @@ describe('fetch helpers: one async batch job per search set', () => {
     ]);
 
     expect(resources.map((r) => r.id).sort()).toEqual([...all].sort());
-    expect(jobs).toHaveLength(1);
-    expect(jobs[0]).toHaveLength(3);
-    for (const entry of jobs[0]) {
-      expect(entry.resourceType).toBe('Practitioner');
-      expect(values(entry.params, '_count')).toEqual(['30000']);
-      expect(values(entry.params, '_tag')).toEqual(['a|1']);
-      expect(values(entry.params, '_elements')).toEqual(['id,name']);
-      expect(idsOf(entry).length).toBeLessThanOrEqual(IDS_PER_ENTRY);
+    expect(jobs).toHaveLength(3);
+    for (const params of jobs) {
+      expect(values(params, '_count')).toEqual(['30000']);
+      expect(values(params, '_tag')).toEqual(['a|1']);
+      expect(values(params, '_elements')).toEqual(['id,name']);
+      expect(idsOf(params).length).toBeLessThanOrEqual(IDS_PER_ENTRY);
     }
   });
 
@@ -113,7 +100,7 @@ describe('fetch helpers: one async batch job per search set', () => {
       'https://fhir.example.test/Practitioner?_id=p-1%2Cp-2%2Cp-3&_tag=a%7C1&_tag=b%7C2' +
       `&_elements=id%2Cname&_count=30000&_offset=${offset}`;
 
-    const { oystehr, jobs } = fakeClient((_entries, index) =>
+    const { oystehr, jobs } = fakeClient((_params, index) =>
       index === 0
         ? { status: 200, resources: [practitioner('p-1')], next: nextLink(30000) }
         : index === 1
@@ -125,91 +112,52 @@ describe('fetch helpers: one async batch job per search set', () => {
 
     expect(resources.map((r) => r.id)).toEqual(['p-1', 'p-2', 'p-3']);
     expect(jobs).toHaveLength(3);
-    const followed = jobs[1][0].params;
-    expect(values(followed, '_id')).toEqual(['p-1,p-2,p-3']);
-    expect(values(followed, '_tag')).toEqual(['a|1', 'b|2']);
-    expect(values(followed, '_count')).toEqual(['30000']);
-    expect(values(followed, '_offset')).toEqual(['30000']);
-    expect(values(jobs[2][0].params, '_offset')).toEqual(['60000']);
+    expect(values(jobs[1], '_id')).toEqual(['p-1,p-2,p-3']);
+    expect(values(jobs[1], '_tag')).toEqual(['a|1', 'b|2']);
+    expect(values(jobs[1], '_count')).toEqual(['30000']);
+    expect(values(jobs[1], '_offset')).toEqual(['30000']);
+    expect(values(jobs[2], '_offset')).toEqual(['60000']);
   });
 
-  it('splits a job that fails with Internal Error into two jobs and returns everything once', async () => {
-    const { oystehr, jobs } = fakeClient((entries) =>
-      entries.length > 1
+  it('splits a search that fails with Internal Error and returns everything once', async () => {
+    const { oystehr, jobs } = fakeClient((params) =>
+      idsOf(params).length > 2
         ? { status: 500, outcome: { issue: [{ diagnostics: 'Internal Error' }] } }
-        : { status: 200, resources: idsOf(entries[0]).map(practitioner) }
+        : { status: 200, resources: idsOf(params).map(practitioner) }
     );
 
-    const all = ids(IDS_PER_ENTRY * 2);
-    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', all);
+    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(4));
 
-    expect(resources).toHaveLength(all.length);
-    expect(jobs.map((job) => job.length)).toEqual([2, 1, 1]);
+    expect(resources.map((r) => r.id).sort()).toEqual(ids(4).sort());
+    expect(jobs.map((params) => idsOf(params).length)).toEqual([4, 2, 2]);
   });
 
   it('treats an error file as a failure and splits', async () => {
-    const { oystehr, jobs } = fakeClient((entries) =>
-      entries.length > 1
+    const { oystehr, jobs } = fakeClient((params) =>
+      idsOf(params).length > 1
         ? { status: 200, resources: [], errorFile: '{"resourceType":"OperationOutcome"}' }
-        : { status: 200, resources: idsOf(entries[0]).map(practitioner) }
+        : { status: 200, resources: idsOf(params).map(practitioner) }
     );
 
-    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(IDS_PER_ENTRY + 1));
+    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(2));
 
-    expect(resources).toHaveLength(IDS_PER_ENTRY + 1);
-    expect(jobs.map((job) => job.length)).toEqual([2, 1, 1]);
+    expect(resources).toHaveLength(2);
+    expect(jobs).toHaveLength(3);
   });
 
-  it('splits a capped result (30 000 without a next link) down to the id list of one entry', async () => {
-    const { oystehr, jobs } = fakeClient((entries) => {
-      const entryIds = entries.flatMap(idsOf);
-      // Pretend each id has 10 000 matches: more than one id per job hits the cap.
-      return entryIds.length > 2
+  it('splits a capped result (30 000 without a next link) until each part is complete', async () => {
+    const { oystehr, jobs } = fakeClient((params) =>
+      idsOf(params).length > 2
         ? { status: 200, resources: Array.from({ length: 30000 }, (_, i) => practitioner(`x-${i}`)) }
-        : { status: 200, resources: entryIds.map(practitioner) };
-    });
-
-    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', [
-      'a',
-      'b',
-      'c',
-      'd',
-      'e',
-      'f',
-    ]);
-
-    expect(resources.map((r) => r.id).sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
-    // One job of one entry (6 ids) → its halves (3 + 3) → their halves (2 + 1, 2 + 1).
-    expect(jobs.length).toBe(7);
-  });
-
-  it('halves a job of many entries as often as needed without counting it against the split limit', async () => {
-    // Every entry alone is small, but more than 3 entries together reach 30 000: 40 entries need 4 halvings.
-    const { oystehr, jobs } = fakeClient((entries) =>
-      entries.length > 3
-        ? { status: 200, resources: Array.from({ length: 30000 }, (_, i) => practitioner(`x-${i}`)) }
-        : { status: 200, resources: entries.flatMap((e) => idsOf(e).map(practitioner)) }
+        : { status: 200, resources: idsOf(params).map(practitioner) }
     );
 
-    const all = ids(IDS_PER_ENTRY * 40);
+    const all = ['a', 'b', 'c', 'd', 'e', 'f'];
     const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', all);
 
-    expect(resources).toHaveLength(all.length);
-    expect(jobs[0]).toHaveLength(40);
-    expect(Math.max(...jobs.slice(1).map((job) => job.length))).toBeLessThanOrEqual(20);
-  });
-
-  it('asks for fewer entries per job when the caller says the entries are heavy', async () => {
-    const { oystehr, jobs } = fakeClient((entries) => ({
-      status: 200,
-      resources: entries.flatMap((e) => idsOf(e).map(practitioner)),
-    }));
-
-    await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(IDS_PER_ENTRY * 5), [], {
-      entriesPerJob: 2,
-    });
-
-    expect(jobs.map((job) => job.length)).toEqual([2, 2, 1]);
+    expect(resources.map((r) => r.id).sort()).toEqual(all);
+    // 6 ids → 3 + 3 → (2 + 1) + (2 + 1)
+    expect(jobs).toHaveLength(7);
   });
 
   it('fails the report instead of returning a part of the data when the split runs out', async () => {
@@ -223,9 +171,9 @@ describe('fetch helpers: one async batch job per search set', () => {
   it('does not split on a client error', async () => {
     const { oystehr, jobs } = fakeClient(() => ({ status: 400, outcome: 'bad parameter' }));
 
-    await expect(
-      fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(IDS_PER_ENTRY * 2))
-    ).rejects.toThrow(/status 400/);
+    await expect(fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(4))).rejects.toThrow(
+      /status 400/
+    );
     expect(jobs).toHaveLength(1);
   });
 });

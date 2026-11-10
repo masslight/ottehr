@@ -55,7 +55,6 @@ import { CONTAINED_MEDICATION_ID } from '../src/ehr/immunization/common';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
-import { withAsyncBatch } from './helpers/adhoc-batch-fake';
 
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
@@ -582,7 +581,7 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-const fakeOystehr = withAsyncBatch({
+const fakeOystehr = {
   fhir: {
     search: vi.fn(async ({ resourceType }: { resourceType: string; params?: { name: string; value: string }[] }) => ({
       jobId: resourceType,
@@ -592,15 +591,15 @@ const fakeOystehr = withAsyncBatch({
     waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
-} as unknown as Oystehr);
+} as unknown as Oystehr;
 
 // the billing app holds no payments in these fixtures; every payment is a legacy EHR notice
-const emptyBillingOystehr = withAsyncBatch({
+const emptyBillingOystehr = {
   fhir: {
     search: async () => ({ jobId: 'billing', contentLocation: '', mode: 'bulk' }),
     waitForAsyncJob: async () => ({ status: 200, mode: 'bulk', manifest: { output: [], requiresAccessToken: false } }),
   },
-} as unknown as Oystehr);
+} as unknown as Oystehr;
 
 const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
 

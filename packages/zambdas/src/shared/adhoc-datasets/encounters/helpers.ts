@@ -195,10 +195,3 @@ export const indexByEncounter = <T>(items: T[], encOf: (item: T) => string | und
 
 /** Every vital the chart writes, by its Observation tag code (chart-data `fillMeta(field, field)`). FHIR `_tag` has no wildcard. */
 export const VITAL_TAG_CODES = Object.values(VitalFieldNames).join(',');
-
-// Observations are the heaviest by-encounter search: 250 visits carry thousands of readings. Fewer entries per
-// job keep a job under one 30 000-resource page (start values; the M0 spike sets them).
-/** Every Observation of 250 visits (exam, ROS, screening, vitals) — ~10 000 per entry. */
-export const ALL_OBSERVATIONS_ENTRIES_PER_JOB = 2;
-/** The vital readings of 250 visits — ~1 300 per entry (≈ 5 per visit on production). */
-export const VITAL_OBSERVATIONS_ENTRIES_PER_JOB = 16;

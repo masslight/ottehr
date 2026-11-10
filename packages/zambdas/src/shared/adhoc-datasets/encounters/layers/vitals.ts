@@ -29,7 +29,6 @@ import {
   stripEnc,
   SYSTOLIC_CODES,
   VITAL_ALERT_FIELDS,
-  VITAL_OBSERVATIONS_ENTRIES_PER_JOB,
   VITAL_TAG_CODES,
 } from '../helpers';
 
@@ -42,14 +41,9 @@ export const vitalsLayer = defineEncounterLayer<{ observationsByEncounterId: Map
       ctx.requested.has('examRos') || ctx.requested.has('intake')
         ? await ctx.shared.observations()
         : indexByEncounter(
-            await fetchScopedResources<Observation>(
-              ctx.oystehr,
-              'Observation',
-              'encounter',
-              ctx.encRefs,
-              [{ name: '_tag', value: VITAL_TAG_CODES }],
-              { entriesPerJob: VITAL_OBSERVATIONS_ENTRIES_PER_JOB }
-            ),
+            await fetchScopedResources<Observation>(ctx.oystehr, 'Observation', 'encounter', ctx.encRefs, [
+              { name: '_tag', value: VITAL_TAG_CODES },
+            ]),
             (o) => stripEnc(o.encounter?.reference)
           );
 

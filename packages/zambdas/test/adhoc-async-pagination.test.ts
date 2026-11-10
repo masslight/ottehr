@@ -1,13 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, FhirResource, Location, Patient } from 'fhir/r4b';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  DEFAULT_WINDOW_DAYS,
-  fetchAppointmentReportResources,
-  RECORDS_PER_WINDOW,
-  ROOT_WINDOWS_PER_JOB,
-} from '../src/shared/adhoc-report';
-import { parseBatchEntryUrl } from './helpers/adhoc-batch-fake';
+import { DEFAULT_WINDOW_DAYS, fetchAppointmentReportResources } from '../src/shared/adhoc-report';
 
 type Param = { name: string; value: string };
 
@@ -33,9 +27,7 @@ const location: Location = { resourceType: 'Location', id: 'loc-1' };
 const ndjson = (resources: FhirResource[]): string => resources.map((resource) => JSON.stringify(resource)).join('\n');
 
 const bodyByUrl = new Map<string, string>();
-const jobs: { resourceType: string; params: Param[] }[][] = [];
-const countSearches: Param[][] = [];
-let countTotal = 0;
+const jobs: { resourceType: string; params: Param[] }[] = [];
 
 vi.stubGlobal('fetch', (async (input: RequestInfo | URL) => {
   const body = bodyByUrl.get(String(input));
@@ -60,20 +52,15 @@ const resourcesFor = (resourceType: string): FhirResource[] => {
 
 const fakeOystehr = {
   fhir: {
-    search: async ({ params }: { resourceType: string; params?: Param[] }) => {
-      countSearches.push(params ?? []);
-      return { total: countTotal, entry: [], unbundle: () => [] };
-    },
-    batch: async ({ requests }: { requests: { method: string; url: string }[] }) => {
-      jobs.push(requests.map((r) => parseBatchEntryUrl(r.url)));
+    search: async ({ resourceType, params }: { resourceType: string; params: Param[] }) => {
+      jobs.push({ resourceType, params });
       return { jobId: `job-${jobs.length}`, contentLocation: '', mode: 'bulk' };
     },
     waitForAsyncJob: async (jobId: string) => {
-      const entries = jobs[Number(jobId.replace('job-', '')) - 1];
+      const { resourceType } = jobs[Number(jobId.replace('job-', '')) - 1];
       const byType = new Map<string, FhirResource[]>();
-      for (const r of entries.flatMap((e) => resourcesFor(e.resourceType))) {
+      for (const r of resourcesFor(resourceType))
         byType.set(r.resourceType, [...(byType.get(r.resourceType) ?? []), r]);
-      }
       const output = Array.from(byType.entries()).map(([type, resources]) => {
         const url = `https://example.test/${jobId}/${type}.ndjson`;
         bodyByUrl.set(url, ndjson(resources));
@@ -89,29 +76,21 @@ const values = (params: Param[], name: string): string[] => params.filter((p) =>
 describe('report root (fetchAppointmentReportResources)', () => {
   beforeEach(() => {
     jobs.length = 0;
-    countSearches.length = 0;
     bodyByUrl.clear();
-    countTotal = 0;
   });
 
-  it('a short range: no count, one window in one job; patients and locations by id, not as _include', async () => {
+  it('a short range: one window; patients and locations by id, not as _include', async () => {
     const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T23:59:59.999Z' };
     const resources = await fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange });
 
-    expect(countSearches).toHaveLength(0);
-    const appointmentJobs = jobs.filter((job) => job[0].resourceType === 'Appointment');
-    expect(appointmentJobs).toHaveLength(1);
-    expect(appointmentJobs[0]).toHaveLength(1);
-    const params = appointmentJobs[0][0].params;
-    expect(values(params, '_include')).toEqual([]);
-    expect(values(params, '_revinclude')).toEqual(['Encounter:appointment']);
+    const windows = jobs.filter((job) => job.resourceType === 'Appointment');
+    expect(windows).toHaveLength(1);
+    expect(values(windows[0].params, '_include')).toEqual([]);
+    expect(values(windows[0].params, '_revinclude')).toEqual(['Encounter:appointment']);
+    expect(values(windows[0].params, '_count')).toEqual(['30000']);
 
-    expect(jobs.some((job) => job[0].resourceType === 'Patient' && values(job[0].params, '_id')[0] === 'pat-1')).toBe(
-      true
-    );
-    expect(jobs.some((job) => job[0].resourceType === 'Location' && values(job[0].params, '_id')[0] === 'loc-1')).toBe(
-      true
-    );
+    expect(jobs.some((job) => job.resourceType === 'Patient' && values(job.params, '_id')[0] === 'pat-1')).toBe(true);
+    expect(jobs.some((job) => job.resourceType === 'Location' && values(job.params, '_id')[0] === 'loc-1')).toBe(true);
 
     expect(resources.filter((r) => r.resourceType === 'Appointment')).toHaveLength(1002);
     expect(resources.filter((r) => r.resourceType === 'Encounter')).toHaveLength(1002);
@@ -119,38 +98,19 @@ describe('report root (fetchAppointmentReportResources)', () => {
     expect(resources.filter((r) => r.resourceType === 'Location')).toHaveLength(1);
   });
 
-  it('a long range: windows sized from one count, ROOT_WINDOWS_PER_JOB windows per job, each resource once', async () => {
-    const dateRange = { start: '2026-01-01T00:00:00.000Z', end: '2026-07-01T00:00:00.000Z' };
-    countTotal = RECORDS_PER_WINDOW * 4;
+  it('a long range: one job per window of DEFAULT_WINDOW_DAYS, back to back, each resource once', async () => {
+    const dateRange = { start: '2026-01-01T00:00:00.000Z', end: '2026-03-02T00:00:00.000Z' };
 
     const resources = await fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange });
 
-    expect(countSearches).toHaveLength(1);
-    expect(values(countSearches[0], '_summary')).toEqual(['count']);
-    expect(values(countSearches[0], '_total')).toEqual(['accurate']);
+    const windows = jobs.filter((job) => job.resourceType === 'Appointment');
+    expect(windows).toHaveLength(Math.ceil(60 / DEFAULT_WINDOW_DAYS));
 
-    const appointmentJobs = jobs.filter((job) => job[0].resourceType === 'Appointment');
-    const windows = appointmentJobs.flat();
-    // 4 × RECORDS_PER_WINDOW appointments → about 4 windows (the last one may be a sliver).
-    expect(windows.length).toBeGreaterThanOrEqual(4);
-    expect(windows.length).toBeLessThanOrEqual(5);
-    expect(appointmentJobs.every((job) => job.length <= ROOT_WINDOWS_PER_JOB)).toBe(true);
-
-    const bounds = windows.map((entry) => values(entry.params, 'date'));
+    const bounds = windows.map((job) => values(job.params, 'date'));
     expect(bounds[0][0]).toBe(`ge${dateRange.start}`);
     expect(bounds.at(-1)?.[1]).toBe(`le${dateRange.end}`);
 
     // The same ids from every window are reported once.
     expect(resources.filter((r) => r.resourceType === 'Appointment')).toHaveLength(1002);
-  });
-
-  it('a long range whose count fails: windows of the default size', async () => {
-    const dateRange = { start: '2026-01-01T00:00:00.000Z', end: '2026-03-02T00:00:00.000Z' };
-    countTotal = 0;
-
-    await fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange });
-
-    const windows = jobs.filter((job) => job[0].resourceType === 'Appointment').flat();
-    expect(windows).toHaveLength(Math.ceil(60 / DEFAULT_WINDOW_DAYS));
   });
 });

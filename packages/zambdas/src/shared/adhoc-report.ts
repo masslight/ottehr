@@ -208,61 +208,50 @@ async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]>
   }
 }
 
-// ---- Fetch helpers: async batch jobs -----------------------------------------------------------
+// ---- Fetch helpers: one async-bulk job per search ------------------------------------------------
 //
-// Every report search runs as a batch Bundle in ONE async-bulk job: the entries of a search set (the
-// windows of a date range, or the 250-id chunks of an id list) go into one request, so the ~2.5 s fixed
-// cost of a job is paid once per ENTRIES_PER_JOB entries instead of once per window or chunk.
+// Every report search runs as an async-bulk job (start → poll → download). A search set is cut into bounded
+// searches — the windows of a date range (DEFAULT_WINDOW_DAYS) or the id chunks of an id list (IDS_PER_ENTRY)
+// — and each runs as its own job, JOBS_IN_PARALLEL at once.
 //
-// The async job removes the limit on what the server may SEND, not on what one query may RUN: each
-// entry is one database query, and a query that runs too long fails with "Internal Error". So an entry
-// stays bounded (a window of ≈ RECORDS_PER_WINDOW appointments, or IDS_PER_ENTRY ids), and a job that
-// fails that way is split in two and run again — up to MAX_SPLIT_DEPTH levels, then the report fails.
-// A part of the data is never returned.
+// Why not one batch-Bundle job per set (the first plan): the M0 spike measured that a search inside an async
+// batch job ignores its own _count and stops at 1 000 resources, and a larger result can come back empty — with
+// no error and no next link (OTR-3686 again). A batch job's output does not say which search returned what, so
+// that loss cannot even be detected. One job per search is what the reports ran before, with _count=30000.
 //
-// The start values below are set by the M0 spike (see DESIGN-adhoc-layer-graph.md, 2.6).
+// The async job removes the limit on what the server may SEND, not on what one query may RUN: a search that
+// runs too long fails with "Internal Error". Such a search is split in two (its window or its id list) and run
+// again, up to MAX_SPLIT_DEPTH levels; then the report fails. A part of the data is never returned.
 
-/** Ids in one search entry (`_id=a,b,…` / `encounter=…`). 1 000 hit the 14 s query limit on production. */
+/** Ids in one search (`_id=a,b,…` / `encounter=…`). 1 000 was much slower than 250 on production (SC). */
 export const IDS_PER_ENTRY = 250;
-/** Search entries in one batch job. 40 × 250 ids ≈ 0.4 MB of request, far under the 6 MiB cap. */
-export const ENTRIES_PER_JOB = 40;
-/** Appointments in one date window; the window size in days comes from a count of the range. */
-export const RECORDS_PER_WINDOW = 5000;
-/** Window size when the range is short, or when the count fails. */
+/** Days in one date window: ~1 400 appointments at ~91 a day on production, far under one 30 000 page. */
 export const DEFAULT_WINDOW_DAYS = 15;
-/** Ranges up to this many days are not counted first: a count costs more than it saves there. */
-export const COUNT_MIN_RANGE_DAYS = 30;
-/**
- * Root windows in one job: a window of RECORDS_PER_WINDOW appointments comes back with about as many encounters,
- * so two windows stay under one 30 000-resource page.
- */
-export const ROOT_WINDOWS_PER_JOB = 2;
-/** Async jobs one report runs at once. One job, from start to download, holds one slot. */
-export const JOBS_IN_PARALLEL = 4;
-/** Split levels for a failed job before the report fails. */
+/** Async jobs one report runs at once; 8 was the knee on production (SC: 4 → 18.3 s, 8 → 11.0 s, 16 → 9.0 s). */
+export const JOBS_IN_PARALLEL = 8;
+/** Halvings of one search before the report fails. */
 const MAX_SPLIT_DEPTH = 3;
-/** The most resources one async-bulk result page holds; without _count a job returns 1 000. */
+/** The most resources one async-bulk result page holds; without _count a job returns 1 000 (OTR-3686). */
 const ASYNC_BULK_MAX_RESULTS = 30000;
 
 type SearchParam = { name: string; value: string };
 
-/** One search of a batch job: one bounded database query. `split` halves it when a job of this one entry fails. */
+/** One bounded search. `split` halves it (its window or its id list) when its job fails. */
 interface SearchEntry {
-  resourceType: string;
+  resourceType: FhirResource['resourceType'];
   params: SearchParam[];
   split?: () => [SearchEntry, SearchEntry] | undefined;
 }
 
-/** A job that failed in a way a smaller job may not: Internal Error, an error file, a 5xx, a capped result. */
+/** A job that a smaller search may pass: Internal Error, a 5xx, a timeout, an error file, a capped result. */
 class SplittableJobFailure extends Error {}
 
-/** A job that a smaller job would not fix: a 4xx answer (a bad parameter, no access). */
+/** A job that a smaller search would not fix: a 4xx answer (a bad parameter, no access). */
 class FatalJobFailure extends Error {}
 
 /**
- * At most `max` tasks at once. Only a job (start → poll → download) goes through it: a job waits for
- * nothing else in the limiter, so the limiter cannot deadlock. Splits and next links run after the slot
- * is free.
+ * At most `max` tasks at once. Only a job (start → poll → download) goes through it, and a job waits for
+ * nothing else in the limiter, so it cannot deadlock. Splits and next links run after the slot is free.
  */
 function createLimiter(max: number): <T>(task: () => Promise<T>) => Promise<T> {
   let active = 0;
@@ -284,20 +273,6 @@ function createLimiter(max: number): <T>(task: () => Promise<T>) => Promise<T> {
 
 const jobSlot = createLimiter(JOBS_IN_PARALLEL);
 
-// The SDK splits each entry's query on "&" and "=" and encodes the values itself, so values go in raw.
-function entryUrl(entry: SearchEntry): string {
-  const params = [
-    ...entry.params.filter((p) => p.name !== '_count'),
-    { name: '_count', value: `${ASYNC_BULK_MAX_RESULTS}` },
-  ];
-  for (const p of params) {
-    if (p.value.includes('&') || p.value.includes('=')) {
-      throw new Error(`Ad-hoc search value for ${p.name} cannot contain "&" or "=": ${p.value}`);
-    }
-  }
-  return `${entry.resourceType}?${params.map((p) => `${p.name}=${p.value}`).join('&')}`;
-}
-
 const isSplittableStatus = (status: unknown): boolean =>
   typeof status !== 'number' || status >= 500 || status === 408 || status === 429;
 
@@ -315,14 +290,15 @@ interface JobResult {
   nextUrl?: string;
 }
 
-async function runJob(oystehr: Oystehr, entries: SearchEntry[], label: string): Promise<JobResult> {
+async function runJob(oystehr: Oystehr, entry: SearchEntry, label: string): Promise<JobResult> {
+  const params = [
+    ...entry.params.filter((p) => p.name !== '_count'),
+    { name: '_count', value: `${ASYNC_BULK_MAX_RESULTS}` },
+  ];
   const startedAt = Date.now();
   let jobId = '';
   try {
-    const handle = await oystehr.fhir.batch(
-      { requests: entries.map((entry) => ({ method: 'GET' as const, url: entryUrl(entry) })) },
-      { mode: 'async-bulk' }
-    );
+    const handle = await oystehr.fhir.search({ resourceType: entry.resourceType, params }, { mode: 'async-bulk' });
     jobId = handle.jobId;
     const status = await oystehr.fhir.waitForAsyncJob(jobId, jobWait());
 
@@ -356,7 +332,7 @@ async function runJob(oystehr: Oystehr, entries: SearchEntry[], label: string): 
     )?.url;
 
     console.log(
-      `[adhoc] ${label}: job=${jobId} entries=${entries.length} ms=${Date.now() - startedAt} files=${files.length} ` +
+      `[adhoc] ${label}: job=${jobId} ms=${Date.now() - startedAt} files=${files.length} ` +
         `resources=${resources.length}${nextUrl ? ' next=yes' : ''} ` +
         `perFile=${JSON.stringify(files.map((file) => ({ type: file.type, count: file.resources.length })))}`
     );
@@ -365,121 +341,95 @@ async function runJob(oystehr: Oystehr, entries: SearchEntry[], label: string): 
   } catch (error) {
     const code = (error as { code?: unknown })?.code;
     console.error(
-      `[adhoc] ${label}: FAILED job=${jobId || 'not started'} entries=${entries.length} ms=${Date.now() - startedAt} ` +
+      `[adhoc] ${label}: FAILED job=${jobId || 'not started'} ms=${Date.now() - startedAt} ` +
         `code=${code ?? 'none'} message=${error instanceof Error ? error.message : String(error)}`
     );
     if (error instanceof SplittableJobFailure) throw error;
     // An error thrown by the SDK (start or poll) or a failed download: a 5xx, a timeout or a network error may
-    // pass in a smaller job, a 4xx will not.
+    // pass as a smaller search, a 4xx will not.
     if (!(error instanceof FatalJobFailure) && isSplittableStatus(code)) {
       throw new SplittableJobFailure(error instanceof Error ? error.message : String(error));
     }
-    captureException(error, { extra: { label, jobId } });
+    captureException(error, { extra: { label, jobId, params } });
     throw error;
   }
 }
 
 // A next link is the original search with an offset: it runs as a job of its own, with the same checks.
-function entryFromNextUrl(nextUrl: string): SearchEntry {
-  const [path, query = ''] = nextUrl.split('?');
-  const resourceType = path.split('/').filter(Boolean).at(-1) ?? '';
-  if (!/^[A-Z][A-Za-z]+$/.test(resourceType)) throw new Error(`Ad-hoc report: unsupported next link ${path}`);
-  const params = Array.from(new URLSearchParams(query), ([name, value]) => ({ name, value })).filter(
-    (p) => p.name !== '_count'
-  );
-  return { resourceType, params };
+function entryFromNextUrl(entry: SearchEntry, nextUrl: string): SearchEntry {
+  const params = Array.from(new URLSearchParams(nextUrl.split('?')[1] ?? ''), ([name, value]) => ({
+    name,
+    value,
+  })).filter((p) => p.name !== '_count');
+  return { resourceType: entry.resourceType, params };
 }
 
-async function runGroup(oystehr: Oystehr, group: SearchEntry[], label: string, depth: number): Promise<FhirResource[]> {
+async function runEntry(oystehr: Oystehr, entry: SearchEntry, label: string, depth: number): Promise<FhirResource[]> {
   let result: JobResult;
   try {
-    result = await jobSlot(() => runJob(oystehr, group, label));
+    result = await jobSlot(() => runJob(oystehr, entry, label));
   } catch (error) {
     if (!(error instanceof SplittableJobFailure)) {
       throw new Error(
         `Could not load ${label} for the report: ${error instanceof Error ? error.message : String(error)}`
       );
     }
-    return splitAndRun(oystehr, group, label, depth, error.message);
+    return splitAndRun(oystehr, entry, label, depth, error.message);
   }
 
-  // Exactly one full page and no next link: the rest was dropped without an error (problem 6).
+  // A full page and no next link: the rest was dropped without an error (problem 6).
   if (result.resources.length >= ASYNC_BULK_MAX_RESULTS && !result.nextUrl) {
-    return splitAndRun(oystehr, group, label, depth, `${result.resources.length} resources without a next link`);
+    return splitAndRun(oystehr, entry, label, depth, `${result.resources.length} resources without a next link`);
   }
 
-  const rest = result.nextUrl ? await runGroup(oystehr, [entryFromNextUrl(result.nextUrl)], label, depth) : [];
+  const rest = result.nextUrl ? await runEntry(oystehr, entryFromNextUrl(entry, result.nextUrl), label, depth) : [];
   return [...result.resources, ...rest];
 }
 
-// A job of several entries is split into two jobs of half the entries each (bounded by log2 of the entries);
-// a job of one entry splits the entry itself — its window or its id list — and only that counts against
-// MAX_SPLIT_DEPTH: an entry that still fails after that many halvings stops the report.
 async function splitAndRun(
   oystehr: Oystehr,
-  group: SearchEntry[],
+  entry: SearchEntry,
   label: string,
   depth: number,
   reason: string
 ): Promise<FhirResource[]> {
-  if (group.length > 1) {
-    const middle = Math.ceil(group.length / 2);
-    console.warn(`[adhoc] ${label}: split entries=${group.length} into 2 jobs reason=${reason}`);
-    const parts = await Promise.all(
-      [group.slice(0, middle), group.slice(middle)].map((half) => runGroup(oystehr, half, label, depth))
-    );
-    return parts.flat();
-  }
-
-  const halves = group[0]?.split?.();
+  const halves = entry.split?.();
 
   if (depth >= MAX_SPLIT_DEPTH || !halves) {
     throw new Error(
-      `Could not load ${label} for the report completely (${reason}) after ${depth} split(s) of one search; ` +
+      `Could not load ${label} for the report completely (${reason}) after ${depth} split(s); ` +
         'the report is stopped rather than shown with missing data'
     );
   }
 
-  console.warn(`[adhoc] ${label}: split one search depth=${depth + 1} reason=${reason}`);
+  console.warn(`[adhoc] ${label}: split depth=${depth + 1} reason=${reason}`);
 
-  const parts = await Promise.all(halves.map((half) => runGroup(oystehr, [half], label, depth + 1)));
+  const parts = await Promise.all(halves.map((half) => runEntry(oystehr, half, label, depth + 1)));
   return parts.flat();
 }
 
-/**
- * Runs the entries in batch jobs of `entriesPerJob` (ENTRIES_PER_JOB by default), at most JOBS_IN_PARALLEL at
- * once; each resource once. A search whose entries are heavy asks for fewer per job, so a job stays under one
- * page of 30 000 resources and is not run in full only to be split.
- */
+/** Runs each search as its own job, at most JOBS_IN_PARALLEL at once; each resource once. */
 async function runEntries<T extends FhirResource>(
   oystehr: Oystehr,
   entries: SearchEntry[],
-  label: string,
-  entriesPerJob = ENTRIES_PER_JOB
+  label: string
 ): Promise<T[]> {
   if (entries.length === 0) return [];
   const startedAt = Date.now();
-  const perJob = Math.max(1, Math.floor(entriesPerJob));
-  const groups: SearchEntry[][] = [];
-  for (let i = 0; i < entries.length; i += perJob) groups.push(entries.slice(i, i + perJob));
 
-  const parts = await Promise.all(groups.map((group) => runGroup(oystehr, group, label, 0)));
+  const parts = await Promise.all(entries.map((entry) => runEntry(oystehr, entry, label, 0)));
 
   const out: T[] = [];
   const seen = new Set<string>();
   for (const resource of parts.flat()) {
-    // An included or revincluded resource can come back from two entries (a Patient shared by windows).
+    // An included or revincluded resource can come back from two searches (a follow-up of two windows).
     const key = `${resource.resourceType}/${resource.id}`;
     if (resource.id && seen.has(key)) continue;
     if (resource.id) seen.add(key);
     out.push(resource as T);
   }
 
-  console.log(
-    `[adhoc] ${label}: entries=${entries.length} jobs=${groups.length} resources=${out.length} ms=${
-      Date.now() - startedAt
-    }`
-  );
+  console.log(`[adhoc] ${label}: searches=${entries.length} resources=${out.length} ms=${Date.now() - startedAt}`);
   return out;
 }
 
@@ -507,9 +457,9 @@ export function reportWindows(
   return windows;
 }
 
-/** One date-window entry; it halves itself when a job of this one window fails. */
+/** One date-window search; it halves its window when its job fails. */
 function windowEntry(
-  resourceType: string,
+  resourceType: FhirResource['resourceType'],
   dateParam: string,
   window: { start: string; end: string },
   params: SearchParam[]
@@ -535,8 +485,13 @@ function windowEntry(
   };
 }
 
-/** One id-chunk entry; it halves its id list when a job of this one chunk fails. */
-function idsEntry(resourceType: string, paramName: string, ids: string[], params: SearchParam[]): SearchEntry {
+/** One id-chunk search; it halves its id list when its job fails. */
+function idsEntry(
+  resourceType: FhirResource['resourceType'],
+  paramName: string,
+  ids: string[],
+  params: SearchParam[]
+): SearchEntry {
   return {
     resourceType,
     params: [{ name: paramName, value: ids.join(',') }, ...params],
@@ -548,45 +503,6 @@ function idsEntry(resourceType: string, paramName: string, ids: string[], params
           ]
         : undefined,
   };
-}
-
-/**
- * Window size for a range: one count of the matching appointments, then ≈ RECORDS_PER_WINDOW per window.
- * The count changes only the partition, never the data: when it fails, the windows are DEFAULT_WINDOW_DAYS.
- */
-async function appointmentWindowDays(
-  oystehr: Oystehr,
-  dateRange: { start: string; end: string },
-  params: SearchParam[]
-): Promise<number> {
-  const rangeDays = DateTime.fromISO(dateRange.end).diff(DateTime.fromISO(dateRange.start), 'days').days;
-  if (!Number.isFinite(rangeDays) || rangeDays <= COUNT_MIN_RANGE_DAYS) return DEFAULT_WINDOW_DAYS;
-
-  try {
-    const bundle = await oystehr.fhir.search<Appointment>({
-      resourceType: 'Appointment',
-      params: [
-        { name: 'date', value: `ge${dateRange.start}` },
-        { name: 'date', value: `le${dateRange.end}` },
-        ...params,
-        { name: '_summary', value: 'count' },
-        { name: '_total', value: 'accurate' },
-      ],
-    });
-    const count = bundle.total ?? 0;
-    // `_summary=count` reports 1 on an empty project: a count that small cannot size anything.
-    if (count <= 1) return DEFAULT_WINDOW_DAYS;
-    const days = Math.max(1, (rangeDays * RECORDS_PER_WINDOW) / count);
-    console.log(`[adhoc] Appointment count=${count} rangeDays=${Math.round(rangeDays)} windowDays=${days.toFixed(1)}`);
-    return days;
-  } catch (error) {
-    console.warn(
-      `[adhoc] Appointment count failed, windows of ${DEFAULT_WINDOW_DAYS} days: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-    return DEFAULT_WINDOW_DAYS;
-  }
 }
 
 const participantIds = (appointments: Appointment[], type: 'Patient' | 'Location'): string[] =>
@@ -615,22 +531,15 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
   }
 ): Promise<T[]> {
   const startedAt = Date.now();
-  const filters: SearchParam[] = [
+  const params: SearchParam[] = [
     { name: 'status', value: opts.statuses ?? REPORT_APPOINTMENT_STATUSES },
     { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-  ];
-
-  const windowDays = await appointmentWindowDays(oystehr, opts.dateRange, filters);
-  const params: SearchParam[] = [
-    ...filters,
     { name: '_revinclude', value: 'Encounter:appointment' },
     ...(opts.extraParams ?? []),
   ];
-  const entries = reportWindows(opts.dateRange, windowDays).map((window) =>
-    windowEntry('Appointment', 'date', window, params)
-  );
+  const entries = reportWindows(opts.dateRange).map((window) => windowEntry('Appointment', 'date', window, params));
 
-  const root = await runEntries<Appointment | Encounter>(oystehr, entries, 'Appointment by date', ROOT_WINDOWS_PER_JOB);
+  const root = await runEntries<Appointment | Encounter>(oystehr, entries, 'Appointment by date');
   const appointments = root.filter((r): r is Appointment => r.resourceType === 'Appointment');
 
   const [patients, locations, practitioners] = await Promise.all([
@@ -693,14 +602,13 @@ async function fetchAttendingPractitioners<T extends FhirResource>(
   ]);
 }
 
-/** Resources whose `paramName` is one of `values`, in id chunks of IDS_PER_ENTRY, batch jobs of ENTRIES_PER_JOB. */
+/** Resources whose `paramName` is one of `values`: one async job per id chunk of IDS_PER_ENTRY. */
 export async function fetchScopedResources<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   paramName: string,
   values: string[],
-  extraParams: { name: string; value: string }[] = [],
-  options: { entriesPerJob?: number } = {}
+  extraParams: { name: string; value: string }[] = []
 ): Promise<T[]> {
   const unique = Array.from(new Set(values.filter(Boolean)));
   if (unique.length === 0) return [];
@@ -710,7 +618,7 @@ export async function fetchScopedResources<T extends FhirResource>(
     entries.push(idsEntry(resourceType, paramName, unique.slice(i, i + IDS_PER_ENTRY), extraParams));
   }
 
-  return runEntries<T>(oystehr, entries, `${resourceType} by ${paramName}`, options.entriesPerJob);
+  return runEntries<T>(oystehr, entries, `${resourceType} by ${paramName}`);
 }
 
 export function resolveEncounterAppointment(
