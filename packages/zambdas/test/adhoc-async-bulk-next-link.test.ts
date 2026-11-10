@@ -168,12 +168,26 @@ describe('fetch helpers: one async-bulk job per search', () => {
     );
   });
 
-  it('does not split on a client error', async () => {
-    const { oystehr, jobs } = fakeClient(() => ({ status: 400, outcome: 'bad parameter' }));
+  it('splits a job that the server accepted and then failed with 400 (the 30 s database limit)', async () => {
+    const { oystehr, jobs } = fakeClient((params) =>
+      idsOf(params).length > 2 ? { status: 400 } : { status: 200, resources: idsOf(params).map(practitioner) }
+    );
+
+    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(4));
+
+    expect(resources).toHaveLength(4);
+    expect(jobs.map((params) => idsOf(params).length)).toEqual([4, 2, 2]);
+  });
+
+  it('does not split a search the server refuses when the job is started (a bad request)', async () => {
+    const { oystehr } = fakeClient(() => ({ status: 200, resources: [] }));
+    const search = (oystehr.fhir.search as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+      Object.assign(new Error('bad parameter'), { code: 400 })
+    );
 
     await expect(fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(4))).rejects.toThrow(
-      /status 400/
+      /bad parameter/
     );
-    expect(jobs).toHaveLength(1);
+    expect(search).toHaveBeenCalledTimes(1);
   });
 });

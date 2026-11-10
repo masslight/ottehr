@@ -250,11 +250,11 @@ interface SearchEntry {
   split?: () => [SearchEntry, SearchEntry] | undefined;
 }
 
-/** A job that a smaller search may pass: Internal Error, a 5xx, a timeout, an error file, a capped result. */
+/**
+ * A job that a smaller search may pass: the job failed after it was accepted (Internal Error, the 30 s database
+ * limit), a 5xx or a timeout when it was started, an error file, a capped result.
+ */
 class SplittableJobFailure extends Error {}
-
-/** A job that a smaller search would not fix: a 4xx answer (a bad parameter, no access). */
-class FatalJobFailure extends Error {}
 
 /**
  * At most `max` tasks at once. Only a job (start → poll → download) goes through it, and a job waits for
@@ -310,12 +310,15 @@ async function runJob(oystehr: Oystehr, entry: SearchEntry, label: string): Prom
     const status = await oystehr.fhir.waitForAsyncJob(jobId, jobWait());
 
     if (status.status !== 200 || !('mode' in status) || status.mode !== 'bulk') {
-      const outcome = 'outcome' in status ? JSON.stringify(status.outcome).slice(0, FAILURE_BODY_CHARS) : '';
-      const message = `job answered status ${status.status}, mode ${
-        'mode' in status ? status.mode : 'none'
-      } ${outcome}`;
-      if (isSplittableStatus(status.status)) throw new SplittableJobFailure(message);
-      throw new FatalJobFailure(message);
+      const detail =
+        'outcome' in status ? status.outcome : 'body' in status ? (status as { body?: unknown }).body : undefined;
+      const message = `job answered status ${status.status}, mode ${'mode' in status ? status.mode : 'none'} ${
+        detail === undefined ? '' : JSON.stringify(detail).slice(0, FAILURE_BODY_CHARS)
+      }`;
+      // A job the server accepted and then failed is a query that did not finish — on local, a 1 000-id search ran
+      // into the 30 s database limit and the job answered 400 with no body. A smaller search can pass, so it is
+      // split. A bad request is refused when the job is started (the search call throws), not here.
+      throw new SplittableJobFailure(message);
     }
 
     const errorFiles = status.manifest.error ?? [];
@@ -354,7 +357,7 @@ async function runJob(oystehr: Oystehr, entry: SearchEntry, label: string): Prom
     if (error instanceof SplittableJobFailure) throw error;
     // An error thrown by the SDK (start or poll) or a failed download: a 5xx, a timeout or a network error may
     // pass as a smaller search, a 4xx will not.
-    if (!(error instanceof FatalJobFailure) && isSplittableStatus(code)) {
+    if (isSplittableStatus(code)) {
       throw new SplittableJobFailure(error instanceof Error ? error.message : String(error));
     }
     captureException(error, { extra: { label, jobId, params } });
