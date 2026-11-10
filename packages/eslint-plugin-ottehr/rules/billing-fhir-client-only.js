@@ -24,8 +24,8 @@ const { ESLintUtils } = require('@typescript-eslint/utils');
  *     const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
  *
  * - a client a function receives as a parameter, directly, destructured or through a const taken from
- *   one, is its callers' to answer for: they are checked where they hand it over. So billing helpers
- *   take a plain Oystehr;
+ *   one, is its callers' to answer for: they are checked where they hand it over, and a default the
+ *   parameter falls back to is checked the same way. So billing helpers take a plain Oystehr;
  * - any other client whose type doesn't say what it can see (`new Oystehr`, a plain Oystehr a helper
  *   returns, a value typed any) is reported wherever it is used for FHIR or handed to other code;
  * - asserting a branded type, and passing a value typed any where a client is expected, are reported,
@@ -249,18 +249,19 @@ module.exports = {
 
     /**
      * wrapTaskHandler marks the Task through, and hands the handler, the client its options' createClient
-     * returns, or the clinical client when there is none.
+     * returns, or the clinical client when there is none. A createClient that may be missing counts as
+     * none, since the wrapper then falls back to the clinical client.
      * @param {CallExpression} call
      */
     function checkTaskHandler(call) {
       const options = call.arguments[2];
       const createClient = options && services.getTypeAtLocation(options).getProperty('createClient');
+      // A type that may be undefined has no call signature, so a factory that may be missing gives none.
       const client =
         createClient &&
+        !(createClient.flags & ts.SymbolFlags.Optional) &&
         checker
-          .getNonNullableType(
-            checker.getTypeOfSymbolAtLocation(createClient, services.esTreeNodeToTSNodeMap.get(options))
-          )
+          .getTypeOfSymbolAtLocation(createClient, services.esTreeNodeToTSNodeMap.get(options))
           .getCallSignatures()[0]
           ?.getReturnType();
       if (!client || clientScope(client) !== 'billing') {
@@ -323,6 +324,10 @@ module.exports = {
         if (node.expression) checkHandOff(node.body);
       },
       AssignmentExpression(node) {
+        checkHandOff(node.right);
+      },
+      // A default makes its client in billing code, with no caller handing it over.
+      AssignmentPattern(node) {
         checkHandOff(node.right);
       },
       VariableDeclarator(node) {

@@ -225,6 +225,21 @@ ruleTester.run('billing-fhir-client-only', rule, {
       [handOff(5)]
     ),
     invalid(
+      "a parameter's default is checked like a client handed over",
+      lines(
+        "import Oystehr from '@oystehr/sdk';",
+        "import { createBillingClient, createClient } from './billing';",
+        'declare const loose: any;',
+        'export async function read(client: Oystehr = new Oystehr({})): Promise<void> {',
+        "  await client.fhir.search({ resourceType: 'Patient' });",
+        '}',
+        'export const readMore = ({ client = createClient() }: { client?: Oystehr }): unknown => client;',
+        'export const readUntyped = (client: Oystehr = loose): unknown => client;',
+        'export const readBilling = (client: Oystehr = createBillingClient()): unknown => client;'
+      ),
+      [handOff(4), handOff(7), error('untypedClient', 8, { client: 'Oystehr' })]
+    ),
+    invalid(
       'a client destructured from anything but a parameter is checked',
       lines(
         "import Oystehr from '@oystehr/sdk';",
@@ -323,6 +338,18 @@ ruleTester.run('billing-fhir-client-only', rule, {
         "export const patients = client.fhir.search({ resourceType: 'Patient' });"
       ),
       [fhirUse(5)]
+    ),
+    invalid(
+      'wrapTaskHandler given a createClient that may be missing',
+      lines(
+        "import { createBillingClient } from './billing';",
+        "import { wrapTaskHandler } from './task-helpers';",
+        'const options: { createClient?: typeof createBillingClient } = {};',
+        'declare const maybeFactory: typeof createBillingClient | undefined;',
+        "export const first = wrapTaskHandler('sub-a', async () => undefined, options);",
+        "export const second = wrapTaskHandler('sub-b', async () => undefined, { createClient: maybeFactory });"
+      ),
+      [taskHandler(5, 'the clinical client, by default'), taskHandler(6, 'the clinical client, by default')]
     ),
     invalid(
       'wrapTaskHandler left on its clinical default, or given another client',
