@@ -25,7 +25,8 @@ export const getOrderableItems = async (
 
   const searchParams = [`labIds=${labIds}`];
 
-  if ('textSearch' in search) searchParams.push(`itemNames=${search.textSearch}`);
+  // an empty textSearch means every item at the given labs (e.g. the search was only a lab name)
+  if ('textSearch' in search && search.textSearch) searchParams.push(`itemNames=${search.textSearch}`);
   if ('itemCodes' in search) searchParams.push(`itemCodes=${search.itemCodes.join(',')}`);
 
   console.log('searchParams before join', searchParams);

@@ -1,4 +1,4 @@
-import { Autocomplete, TextField } from '@mui/material';
+import { Autocomplete, createFilterOptions, FilterOptionsState, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -7,6 +7,7 @@ import { useGetCreateExternalLabResources } from 'src/features/visits/shared/sto
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
+import { parseLabSearch } from 'utils/lib/helpers/labs/lab-search';
 import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
 import { STATIC_COMPENDIUM_LAB_GUID } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType, ModifiedOrderingLocation, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
@@ -81,6 +82,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
         blurOnSelect
         size="small"
         options={labs}
+        filterOptions={filterLabOptions}
         getOptionLabel={(option) => nameLabTest(option.item.itemName, option.item.itemCode, option.lab.labName, false)}
         getOptionKey={(lab) => `${lab.item.uniqueName}${lab.lab.labName}`}
         noOptionsText={
@@ -120,6 +122,28 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
       {labSets && <LabSets labSets={labSets} setSelectedLabs={handleSetSelectedLabsViaLabSets} />}
     </>
+  );
+};
+
+const defaultLabOptionsFilter = createFilterOptions<OrderableItemSearchResult>();
+
+/**
+ * The input may include a lab name ("TSH quest"), which the default filter would never find
+ * in an option label. Strip the lab words, keep only options from the named labs (this also narrows
+ * static compendium results expanded into each generic lab), then filter on the test words as usual.
+ */
+const filterLabOptions = (
+  options: OrderableItemSearchResult[],
+  state: FilterOptionsState<OrderableItemSearchResult>
+): OrderableItemSearchResult[] => {
+  const labsInOptions = [...new Map(options.map((option) => [option.lab.labName, option.lab])).values()];
+  const { testSearch, matchedLabs } = parseLabSearch(state.inputValue, labsInOptions);
+  if (!matchedLabs.length) return defaultLabOptionsFilter(options, state);
+
+  const matchedLabNames = new Set(matchedLabs.map((lab) => lab.labName));
+  return defaultLabOptionsFilter(
+    options.filter((option) => matchedLabNames.has(option.lab.labName)),
+    { ...state, inputValue: testSearch }
   );
 };
 
