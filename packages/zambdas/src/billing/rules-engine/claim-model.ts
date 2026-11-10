@@ -309,7 +309,7 @@ export const writeServiceLineProperty = (
   const writer = SERVICE_LINE_WRITERS[propertyId];
   if (!writer) return false;
   if (operation !== 'set' && getServiceLinePropertyDef(propertyId)?.valueType !== 'list') return false;
-  return writer(line, value, operation);
+  return writer(line, value.trim(), operation);
 };
 
 export type DateValueResolution = { value: string } | { error: string };
@@ -1196,5 +1196,5 @@ export const WRITABLE_FIELD_IDS: string[] = Object.keys(WRITERS);
 export const writeField = (model: RulesEngineClaimModel, fieldId: string, value: string | null): boolean => {
   const writer = WRITERS[fieldId];
   if (!writer) return false;
-  return writer(model, value);
+  return writer(model, value?.trim() ?? null);
 };

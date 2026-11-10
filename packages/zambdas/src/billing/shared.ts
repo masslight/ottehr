@@ -1590,7 +1590,7 @@ export function setCoveragePayer(
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: groupNumber || payerId!,
+      value: groupNumber?.trim() || payerId!,
       name: payerOrg.name ?? '',
     },
   ];

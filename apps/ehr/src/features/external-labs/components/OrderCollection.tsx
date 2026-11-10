@@ -7,6 +7,7 @@ import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { usePrintExternalLabLabel } from 'src/features/visits/shared/hooks/usePrintExternalLabLabel';
 import { LabQuestionnaireResponse } from 'utils/lib/types/api/lab';
 import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO } from 'utils/lib/types/data/labs/labs.types';
+import { isBlankText } from 'utils/lib/types/text-schemas';
 import { updateLabOrderResources } from '../../../api/api';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -55,7 +56,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     const sanitizedData = { ...data };
 
     Object.keys(sanitizedData).forEach((item) => {
-      if (!sanitizedData[item]) {
+      const value = sanitizedData[item];
+      if (!value || isBlankText(value)) {
         delete sanitizedData[item];
         return;
       }

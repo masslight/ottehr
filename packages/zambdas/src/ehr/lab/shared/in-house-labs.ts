@@ -559,13 +559,15 @@ const makeUnitCoding = (unitStr: string): CodeableConcept => {
   };
 };
 
-const makeQuantitativeDetails = (item: QuantityComponent): ObservationDefinitionQuantitativeDetails => {
+const makeQuantitativeDetails = (item: QuantityComponent): ObservationDefinitionQuantitativeDetails | undefined => {
   if (!item.normalRange) {
     throw new Error(`Cannot make quantitativeDetails for ${JSON.stringify(item)}`);
   }
+  const { precision, unit } = item.normalRange;
+  if (precision === undefined && !unit) return undefined;
   return {
-    decimalPrecision: item.normalRange.precision,
-    unit: item.normalRange.unit ? makeUnitCoding(item.normalRange.unit) : undefined,
+    decimalPrecision: precision,
+    unit: unit ? makeUnitCoding(unit) : undefined,
   };
 };
 
@@ -774,7 +776,8 @@ const getComponentObservationDefinition = (
       throw new Error(`No normalRange for quantity type component ${componentName} ${JSON.stringify(item)}`);
     }
 
-    obsDef.quantitativeDetails = makeQuantitativeDetails(item);
+    const quantitativeDetails = makeQuantitativeDetails(item);
+    if (quantitativeDetails) obsDef.quantitativeDetails = quantitativeDetails;
     obsDef.qualifiedInterval = [makeQualifiedInterval(item)];
     obsDef.extension = makeObsDefExtension(item);
     contained.push(obsDef);

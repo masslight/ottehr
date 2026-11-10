@@ -1,4 +1,6 @@
 import { Task as FhirTask } from 'fhir/r4b';
+import { z } from 'zod';
+import { optionalTextSchema, requiredTextSchema } from '../../text-schemas';
 
 export interface Task {
   id: string;
@@ -21,27 +23,22 @@ export interface Task {
   alert?: TaskAlertCode;
   completable: boolean;
 }
-export interface CreateManualTaskRequest {
-  category: string;
-  appointmentId?: string;
-  orderId?: string;
-  encounterId?: string;
-  taskTitle: string;
-  taskDetails?: string;
-  assignee?: {
-    id: string;
-    name: string;
-  };
-  location: {
-    id: string;
-    name: string;
-  };
-  patient?: {
-    id: string;
-    name: string;
-  };
-  createdBy?: string;
-}
+const namedReference = z.object({ id: requiredTextSchema, name: requiredTextSchema });
+const optionalNamedReference = namedReference.nullish().transform((value) => value ?? undefined);
+
+export const CreateManualTaskRequestSchema = z.object({
+  category: requiredTextSchema,
+  appointmentId: optionalTextSchema,
+  orderId: optionalTextSchema,
+  encounterId: optionalTextSchema,
+  taskTitle: requiredTextSchema,
+  taskDetails: optionalTextSchema,
+  assignee: optionalNamedReference,
+  location: namedReference,
+  patient: optionalNamedReference,
+  createdBy: optionalTextSchema,
+});
+export type CreateManualTaskRequest = z.input<typeof CreateManualTaskRequestSchema>;
 
 export const MANUAL_TASK = {
   category: {

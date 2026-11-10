@@ -51,7 +51,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   };
 
   const handleSaveEntity = async (text: string): Promise<void> => {
-    if (!text) return;
+    if (!text.trim()) return;
     setIsSaving(true);
     try {
       await handleSave(text);
@@ -80,7 +80,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
               onKeyDown={(event: React.KeyboardEvent) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault();
-                  if (!savingEntityText) return;
+                  if (!savingEntityText.trim()) return;
                   void handleSaveEntity(savingEntityText);
                 }
               }}
@@ -92,7 +92,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
           </Box>
           <RoundedButton
             data-testid={addNoteButtonDataTestId}
-            disabled={!savingEntityText || isSaving}
+            disabled={!savingEntityText.trim() || isSaving}
             onClick={() => handleSaveEntity(savingEntityText)}
             variant="contained"
             color="primary"

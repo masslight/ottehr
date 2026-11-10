@@ -298,6 +298,58 @@ describe('ProcedureCodes', () => {
     });
   });
 
+  describe('whitespace in the add dialog', () => {
+    it('treats a modifier with a trailing space as a duplicate of the saved modifier', async () => {
+      const user = userEvent.setup();
+      render(
+        <ProcedureCodes
+          feeSchedule={makeFeeSchedule([{ code: '99213', modifier: '25', amount: 100 }])}
+          isFetching={false}
+        />,
+        { wrapper: createWrapper() }
+      );
+
+      await user.click(screen.getByText('Add procedure code'));
+      await user.type(screen.getByLabelText(/code \(cpt\/hcpcs\)/i), '99213');
+      await user.keyboard('{Enter}');
+      await user.type(screen.getByLabelText(/modifier/i), '25 ');
+      await user.clear(screen.getByLabelText(/amount/i));
+      await user.type(screen.getByLabelText(/amount/i), '200');
+      await user.click(screen.getByRole('button', { name: 'Add' }));
+
+      await waitFor(() => {
+        expect(mockEnqueueSnackbar).toHaveBeenCalledWith(
+          expect.stringContaining('modifier 25'),
+          expect.objectContaining({ variant: 'error' })
+        );
+      });
+      expect(mockAddCode).not.toHaveBeenCalled();
+    });
+
+    it('sends a trimmed modifier and omits a whitespace-only description', async () => {
+      const user = userEvent.setup();
+      mockAddCode.mockResolvedValue({});
+      render(<ProcedureCodes feeSchedule={makeFeeSchedule([])} isFetching={false} />, {
+        wrapper: createWrapper(),
+      });
+
+      await user.click(screen.getByText('Add procedure code'));
+      await user.type(screen.getByLabelText(/code \(cpt\/hcpcs\)/i), '99213');
+      await user.keyboard('{Enter}');
+      await user.type(screen.getByLabelText(/description/i), '   ');
+      await user.type(screen.getByLabelText(/modifier/i), ' 26 ');
+      await user.clear(screen.getByLabelText(/amount/i));
+      await user.type(screen.getByLabelText(/amount/i), '200');
+      await user.click(screen.getByRole('button', { name: 'Add' }));
+
+      await waitFor(() => {
+        expect(mockAddCode).toHaveBeenCalledWith(
+          expect.objectContaining({ code: '99213', modifier: '26', description: undefined })
+        );
+      });
+    });
+  });
+
   describe('CSV upload and dedup', () => {
     it('deduplicates CSV rows by code+modifier (last wins)', async () => {
       render(<ProcedureCodes feeSchedule={makeFeeSchedule([])} isFetching={false} />, { wrapper: createWrapper() });
