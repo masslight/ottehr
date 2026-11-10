@@ -1,5 +1,6 @@
 import { createFilterOptions, FilterOptionsState } from '@mui/material/useAutocomplete';
 import { parseLabSearch } from 'utils/lib/helpers/labs/lab-search';
+import { STATIC_COMPENDIUM_LAB_GUID } from 'utils/lib/types/data/labs/labs.constants';
 import { ModifiedOrderingLocation, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 
 const defaultLabOptionsFilter = createFilterOptions<OrderableItemSearchResult>();
@@ -26,11 +27,22 @@ export const filterLabOptions = (
   const { testSearch, matchedLabs } = parseLabSearch(state.inputValue, candidateLabs);
   if (!matchedLabs.length) return defaultLabOptionsFilter(options, state);
 
-  const matchedLabNames = new Set(matchedLabs.map((lab) => lab.labName));
-  const namedLabOptions = defaultLabOptionsFilter(
-    options.filter((option) => matchedLabNames.has(option.lab.labName)),
-    { ...state, inputValue: testSearch }
-  );
+  // Match options to the named labs by guid, so it doesn't matter whether a lab is called by its Organization
+  // name or the name the lab API puts on its items ("Quest" vs "Quest Diagnostics"). Generic labs all share the
+  // static compendium guid, so those can only be told apart by name (the Organization name, which
+  // expandResultsForGeneric puts on each copy).
+  const isStaticCompendium = (lab: { labGuid: string }): boolean => lab.labGuid === STATIC_COMPENDIUM_LAB_GUID;
+  const matchedLabGuids = new Set(matchedLabs.filter((lab) => !isStaticCompendium(lab)).map((lab) => lab.labGuid));
+  const matchedGenericLabNames = new Set(matchedLabs.filter(isStaticCompendium).map((lab) => lab.labName));
+  const isFromNamedLab = (option: OrderableItemSearchResult): boolean =>
+    isStaticCompendium(option.lab)
+      ? matchedGenericLabNames.has(option.lab.labName)
+      : matchedLabGuids.has(option.lab.labGuid);
+
+  const namedLabOptions = defaultLabOptionsFilter(options.filter(isFromNamedLab), {
+    ...state,
+    inputValue: testSearch,
+  });
   const namedLabOptionSet = new Set(namedLabOptions);
   const wholeInputOptions = defaultLabOptionsFilter(options, state).filter((option) => !namedLabOptionSet.has(option));
   return [...namedLabOptions, ...wholeInputOptions];

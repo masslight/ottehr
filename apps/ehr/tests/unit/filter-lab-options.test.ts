@@ -81,6 +81,16 @@ describe('filterLabOptions', () => {
     expect(filterLabOptions(options, stateFor('TSH quest labcorp'), orderingLocations)).toEqual([]);
   });
 
+  it('matches options to the named lab by guid, whatever name the lab API puts on them', () => {
+    // the Organization is "Quest" but the lab API calls it "QDI"; same guid, so typing "quest" still finds it
+    const questByApiName = makeOption('TSH', '1001', { labGuid: QUEST.labGuid, labName: 'QDI' });
+    const orderingLocations = [locationWithLabs({ labGuid: QUEST.labGuid, labName: 'Quest' }, LABCORP)];
+
+    expect(filterLabOptions([questByApiName, labCorpTsh], stateFor('TSH quest'), orderingLocations)).toEqual([
+      questByApiName,
+    ]);
+  });
+
   it('narrows static compendium results to the named generic lab', () => {
     const acme = { labGuid: STATIC_COMPENDIUM_LAB_GUID, labName: 'Acme Labs' };
     const beta = { labGuid: STATIC_COMPENDIUM_LAB_GUID, labName: 'Beta Labs' };
