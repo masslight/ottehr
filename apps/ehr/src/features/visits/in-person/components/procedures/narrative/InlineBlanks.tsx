@@ -161,6 +161,10 @@ export const BlankButton: FC<BlankButtonProps> = ({
 interface PopoverBlankProps extends Omit<BlankButtonProps, 'onClick'> {
   /** Popover heading; defaults to the blank's label. */
   title?: string;
+  /** Hides the heading, for content with a labelled field of its own; the title still names the dialog. */
+  hideTitle?: boolean;
+  /** For content that needs more room than the usual popover. */
+  paperSx?: SxProps<Theme>;
   children: (close: () => void) => ReactNode;
   onClose?: () => void;
 }
@@ -203,7 +207,7 @@ const POPOVER_MODIFIERS = [{ name: 'preventOverflow', options: { padding: 8 } }]
 
 /** Non-modal on purpose: a modal popover's backdrop swallowed the first click on Save / Clear Form /
  * another blank. Here the click away closes the popover and still reaches its target. */
-export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
+export const PopoverBlank: FC<PopoverBlankProps> = ({ title, hideTitle, paperSx, children, onClose, ...blank }) => {
   const popupId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   // Focus moves into the paper only after Popper has placed it: focusing earlier opens an autocomplete
@@ -270,16 +274,23 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
               onKeyDown={navigateChoices}
               elevation={8}
               data-testid={dataTestIds.documentProcedurePage.blankPopover}
-              sx={{
-                width: 'max-content',
-                minWidth: 'min(280px, calc(100vw - 32px))',
-                maxWidth: 'min(400px, calc(100vw - 32px))',
-                maxHeight: 'min(360px, calc(100dvh - 32px))',
-                overflow: 'auto',
-                p: 1,
-              }}
+              sx={[
+                {
+                  width: 'max-content',
+                  minWidth: 'min(280px, calc(100vw - 32px))',
+                  maxWidth: 'min(400px, calc(100vw - 32px))',
+                  maxHeight: 'min(360px, calc(100dvh - 32px))',
+                  overflow: 'auto',
+                  p: 1,
+                },
+                ...(Array.isArray(paperSx) ? paperSx : [paperSx]),
+              ]}
             >
-              <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{title ?? blank.label}</Typography>
+              {!hideTitle && (
+                <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>
+                  {title ?? blank.label}
+                </Typography>
+              )}
               {children(close)}
             </Paper>
           </ClickAwayListener>
@@ -555,6 +566,8 @@ interface TextBlankProps {
   max?: number;
   step?: number;
   width?: string;
+  /** Free text that wraps onto more lines and grows as it's typed, like the HPI box (text only). */
+  multiline?: boolean;
   dataTestId?: string;
   invalid?: boolean;
   describedBy?: string;
@@ -573,16 +586,19 @@ export const TextBlank: FC<TextBlankProps> = ({
   max,
   step,
   width,
+  multiline,
   dataTestId,
   invalid,
   describedBy,
 }) => {
   const text = value === undefined ? '' : String(value);
+  const grows = multiline && kind === 'text';
   if (readOnly) return <ReadOnlyBlank label={label} value={text} />;
   const placeholder = placeholderProp ?? label;
   return (
     <InputBase
-      type={kind}
+      type={grows ? undefined : kind}
+      multiline={grows}
       value={text}
       placeholder={placeholder}
       onChange={(event) => onChange(event.target.value)}
@@ -609,6 +625,17 @@ export const TextBlank: FC<TextBlankProps> = ({
             ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
             ...(kind === 'number' ? numberInputSx : {}),
           },
+          // A growing blank renders a textarea; it takes the same look, and its first line sits on the sentence's
+          // baseline like the other blanks.
+          ...(grows
+            ? {
+                '& textarea': {
+                  ...(inline['& input'] as Record<string, unknown>),
+                  ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
+                },
+                verticalAlign: 'baseline',
+              }
+            : {}),
           maxWidth: '100%',
           // The box hugs its content: the placeholder at first, then whatever is typed.
           width: width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,

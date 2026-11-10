@@ -24,7 +24,7 @@ import {
 } from 'utils/lib/types/data/immunization/types';
 import { ImmunizationDiagnosisOption, useImmunizationDiagnosisOptions } from '../hooks/useImmunizationDiagnosisOptions';
 import { ImmunizationLine } from './immunizationLines';
-import { ImmunizationMenu } from './ImmunizationMenu';
+import { IMMUNIZATION_MENU_PAPER_SX, ImmunizationMenu } from './ImmunizationMenu';
 
 /** The admins' button under the line that saves it as a quick pick. */
 export const SAVE_QUICK_PICK_LABEL = 'Save as quick pick';
@@ -177,6 +177,9 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           <PopoverBlank
             label="immunization"
             title="Immunization"
+            // The menu's own field says "Immunization".
+            hideTitle
+            paperSx={IMMUNIZATION_MENU_PAPER_SX}
             value={details.medication?.name}
             need
             readOnly={readOnly}
@@ -314,6 +317,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
             Instructions:{' '}
             <TextBlank
               label="instructions"
+              multiline
               value={details.instructions}
               onChange={(instructions) => update({ instructions })}
               readOnly={readOnly}

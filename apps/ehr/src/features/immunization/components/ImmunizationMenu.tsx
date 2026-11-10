@@ -1,4 +1,4 @@
-import { Box, TextField, Typography } from '@mui/material';
+import { Box, TextField, Typography, useTheme } from '@mui/material';
 import { FC, KeyboardEvent, MouseEvent, ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Vaccine } from 'src/features/visits/in-person/hooks/useImmunization';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
@@ -23,16 +23,11 @@ const MenuMessage: FC<{ children: ReactNode }> = ({ children }) => (
   </Typography>
 );
 
-// Each column scrolls on its own (the rows' offsets measured from it); on a narrow screen the vaccines go under the
-// quick picks. A fixed height, not a maximum: one following the rows resized the popup as typing emptied and refilled
-// the columns. The eRx menu's columns are 300px tall in a 680px popup; the popover here is the blanks' usual one
-// (400px wide, 360px tall at most), so the columns keep the eRx menu's narrow-screen height to fit in it.
-const columnSx = {
-  position: 'relative',
-  flex: 1,
-  minWidth: 0,
-  height: 180,
-  overflowY: 'auto',
+/** The immunization blank's popup: twice the other blanks' width for the menu's two columns, within the screen. */
+export const IMMUNIZATION_MENU_PAPER_SX = {
+  width: 'min(680px, calc(100vw - 32px))',
+  maxWidth: 'min(680px, calc(100vw - 32px))',
+  maxHeight: 'min(440px, calc(100dvh - 32px))',
 };
 
 /** The line's immunization menu: the practice's quick picks in the left column, the vaccines on hand in the right,
@@ -46,6 +41,7 @@ export const ImmunizationMenu: FC<{
   onVaccine: (vaccine: Vaccine) => void;
 }> = ({ quickPicks, vaccines, vaccinesLoading, onQuickPick, onVaccine }) => {
   const id = useId();
+  const theme = useTheme();
   const [query, setQuery] = useState('');
   const typed = query.trim().toLowerCase();
   const quickPickPicks: ImmunizationMenuPick[] = quickPicks
@@ -134,11 +130,23 @@ export const ImmunizationMenu: FC<{
     );
   };
 
+  // Each column scrolls on its own (the rows' offsets measured from it); on a narrow screen the vaccines go under the
+  // quick picks. A fixed height, not a maximum: one following the rows resized the popup as typing emptied and
+  // refilled the columns.
+  const columnSx = {
+    position: 'relative',
+    flex: 1,
+    minWidth: 0,
+    height: 180,
+    [theme.breakpoints.up('sm')]: { height: 300 },
+    overflowY: 'auto',
+  };
   return (
     <Box sx={{ pt: 0.5 }}>
       <TextField
         size="small"
         fullWidth
+        label="Immunization"
         placeholder="Select a quick pick or type to search"
         value={query}
         onChange={(event) => {
@@ -149,7 +157,6 @@ export const ImmunizationMenu: FC<{
         inputProps={{
           role: 'combobox',
           autoComplete: 'off',
-          'aria-label': 'Immunization',
           'aria-autocomplete': 'list',
           'aria-expanded': true,
           'aria-controls': `${id}-quick-picks ${id}-vaccines`,
