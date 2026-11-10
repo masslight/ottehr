@@ -352,6 +352,35 @@ describe('produce-outreach-tasks', () => {
         ])
       );
     });
+
+    it('uses the given task code system in the /code patch when the action type changes', async () => {
+      const oldAction = makeAction();
+      const newAction = makeAction({ actionType: 'log', sendNotificationConfig: undefined });
+      const draftTask = {
+        resourceType: 'Task',
+        id: 'task-1',
+        status: 'draft',
+        meta: {
+          tag: [
+            { system: 'https://fhir.zapehr.com/r4/StructureDefinitions/outreach-task/action-id', code: 'action-1' },
+          ],
+        },
+        input: [...buildTaskInput(oldAction)!],
+      };
+      mockSearch.mockResolvedValueOnce(mockBundle([draftTask]));
+
+      const { requests, updated } = await reconcileDraftTasksWithConfig(
+        mockOystehrClient as any,
+        [oldAction],
+        [newAction],
+        'https://example.com/task-code'
+      );
+
+      expect(updated).toBe(1);
+      const patchOps = JSON.parse(((requests[0] as any).resource as any).data);
+      const codeOp = patchOps.find((op: any) => op.path === '/code');
+      expect(codeOp.value.coding[0].system).toBe('https://example.com/task-code');
+    });
   });
 
   describe('produceOutreachTasks', () => {
@@ -383,6 +412,28 @@ describe('produce-outreach-tasks', () => {
       expect(createdTask.status).toBe('draft');
       expect(createdTask.for).toEqual({ reference: 'Patient/pat-1' });
       expect(createdTask.focus).toEqual({ reference: 'Encounter/enc-1' });
+      expect(createdTask.code.coding[0].system).toBe('https://ottehr.com/CodeSystem/outreach-action-type');
+    });
+
+    it('uses the given taskCodeSystem for the created task code', async () => {
+      const actions = [makeAction()];
+      const planDef = makePlanDefinition(actions);
+
+      mockSearch.mockResolvedValueOnce(mockBundle([planDef]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'draft' });
+
+      await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+        taskCodeSystem: 'https://example.com/task-code',
+      });
+
+      const createdTask = mockCreate.mock.calls[0][0];
+      expect(createdTask.code.coding[0].system).toBe('https://example.com/task-code');
     });
 
     it('skips actions when tasks already exist', async () => {

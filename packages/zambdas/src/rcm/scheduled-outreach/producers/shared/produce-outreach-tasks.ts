@@ -37,6 +37,8 @@ export interface ProduceOutreachTasksParams {
   stripeAccount?: string;
   /** Optional filter to only produce tasks for specific actions. If omitted, all matching actions are produced. */
   actionFilter?: (action: OutreachAction) => boolean;
+  /** Task.code system the executor Subscriptions match on. */
+  taskCodeSystem?: string;
 }
 
 export interface OutreachTaskResult {
@@ -50,7 +52,17 @@ export interface OutreachTaskResult {
  * matching action with executionPeriod.start calculated from event time + offset.
  */
 export async function produceOutreachTasks(params: ProduceOutreachTasksParams): Promise<OutreachTaskResult> {
-  const { triggerEvent, patient, focus, appointment, eventTimestamp, oystehr, stripeAccount, actionFilter } = params;
+  const {
+    triggerEvent,
+    patient,
+    focus,
+    appointment,
+    eventTimestamp,
+    oystehr,
+    stripeAccount,
+    actionFilter,
+    taskCodeSystem,
+  } = params;
 
   if (!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled) {
     console.log('produceOutreachTasks: automatedPatientOutreachEnabled is disabled, skipping');
@@ -165,7 +177,8 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
             dueDateTime,
             appointment,
             birthdayYear,
-            stripeAccount
+            stripeAccount,
+            taskCodeSystem
           );
           const cancelledTask = {
             ...taskDraft,
@@ -188,7 +201,8 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
       dueDateTime,
       appointment,
       birthdayYear,
-      stripeAccount
+      stripeAccount,
+      taskCodeSystem
     );
     // Atomic backstop for the duplicate-creation race (two trigger paths producing the
     // same task concurrently): a FHIR conditional create (POST + If-None-Exist). If a
@@ -461,7 +475,8 @@ function buildOutreachTask(
   dueDateTime: string,
   appointment?: Reference,
   birthdayYear?: number,
-  stripeAccount?: string
+  stripeAccount?: string,
+  taskCodeSystem: string = OUTREACH_ACTION_TYPE_SYSTEM
 ): Omit<Task, 'id'> {
   const basedOn: Reference[] = [{ reference: `PlanDefinition/${planDefinition.id}` }];
   if (appointment?.reference) {
@@ -484,7 +499,7 @@ function buildOutreachTask(
     code: {
       coding: [
         {
-          system: OUTREACH_ACTION_TYPE_SYSTEM,
+          system: taskCodeSystem,
           code: action.actionType,
           display: actionTypeDisplay(action.actionType),
         },
@@ -616,7 +631,8 @@ function triggerOffsetMinutes(action: OutreachAction): number {
 export async function reconcileDraftTasksWithConfig(
   oystehr: Oystehr,
   oldActions: OutreachAction[],
-  newActions: OutreachAction[]
+  newActions: OutreachAction[],
+  taskCodeSystem: string = OUTREACH_ACTION_TYPE_SYSTEM
 ): Promise<{ requests: BatchInputRequest<Task>[]; cancelled: number; updated: number }> {
   const newActionMap = new Map(newActions.map((a) => [a.id, a]));
   const oldActionMap = new Map(oldActions.map((a) => [a.id, a]));
@@ -688,7 +704,7 @@ export async function reconcileDraftTasksWithConfig(
           value: {
             coding: [
               {
-                system: OUTREACH_ACTION_TYPE_SYSTEM,
+                system: taskCodeSystem,
                 code: newAction.actionType,
                 display: actionTypeDisplay(newAction.actionType),
               },
