@@ -139,12 +139,14 @@ export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
 export async function writeInventoryStockEntry(
   oystehr: Oystehr,
   lot: Medication,
-  entry: StockEntryWrite | StockEntryWrite[],
+  entry: StockEntryWrite | StockEntryWrite[] | ((onHand: number) => StockEntryWrite),
   reviseLot: (lot: Medication) => Medication = (lot) => lot
 ): Promise<{ lot: Medication; entry: Observation }> {
-  const entries = Array.isArray(entry) ? entry : [entry];
-  const quantity = entries.reduce((total, written) => total + written.quantity, 0);
+  const entriesAt = (onHand: number): StockEntryWrite[] =>
+    typeof entry === 'function' ? [entry(onHand)] : Array.isArray(entry) ? entry : [entry];
   if (!lot.id) {
+    const entries = entriesAt(0);
+    const quantity = entries.reduce((total, written) => total + written.quantity, 0);
     const lotUrn = `urn:uuid:${randomUUID()}`;
     const createLot: BatchInputPostRequest<Medication> = {
       method: 'POST',
@@ -176,7 +178,9 @@ export async function writeInventoryStockEntry(
         current = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: lotId });
       }
       const existingEntries = await getInventoryLotEntries(oystehr, lotId);
-      const onHand = sumStockEntries(existingEntries) + quantity;
+      const balance = sumStockEntries(existingEntries);
+      const entries = entriesAt(balance);
+      const onHand = balance + entries.reduce((total, written) => total + written.quantity, 0);
       const createEntries = entries.map(
         (written): BatchInputPostRequest<Observation> => ({
           method: 'POST',

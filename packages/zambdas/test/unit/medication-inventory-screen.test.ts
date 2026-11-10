@@ -525,6 +525,45 @@ describe('adjust-medication-inventory - performEffect', () => {
     expect(result.entry).toMatchObject({ type: 'count', quantity: -2 });
   });
 
+  it('counts against the balance it re-reads when the write is retried after a version conflict', async () => {
+    const ledgerEntry = (id: string, type: 'received' | 'administered', quantity: number): Observation => ({
+      ...makeInventoryStockEntry({
+        lotReference: 'Medication/lot-1',
+        locationId: 'main',
+        type,
+        quantity,
+        unit: 'vial',
+        effectiveDateTime: '2026-10-01T10:00:00Z',
+      }),
+      id,
+    });
+    const ledger = [ledgerEntry('e1', 'received', 6)];
+    const oystehr = makeMockOystehr({ Observation: ledger });
+    oystehr.fhir.get
+      .mockResolvedValueOnce(lotResource)
+      .mockResolvedValueOnce({ ...withLotOnHand(lotResource, 5), meta: { versionId: '3' } });
+    oystehr.fhir.transaction.mockImplementationOnce(() => {
+      ledger.push(ledgerEntry('e2', 'administered', -1));
+      throw Object.assign(new Error('412 Precondition Failed'), { code: 412 });
+    });
+
+    const result = await adjustPerformEffect(
+      oystehr,
+      { action: 'count', lotId: 'lot-1', counted: 4 },
+      'Practitioner/me'
+    );
+
+    const retry = oystehr.fhir.transaction.mock.calls[1][0].requests;
+    expect(retry[1].ifMatch).toBe('W/"3"');
+    expect(parseInventoryStockEntry({ ...retry[0].resource, id: 'posted' })).toMatchObject({
+      type: 'count',
+      reason: 'count-adjustment',
+      quantity: -1,
+      components: [{ code: 'counted', value: 4, unit: 'vial' }],
+    });
+    expect(result.lot.onHand).toBe(4);
+  });
+
   it('rejects a Medication that is not a lot before writing anything', async () => {
     const oystehr = makeMockOystehr({});
     oystehr.fhir.get.mockResolvedValue(catalog);

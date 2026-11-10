@@ -83,10 +83,8 @@ export const performEffect = async (
   const lot = parseInventoryLot(lotResource);
   if (!lot) throw FHIR_RESOURCE_NOT_FOUND('Medication');
 
-  const written = await writeInventoryStockEntry(
-    oystehr,
-    lotResource,
-    stockEntryForAction(params, lot, performerReference, DateTime.now().toUTC().toISO())
+  const written = await writeInventoryStockEntry(oystehr, lotResource, (onHand) =>
+    stockEntryForAction(params, { ...lot, onHand }, performerReference, DateTime.now().toUTC().toISO())
   );
 
   const parsedLot = parseInventoryLot(written.lot);

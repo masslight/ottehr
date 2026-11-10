@@ -38,11 +38,15 @@ export default function CountLotDialog({
     if (!oystehrZambda || count === undefined) return;
     setSaving(true);
     try {
-      await adjustMedicationInventory(oystehrZambda, { action: 'count', lotId: lot.id, counted: count });
+      const { entry } = await adjustMedicationInventory(oystehrZambda, {
+        action: 'count',
+        lotId: lot.id,
+        counted: count,
+      });
       enqueueSnackbar(
-        difference === 0
+        entry.quantity === 0
           ? `Counted lot ${lot.lotNumber}: no difference`
-          : `Counted lot ${lot.lotNumber}: recorded ${formatQuantity(difference ?? 0, lot.unit, { signed: true })}`,
+          : `Counted lot ${lot.lotNumber}: recorded ${formatQuantity(entry.quantity, lot.unit, { signed: true })}`,
         { variant: 'success' }
       );
       onSaved();
