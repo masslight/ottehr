@@ -124,6 +124,10 @@ if skipped docker; then
   skip 'docker'
 else
   read -r -a DOCKER <<<"${DOCKER:-docker}"
+  if ! "${DOCKER[@]}" ps >/dev/null 2>"$TMP/docker.err" && [ "${DOCKER[0]}" != 'sudo' ] && sudo -n "${DOCKER[@]}" ps >/dev/null 2>&1; then
+    echo "    ${DOCKER[*]} needs elevated rights; using sudo ${DOCKER[*]}"
+    DOCKER=(sudo "${DOCKER[@]}")
+  fi
   if ! "${DOCKER[@]}" ps >/dev/null 2>"$TMP/docker.err"; then
     fail "cannot talk to docker ($(tail -n 1 "$TMP/docker.err")); add this user to the docker group or run with DOCKER='sudo docker'"
   elif [ "$("${DOCKER[@]}" inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" != 'true' ]; then
@@ -143,7 +147,7 @@ else
       if [ "$RC" -eq 124 ]; then
         fail "storescu did not finish within $((TIMEOUT + 10))s"
       else
-        fail "storescu exited $RC (an A-ASSOCIATE-RJ usually means the called or calling AE title is not configured on the SCP)"
+        fail "storescu exited $RC; its output below says why (A-ASSOCIATE-RJ: the SCP does not accept these AE titles; connect error: the network path)"
       fi
     fi
     show "$TMP/storescu.out"
@@ -159,9 +163,17 @@ mirth_echo() {
   local body
   body=$(printf '{"target":"%s","host":"%s","port":%s,"calledAeTitle":"%s"%s}' \
     "$(json_escape "$TARGET")" "$(json_escape "$1")" "$2" "$(json_escape "$CALLED")" "$calling_json")
-  curl -sS -m "$TIMEOUT" -o "$3" -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
-    --data "$body" "$MIRTH_URL" 2>"$TMP/curl.err" || printf '000'
+  local status
+  status=$(curl -sS -m "$TIMEOUT" -o "$3" -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+    --data "$body" "$MIRTH_URL" 2>"$TMP/curl.err")
+  if [ $? -ne 0 ] || [ -z "$status" ]; then
+    printf '000'
+  else
+    printf '%s' "$status"
+  fi
 }
+
+curl_error() { tail -n 1 "$TMP/curl.err" | sed 's/^curl: ([0-9]*) //'; }
 
 step "3. Mirth echo channel at $MIRTH_URL"
 if skipped mirth; then
@@ -169,21 +181,23 @@ if skipped mirth; then
 else
   STATUS=$(mirth_echo "$HOST" "$PORT" "$TMP/mirth.out")
   case "$STATUS" in
-    000) fail "could not reach Mirth: $(tail -n 1 "$TMP/curl.err")" ;;
+    000) fail "could not reach Mirth at $MIRTH_URL ($(curl_error)); is the echo channel deployed with its HTTP Listener on this port? Pass -u if it listens elsewhere" ;;
     2??) pass "Mirth answered $STATUS: echo succeeded" ;;
     *) fail "Mirth answered $STATUS: echo failed (if step 2 passed, the channel is not running the same storescu command)" ;;
   esac
   [ -s "$TMP/mirth.out" ] && show "$TMP/mirth.out"
 
-  echo
-  echo "    negative check: asking Mirth to echo 127.0.0.1:1, where nothing listens"
-  STATUS=$(mirth_echo '127.0.0.1' 1 "$TMP/mirth-negative.out")
-  case "$STATUS" in
-    000) fail "could not reach Mirth: $(tail -n 1 "$TMP/curl.err")" ;;
-    2??) fail "Mirth answered $STATUS for an echo that cannot succeed; the channel must map a non-zero storescu exit code to a non-2xx response or pacs_poll_dicom_echo_success will always read 1" ;;
-    *) pass "Mirth answered $STATUS for the impossible echo, so failures are reported" ;;
-  esac
-  [ -s "$TMP/mirth-negative.out" ] && show "$TMP/mirth-negative.out" 5
+  if [ "$STATUS" != '000' ]; then
+    echo
+    echo "    negative check: asking Mirth to echo 127.0.0.1:1, where nothing listens"
+    STATUS=$(mirth_echo '127.0.0.1' 1 "$TMP/mirth-negative.out")
+    case "$STATUS" in
+      000) fail "could not reach Mirth at $MIRTH_URL ($(curl_error))" ;;
+      2??) fail "Mirth answered $STATUS for an echo that cannot succeed; the channel must map a non-zero storescu exit code to a non-2xx response or pacs_poll_dicom_echo_success will always read 1" ;;
+      *) pass "Mirth answered $STATUS for the impossible echo, so failures are reported" ;;
+    esac
+    [ -s "$TMP/mirth-negative.out" ] && show "$TMP/mirth-negative.out" 5
+  fi
 fi
 
 # ── 4. pacs-poll metrics ───────────────────────────────────────────
@@ -192,7 +206,7 @@ step "4. pacs-poll metrics at $METRICS_URL"
 if skipped metrics; then
   skip 'metrics'
 elif ! curl -sS -m 10 -o "$TMP/metrics" "$METRICS_URL" 2>"$TMP/curl.err"; then
-  fail "could not fetch metrics: $(tail -n 1 "$TMP/curl.err"); is pacs-poll running?"
+  fail "could not fetch metrics ($(curl_error)); is pacs-poll running?"
 else
   grep -E "^pacs_poll_(tcp_connect|dicom_echo)_[a-z_]+\{[^}]*target=\"$TARGET\"" "$TMP/metrics" >"$TMP/target-metrics" || true
   if [ ! -s "$TMP/target-metrics" ]; then
