@@ -1,13 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import {
-  Coverage,
   DocumentReference,
   Encounter,
   Location,
   Observation,
   Patient,
   Practitioner,
-  RelatedPerson,
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
@@ -26,19 +24,7 @@ import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 /** The identifying bits of a resource an order form was rendered from. */
 export type OrderFormSource = Pick<Resource, 'resourceType' | 'id' | 'meta'>;
 
-/**
- * Bump whenever the order form's layout or content changes. A form on file was rendered by the template
- * of its day, and its sources alone can't tell — without a bump an unchanged order keeps reprinting the
- * old layout.
- */
-export const RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION = 2;
-
-/**
- * A subscriber is a source of its own only when it is a standalone RelatedPerson: a contained one is
- * versioned with its Coverage, and a patient who is their own subscriber is already a source.
- */
-const standaloneSubscriber = (coverage?: Coverage, subscriber?: RelatedPerson): RelatedPerson | undefined =>
-  coverage?.subscriber?.reference?.startsWith('RelatedPerson/') ? subscriber : undefined;
+const RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION = 2;
 
 export interface RadiologyOrderFormResources {
   input: RadiologyOrderFormInput;
@@ -72,20 +58,15 @@ export const gatherRadiologyOrderFormInput = async (
   const practitionerId =
     getAttendingPractitionerId(encounter) ?? getIdFromReference(serviceRequest.requester?.reference);
 
-  const [patient, practitioner, location, weightObservation, { account, coverages, insuranceOrgs }] = await Promise.all(
-    [
-      oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
-      practitionerId
-        ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId })
-        : Promise.resolve(undefined),
-      locationId
-        ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
-        : Promise.resolve(undefined),
-      fetchLatestWeightObservation(encounterId, oystehr),
-      // the insurance printed is the patient's current primary/secondary, the same the visit shows
-      getAccountAndCoverageResourcesForPatient(patientId, oystehr),
-    ]
-  );
+  const [patient, practitioner, location, weightObservation, { account, coverages }] = await Promise.all([
+    oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
+    practitionerId
+      ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId })
+      : Promise.resolve(undefined),
+    locationId ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }) : Promise.resolve(undefined),
+    fetchLatestWeightObservation(encounterId, oystehr),
+    getAccountAndCoverageResourcesForPatient(patientId, oystehr),
+  ]);
 
   const timezone =
     location?.extension?.find((ext) => ext.url === TIMEZONE_EXTENSION_URL)?.valueString ?? 'America/New_York';
@@ -94,10 +75,8 @@ export const gatherRadiologyOrderFormInput = async (
   const weight = quantity?.value != null ? { value: quantity.value, unit: quantity.unit ?? 'kg' } : undefined;
 
   return {
-    input: { serviceRequest, patient, practitioner, location, timezone, weight, coverages, insuranceOrgs, oystehr },
+    input: { serviceRequest, patient, practitioner, location, timezone, weight, coverages, oystehr },
     refs: { patientId, encounterId, serviceRequestId },
-    // The Account ranks the coverages, so a primary/secondary swap shows up as an Account change. Payers
-    // aren't tracked: they are RCM records without a FHIR version.
     sources: [
       serviceRequest,
       encounter,
@@ -108,8 +87,6 @@ export const gatherRadiologyOrderFormInput = async (
       account,
       coverages.primary,
       coverages.secondary,
-      standaloneSubscriber(coverages.primary, coverages.primarySubscriber),
-      standaloneSubscriber(coverages.secondary, coverages.secondarySubscriber),
     ].flatMap((resource) => (resource ? [resource] : [])),
   };
 };
@@ -156,10 +133,6 @@ export const makeRadiologyOrderFormSourceVersion = (sources: OrderFormSource[]):
   return versions.sort().join('|');
 };
 
-/**
- * What a radiology order form is stamped with: its sources' versions under the template that drew it, so
- * either moving on re-renders the form. Undefined, and so never reused, when a source is unversioned.
- */
 export const makeRadiologyOrderFormVersion = (sources: OrderFormSource[]): string | undefined => {
   const sourceVersion = makeRadiologyOrderFormSourceVersion(sources);
   return sourceVersion && `template@${RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION}|${sourceVersion}`;

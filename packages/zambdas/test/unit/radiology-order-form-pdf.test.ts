@@ -1,8 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Coverage, Location, Organization, Patient, Practitioner, RelatedPerson, ServiceRequest } from 'fhir/r4b';
+import { Coverage, Location, Patient, Practitioner, RelatedPerson, ServiceRequest } from 'fhir/r4b';
 import { join } from 'path';
 import { PDFPage } from 'pdf-lib';
-import { OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderPdf } from '../../src/shared/pdf/pdf-common';
 import { PDF_CLIENT_STYLES } from '../../src/shared/pdf/pdf-consts';
@@ -49,34 +48,26 @@ const location: Location = {
   address: { line: ['78 Old Town Road'], city: 'New York', state: 'NY', postalCode: '12345' },
   telecom: [
     { system: 'phone', value: '(123) 456-7815' },
-    { system: 'fax', value: '+10987654321' },
+    { system: 'fax', value: '(098) 765-4321' },
   ],
 };
 
-const payer = (payerId: string, name: string): Organization => ({
-  resourceType: 'Organization',
-  id: `org-${payerId}`,
-  name,
-  identifier: [{ system: OYSTEHR_RCM_PAYER_ID_SYSTEM, value: payerId }],
-});
-
 const coverage = (
   id: string,
-  payerId: string,
-  options: { planName?: string; subscriber: string; relationship: string; memberId?: string }
+  options: { planName: string; subscriber: string; relationship: string; memberId: string }
 ): Coverage => ({
   resourceType: 'Coverage',
   id,
   status: 'active',
   beneficiary: { reference: 'Patient/pat-1' },
-  payor: [{ reference: `https://rcm-api.zapehr.com/payer/${payerId}` }],
+  payor: [{ reference: 'https://rcm-api.zapehr.com/payer/60054' }],
   subscriber: { reference: options.subscriber },
   subscriberId: options.memberId,
   relationship: { coding: [{ code: options.relationship.toLowerCase(), display: options.relationship }] },
   class: [
     {
       type: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/coverage-class', code: 'plan' }] },
-      value: payerId,
+      value: '60054',
       name: options.planName,
     },
   ],
@@ -89,6 +80,13 @@ const spouse: RelatedPerson = {
   name: [{ given: ['Emma'], family: 'Black' }],
 };
 
+const primary = coverage('cov-1', {
+  planName: 'Blue Cross',
+  subscriber: 'Patient/pat-1',
+  relationship: 'Self',
+  memberId: '12345678',
+});
+
 const input = (overrides: Partial<RadiologyOrderFormInput> = {}): RadiologyOrderFormInput => ({
   serviceRequest,
   patient,
@@ -97,9 +95,8 @@ const input = (overrides: Partial<RadiologyOrderFormInput> = {}): RadiologyOrder
   timezone: 'America/New_York',
   weight: { value: 70, unit: 'kg' },
   coverages: {
-    primary: coverage('cov-1', '60054', { subscriber: 'Patient/pat-1', relationship: 'Self', memberId: '12345678' }),
-    // a payer that has since dropped out of the payer list still prints under the name it was saved with
-    secondary: coverage('cov-2', '99999', {
+    primary,
+    secondary: coverage('cov-2', {
       planName: 'My Health',
       subscriber: '#coverageSubscriber',
       relationship: 'Spouse',
@@ -108,7 +105,6 @@ const input = (overrides: Partial<RadiologyOrderFormInput> = {}): RadiologyOrder
     primarySubscriber: patient as unknown as RelatedPerson,
     secondarySubscriber: spouse,
   },
-  insuranceOrgs: [payer('60054', 'Blue Cross')],
   oystehr,
   ...overrides,
 });
@@ -136,27 +132,14 @@ describe('composeRadiologyOrderFormData', () => {
     ]);
   });
 
-  it('falls back to the member identifier when the coverage has no subscriberId', () => {
-    const primary: Coverage = {
-      ...coverage('cov-1', '60054', { subscriber: 'Patient/pat-1', relationship: 'Self' }),
-      identifier: [{ type: { coding: [{ code: 'MB' }] }, value: 'MB-1' }],
-    };
-    const { patient: composed } = composeRadiologyOrderFormData(input({ coverages: { primary } }));
-
-    expect(composed.insurances).toEqual([
-      { rank: 'Primary', carrier: 'Blue Cross', memberId: 'MB-1', relationship: 'Self' },
-    ]);
-  });
-
   it('prints no insurance lines for a patient without coverage', () => {
     expect(composeRadiologyOrderFormData(input({ coverages: {} })).patient.insurances).toEqual([]);
   });
 
-  it('carries the provider credentials and a formatted clinic fax', () => {
+  it('carries the provider credentials', () => {
     const composed = composeRadiologyOrderFormData(input());
 
     expect(composed.orderingProvider).toMatchObject({ signatureName: 'Sarah Lion', credentials: 'MD' });
-    expect(composed.orderingClinic.fax).toBe('(098) 765-4321');
   });
 
   it('leaves credentials off for a provider without any', () => {
@@ -195,7 +178,6 @@ describe('radiology order form PDF', () => {
       const x = options?.x ?? 0;
       const width = options?.font?.widthOfTextAtSize(text, options.size ?? 0) ?? 0;
       expect(x + width, `"${text}" runs past the right margin`).toBeLessThanOrEqual(PAGE_RIGHT_BOUND + 0.5);
-      // wrapped lines are drawn with a trailing space
       return { text: text.trimEnd(), x, y: options?.y ?? 0 };
     });
   };
@@ -219,7 +201,6 @@ describe('radiology order form PDF', () => {
     const drawn = await render(composeRadiologyOrderFormData(input()));
     const text = drawn.map((line) => line.text).join(' ');
 
-    // From column: the fax-back line follows the clinic phone, and the old "Fax:" label is gone
     const phone = find(drawn, 'Phone: (123) 456-7815');
     const faxLabel = find(drawn, 'Please fax results to:');
     const faxNumber = find(drawn, '(098) 765-4321');
@@ -234,7 +215,6 @@ describe('radiology order form PDF', () => {
     expect(text).toContain('Secondary Insurance');
     expect(text).toContain('My Health     Subscriber: Black, Emma     ID: MH-555     Relation: Spouse');
 
-    // the credentials follow the cursive signature on its baseline
     const signature = find(drawn, 'Sarah Lion');
     const credentials = find(drawn, ', MD');
     expect(credentials.y).toBe(signature.y);
@@ -260,15 +240,19 @@ describe('radiology order form PDF', () => {
   });
 
   it('wraps a long insurance line between its fields, never inside one', async () => {
-    const longCarrier = 'ANTHEM BLUE CROSS AND BLUE SHIELD HEALTH PLAN OF NEW YORK';
+    const longCarrier = coverage('cov-1', {
+      planName: 'ANTHEM BLUE CROSS AND BLUE SHIELD HEALTH PLAN OF NEW YORK',
+      subscriber: 'Patient/pat-1',
+      relationship: 'Self',
+      memberId: '12345678',
+    });
     const drawn = await render(
       composeRadiologyOrderFormData(
-        input({ insuranceOrgs: [payer('60054', longCarrier)], coverages: { primary: input().coverages.primary } })
+        input({ coverages: { primary: longCarrier, primarySubscriber: patient as unknown as RelatedPerson } })
       )
     );
     const label = find(drawn, 'Primary Insurance');
     const orderedY = drawn.find((line) => line.text.startsWith('Ordered'))!.y;
-    // the value lines sit right of the label, from its row down to the order section
     const insuranceLines = drawn.filter((line) => line.x > label.x && line.y <= label.y && line.y > orderedY);
 
     expect(insuranceLines.length).toBeGreaterThan(1);

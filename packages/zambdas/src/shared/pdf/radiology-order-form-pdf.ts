@@ -1,15 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import {
-  Coverage,
-  DocumentReference,
-  Location,
-  Organization,
-  Patient,
-  Practitioner,
-  RelatedPerson,
-  ServiceRequest,
-} from 'fhir/r4b';
+import { Coverage, DocumentReference, Location, Patient, Practitioner, RelatedPerson, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import {
@@ -19,7 +10,7 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
-import { getPayerId, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { Secrets } from 'utils/lib/secrets';
@@ -58,9 +49,7 @@ export interface RadiologyOrderFormInput {
   location?: Location;
   timezone: string;
   weight?: { value: number; unit: string };
-  /** the patient's current primary/secondary insurance, as on their account */
   coverages: OrderedCoveragesWithSubscribers;
-  insuranceOrgs: Organization[];
   oystehr: Oystehr;
 }
 
@@ -100,36 +89,26 @@ export interface RadiologyOrderFormData extends PdfData {
 const composeInsuranceLine = (
   rank: InsuranceLine['rank'],
   coverage: Coverage | undefined,
-  // when the patient is their own subscriber this is the Patient, despite the RelatedPerson typing upstream
-  subscriber: RelatedPerson | Patient | undefined,
-  insuranceOrgs: Organization[]
+  subscriber: RelatedPerson | undefined
 ): InsuranceLine | undefined => {
   if (!coverage) return undefined;
-  // The plan class carries the payer id and the carrier's name as it was when the coverage was saved;
-  // prefer the payer's current name, falling back to that one.
-  const { planId: payerId, planName } = getPlanIdAndNameFromCoverage(coverage);
-  const payer = payerId ? insuranceOrgs.find((org) => getPayerId(org) === payerId) : undefined;
   return {
     rank,
-    carrier: payer?.name || planName || undefined,
+    carrier: getPlanIdAndNameFromCoverage(coverage).planName || undefined,
     subscriberName: subscriber ? getFullestAvailableName(subscriber, true) : undefined,
-    memberId:
-      coverage.subscriberId ??
-      coverage.identifier?.find((identifier) => identifier.type?.coding?.some((coding) => coding.code === 'MB'))?.value,
-    relationship: coverage.relationship?.coding?.[0]?.display ?? coverage.relationship?.text,
+    memberId: coverage.subscriberId,
+    relationship: coverage.relationship?.coding?.[0]?.display,
   };
 };
 
 export const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput, RadiologyOrderFormData> = (input) => {
-  const { serviceRequest, patient, practitioner, location, timezone, weight, coverages, insuranceOrgs, oystehr } =
-    input;
+  const { serviceRequest, patient, practitioner, location, timezone, weight, coverages, oystehr } = input;
   const dto = makeRadiologyDTO(serviceRequest);
 
   const practitionerName = practitioner?.name?.[0];
   const signatureName = practitionerName
     ? [practitionerName.given?.join(' '), practitionerName.family].filter(Boolean).join(' ')
     : '';
-  const clinicFax = location?.telecom?.find((t) => t.system === 'fax')?.value;
 
   return {
     patient: {
@@ -139,8 +118,8 @@ export const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput
       phone: standardizePhoneNumber(patient.telecom?.find((t) => t.system === 'phone')?.value),
       address: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : undefined,
       insurances: [
-        composeInsuranceLine('Primary', coverages.primary, coverages.primarySubscriber, insuranceOrgs),
-        composeInsuranceLine('Secondary', coverages.secondary, coverages.secondarySubscriber, insuranceOrgs),
+        composeInsuranceLine('Primary', coverages.primary, coverages.primarySubscriber),
+        composeInsuranceLine('Secondary', coverages.secondary, coverages.secondarySubscriber),
       ].filter((line): line is InsuranceLine => line !== undefined),
     },
     performingOrg: {
@@ -154,8 +133,7 @@ export const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput
       name: location?.name,
       address: location?.address ? oystehr.fhir.formatAddress(location.address) : undefined,
       phone: location?.telecom?.find((t) => t.system === 'phone')?.value,
-      // the radiology facility dials this to send results back, so print it in one recognizable format
-      fax: standardizePhoneNumber(clinicFax) ?? clinicFax,
+      fax: location?.telecom?.find((t) => t.system === 'fax')?.value,
     },
     orderingProvider: {
       name: practitioner ? getFullestAvailableName(practitioner) ?? '' : '',
@@ -220,12 +198,9 @@ const createRadiologyOrderFormStyles: StyleFactory = (assets) => {
   };
 };
 
-type RenderClient = Parameters<PdfSection<RadiologyOrderFormData, unknown>['render']>[0];
-type RenderStyles = Parameters<PdfSection<RadiologyOrderFormData, unknown>['render']>[2];
-
-const drawOrganizationHeading = (
-  client: RenderClient,
-  styles: RenderStyles,
+const drawOrganizationBlock = (
+  client: Parameters<PdfSection<RadiologyOrderFormData, unknown>['render']>[0],
+  styles: Parameters<PdfSection<RadiologyOrderFormData, unknown>['render']>[2],
   label: string,
   org: OrganizationBlock
 ): void => {
@@ -234,15 +209,15 @@ const drawOrganizationHeading = (
   if (!nameLines.length) nameLines.push('—');
   nameLines.forEach((line) => client.drawText(line, styles.textStyles.orgName));
   if (org.address) client.drawText(org.address, styles.textStyles.regular);
+  if (org.fax) client.drawText(`Fax: ${org.fax}`, styles.textStyles.regular);
+  if (org.phone) client.drawText(`Phone: ${org.phone}`, styles.textStyles.regular);
 };
 
 const fromColumn: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData['orderingClinic']> = {
   preferredWidth: 'column',
   dataSelector: (data) => data.orderingClinic,
   render: (client, clinic, styles) => {
-    drawOrganizationHeading(client, styles, 'From:', clinic);
-    if (clinic.phone) client.drawText(`Phone: ${clinic.phone}`, styles.textStyles.regular);
-    // the clinic's fax is where the radiology facility sends results, so it is called out as such
+    drawOrganizationBlock(client, styles, 'From:', { ...clinic, fax: undefined });
     if (clinic.fax) {
       client.drawText('Please fax results to:', styles.textStyles.faxResults);
       client.drawText(clinic.fax, styles.textStyles.faxResults);
@@ -253,11 +228,7 @@ const fromColumn: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData['ord
 const toColumn: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData['performingOrg']> = {
   preferredWidth: 'column',
   dataSelector: (data) => data.performingOrg,
-  render: (client, org, styles) => {
-    drawOrganizationHeading(client, styles, 'To:', org);
-    if (org.fax) client.drawText(`Fax: ${org.fax}`, styles.textStyles.regular);
-    if (org.phone) client.drawText(`Phone: ${org.phone}`, styles.textStyles.regular);
-  },
+  render: (client, org, styles) => drawOrganizationBlock(client, styles, 'To:', org),
 };
 
 const patientSection: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData['patient']> = {
@@ -299,19 +270,11 @@ const patientSection: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData[
   },
 };
 
-const SEGMENT_SEPARATOR = '     ';
-
-/**
- * Joins label/value segments ("ID: 12345") onto lines no wider than `maxWidth`, breaking only between
- * segments so a label is never stranded at a line end. The PDF client wraps at every space, so the
- * breaks are made here as newlines; a lone segment wider than a line still wraps at its spaces.
- */
 const wrapBetweenSegments = (segments: string[], maxWidth: number, measure: (text: string) => number): string => {
   const lines: string[] = [];
   segments.forEach((segment) => {
     const last = lines.length - 1;
-    const joined = last >= 0 ? `${lines[last]}${SEGMENT_SEPARATOR}${segment}` : undefined;
-    // the client measures each word with a trailing space, so leave room for one
+    const joined = last >= 0 ? `${lines[last]}     ${segment}` : undefined;
     if (joined !== undefined && measure(`${joined} `) <= maxWidth) {
       lines[last] = joined;
     } else {
@@ -373,19 +336,15 @@ const signatureSection: PdfSection<RadiologyOrderFormData, RadiologyOrderFormDat
   shouldRender: (provider) => !!provider.signatureName,
   render: (client, provider, styles) => {
     client.newLine(48);
-    if (!provider.credentials) {
-      client.drawText(provider.signatureName, styles.textStyles.signature);
-      return;
-    }
-    // the cursive name, then its credentials in print on the same baseline: "Jane Doe, MD"
     const signatureStyle = styles.textStyles.signature;
-    client.drawText(provider.signatureName, { ...signatureStyle, newLineAfter: false });
-    const nameWidth = client.getTextDimensions(provider.signatureName, signatureStyle).width;
-    client.drawStartXPosSpecifiedText(
-      `, ${provider.credentials}`,
-      styles.textStyles.signatureCredentials,
-      client.getLeftBound() + nameWidth
-    );
+    client.drawText(provider.signatureName, { ...signatureStyle, newLineAfter: !provider.credentials });
+    if (provider.credentials) {
+      client.drawStartXPosSpecifiedText(
+        `, ${provider.credentials}`,
+        styles.textStyles.signatureCredentials,
+        client.getLeftBound() + client.getTextDimensions(provider.signatureName, signatureStyle).width
+      );
+    }
   },
 };
 
