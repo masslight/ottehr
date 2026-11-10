@@ -86,6 +86,7 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
+import { NioInvoiceDialog } from '../components/NioInvoiceDialog';
 import { usePayerSearch } from '../components/PayerSelect';
 import { SendInvoiceDialog } from '../components/SendInvoiceDialog';
 import { TagSelect } from '../components/TagSelect';
@@ -488,6 +489,7 @@ export function ClaimsListView({
   const [bulkSetBPModalOpen, setBulkSetBPModalOpen] = useState(false);
   const [bulkSetSFModalOpen, setBulkSetSFModalOpen] = useState(false);
   const [invoiceClaim, setInvoiceClaim] = useState<BillingClaimItem | null>(null);
+  const [nioInvoiceClaimIds, setNioInvoiceClaimIds] = useState<string[] | null>(null);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const { services: serviceOptions, load: loadServices } = useBillingServices();
@@ -933,7 +935,10 @@ export function ClaimsListView({
                     <span>
                       <MenuItem
                         disabled={!!nioInvoiceDisabledReason}
-                        onClick={() => setClaimActionMenuOpen(false)}
+                        onClick={() => {
+                          setNioInvoiceClaimIds(selectedClaimIds);
+                          setClaimActionMenuOpen(false);
+                        }}
                         disableRipple
                       >
                         Create NIO Invoice
@@ -1252,6 +1257,16 @@ export function ClaimsListView({
           onClose={() => setInvoiceClaim(null)}
           onSent={() => {
             setInvoiceClaim(null);
+            void fetchClaimsWithCurrentFilters();
+          }}
+        />
+      )}
+      {nioInvoiceClaimIds && (
+        <NioInvoiceDialog
+          claimIds={nioInvoiceClaimIds}
+          onClose={() => setNioInvoiceClaimIds(null)}
+          onCreated={() => {
+            setNioInvoiceClaimIds(null);
             void fetchClaimsWithCurrentFilters();
           }}
         />

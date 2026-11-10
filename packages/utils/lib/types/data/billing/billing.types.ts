@@ -1206,6 +1206,10 @@ export type CheckBillingNioInvoiceResponse =
 
 export interface PreviewBillingNioInvoiceResponse {
   pdfBase64: string;
+  recipient: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface CreateBillingNioInvoiceResponse {

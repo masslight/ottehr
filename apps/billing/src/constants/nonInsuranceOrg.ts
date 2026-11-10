@@ -221,7 +221,7 @@ export function formatNioAddress(address?: NioAddress): string {
   return [address.line1, address.line2, cityStateZip].filter(Boolean).join(', ');
 }
 
-const MECHANISM_LABELS: Record<NioSubmissionMechanism, string> = {
+export const NIO_SUBMISSION_MECHANISM_LABELS: Record<NioSubmissionMechanism, string> = {
   email: 'Email',
   portal: 'Portal',
   fax: 'Fax',
@@ -242,6 +242,6 @@ export function nioCoverageSummary(coverage: NioCoverageDetail): string {
     parts.push(coverage.name);
   }
   const mechanism = coverage.submission?.preferredMechanism;
-  if (mechanism) parts.push(`prefers ${MECHANISM_LABELS[mechanism]}`);
+  if (mechanism) parts.push(`prefers ${NIO_SUBMISSION_MECHANISM_LABELS[mechanism]}`);
   return parts.join(' · ') || 'Covered';
 }

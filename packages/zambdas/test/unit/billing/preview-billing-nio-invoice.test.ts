@@ -74,9 +74,14 @@ describe('preview-billing-nio-invoice', () => {
       },
     } as unknown as Oystehr;
 
-    const { pdfBase64 } = await performEffect({
+    const { pdfBase64, recipient } = await performEffect({
       oystehr,
       claimIds: ['claim-1'],
+    });
+
+    expect(recipient).toEqual({
+      id: 'nio-1',
+      name: 'Acme Health Services',
     });
 
     expect(mockAssembleNioInvoice).toHaveBeenCalledWith({

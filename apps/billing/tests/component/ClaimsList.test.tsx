@@ -83,6 +83,17 @@ vi.mock('../../src/components/SendInvoiceDialog', () => ({
   ),
 }));
 
+vi.mock('../../src/components/NioInvoiceDialog', () => ({
+  NioInvoiceDialog: ({ claimIds, onCreated }: { claimIds: string[]; onCreated: () => void }) => (
+    <div role="dialog" aria-label="Create NIO Invoice">
+      {claimIds.join(',')}
+      <button type="button" onClick={onCreated}>
+        Created
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('../../src/utils/pollExportTask', () => ({
   pollExportTask: pollExportTaskMock,
 }));
@@ -380,7 +391,33 @@ describe('ClaimsList — create NIO invoice', () => {
     expect(createInvoice).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('enables Create NIO Invoice for claims that can be invoiced and checks again on every open', async () => {
+  it('opens the invoice dialog for claims that can be invoiced and reloads the claims once it is created', async () => {
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: true,
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const second = screen.getByLabelText('select Second Patient');
+    fireEvent.click(second);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    await waitFor(() => expect(createInvoice).not.toHaveAttribute('aria-disabled'));
+    fireEvent.click(createInvoice);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Create NIO Invoice' });
+    expect(dialog).toHaveTextContent('c-1,c-2');
+    const created = within(dialog).getByRole('button', { name: 'Created' });
+    fireEvent.click(created);
+
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('dialog', { name: 'Create NIO Invoice' })).not.toBeInTheDocument();
+  });
+
+  it('checks the claims again each time the menu opens', async () => {
     checkBillingNioInvoiceMock.mockResolvedValue({
       invoiceable: true,
     });
@@ -390,10 +427,10 @@ describe('ClaimsList — create NIO invoice', () => {
     fireEvent.click(first);
     const actions = screen.getByRole('button', { name: 'Actions' });
     fireEvent.click(actions);
-
-    const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
-    await waitFor(() => expect(createInvoice).not.toHaveAttribute('aria-disabled'));
-    fireEvent.click(createInvoice);
+    await waitFor(() => expect(checkBillingNioInvoiceMock).toHaveBeenCalledTimes(1));
+    fireEvent.keyDown(screen.getByRole('menu'), {
+      key: 'Escape',
+    });
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
     fireEvent.click(actions);

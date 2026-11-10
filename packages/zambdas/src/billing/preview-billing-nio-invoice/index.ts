@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { PreviewBillingNioInvoiceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { PreviewBillingNioInvoiceResponse } from 'utils/lib/types/data/billing/billing.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { renderNioInvoicePdf } from '../../shared/pdf/nio-invoice-pdf';
 import { wrapHandler } from '../../shared/sentry';
@@ -44,7 +46,7 @@ export async function performEffect({
   oystehr: Oystehr;
   claimIds: string[];
 }): Promise<PreviewBillingNioInvoiceResponse> {
-  const { pdf } = await assembleNioInvoice({
+  const { invoice, pdf } = await assembleNioInvoice({
     oystehr,
     claimIds,
   });
@@ -52,7 +54,13 @@ export async function performEffect({
     ...pdf,
     invoiceNumber: PREVIEW_INVOICE_NUMBER,
   });
+  const recipientId = getIdFromReference(invoice.recipient.reference, 'Organization');
+  if (!recipientId) throw INVALID_INPUT_ERROR('The invoice recipient must be a non-insurance payer');
   return {
     pdfBase64: Buffer.from(bytes).toString('base64'),
+    recipient: {
+      id: recipientId,
+      name: pdf.billTo.name,
+    },
   };
 }
