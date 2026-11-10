@@ -262,7 +262,8 @@ async function findOrderCatalogMedication(
  */
 async function resolveAdministrationStockTarget(
   oystehr: Oystehr,
-  medicationAdministration: MedicationAdministration
+  medicationAdministration: MedicationAdministration,
+  heldLotIds: string[]
 ): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
   const status = mapFhirToOrderStatus(medicationAdministration);
   if (status !== 'administered' && status !== 'administered-partly') return undefined;
@@ -292,25 +293,28 @@ async function resolveAdministrationStockTarget(
   const lot =
     sameNumber.length === 1
       ? sameNumber[0]
-      : sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
+      : sameNumber.find((candidate) => candidate.id && heldLotIds.includes(candidate.id)) ??
+        sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
   const taken = stockTakenForDose(inventory, dose, units);
   if (!lot?.id || !taken) return undefined;
   return { lotId: lot.id, lot, ...taken };
 }
 
-const administrationStockBasis = (medicationAdministration: MedicationAdministration): string | undefined => {
-  const status = mapFhirToOrderStatus(medicationAdministration);
-  if (status !== 'administered' && status !== 'administered-partly') return undefined;
+const administrationLotKey = (medicationAdministration: MedicationAdministration): string => {
   const contained = getMedicationFromMA(medicationAdministration);
-  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   return JSON.stringify([
     getOrderCatalogMedicationId(contained),
     getMedicationName(contained),
     contained?.batch?.lotNumber?.trim(),
     contained?.batch?.expirationDate?.slice(0, 10),
-    dose,
-    units,
   ]);
+};
+
+const administrationStockBasis = (medicationAdministration: MedicationAdministration): string | undefined => {
+  const status = mapFhirToOrderStatus(medicationAdministration);
+  if (status !== 'administered' && status !== 'administered-partly') return undefined;
+  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
+  return JSON.stringify([administrationLotKey(medicationAdministration), dose, units]);
 };
 
 export const administrationStockChanged = (
@@ -326,18 +330,23 @@ export const administrationStockChanged = (
 export async function reconcileAdministrationStock(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
-  performerReference: string
+  performerReference: string,
+  previous?: MedicationAdministration
 ): Promise<void> {
   const medicationAdministrationId = medicationAdministration.id;
   if (!medicationAdministrationId) return;
-  const [existing, target] = await Promise.all([
-    getAdministrationStockEntries(oystehr, medicationAdministrationId),
-    resolveAdministrationStockTarget(oystehr, medicationAdministration),
-  ]);
-  const changes = planAdministrationStockChanges(
-    target,
-    existing.flatMap((entry) => parseInventoryStockEntry(entry) ?? [])
+  const existing = (await getAdministrationStockEntries(oystehr, medicationAdministrationId)).flatMap(
+    (entry) => parseInventoryStockEntry(entry) ?? []
   );
+  const sameLotAsBefore =
+    previous !== undefined && administrationLotKey(previous) === administrationLotKey(medicationAdministration);
+  const heldLotIds = sameLotAsBefore
+    ? [...new Set(existing.map((entry) => entry.lotId))].filter(
+        (lotId) => existing.reduce((sum, entry) => sum + (entry.lotId === lotId ? entry.quantity : 0), 0) < 0
+      )
+    : [];
+  const target = await resolveAdministrationStockTarget(oystehr, medicationAdministration, heldLotIds);
+  const changes = planAdministrationStockChanges(target, existing);
   for (const change of changes) {
     const lot =
       change.lotId === target?.lotId

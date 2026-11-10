@@ -542,3 +542,59 @@ describe('get-medication-inventory with a location', () => {
     );
   });
 });
+
+describe('syncInventoryForOrder after the lot expiration was corrected', () => {
+  beforeEach(() => vi.mocked(captureException).mockClear());
+
+  const correctedLot = makeLot('lot-1', 'A123', 24, '2027-04-30');
+  const sameNumberLot = makeLot('lot-1b', 'A123', 9, '2028-01-01');
+  const given = ledgerEntry('e-1', { quantity: -1 }, 2);
+  const givenBeforeCorrection = makeOrder({ dose: 2, expirationDate: '2027-03-31' });
+
+  const resave = async (
+    after: MedicationAdministration,
+    lots = [correctedLot, sameNumberLot]
+  ): Promise<MockOystehr> => {
+    const oystehr = makeMockOystehr({ lots, ledger: [given] });
+    oystehr.fhir.get.mockImplementation(({ resourceType, id }: { resourceType: string; id: string }) => {
+      if (resourceType === 'MedicationAdministration') return after;
+      if (resourceType === 'Encounter') return encounter;
+      return id === 'med-catalog' ? makeCatalog(singleUseVial) : lots.find((lot) => lot.id === id);
+    });
+    await syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1', givenBeforeCorrection);
+    return oystehr;
+  };
+
+  it('takes the extra vial from the lot the dose came from when only the dose changes', async () => {
+    const oystehr = await resave(makeOrder({ dose: 6, expirationDate: '2027-03-31' }));
+    expect(
+      postedEntries(oystehr).map((e) => [e.subject?.reference, e.valueQuantity?.value, e.code?.coding?.[0]?.code])
+    ).toEqual([['Medication/lot-1', -1, 'administered']]);
+  });
+
+  it('keeps charging that lot when another lot with the number has the old expiration', async () => {
+    const oldExpirationLot = makeLot('lot-2', 'A123', 9, '2027-03-31');
+    const oystehr = await resave(makeOrder({ dose: 6, expirationDate: '2027-03-31' }), [
+      correctedLot,
+      oldExpirationLot,
+    ]);
+    expect(
+      postedEntries(oystehr).map((e) => [e.subject?.reference, e.valueQuantity?.value, e.code?.coding?.[0]?.code])
+    ).toEqual([['Medication/lot-1', -1, 'administered']]);
+  });
+
+  it.each([
+    ['an expiration no lot has', makeOrder({ dose: 2, expirationDate: '2029-01-01' })],
+    ['a lot number that is not in inventory', makeOrder({ dose: 2, lotNumber: 'SAMPLE-1' })],
+  ])('puts the vial back when staff change the order to %s', async (_label, after) => {
+    const oystehr = await resave(after);
+    const [entry] = postedEntries(oystehr);
+    expect(postedEntries(oystehr)).toHaveLength(1);
+    expect(entry.subject).toEqual({ reference: 'Medication/lot-1' });
+    expect(parseInventoryStockEntry({ ...entry, id: 'x' })).toMatchObject({
+      type: 'administration-reversed',
+      quantity: 1,
+      administrationDeleted: true,
+    });
+  });
+});

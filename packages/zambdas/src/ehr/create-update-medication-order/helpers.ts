@@ -208,7 +208,7 @@ export async function syncInventoryForOrder(
       id: orderId,
     });
     if (!administrationStockChanged(previous, medicationAdministration)) return;
-    await reconcileAdministrationStock(oystehr, medicationAdministration, `Practitioner/${practitionerId}`);
+    await reconcileAdministrationStock(oystehr, medicationAdministration, `Practitioner/${practitionerId}`, previous);
   } catch (e) {
     console.log('Error in syncInventoryForOrder: ', e, JSON.stringify(e));
     captureException(e);
