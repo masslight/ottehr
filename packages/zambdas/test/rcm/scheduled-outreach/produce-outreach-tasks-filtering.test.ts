@@ -1,5 +1,5 @@
+import type { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 

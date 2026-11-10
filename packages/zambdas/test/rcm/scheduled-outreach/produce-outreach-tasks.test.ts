@@ -1,5 +1,6 @@
 import { PlanDefinition } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import type { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildOutreachTaskIdentityQuery,
@@ -9,7 +10,6 @@ import {
   reconcileDraftTasksWithConfig,
   resolveOutreachTaskStripeAccount,
 } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
-import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 

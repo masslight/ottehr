@@ -1,9 +1,9 @@
 import type Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import type { Secrets } from 'utils/lib/secrets';
+import type { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { produceInvoiceDueOutreach } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-invoice-due-outreach';
-import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 

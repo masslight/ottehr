@@ -3,10 +3,10 @@ import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils/lib/secrets';
+import { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { getStripeClient, STRIPE_METADATA_KEYS } from '../../../../shared/stripeIntegration';
 import {
   getOrCreateOutreachConfig,
-  OutreachAction,
   parseConfiguredAt,
   parsePlanDefinitionToActions,
 } from '../../../scheduled-outreach-config/helpers';

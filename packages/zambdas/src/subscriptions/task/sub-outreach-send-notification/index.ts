@@ -15,9 +15,9 @@ import {
 } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { NotificationMedium } from 'utils/lib/types/api/scheduled-outreach.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { resolveOutreachTaskStripeAccount } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
-import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import {
   createOutreachEmailCommunication,

@@ -8,14 +8,9 @@ import { getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/f
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { isEmailValid } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { ActionType, OutreachAction, TriggerEvent } from 'utils/lib/types/api/scheduled-outreach.types';
 import { getPatchBinary } from '../../../../shared/helpers';
-import {
-  ActionType,
-  getOrCreateOutreachConfig,
-  OutreachAction,
-  parsePlanDefinitionToActions,
-  TriggerEvent,
-} from '../../../scheduled-outreach-config/helpers';
+import { getOrCreateOutreachConfig, parsePlanDefinitionToActions } from '../../../scheduled-outreach-config/helpers';
 
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 export const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;

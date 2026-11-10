@@ -8,14 +8,10 @@ import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndiv
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { convertOutreachTextToHtml, isEmailValid, maskEmail, maskPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ChargeCardConfig, NotificationConfig, NotificationMedium } from 'utils/lib/types/api/scheduled-outreach.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import { resolveOutreachTaskStripeAccount } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
-import {
-  ChargeCardConfig,
-  NotificationConfig,
-  NotificationMedium,
-} from '../../../rcm/scheduled-outreach-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createOutreachEmailCommunication, getEmailClient, sendSmsForPatient } from '../../../shared/communication';
 import { createClinicalOystehrClient } from '../../../shared/helpers';

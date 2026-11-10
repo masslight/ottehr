@@ -3,9 +3,9 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { NotificationsTimeRestriction } from 'utils/lib/types/api/scheduled-outreach.types';
 import {
   getOrCreateOutreachConfig,
-  NotificationsTimeRestriction,
   parseNotificationsTimeRestriction,
 } from '../../../rcm/scheduled-outreach-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
