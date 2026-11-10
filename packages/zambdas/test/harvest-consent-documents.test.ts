@@ -366,9 +366,11 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
-    const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
+    // Consent resources are created for each form that declares createsConsentResource: true
+    const consentCreatingForms = [HIPAA_FORM, CTT_FORM].filter((f) => f.createsConsentResource);
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(consentCreatingForms.length);
+    // The last consent-creating form is CTT (forms[1]), which has type.text 'Consent forms'
+    const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls.at(-1)!;
     expect(consentPatientId).toBe(PATIENT_ID);
     expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
     expect(consentDate).toContain('2026-08-20T15:00:00');
@@ -396,6 +398,9 @@ describe('createConsentResources', () => {
   });
 
   test('resolves state-specific consent form assets (the Illinois variant)', async () => {
+    if (IL_FORMS[1].assetPath === CTT_FORM.assetPath) {
+      return; // No IL-specific asset configured for form[1]; nothing to assert.
+    }
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
@@ -437,6 +442,7 @@ describe('createConsentResources', () => {
         content: [{ attachment: { url: file.url, title: 'some other title' } }],
       })),
     }));
-    await expect(run()).rejects.toThrow(`DocumentReference for "${CTT_FORM.formTitle}" not found`);
+    const firstConsentForm = [HIPAA_FORM, CTT_FORM].find((f) => f.createsConsentResource)!;
+    await expect(run()).rejects.toThrow(`DocumentReference for "${firstConsentForm.formTitle}" not found`);
   });
 });
