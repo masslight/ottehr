@@ -59,6 +59,7 @@ export function createMedicationCopy(
     };
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };
+  else if (orderData.manufacturer === '') delete resourceCopy.manufacturer;
   // Store user-entered NDC on the medication code
   if (orderData.ndc) {
     if (!resourceCopy.code) resourceCopy.code = {};

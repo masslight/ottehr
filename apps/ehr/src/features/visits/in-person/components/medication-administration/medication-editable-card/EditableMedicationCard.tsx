@@ -625,7 +625,7 @@ export const EditableMedicationCard: React.FC<{
         lotNumber: lot.lotNumber,
         expDate: lot.expirationDate ? DateTime.fromISO(lot.expirationDate).toISO() ?? undefined : undefined,
         ndc: lot.ndc,
-        manufacturer: lot.manufacturer,
+        manufacturer: lot.manufacturer ?? '',
       }));
     },
     [setLocalValues]
