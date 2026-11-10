@@ -1,7 +1,9 @@
 import { DocumentReference } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { PickerRequest, PickerResponse } from 'src/features/easy-chart/executor/types';
 import { ChartPlanResponse, NarrativeLine, RejectedAction } from 'utils/lib/easy-chart/api';
 import { storedNarrativeOf, transcriptTextOf } from 'utils/lib/easy-chart/narrative';
+import { DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -85,8 +87,11 @@ interface ScribeRecommendationsState {
 
   /** Encounter the transcript and recommendations belong to; switching visits resets them. */
   encounterId?: string;
-  /** The selected document's decoded text. Read-only evidence; sent to the planner as such. */
+  /** The visit's transcripts as one text, or its one transcript. Read-only evidence; sent to the planner as such. */
   transcript: string;
+  /** The transcript documents in use, keying the plans read ahead. */
+  sourceKey?: string;
+  /** Set only for a visit with one transcript: the document its narrative is stored on and edits are saved to. */
   sourceDocumentId?: string;
   /** The narrative as generated, kept so its sentences can be traced to their transcript snippets. */
   narrativeGenerated: NarrativeLine[];
@@ -94,7 +99,7 @@ interface ScribeRecommendationsState {
   narrativeDraft: string;
   narrativeStatus: NarrativeStatus;
   narrativeError?: string;
-  /** Plans read ahead of the click, keyed by transcript document id. In memory only. */
+  /** Plans read ahead of the click, keyed by `sourceKey`. In memory only. */
   speculativePlans: Record<string, SpeculativePlan>;
   phase: ScribePhase;
   analysisError?: string;
@@ -129,21 +134,15 @@ interface ScribeRecommendationsState {
 
   startSession: (encounterId: string | undefined) => void;
   /**
-   * Uses the document's stored narrative or generates one, then reads the plan ahead. Reselecting the current
-   * document is a no-op, so edits survive.
+   * Uses every transcript on the visit: one transcript's stored narrative, or a narrative generated from them all
+   * joined. A new or changed transcript rewrites the narrative only while the provider hasn't edited it, unless
+   * `replaceEdits` (the provider saved a transcript and expects its narrative).
    */
-  selectTranscriptDocument: (
-    doc: DocumentReference,
+  loadTranscripts: (
+    docs: DocumentReference[],
     generate: NarrativeGenerator,
-    analyzer: ScribeAnalyzer
-  ) => Promise<void>;
-  /** Clears the transcript and its narrative; suggestions already on screen stay. */
-  clearTranscriptSelection: () => void;
-  /** Reselects a document after its transcript was reprocessed; its new narrative replaces the draft. */
-  reloadTranscriptDocument: (
-    doc: DocumentReference,
-    generate: NarrativeGenerator,
-    analyzer: ScribeAnalyzer
+    analyzer: ScribeAnalyzer,
+    options?: { replaceEdits?: boolean }
   ) => Promise<void>;
   /** Regenerates the narrative, replacing the plan read ahead for the old text. */
   generateNarrative: (generate: NarrativeGenerator, analyzer: ScribeAnalyzer) => Promise<void>;
@@ -201,6 +200,7 @@ const NARRATIVE_CLEARED = {
 const SESSION_INITIAL = {
   ...RESULTS_CLEARED,
   transcript: '',
+  sourceKey: undefined,
   sourceDocumentId: undefined,
   ...NARRATIVE_CLEARED,
   narrativeError: undefined,
@@ -216,6 +216,24 @@ const withoutSpeculativePlan = (
 ): Record<string, SpeculativePlan> => {
   const { [documentId]: _dropped, ...rest } = plans;
   return rest;
+};
+
+/**
+ * The visit's transcripts as one text: the patient's intake chat first, then the recordings in the order given,
+ * each under a divider naming it and its time (every recording's own timestamps start at 0:00).
+ */
+export const joinTranscripts = (docs: DocumentReference[]): string => {
+  const at = (doc: DocumentReference): string =>
+    doc.date ? `, ${DateTime.fromISO(doc.date).toLocaleString(DateTime.TIME_SIMPLE)}` : '';
+  const isChat = (doc: DocumentReference): boolean => doc.description === DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT;
+  return [
+    ...docs
+      .filter(isChat)
+      .map((doc) => `— Patient intake chat${at(doc)} (before the visit) —\n${transcriptTextOf(doc)}`),
+    ...docs
+      .filter((doc) => !isChat(doc))
+      .map((doc, index) => `— Recording ${index + 1}${at(doc)} —\n${transcriptTextOf(doc)}`),
+  ].join('\n\n');
 };
 
 export const useScribeRecommendationsStore = create<ScribeRecommendationsState>()(
@@ -235,17 +253,26 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         set({ encounterId, ...SESSION_INITIAL });
       },
 
-      selectTranscriptDocument: async (doc, generate, analyzer) => {
-        const transcript = transcriptTextOf(doc);
-        if (transcript === undefined || get().sourceDocumentId === doc.id) return;
+      loadTranscripts: async (docs, generate, analyzer, options) => {
+        const usable = docs.filter((doc) => transcriptTextOf(doc) !== undefined);
+        if (usable.length === 0) return;
+        const single = usable.length === 1 ? usable[0] : undefined;
+        const transcript = single ? transcriptTextOf(single) ?? '' : joinTranscripts(usable);
+        const sourceKey = usable.map((doc) => doc.id).join(',');
+        const state = get();
+        if (state.sourceKey === sourceKey && state.transcript === transcript) return;
+        const edited =
+          narrativeText(state.narrativeDraft) !== narrativeText(draftFromNarrative(state.narrativeGenerated));
+        if (edited && !options?.replaceEdits) return;
         set({
           transcript,
-          sourceDocumentId: doc.id,
+          sourceKey,
+          sourceDocumentId: single?.id,
           analysisError: undefined,
           narrativeError: undefined,
         });
-        // The recording pipeline usually stores the narrative on the document already.
-        const stored = storedNarrativeOf(doc);
+        // The recording pipeline usually stores the narrative on a lone transcript already.
+        const stored = single ? storedNarrativeOf(single) : undefined;
         if (stored) {
           set({ narrativeGenerated: stored, narrativeDraft: draftFromNarrative(stored), narrativeStatus: 'ready' });
           get().planAhead(analyzer);
@@ -254,25 +281,8 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         await get().generateNarrative(generate, analyzer);
       },
 
-      clearTranscriptSelection: () =>
-        set({
-          transcript: '',
-          sourceDocumentId: undefined,
-          ...NARRATIVE_CLEARED,
-          narrativeError: undefined,
-          analysisError: undefined,
-        }),
-
-      reloadTranscriptDocument: async (doc, generate, analyzer) => {
-        set((state) => ({
-          sourceDocumentId: undefined,
-          speculativePlans: doc.id ? withoutSpeculativePlan(state.speculativePlans, doc.id) : state.speculativePlans,
-        }));
-        await get().selectTranscriptDocument(doc, generate, analyzer);
-      },
-
       generateNarrative: async (generate, analyzer) => {
-        const { transcript, encounterId, sourceDocumentId } = get();
+        const { transcript, encounterId, sourceKey, sourceDocumentId } = get();
         set({ narrativeStatus: 'generating', narrativeError: undefined });
         try {
           const lines = await generate(transcript, sourceDocumentId);
@@ -283,9 +293,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
             narrativeGenerated: lines,
             narrativeDraft: draftFromNarrative(lines),
             narrativeStatus: 'ready',
-            ...(sourceDocumentId
-              ? { speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceDocumentId) }
-              : {}),
+            ...(sourceKey ? { speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceKey) } : {}),
           }));
           get().planAhead(analyzer);
         } catch (error) {
@@ -302,50 +310,49 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         set((state) => {
           if (narrativeDraft === state.narrativeDraft) return {};
           // A real edit invalidates the plan read ahead; opening the editor without changes keeps it.
-          const { sourceDocumentId } = state;
-          return sourceDocumentId && state.speculativePlans[sourceDocumentId]
-            ? { narrativeDraft, speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceDocumentId) }
+          const { sourceKey } = state;
+          return sourceKey && state.speculativePlans[sourceKey]
+            ? { narrativeDraft, speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceKey) }
             : { narrativeDraft };
         }),
 
       planAhead: (analyzer) => {
-        const { sourceDocumentId, narrativeStatus, narrativeDraft, narrativeGenerated, transcript, encounterId } =
-          get();
-        if (!sourceDocumentId || narrativeStatus !== 'ready') return;
+        const { sourceKey, narrativeStatus, narrativeDraft, narrativeGenerated, transcript, encounterId } = get();
+        if (!sourceKey || narrativeStatus !== 'ready') return;
         const narrative = narrativeText(narrativeDraft);
         if (!narrative) return;
         // Already held or in flight for this exact text.
-        if (get().speculativePlans[sourceDocumentId]?.narrative === narrative) return;
+        if (get().speculativePlans[sourceKey]?.narrative === narrative) return;
         // The draft is still the generated text here, so the analyzer sends no corrections.
         const promise = analyzer.plan(narrative, narrativeGenerated, transcript);
         const entry: SpeculativePlan = { narrative, promise };
-        set((state) => ({ speculativePlans: { ...state.speculativePlans, [sourceDocumentId]: entry } }));
+        set((state) => ({ speculativePlans: { ...state.speculativePlans, [sourceKey]: entry } }));
         // Ignore the answer if an edit or a visit switch has discarded this entry since.
         const stillCurrent = (): boolean =>
-          get().encounterId === encounterId && get().speculativePlans[sourceDocumentId] === entry;
+          get().encounterId === encounterId && get().speculativePlans[sourceKey] === entry;
         promise.then(
           (plan) => {
             if (!stillCurrent()) return;
             set((state) => ({
-              speculativePlans: { ...state.speculativePlans, [sourceDocumentId]: { narrative, plan } },
+              speculativePlans: { ...state.speculativePlans, [sourceKey]: { narrative, plan } },
             }));
           },
           (error) => {
             // Not surfaced; the click plans live instead. PHI: log only the error message.
             console.error('Read-ahead plan failed:', getApiError({ error, defaultError: 'unknown error' }));
             if (!stillCurrent()) return;
-            set((state) => ({ speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceDocumentId) }));
+            set((state) => ({ speculativePlans: withoutSpeculativePlan(state.speculativePlans, sourceKey) }));
           }
         );
       },
 
       analyze: async (analyzer) => {
-        const { narrativeDraft, narrativeGenerated, transcript, encounterId, sourceDocumentId } = get();
+        const { narrativeDraft, narrativeGenerated, transcript, encounterId, sourceKey } = get();
         const narrative = narrativeText(narrativeDraft);
         set({ phase: 'analyzing', analysisError: undefined, planRequested: true });
         try {
           // Reuse the plan read ahead for this exact text; plan live if there is none or it failed.
-          const ahead = sourceDocumentId ? get().speculativePlans[sourceDocumentId] : undefined;
+          const ahead = sourceKey ? get().speculativePlans[sourceKey] : undefined;
           const reusable = ahead?.narrative === narrative ? ahead : undefined;
           const plan =
             reusable?.plan ??
