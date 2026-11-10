@@ -70,7 +70,13 @@ vi.mock('../../src/components/BillingDataGrid', () => ({
   dataGridSx: {},
 }));
 
-vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({ useInvoicingInBillingApp: () => true }));
+const { useInvoicingInBillingAppMock } = vi.hoisted(() => ({
+  useInvoicingInBillingAppMock: vi.fn(() => true),
+}));
+
+vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({
+  useInvoicingInBillingApp: useInvoicingInBillingAppMock,
+}));
 
 vi.mock('../../src/components/SendInvoiceDialog', () => ({
   SendInvoiceDialog: ({ claim, onSent }: { claim: BillingClaimItem; onSent: () => void }) => (
@@ -356,6 +362,7 @@ describe('ClaimsList — create NIO invoice', () => {
   });
 
   beforeEach(() => {
+    useInvoicingInBillingAppMock.mockReturnValue(true);
     checkBillingNioInvoiceMock.mockReset();
     searchBillingClaimsMock.mockReset().mockResolvedValue({
       claims: [nioRow('c-1', 'First Patient'), nioRow('c-2', 'Second Patient')],
@@ -404,8 +411,10 @@ describe('ClaimsList — create NIO invoice', () => {
     const actions = screen.getByRole('button', { name: 'Actions' });
     fireEvent.click(actions);
 
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Create NIO Invoice' })).not.toHaveAttribute('aria-disabled')
+    );
     const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
-    await waitFor(() => expect(createInvoice).not.toHaveAttribute('aria-disabled'));
     fireEvent.click(createInvoice);
 
     const dialog = await screen.findByRole('dialog', { name: 'Create NIO Invoice' });
@@ -436,6 +445,44 @@ describe('ClaimsList — create NIO invoice', () => {
     fireEvent.click(actions);
 
     await waitFor(() => expect(checkBillingNioInvoiceMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('reaches an enabled Create NIO Invoice with the arrow keys', async () => {
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: true,
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Create NIO Invoice' })).not.toHaveAttribute('aria-disabled')
+    );
+    const user = userEvent.setup();
+    await user.keyboard('{ArrowUp}');
+
+    const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    expect(createInvoice).toHaveFocus();
+  });
+
+  it('offers Create NIO Invoice when invoicing in the billing app is off', async () => {
+    useInvoicingInBillingAppMock.mockReturnValue(false);
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: true,
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Create NIO Invoice' })).not.toHaveAttribute('aria-disabled')
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Send Patient Invoice' })).not.toBeInTheDocument();
   });
 });
 

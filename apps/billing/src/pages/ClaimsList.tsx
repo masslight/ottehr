@@ -760,10 +760,7 @@ export function ClaimsListView({
       : undefined;
 
   const selectedClaimIds = useMemo(() => selected.map(String), [selected]);
-  const nioInvoiceDisabledReason = useNioInvoiceDisabledReason(
-    selectedClaimIds,
-    claimActionMenuOpen && invoicingInBillingApp
-  );
+  const nioInvoiceDisabledReason = useNioInvoiceDisabledReason(selectedClaimIds, claimActionMenuOpen);
 
   // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
   // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
@@ -930,21 +927,26 @@ export function ClaimsListView({
                     Send Patient Invoice
                   </MenuItem>
                 )}
-                {invoicingInBillingApp && (
-                  <Tooltip title={nioInvoiceDisabledReason ?? ''} placement="left">
+                {nioInvoiceDisabledReason ? (
+                  // MenuList only moves focus between its direct children, which a disabled item
+                  // skips anyway, so the item needs the span only while disabled.
+                  <Tooltip title={nioInvoiceDisabledReason} placement="left">
                     <span>
-                      <MenuItem
-                        disabled={!!nioInvoiceDisabledReason}
-                        onClick={() => {
-                          setNioInvoiceClaimIds(selectedClaimIds);
-                          setClaimActionMenuOpen(false);
-                        }}
-                        disableRipple
-                      >
+                      <MenuItem disabled disableRipple>
                         Create NIO Invoice
                       </MenuItem>
                     </span>
                   </Tooltip>
+                ) : (
+                  <MenuItem
+                    onClick={() => {
+                      setNioInvoiceClaimIds(selectedClaimIds);
+                      setClaimActionMenuOpen(false);
+                    }}
+                    disableRipple
+                  >
+                    Create NIO Invoice
+                  </MenuItem>
                 )}
               </Menu>
               <Button
