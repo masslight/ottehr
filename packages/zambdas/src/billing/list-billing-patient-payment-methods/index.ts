@@ -37,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
   }
 
-  const { visits, stripeCustomers } = await getPatientPaymentVisits(billingOystehr, clinicalId);
+  const { visits, stripeCustomers } = await getPatientPaymentVisits(billingOystehr, clinicalId, encounterId);
   const visit = visits.find((candidate) => candidate.encounterId === encounterId);
   if (!visit) {
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
