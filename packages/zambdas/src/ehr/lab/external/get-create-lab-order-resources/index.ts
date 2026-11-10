@@ -129,9 +129,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 /**
- * Searches orderable items by lab test name, narrowing to specific labs when the search names one,
- * e.g. "TSH quest" searches "TSH" at Quest only. If that turns up nothing, the lab-looking word was
- * probably part of a test name, so the whole search is retried across every lab.
+ * Searches orderable items by lab test name. When the search contains a word that starts a lab name,
+ * it's read both ways, since that word may really be the start of a test name ("auto" is Autolab but
+ * also "Automated differential"): the test words at the named labs ("TSH quest" -> "TSH" at Quest),
+ * plus the whole search across every lab. Named-lab results come first.
  */
 const searchOrderableItems = async (
   search: string,
@@ -140,19 +141,21 @@ const searchOrderableItems = async (
   m2mToken: string
 ): Promise<OrderableItemSearchResult[]> => {
   const { testSearch, matchedLabs } = parseLabSearch(search, searchableLabs);
+  if (!matchedLabs.length) return getOrderableItems(labGuids, { textSearch: search }, m2mToken);
 
-  if (matchedLabs.length) {
-    const matchedLabGuids = [...new Set(matchedLabs.map((lab) => lab.labGuid))];
-    console.log(
-      `searching "${testSearch}" at labs named in the search`,
-      matchedLabs.map((lab) => lab.labName)
-    );
-    const labFilteredItems = await getOrderableItems(matchedLabGuids, { textSearch: testSearch }, m2mToken);
-    if (labFilteredItems.length) return labFilteredItems;
-    console.log('no results at the named labs, searching the full term across all labs');
-  }
+  const matchedLabGuids = [...new Set(matchedLabs.map((lab) => lab.labGuid))];
+  console.log(
+    `searching "${testSearch}" at labs named in the search and "${search}" across all labs`,
+    matchedLabs.map((lab) => lab.labName)
+  );
+  const [namedLabItems, allLabItems] = await Promise.all([
+    getOrderableItems(matchedLabGuids, { textSearch: testSearch }, m2mToken),
+    getOrderableItems(labGuids, { textSearch: search }, m2mToken),
+  ]);
 
-  return getOrderableItems(labGuids, { textSearch: search }, m2mToken);
+  const itemKey = (result: OrderableItemSearchResult): string => `${result.lab.labGuid}|${result.item.itemCode}`;
+  const namedLabItemKeys = new Set(namedLabItems.map(itemKey));
+  return [...namedLabItems, ...allLabItems.filter((result) => !namedLabItemKeys.has(itemKey(result)))];
 };
 
 const getResources = async (
