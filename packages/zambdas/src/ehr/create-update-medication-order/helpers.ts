@@ -40,8 +40,8 @@ export function createMedicationCopy(
   if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
   if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
-      lotNumber: orderData.lotNumber,
-      expirationDate: orderData.expDate,
+      lotNumber: orderData.lotNumber || undefined,
+      expirationDate: orderData.expDate || undefined,
     };
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };

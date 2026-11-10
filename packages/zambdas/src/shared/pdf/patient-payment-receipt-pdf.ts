@@ -222,9 +222,7 @@ async function getReceiptData(input: {
   // outreach invoices, so each payment's Stripe lookups use its own
   const stripeAccountFor = createStripeAccountResolver({
     billingOystehr,
-    clinicalOystehr: oystehr,
-    encounterId,
-    scheduleAccount: Promise.resolve(stripeAccountId),
+    lookUpScheduleAccount: async () => stripeAccountId,
   });
   const payments = await parsePaymentsList(
     paymentNotices,

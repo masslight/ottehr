@@ -109,6 +109,7 @@ const answerForLeaf = (
             url: 'https://example.com/integration-test-attachment.pdf',
             contentType: 'application/pdf',
             title: 'integration-test-attachment.pdf',
+            creation: DateTime.now().toUTC().toISO()!,
           },
         },
       ];

@@ -1657,6 +1657,13 @@
       "src": "src/ehr/patient-payments/get-encounter-payment-notice/index",
       "zip": ".dist/zips/get-encounter-payment-notice.zip"
     },
+    "GET-PRACTITIONER-NAMES": {
+      "name": "get-practitioner-names",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-practitioner-names/index",
+      "zip": ".dist/zips/get-practitioner-names.zip"
+    },
     "PATIENT-PAYMENTS-INITIATE-PAYMENT": {
       "name": "patient-payments-terminal-initiate-payment",
       "type": "http_auth",
@@ -2023,6 +2030,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-balances/index",
       "zip": ".dist/zips/get-patient-balances.zip"
+    },
+    "GET_PATIENT_PAYMENT_VISITS": {
+      "name": "get-patient-payment-visits",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-patient-payment-visits/index",
+      "zip": ".dist/zips/get-patient-payment-visits.zip"
     },
     "GET_LOGIN_PHONE_NUMBERS": {
       "name": "get-login-phone-numbers",

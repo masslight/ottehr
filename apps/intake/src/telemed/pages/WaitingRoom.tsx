@@ -4,7 +4,7 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { generatePath, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ottehrApi from 'src/api/ottehrApi';
 import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
@@ -21,7 +21,7 @@ import {
 } from 'src/telemed/features/ios-communication/iosCommunicationChannel';
 import { UploadPhotosDialog } from 'src/telemed/features/upload-photos/UploadPhotosDialog';
 import { UploadPhotosListItemButton } from 'src/telemed/features/upload-photos/UploadPhotosListItemButton';
-import { useGetWaitStatus } from 'src/telemed/features/waiting-room/waiting-room.queries';
+import { isAppointmentNotFoundError, useGetWaitStatus } from 'src/telemed/features/waiting-room/waiting-room.queries';
 import { useWaitingRoomStore } from 'src/telemed/features/waiting-room/waiting-room.store';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { getSelectors } from 'utils/lib/store';
@@ -76,7 +76,7 @@ const WaitingRoom = (): JSX.Element => {
       });
   }, [currentAppointmentId, zambdaClient]);
 
-  useGetWaitStatus(
+  const { error: waitStatusError } = useGetWaitStatus(
     (data) => {
       if (!data) {
         return;
@@ -114,6 +114,11 @@ const WaitingRoom = (): JSX.Element => {
     10000,
     !isAppointmentJustCanceled
   );
+
+  useEffect(() => {
+    if (isInvitedParticipant || !currentAppointmentId || !isAppointmentNotFoundError(waitStatusError)) return;
+    navigate(generatePath(intakeFlowPageRoute.ThankYou.path, { id: currentAppointmentId }), { replace: true });
+  }, [waitStatusError, currentAppointmentId, isInvitedParticipant, navigate]);
 
   return (
     <CustomContainer

@@ -5,7 +5,7 @@ import { Coverage, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
 import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { UpdateBillingCoverageInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
-import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -104,6 +104,7 @@ export async function performEffect(
       if (coverage.identifier?.[0]) coverage.identifier[0].value = params.memberId;
     }
     if (params.groupNumber !== undefined) {
+      if (!params.groupNumber) throw INVALID_INPUT_ERROR('groupNumber can only be cleared together with payerId');
       if (coverage.class?.[0]) coverage.class[0].value = params.groupNumber;
     }
   }

@@ -544,6 +544,20 @@
       "src": "src/billing/list-billing-patient-payments/index",
       "zip": ".dist/zips/list-billing-patient-payments.zip"
     },
+    "LIST-BILLING-PATIENT-ACCOUNT-PAYMENTS": {
+      "name": "list-billing-patient-account-payments",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/list-billing-patient-account-payments/index",
+      "zip": ".dist/zips/list-billing-patient-account-payments.zip"
+    },
+    "GET-BILLING-PATIENT-ACCOUNT-PAYMENT": {
+      "name": "get-billing-patient-account-payment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-patient-account-payment/index",
+      "zip": ".dist/zips/get-billing-patient-account-payment.zip"
+    },
     "POST-BILLING-PATIENT-PAYMENT": {
       "name": "post-billing-patient-payment",
       "type": "http_auth",
@@ -903,6 +917,24 @@
         "status": "active",
         "reason": "run billing patient AR pre-invoice rules engine",
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-patient-ar-pre-invoice-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_POST_ADJUDICATION_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing post-adjudication rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-post-adjudication-rules&status=requested",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"

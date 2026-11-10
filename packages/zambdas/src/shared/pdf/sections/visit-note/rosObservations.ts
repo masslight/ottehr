@@ -67,7 +67,7 @@ export const createRosObservationsSection = <
                   styles.imageStyles!.examColorDotsStyle,
                   styles.textStyles.examBoldField
                 );
-                client.drawTextSequential(itemText, styles.textStyles.examBoldField);
+                client.drawTextSequential(itemText, styles.textStyles.examAbnormalField);
               } else {
                 client.drawImage(
                   assets.icons!.greenDot,

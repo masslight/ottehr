@@ -35,13 +35,13 @@ export async function createCommunicationResource({
     resourceType: 'Communication',
     status: 'completed',
     sender: { reference: practitionerProfile },
-    ...(title && {
+    ...(title?.trim() && {
       topic: {
         text: title,
       },
     }),
 
-    ...(text && {
+    ...(text?.trim() && {
       payload: [
         {
           contentString: text,

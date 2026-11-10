@@ -12,6 +12,7 @@ export const ResultEntryFreeText: React.FC<ResultEntryFreeTextProps> = ({ testIt
   const theme = useTheme();
 
   const validateInput = (entry: string): string | boolean => {
+    if (!entry?.trim()) return 'Please input a value';
     if (testItemComponent.dataType === 'string' && testItemComponent.validations) {
       const { validations } = testItemComponent;
       console.log('entry and validations', entry, validations);

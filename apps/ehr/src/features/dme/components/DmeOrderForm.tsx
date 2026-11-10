@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { Controller, FormProvider, PathValue, useController, useForm } from 'react-hook-form';
 import { createDmeQuickPick, getDmeQuickPicks, updateDmeQuickPick } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { RadiologyDiagnosis } from 'src/features/radiology/components/RadiologyDiagnosisField';
 import {
@@ -27,6 +28,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { sortQuickPicks, useMergedDmeQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
+import { CreateDmeOrderDraft, useDmeOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
@@ -179,6 +181,9 @@ const orderToFormValues = (order: DmeOrderDTO): DmeOrderFormValues => ({
   },
 });
 
+const draftFormValues = ({ hasNavigatedAway: _, ...values }: CreateDmeOrderDraft): Partial<DmeOrderFormValues> =>
+  values;
+
 const primaryFirst = (diagnoses: DiagnosisDTO[]): RadiologyDiagnosis[] =>
   [...diagnoses].sort((a, b) => Number(!!b.isPrimary) - Number(!!a.isPrimary)).map(toCodeDisplay);
 
@@ -228,37 +233,74 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
     [isFollowup, mainEncounterChartData?.diagnosis, encounterDiagnoses]
   );
 
+  const draftEncounterId = order || isReadOnly ? '' : encounterId ?? '';
+  const setDraft = useDmeOrderStore((state) => state.setDraft);
+  const clearDraft = useDmeOrderStore((state) => state.clearDraft);
+  const hasDraft = useDmeOrderStore((state) => state.hasDraft);
+  const hasDmeDraft = useDmeOrderStore((state) => !!draftEncounterId && state.hasDraft(draftEncounterId));
+  const draftNavigatedAway = useDmeOrderStore(
+    (state) => !!state.draftsByEncounterId[draftEncounterId]?.hasNavigatedAway
+  );
+  const [restoredDraft, setRestoredDraft] = useState(hasDmeDraft);
+  useMarkDraftNavigatedAway({ encounterId: draftEncounterId, setDraft, hasDraft });
+
+  const emptyFormValues = (): DmeOrderFormValues => ({
+    itemName: '',
+    diagnoses: primaryFirst(chartDiagnoses),
+    quantity: '1',
+    laterality: null,
+    modifier: null,
+    durationValue: '',
+    durationUnit: 'days',
+    orderedBy: defaultOrderedBy,
+    instructions: '',
+    billingCodes: [],
+    external: false,
+    thirdParty: { name: '', address: '', phone: '', fax: '' },
+  });
+
   const methods = useForm<DmeOrderFormValues>({
     defaultValues: order
       ? orderToFormValues(order)
-      : {
-          itemName: '',
-          diagnoses: primaryFirst(chartDiagnoses),
-          quantity: '1',
-          laterality: null,
-          modifier: null,
-          durationValue: '',
-          durationUnit: 'days',
-          orderedBy: defaultOrderedBy,
-          instructions: '',
-          billingCodes: [],
-          external: false,
-          thirdParty: { name: '', address: '', phone: '', fax: '' },
-        },
+      : { ...emptyFormValues(), ...draftFormValues(useDmeOrderStore.getState().getDraft(draftEncounterId)) },
   });
-  const { control, watch, setValue, getValues, getFieldState, handleSubmit, formState } = methods;
+  const { control, watch, setValue, getValues, getFieldState, handleSubmit, formState, reset } = methods;
   const external = watch('external');
+
+  useEffect(() => {
+    if (!draftEncounterId) return;
+    const subscription = watch((values, { type }) => {
+      // Programmatic defaults alone do not start a draft, but they keep an existing one current.
+      if (type === 'change' || useDmeOrderStore.getState().hasDraft(draftEncounterId)) {
+        setDraft(draftEncounterId, structuredClone(values) as CreateDmeOrderDraft);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [draftEncounterId, watch, setDraft]);
 
   // chart data and the user's profile can arrive after the form mounts
   useEffect(() => {
-    if (order || !chartDiagnoses.length || getFieldState('diagnoses').isDirty || getValues('diagnoses').length) return;
+    if (order || restoredDraft) return;
+    if (!chartDiagnoses.length || getFieldState('diagnoses').isDirty || getValues('diagnoses').length) return;
     setValue('diagnoses', primaryFirst(chartDiagnoses));
-  }, [order, chartDiagnoses, getFieldState, getValues, setValue]);
+  }, [order, restoredDraft, chartDiagnoses, getFieldState, getValues, setValue]);
 
   useEffect(() => {
-    if (order || !defaultOrderedBy || getFieldState('orderedBy').isDirty || getValues('orderedBy')) return;
+    if (order || restoredDraft) return;
+    if (!defaultOrderedBy || getFieldState('orderedBy').isDirty || getValues('orderedBy')) return;
     setValue('orderedBy', defaultOrderedBy);
-  }, [order, defaultOrderedBy, getFieldState, getValues, setValue]);
+  }, [order, restoredDraft, defaultOrderedBy, getFieldState, getValues, setValue]);
+
+  const handleClearForm = (): void => {
+    clearDraft(draftEncounterId);
+    setRestoredDraft(false);
+    reset(emptyFormValues());
+  };
+
+  const handleCancel = (): void => {
+    if (draftEncounterId) clearDraft(draftEncounterId);
+    onCancel();
+  };
 
   const externalLocked = order?.status === DmeOrderStatus.dispensed;
 
@@ -271,6 +313,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
       if (value !== undefined) setValue(key, value as PathValue<DmeOrderFormValues, K>, options);
     };
     (Object.keys(patch) as (keyof DmeQuickPickPatch)[]).forEach(apply);
+    if (draftEncounterId) setDraft(draftEncounterId, structuredClone(getValues()));
   };
 
   const onQuickPickSelectRef = useRef(onQuickPickSelect);
@@ -367,6 +410,7 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
         onFinished(order.id);
       } else {
         const response = await createOrder({ ...fields, encounterId });
+        if (draftEncounterId) clearDraft(draftEncounterId);
         onFinished(response.deviceRequestId);
       }
     } catch (error) {
@@ -431,6 +475,15 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
 
   return (
     <FormProvider {...methods}>
+      {hasDmeDraft && (
+        <UnsavedDraftWarning
+          message={
+            draftNavigatedAway
+              ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+              : 'You have a DME order in progress. Your draft will be saved'
+          }
+        />
+      )}
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <Paper>
           <Stack spacing={1.5} sx={{ p: 3 }}>
@@ -672,9 +725,16 @@ export const DmeOrderForm: React.FC<DmeOrderFormProps> = ({ order, onFinished, o
 
             <Divider />
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <RoundedButton color="primary" onClick={onCancel} data-testid={ids.cancelButton}>
-                Cancel
-              </RoundedButton>
+              <Stack direction="row" spacing={2}>
+                <RoundedButton color="primary" onClick={handleCancel} data-testid={ids.cancelButton}>
+                  Cancel
+                </RoundedButton>
+                {hasDmeDraft && (
+                  <RoundedButton color="primary" onClick={handleClearForm} data-testid={ids.clearFormButton}>
+                    Clear Form
+                  </RoundedButton>
+                )}
+              </Stack>
               <RoundedButton
                 type="submit"
                 color="primary"
