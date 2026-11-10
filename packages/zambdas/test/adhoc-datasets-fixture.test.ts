@@ -48,7 +48,7 @@ import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import {
   PATIENT_BREASTFEEDING_STATUS,
-  SEEN_IN_LAST_THREE_YEARS_FIELD,
+  PATIENT_PREGNANCY_STATUS,
 } from 'utils/lib/types/data/screening-questions/constants';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { CONTAINED_MEDICATION_ID } from '../src/ehr/immunization/common';
@@ -475,10 +475,9 @@ const screeningObs = (id: string, field: string, value: string | boolean, at: st
 });
 const screeningObservations: FhirResource[] = [
   screeningObs('obs-scr-1', PATIENT_BREASTFEEDING_STATUS, 'not-applicable', '2026-07-01T14:06:00.000Z'),
-  screeningObs('obs-scr-2', SEEN_IN_LAST_THREE_YEARS_FIELD, 'no', '2026-07-01T14:06:00.000Z'),
-  screeningObs('obs-scr-3', SEEN_IN_LAST_THREE_YEARS_FIELD, 'yes', '2026-07-01T14:08:00.000Z'),
-  screeningObs('obs-scr-4', 'covid-symptoms', true, '2026-07-01T14:07:00.000Z'),
-  screeningObs('obs-scr-5', 'tested-positive-covid', false, '2026-07-01T14:05:00.000Z'),
+  screeningObs('obs-scr-2', 'seen-in-last-3-years', 'No', '2026-07-01T14:06:00.000Z'),
+  screeningObs('obs-scr-3', 'seen-in-last-3-years', 'Yes', '2026-07-01T14:08:00.000Z'),
+  screeningObs('obs-scr-4', PATIENT_PREGNANCY_STATUS, 'not-applicable', '2026-07-01T14:07:00.000Z'),
 ];
 
 const medicationAdministrations: FhirResource[] = [
@@ -799,16 +798,14 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
     expect(row.screeningAnswers).toEqual([
-      { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
-      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
+      { question: 'Have you been seen by us in the last 3 years?', answer: 'Yes' },
+      { question: 'Is there any chance you could be pregnant?', answer: 'Not applicable' },
       { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
-      { question: 'Have you tested positive for COVID?', answer: 'No' },
     ]);
     expect(row.screeningQuestions).toEqual([
-      'Has the patient been seen in one of our offices / telemed in last 3 years?',
-      'Do you have any COVID symptoms?',
+      'Have you been seen by us in the last 3 years?',
+      'Is there any chance you could be pregnant?',
       'Are you currently breastfeeding?',
-      'Have you tested positive for COVID?',
     ]);
   });
 
