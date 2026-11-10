@@ -10,6 +10,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   InputAdornment,
   Menu,
   MenuItem,
@@ -95,7 +96,7 @@ import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/cl
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingServices } from '../hooks/useBillingServices';
 import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
-import { useNioInvoiceDisabledReason } from '../hooks/useNioInvoiceDisabledReason';
+import { NIO_INVOICE_CHECKING, useNioInvoiceDisabledReason } from '../hooks/useNioInvoiceDisabledReason';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatFacilityAddress, valueToText } from '../utils/format';
@@ -934,6 +935,9 @@ export function ClaimsListView({
                     <span>
                       <MenuItem disabled disableRipple>
                         Create NIO Invoice
+                        {nioInvoiceDisabledReason === NIO_INVOICE_CHECKING && (
+                          <CircularProgress size={14} sx={{ ml: 1 }} aria-hidden />
+                        )}
                       </MenuItem>
                     </span>
                   </Tooltip>

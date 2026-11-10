@@ -4,9 +4,7 @@ import { BILLING_INVOICE_LIMITS } from 'utils/lib/types/data/billing/billing.con
 import { checkBillingNioInvoice } from '../api/api';
 import { useApiClients } from './useAppClients';
 
-export const NIO_INVOICE_REQUIREMENTS =
-  'Claims on one invoice must be in Non-Insurance Payer AR with a status of Ready to invoice, share one ' +
-  'non-insurance organization and issuer, have a balance, and not already be on an invoice.';
+export const NIO_INVOICE_CHECKING = 'Checking the selected claims…';
 
 export function useNioInvoiceDisabledReason(claimIds: string[], enabled: boolean): string | undefined {
   const { oystehrZambda } = useApiClients();
@@ -25,13 +23,13 @@ export function useNioInvoiceDisabledReason(claimIds: string[], enabled: boolean
   if (tooManyClaims) {
     return `An invoice can hold at most ${BILLING_INVOICE_LIMITS.nioInvoiceClaimCount} claims.`;
   }
-  if (check.isFetching || check.isPending) return 'Checking the selected claims…';
+  if (check.isFetching || check.isPending) return NIO_INVOICE_CHECKING;
   if (check.isError) {
     return getApiError({
       error: check.error,
       defaultError: 'Failed to check the selected claims',
     });
   }
-  if (!check.data.invoiceable) return `${NIO_INVOICE_REQUIREMENTS} ${check.data.reason}.`;
+  if (!check.data.invoiceable) return `${check.data.reason}.`;
   return undefined;
 }

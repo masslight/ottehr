@@ -403,6 +403,34 @@ describe('ClaimsList — create NIO invoice', () => {
     expect(createInvoice).toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('spins on Create NIO Invoice while the claims are checked', async () => {
+    let resolveCheck: (result: { invoiceable: boolean }) => void = () => {};
+    checkBillingNioInvoiceMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      })
+    );
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    const checking = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    expect(within(checking).getByRole('progressbar', { hidden: true })).toBeInTheDocument();
+
+    resolveCheck({
+      invoiceable: true,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Create NIO Invoice' })).not.toHaveAttribute('aria-disabled')
+    );
+    const checked = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    expect(within(checked).queryByRole('progressbar', { hidden: true })).not.toBeInTheDocument();
+  });
+
   it('opens the invoice dialog for claims that can be invoiced and reloads the claims once it is created', async () => {
     checkBillingNioInvoiceMock.mockResolvedValue({
       invoiceable: true,

@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { BILLING_INVOICE_LIMITS } from 'utils/lib/types/data/billing/billing.constants';
 import { describe, expect, it, vi } from 'vitest';
-import { useNioInvoiceDisabledReason } from '../../src/hooks/useNioInvoiceDisabledReason';
+import { NIO_INVOICE_CHECKING, useNioInvoiceDisabledReason } from '../../src/hooks/useNioInvoiceDisabledReason';
 
 const mocks = vi.hoisted(() => ({
   check: vi.fn(),
@@ -38,5 +38,32 @@ describe('useNioInvoiceDisabledReason', () => {
 
     expect(result.current).toBe(`An invoice can hold at most ${BILLING_INVOICE_LIMITS.nioInvoiceClaimCount} claims.`);
     expect(mocks.check).not.toHaveBeenCalled();
+  });
+
+  it('reports the check while it runs', () => {
+    mocks.check.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useNioInvoiceDisabledReason(['c-1'], true), {
+      wrapper,
+    });
+
+    expect(result.current).toBe(NIO_INVOICE_CHECKING);
+  });
+
+  it('gives only the rule the claims break', async () => {
+    mocks.check.mockResolvedValue({
+      invoiceable: false,
+      reason: 'Test3, Omar (2026-11-10) must be in Non-Insurance Payer AR with a status of Ready to invoice',
+    });
+
+    const { result } = renderHook(() => useNioInvoiceDisabledReason(['c-1'], true), {
+      wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current).toBe(
+        'Test3, Omar (2026-11-10) must be in Non-Insurance Payer AR with a status of Ready to invoice.'
+      )
+    );
   });
 });
