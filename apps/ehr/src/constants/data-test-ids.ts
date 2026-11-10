@@ -707,6 +707,7 @@ export const dataTestIds = {
     procedureDate: 'procedure-date',
     procedureTime: 'procedure-time',
     addDiagnosis: 'add-diagnosis',
+    addCptCode: 'add-cpt-code',
     ekgTiles: 'ekg-tiles',
     ekgTile: (key: string) => `ekg-tile-${key}`,
     ekgQtcMethod: 'ekg-qtc-method',
