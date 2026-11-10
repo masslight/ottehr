@@ -6,9 +6,13 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { sortQuickPicks, useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { applyImmunizationQuickPick, ImmunizationFormValues } from '../components/immunizationLines';
 
 interface UseImmunizationQuickPickManagementProps {
-  methods: UseFormReturn;
+  /** The form a picked quick pick fills and, without `getValues`, the one a quick pick is saved from. */
+  methods?: UseFormReturn;
+  /** The values a quick pick is saved from, in place of the form's: the order page's line being saved. */
+  getValues?: () => Partial<ImmunizationFormValues>;
   /** When true, quick pick apply sets both order details and administration details. When false, only administration details. */
   applyOrderDetails: boolean;
 }
@@ -29,8 +33,11 @@ interface UseImmunizationQuickPickManagementReturn {
 
 export const useImmunizationQuickPickManagement = ({
   methods,
+  getValues,
   applyOrderDetails,
 }: UseImmunizationQuickPickManagementProps): UseImmunizationQuickPickManagementReturn => {
+  const readValues = (): Partial<ImmunizationFormValues> =>
+    getValues?.() ?? (methods?.getValues() as Partial<ImmunizationFormValues> | undefined) ?? {};
   const { oystehrZambda } = useApiClients();
   const {
     quickPicks: mergedQuickPicks,
@@ -43,31 +50,9 @@ export const useImmunizationQuickPickManagement = ({
   const [quickPickSaving, setQuickPickSaving] = useState(false);
 
   const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
-    const currentValues = methods.getValues();
-    methods.reset({
-      ...currentValues,
-      ...(applyOrderDetails && {
-        details: {
-          ...currentValues.details,
-          medication: quickPick.vaccine,
-          dose: quickPick.dose,
-          units: quickPick.units,
-          route: quickPick.route,
-          location: quickPick.location,
-          manufacturer: quickPick.manufacturer,
-          instructions: quickPick.instructions,
-        },
-      }),
-      administrationDetails: {
-        ...currentValues.administrationDetails,
-        lot: quickPick.lot,
-        expDate: quickPick.expDate,
-        mvx: quickPick.mvx,
-        cvx: quickPick.cvx,
-        cptCodes: quickPick.cptCodes ?? [],
-        ndc: quickPick.ndc,
-      },
-    });
+    if (!methods) return;
+    const currentValues = methods.getValues() as ImmunizationFormValues;
+    methods.reset(applyImmunizationQuickPick(currentValues, quickPick, applyOrderDetails));
   };
 
   const openQuickPickDialog = async (): Promise<void> => {
@@ -79,14 +64,15 @@ export const useImmunizationQuickPickManagement = ({
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
     }
-    const values = methods.getValues();
+    const values = readValues();
     const parts: string[] = [];
     if (values.details?.medication?.name) parts.push(values.details.medication.name);
     if (values.details?.dose) parts.push(values.details.dose);
     if (values.details?.units) parts.push(values.details.units);
     if (values.details?.route) {
-      const routeName = BASE_ROUTE_OPTIONS.find((opt) => opt.code === values.details.route)?.name;
-      parts.push(routeName ?? values.details.route);
+      const { route } = values.details;
+      const routeName = BASE_ROUTE_OPTIONS.find((opt) => opt.code === route)?.name;
+      parts.push(routeName ?? route);
     }
     if (values.details?.location?.name) parts.push(values.details.location.name);
     if (values.administrationDetails?.lot) parts.push(`lot: ${values.administrationDetails.lot}`);
@@ -104,7 +90,7 @@ export const useImmunizationQuickPickManagement = ({
 
     setQuickPickSaving(true);
     try {
-      const values = methods.getValues();
+      const values = readValues();
       const quickPickData: Omit<ImmunizationQuickPickData, 'id'> = {
         name: quickPickName.trim(),
         vaccine: values.details?.medication,
