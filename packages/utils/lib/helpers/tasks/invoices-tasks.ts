@@ -13,9 +13,9 @@ import {
 export function createInvoiceTaskInput(input: InvoiceTaskInput): TaskInput[] {
   const fieldsNames = Object.keys(input);
 
-  return fieldsNames.map((fieldName) => {
-    let fieldValue = input[fieldName as keyof InvoiceTaskInput];
-    if (typeof fieldValue === 'number') fieldValue = fieldValue.toString();
+  return fieldsNames.flatMap((fieldName) => {
+    const fieldValue = input[fieldName as keyof InvoiceTaskInput]?.toString();
+    if (!fieldValue?.trim()) return [];
     return {
       type: {
         coding: [

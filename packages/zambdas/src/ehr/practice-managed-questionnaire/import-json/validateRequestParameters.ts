@@ -3,6 +3,7 @@ import { JSON_IMPORT_QUESTIONNAIRE_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } fro
 import { slugify } from 'utils/lib/helpers/slugify';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { optionalTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { getUserToken } from '../../../shared/auth';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -36,8 +37,8 @@ const ImportJsonQuestionnaireSchema = z
       errorMap: () => ({ message: 'resourceType must be "Questionnaire"' }),
     }),
     url: z.string({ required_error: 'url is required' }).url('url must be a valid url'),
-    title: z.string({ required_error: 'title is required' }).min(1, 'title is required'),
-    name: z.string().min(1).optional(),
+    title: z.string({ required_error: 'title is required' }).trim().min(1, 'title is required'),
+    name: optionalTextSchema,
     version: z.string().regex(SEMVER_REGEX, 'version must be in the format major.minor.patch (e.g. 1.0.0)').optional(),
     status: z.enum(['draft', 'active', 'unknown']).optional(),
     item: z
@@ -130,7 +131,7 @@ function prepareImportedQuestionnaire(questionnaire: Questionnaire): Questionnai
 
   return {
     ...rest,
-    name: rest.name ?? slugify(rest.title ?? 'form', { maxLength: 60 }),
+    name: rest.name ?? (slugify(rest.title ?? '', { maxLength: 60 }) || 'form'),
     meta: { tag: [...otherTags, ...managedTags] },
   };
 }

@@ -9,15 +9,21 @@ import { ClinicalPaymentLookups } from './patient-payment-dtos';
 
 export const getPatientPaymentVisits = async (
   oystehr: Oystehr,
-  clinicalPatientId: string
+  clinicalPatientId: string,
+  // narrows the response to this one of the patient's visits
+  encounterId?: string
 ): Promise<GetPatientPaymentVisitsResponse> =>
   chooseJson<GetPatientPaymentVisitsResponse>(
-    await oystehr.zambda.execute({ id: 'get-patient-payment-visits', patientId: clinicalPatientId })
+    await oystehr.zambda.execute({
+      id: 'get-patient-payment-visits',
+      patientId: clinicalPatientId,
+      ...(encounterId ? { encounterId } : {}),
+    })
   );
 
 // Payment lookups answered from what the EHR returned for the patient's visits. There is no
-// Practitioner lookup: billing doesn't show who took a payment, so takenBy is only set where the
-// submitter's name is already stamped on the notice.
+// Practitioner lookup: the EHR names the submitters on the notices it returns, so takenBy comes
+// from the name stamped on each notice.
 export const ehrClinicalPaymentLookups = ({
   visits,
   stripeCustomers,

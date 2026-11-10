@@ -71,6 +71,20 @@ describe('buildBillingCoverage', () => {
     expect(coverage.identifier?.[0]?.value).toBe('M1');
   });
 
+  it('falls back to the payer id when the group number is whitespace-only', () => {
+    const coverage = buildBillingCoverage({
+      patientId: PATIENT_ID,
+      payerOrg,
+      memberId: 'M1',
+      groupNumber: '   ',
+      status: 'active',
+      relationship: 'Self',
+      subscriberReference: `Patient/${PATIENT_ID}`,
+    });
+
+    expect(coverage.class?.[0]?.value).toBe('PAYER123');
+  });
+
   it('references a standalone RelatedPerson subscriber for a non-self coverage', () => {
     const coverage = buildBillingCoverage({
       patientId: PATIENT_ID,

@@ -231,6 +231,10 @@ export default function EditInsurance(): JSX.Element {
   const onSubmit = async (): Promise<void> => {
     setError('');
     const formData = getValues();
+    if (formData.showInPaperwork && !formData.displayName?.trim()) {
+      setError('Display name is required to show this insurance in patient paperwork');
+      return;
+    }
     const submitSnackbarText = `${formData.displayName} was updated successfully`;
 
     try {

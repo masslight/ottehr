@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
+import { RefundPatientPaymentResponse, VoidPatientPaymentResponse } from 'utils/lib/types/api/patient-payment-types';
 import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimAttachmentInputSchema,
@@ -31,6 +32,7 @@ import {
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
   GetBillingInvoiceRecipientInputSchema,
+  GetBillingPatientAccountPaymentInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingProviderInputSchema,
@@ -49,6 +51,7 @@ import {
   PatientPaymentsDrilldownParamsSchema,
   PreviewBillingNioInvoiceInputSchema,
   RecordBillingManualPaymentInputSchema,
+  RefundBillingPatientPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
   RenameEraAttachmentInputSchema,
   ReportDateWindowParams,
@@ -75,6 +78,7 @@ import {
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
+  VoidBillingPatientPaymentInputSchema,
   VoidClaimWriteOffInputSchema,
   VoidEraInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
@@ -105,6 +109,7 @@ import {
   GetBillingInvoiceStatementResponse,
   GetBillingNetCollectionsDrilldownResponse,
   GetBillingNetCollectionsReportResponse,
+  GetBillingPatientAccountPaymentResponse,
   GetBillingPatientBalanceResponse,
   GetBillingPatientPaymentsDrilldownResponse,
   GetBillingPatientPaymentsReportResponse,
@@ -276,6 +281,22 @@ export const listBillingPatientAccountPayments = (
   parameters: z.input<typeof ListBillingPatientAccountPaymentsInputSchema>
 ): Promise<ListBillingPatientAccountPaymentsResponse> =>
   executeBillingZambda(oystehr, 'list-billing-patient-account-payments', parameters);
+
+export const getBillingPatientAccountPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingPatientAccountPaymentInputSchema>
+): Promise<GetBillingPatientAccountPaymentResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-patient-account-payment', parameters);
+
+export const refundBillingPatientPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RefundBillingPatientPaymentInputSchema>
+): Promise<RefundPatientPaymentResponse> => executeBillingZambda(oystehr, 'refund-billing-patient-payment', parameters);
+
+export const voidBillingPatientPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof VoidBillingPatientPaymentInputSchema>
+): Promise<VoidPatientPaymentResponse> => executeBillingZambda(oystehr, 'void-billing-patient-payment', parameters);
 
 export const updateBillingPatient = (
   oystehr: Oystehr,

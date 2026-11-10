@@ -113,4 +113,25 @@ describe('update-fee-schedule - validateRequestParameters', () => {
     );
     expect(() => validateRequestParameters(input)).toThrow();
   });
+
+  test('should throw when name is whitespace-only', () => {
+    const input = createMockZambdaInput({ feeScheduleId: validFeeScheduleId, name: '   ' }, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('turns a whitespace-only description into an empty string so it clears', () => {
+    const input = createMockZambdaInput(
+      { feeScheduleId: validFeeScheduleId, name: 'My Fee Schedule', description: '  ' },
+      { secrets }
+    );
+    expect(validateRequestParameters(input).description).toBe('');
+  });
+
+  test('drops a whitespace-only case rate comment', () => {
+    const input = createMockZambdaInput(
+      { feeScheduleId: validFeeScheduleId, name: 'My Fee Schedule', caseRateAmount: 100, caseRateComment: '  ' },
+      { secrets }
+    );
+    expect(validateRequestParameters(input).caseRateComment).toBeUndefined();
+  });
 });
