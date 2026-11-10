@@ -75,6 +75,25 @@ describe('Typing a provider comment while an earlier save is in flight', () => {
     expect(usePendingObservationFieldsStore.getState().counts).toEqual({});
   });
 
+  it('keeps the newer words when the queued older comment fires while the provider is still typing', async () => {
+    const { box, typeText } = renderCommentField();
+
+    typeText('Patient');
+    typeText('Patient looks');
+    await settle(saveCalls[0], saved(FIELD, 'Patient', 'obs-1'));
+    act(() => vi.advanceTimersByTime(600));
+    fireEvent.change(box, { target: { value: 'Patient looks well' } });
+    act(() => vi.advanceTimersByTime(400));
+    await settle(saveCalls[1], saved(FIELD, 'Patient looks', 'obs-1'));
+    typeText(`${(box as HTMLTextAreaElement).value} today`);
+    act(() => vi.advanceTimersByTime(3000));
+
+    expect(box).toHaveValue('Patient looks well today');
+    expect(saveCalls.map(savedObservation).at(-1)).toEqual(
+      expect.objectContaining({ note: 'Patient looks well today' })
+    );
+  });
+
   it('does not bring back a comment the provider cleared while a save was queued', async () => {
     const { box, typeText } = renderCommentField();
 
