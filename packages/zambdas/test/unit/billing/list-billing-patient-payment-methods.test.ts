@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { customerForStripeAccount, listCustomerCards } from '../../../src/billing/list-billing-patient-payment-methods';
+import { customerForScheduleOwner, listCustomerCards } from '../../../src/billing/list-billing-patient-payment-methods';
 
 const card = (id: string, expYear: number, expMonth: number, last4 = '4242'): Stripe.PaymentMethod =>
   ({
@@ -18,19 +18,23 @@ const stripeWith = (
   return { stripe: { customers: { retrieve, listPaymentMethods } } as unknown as Stripe, retrieve, listPaymentMethods };
 };
 
-describe('customerForStripeAccount', () => {
+describe('customerForScheduleOwner', () => {
   const customers = [
     { customerId: 'cus_platform', stripeAccount: undefined },
     { customerId: 'cus_connected', stripeAccount: 'acct_1' },
   ];
 
   it('picks the customer on the account the visit takes payments on', () => {
-    expect(customerForStripeAccount(customers, 'acct_1')?.customerId).toBe('cus_connected');
-    expect(customerForStripeAccount(customers, undefined)?.customerId).toBe('cus_platform');
+    expect(customerForScheduleOwner(customers, { stripeAccount: 'acct_1' })?.customerId).toBe('cus_connected');
+    expect(customerForScheduleOwner(customers, {})?.customerId).toBe('cus_platform');
   });
 
   it('finds none when the patient has no customer on that account', () => {
-    expect(customerForStripeAccount(customers, 'acct_2')).toBeUndefined();
+    expect(customerForScheduleOwner(customers, { stripeAccount: 'acct_2' })).toBeUndefined();
+  });
+
+  it('finds none for a visit without a schedule owner, rather than the platform customer', () => {
+    expect(customerForScheduleOwner(customers, undefined)).toBeUndefined();
   });
 });
 

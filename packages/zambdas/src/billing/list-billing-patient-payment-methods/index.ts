@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { PatientStripeCustomer } from 'utils/lib/types/api/patient-payment-visits.types';
+import { PatientPaymentVisit, PatientStripeCustomer } from 'utils/lib/types/api/patient-payment-visits.types';
 import { ListBillingPatientPaymentMethodsInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPatientCard,
@@ -43,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
   }
 
-  const customer = customerForStripeAccount(stripeCustomers, visit.scheduleOwner?.stripeAccount);
+  const customer = customerForScheduleOwner(stripeCustomers, visit.scheduleOwner);
   const response: ListBillingPatientPaymentMethodsResponse = {
     cards: customer
       ? await listCustomerCards(getStripeClient(secrets, { timeoutMs: STRIPE_REQUEST_TIMEOUT_MS }), customer)
@@ -52,11 +52,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// undefined stripeAccount on both sides is the platform account
-export const customerForStripeAccount = (
+// undefined stripeAccount on both sides is the platform account. A visit without a schedule owner (an
+// appointment-less follow-up) has no account to charge on: post-billing-patient-payment rejects it, so
+// it has no chargeable customer rather than falling back to the platform one.
+export const customerForScheduleOwner = (
   customers: PatientStripeCustomer[],
-  stripeAccount: string | undefined
-): PatientStripeCustomer | undefined => customers.find((customer) => customer.stripeAccount === stripeAccount);
+  scheduleOwner: PatientPaymentVisit['scheduleOwner']
+): PatientStripeCustomer | undefined =>
+  scheduleOwner ? customers.find((customer) => customer.stripeAccount === scheduleOwner.stripeAccount) : undefined;
 
 export const listCustomerCards = async (
   stripeClient: Stripe,
