@@ -2,11 +2,8 @@ import type { PatientRecordConfig, PatientRecordFormFields } from 'config-types/
 import type { FormFieldTrigger, QuestionnaireBase } from 'config-types/config/questionnaire';
 import { Questionnaire } from 'fhir/r4b';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
-import {
-  RELATIONSHIP_OTHER_OPTION,
-  RELATIONSHIP_TO_INSURED_OTHER_OPTION,
-  VALUE_SETS as formValueSets,
-} from '../value-sets';
+import { RELATIONSHIP_OPTIONS } from '../../fhir/patientMasterRecord';
+import { VALUE_SETS as formValueSets } from '../value-sets';
 
 const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
   label: `${option.candidCode} - ${option.label}`,
@@ -407,7 +404,7 @@ const FormFields: PatientRecordFormFields = {
               targetQuestionLinkId: 'patient-relationship-to-insured',
               effect: ['enable'],
               operator: '=',
-              answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+              answerString: RELATIONSHIP_OPTIONS.Other,
             },
           ],
           disabledDisplay: 'hidden',
@@ -555,7 +552,7 @@ const FormFields: PatientRecordFormFields = {
               targetQuestionLinkId: 'patient-relationship-to-insured-2',
               effect: ['enable'],
               operator: '=',
-              answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+              answerString: RELATIONSHIP_OPTIONS.Other,
             },
           ],
           disabledDisplay: 'hidden',
@@ -672,7 +669,7 @@ const FormFields: PatientRecordFormFields = {
             targetQuestionLinkId: 'responsible-party-relationship',
             effect: ['enable'],
             operator: '=',
-            answerString: RELATIONSHIP_OTHER_OPTION,
+            answerString: RELATIONSHIP_OPTIONS.Other,
           },
         ],
         disabledDisplay: 'hidden',

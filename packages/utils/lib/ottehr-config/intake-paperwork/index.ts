@@ -8,6 +8,7 @@ import { Questionnaire } from 'fhir/r4b';
 import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
 import { buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
+import { RELATIONSHIP_OPTIONS } from '../../fhir/patientMasterRecord';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
@@ -16,8 +17,6 @@ import {
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
-  RELATIONSHIP_OTHER_OPTION,
-  RELATIONSHIP_TO_INSURED_OTHER_OPTION,
   SELF_PAY_OPTION,
   VALUE_SETS,
 } from '../value-sets';
@@ -29,7 +28,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.9';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.10';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
@@ -991,7 +990,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               targetQuestionLinkId: 'patient-relationship-to-insured',
               effect: ['enable'],
               operator: '=',
-              answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+              answerString: RELATIONSHIP_OPTIONS.Other,
             },
             {
               targetQuestionLinkId: 'payment-option',
@@ -1211,7 +1210,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
                   targetQuestionLinkId: 'secondary-insurance.patient-relationship-to-insured-2',
                   effect: ['enable'],
                   operator: '=',
-                  answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+                  answerString: RELATIONSHIP_OPTIONS.Other,
                 },
               ],
             },
@@ -1400,7 +1399,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               targetQuestionLinkId: 'responsible-party-relationship',
               effect: ['enable'],
               operator: '=',
-              answerString: RELATIONSHIP_OTHER_OPTION,
+              answerString: RELATIONSHIP_OPTIONS.Other,
             },
           ],
         },

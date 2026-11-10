@@ -7,6 +7,7 @@ import type { ValueSetsConfig } from 'config-types/config/value-sets';
 import { Questionnaire } from 'fhir/r4b';
 import { camelCase } from 'lodash-es';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
+import { RELATIONSHIP_OPTIONS } from '../../fhir/patientMasterRecord';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
@@ -17,8 +18,6 @@ import {
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
-  RELATIONSHIP_OTHER_OPTION,
-  RELATIONSHIP_TO_INSURED_OTHER_OPTION,
   SELF_PAY_OPTION,
   SURGICAL_HISTORY_YES_OPTION,
   VALUE_SETS,
@@ -26,7 +25,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.11';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.12';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -1258,7 +1257,7 @@ function buildFormFields(
               targetQuestionLinkId: 'patient-relationship-to-insured',
               effect: ['enable'],
               operator: '=',
-              answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+              answerString: RELATIONSHIP_OPTIONS.Other,
             },
             {
               targetQuestionLinkId: 'payment-option',
@@ -1479,7 +1478,7 @@ function buildFormFields(
                   targetQuestionLinkId: 'secondary-insurance.patient-relationship-to-insured-2',
                   effect: ['enable'],
                   operator: '=',
-                  answerString: RELATIONSHIP_TO_INSURED_OTHER_OPTION,
+                  answerString: RELATIONSHIP_OPTIONS.Other,
                 },
               ],
             },
@@ -1667,7 +1666,7 @@ function buildFormFields(
               targetQuestionLinkId: 'responsible-party-relationship',
               effect: ['enable'],
               operator: '=',
-              answerString: RELATIONSHIP_OTHER_OPTION,
+              answerString: RELATIONSHIP_OPTIONS.Other,
             },
           ],
         },

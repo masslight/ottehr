@@ -640,5 +640,3 @@ export const ALLERGIES_YES_OPTION = VALUE_SETS.allergiesYesNoOptions[1].value;
 export const SURGICAL_HISTORY_YES_OPTION = VALUE_SETS.surgicalHistoryYesNoOptions[1].value;
 export const HAS_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[0].value; // 'I have an attorney'
 export const DOES_NOT_HAVE_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[1].value; // 'I do not have an attorney'
-export const RELATIONSHIP_OTHER_OPTION = VALUE_SETS.relationshipOptions[4].value; // 'Other'
-export const RELATIONSHIP_TO_INSURED_OTHER_OPTION = VALUE_SETS.relationshipToInsuredOptions[7].value; // 'Other'

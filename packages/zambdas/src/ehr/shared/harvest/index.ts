@@ -97,6 +97,7 @@ import {
   patientFieldPaths,
   PatientMasterRecordResource,
   relatedPersonFieldPaths,
+  RELATIONSHIP_OPTIONS,
 } from 'utils/lib/fhir/patientMasterRecord';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
@@ -119,11 +120,7 @@ import {
 import { filterHiddenRemovableFields, isFieldExplicitlyCleared } from 'utils/lib/helpers/paperwork/paperwork';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { getConsentFormsForLocation } from 'utils/lib/ottehr-config/consent-forms';
-import {
-  RELATIONSHIP_OTHER_OPTION,
-  RELATIONSHIP_TO_INSURED_OTHER_OPTION,
-  VALUE_SETS,
-} from 'utils/lib/ottehr-config/value-sets';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { ConsentSigner, DateComponents } from 'utils/lib/types/common';
 import { COVERAGE_ADDITIONAL_INFORMATION_URL, RESPONSIBLE_PARTY_NO_EMAIL_URL } from 'utils/lib/types/constants';
@@ -1999,7 +1996,7 @@ const extractPolicyHolder = (
     memberId: findAnswer(`insurance-member-id${suffix}`) ?? '',
     relationship,
     otherRelationship:
-      relationship === RELATIONSHIP_TO_INSURED_OTHER_OPTION
+      relationship === RELATIONSHIP_OPTIONS.Other
         ? findAnswer(`patient-relationship-to-insured-other${suffix}`)
         : undefined,
   };
@@ -2078,7 +2075,7 @@ export function extractAccountGuarantor(
     lastName: findAnswer('responsible-party-last-name') ?? '',
     relationship,
     otherRelationship:
-      relationship === RELATIONSHIP_OTHER_OPTION ? findAnswer('responsible-party-relationship-other') : undefined,
+      relationship === RELATIONSHIP_OPTIONS.Other ? findAnswer('responsible-party-relationship-other') : undefined,
     address: guarantorAddress,
     email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
