@@ -74,7 +74,9 @@ export async function fetchAdHocEncounterRows(
   const modules = requested.map((id) => ENCOUNTER_LAYER_MODULES[id]);
 
   // 1. Root: appointments + encounters of the range, then patients / locations / practitioners by id.
+  const startedAt = Date.now();
   const { root, practitioners } = await fetchEncounterRoot(oystehr, dateRange);
+  const rootMs = Date.now() - startedAt;
 
   const ctx = createEncounterContext({
     oystehr,
@@ -88,9 +90,17 @@ export async function fetchAdHocEncounterRows(
   // 2. The base lookups and every requested layer, all at once: each needs only the root. The fetch helpers'
   //    job pool limits the requests, not the layers.
   //    The foreign patient layers (`patients.*`) run with them, for the patients of the root.
+  const fetchMs = new Map<string, number>();
   const [lookups, outs, foreignColumns] = await Promise.all([
     fetchEncounterBaseLookups(oystehr, root),
-    Promise.all(modules.map((module) => module.fetch(ctx))),
+    Promise.all(
+      modules.map(async (module) => {
+        const fetchStartedAt = Date.now();
+        const out = await module.fetch(ctx);
+        fetchMs.set(module.id, Date.now() - fetchStartedAt);
+        return out;
+      })
+    ),
     fetchForeignPatientColumns(oystehr, {
       dateRange,
       patients: Array.from(root.patientMap.values()),
@@ -100,8 +110,10 @@ export async function fetchAdHocEncounterRows(
   ]);
 
   // 3. One row per encounter: the base, then each layer's columns.
+  const fetchedAt = Date.now();
   const timezoneForLocation = timezoneLookup();
   const rows: AdHocEncounterRow[] = [];
+  const mapMs = modules.map(() => 0);
 
   for (const encounter of root.encounterById.values()) {
     const appointment = resolveEncounterAppointment(encounter, root.appointmentMap, root.encounterById);
@@ -117,11 +129,23 @@ export async function fetchAdHocEncounterRows(
       timezoneForLocation
     );
 
-    modules.forEach((module, index) => Object.assign(row, module.map(input, outs[index], ctx)));
+    modules.forEach((module, index) => {
+      const mapStartedAt = Date.now();
+      Object.assign(row, module.map(input, outs[index], ctx));
+      mapMs[index] += Date.now() - mapStartedAt;
+    });
     Object.assign(row, foreignColumns.get(row.patientId));
 
     rows.push(row);
   }
+
+  // Where the time went. Layer fetches run at once and share the job pool, so a layer's fetch time includes
+  // waiting for a slot; map time is the work on this server.
+  console.log(
+    `[adhoc] encounters timing: rows=${rows.length} root ms=${rootMs} layers ms=${fetchedAt - startedAt - rootMs} ` +
+      `map ms=${Date.now() - fetchedAt} | ` +
+      modules.map((m, i) => `${m.id}: fetch ${fetchMs.get(m.id) ?? 0} map ${mapMs[i]}`).join(', ')
+  );
 
   return rows;
 }
