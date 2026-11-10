@@ -404,6 +404,33 @@ describe('create-billing-nio-invoice', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it('withdraws its invoice when an overlapping unnumbered draft holds the claims', async () => {
+    mockFetchActiveClaimInvoices.mockResolvedValue([
+      savedInvoice(),
+      {
+        ...buildBillingInvoice({
+          ...draft.invoice,
+          status: 'draft',
+        }),
+        id: 'invoice-draft',
+      },
+    ]);
+    const { oystehr, update } = setup();
+
+    await expect(run(oystehr)).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'invoice-1',
+        status: 'entered-in-error',
+      }),
+      {
+        optimisticLockingVersionId: '1',
+      }
+    );
+  });
+
   it('keeps its invoice when an overlapping request saved a higher numbered one', async () => {
     mockFetchActiveClaimInvoices.mockResolvedValue([
       savedInvoice(),
