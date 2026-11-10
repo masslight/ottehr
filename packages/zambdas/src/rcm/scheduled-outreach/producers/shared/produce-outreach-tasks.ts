@@ -39,6 +39,8 @@ export interface ProduceOutreachTasksParams {
   actionFilter?: (action: OutreachAction) => boolean;
   /** Task.code system the executor Subscriptions match on. */
   taskCodeSystem?: string;
+  /** Skips the producer-time contact check and leaves validation to delivery. */
+  skipContactValidation?: boolean;
 }
 
 export interface OutreachTaskResult {
@@ -62,6 +64,7 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
     stripeAccount,
     actionFilter,
     taskCodeSystem,
+    skipContactValidation,
   } = params;
 
   if (!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled) {
@@ -100,7 +103,7 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
   let hasValidPhone = false;
   let hasValidEmail = false;
 
-  if (hasNotificationActions) {
+  if (hasNotificationActions && !skipContactValidation) {
     const patientId = patient.reference?.replace('Patient/', '');
     if (patientId) {
       try {

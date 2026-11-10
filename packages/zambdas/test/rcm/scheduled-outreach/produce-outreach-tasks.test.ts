@@ -633,6 +633,32 @@ describe('produce-outreach-tasks', () => {
       expect(createdTask.statusReason?.text).toContain('no valid phone number');
     });
 
+    it('creates draft task without reading the patient when skipContactValidation is set', async () => {
+      const actions = [
+        makeAction({ sendNotificationConfig: { mediums: ['sms'], smsTemplate: 'Pay!', emailTemplate: '' } }),
+      ];
+      const planDef = makePlanDefinition(actions);
+
+      mockSearch.mockResolvedValueOnce(mockBundle([planDef]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockGet.mockResolvedValue({ resourceType: 'Patient', id: 'pat-1', telecom: [] });
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'draft' });
+
+      const result = await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+        skipContactValidation: true,
+      });
+
+      expect(result.created).toHaveLength(1);
+      const createdTask = mockCreate.mock.calls[0][0];
+      expect(createdTask.status).toBe('draft');
+      expect(mockGet).not.toHaveBeenCalled();
+    });
+
     it('creates cancelled task when patient has invalid phone and no email for sms+email notification', async () => {
       const actions = [
         makeAction({
