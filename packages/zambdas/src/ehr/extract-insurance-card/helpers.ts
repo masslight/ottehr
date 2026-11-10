@@ -154,7 +154,6 @@ export async function extractInsuranceCardFieldsFromImage(
     'extract-insurance-card',
     insuranceCardResponseSchema,
     undefined,
-    // Each attempt carries the full base64 image; hedged attempts overlap and multiply memory (OTR-3771).
     { retryMode: 'sequential' }
   );
   const parsed = parseModelResponse(rawModelResponse);
