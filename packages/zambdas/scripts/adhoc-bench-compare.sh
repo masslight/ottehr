@@ -58,7 +58,7 @@ run() { # <tree> <label> <n>
   for attempt in 1 2 3; do
     if (cd "$1/packages/zambdas" && NODE_OPTIONS='--preserve-symlinks' npx tsx src/scripts/adhoc-bench.ts \
       "$ENV_NAME" "$START" "$END" "$LAYERS" "$OUT/$2-$3.json" >"$OUT/$2-$3.attempt$attempt.log" 2>&1); then
-      echo "  $2 #$3: $(node -e "const r=require('$OUT/$2-$3.json'); console.log(r.ms + ' ms, ' + r.rows + ' rows')")"
+      echo "  $2 #$3: $(node -e "const r=require('$OUT/$2-$3.json'); console.log(r.ms + ' ms, ' + r.rows + ' rows, ' + r.networkRetries + ' network retries' + (r.overBudget ? ', OVER the 13-minute budget (the worker would have stopped it)' : ''))")"
       return
     fi
     # The report's 13-minute fetch budget ran out: that is the result, not a glitch to retry.
