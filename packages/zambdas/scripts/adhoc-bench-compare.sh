@@ -49,6 +49,7 @@ cp "$CORE/packages/zambdas/src/scripts/adhoc-bench.ts" "$OLD/packages/zambdas/sr
 END=$(node -e 'console.log(new Date().toISOString())')
 START=$(node -e "console.log(new Date(Date.now() - $DAYS * 86400000).toISOString())")
 echo "range $START .. $END, layers: $LAYERS, rounds: $ROUNDS"
+echo "results print when a run ends; to follow a run: tail -f $OUT/*.log"
 
 # A run that fails (a dropped connection — "fetch failed" — fails the old code, which has no retry) is run
 # again, up to 3 attempts; the failed attempts' logs are kept.
@@ -58,6 +59,12 @@ run() { # <tree> <label> <n>
     if (cd "$1/packages/zambdas" && NODE_OPTIONS='--preserve-symlinks' npx tsx src/scripts/adhoc-bench.ts \
       "$ENV_NAME" "$START" "$END" "$LAYERS" "$OUT/$2-$3.json" >"$OUT/$2-$3.attempt$attempt.log" 2>&1); then
       echo "  $2 #$3: $(node -e "const r=require('$OUT/$2-$3.json'); console.log(r.ms + ' ms, ' + r.rows + ' rows')")"
+      return
+    fi
+    # The report's 13-minute fetch budget ran out: that is the result, not a glitch to retry.
+    if grep -q 'exceeded its time budget' "$OUT/$2-$3.attempt$attempt.log"; then
+      echo "  $2 #$3: did not finish within the 13-minute report budget"
+      echo '{"dnf":true}' >"$OUT/$2-$3.json"
       return
     fi
     echo "  $2 #$3 attempt $attempt failed: $(grep -m1 -E 'Error|FAILED' "$OUT/$2-$3.attempt$attempt.log" | cut -c1-200)"
@@ -73,19 +80,23 @@ done
 node - "$OUT" "$ROUNDS" <<'EOF'
 const [dir, rounds] = [process.argv[2], Number(process.argv[3])];
 const load = (v) => Array.from({ length: rounds }, (_, i) => require(`${dir}/${v}-${i + 1}.json`));
-const old = load('old');
-const now = load('new');
+const finished = (runs) => runs.filter((r) => !r.dnf);
+const old = finished(load('old'));
+const now = finished(load('new'));
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
-const o = median(old.map((r) => r.ms));
-const n = median(now.map((r) => r.ms));
-console.log(`\nmedian: old ${o} ms, new ${n} ms, ${(o / n).toFixed(1)}x`);
-console.log(`rows: old ${old[0].rows}, new ${now[0].rows}`);
-if (old[0].fingerprint === now[0].fingerprint) {
-  console.log('rows: IDENTICAL');
-} else {
-  const fields = Array.from(new Set([...Object.keys(old[0].fields), ...Object.keys(now[0].fields)])).sort();
-  const differ = fields.filter((f) => old[0].fields[f] !== now[0].fields[f]);
-  console.log(`rows: DIFFERENT in ${differ.length} column(s): ${differ.join(', ')}`);
+const show = (label, runs) =>
+  runs.length ? `${median(runs.map((r) => r.ms))} ms` : 'did not finish within the 13-minute budget';
+console.log(`\nmedian: old ${show('old', old)}, new ${show('new', now)}`);
+if (old.length && now.length) {
+  console.log(`speed-up: ${(median(old.map((r) => r.ms)) / median(now.map((r) => r.ms))).toFixed(1)}x`);
+  console.log(`rows: old ${old[0].rows}, new ${now[0].rows}`);
+  if (old[0].fingerprint === now[0].fingerprint) {
+    console.log('rows: IDENTICAL');
+  } else {
+    const fields = Array.from(new Set([...Object.keys(old[0].fields), ...Object.keys(now[0].fields)])).sort();
+    const differ = fields.filter((f) => old[0].fields[f] !== now[0].fields[f]);
+    console.log(`rows: DIFFERENT in ${differ.length} column(s): ${differ.join(', ')}`);
+  }
 }
 console.log(`logs and results: ${dir}`);
 EOF
