@@ -14,6 +14,7 @@ import {
   isCandidInvoicingEnabled,
   isOttehrBillingInvoicingInBillingApp,
   isOttehrBillingInvoicingInEhr,
+  isOutreachInBillingApp,
 } from '../../src/shared/invoice-tasks';
 
 // These tests describe legacy Candid claims routing, which only exists with non-insurance
@@ -128,6 +129,16 @@ describe('producer gates', () => {
     }
     expect(isOttehrBillingInvoicingInBillingApp(switched('all'), { ottehrBillingInvoicingEnabled: false })).toBe(false);
     expect(isOttehrBillingInvoicingInBillingApp(switched('candid'), flags)).toBe(false);
+  });
+
+  it('moves invoice outreach to the billing app with invoicing, when automated outreach is enabled', () => {
+    const flags = { ottehrBillingInvoicingEnabled: true, automatedPatientOutreachEnabled: true };
+    const secrets: Secrets = { BILLING_INTEGRATION: 'ottehr', INVOICING_IN_BILLING_APP: 'true' };
+
+    expect(isOutreachInBillingApp(secrets, flags)).toBe(true);
+    expect(isOutreachInBillingApp({ ...secrets, INVOICING_IN_BILLING_APP: 'false' }, flags)).toBe(false);
+    expect(isOutreachInBillingApp(secrets, { ...flags, automatedPatientOutreachEnabled: false })).toBe(false);
+    expect(isOutreachInBillingApp(secrets, { ottehrBillingInvoicingEnabled: true })).toBe(false);
   });
 });
 

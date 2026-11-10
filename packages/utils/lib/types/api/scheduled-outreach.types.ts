@@ -1,6 +1,7 @@
 import { PlanDefinition } from 'fhir/r4b';
 
 export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
+export const INVOICE_OUTREACH_TRIGGER_EVENTS: readonly TriggerEvent[] = ['invoice-issued', 'invoice-due'];
 export type NotificationMedium = 'sms' | 'email' | 'paper-mail';
 export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections' | 'log';
 export type TimeUnit = 'days' | 'hours' | 'minutes';

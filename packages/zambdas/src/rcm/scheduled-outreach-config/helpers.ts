@@ -9,6 +9,7 @@ import {
   NotificationMedium,
   NotificationsTimeRestriction,
   OutreachAction,
+  OutreachConfigResponse,
   OutreachStatementType,
   TimeUnit,
   TriggerDirection,
@@ -759,4 +760,13 @@ export async function getOrCreateOutreachConfig(oystehr: Oystehr): Promise<PlanD
     extension: [...(defaultPlanDef.extension ?? []), buildConfiguredAtExtension(new Date().toISOString())],
   };
   return await oystehr.fhir.create<PlanDefinition>(withConfiguredAt);
+}
+
+export async function getOutreachConfigResponse(oystehr: Oystehr): Promise<OutreachConfigResponse> {
+  const planDefinition = await getOrCreateOutreachConfig(oystehr);
+  return {
+    planDefinition,
+    actions: parsePlanDefinitionToActions(planDefinition),
+    notificationsTimeRestriction: parseNotificationsTimeRestriction(planDefinition),
+  };
 }
