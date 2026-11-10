@@ -890,6 +890,7 @@ export const dataTestIds = {
     orderVaccineButton: 'order-vaccine-button',
     associatedDx: 'order-vaccine-associated-dx',
     manufacturer: 'order-vaccine-manufacturer',
+    line: 'order-vaccine-line',
   },
 
   immunizationPage: {
