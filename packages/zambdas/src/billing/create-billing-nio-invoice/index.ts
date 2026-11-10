@@ -12,6 +12,7 @@ import {
   getInvoiceNumber,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
+import { isVersionConflictError } from 'utils/lib/fhir/helpers';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CreateBillingNioInvoiceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -34,7 +35,6 @@ import {
 import { issueInvoiceNumber } from '../invoice-number';
 import { ACTIVE_INVOICE_STATUSES, createInvoiceUnlessClaimsHaveOne, fetchActiveClaimInvoices } from '../invoices';
 import { assembleNioInvoice } from '../nio-invoice';
-import { isVersionConflict } from '../reports/framework/refresh-task';
 import { createBillingClient } from '../shared';
 
 let m2mToken: string;
@@ -170,7 +170,7 @@ async function createNioInvoice({
     saved = await createInvoiceUnlessClaimsHaveOne(oystehr, invoice);
   } catch (error) {
     // More than one invoice already holds these claims.
-    if (isVersionConflict(error)) throw BILLING_INVOICE_CONFLICT_ERROR(CLAIMS_ALREADY_INVOICED);
+    if (isVersionConflictError(error)) throw BILLING_INVOICE_CONFLICT_ERROR(CLAIMS_ALREADY_INVOICED);
     throw error;
   }
   if (getBillingInvoiceIdempotencyKey(saved) !== idempotencyKey) {
