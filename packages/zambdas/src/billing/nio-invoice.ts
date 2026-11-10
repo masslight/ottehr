@@ -19,6 +19,7 @@ import { fetchActiveClaimInvoices } from './invoices';
 import { copySourceId, fetchById, findRef } from './shared';
 
 export interface NioInvoiceDraft {
+  nioId: string;
   invoice: BuildBillingInvoiceInput;
   pdf: Omit<NioInvoicePdfData, 'invoiceNumber'>;
 }
@@ -133,6 +134,7 @@ export async function assembleNioInvoice({
   }));
 
   return {
+    nioId,
     invoice: {
       status: 'issued',
       date: now.toUTC().toISO()!,

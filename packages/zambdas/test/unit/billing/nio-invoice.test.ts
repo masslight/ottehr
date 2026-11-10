@@ -221,8 +221,9 @@ describe('assembleNioInvoice', () => {
       },
     });
 
-    const { invoice, pdf } = await assemble(oystehr, ['claim-1', 'claim-2']);
+    const { nioId, invoice, pdf } = await assemble(oystehr, ['claim-1', 'claim-2']);
 
+    expect(nioId).toBe('nio-1');
     expect(invoice).toEqual({
       status: 'issued',
       date: '2026-10-03T15:00:00.000Z',

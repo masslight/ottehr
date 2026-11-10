@@ -26,6 +26,7 @@ vi.mock('../../../src/shared/pdf/nio-invoice-pdf', async (importOriginal) => {
 });
 
 const draft: NioInvoiceDraft = {
+  nioId: 'nio-1',
   invoice: {
     status: 'issued',
     date: '2026-10-03T15:00:00.000Z',

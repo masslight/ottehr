@@ -63,6 +63,7 @@ const CLAIM_IDS = ['claim-1', 'claim-2'];
 const KEY = 'key-1';
 
 const draft: NioInvoiceDraft = {
+  nioId: 'nio-1',
   invoice: {
     status: 'issued',
     date: '2026-10-03T15:00:00.000Z',
