@@ -26,7 +26,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect as getInventoryPerformEffect } from '../../src/ehr/configuration/in-house-medications/get-medication-inventory/index';
 import { syncInventoryForOrder } from '../../src/ehr/create-update-medication-order/helpers';
-import { reconcileAdministrationStock } from '../../src/shared/medication-inventory';
+import { administrationStockChanged, reconcileAdministrationStock } from '../../src/shared/medication-inventory';
 
 vi.mock('@sentry/node-core/light', () => ({ captureException: vi.fn() }));
 
@@ -451,7 +451,7 @@ describe('syncInventoryForOrder', () => {
   it('reports an inventory failure and resolves, so the administration still saves', async () => {
     const oystehr = makeMockOystehr();
     oystehr.fhir.get.mockRejectedValue(new Error('FHIR is down'));
-    await expect(syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1')).resolves.toBeUndefined();
+    await expect(syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1', makeOrder())).resolves.toBeUndefined();
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 
@@ -463,9 +463,44 @@ describe('syncInventoryForOrder', () => {
       if (resourceType === 'Encounter') return encounter;
       return id === 'med-catalog' ? makeCatalog(singleUseVial) : makeLot('lot-1', 'A123', 25);
     });
-    await syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1');
+    await syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1', makeOrder({ status: 'in-progress' }));
     expect(postedEntries(oystehr)[0]?.performer).toEqual([{ reference: 'Practitioner/nurse-1' }]);
     expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, InHouseMedicationInventory | undefined, Observation[], number]>([
+    ['tracking was turned off', undefined, [ledgerEntry('e-1', { quantity: -1 }, 2)], 2],
+    [
+      'each-contains changed from 4 mg to 1 mg',
+      { ...singleUseVial, eachContains: { amount: 1, unit: 'mg' } },
+      [ledgerEntry('e-1', { quantity: -2 }, 2)],
+      6,
+    ],
+    ['tracking was turned on after it was given', singleUseVial, [], 2],
+  ])(
+    'leaves stock alone when an administered order is re-saved without a stock change after %s',
+    async (_label, inventory, ledger, dose) => {
+      const oystehr = makeMockOystehr({ catalog: makeCatalog(inventory), ledger });
+      const before = makeOrder({ dose });
+      oystehr.fhir.get.mockImplementation(({ resourceType, id }: { resourceType: string; id: string }) => {
+        if (resourceType === 'MedicationAdministration') return { ...before, note: [{ text: 'Charted late' }] };
+        if (resourceType === 'Encounter') return encounter;
+        return id === 'med-catalog' ? makeCatalog(inventory) : makeLot('lot-1', 'A123', 25);
+      });
+
+      await syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1', before);
+
+      expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+      expect(captureException).not.toHaveBeenCalled();
+    }
+  );
+});
+
+describe('administrationStockChanged', () => {
+  it('treats a switch to another catalog drug with the same name, lot and expiration as a stock change', () => {
+    expect(
+      administrationStockChanged(makeOrder({ catalogId: 'med-catalog' }), makeOrder({ catalogId: 'med-other' }))
+    ).toBe(true);
   });
 });
 

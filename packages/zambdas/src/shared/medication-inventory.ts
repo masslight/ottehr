@@ -298,6 +298,26 @@ async function resolveAdministrationStockTarget(
   return { lotId: lot.id, lot, ...taken };
 }
 
+const administrationStockBasis = (medicationAdministration: MedicationAdministration): string | undefined => {
+  const status = mapFhirToOrderStatus(medicationAdministration);
+  if (status !== 'administered' && status !== 'administered-partly') return undefined;
+  const contained = getMedicationFromMA(medicationAdministration);
+  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
+  return JSON.stringify([
+    getOrderCatalogMedicationId(contained),
+    getMedicationName(contained),
+    contained?.batch?.lotNumber?.trim(),
+    contained?.batch?.expirationDate?.slice(0, 10),
+    dose,
+    units,
+  ]);
+};
+
+export const administrationStockChanged = (
+  before: MedicationAdministration,
+  after: MedicationAdministration
+): boolean => administrationStockBasis(before) !== administrationStockBasis(after);
+
 /**
  * Brings the stock ledger in line with an administration (requirements 4 and 5): writes the difference
  * between what the order should have taken off and what its entries already took off, per lot. Call after
