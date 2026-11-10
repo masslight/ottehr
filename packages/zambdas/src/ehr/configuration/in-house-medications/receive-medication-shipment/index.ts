@@ -78,6 +78,15 @@ export const performEffect = async (
     lotNumber,
   });
   const existingLot = sameNumber.find((lot) => lot.batch?.expirationDate === expirationDate);
+  const confirmedLot = sameNumber.find((lot) => lot.id === params.lotId);
+  if (
+    params.expirationConflict === 'correct-existing' &&
+    (!confirmedLot || (existingLot && existingLot !== confirmedLot))
+  ) {
+    throw INVALID_INPUT_ERROR(
+      `Lot ${lotNumber} changed after it was shown. Cancel and receive the shipment again to review it.`
+    );
+  }
 
   // Same number, different expiration: staff decide whether that is a second lot or a typo in the first one.
   const otherExpiration = existingLot ? undefined : sameNumber.find((lot) => lot.batch?.expirationDate);
@@ -98,8 +107,8 @@ export const performEffect = async (
     vendor,
   };
   let written: { lot: Medication; entry: Observation };
-  if (otherExpiration && params.expirationConflict === 'correct-existing') {
-    const previous = otherExpiration.batch?.expirationDate ?? '';
+  if (otherExpiration && confirmedLot && params.expirationConflict === 'correct-existing') {
+    const previous = confirmedLot.batch?.expirationDate ?? '';
     const corrected: StockEntryWrite = {
       locationId,
       type: 'adjustment',
@@ -110,7 +119,7 @@ export const performEffect = async (
       effectiveDateTime: received.effectiveDateTime,
       note: `Expiration changed from ${formatDateForDisplay(previous)} to ${formatDateForDisplay(expirationDate)}`,
     };
-    written = await writeInventoryStockEntry(oystehr, otherExpiration, [corrected, received], (lot) =>
+    written = await writeInventoryStockEntry(oystehr, confirmedLot, [corrected, received], (lot) =>
       withLotDetails({ ...lot, batch: { ...lot.batch, expirationDate } }, { vendor })
     );
   } else if (existingLot) {

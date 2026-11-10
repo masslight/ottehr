@@ -156,6 +156,7 @@ export default function ReceiveShipmentDialog({
         manufacturer: form.manufacturer.trim() || undefined,
         vendor: form.vendor.trim() || undefined,
         expirationConflict,
+        lotId: expirationConflict === 'correct-existing' ? conflict?.lotId : undefined,
       });
       if ('expirationConflict' in result) {
         setConflict(result.expirationConflict);
