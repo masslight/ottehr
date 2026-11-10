@@ -1,7 +1,7 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { claimOutreachTask, failOutreachTask } from '../../../rcm/scheduled-outreach/executors/outreach-task-execution';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -29,24 +29,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
-  // Mark as in-progress with optimistic locking to guard against duplicate
-  // subscription deliveries racing to execute the same task. If another
-  // invocation already claimed it, the version will be stale (412) and we skip.
-  try {
-    await oystehr.fhir.patch<Task>(
-      {
-        resourceType: 'Task',
-        id: task.id!,
-        operations: [{ op: 'replace', path: '/status', value: 'in-progress' }],
-      },
-      { optimisticLockingVersionId: task.meta?.versionId }
-    );
-  } catch (err) {
-    if (err instanceof Oystehr.OystehrFHIRError && err.code === 412) {
-      console.log(`Task ${task.id} was already claimed by another invocation (version conflict), skipping`);
-      return { statusCode: 200, body: JSON.stringify({ message: 'Task already claimed, skipped' }) };
-    }
-    throw err;
+  if (!(await claimOutreachTask(oystehr, task))) {
+    return { statusCode: 200, body: JSON.stringify({ message: 'Task already claimed, skipped' }) };
   }
 
   try {
@@ -89,19 +73,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (err: any) {
     console.error(`Unexpected error executing task ${task.id}:`, err.message);
 
-    await oystehr.fhir.patch<Task>({
-      resourceType: 'Task',
-      id: task.id!,
-      operations: [
-        { op: 'replace', path: '/status', value: 'failed' },
-        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
-        {
-          op: 'add',
-          path: '/output',
-          value: [{ type: { text: 'error' }, valueString: err.message }],
-        },
-      ],
-    });
+    await failOutreachTask(oystehr, task, err.message);
 
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }

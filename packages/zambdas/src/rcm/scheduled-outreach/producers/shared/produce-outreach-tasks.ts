@@ -359,105 +359,41 @@ export async function resolveOutreachTaskStripeAccount(task: Task, oystehr: Oyst
   }
 }
 
-interface RawFhirConnection {
-  baseUrl: string;
-  accessToken: string;
-  projectId?: string;
-}
-
-/**
- * Extract the access token and FHIR base URL from the Oystehr client so we can issue a raw
- * conditional-create request. The @oystehr/sdk transaction helper strips `entry.request.ifNoneExist`,
- * so a true FHIR conditional create has to be sent directly. Returns undefined when the connection
- * details are not available (e.g. a mocked client in unit tests), in which case callers fall back
- * to a plain create.
- */
-function getRawFhirConnection(oystehr: Oystehr): RawFhirConnection | undefined {
-  const cfg = (
-    oystehr as unknown as {
-      config?: { accessToken?: string; projectId?: string; fhirApiUrl?: string; services?: { fhirApiUrl?: string } };
-    }
-  ).config;
-  const accessToken = cfg?.accessToken;
-  const baseUrl = cfg?.services?.fhirApiUrl ?? cfg?.fhirApiUrl;
-  if (!accessToken || !baseUrl) {
-    return undefined;
-  }
-  return { baseUrl: baseUrl.replace(/\/+$/, ''), accessToken, projectId: cfg?.projectId };
-}
-
 type IdempotentCreateOutcome = { status: 'created'; resource: Task } | { status: 'duplicate' };
 
 /**
- * Create an outreach Task using a FHIR conditional create (POST + If-None-Exist) so that two
+ * Create an outreach Task with a FHIR conditional create (POST + If-None-Exist) so that two
  * concurrent producer invocations cannot create duplicate tasks for the same logical action.
- * Falls back to a plain create when a raw FHIR connection is unavailable (e.g. unit tests).
  */
 export async function createOutreachTaskIdempotent(
   oystehr: Oystehr,
   task: Task,
   ifNoneExist: string
 ): Promise<IdempotentCreateOutcome> {
-  const conn = getRawFhirConnection(oystehr);
-  if (!conn) {
-    // No raw FHIR connection available — fall back to a plain create. The producer's prior
-    // existence check plus the cron promoter's dedup still guard against duplicates here.
-    const created = await oystehr.fhir.create<Task>(task);
-    return { status: 'created', resource: created };
-  }
-
-  const bundle = {
-    resourceType: 'Bundle',
-    type: 'transaction',
-    entry: [
-      {
-        resource: task,
-        request: { method: 'POST', url: 'Task', ifNoneExist },
-      },
-    ],
-  };
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${conn.accessToken}`,
-    'content-type': 'application/fhir+json',
-    accept: 'application/fhir+json',
-  };
-  if (conn.projectId) {
-    headers['x-zapehr-project-id'] = conn.projectId;
-    headers['x-oystehr-project-id'] = conn.projectId;
-  }
-
-  const res = await fetch(`${conn.baseUrl}/`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(bundle),
-  });
-
-  if (!res.ok) {
+  try {
+    const bundle = await oystehr.fhir.transaction<Task>({
+      requests: [{ method: 'POST', url: '/Task', resource: task, ifNoneExist }],
+    });
+    const entry = bundle.entry?.[0];
+    const resource = entry?.resource;
+    if (!resource) {
+      throw new Error('Conditional create for outreach Task returned no resource in the transaction response');
+    }
+    // 201 = newly created; 200 = matched an existing task (duplicate prevented).
+    if (entry?.response?.status?.startsWith('201')) {
+      return { status: 'created', resource };
+    }
+    return { status: 'duplicate' };
+  } catch (err) {
     // 412 = multiple existing matches; treat as an already-satisfied duplicate rather than failing.
-    if (res.status === 412) {
+    if (err instanceof Oystehr.OystehrSdkError && err.code === 412) {
       console.log(
         `createOutreachTaskIdempotent: conditional create matched multiple tasks for "${ifNoneExist}", skipping`
       );
       return { status: 'duplicate' };
     }
-    const text = await res.text().catch(() => '');
-    throw new Error(`Conditional create for outreach Task failed: HTTP ${res.status} ${text.slice(0, 300)}`);
+    throw err;
   }
-
-  const respBundle = (await res.json()) as {
-    entry?: { resource?: Task; response?: { status?: string } }[];
-  };
-  const entry = respBundle.entry?.[0];
-  const resource = entry?.resource;
-  if (!resource) {
-    throw new Error('Conditional create for outreach Task returned no resource in the transaction response');
-  }
-  // 201 = newly created; 200 = matched an existing task (duplicate prevented).
-  if (entry?.response?.status?.startsWith('201')) {
-    return { status: 'created', resource };
-  }
-  return { status: 'duplicate' };
 }
 
 /**

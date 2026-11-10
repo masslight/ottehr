@@ -1,3 +1,5 @@
+import { PlanDefinition } from 'fhir/r4b';
+
 export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
 export type NotificationMedium = 'sms' | 'email' | 'paper-mail';
 export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections' | 'log';
@@ -67,4 +69,17 @@ export interface OutreachAction {
   referToCollectionsConfig?: ReferToCollectionsConfig;
   logConfig?: Record<string, never>;
   birthdayConfig?: BirthdayConfig;
+}
+
+export interface OutreachConfigResponse {
+  planDefinition: PlanDefinition;
+  actions: OutreachAction[];
+  notificationsTimeRestriction: NotificationsTimeRestriction;
+}
+
+export interface OutreachMediumResult {
+  medium: NotificationMedium;
+  success: boolean;
+  error?: string;
+  skippedReason?: string;
 }
