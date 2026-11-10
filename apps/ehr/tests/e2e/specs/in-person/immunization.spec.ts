@@ -7,7 +7,7 @@ import {
 } from 'tests/e2e/page/in-person/Immunization/EditVaccineOrderPage';
 import { openImmunizationPage } from 'tests/e2e/page/in-person/Immunization/ImmunizationPage';
 import { expectMarTab } from 'tests/e2e/page/in-person/Immunization/MarTab';
-import { OrderDetailsSection } from 'tests/e2e/page/in-person/Immunization/OrderDetailsSection';
+import { OrderDetailsEntry } from 'tests/e2e/page/in-person/Immunization/OrderDetailsSection';
 import { VaccineDetailsTab } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsTab';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -157,7 +157,7 @@ async function tearDownAppointment(
   await resourceHandler.cleanupResources();
 }
 
-async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
+async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsEntry): Promise<void> {
   await orderDetailsSection.selectVaccine(vaccineInfo.vaccine);
   await orderDetailsSection.enterDose(vaccineInfo.dose);
   await orderDetailsSection.selectUnits(vaccineInfo.units);
@@ -168,7 +168,7 @@ async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: O
   await orderDetailsSection.selectAssociatedDx(vaccineInfo.associatedDx);
 }
 
-async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
+async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsEntry): Promise<void> {
   await orderDetailsSection.verifyVaccine(vaccineInfo.vaccine);
   await orderDetailsSection.verifyDose(vaccineInfo.dose);
   await orderDetailsSection.verifyUnits(vaccineInfo.units);

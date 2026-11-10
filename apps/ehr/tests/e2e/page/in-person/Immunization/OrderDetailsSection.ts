@@ -7,7 +7,28 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 // option lists open in a body-level popper, so those are always resolved against the Page.
 type Scope = Page | Locator;
 
-export class OrderDetailsSection {
+/** Entering and checking an order's details, whichever form shows them (fields here, sentences on the order page). */
+export interface OrderDetailsEntry {
+  selectVaccine(vaccine: string): Promise<void>;
+  verifyVaccine(vaccine: string): Promise<void>;
+  enterDose(dose: string): Promise<void>;
+  verifyDose(dose: string): Promise<void>;
+  selectUnits(units: string): Promise<void>;
+  verifyUnits(units: string): Promise<void>;
+  selectRoute(route: string): Promise<void>;
+  verifyRoute(route: string): Promise<void>;
+  selectLocation(location: string): Promise<void>;
+  verifyLocation(location: string): Promise<void>;
+  enterInstructions(instructions: string): Promise<void>;
+  verifyInstructions(instructions: string): Promise<void>;
+  verifyOrderedBy(orderedBy: string): Promise<void>;
+  selectAssociatedDx(dxSearchText: string): Promise<void>;
+  verifyAssociatedDx(dxText: string): Promise<void>;
+  enterManufacturer(manufacturer: string): Promise<void>;
+  verifyManufacturer(manufacturer: string): Promise<void>;
+}
+
+export class OrderDetailsSection implements OrderDetailsEntry {
   #scope: Scope;
   #page: Page;
 

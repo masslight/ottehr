@@ -77,6 +77,7 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
 }));
 
 vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
+  useGetVaccines: () => ({ data: [], isLoading: false }),
   useAdministerImmunizationOrder: () => ({ mutateAsync: vi.fn() }),
   useCancelImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateUpdateImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -219,6 +220,19 @@ vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({
   OrderHistoryTable: () => <div />,
 }));
 
+vi.mock('../../src/features/immunization/components/ImmunizationSentences', () => ({
+  ImmunizationSectionLabel: ({ children }: { children: React.ReactNode }) => <h3>{children}</h3>,
+  ImmunizationSentences: () => <div />,
+}));
+
+vi.mock('../../src/features/visits/shared/components/review-tab/components/AllergiesContainer', () => ({
+  AllergiesContainer: () => <div />,
+}));
+
+vi.mock('../../src/features/visits/shared/components/review-tab/components/MedicationsContainer', () => ({
+  MedicationsContainer: () => <div />,
+}));
+
 describe('immunization quick pick loading propagation', () => {
   it('passes the loading state to VaccineDetailsCard quick picks', () => {
     render(
@@ -231,12 +245,6 @@ describe('immunization quick pick loading propagation', () => {
         }
       />
     );
-
-    expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
-  });
-
-  it('passes the loading state to ImmunizationOrderCreateEdit quick picks', () => {
-    render(<ImmunizationOrderCreateEdit />);
 
     expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
   });
