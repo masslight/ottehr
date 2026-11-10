@@ -5,7 +5,7 @@ import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
-import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { buildFollowupEncounterType, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -212,6 +212,47 @@ describe('getPatientPaymentVisits', () => {
       }),
     ]);
     expect(encounterSearchParams(oystehr)).toContainEqual({ name: '_include', value: 'Encounter:location' });
+  });
+
+  it('describes a scheduled follow-up by its own appointment', async () => {
+    const oystehr = searchClient({
+      Encounter: [
+        // a scheduled follow-up books its own appointment and carries no date or reason of its own
+        {
+          resourceType: 'Encounter',
+          id: 'enc-scheduled-follow-up',
+          status: 'finished',
+          class: { code: 'AMB' },
+          type: buildFollowupEncounterType('scheduled'),
+          partOf: { reference: 'Encounter/enc-initial' },
+          appointment: [{ reference: 'Appointment/appt-follow-up' }],
+        },
+        {
+          resourceType: 'Appointment',
+          id: 'appt-follow-up',
+          status: 'fulfilled',
+          start: '2026-10-08T15:00:00.000Z',
+          meta: { tag: [{ code: OTTEHR_MODULE.TM }] },
+          description: 'Recheck',
+          participant: [{ actor: { reference: 'Location/clinic' }, status: 'accepted' }],
+        },
+        { resourceType: 'Location', id: 'clinic', name: 'Main Clinic' },
+      ],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    expect(visits).toEqual([
+      expect.objectContaining({
+        encounterId: 'enc-scheduled-follow-up',
+        appointmentId: 'appt-follow-up',
+        visitDateISO: '2026-10-08T15:00:00.000Z',
+        serviceMode: 'virtual',
+        followUp: true,
+        locationName: 'Main Clinic',
+        visitReason: 'Recheck',
+      }),
+    ]);
   });
 
   it('describes a follow-up by its own date, location and reason, not its initial visit appointment', async () => {

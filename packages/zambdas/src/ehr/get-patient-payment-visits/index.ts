@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, FhirResource, Location, PaymentNotice } from 'fhir/r4b';
 import { getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
 import { chunkThings } from 'utils/lib/fhir/chat';
-import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { isAnnotationFollowupEncounter, isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAllStripeCustomerAccountPairs, scheduleOwnerAmong } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getPaymentNoticeSubmitterRef, getStripeAccountForScheduleOwner } from 'utils/lib/fhir/payments';
@@ -98,7 +98,7 @@ const fetchVisits = async (
         ? scheduleOwnerAmong(scheduleOwnerCandidates(appointment, relatedResourcesByReference))
         : undefined;
       const followUp = isFollowupEncounter(encounter);
-      const describedBy = followUp ? undefined : appointment;
+      const describedBy = isAnnotationFollowupEncounter(encounter) ? undefined : appointment;
       return {
         encounterId: encounter.id,
         appointmentId: appointment?.id,
