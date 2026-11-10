@@ -60,6 +60,19 @@ export function handleBadSpaces(text: string): string {
   return text.replace(' ', ' ');
 }
 
+function breakWordToWidth(word: string, font: PDFFont, fontSize: number, desiredWidth: number): string[] {
+  const pieces: string[] = [];
+  let piece = '';
+  for (const char of word) {
+    if (piece && font.widthOfTextAtSize(`${piece}${char} `, fontSize) > desiredWidth) {
+      pieces.push(piece);
+      piece = '';
+    }
+    piece += char;
+  }
+  return [...pieces, piece];
+}
+
 export function splitLongStringToPageSize(
   text: string,
   font: PDFFont,
@@ -80,9 +93,11 @@ export function splitLongStringToPageSize(
         validLine = `${validLine.concat(word)} `;
         lineWidth += wordWidth;
       } else {
-        resultStrings.push(validLine);
-        validLine = word + ' ';
-        lineWidth = wordWidth;
+        if (validLine) resultStrings.push(validLine);
+        const pieces = wordWidth > desiredWidth ? breakWordToWidth(word, font, fontSize, desiredWidth) : [word];
+        pieces.slice(0, -1).forEach((piece) => resultStrings.push(`${piece} `));
+        validLine = `${pieces[pieces.length - 1]} `;
+        lineWidth = font.widthOfTextAtSize(validLine, fontSize);
       }
     });
     resultStrings.push(validLine);
