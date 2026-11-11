@@ -34,13 +34,13 @@ describe('makeOutboundDeliveryAttempt', () => {
         recipientPhone: ' ',
         senderId: ' ',
         senderDisplay: '\t',
-        faxPacketParts: ['Visit note', '  '],
+        packetParts: ['Visit note', '  '],
       })
     );
 
     expect(inputCodes(task.input)).toEqual([
       OUTBOUND_DELIVERY_INPUT_CODES.recipientAddress,
-      OUTBOUND_DELIVERY_INPUT_CODES.faxPacketParts,
+      OUTBOUND_DELIVERY_INPUT_CODES.packetParts,
     ]);
     expect(everyInputHasAValue(task.input)).toBe(true);
   });
