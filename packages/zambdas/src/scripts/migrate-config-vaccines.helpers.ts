@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Medication } from 'fhir/r4b';
+import { ActivityDefinition, Medication } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import { getMedicationCvx } from 'utils/lib/fhir/medication-inventory';
@@ -7,8 +7,15 @@ import {
   INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { getCvxVaccine } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { createVaccine } from '../ehr/configuration/in-house-medications/create-in-house-medication/index';
+import { IMMUNIZATION_QUICK_PICK_CATEGORY } from '../ehr/shared/quick-pick-categories';
+import {
+  activityDefinitionToQuickPick,
+  QUICK_PICK_TAG_SYSTEM,
+  quickPickToActivityDefinition,
+} from '../ehr/shared/quick-pick-helpers';
 
 /** A vaccine the retired config/oystehr/vaccines.json created (name only, no CVX) and the catalog entry that replaces it. */
 export interface ConfigVaccineMapping {
@@ -145,11 +152,70 @@ export function planConfigVaccineMigration(vaccineMedications: Medication[]): Co
   };
 }
 
+export interface PlannedQuickPickRepoint {
+  quickPick: ImmunizationQuickPickData;
+  oldVaccineName: string;
+  cvx: string;
+  catalogName: string;
+  /** Where the CVX came from: the quick pick's own CVX, or the old vaccine's row in the table. */
+  reason: 'quick pick CVX' | 'table';
+  /** The quick pick's own CVX when it is not in the catalog, so the table was used instead. */
+  unknownCvx?: string;
+}
+
+export interface QuickPickRepointPlan {
+  repoint: PlannedQuickPickRepoint[];
+  /** Quick picks already pointing at a catalog vaccine (or at no vaccine). */
+  alreadyCatalog: number;
+  /** Quick picks whose old vaccine is missing or not in the table, and whose own CVX is not in the catalog; left alone. */
+  unknown: string[];
+}
+
+/**
+ * Which immunization quick picks to repoint from an old config vaccine to a catalog vaccine. The quick pick's
+ * own CVX wins when the catalog has it; otherwise the old vaccine's row in the table. Only the vaccine
+ * reference changes; name, dose, route, codes and the quick pick's CVX stay as they are.
+ */
+export function planQuickPickRepoints(
+  quickPicks: ImmunizationQuickPickData[],
+  vaccineMedications: Medication[]
+): QuickPickRepointPlan {
+  const medicationsById = new Map(vaccineMedications.map((medication) => [medication.id, medication]));
+  const plan: QuickPickRepointPlan = { repoint: [], alreadyCatalog: 0, unknown: [] };
+  for (const quickPick of quickPicks) {
+    const medication = quickPick.vaccine ? medicationsById.get(quickPick.vaccine.id) : undefined;
+    if (!quickPick.vaccine || (medication && getMedicationCvx(medication))) {
+      plan.alreadyCatalog += 1;
+      continue;
+    }
+    const oldVaccineName = getMedicationName(medication);
+    const ownCvx = quickPick.cvx && getCvxVaccine(quickPick.cvx) ? quickPick.cvx : undefined;
+    const mapping = CONFIG_VACCINE_MAPPINGS.find((candidate) => candidate.configName === oldVaccineName);
+    const cvx = ownCvx ?? mapping?.cvx;
+    if (!oldVaccineName || !cvx) {
+      plan.unknown.push(quickPick.name);
+      continue;
+    }
+    plan.repoint.push({
+      quickPick,
+      oldVaccineName,
+      cvx,
+      catalogName: getCvxVaccine(cvx)?.name ?? cvx,
+      reason: ownCvx ? 'quick pick CVX' : 'table',
+      unknownCvx: !ownCvx && quickPick.cvx ? quickPick.cvx : undefined,
+    });
+  }
+  return plan;
+}
+
 export interface ConfigVaccineMigrationStats {
   configVaccines: number;
   switchedOn: number;
   alreadyOn: number;
   unknown: number;
+  quickPicksRepointed: number;
+  quickPicksAlreadyCatalog: number;
+  quickPicksUnknown: number;
   failed: number;
 }
 
@@ -167,10 +233,20 @@ export async function migrateConfigVaccines(oystehr: Oystehr, dryRun: boolean): 
     switchedOn: 0,
     alreadyOn: plan.alreadyOn.length,
     unknown: plan.unknown.length,
+    quickPicksRepointed: 0,
+    quickPicksAlreadyCatalog: 0,
+    quickPicksUnknown: 0,
     failed: 0,
   };
   const label = (entry: PlannedCatalogVaccine): string =>
     `${entry.catalogName} (CVX ${entry.cvx}) for ${entry.configNames.join(', ')}`;
+  // Active catalog Medications by CVX: what the project has, plus what this run switches on, so a quick pick's
+  // catalog entry is switched on (or looked up) once however many quick picks need it.
+  const catalogByCvx = new Map<string, Medication>();
+  for (const medication of vaccineMedications) {
+    const cvx = getMedicationCvx(medication);
+    if (cvx && medication.status === 'active') catalogByCvx.set(cvx, medication);
+  }
 
   for (const entry of plan.alreadyOn) console.log(`  = already on: ${label(entry)}`);
   for (const configName of plan.unknown) console.log(`  ? not a shipped config vaccine, left alone: ${configName}`);
@@ -182,10 +258,65 @@ export async function migrateConfigVaccines(oystehr: Oystehr, dryRun: boolean): 
     }
     try {
       const medication = await createVaccine(oystehr, entry.cvx);
+      catalogByCvx.set(entry.cvx, medication);
       console.log(`  ✓ Medication/${medication.id}: ${label(entry)}`);
       stats.switchedOn += 1;
     } catch (error) {
       console.error(`  ✗ failed to switch on ${label(entry)}:`, error);
+      stats.failed += 1;
+    }
+  }
+
+  // Quick picks saved against an old config vaccine: repoint them, or the order screen can't find their vaccine.
+  const quickPicks = (
+    await getAllFhirSearchPages<ActivityDefinition>(
+      {
+        resourceType: 'ActivityDefinition',
+        params: [
+          { name: '_tag', value: `${QUICK_PICK_TAG_SYSTEM}|${IMMUNIZATION_QUICK_PICK_CATEGORY.tagCode}` },
+          { name: 'status', value: 'active' },
+        ],
+      },
+      oystehr
+    )
+  ).map((activityDefinition) => activityDefinitionToQuickPick(activityDefinition, IMMUNIZATION_QUICK_PICK_CATEGORY));
+  const quickPickPlan = planQuickPickRepoints(quickPicks, vaccineMedications);
+  stats.quickPicksAlreadyCatalog = quickPickPlan.alreadyCatalog;
+  stats.quickPicksUnknown = quickPickPlan.unknown.length;
+  const repointLabel = (entry: PlannedQuickPickRepoint): string =>
+    `quick pick "${entry.quickPick.name}": ${entry.oldVaccineName} → ${entry.catalogName} (CVX ${entry.cvx}, from the ${entry.reason})`;
+
+  for (const name of quickPickPlan.unknown) {
+    console.log(`  ? quick pick "${name}": its vaccine is not a shipped config vaccine, left alone`);
+  }
+  for (const entry of quickPickPlan.repoint) {
+    if (entry.unknownCvx) {
+      console.log(
+        `  ? quick pick "${entry.quickPick.name}" has CVX ${entry.unknownCvx}, not in the catalog; using the table`
+      );
+    }
+    if (dryRun) {
+      console.log(`  + would repoint ${repointLabel(entry)}`);
+      stats.quickPicksRepointed += 1;
+      continue;
+    }
+    try {
+      const medication = catalogByCvx.get(entry.cvx) ?? (await createVaccine(oystehr, entry.cvx));
+      catalogByCvx.set(entry.cvx, medication);
+      await oystehr.fhir.update<ActivityDefinition>(
+        quickPickToActivityDefinition(
+          {
+            ...entry.quickPick,
+            vaccine: { id: medication.id!, name: getMedicationName(medication) ?? entry.catalogName },
+          },
+          IMMUNIZATION_QUICK_PICK_CATEGORY,
+          entry.quickPick.id
+        )
+      );
+      console.log(`  ✓ repointed ${repointLabel(entry)}`);
+      stats.quickPicksRepointed += 1;
+    } catch (error) {
+      console.error(`  ✗ failed to repoint ${repointLabel(entry)}:`, error);
       stats.failed += 1;
     }
   }
