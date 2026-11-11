@@ -1674,7 +1674,7 @@ export default function VisitDetailsPage(): ReactElement {
                 renderBackButton={false}
                 appointmentContext={appointmentContext}
                 appointmentId={appointmentID}
-                visitDate={appointmentStartTime.toISODate() ?? undefined}
+                visitDate={visitDetailsData?.dateOfService}
                 renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
                 photoIdCardSlot={photoIdCardSlot}
                 confirmSave={confirmSaveWithConsentReminder}
