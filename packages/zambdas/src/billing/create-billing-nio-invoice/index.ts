@@ -13,6 +13,7 @@ import {
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
 import { isVersionConflictError } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CreateBillingNioInvoiceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -97,11 +98,17 @@ export async function performEffect({
     claimIds,
     resumedInvoiceId: resumed?.id,
   });
+  if (resumed && getIdFromReference(resumed.recipient?.reference, 'Organization') !== draft.nioId) {
+    throw BILLING_INVOICE_CONFLICT_ERROR(
+      'The claims moved to another non-insurance payer after this invoice was saved'
+    );
+  }
   const invoice =
     resumed ??
     (await createNioInvoice({
       oystehr,
       input: draft.invoice,
+      claimIds,
       idempotencyKey,
     }));
   const documentReference = await uploadInvoicePdf({
@@ -147,10 +154,12 @@ function assertSameClaims(invoice: Invoice, claimIds: string[]): void {
 async function createNioInvoice({
   oystehr,
   input,
+  claimIds,
   idempotencyKey,
 }: {
   oystehr: Oystehr;
   input: BuildBillingInvoiceInput;
+  claimIds: string[];
   idempotencyKey: string;
 }): Promise<Invoice> {
   const invoice = buildBillingInvoice(input);
@@ -176,6 +185,7 @@ async function createNioInvoice({
   if (getBillingInvoiceIdempotencyKey(saved) !== idempotencyKey) {
     throw BILLING_INVOICE_CONFLICT_ERROR(CLAIMS_ALREADY_INVOICED);
   }
+  assertSameClaims(saved, claimIds);
   await withdrawIfOutnumbered(oystehr, saved);
   return saved;
 }

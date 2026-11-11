@@ -331,6 +331,22 @@ describe('create-billing-nio-invoice', () => {
     expect(response.invoiceNumber).toBe('INV-00007');
   });
 
+  it('refuses to finish the PDF when the claims moved to another payer after the invoice was saved', async () => {
+    mockAssembleNioInvoice.mockResolvedValue({
+      ...draft,
+      nioId: 'nio-2',
+    });
+    const { oystehr, create } = setup({
+      invoicesByKey: [savedInvoice()],
+    });
+
+    await expect(run(oystehr)).rejects.toMatchObject({
+      statusCode: 409,
+    });
+    expect(renderNioInvoicePdf).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('refuses an idempotency key that already invoiced other claims', async () => {
     const { oystehr } = setup({
       invoicesByKey: [
@@ -360,6 +376,23 @@ describe('create-billing-nio-invoice', () => {
 
     await expect(run(oystehr)).rejects.toMatchObject({
       statusCode: 409,
+    });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('refuses when a concurrent request with the same key saved an invoice for other claims', async () => {
+    mockCreateInvoiceUnlessClaimsHaveOne.mockResolvedValue(
+      savedInvoice({
+        input: {
+          ...draft.invoice,
+          claims: [draft.invoice.claims[0]],
+        },
+      })
+    );
+    const { oystehr, create } = setup();
+
+    await expect(run(oystehr)).rejects.toMatchObject({
+      message: 'This idempotency key was already used to invoice other claims',
     });
     expect(create).not.toHaveBeenCalled();
   });
