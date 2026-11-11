@@ -66,6 +66,10 @@ const ADULT_SERIES_START = '13 years';
 /** The adult rule where it is the childhood series' recurring booster, in the words the adult schedule uses. */
 const ADULT_BOOSTER_TARGETS: Partial<Record<ImmunizationGroupId, string>> = { dtap: 'Td or Tdap every 10 years' };
 const AGE_BASE = '2000-01-01';
+/** A target dose past the lane's count, shown under its own name: DTaP's adolescent Tdap is CDSi Dose 10. */
+const EXTRA_TARGET_DOSES: Partial<Record<ImmunizationGroupId, { doseNumber: string; label: string }>> = {
+  dtap: { doseNumber: 'Dose 10', label: 'Tdap' },
+};
 
 const laneSeries = (rules: RulesData, lane: ForecastGroupDefinition, antigen: string): SeriesRule[] =>
   (rules.antigens.get(antigen)?.series ?? []).filter(
@@ -97,35 +101,51 @@ const levelOf = (series: SeriesRule): VaccineScheduleLevel =>
     ? 'Shared decision'
     : 'Routine';
 
-const doseRow = (dose: SeriesDoseRule): VaccineScheduleDose => {
+const doseRow = (dose: SeriesDoseRule, first: boolean, label?: string): VaccineScheduleDose => {
   const age = currentAge(dose);
-  const interval =
-    dose.intervals.find((rule) => rule.fromPrevious && !rule.cessationDate) ??
-    dose.intervals.find((rule) => !rule.cessationDate);
+  // The first dose has no previous dose in the series: its intervals are from another vaccine, so none is shown.
+  const interval = first
+    ? undefined
+    : dose.intervals.find((rule) => rule.fromPrevious && !rule.cessationDate) ??
+      dose.intervals.find((rule) => !rule.cessationDate);
   return {
-    label: dose.recurringDose ? 'Booster' : dose.doseNumber,
+    label: label ?? (dose.recurringDose ? 'Booster' : dose.doseNumber),
     recurring: dose.recurringDose,
     ...(age?.minAge && { minAge: age.minAge }),
     ...(age?.earliestRecAge && { recommendedAge: age.earliestRecAge }),
-    ...(age?.latestRecAge && { pastDueAge: age.latestRecAge }),
+    // past due at the minimum age says nothing more, so it is left blank
+    ...(age?.latestRecAge && age.latestRecAge !== age.minAge && { pastDueAge: age.latestRecAge }),
     ...(interval?.minInt && { minInterval: interval.minInt }),
     ...(interval?.earliestRecInt && { recommendedInterval: interval.earliestRecInt }),
   };
 };
 
+const targetCount = (lane: ForecastGroupDefinition, series: SeriesRule): number =>
+  lane.targetDoses ??
+  Number(/(\d+)-dose/i.exec(series.seriesName)?.[1] ?? series.doses.filter((dose) => !dose.recurringDose).length);
+
 const targetText = (lane: ForecastGroupDefinition, series: SeriesRule): string =>
-  lane.targetText ??
-  (lane.seasonal
-    ? 'Every season'
-    : lane.targetDoses?.toString() ??
-      /(\d+)-dose/i.exec(series.seriesName)?.[1] ??
-      String(series.doses.filter((dose) => !dose.recurringDose).length));
+  lane.targetText ?? (lane.seasonal ? 'Every season' : String(targetCount(lane, series)));
+
+/** The doses that make up the target: the first non-recurring doses up to its count, then any extra target dose
+ * (DTaP's Tdap) and the recurring booster. CDSi's spare positions (DTaP Doses 6–9, PCV Dose 5) are left out. */
+const targetRows = (lane: ForecastGroupDefinition, series: SeriesRule): VaccineScheduleDose[] => {
+  const extra = EXTRA_TARGET_DOSES[lane.id];
+  const count = targetCount(lane, series);
+  const rows = series.doses
+    .filter((dose) => !dose.recurringDose)
+    .slice(0, count)
+    .map((dose, index) => doseRow(dose, index === 0));
+  const extraDose = extra && series.doses.find((dose) => dose.doseNumber === extra.doseNumber);
+  if (extra && extraDose) rows.push(doseRow(extraDose, false, extra.label));
+  return [...rows, ...series.doses.filter((dose) => dose.recurringDose).map((dose) => doseRow(dose, false))];
+};
 
 const toLane = (
   lane: ForecastGroupDefinition,
   antigen: string,
   series: SeriesRule,
-  doses: SeriesDoseRule[],
+  doses: VaccineScheduleDose[],
   target = targetText(lane, series)
 ): VaccineScheduleLane => ({
   group: lane.id,
@@ -134,7 +154,7 @@ const toLane = (
   seriesName: series.seriesName,
   level: levelOf(series),
   target,
-  doses: doses.map(doseRow),
+  doses,
   guidance: series.seriesAdminGuidance,
 });
 
@@ -171,15 +191,19 @@ export function buildVaccineScheduleView(rules: RulesData = getRulesData()): Vac
       continue;
     }
 
-    if (!ADULT_ONLY_LANES.includes(lane.id)) children.push(toLane(lane, antigen, childSeries, childSeries.doses));
+    if (!ADULT_ONLY_LANES.includes(lane.id))
+      children.push(toLane(lane, antigen, childSeries, targetRows(lane, childSeries)));
 
     const adultSeries = preferred(candidates.filter((series) => startsAtOrAfter(series, ADULT_SERIES_START)));
     if (adultSeries) {
-      adults.push(toLane(lane, antigen, adultSeries, adultSeries.doses));
+      adults.push(toLane(lane, antigen, adultSeries, targetRows(lane, adultSeries)));
     } else {
       // No adolescent/adult series: the childhood series' recurring booster (Td every 10 years) is the adult rule.
       const boosters = childSeries.doses.filter((dose) => dose.recurringDose);
-      if (boosters.length) adults.push(toLane(lane, antigen, childSeries, boosters, ADULT_BOOSTER_TARGETS[lane.id]));
+      if (boosters.length) {
+        const rows = boosters.map((dose) => doseRow(dose, false));
+        adults.push(toLane(lane, antigen, childSeries, rows, ADULT_BOOSTER_TARGETS[lane.id]));
+      }
     }
   }
 

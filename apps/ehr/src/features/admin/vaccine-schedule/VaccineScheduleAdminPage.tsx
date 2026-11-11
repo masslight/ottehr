@@ -45,6 +45,16 @@ const sourcesText = (sources: VaccineScheduleSource[]): string => {
   return `${main.name} ${main.version}${extras.length ? `, with ${extras.join('; ')}` : ''}`;
 };
 
+// Every vaccine is its own table; fixed widths keep their columns lined up down the page.
+const LANE_COLUMNS = [
+  { label: 'Dose', width: '13%' },
+  { label: 'Recommended age', width: '17%' },
+  { label: 'Minimum age', width: '17%' },
+  { label: 'Past due after', width: '19%' },
+  { label: 'Minimum interval', width: '17%' },
+  { label: 'Recommended interval', width: '17%' },
+];
+
 const LaneTable = ({ lane }: { lane: VaccineScheduleLane }): ReactElement => {
   const colors = LEVEL_COLORS[lane.level];
   return (
@@ -65,15 +75,14 @@ const LaneTable = ({ lane }: { lane: VaccineScheduleLane }): ReactElement => {
           </Tooltip>
         )}
       </Stack>
-      <Table size="small">
+      <Table size="small" sx={{ tableLayout: 'fixed' }}>
         <TableHead>
           <TableRow>
-            <TableCell>Dose</TableCell>
-            <TableCell>Recommended age</TableCell>
-            <TableCell>Minimum age</TableCell>
-            <TableCell>Past due after</TableCell>
-            <TableCell>Minimum interval</TableCell>
-            <TableCell>Recommended interval</TableCell>
+            {LANE_COLUMNS.map((column) => (
+              <TableCell key={column.label} sx={{ width: column.width }}>
+                {column.label}
+              </TableCell>
+            ))}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -110,7 +119,7 @@ export const VaccineScheduleAdminPage = (): ReactElement => {
         {tab === 'children' &&
           `Childhood schedule from ${sourcesText(
             view.sources
-          )}. Ages and intervals read as the data words them; the series listed is the one the forecast selects by default, and doses are shown as that series holds them.`}
+          )}. Ages and intervals read as the data words them; the series listed is the one the forecast selects by default, with the doses that make up its target.`}
         {tab === 'adults' &&
           `Adult schedule from ${view.sources[0].name} ${view.sources[0].version}: the series the data applies from adolescence on, and the boosters of the childhood series.`}
         {tab === 'seasonal' && 'Season dates from the rules data; they change with each data update, not per practice.'}
