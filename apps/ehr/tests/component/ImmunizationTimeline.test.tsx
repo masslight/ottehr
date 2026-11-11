@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { forecastImmunizations } from 'utils/lib/immunization-forecast/engine';
 import { buildForecastInput } from 'utils/lib/immunization-forecast/forecast-input';
 import { projectLaterDoses } from 'utils/lib/immunization-forecast/projections';
@@ -134,17 +134,30 @@ describe('ImmunizationTimeline', () => {
     const pcv = screen.getByTestId('immunization-lane-pcv');
     const next = within(pcv).getByRole('button', { name: /^PCV.* dose 2 \(next\)$/ });
     expect(next).toHaveTextContent('2');
-    expect(next).toHaveAttribute('title', expect.stringMatching(/^PCV.* dose 2: recommended \d\d\/\d\d\/\d{4}/));
     expect(next).toHaveStyle({ borderStyle: 'solid', backgroundColor: '#fff', zIndex: '3' });
     const later = within(pcv).getByRole('button', { name: /^PCV.* dose 3 \(projected\)$/ });
     expect(later).toHaveTextContent('3');
-    expect(later).toHaveAttribute(
-      'title',
-      expect.stringMatching(/dose 3 \(projected\): .*if dose 2 is given on time\.$/)
-    );
     expect(later).toHaveStyle({ borderStyle: 'dashed', zIndex: '3' });
     // given-dose dots stay distinct: filled navy, under the numbers
     expect(within(pcv).getByRole('button', { name: /dose 1$/ })).not.toHaveStyle({ backgroundColor: '#fff' });
+  });
+
+  it('hovering a dose-number circle or a given-dose dot shows the same details as clicking it', async () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    const pcv = screen.getByTestId('immunization-lane-pcv');
+    const details = screen.getByTestId('immunization-timeline-details');
+    for (const name of [/^PCV.* dose 2 \(next\)$/, /^PCV.* dose 3 \(projected\)$/, /^PCV.* dose 1$/]) {
+      const target = within(pcv).getByRole('button', { name });
+      fireEvent.mouseOver(target);
+      const tooltip = await screen.findByRole('tooltip');
+      fireEvent.click(target);
+      expect(tooltip.textContent).toBe(details.textContent);
+      fireEvent.mouseLeave(target);
+      await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    }
+    // the next dose's hover carries the full window, not a one-line summary
+    fireEvent.mouseOver(within(pcv).getByRole('button', { name: /^PCV.* dose 2 \(next\)$/ }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Earliest: .* · Recommended: .* · Past due:/);
   });
 
   it('renders one lane per vaccine group with its status, doses, undated dose and mark', () => {

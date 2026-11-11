@@ -16,6 +16,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -189,6 +190,7 @@ const Dose = ({
   record,
   left,
   selected,
+  details,
   onClick,
 }: {
   dose: EvaluatedDose;
@@ -196,6 +198,8 @@ const Dose = ({
   record?: PatientImmunizationRecord;
   left: number;
   selected: boolean;
+  /** The same details the box below shows when the dot is clicked. */
+  details: ReactNode;
   onClick: () => void;
 }): ReactElement => {
   const theme = useTheme();
@@ -203,13 +207,60 @@ const Dose = ({
   const late = dose.timing === 'late';
   const label = dose.counted ? `${laneLabel} dose ${dose.doseNumber}` : `${laneLabel} dose not counted`;
   return (
+    <Tooltip title={details} placement="top">
+      <ButtonBase
+        onClick={onClick}
+        aria-label={label}
+        aria-pressed={selected}
+        sx={{
+          position: 'absolute',
+          top: 7,
+          left: `${left}%`,
+          transform: 'translateX(-50%)',
+          width: 20,
+          height: 20,
+          borderRadius: '50%',
+          fontSize: 10,
+          fontWeight: 600,
+          border: `2px ${outside ? 'dashed' : 'solid'} ${
+            late ? theme.palette.error.main : dose.counted ? theme.palette.primary.dark : theme.palette.text.disabled
+          }`,
+          bgcolor: outside || !dose.counted ? '#fff' : theme.palette.primary.dark,
+          color: outside ? theme.palette.primary.dark : dose.counted ? '#fff' : theme.palette.text.secondary,
+          boxShadow: selected ? `0 0 0 3px ${theme.palette.primary.light}` : 'none',
+          zIndex: 2,
+        }}
+      >
+        {dose.counted ? dose.doseNumber : '–'}
+      </ButtonBase>
+    </Tooltip>
+  );
+};
+
+/** The number of a dose still to come, at the start of its bar's recommended part: a hollow circle the size of a
+ * given-dose dot, orange for the next dose and dashed gray for a projected one, drawn above the bars. */
+const DoseNumber = ({
+  n,
+  label,
+  details,
+  projected,
+  left,
+  dim,
+  onClick,
+}: {
+  n: number;
+  label: string;
+  /** The same details the box below shows when the circle is clicked. */
+  details: ReactNode;
+  projected: boolean;
+  left: number;
+  dim?: boolean;
+  onClick: () => void;
+}): ReactElement => (
+  <Tooltip title={details} placement="top">
     <ButtonBase
       onClick={onClick}
       aria-label={label}
-      aria-pressed={selected}
-      title={`${label}: ${dose.date ? formatDate(dose.date) : 'date unknown'}${
-        record?.vaccineName ? `, ${record.vaccineName}` : ''
-      }${outside ? ', outside' : ''}`}
       sx={{
         position: 'absolute',
         top: 7,
@@ -220,63 +271,17 @@ const Dose = ({
         borderRadius: '50%',
         fontSize: 10,
         fontWeight: 600,
-        border: `2px ${outside ? 'dashed' : 'solid'} ${
-          late ? theme.palette.error.main : dose.counted ? theme.palette.primary.dark : theme.palette.text.disabled
-        }`,
-        bgcolor: outside || !dose.counted ? '#fff' : theme.palette.primary.dark,
-        color: outside ? theme.palette.primary.dark : dose.counted ? '#fff' : theme.palette.text.secondary,
-        boxShadow: selected ? `0 0 0 3px ${theme.palette.primary.light}` : 'none',
-        zIndex: 2,
+        boxSizing: 'border-box',
+        border: projected ? `2px dashed ${PROJECTED_GRAY}` : `2px solid ${NEXT_ORANGE}`,
+        bgcolor: '#fff',
+        color: projected ? PROJECTED_GRAY : NEXT_ORANGE_TEXT,
+        opacity: dim ? 0.45 : 1,
+        zIndex: 3,
       }}
     >
-      {dose.counted ? dose.doseNumber : '–'}
+      {n}
     </ButtonBase>
-  );
-};
-
-/** The number of a dose still to come, at the start of its bar's recommended part: a hollow circle the size of a
- * given-dose dot, orange for the next dose and dashed gray for a projected one, drawn above the bars. */
-const DoseNumber = ({
-  n,
-  label,
-  title,
-  projected,
-  left,
-  dim,
-  onClick,
-}: {
-  n: number;
-  label: string;
-  title: string;
-  projected: boolean;
-  left: number;
-  dim?: boolean;
-  onClick: () => void;
-}): ReactElement => (
-  <ButtonBase
-    onClick={onClick}
-    aria-label={label}
-    title={title}
-    sx={{
-      position: 'absolute',
-      top: 7,
-      left: `${left}%`,
-      transform: 'translateX(-50%)',
-      width: 20,
-      height: 20,
-      borderRadius: '50%',
-      fontSize: 10,
-      fontWeight: 600,
-      boxSizing: 'border-box',
-      border: projected ? `2px dashed ${PROJECTED_GRAY}` : `2px solid ${NEXT_ORANGE}`,
-      bgcolor: '#fff',
-      color: projected ? PROJECTED_GRAY : NEXT_ORANGE_TEXT,
-      opacity: dim ? 0.45 : 1,
-      zIndex: 3,
-    }}
-  >
-    {n}
-  </ButtonBase>
+  </Tooltip>
 );
 
 const sourceLabel = (record: PatientImmunizationRecord): string =>
@@ -329,7 +334,8 @@ export const ImmunizationTimeline = ({
     setDialog(null);
   };
 
-  const details = (): ReactNode => {
+  /** What the details box shows for a selection; also the hover of the dose dots and dose-number circles. */
+  const detailsFor = (selection: Selection | null): ReactNode => {
     if (!selection) return <Typography variant="body2">Click a dose, bar or marker for details.</Typography>;
     const group = forecast.groups.find((candidate) => candidate.group === selection.group);
     if (!group) return null;
@@ -617,6 +623,7 @@ export const ImmunizationTimeline = ({
                       record={recordsById.get(dose.id)}
                       left={x(ageInMonths(dob, dose.date!))}
                       selected={selection?.kind === 'dose' && selection.id === dose.id}
+                      details={detailsFor({ kind: 'dose', group: group.group, id: dose.id })}
                       onClick={() => setSelection({ kind: 'dose', group: group.group, id: dose.id })}
                     />
                   ))}
@@ -624,9 +631,7 @@ export const ImmunizationTimeline = ({
                   <DoseNumber
                     n={group.next.n}
                     label={`${group.label} dose ${group.next.n} (next)`}
-                    title={`${group.label} dose ${group.next.n}: recommended ${formatDate(group.next.recommended)}${
-                      group.next.pastDue ? `, past due ${formatDate(group.next.pastDue)}` : ''
-                    }`}
+                    details={detailsFor({ kind: 'next', group: group.group })}
                     projected={false}
                     left={x(nextLabelAt)}
                     dim={dim}
@@ -639,7 +644,7 @@ export const ImmunizationTimeline = ({
                       key={`projected-${projected.n}-number`}
                       n={projected.n}
                       label={`${group.label} dose ${projected.n} (projected)`}
-                      title={projectedDoseText(group.label, projected)}
+                      details={detailsFor({ kind: 'projected', group: group.group, n: projected.n })}
                       projected
                       left={x(labelAt)}
                       dim={dim}
@@ -769,6 +774,7 @@ export const ImmunizationTimeline = ({
 
         <Box
           aria-live="polite"
+          data-testid="immunization-timeline-details"
           sx={{
             mt: 1.25,
             border: `1px solid ${theme.palette.divider}`,
@@ -779,7 +785,7 @@ export const ImmunizationTimeline = ({
             minHeight: 44,
           }}
         >
-          {details()}
+          {detailsFor(selection)}
         </Box>
       </Paper>
 
