@@ -14,6 +14,8 @@ import {
   ImmunizationOutsideSource,
   PatientImmunizationRecord,
 } from '../types/data/immunization/types';
+import { FORECAST_GROUPS } from '../immunization-forecast/groups';
+import { ImmunizationGroupId } from '../immunization-forecast/types';
 import { getCoding } from './helpers';
 import { getMedicationName } from './medication-administration';
 import { getIdFromReference } from './reference';
@@ -105,24 +107,13 @@ export const IMMUNIZATION_DATE_UNKNOWN = 'unknown';
 
 /** The vaccine groups a mark can name: the v1 forecast coverage, one group per series. */
 export const VACCINE_GROUP_CODE_SYSTEM = ottehrCodeSystemUrl('vaccine-group');
-export const VACCINE_GROUPS: readonly { code: string; display: string }[] = [
-  { code: 'dtap', display: 'DTaP / Tdap / Td' },
-  { code: 'polio', display: 'Polio' },
-  { code: 'hib', display: 'Hib' },
-  { code: 'hepb', display: 'Hepatitis B' },
-  { code: 'hepa', display: 'Hepatitis A' },
-  { code: 'mmr', display: 'MMR' },
-  { code: 'varicella', display: 'Varicella' },
-  { code: 'pneumococcal', display: 'Pneumococcal' },
-  { code: 'rotavirus', display: 'Rotavirus' },
-  { code: 'flu', display: 'Influenza' },
-  { code: 'covid', display: 'COVID-19' },
-  { code: 'rsv', display: 'RSV' },
-  { code: 'hpv', display: 'HPV' },
-  { code: 'menacwy', display: 'MenACWY' },
-  { code: 'menb', display: 'MenB' },
-  { code: 'zoster', display: 'Zoster' },
-];
+// The forecast engine's lanes, so a mark names exactly the group the engine reports.
+export const VACCINE_GROUPS: readonly { code: ImmunizationGroupId; display: string }[] = FORECAST_GROUPS.map(
+  (group) => ({
+    code: group.id,
+    display: group.label,
+  })
+);
 
 /** A mark is an Immunization with status not-done and the reason from v3 ActReason. */
 export const IMMUNIZATION_MARK_REASON_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActReason';

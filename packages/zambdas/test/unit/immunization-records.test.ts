@@ -274,14 +274,14 @@ describe('outside doses', () => {
 });
 
 describe('per-vaccine marks', () => {
-  const input = { patientId: 'maya', vaccineGroup: 'rotavirus', mark: 'declined' as const, note: 'Parents declined' };
+  const input = { patientId: 'maya', vaccineGroup: 'rota', mark: 'declined' as const, note: 'Parents declined' };
 
   it('validates the patient id, the group and the mark', () => {
     expect(() => validateImmunizationMarkInput({})).toThrow(/patientId/);
     expect(() =>
       validateImmunizationMarkInput({ patientId: 'maya', vaccineGroup: 'unicorn', mark: 'declined' })
     ).toThrow(/Unknown vaccine group/);
-    expect(() => validateImmunizationMarkInput({ patientId: 'maya', vaccineGroup: 'rotavirus', mark: 'meh' })).toThrow(
+    expect(() => validateImmunizationMarkInput({ patientId: 'maya', vaccineGroup: 'rota', mark: 'meh' })).toThrow(
       /Unknown mark/
     );
     expect(validateImmunizationMarkInput({ ...input, note: '  ' })).toEqual({ ...input, note: undefined });
@@ -292,19 +292,19 @@ describe('per-vaccine marks', () => {
     expect(mark).toMatchObject({
       status: 'not-done',
       statusReason: { coding: [{ system: IMMUNIZATION_MARK_REASON_SYSTEM, code: 'PATOBJ' }] },
-      vaccineCode: { coding: [{ system: VACCINE_GROUP_CODE_SYSTEM, code: 'rotavirus' }], text: 'Rotavirus' },
+      vaccineCode: { coding: [{ system: VACCINE_GROUP_CODE_SYSTEM, code: 'rota' }], text: 'Rotavirus' },
       recorded: NOW.toISO(),
       note: [{ text: 'Parents declined', authorReference: nurse }],
     });
     expect(immunizationMarkToRecord(mark)).toEqual({
       id: 'mark-1',
-      vaccineGroup: { code: 'rotavirus', display: 'Rotavirus' },
+      vaccineGroup: { code: 'rota', display: 'Rotavirus' },
       mark: 'declined',
       markedAt: NOW.toISO(),
       markedBy: { id: 'nurse-1', name: 'J. Nurse' },
       note: 'Parents declined',
     });
-    expect(activeMarkForGroup([mark], 'rotavirus')).toBe(mark);
+    expect(activeMarkForGroup([mark], 'rota')).toBe(mark);
     expect(activeMarkForGroup([mark], 'mmr')).toBeUndefined();
 
     const later = NOW.plus({ days: 27 });
@@ -318,7 +318,7 @@ describe('per-vaccine marks', () => {
       at: later.toISO(),
       by: { id: 'doc-1', name: 'Dr. Patel' },
     });
-    expect(activeMarkForGroup([cleared], 'rotavirus')).toBeUndefined();
+    expect(activeMarkForGroup([cleared], 'rota')).toBeUndefined();
     expect(() => clearImmunizationMark(cleared, doctor, later)).toThrow(/already cleared/);
     expect(() => clearImmunizationMark({ ...mark, status: 'completed' }, doctor, later)).toThrow(
       /not an immunization mark/
