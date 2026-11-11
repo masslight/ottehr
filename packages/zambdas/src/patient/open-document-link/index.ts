@@ -26,7 +26,7 @@ import {
 import { FHIR_RESOURCE_IS_GONE, FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
+import { requireDocumentLinkSigningKey, sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
   collectResendChain,
@@ -82,7 +82,7 @@ export async function verifyDocumentLinkToken(
   token: string,
   secrets: Secrets | null
 ): Promise<{ attemptId: string; expired: boolean }> {
-  const secret = new TextEncoder().encode(getSecret(SecretsKeys.DOCUMENT_LINK_SECRET, secrets));
+  const secret = requireDocumentLinkSigningKey(secrets);
   try {
     const { payload } = await jwtVerify(token, secret, { issuer: PROJECT_WEBSITE, audience: DOCUMENT_LINK_AUDIENCE });
     if (!payload.sub) throw NOT_AUTHORIZED;

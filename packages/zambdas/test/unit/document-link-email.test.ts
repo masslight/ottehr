@@ -117,6 +117,17 @@ describe('document link email attempt', () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
+  it.each(['#{var/DOCUMENT_LINK_SECRET}', 'DOCUMENT_LINK_SECRET'])(
+    'throws before creating an attempt when DOCUMENT_LINK_SECRET is the placeholder %s',
+    async (placeholder) => {
+      const input = { ...baseInput(), secrets: { ...secrets, DOCUMENT_LINK_SECRET: placeholder } };
+
+      await expect(sendDocumentLinkEmailAttempt(input)).rejects.toThrow('DOCUMENT_LINK_SECRET must be');
+      expect(create).not.toHaveBeenCalled();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    }
+  );
+
   it('records the parent attempt on a resend, claiming it as the one successor of that parent', async () => {
     await sendDocumentLinkEmailAttempt({ ...baseInput(), parentAttemptId: 'attempt-0' });
 

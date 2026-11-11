@@ -1,3 +1,4 @@
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { isEmailValid, isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { FAX_MAX_RECIPIENTS, FaxPacketSource, FaxRecipient, SendFaxPacketInput } from 'utils/lib/types/api/fax.types';
 import { FaxFormValues, FaxRecipientFormValue } from './types';
@@ -22,7 +23,7 @@ export const initialRecipients = (pcp: FaxRecipient | undefined, hasSavedPcp: bo
     name: pcp?.name ?? '',
     credential: pcp?.credential ?? '',
     organization: pcp?.organization ?? '',
-    channel: pcp?.email ? 'email' : 'fax',
+    channel: FEATURE_FLAGS.SENDGRID_ENABLED && pcp?.email ? 'email' : 'fax',
     faxNumber: pcp?.faxNumber ?? '',
     email: pcp?.email ?? '',
     phoneNumber: pcp?.phoneNumber ?? '',

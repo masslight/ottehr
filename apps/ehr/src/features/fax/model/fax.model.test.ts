@@ -1,5 +1,5 @@
 import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { actionLogsQueryKey } from '../../action-logs/actionLogs.constants';
 import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './faxDocuments';
 import { buildDefaultFormValues } from './faxForm';
@@ -19,6 +19,21 @@ import {
   toSendFaxPacketInput,
 } from './faxRecipients';
 import { FaxRecipientFormValue } from './types';
+
+const flags = vi.hoisted(() => ({ sendgridEnabled: true }));
+
+vi.mock('src/constants/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('src/constants/feature-flags')>();
+  return {
+    ...actual,
+    FEATURE_FLAGS: {
+      ...actual.FEATURE_FLAGS,
+      get SENDGRID_ENABLED() {
+        return flags.sendgridEnabled;
+      },
+    },
+  };
+});
 
 const availability = (overrides: Partial<Record<string, boolean>> = {}): FaxDocumentAvailability[] =>
   (['progress-note', 'discharge-summary', 'lab-results', 'radiology-results', 'patient-education'] as const).map(
@@ -69,6 +84,10 @@ describe('faxDocuments', () => {
 });
 
 describe('faxRecipients', () => {
+  beforeEach(() => {
+    flags.sendgridEnabled = true;
+  });
+
   it('does not opt a preview-less patient fax into replacing the PCP', () => {
     expect(buildDefaultFormValues(undefined).recipients[0].saveAsPcp).toBe(false);
   });
@@ -93,6 +112,13 @@ describe('faxRecipients', () => {
       faxNumber: '2027139680',
       email: '',
     });
+  });
+
+  it('starts an emailed prefill on email only while SendGrid is on, since Email is not offered otherwise', () => {
+    expect(initialRecipients({ email: 'olivia@example.com' }, true)[0].channel).toBe('email');
+
+    flags.sendgridEnabled = false;
+    expect(initialRecipients({ email: 'olivia@example.com' }, true)[0].channel).toBe('fax');
   });
 
   it('caps the recipient list', () => {

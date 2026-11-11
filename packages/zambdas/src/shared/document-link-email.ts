@@ -52,12 +52,25 @@ export interface DocumentLinkEmailClient {
   ): Promise<void>;
 }
 
+const MIN_DOCUMENT_LINK_SECRET_LENGTH = 32;
+
+/** An unset `#{var/DOCUMENT_LINK_SECRET}` deploys as its own literal text, a key anyone can read in the repo. */
+export function requireDocumentLinkSigningKey(secrets: Secrets | null): Uint8Array {
+  const secret = getSecret(SecretsKeys.DOCUMENT_LINK_SECRET, secrets);
+  if (secret.length < MIN_DOCUMENT_LINK_SECRET_LENGTH) {
+    throw new Error(
+      `DOCUMENT_LINK_SECRET must be a random string of at least ${MIN_DOCUMENT_LINK_SECRET_LENGTH} characters`
+    );
+  }
+  return new TextEncoder().encode(secret);
+}
+
 /**
  * The emailed link carries only this token. Its subject is the attempt Task, from which `open-document-link`
  * resolves the document and the recipient; the HMAC signature is what makes the URL unguessable.
  */
 export async function mintDocumentLinkToken(attemptTaskId: string, secrets: Secrets | null): Promise<string> {
-  const secret = new TextEncoder().encode(getSecret(SecretsKeys.DOCUMENT_LINK_SECRET, secrets));
+  const secret = requireDocumentLinkSigningKey(secrets);
   return new SignJWT({})
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(attemptTaskId)
@@ -132,6 +145,7 @@ export async function sendDocumentLinkEmailAttempt(
 ): Promise<Task> {
   const emailClient = existingEmailClient ?? getEmailClient(input.secrets, input.oystehr);
   if (!emailClient.getFeatureFlag()) throw new Error('Document link email delivery is disabled');
+  requireDocumentLinkSigningKey(input.secrets);
   requireOutboundDeliveryValue(input.email, 'Email recipient');
   requireOutboundDeliveryValue(input.documentReferenceId, 'Document packet DocumentReference');
 

@@ -296,6 +296,25 @@ describe('open-document-link', () => {
     expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
   });
 
+  it('fails instead of accepting a token signed with the placeholder an unset DOCUMENT_LINK_SECRET deploys as', async () => {
+    const placeholder = '#{var/DOCUMENT_LINK_SECRET}';
+    const forged = await new SignJWT({})
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('attempt-1')
+      .setIssuer(PROJECT_WEBSITE)
+      .setAudience(DOCUMENT_LINK_AUDIENCE)
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(new TextEncoder().encode(placeholder));
+    const input = createMockZambdaInput(
+      { token: forged },
+      { secrets: { ...secrets, DOCUMENT_LINK_SECRET: placeholder }, headers: {} }
+    );
+
+    await expect((index as any)(input)).rejects.toThrow('DOCUMENT_LINK_SECRET must be');
+    expect(mockFhirGet).not.toHaveBeenCalled();
+  });
+
   it('rejects an expired token that fails the signature check without re-sending', async () => {
     const expired = await expiredToken();
     const tampered = expired.slice(0, -2) + (expired.endsWith('AA') ? 'BB' : 'AA');

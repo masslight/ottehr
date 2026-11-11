@@ -5,6 +5,7 @@ import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
 import { useContactFields } from 'src/features/address-book/useContactFields';
 import { isEmailValid } from 'utils/lib/helpers/helpers';
@@ -81,23 +82,25 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
         </Box>
       </Box>
 
-      <Controller
-        name={field('channel')}
-        control={control}
-        render={({ field }) => (
-          <RadioGroup
-            row
-            value={field.value}
-            aria-label="Send by"
-            data-testid={`${dataTestIds.faxDialog.channel}-${index}`}
-            // Both addresses stay in the form while the user switches; only the chosen channel's is sent.
-            onChange={(event) => field.onChange(event.target.value as FaxRecipientChannel)}
-          >
-            <FormControlLabel value="fax" control={<Radio size="small" />} label="Fax" />
-            <FormControlLabel value="email" control={<Radio size="small" />} label="Email" />
-          </RadioGroup>
-        )}
-      />
+      {FEATURE_FLAGS.SENDGRID_ENABLED && (
+        <Controller
+          name={field('channel')}
+          control={control}
+          render={({ field }) => (
+            <RadioGroup
+              row
+              value={field.value}
+              aria-label="Send by"
+              data-testid={`${dataTestIds.faxDialog.channel}-${index}`}
+              // Both addresses stay in the form while the user switches; only the chosen channel's is sent.
+              onChange={(event) => field.onChange(event.target.value as FaxRecipientChannel)}
+            >
+              <FormControlLabel value="fax" control={<Radio size="small" />} label="Fax" />
+              <FormControlLabel value="email" control={<Radio size="small" />} label="Email" />
+            </RadioGroup>
+          )}
+        />
+      )}
 
       {channel === 'email' ? (
         <TextInput

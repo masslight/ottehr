@@ -2,9 +2,28 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FaxFormValues } from '../../src/features/fax/model/types';
 import { SendFaxForm } from '../../src/features/fax/ui/SendFaxForm';
+
+const flags = vi.hoisted(() => ({ sendgridEnabled: true }));
+
+vi.mock('src/constants/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/constants/feature-flags')>();
+  return {
+    ...actual,
+    FEATURE_FLAGS: {
+      ...actual.FEATURE_FLAGS,
+      get SENDGRID_ENABLED() {
+        return flags.sendgridEnabled;
+      },
+    },
+  };
+});
+
+beforeEach(() => {
+  flags.sendgridEnabled = true;
+});
 
 // The organization picker reads the address book; keep it small and offline here.
 vi.mock('src/features/address-book/addressBook.api', () => ({
@@ -144,6 +163,15 @@ describe('SendFaxForm recipient picker', () => {
 });
 
 describe('SendFaxForm delivery channel', () => {
+  it('offers only fax when SendGrid is off, since an emailed link could never be sent', () => {
+    flags.sendgridEnabled = false;
+    renderForm();
+
+    expect(screen.queryByRole('radio', { name: 'Email' })).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'Send by' })).toBeNull();
+    expect(screen.getByLabelText(/Recipient Fax/)).toBeVisible();
+  });
+
   it('starts on fax and swaps in an email field when Email is chosen', async () => {
     const user = userEvent.setup();
     renderForm();
