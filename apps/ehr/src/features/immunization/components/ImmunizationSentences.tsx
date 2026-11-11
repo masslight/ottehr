@@ -59,6 +59,14 @@ const MVX_OPTIONS = MVX_MANUFACTURERS.map((manufacturer) => ({
   label: manufacturer.name,
 }));
 
+// A suggested CPT blank whose codes just changed flashes green once, as in the counseling mockup.
+const CPT_FLASH_SX = {
+  '& > [role="button"]': { animation: 'immunizationCptFlash 1.2s ease-out' },
+  '@keyframes immunizationCptFlash': { from: { background: 'rgba(46,125,50,.3)' }, to: { background: 'transparent' } },
+  '@media (prefers-reduced-motion: reduce)': { '& > [role="button"]': { animation: 'none' } },
+} as const;
+const SUGGESTED_SOURCE_SX = { fontSize: 12, color: 'rgba(0,0,0,.6)', ml: '6px' } as const;
+
 const toDate = (value: string | undefined): DateTime | null => (value ? DateTime.fromISO(value) : null);
 
 // A blue bar down the immunization's left edge marks where each one starts; its sentences sit line under line.
@@ -344,6 +352,8 @@ interface ImmunizationSentencesProps {
   patientFirstName?: string;
   /** "Hep B is also in Pediarix above.": under the vaccine, while the line can be edited. Never blocks saving. */
   duplicateWarning?: string;
+  /** Changes each time the page changes this line's suggested CPT codes, flashing the blank. */
+  cptFlash?: number;
 }
 
 /** The Lot blank with the vaccine's lots on hand; a plain blank for a vaccine not set up for inventory. */
@@ -406,6 +416,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
   vfcEligibility,
   patientFirstName,
   duplicateWarning,
+  cptFlash,
 }) => {
   const { details, administrationDetails } = line;
   const update = (patch: Partial<InputImmunizationOrderDetails>): void =>
@@ -811,25 +822,38 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
       </Sentence>
       <Sentence>
         CPT codes:{' '}
-        <PopoverBlank
-          label="CPT codes"
-          title="CPT codes"
-          value={cptCodes.map(formatImmunizationCptCode).join(', ') || undefined}
-          readOnly={readOnly}
-          need={needAdministration}
-          dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
-        >
-          {() => (
-            <Box sx={{ width: 360, pt: 0.5 }}>
-              <CptCodesInput
-                cptCodes={cptCodes}
-                onChange={(codes) => updateAdministration({ cptCodes: codes })}
-                isEditable={!readOnly}
-                withBillableUnits
-              />
-            </Box>
-          )}
-        </PopoverBlank>
+        <Box component="span" key={cptFlash} sx={cptFlash ? CPT_FLASH_SX : undefined}>
+          <PopoverBlank
+            label="CPT codes"
+            title="CPT codes"
+            value={cptCodes.map(formatImmunizationCptCode).join(', ') || undefined}
+            readOnly={readOnly}
+            need={needAdministration}
+            dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
+          >
+            {() => (
+              <Box sx={{ width: 360, pt: 0.5 }}>
+                <CptCodesInput
+                  cptCodes={cptCodes}
+                  onChange={(codes) =>
+                    onChange({
+                      ...line,
+                      cptOrigin: 'manual',
+                      administrationDetails: { ...administrationDetails, cptCodes: codes },
+                    })
+                  }
+                  isEditable={!readOnly}
+                  withBillableUnits
+                />
+              </Box>
+            )}
+          </PopoverBlank>
+        </Box>
+        {line.cptOrigin === 'suggested' && !readOnly && (
+          <Box component="span" sx={SUGGESTED_SOURCE_SX} data-testid={dataTestIds.orderVaccinePage.cptSuggested}>
+            suggested
+          </Box>
+        )}
         .
       </Sentence>
 

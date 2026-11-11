@@ -903,6 +903,11 @@ export const dataTestIds = {
     dueTodayAddAll: 'order-vaccine-due-today-add-all',
     duplicateWarning: 'order-vaccine-duplicate-warning',
     lineQuickPicks: 'order-vaccine-line-quick-picks',
+    cptSuggested: 'order-vaccine-cpt-suggested',
+    questionsBox: 'order-vaccine-questions',
+    counselingQuestion: 'order-vaccine-counseling-question',
+    counselingSplit: 'order-vaccine-counseling-split',
+    counselingJoin: 'order-vaccine-counseling-join',
   },
 
   immunizationPage: {

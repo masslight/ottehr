@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DateTime, Settings } from 'luxon';
 import { useState } from 'react';
@@ -107,6 +107,23 @@ describe('ImmunizationSentences', () => {
     unmount();
     render(<ImmunizationSentences {...props} readOnly />);
     expect(screen.queryByTestId(dataTestIds.orderVaccinePage.duplicateWarning)).not.toBeInTheDocument();
+  });
+
+  it('says the CPT codes are suggested, until a person changes them', () => {
+    const base = emptyImmunizationLine();
+    renderLine({
+      ...base,
+      cptOrigin: 'suggested',
+      administrationDetails: { ...base.administrationDetails, cptCodes: [{ code: '90460', display: 'admin' }] },
+    });
+    expect(screen.getByTestId(dataTestIds.orderVaccinePage.cptSuggested)).toHaveTextContent('suggested');
+    cleanup();
+    renderLine({
+      ...base,
+      cptOrigin: 'manual',
+      administrationDetails: { ...base.administrationDetails, cptCodes: [{ code: '90460', display: 'admin' }] },
+    });
+    expect(screen.queryByTestId(dataTestIds.orderVaccinePage.cptSuggested)).not.toBeInTheDocument();
   });
 
   it('marks the blanks the order requires, and only those', () => {

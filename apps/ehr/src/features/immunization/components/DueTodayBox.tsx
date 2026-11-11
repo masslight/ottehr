@@ -15,7 +15,13 @@ import {
 import { ImmunizationFormValues } from './immunizationLines';
 
 // The look of the eRx suggestion boxes (SuggestedSentences, tinted).
-const BOX_SX = { p: 1.5, border: '1px solid', borderColor: '#d6e0ec', borderRadius: 1, bgcolor: '#f3f6fa' } as const;
+export const BOX_SX = {
+  p: 1.5,
+  border: '1px solid',
+  borderColor: '#d6e0ec',
+  borderRadius: 1,
+  bgcolor: '#f3f6fa',
+} as const;
 const ROW_SX = { display: 'flex', alignItems: 'flex-start', gap: 0.5, py: 0.5 } as const;
 
 /** "Give 0.5 mL intramuscular in the left thigh": what a quick pick fills in, in the sentence's words. */

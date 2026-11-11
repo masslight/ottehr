@@ -50,6 +50,14 @@ import {
 } from '../components/dueToday';
 import { DueTodayBox } from '../components/DueTodayBox';
 import {
+  applyCptSuggestions,
+  counselingAnswerFor,
+  CounselingAnswers,
+  isThrough18,
+  NO_COUNSELING_ANSWERS,
+  takesSuggestedCodes,
+} from '../components/immunizationCodes';
+import {
   applyImmunizationQuickPick,
   applyQuickPickToOutsideLine,
   emptyImmunizationLine,
@@ -65,6 +73,7 @@ import {
 } from '../components/immunizationLines';
 import { ImmunizationSectionLabel, ImmunizationSentences } from '../components/ImmunizationSentences';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
+import { QuestionsBox } from '../components/QuestionsBox';
 import { VfcEligibilityBox } from '../components/VfcEligibilityBox';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { useVaccineInventoryAtLocation, useVfcEligibility } from '../hooks/useVaccineInventory';
@@ -300,6 +309,33 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
         : current
     );
 
+  // Suggested admin CPT codes on a new order's lines whose codes are empty or the page's own, recomputed as lines,
+  // routes or counseling answers change. An answer flashes the codes it changed.
+  const suggestsCodes = isCreating && !isReadOnly;
+  const pediatric = isThrough18(patient?.birthDate);
+  const [counseling, setCounseling] = useState<CounselingAnswers>(NO_COUNSELING_ANSWERS);
+  const [cptFlash, setCptFlash] = useState<Record<number, number>>({});
+  const flashNextChange = useRef(false);
+  useEffect(() => {
+    if (!suggestsCodes) return;
+    const { lines: next, changed } = applyCptSuggestions(lines, {
+      pediatric,
+      counseledFor: (index) => counselingAnswerFor(counseling, lines[index].key).value === 'yes',
+    });
+    if (flashNextChange.current && changed.length) {
+      setCptFlash((current) =>
+        changed.reduce((flash, index) => ({ ...flash, [next[index].key]: (flash[next[index].key] ?? 0) + 1 }), current)
+      );
+    }
+    flashNextChange.current = false;
+    if (next !== lines) setLines(next);
+  }, [suggestsCodes, pediatric, counseling, lines]);
+  const answerCounseling = (answers: CounselingAnswers): void => {
+    flashNextChange.current = true;
+    setCounseling(answers);
+  };
+  const suggestedLines = suggestsCodes && pediatric ? lines.filter(takesSuggestedCodes) : [];
+
   // The create endpoint takes one order, so each line is sent in turn (an external line to the history instead); a
   // sent line leaves the form, so a failure part-way leaves exactly the unsent ones (and their draft) to try again.
   const order = async (): Promise<void> => {
@@ -350,6 +386,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     clearDraft(encounterId);
     setDirty(false);
     setOrderAttempted(false);
+    setCounseling(NO_COUNSELING_ANSWERS);
     setLines([emptyImmunizationLine(defaultProvider)]);
   };
 
@@ -423,6 +460,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       vfcEligibility={vfcEligibility}
                       patientFirstName={patientFirstName}
                       duplicateWarning={isReadOnly ? undefined : duplicateWarningText(duplicates[index])}
+                      cptFlash={cptFlash[line.key]}
                     />
                   ))}
                 </Box>
@@ -519,6 +557,9 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                     onAdd={addFromDueToday}
                     onAddAll={addAllDue}
                   />
+                )}
+                {suggestedLines.length > 0 && (
+                  <QuestionsBox lines={suggestedLines} answers={counseling} onChange={answerCounseling} />
                 )}
                 <AccordionCard>
                   <Stack spacing={1.5} style={{ padding: '24px' }}>

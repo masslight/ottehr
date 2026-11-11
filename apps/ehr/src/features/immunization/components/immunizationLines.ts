@@ -14,6 +14,7 @@ import {
 } from 'utils/lib/types/data/immunization/types';
 import { getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
+import type { CptOrigin } from './immunizationCodes';
 
 /** The external line's own blanks: when, where and from what source the dose was given. */
 export interface OutsideDoseValues {
@@ -29,6 +30,8 @@ export interface ImmunizationFormValues {
   details: Partial<InputImmunizationOrderDetails>;
   administrationDetails: InputImmunizationOrderAdministrationDetails;
   outside?: OutsideDoseValues;
+  /** Where the CPT codes came from: the page only fills a line's codes while they are empty or its own. */
+  cptOrigin?: CptOrigin;
 }
 
 /** One immunization on the order page. */
@@ -60,12 +63,13 @@ export const emptyImmunizationLine = (
 /** A line from saved values: a draft's, or the order being edited. */
 export const immunizationLineFrom = (
   values: Pick<ImmunizationFormValues, 'details'> &
-    Partial<Pick<ImmunizationFormValues, 'administrationDetails' | 'outside'>>
+    Partial<Pick<ImmunizationFormValues, 'administrationDetails' | 'outside' | 'cptOrigin'>>
 ): ImmunizationLine => ({
   key: ++nextLineKey,
   details: { ...values.details },
   administrationDetails: { ...EMPTY_ADMINISTRATION_DETAILS, ...values.administrationDetails },
   ...(values.outside ? { outside: { ...values.outside } } : {}),
+  ...(values.cptOrigin ? { cptOrigin: values.cptOrigin } : {}),
 });
 
 /** A line nothing has been written in: "+ Add an externally administered immunization" converts it. */
@@ -110,6 +114,8 @@ export const applyImmunizationQuickPick = <T extends ImmunizationFormValues>(
     ...values.administrationDetails,
     cptCodes: quickPick.cptCodes ?? [],
   },
+  // a quick pick without codes leaves the line to the suggested ones
+  cptOrigin: quickPick.cptCodes?.length ? 'quickpick' : undefined,
 });
 
 /** A lot picked from stock fills what the box says: lot, expiry, NDC, manufacturer and MVX, the stock it came from

@@ -174,13 +174,15 @@ describe('ImmunizationOrderCreateEdit — several immunizations', () => {
         encounterId: ENCOUNTER_ID,
         orderId: undefined,
         details: { medication: { id: 'MMR-id', name: 'MMR' }, dose: '0.5', units: 'ml', orderedProvider: PROVIDER },
-        administrationDetails: { lot: 'lot-MMR' },
+        // the page suggests the admin codes (no birth date here, so not the counseled ones)
+        administrationDetails: { lot: 'lot-MMR', cptCodes: [expect.objectContaining({ code: '90471' })] },
       },
       {
         encounterId: ENCOUNTER_ID,
         orderId: undefined,
         details: { medication: { id: 'DTaP-id', name: 'DTaP' }, dose: '1', units: 'ml', orderedProvider: PROVIDER },
-        administrationDetails: { lot: 'lot-DTaP' },
+        // the page suggests the admin codes (no birth date here, so not the counseled ones)
+        administrationDetails: { lot: 'lot-DTaP', cptCodes: [expect.objectContaining({ code: '90472' })] },
       },
     ]);
     expect(useImmunizationOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
