@@ -32,7 +32,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-/** The engine run for the patient as of the visit's day (or today), plus the CVX → group map the Due today box needs. */
+/**
+ * The engine run for the patient as of the visit's day (else the given day, else today), with the records it ran
+ * on (the timeline) and the CVX → group map (the Due today box).
+ */
 export async function getImmunizationForecast(
   oystehr: Oystehr,
   input: GetImmunizationForecastRequest,
@@ -41,8 +44,9 @@ export async function getImmunizationForecast(
   const encounter = input.encounterId
     ? await readPatientEncounter(oystehr, input.patientId, input.encounterId)
     : undefined;
-  const { forecast } = await loadPatientForecast(oystehr, input.patientId, assessmentDate(encounter, now));
-  return { forecast, cvxGroups: cvxToGroups() };
+  const asOf = encounter ? assessmentDate(encounter, now) : input.asOf ?? now.toISODate()!;
+  const { patient, records, forecast } = await loadPatientForecast(oystehr, input.patientId, asOf);
+  return { ...records, forecast, cvxGroups: cvxToGroups(), dob: patient.birthDate! };
 }
 
 async function readPatientEncounter(oystehr: Oystehr, patientId: string, encounterId: string): Promise<Encounter> {
@@ -59,13 +63,21 @@ async function readPatientEncounter(oystehr: Oystehr, patientId: string, encount
   return encounter;
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 export function validateRequestParameters(
   input: ZambdaInput
 ): GetImmunizationForecastRequest & Pick<ZambdaInput, 'secrets'> {
-  const { patientId, encounterId } = validateJsonBody(input);
+  const { patientId, encounterId, asOf } = validateJsonBody(input);
+  if (asOf !== undefined && asOf !== null && asOf !== '') {
+    if (typeof asOf !== 'string' || !ISO_DATE.test(asOf) || !DateTime.fromISO(asOf).isValid) {
+      throw INVALID_INPUT_ERROR(`Invalid asOf date, "${String(asOf)}" is not a yyyy-mm-dd date`);
+    }
+  }
   return {
     patientId: validateFhirId(patientId, 'patientId'),
     ...(encounterId != null && encounterId !== '' && { encounterId: validateFhirId(encounterId, 'encounterId') }),
+    ...(asOf && { asOf }),
     secrets: input.secrets,
   };
 }

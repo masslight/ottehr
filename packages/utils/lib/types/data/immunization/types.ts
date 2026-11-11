@@ -225,14 +225,19 @@ export interface GetPatientImmunizationsResponse {
 
 export interface GetImmunizationForecastRequest {
   patientId: string;
-  /** The visit the forecast is for: its date is the assessment date. Today without it. */
+  /** The visit the forecast is for: its day is the assessment date. The encounter must be the patient's. */
   encounterId?: string;
+  /** Assessment date, ISO yyyy-mm-dd, when there is no visit; today when both are absent. */
+  asOf?: string;
 }
 
-export interface GetImmunizationForecastResponse {
+/** The forecast computed server-side from the patient's records, with the records it was computed from. */
+export interface GetImmunizationForecastResponse extends GetPatientImmunizationsResponse {
   forecast: ImmunizationForecast;
   /** Every CVX code the rules know → the groups it covers, so the Due today box can map stocked vaccines. */
   cvxGroups: Record<string, ImmunizationGroupId[]>;
+  /** The patient's date of birth, ISO yyyy-mm-dd; the timeline places doses by age. */
+  dob: string;
 }
 
 export interface CreateImmunizationRecordRequest {
