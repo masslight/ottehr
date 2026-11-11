@@ -15,15 +15,19 @@
  *     MMR, Havrix, Varivax and Fluzone, with one VFC lot and one private lot on hand at the location (lot numbers
  *     DEMO-VFC-<cvx> / DEMO-PRV-<cvx>; the NDC, manufacturer and MVX come from the CDC crosswalk).
  *   - Maya Rivera, DOB 2026-07-08: Hep B birth dose administered externally at Mercy Hospital (from another
- *     provider's records); the 2-month doses (Pentacel, Prevnar 20, Hep B) given here on 2026-09-09, written as
- *     Immunization records only (no MedicationAdministration, so they show on the timeline, the Due today box and
- *     the record PDF, not in the MAR history); rotavirus marked Declined; Medicaid on the Patient so the VFC box
+ *     provider's records); the 2-month doses (Pentacel, Prevnar 20, Hep B) given here on 2026-09-09 at a finished
+ *     2-month visit, as the app gives them: an immunization order administered through administer-order's own code,
+ *     with its linked Immunization, so they also show in the order and MAR history (the Immunization-only records
+ *     earlier runs wrote for them are replaced); rotavirus marked Declined; Medicaid on the Patient so the VFC box
  *     derives V02, which the script also confirms for today's visit.
  *   - Leo Okafor, DOB 2021-09-14: the infant series from Lakeside Pediatrics (another provider's records) and one
  *     undated MMR from the family's recall; VFC eligibility confirmed V01 (private insurance). Due today: the 4–6
  *     year DTaP and polio doses (Quadracel), MMR 2, varicella 2 and flu.
  *   - One walk-in in-person appointment today per patient (reused when one exists), through create-slot and
- *     create-appointment like the other synth scripts.
+ *     create-appointment like the other synth scripts, with an attending provider assigned through
+ *     assign-practitioner as the EHR does (a synth provider at the location, else the first active Provider user).
+ *   - The history, stock and eligibility are recorded by a synth medical assistant at the location (else the first
+ *     active practitioner), with the name saved on the reference so marks read "recorded by <name>".
  */
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
@@ -33,6 +37,7 @@ import {
   Immunization,
   Location,
   Medication,
+  MedicationAdministration,
   Observation,
   Patient,
   Practitioner,
@@ -40,11 +45,7 @@ import {
   Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  IMMUNIZATION_ADMINISTERING_PROVIDER_CODE,
-  immunizationPerformer,
-  isImmunizationMark,
-} from 'utils/lib/fhir/immunization';
+import { isImmunizationMark } from 'utils/lib/fhir/immunization';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import {
   INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
@@ -54,6 +55,8 @@ import {
   makeMedicationInventoryExtension,
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { makeVfcEligibilityObservation, VFC_ELIGIBILITY_LOINC } from 'utils/lib/fhir/vfc';
 import { VACCINE_DEFAULT_INVENTORY } from 'utils/lib/types/api/config/in-house-medications';
 import {
@@ -61,13 +64,16 @@ import {
   INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
-  MVX_CODE_SYSTEM_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { medicationApplianceRoutes, vaccineSiteLocations } from 'utils/lib/types/api/medication-administration.types';
 import { PATIENT_HAS_MEDICAID_URL } from 'utils/lib/types/constants';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { NDC_VACCINE_PRODUCTS } from 'utils/lib/types/data/immunization/ndc-vaccines.generated';
 import { ImmunizationOutsideSource } from 'utils/lib/types/data/immunization/types';
 import { getCvxVaccine, getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { VaccineFundingSource, VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
+import { administerImmunizationOrder } from '../../packages/zambdas/src/ehr/immunization/administer-order';
+import { buildImmunizationOrder } from '../../packages/zambdas/src/ehr/immunization/create-update-order';
 import { buildImmunizationMark, buildOutsideImmunization } from '../../packages/zambdas/src/ehr/immunization/records';
 import { arg } from './shared/cli';
 import { SYNTHETIC_PATIENT_ID_SYSTEM } from './shared/constants';
@@ -151,13 +157,23 @@ const MAYA_OUTSIDE: OutsideDose[] = [
   },
 ];
 
-/** Maya's 2-month visit here. */
-const MAYA_GIVEN_HERE: { key: string; name: string; cvx: string; lot: string; mvx: string }[] = [
-  { key: 'maya-pentacel-1', name: 'Pentacel', cvx: '120', lot: 'U7421AA', mvx: 'PMC' },
-  { key: 'maya-pcv-1', name: 'Prevnar 20', cvx: '216', lot: 'GK5112', mvx: 'PFR' },
-  { key: 'maya-hepb-2', name: 'Hep B (Engerix-B)', cvx: '08', lot: 'ENG4471', mvx: 'SKB' },
+interface ClinicDose {
+  key: string;
+  cvx: string;
+  /** Picks the NDC from the CDC crosswalk. */
+  product: RegExp;
+  lot: string;
+  site: string;
+}
+
+/** Maya's 2-month visit here: given from lots that are not in Ottehr's inventory, so no stock moves. */
+const MAYA_GIVEN_HERE: ClinicDose[] = [
+  { key: 'maya-pentacel-1', cvx: '120', product: /pentacel/i, lot: 'U7421AA', site: 'Left thigh (vastus lateralis)' },
+  { key: 'maya-pcv-1', cvx: '216', product: /prevnar 20/i, lot: 'GK5112', site: 'Right thigh (vastus lateralis)' },
+  { key: 'maya-hepb-2', cvx: '08', product: /engerix-b/i, lot: 'ENG4471', site: 'Left thigh (vastus lateralis)' },
 ];
 const MAYA_TWO_MONTH_VISIT = '2026-09-09T10:15:00-04:00';
+const MAYA_TWO_MONTH_VISIT_KEY = 'maya-2-month-visit';
 
 const LEO_OUTSIDE: OutsideDose[] = [
   fromLakeside('leo-hepb-1', 'Hep B', '08', '2021-09-14'),
@@ -216,7 +232,61 @@ async function resolveSchedule(oystehr: Oystehr, locationId: string): Promise<Sc
   return schedule;
 }
 
-/** Whoever receives the stock, confirms eligibility and records the history: the first active practitioner. */
+const SYNTH_STAFF_TAG = 'https://fhir.ottehr.com/sid/synth-staff|synth-staff';
+const SYNTH_STAFF_ROLE_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff-role';
+const SYNTH_STAFF_LOCATION_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff-location';
+
+/** A synth staff member of that role tagged with the location's name (see SYNTH-STAFF.md), if the project has one. */
+async function findSynthStaff(
+  oystehr: Oystehr,
+  role: 'provider' | 'medical-assistant',
+  location: Location
+): Promise<Practitioner | undefined> {
+  if (!location.name) return undefined;
+  return (
+    await oystehr.fhir.search<Practitioner>({
+      resourceType: 'Practitioner',
+      params: [
+        { name: '_tag', value: SYNTH_STAFF_TAG },
+        { name: '_tag', value: `${SYNTH_STAFF_ROLE_SYSTEM}|${role}` },
+        { name: '_tag', value: `${SYNTH_STAFF_LOCATION_SYSTEM}|${location.name}` },
+        { name: 'active', value: 'true' },
+      ],
+    })
+  )
+    .unbundle()
+    .sort((a, b) => (a.id ?? '').localeCompare(b.id ?? ''))[0];
+}
+
+/** The reference to save who did something, with their name, as resolveCallerPractitionerRef writes it. */
+const practitionerRef = (practitioner: Practitioner): Reference => ({
+  reference: `Practitioner/${practitioner.id}`,
+  display: getFullestAvailableName(practitioner),
+});
+
+/** Whoever receives the stock, confirms eligibility and records the history: a synth MA at the location, else the
+ * first active practitioner (dev has no synth staff). */
+async function resolveRecorder(oystehr: Oystehr, location: Location): Promise<Practitioner> {
+  return (await findSynthStaff(oystehr, 'medical-assistant', location)) ?? (await resolvePractitioner(oystehr));
+}
+
+/** The visits' attending provider: a synth provider at the location, else the first active Provider user's. */
+async function resolveProvider(oystehr: Oystehr, location: Location): Promise<Practitioner> {
+  const synth = await findSynthStaff(oystehr, 'provider', location);
+  if (synth) return synth;
+  const providerRole = (await oystehr.role.list()).find((role) => role.name === 'Provider');
+  if (!providerRole) throw new Error('No Provider role in this project');
+  const users = (await oystehr.user.listV2({ roleId: providerRole.id, limit: 100, sort: 'createdAt' })).data;
+  for (const user of users) {
+    const practitionerId = user.profile?.startsWith('Practitioner/') ? user.profile.split('/')[1] : undefined;
+    if (!practitionerId) continue;
+    const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
+    if (practitioner.active !== false) return practitioner;
+  }
+  throw new Error('No active practitioner with the Provider role to attend the demo visits');
+}
+
+/** The first active practitioner. */
 async function resolvePractitioner(oystehr: Oystehr): Promise<Practitioner> {
   const practitioner = (
     await oystehr.fhir.search<Practitioner>({
@@ -485,11 +555,58 @@ async function ensureVisit(
   return { patient, appointmentId: created.appointmentId, encounterId: created.encounterId };
 }
 
+/** As the EHR's provider picker does: assign-practitioner with the attender role, unless the visit has one. */
+async function ensureAttendingProvider(
+  oystehr: Oystehr,
+  ctx: ZambdaCtx,
+  visit: DemoVisit,
+  provider: Practitioner
+): Promise<void> {
+  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: visit.encounterId });
+  if (getAttendingPractitionerId(encounter)) return;
+  await zambdaExecute(ctx, 'assign-practitioner', {
+    encounterId: visit.encounterId,
+    practitionerId: provider.id,
+    userRole: PRACTITIONER_CODINGS.Attender,
+  });
+  log(`  + attending provider ${getFullestAvailableName(provider)} on visit ${visit.appointmentId}`);
+}
+
+/** Maya's finished 2-month visit, the encounter her clinic doses were ordered on; found again by its identifier. */
+async function ensureTwoMonthVisit(
+  oystehr: Oystehr,
+  visit: DemoVisit,
+  location: Location,
+  provider: Practitioner
+): Promise<Encounter> {
+  const existing = (
+    await oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [{ name: 'identifier', value: `${DEMO_IMMUNIZATION_SYSTEM}|${MAYA_TWO_MONTH_VISIT_KEY}` }],
+    })
+  ).unbundle()[0];
+  if (existing?.id) return existing;
+  const start = DateTime.fromISO(MAYA_TWO_MONTH_VISIT);
+  const period = { start: start.toUTC().toISO()!, end: start.plus({ minutes: 30 }).toUTC().toISO()! };
+  const created = await oystehr.fhir.create<Encounter>({
+    resourceType: 'Encounter',
+    identifier: [{ system: DEMO_IMMUNIZATION_SYSTEM, value: MAYA_TWO_MONTH_VISIT_KEY }],
+    status: 'finished',
+    class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
+    subject: { reference: `Patient/${visit.patient.id}` },
+    period,
+    location: [{ location: { reference: `Location/${location.id}`, display: location.name } }],
+    participant: [{ type: [{ coding: PRACTITIONER_CODINGS.Attender }], period, individual: practitionerRef(provider) }],
+  });
+  log(`  + Maya's 2-month visit: Encounter/${created.id}`);
+  return created;
+}
+
 // ─── Immunization history ─────────────────────────────────────────────────────
 
 const demoIdentifier = (key: string): Immunization['identifier'] => [{ system: DEMO_IMMUNIZATION_SYSTEM, value: key }];
 
-async function existingDemoImmunizations(oystehr: Oystehr, patientId: string): Promise<Set<string>> {
+async function existingDemoImmunizations(oystehr: Oystehr, patientId: string): Promise<Map<string, string>> {
   const immunizations = (
     await oystehr.fhir.search<Immunization>({
       resourceType: 'Immunization',
@@ -499,48 +616,23 @@ async function existingDemoImmunizations(oystehr: Oystehr, patientId: string): P
       ],
     })
   ).unbundle();
-  return new Set(
+  return new Map(
     immunizations.flatMap(
       (immunization) =>
-        immunization.identifier?.flatMap((identifier) =>
-          identifier.system === DEMO_IMMUNIZATION_SYSTEM && identifier.value ? [identifier.value] : []
+        immunization.identifier?.flatMap((identifier): [string, string][] =>
+          identifier.system === DEMO_IMMUNIZATION_SYSTEM && identifier.value && immunization.id
+            ? [[identifier.value, immunization.id]]
+            : []
         ) ?? []
     )
   );
 }
 
-/** A dose given here, as the Immunization alongside an administered order looks (without the order itself). */
-const givenHereImmunization = (
-  dose: { key: string; name: string; cvx: string; lot: string; mvx: string },
-  occurrence: string,
-  patient: Reference,
-  recorder: Reference,
-  locationName: string | undefined
-): Immunization => ({
-  resourceType: 'Immunization',
-  identifier: demoIdentifier(dose.key),
-  status: 'completed',
-  primarySource: true,
-  vaccineCode: { coding: [{ system: CVX_CODE_SYSTEM_URL, code: dose.cvx }], text: dose.name },
-  patient,
-  occurrenceDateTime: occurrence,
-  recorded: occurrence,
-  lotNumber: dose.lot,
-  manufacturer: {
-    display: getMvxManufacturer(dose.mvx)?.name,
-    identifier: { system: MVX_CODE_SYSTEM_URL, value: dose.mvx },
-  },
-  ...(locationName && { location: { display: locationName } }),
-  performer: [immunizationPerformer(recorder, IMMUNIZATION_ADMINISTERING_PROVIDER_CODE)],
-});
-
 async function seedHistory(
   oystehr: Oystehr,
   visit: DemoVisit,
   recorder: Reference,
-  locationName: string | undefined,
   outside: OutsideDose[],
-  givenHere: { key: string; name: string; cvx: string; lot: string; mvx: string }[],
   declined: { key: string; group: string; note: string; at: string } | undefined
 ): Promise<void> {
   const patient: Reference = { reference: `Patient/${visit.patient.id}` };
@@ -571,10 +663,6 @@ async function seedHistory(
       identifier: demoIdentifier(dose.key),
     });
   }
-  for (const dose of givenHere) {
-    if (existing.has(dose.key)) continue;
-    post(givenHereImmunization(dose, MAYA_TWO_MONTH_VISIT, patient, recorder, locationName));
-  }
   if (declined && !existing.has(declined.key)) {
     post({
       ...buildImmunizationMark(
@@ -592,6 +680,91 @@ async function seedHistory(
     log(`  + ${requests.length} immunization records (${written} marks)`);
   } else {
     log('  = immunization history already there');
+  }
+}
+
+/**
+ * The doses given at the 2-month visit, as the app records them: an order on that visit (create-update-order's
+ * builder) administered through administer-order's own code, which writes the linked Immunization. Each order is
+ * found again by its demo identifier; the Immunization-only records earlier runs wrote for these doses are deleted.
+ */
+async function seedClinicDoses(
+  oystehr: Oystehr,
+  visit: DemoVisit,
+  encounter: Encounter,
+  doses: ClinicDose[],
+  recorder: Practitioner,
+  provider: Practitioner
+): Promise<void> {
+  const shortcuts = await existingDemoImmunizations(oystehr, visit.patient.id!);
+  for (const dose of doses) {
+    const product = NDC_VACCINE_PRODUCTS.find(
+      (candidate) => candidate.cvx === dose.cvx && dose.product.test(candidate.name)
+    );
+    if (!product) throw new Error(`No NDC product for CVX ${dose.cvx} matching ${dose.product}`);
+    const catalog = await ensureCatalogVaccine(oystehr, dose.cvx);
+    const vaccineName = getCvxVaccine(dose.cvx)?.name ?? dose.cvx;
+    const site = vaccineSiteLocations.find((location) => location.name === dose.site);
+    const details = {
+      medication: { id: catalog.id, name: vaccineName },
+      dose: '0.5',
+      units: 'ml',
+      route: medicationApplianceRoutes.INTRAMUSCULAR.code,
+      location: site && { name: site.name ?? dose.site, code: site.code },
+      orderedProvider: { id: provider.id!, name: getFullestAvailableName(provider) ?? '' },
+      manufacturer: getMvxManufacturer(product.mvx)?.name ?? product.labeler,
+    };
+
+    let order = (
+      await oystehr.fhir.search<MedicationAdministration>({
+        resourceType: 'MedicationAdministration',
+        params: [{ name: 'identifier', value: `${DEMO_IMMUNIZATION_SYSTEM}|${dose.key}` }],
+      })
+    ).unbundle()[0];
+    if (!order) {
+      const built = await buildImmunizationOrder(
+        oystehr,
+        { encounterId: encounter.id!, details },
+        encounter,
+        provider.id!,
+        DateTime.fromISO(MAYA_TWO_MONTH_VISIT).minus({ minutes: 10 })
+      );
+      order = await oystehr.fhir.create<MedicationAdministration>({
+        ...built,
+        identifier: [{ system: DEMO_IMMUNIZATION_SYSTEM, value: dose.key }],
+      });
+      log(`  + ${vaccineName} order on the 2-month visit: MedicationAdministration/${order.id}`);
+    }
+    if (order.status === 'in-progress') {
+      await administerImmunizationOrder(
+        oystehr,
+        {
+          orderId: order.id!,
+          type: 'administered',
+          details,
+          administrationDetails: {
+            lot: dose.lot,
+            expDate: DateTime.fromISO(MAYA_TWO_MONTH_VISIT).plus({ months: 10 }).toISODate()!,
+            mvx: product.mvx,
+            cvx: dose.cvx,
+            ndc: product.saleNdc,
+            fundingSource: 'vfc',
+            vfcEligibility: MAYA.vfcEligibility,
+            administeredDateTime: MAYA_TWO_MONTH_VISIT,
+            visGiven: true,
+            visGivenDate: DateTime.fromISO(MAYA_TWO_MONTH_VISIT).toISODate()!,
+          },
+        },
+        recorder
+      );
+      log(`  + ${vaccineName} administered on ${DateTime.fromISO(MAYA_TWO_MONTH_VISIT).toISODate()}`);
+    }
+
+    const shortcutId = shortcuts.get(dose.key);
+    if (shortcutId) {
+      await oystehr.fhir.delete({ resourceType: 'Immunization', id: shortcutId });
+      log(`  - replaced the Immunization-only record ${dose.key} (Immunization/${shortcutId})`);
+    }
   }
 }
 
@@ -640,25 +813,33 @@ async function main(): Promise<void> {
 
   const location = await resolveLocation(oystehr, arg('--location'));
   const schedule = await resolveSchedule(oystehr, location.id!);
-  const practitioner = await resolvePractitioner(oystehr);
-  const performerReference = `Practitioner/${practitioner.id}`;
-  log(`Location ${location.name} (${location.id}), schedule ${schedule.id}, recorded by ${performerReference}`);
+  const recorderPractitioner = await resolveRecorder(oystehr, location);
+  const recorder = practitionerRef(recorderPractitioner);
+  const performerReference = recorder.reference!;
+  const provider = await resolveProvider(oystehr, location);
+  log(
+    `Location ${location.name} (${location.id}), schedule ${schedule.id}, recorded by ${recorder.display} ` +
+      `(${performerReference}), provider ${getFullestAvailableName(provider)} (Practitioner/${provider.id})`
+  );
 
   await seedCatalogAndLots(oystehr, location.id!, performerReference);
 
   log('Patients and visits');
   const maya = await ensureVisit(oystehr, ctx, schedule.id!, MAYA);
   const leo = await ensureVisit(oystehr, ctx, schedule.id!, LEO);
+  await ensureAttendingProvider(oystehr, ctx, maya, provider);
+  await ensureAttendingProvider(oystehr, ctx, leo, provider);
 
   log('Immunization history');
-  const recorder: Reference = { reference: performerReference };
-  await seedHistory(oystehr, maya, recorder, location.name, MAYA_OUTSIDE, MAYA_GIVEN_HERE, {
+  await seedHistory(oystehr, maya, recorder, MAYA_OUTSIDE, {
     key: 'maya-rota-declined',
     group: 'rota',
     note: 'Parents declined',
     at: MAYA_TWO_MONTH_VISIT,
   });
-  await seedHistory(oystehr, leo, recorder, location.name, LEO_OUTSIDE, [], undefined);
+  await seedHistory(oystehr, leo, recorder, LEO_OUTSIDE, undefined);
+  const twoMonthVisit = await ensureTwoMonthVisit(oystehr, maya, location, provider);
+  await seedClinicDoses(oystehr, maya, twoMonthVisit, MAYA_GIVEN_HERE, recorderPractitioner, provider);
   await ensureVfcEligibility(oystehr, maya, MAYA.vfcEligibility, performerReference);
   await ensureVfcEligibility(oystehr, leo, LEO.vfcEligibility, performerReference);
 
