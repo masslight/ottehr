@@ -425,6 +425,29 @@ describe('open-document-link', () => {
     expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
   });
 
+  // Action Logs offers Revoke only on a sent (completed) attempt. The email can still have gone out behind one that
+  // is not: marking it completed failed and left it in-progress, or SendGrid accepted it but the call threw and it
+  // was marked failed. Serving such a link would hand out a document nobody can revoke, so it does not open.
+  it.each(['in-progress', 'failed'] as const)('returns 404 for a live link whose attempt is %s', async (status) => {
+    mockFhirGet.mockResolvedValueOnce(emailAttempt({ status }));
+
+    await expect(call(await mintDocumentLinkToken('attempt-1', secrets))).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockFhirGet).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'DocumentReference' }));
+    expect(mockFhirPatch).not.toHaveBeenCalled();
+  });
+
+  // The recipient of such a link is not stuck: once it expires it re-sends, and the new attempt can be revoked.
+  it('re-sends once a link whose attempt was left in-progress has expired', async () => {
+    mockFhirGet.mockResolvedValueOnce(emailAttempt({ status: 'in-progress' }));
+
+    const output = await call(await expiredToken());
+
+    expect(output).toEqual({ status: 'expired', resent: true });
+    expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'olivia@example.com', parentAttemptId: 'attempt-1' })
+    );
+  });
+
   it('returns 404 when the Task is not an email attempt', async () => {
     mockFhirGet.mockResolvedValueOnce({
       ...makeOutboundDeliveryAttempt({

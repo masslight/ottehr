@@ -120,6 +120,7 @@ export async function performEffect(args: {
     await resendDocumentLink(newest, documentReferenceId, oystehr, secrets);
     return { status: 'expired', resent: true };
   }
+  if (task.status !== 'completed') throw LINK_NOT_FOUND;
 
   const documentReference = await oystehr.fhir.get<DocumentReference>({
     resourceType: 'DocumentReference',

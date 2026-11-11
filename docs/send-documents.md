@@ -106,7 +106,12 @@ by `shared/document-link-token.ts` that expires after `DOCUMENT_LINK_TTL_MINUTES
 fragment, and intake moves it into the history entry before Sentry or GTM start, so no server log or telemetry
 records it. The link opens the intake page `OpenDocumentLink`, which calls the public `open-document-link` zambda:
 
-- A live token returns a short-lived download URL and records a `link-opened` output on the attempt Task.
+- A live token returns a Z3 download URL and records a `link-opened` output, with the caller's IP address and
+  browser, on the attempt Task. The URL is valid for 15 minutes, Z3's default for presigned URLs; the request cannot
+  ask for less. The token is a bearer credential: until it expires, anyone holding the link, a forwarded copy
+  included, can open it again and get a fresh URL.
+- Only a sent (`completed`) attempt opens. One left `in-progress` or marked `failed` may still have reached the
+  recipient, but Action Logs cannot revoke it, so its live link answers 404; once the token expires it re-sends.
 - An expired token re-sends a fresh link to the recipient recorded on the Task (never to an address from the
   request). The new attempt is `partOf` the one it replaces, and there is one live link per send: while any link
   in the chain is still live or still being sent, nothing is re-sent, and concurrent opens of one expired link
@@ -114,7 +119,8 @@ records it. The link opens the intake page `OpenDocumentLink`, which calls the p
   (50) links, the most that opening and revoking walk, and its expired links then ask the recipient to contact the
   practice.
 - Revoking a link from Action Logs (`revoke-action-log`) cancels every attempt in its resend chain, from the
-  original send on, so no link of that send opens or re-sends again.
+  original send on, so no link of that send opens or re-sends again. It does not reach a download URL already
+  handed out, which works until Z3 expires it, or a file already downloaded.
 
 A failed link email is not retried from Action Logs; it is usually a bad address and is sent again from the
 Send dialog.
