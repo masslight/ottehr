@@ -614,12 +614,9 @@ export const ImmunizationTimeline = ({
                   boxSizing: 'border-box',
                 }}
               />,
-              'Earliest to recommended',
+              'Allowed but early',
             ],
-            [
-              <LegendSwatch key="r" sx={{ background: SEGMENT_STYLE.recommended.background }} />,
-              'Recommended to past due',
-            ],
+            [<LegendSwatch key="r" sx={{ background: SEGMENT_STYLE.recommended.background }} />, 'Recommended'],
             [<LegendSwatch key="p" sx={{ background: SEGMENT_STYLE.pastdue.background }} />, 'Past due'],
             ...(showWindows
               ? [

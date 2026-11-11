@@ -104,6 +104,13 @@ describe('ImmunizationTimeline', () => {
     expect(birthDose.parentElement).toHaveStyle({ marginLeft: '16px' });
   });
 
+  it('names the next-dose bars "Allowed but early" and "Recommended" in the legend', () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    expect(screen.getByText(/Allowed but early/)).toBeInTheDocument();
+    expect(screen.getByText(/^\s*Recommended$/)).toBeInTheDocument();
+    expect(screen.queryByText(/Earliest to recommended|Recommended to past due/)).not.toBeInTheDocument();
+  });
+
   it('renders one lane per vaccine group with its status, doses, undated dose and mark', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     for (const group of fixture.forecast.groups) {
