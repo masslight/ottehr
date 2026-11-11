@@ -210,13 +210,20 @@ const recordCardPayment = async (
   const noticeFor = (claim: Claim | undefined, identifiers: Identifier[]): PaymentNotice =>
     makePaymentNotice({ ...input, claim, payeeRef, stripeAccount: { stripeAccount }, identifiers });
 
-  // a replay reuses the reservation of the attempt it repeats
+  // A replay reuses the reservation of the attempt it repeats. One that overlapped that attempt passed
+  // the idempotency guard before the payment was activated; activation keeps the reservation
+  // identifier, so the payment is found here and returned without charging the card again.
+  const reservationIdentifier = { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId };
   const { notice: pending } = await createPaymentNotice({
     oystehr: billingOystehr,
     notice: pendingEhrPaymentNotice(noticeFor(undefined, []), ehrPaymentId),
-    dedupIdentifier: { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
+    dedupIdentifier: reservationIdentifier,
     agent: undefined,
   });
+  if (!isPendingEhrPaymentNotice(pending)) {
+    console.log('idempotent replay detected; the reserved payment is already recorded', pending.id);
+    return pending;
+  }
 
   let paymentIntent: Stripe.PaymentIntent;
   try {
@@ -234,6 +241,7 @@ const recordCardPayment = async (
     ...[paymentIntent.id, chargeId]
       .filter((id): id is string => Boolean(id))
       .map((value) => ({ system: STRIPE_PAYMENT_ID_SYSTEM, value })),
+    reservationIdentifier,
   ]);
 
   const activation = await activatePendingPaymentNotice(billingOystehr, pending, desiredNotice, agent);

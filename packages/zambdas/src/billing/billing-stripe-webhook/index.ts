@@ -298,7 +298,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
 };
 
 // The EHR's reservation of a charge that went through, recorded as the payment: what Stripe owns is
-// refreshed as on any notice, and the reservation id becomes the EHR payment id readers search by.
+// refreshed as on any notice, and it gains the EHR payment id readers search by.
 const activateEhrReservation = (pending: PaymentNotice, desiredNotice: PaymentNotice): PaymentNotice => {
   const refreshed = mergeStripeOwnedFields(pending, desiredNotice);
   return {

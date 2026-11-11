@@ -235,9 +235,10 @@ describe('post-billing-patient-payment', () => {
         status: 'active',
         request: encounterRequest,
         identifier: [
-          { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+          { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
           { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
           { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+          { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
         ],
       }) as PaymentNotice;
 
@@ -276,10 +277,12 @@ describe('post-billing-patient-payment', () => {
       const notice = activation.resource as PaymentNotice;
       expect(notice.status).toBe('active');
       expect(notice.request).toEqual({ ...encounterRequest, reference: 'Claim/claim-1' });
+      // the reservation identifier stays, so an overlapping replay finds the payment
       expect(notice.identifier).toEqual([
         { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
         { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
         { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+        { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
       ]);
       // payee is the org behind the connected account, as the webhook resolves it
       expect(billingSearch).toHaveBeenCalledWith({
@@ -335,6 +338,67 @@ describe('post-billing-patient-payment', () => {
       expect(merges().map((request) => [request.url, request.ifMatch])).toEqual([
         ['/PaymentNotice/pn-reserved', 'W/"3"'],
       ]);
+    });
+
+    // Regression: a replay that passed the idempotency guard while the attempt it repeats was still
+    // running reserved a second draft once that attempt had activated its own, and activated it for the
+    // same charge, recording the payment twice.
+    it('returns the payment an overlapping replay finds already activated, without charging again', async () => {
+      const recorded = activatedByWebhook();
+      billingTransaction.mockImplementationOnce(async () => ({
+        entry: [{ resource: recorded, response: { status: '200 OK' } }],
+        unbundle: () => [recorded],
+      }));
+
+      const result = await postCard();
+
+      expect(paymentIntentsCreate).not.toHaveBeenCalled();
+      expect(merges()).toEqual([]);
+      expect(historyEntries()).toEqual([]);
+      expect(clinicalCreate.mock.calls[0][0].focus.reference).toBe('PaymentNotice/pn-1');
+      expect(JSON.parse(result.body).notice.id).toBe('pn-1');
+    });
+
+    it('records one payment when a replay passed the idempotency guard before the first attempt finished', async () => {
+      // a store answering conditional creates by identifier, as the FHIR server does once the first
+      // attempt's writes have landed
+      const stored = new Map<string, PaymentNotice>();
+      let nextId = 0;
+      const hasIdentifier = (notice: PaymentNotice, token: string): boolean =>
+        (notice.identifier ?? []).some((identifier) => `${identifier.system}|${identifier.value}` === token);
+      billingTransaction.mockImplementation(async ({ requests }: { requests: WriteRequest[] }) => {
+        const results = requests.map((request) => {
+          if (request.method === 'POST' && request.url === '/PaymentNotice') {
+            const token = request.ifNoneExist?.[0]?.value ?? '';
+            const match = [...stored.values()].find((notice) => hasIdentifier(notice, token));
+            if (match) return { resource: match, status: '200 OK' };
+            const created = {
+              ...(request.resource as PaymentNotice),
+              id: `pn-${++nextId}`,
+              meta: { versionId: '1' },
+            };
+            stored.set(created.id, created);
+            return { resource: created, status: '201 Created' };
+          }
+          if (request.method === 'PUT') {
+            const updated = request.resource as PaymentNotice;
+            stored.set(updated.id!, updated);
+          }
+          return { resource: request.resource, status: '200 OK' };
+        });
+        return {
+          entry: results.map(({ resource, status }) => ({ resource, response: { status } })),
+          unbundle: () => results.map(({ resource }) => resource),
+        };
+      });
+
+      // the second request's guard search ran before the first activated the payment, so it found nothing
+      const first = await postCard();
+      const second = await postCard();
+
+      expect(paymentIntentsCreate).toHaveBeenCalledTimes(1);
+      expect(stored.size).toBe(1);
+      expect(JSON.parse(second.body).notice.id).toBe(JSON.parse(first.body).notice.id);
     });
 
     it('links an activated notice through reconcile when the claim appeared after the charge', async () => {

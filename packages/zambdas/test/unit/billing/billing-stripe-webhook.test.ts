@@ -1048,10 +1048,12 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
     const [activated] = refreshedNotices(transaction);
     expect(activated.id).toBe('pn-reserved');
     expect(activated.status).toBe('active');
+    // the reservation identifier stays, so a replay of the EHR request finds the payment
     expect(activated.identifier).toEqual([
-      { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+      { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
       { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
       { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+      { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
     ]);
     expect(activated.request?.identifier).toEqual({ system: CLAIM_ENC_SYSTEM, value: 'enc-1' });
     const reconciliation = getContainedReconciliation(activated);
@@ -1115,6 +1117,7 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
       ...reservation(),
       status: 'active',
       identifier: [
+        { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
         { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
         { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
       ],
@@ -1126,6 +1129,7 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
     expect(createdNotices(transaction)).toEqual([]);
     const [refreshed] = refreshedNotices(transaction);
     expect(refreshed.identifier).toEqual([
+      { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
       { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
       { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
       { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },

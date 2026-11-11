@@ -53,11 +53,20 @@ export const CHECK_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('check-numb
 export const EHR_PATIENT_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('ehr-patient-payment-id');
 // The same value on a card payment the EHR reserved before charging the card. The draft carries no
 // claim link and none of the identifier systems payment readers search by, so nothing lists it; once
-// the charge succeeds it is activated in place and the identifier becomes EHR_PATIENT_PAYMENT_ID_SYSTEM.
+// the charge succeeds it is activated in place and gains the EHR_PATIENT_PAYMENT_ID_SYSTEM identifier.
+// The reservation identifier stays, so a replay of the request that reserved it finds the payment
+// instead of reserving it a second time.
 export const EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('ehr-pending-patient-payment-id');
 
-export const isPendingEhrPaymentNotice = (notice: PaymentNotice): boolean =>
-  (notice.identifier ?? []).some((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM);
+// A reservation not activated yet, whether a draft or cancelled after its charge failed. An activated
+// payment is never pending again, also once voided (which cancels it).
+export const isPendingEhrPaymentNotice = (notice: PaymentNotice): boolean => {
+  const identifiers = notice.identifier ?? [];
+  return (
+    identifiers.some((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM) &&
+    !identifiers.some((identifier) => identifier.system === EHR_PATIENT_PAYMENT_ID_SYSTEM)
+  );
+};
 
 // The reservation of a card payment the EHR is about to take: the notice it will record, as a draft no
 // payment reader can find.
@@ -73,13 +82,15 @@ export const pendingEhrPaymentNotice = (notice: PaymentNotice, ehrPaymentId: str
   };
 };
 
-// An activated reservation is known by the EHR payment id, which payment readers search by.
-export const withActivatedEhrPaymentId = (identifiers: Identifier[] | undefined): Identifier[] =>
-  (identifiers ?? []).map((identifier) =>
-    identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM
-      ? { ...identifier, system: EHR_PATIENT_PAYMENT_ID_SYSTEM }
-      : identifier
-  );
+// An activated reservation is also known by the EHR payment id, which payment readers search by.
+export const withActivatedEhrPaymentId = (identifiers: Identifier[] | undefined): Identifier[] => {
+  const all = identifiers ?? [];
+  const reservation = all.find((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM);
+  if (!reservation?.value || all.some((identifier) => identifier.system === EHR_PATIENT_PAYMENT_ID_SYSTEM)) {
+    return all;
+  }
+  return [...all, { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: reservation.value }];
+};
 
 const PAYMENT_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/payment-type';
 
