@@ -79,6 +79,7 @@ export const FAX_TASK = {
   system: 'inbound-fax-task',
   code: {
     matchInboundFax: 'match-inbound-fax',
+    reviewInboundFax: 'review-inbound-fax',
   },
   input: {
     senderFaxNumber: 'sender-fax-number',
@@ -86,6 +87,9 @@ export const FAX_TASK = {
     communicationId: 'communication-id',
     pdfUrl: 'pdf-url',
     receivedDate: 'received-date',
+    patientId: 'patient-id',
+    folderId: 'folder-id',
+    appointmentId: 'appointment-id',
   },
   businessStatus: {
     filed: 'filed',
