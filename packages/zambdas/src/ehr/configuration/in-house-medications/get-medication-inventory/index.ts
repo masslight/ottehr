@@ -54,6 +54,8 @@ export const performEffect = async (
   const lastLot = await getLastReceivedLot(oystehr, medicationId);
   const parsed = lastLot ? parseInventoryLot(lastLot) : undefined;
   if (!parsed) return {};
-  const { id, lotNumber, ndc, manufacturer, vendor } = parsed;
-  return { lastReceivedLot: { id, locationId: parsed.locationId, lotNumber, ndc, manufacturer, vendor } };
+  const { id, lotNumber, ndc, manufacturer, mvx, vendor, fundingSource } = parsed;
+  return {
+    lastReceivedLot: { id, locationId: parsed.locationId, lotNumber, ndc, manufacturer, mvx, vendor, fundingSource },
+  };
 };

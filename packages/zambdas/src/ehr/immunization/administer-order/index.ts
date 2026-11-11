@@ -177,7 +177,10 @@ export async function administerImmunizationOrder(
   // Add CPT codes to chart data (assessment) on administration. A dose from VFC or state stock bills only the
   // administration codes: the vaccine itself was supplied free.
   if (['administered', 'administered-partly'].includes(input.type)) {
-    const cptCodesToAdd = cptCodesToBillForDose(administrationDetails.cptCodes ?? [], administrationDetails.fundingSource);
+    const cptCodesToAdd = cptCodesToBillForDose(
+      administrationDetails.cptCodes ?? [],
+      administrationDetails.fundingSource
+    );
     if (cptCodesToAdd.length > 0) {
       const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
       const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');

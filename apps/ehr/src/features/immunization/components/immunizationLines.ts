@@ -50,8 +50,9 @@ export const immunizationLineFrom = (
   administrationDetails: { ...EMPTY_ADMINISTRATION_DETAILS, ...values.administrationDetails },
 });
 
-/** The quick pick's values over the form's: the order details when `applyOrderDetails`, the administration
- * details always. */
+/** The quick pick's values over the form's: the order details when `applyOrderDetails`, the CPT codes always.
+ * A quick pick carries only the order part and the admin codes: the lot, NDC, manufacturer and MVX come from the
+ * lot picked from stock, and the CVX from the vaccine. Older quick picks that saved those are not applied. */
 export const applyImmunizationQuickPick = <T extends ImmunizationFormValues>(
   values: T,
   quickPick: ImmunizationQuickPickData,
@@ -66,18 +67,12 @@ export const applyImmunizationQuickPick = <T extends ImmunizationFormValues>(
       units: quickPick.units,
       route: quickPick.route,
       location: quickPick.location,
-      manufacturer: quickPick.manufacturer,
       instructions: quickPick.instructions,
     },
   }),
   administrationDetails: {
     ...values.administrationDetails,
-    lot: quickPick.lot,
-    expDate: quickPick.expDate,
-    mvx: quickPick.mvx,
-    cvx: quickPick.cvx,
     cptCodes: quickPick.cptCodes ?? [],
-    ndc: quickPick.ndc,
   },
 });
 

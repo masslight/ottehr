@@ -5,6 +5,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
+  Chip,
   FormControl,
   IconButton,
   InputLabel,
@@ -28,6 +29,7 @@ import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
+import { FundingChip } from 'src/features/immunization/components/VaccineLotBlank';
 import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
 import {
   InventoryDrugRow,
@@ -48,6 +50,7 @@ import {
   storedLocationId,
 } from './inventory.helpers';
 import { INVENTORY_QUERY_KEY, useLotHistory, useMedicationInventory } from './inventory.queries';
+import VfcBorrowingLog from './VfcBorrowingLog';
 
 const ALL_LOCATIONS = '';
 const RECENT_HISTORY_ENTRIES = 7;
@@ -213,8 +216,9 @@ export default function InventoryAdminPage(): ReactElement {
         </TableContainer>
       )}
       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        Only medications set up for inventory appear here.
+        Only medications and vaccines set up for inventory appear here.
       </Typography>
+      <VfcBorrowingLog />
     </Box>
   );
 }
@@ -240,6 +244,7 @@ function DrugHeaderCells({
         <Link component={RouterLink} to={`/admin/medication/${drug.medicationId}`} underline="hover">
           {drug.name}
         </Link>
+        {drug.type === 'vaccine' && <Chip size="small" label="Vaccine" sx={{ ml: 1, height: 20, fontSize: 12 }} />}
       </TableCell>
       <TableCell>
         {formatQuantity(drug.onHand, drug.countedAs)}
@@ -329,7 +334,14 @@ function LocationDrugRows({
               <TableCell>
                 <ExpandButton open={expandedLots.has(lot.id)} onClick={() => toggleLot(lot.id)} indent />
               </TableCell>
-              <TableCell>Lot {lot.lotNumber}</TableCell>
+              <TableCell>
+                Lot {lot.lotNumber}
+                {drug.type === 'vaccine' && (
+                  <Box component="span" sx={{ ml: 1 }}>
+                    <FundingChip fundingSource={lot.fundingSource} />
+                  </Box>
+                )}
+              </TableCell>
               <TableCell>
                 {formatQuantity(lot.onHand, lot.unit)}
                 <MarkerChips markers={lot.markers} only={['below-zero']} />

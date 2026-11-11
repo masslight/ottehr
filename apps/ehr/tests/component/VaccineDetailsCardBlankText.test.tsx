@@ -32,8 +32,14 @@ vi.mock('src/features/immunization/hooks/useImmunizationQuickPickManagement', ()
 vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
 }));
+vi.mock('src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
+}));
+
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useAppointmentData: () => ({ mappedData: {} }),
+  useAppointmentData: () => ({ mappedData: {}, resources: {} }),
 }));
 vi.mock('src/features/visits/in-person/hooks/useImmunization', () => ({
   useAdministerImmunizationOrder: () => ({ mutateAsync: administerOrder }),

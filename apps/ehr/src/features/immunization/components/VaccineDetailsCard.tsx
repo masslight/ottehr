@@ -33,6 +33,7 @@ import { ImmunizationEmergencyContact, ImmunizationOrder } from 'utils/lib/types
 import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
+import { useVfcEligibility } from '../hooks/useVaccineInventory';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import {
   administrationErrors,
@@ -44,6 +45,7 @@ import {
 } from './immunizationLines';
 import { ImmunizationSectionLabel, ImmunizationSentences } from './ImmunizationSentences';
 import { OrderStatusChip } from './OrderStatusChip';
+import { VfcEligibilityBox } from './VfcEligibilityBox';
 
 interface Props {
   order: ImmunizationOrder;
@@ -91,7 +93,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { id: appointmentId } = useParams();
-  const { mappedData } = useAppointmentData(appointmentId);
+  const { mappedData, resources } = useAppointmentData(appointmentId);
+  const vfcEligibility = useVfcEligibility(order.encounterId || undefined).data?.confirmed?.code;
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
@@ -176,6 +179,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     <>
       <AccordionCard>
         <Stack spacing={1.5} style={{ padding: '24px' }}>
+          <VfcEligibilityBox encounterId={order.encounterId || undefined} variant="strip" readOnly={isReadOnly} />
           <ImmunizationSectionLabel>Order</ImmunizationSectionLabel>
           <ImmunizationSentences
             line={line}
@@ -187,6 +191,9 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
             errors={attempted ? errorsFor(administrationType) : []}
             readOnly={isReadOnly}
             needAdministration
+            locationId={resources?.location?.id}
+            vfcEligibility={vfcEligibility}
+            patientFirstName={resources?.patient?.firstName}
           >
             <Sentence>
               Emergency contact:{' '}

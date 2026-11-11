@@ -31,7 +31,20 @@ export interface NdcVaccineProduct {
  * Active CVX codes a practice would not stock: national stockpile, avian flu, Southern Hemisphere flu, the
  * self-administered nasal flu and the shortage-only yellow fever formulation. Everything else active is offered.
  */
-export const CVX_NOT_OFFERED = new Set(['318', '160', '321', '322', '231', '337', '200', '201', '202', '331', '333', '183']);
+export const CVX_NOT_OFFERED = new Set([
+  '318',
+  '160',
+  '321',
+  '322',
+  '231',
+  '337',
+  '200',
+  '201',
+  '202',
+  '331',
+  '333',
+  '183',
+]);
 
 const readPsvRows = (text: string): string[][] =>
   text
@@ -78,7 +91,10 @@ const NDC11 = /^\d{5}-\d{4}-\d{2}$/;
  * sale ended before `keepEndedSince` (YYYY-MM-DD) are dropped; a box can outlive its listing for a while.
  */
 export function parseCdcNdcLookup(text: string, offered: Set<string>, keepEndedSince: string): NdcVaccineProduct[] {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter((line) => line.trim());
+  const lines = text
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .filter((line) => line.trim());
   const [header, ...rows] = lines.map((line) => line.split('|').map((cell) => cell.replace(/^"|"$/g, '').trim()));
   const column = (name: string): number => {
     const index = (header ?? []).indexOf(name);

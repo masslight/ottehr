@@ -90,7 +90,8 @@ export interface DerivedVfcEligibility {
  * Alaska Native (V04) and Underinsured (V05) are staff picks. Undefined when the paperwork says nothing yet.
  */
 export const deriveVfcEligibility = (facts: VfcEligibilityFacts): DerivedVfcEligibility | undefined => {
-  if (facts.hasMedicaid) return { code: 'V02', why: '"I have Medicaid insurance coverage" is checked in the paperwork.' };
+  if (facts.hasMedicaid)
+    return { code: 'V02', why: '"I have Medicaid insurance coverage" is checked in the paperwork.' };
   if (facts.selfPay && !facts.hasCoverage) {
     return { code: 'V03', why: 'Paperwork says "I will pay without insurance" and no insurance is on file.' };
   }
@@ -127,18 +128,19 @@ export const sortVaccineLotsForPatient = <T extends VaccineLotLike>(
   const wanted = code ? wantedFundingSource(code) : undefined;
   const matches = (lot: T): boolean | undefined =>
     wanted === undefined ? undefined : isPublicFunding(lot.fundingSource ?? 'private') === (wanted === 'vfc');
-  const rank = (option: VaccineLotOption<T>): number =>
-    (option.expired ? 2 : 0) + (option.matches === false ? 1 : 0);
-  return lots
-    // Expiration dates are calendar dates, so they compare as strings (as isExpirationDatePast does).
-    .map((lot) => ({ lot, expired: lot.expirationDate.slice(0, 10) < today, matches: matches(lot) }))
-    .map((option) => (option.matches === undefined ? { lot: option.lot, expired: option.expired } : option))
-    .sort(
-      (a, b) =>
-        rank(a) - rank(b) ||
-        a.lot.expirationDate.localeCompare(b.lot.expirationDate) ||
-        a.lot.lotNumber.localeCompare(b.lot.lotNumber)
-    );
+  const rank = (option: VaccineLotOption<T>): number => (option.expired ? 2 : 0) + (option.matches === false ? 1 : 0);
+  return (
+    lots
+      // Expiration dates are calendar dates, so they compare as strings (as isExpirationDatePast does).
+      .map((lot) => ({ lot, expired: lot.expirationDate.slice(0, 10) < today, matches: matches(lot) }))
+      .map((option) => (option.matches === undefined ? { lot: option.lot, expired: option.expired } : option))
+      .sort(
+        (a, b) =>
+          rank(a) - rank(b) ||
+          a.lot.expirationDate.localeCompare(b.lot.expirationDate) ||
+          a.lot.lotNumber.localeCompare(b.lot.lotNumber)
+      )
+  );
 };
 
 // ─── Billing ──────────────────────────────────────────────────────────────────

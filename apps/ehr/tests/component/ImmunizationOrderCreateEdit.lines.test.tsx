@@ -111,6 +111,12 @@ vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({
 }));
 
 // The line shows its vaccine and errors, and offers its remove button
+vi.mock('../../src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
+}));
+
 vi.mock('../../src/features/immunization/components/ImmunizationSentences', () => ({
   ImmunizationSectionLabel: ({ children }: any) => <h3>{children}</h3>,
   ImmunizationSentences: ({ line, index, onRemove, errors }: any) => (

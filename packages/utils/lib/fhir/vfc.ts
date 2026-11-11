@@ -39,7 +39,9 @@ export const makeVfcEligibilityObservation = (input: VfcEligibilityObservationIn
   status: 'final',
   category: [{ coding: [{ system: OBSERVATION_CATEGORY_SYSTEM, code: VFC_ELIGIBILITY_CATEGORY }] }],
   code: {
-    coding: [{ system: LOINC_SYSTEM, code: VFC_ELIGIBILITY_LOINC, display: 'Vaccine funding program eligibility category' }],
+    coding: [
+      { system: LOINC_SYSTEM, code: VFC_ELIGIBILITY_LOINC, display: 'Vaccine funding program eligibility category' },
+    ],
   },
   subject: { reference: `Patient/${input.patientId}` },
   encounter: { reference: `Encounter/${input.encounterId}` },
@@ -55,13 +57,16 @@ export const isVfcEligibilityObservation = (observation: Observation): boolean =
 export const parseVfcEligibilityObservation = (
   observation: Observation
 ): { code: VfcEligibilityCode; confirmedAt: string; performerReference?: string } | undefined => {
-  const code = observation.valueCodeableConcept?.coding?.find(
-    (coding) => coding.system === VFC_ELIGIBILITY_CODE_SYSTEM
-  )?.code;
+  const code = observation.valueCodeableConcept?.coding?.find((coding) => coding.system === VFC_ELIGIBILITY_CODE_SYSTEM)
+    ?.code;
   if (!isVfcEligibilityObservation(observation) || !isEligibilityCode(code) || !observation.effectiveDateTime) {
     return undefined;
   }
-  return { code, confirmedAt: observation.effectiveDateTime, performerReference: observation.performer?.[0]?.reference };
+  return {
+    code,
+    confirmedAt: observation.effectiveDateTime,
+    performerReference: observation.performer?.[0]?.reference,
+  };
 };
 
 // ─── The dose: what stock it came from, and the eligibility that day ──────────
@@ -123,7 +128,10 @@ export const getVaccineDoseFunding = (medicationAdministration: MedicationAdmini
  */
 export const immunizationFundingFields = (
   funding: VaccineDoseFunding
-): { programEligibility?: { coding: { system: string; code: string }[] }[]; fundingSource?: { coding: { system: string; code: string }[] } } => ({
+): {
+  programEligibility?: { coding: { system: string; code: string }[] }[];
+  fundingSource?: { coding: { system: string; code: string }[] };
+} => ({
   ...(funding.vfcEligibility
     ? { programEligibility: [{ coding: [{ system: VFC_ELIGIBILITY_CODE_SYSTEM, code: funding.vfcEligibility }] }] }
     : {}),

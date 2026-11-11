@@ -981,12 +981,33 @@ export const dataTestIds = {
     adjustButton: (lotId: string) => `inventory-lot-adjust-${lotId}`,
   },
 
+  vfcEligibility: {
+    box: 'vfc-eligibility-box',
+    confirmed: 'vfc-eligibility-confirmed',
+    select: 'vfc-eligibility-select',
+    confirmButton: 'vfc-eligibility-confirm-button',
+  },
+
+  vaccineLotBlank: {
+    option: (lotId: string) => `vaccine-lot-option-${lotId}`,
+    typedLot: 'vaccine-lot-typed',
+    borrowingReason: 'vaccine-lot-borrowing-reason',
+    useBorrowedLot: 'vaccine-lot-use-borrowed',
+  },
+
+  vfcBorrowingLog: {
+    table: 'vfc-borrowing-log',
+    row: (borrowingId: string) => `vfc-borrowing-row-${borrowingId}`,
+    replacedButton: (borrowingId: string) => `vfc-borrowing-replaced-${borrowingId}`,
+  },
+
   receiveShipmentDialog: {
     dialog: 'receive-shipment-dialog',
     ndcField: 'receive-shipment-ndc-field',
     lotNumberField: 'receive-shipment-lot-number-field',
     quantityField: 'receive-shipment-quantity-field',
     receiveButton: 'receive-shipment-receive-button',
+    fundingSourceSelect: 'receive-shipment-funding-source',
   },
 
   editNoteDialog: {

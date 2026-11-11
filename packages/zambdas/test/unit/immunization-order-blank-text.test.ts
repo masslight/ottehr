@@ -53,7 +53,9 @@ const mockOystehr = (order: MedicationAdministration): { oystehr: Oystehr; trans
   const get = vi.fn(async ({ resourceType }: { resourceType: string }) =>
     resourceType === 'MedicationAdministration' ? order : practitioner
   );
-  return { oystehr: { fhir: { get, transaction } } as unknown as Oystehr, transaction };
+  // no eligibility recorded and no stock entries: the VFC and inventory reads find nothing
+  const search = vi.fn().mockResolvedValue({ unbundle: () => [], entry: [] });
+  return { oystehr: { fhir: { get, search, transaction } } as unknown as Oystehr, transaction };
 };
 
 const manufacturerOrg = (ma: MedicationAdministration): Organization | undefined =>

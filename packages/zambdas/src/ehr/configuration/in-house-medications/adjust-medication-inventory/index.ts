@@ -81,7 +81,8 @@ export const performEffect = async (
   params: AdjustMedicationInventoryInput,
   performerReference: string
 ): Promise<AdjustMedicationInventoryResponse> => {
-  if (params.action === 'borrowing-replaced') return markBorrowingReplaced(oystehr, params.borrowingId, performerReference);
+  if (params.action === 'borrowing-replaced')
+    return markBorrowingReplaced(oystehr, params.borrowingId, performerReference);
   const lotResource = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: params.lotId });
   const lot = parseInventoryLot(lotResource);
   if (!lot) throw FHIR_RESOURCE_NOT_FOUND('Medication');

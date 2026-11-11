@@ -1,11 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as prettier from 'prettier';
-import {
-  parseCdcNdcLookup,
-  parseCvxPsv,
-  parseMvxPsv,
-} from 'utils/lib/types/data/immunization/vaccine-codes';
+import { parseCdcNdcLookup, parseCvxPsv, parseMvxPsv } from 'utils/lib/types/data/immunization/vaccine-codes';
 
 // Renders the vaccine catalog's code tables from the CDC downloads in scripts/data/cdc-vaccines/: the CVX
 // vaccines a practice can switch on, the active MVX manufacturers, and the NDC crosswalk rows for those
@@ -20,7 +16,13 @@ export const NDC_KEEP_ENDED_SINCE = '2024-01-01';
 
 const read = (file: string): string => fs.readFileSync(path.join(SOURCE_DIR, file), 'utf-8');
 
-async function write(target: string, header: string[], exportName: string, type: string, rows: unknown[]): Promise<void> {
+async function write(
+  target: string,
+  header: string[],
+  exportName: string,
+  type: string,
+  rows: unknown[]
+): Promise<void> {
   const source = [
     ...header.map((line) => `// ${line}`),
     `import type { ${type} } from './vaccine-codes';`,

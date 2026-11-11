@@ -1,10 +1,6 @@
 import { z } from 'zod';
 import { IN_HOUSE_MEDICATION_UNIT_OPTIONS, MedicationUnitOptions } from '../../../fhir/medication-administration';
-import {
-  VaccineFundingSource,
-  VaccineFundingSourceSchema,
-  VfcEligibilityCode,
-} from '../../data/immunization/vfc';
+import { VaccineFundingSource, VaccineFundingSourceSchema, VfcEligibilityCode } from '../../data/immunization/vfc';
 
 /** A drug from the Medispan search, or (with `vaccine`) a vaccine from the CVX list; the vaccine needs nothing else. */
 export interface CreateInHouseMedicationInput {
@@ -259,7 +255,10 @@ export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryI
 
 export interface GetMedicationInventoryResponse {
   /** The lot of this drug (any location) with the newest "received" entry; prefills the receive dialog. */
-  lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
+  lastReceivedLot?: Pick<
+    InventoryLot,
+    'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'mvx' | 'vendor' | 'fundingSource'
+  >;
   /** With `locationId`: lots with stock on hand at that location, soonest expiration first. Absent for an untracked drug. */
   lots?: InventoryLot[];
 }

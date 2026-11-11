@@ -68,7 +68,8 @@ export const performEffect = async (
   // A vaccine box names its manufacturer through the CDC NDC crosswalk (MVX); a typed manufacturer wins.
   const isVaccine = isVaccineCatalogMedication(catalog);
   const crosswalk = isVaccine ? findNdcVaccineProduct(ndc) : undefined;
-  const manufacturer = params.manufacturer ?? (crosswalk ? getMvxManufacturer(crosswalk.mvx)?.name ?? crosswalk.labeler : undefined);
+  const manufacturer =
+    params.manufacturer ?? (crosswalk ? getMvxManufacturer(crosswalk.mvx)?.name ?? crosswalk.labeler : undefined);
   const fundingSource = isVaccine ? params.fundingSource : undefined;
   const { locations } = await listActiveLocations(oystehr, { inPersonOnly: true });
   if (!locations.some((location) => location.id === locationId)) {

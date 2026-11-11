@@ -9,7 +9,11 @@ import {
   LookupNdcResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
-import { findNdcVaccineProduct, getCvxVaccine, getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
+import {
+  findNdcVaccineProduct,
+  getCvxVaccine,
+  getMvxManufacturer,
+} from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';

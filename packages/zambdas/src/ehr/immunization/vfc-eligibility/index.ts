@@ -54,7 +54,8 @@ export const performEffect = async (
   const visit = await getVfcVisit(oystehr, params.encounterId);
   if (!visit) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
   if (!vfcApplies(visit.patient)) {
-    if (params.action === 'confirm') throw INVALID_INPUT_ERROR('VFC eligibility is only recorded for patients 18 and younger.');
+    if (params.action === 'confirm')
+      throw INVALID_INPUT_ERROR('VFC eligibility is only recorded for patients 18 and younger.');
     return { applies: false };
   }
   if (params.action === 'confirm') {

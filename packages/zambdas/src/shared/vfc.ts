@@ -134,7 +134,8 @@ export async function getConfirmedVfcEligibility(
     })
   ).unbundle();
   const observation = resources.find(
-    (resource): resource is Observation => resource.resourceType === 'Observation' && isVfcEligibilityObservation(resource)
+    (resource): resource is Observation =>
+      resource.resourceType === 'Observation' && isVfcEligibilityObservation(resource)
   );
   const parsed = observation ? parseVfcEligibilityObservation(observation) : undefined;
   if (!parsed) return undefined;
@@ -190,7 +191,11 @@ export async function recordVfcBorrowing(
   performerReference: string
 ): Promise<void> {
   const funding = getVaccineDoseFunding(medicationAdministration);
-  if (!isVfcBorrowing(funding.fundingSource, funding.vfcEligibility) || !funding.fundingSource || !funding.vfcEligibility) {
+  if (
+    !isVfcBorrowing(funding.fundingSource, funding.vfcEligibility) ||
+    !funding.fundingSource ||
+    !funding.vfcEligibility
+  ) {
     return;
   }
   const medicationAdministrationId = medicationAdministration.id;
@@ -218,7 +223,8 @@ export async function recordVfcBorrowing(
   if (!locationId) return;
   const lots = await findInventoryLotsByNumber(oystehr, { catalogMedicationId, locationId, lotNumber });
   const expirationDate = contained?.batch?.expirationDate?.slice(0, 10);
-  const lot = lots.length === 1 ? lots[0] : lots.find((candidate) => candidate.batch?.expirationDate === expirationDate);
+  const lot =
+    lots.length === 1 ? lots[0] : lots.find((candidate) => candidate.batch?.expirationDate === expirationDate);
   if (!lot?.id) return;
 
   await oystehr.fhir.create<Observation>(
@@ -256,7 +262,9 @@ export async function listVfcBorrowings(oystehr: Oystehr): Promise<VfcBorrowingR
   const byRef = new Map<string, FhirResource>();
   for (const resource of resources) if (resource.id) byRef.set(`${resource.resourceType}/${resource.id}`, resource);
   return resources
-    .flatMap((resource) => (resource.resourceType === 'Observation' ? parseVfcBorrowingObservation(resource) ?? [] : []))
+    .flatMap((resource) =>
+      resource.resourceType === 'Observation' ? parseVfcBorrowingObservation(resource) ?? [] : []
+    )
     .map((borrowing) => toBorrowingRow(borrowing, resources, byRef));
 }
 
@@ -273,7 +281,9 @@ export const toBorrowingRow = (
   const encounter = byRef.get(administration?.context?.reference ?? '') as Encounter | undefined;
   const appointmentId = encounter?.appointment?.[0]?.reference?.replace('Appointment/', '');
   const parsedLot = lot ? parseInventoryLot(lot) : undefined;
-  const vaccineName = getMedicationName(getMedicationFromMA(administration ?? ({} as MedicationAdministration))) ?? (lot ? getMedicationName(lot) : undefined);
+  const vaccineName =
+    getMedicationName(getMedicationFromMA(administration ?? ({} as MedicationAdministration))) ??
+    (lot ? getMedicationName(lot) : undefined);
   const patientName = patient ? getFullestAvailableName(patient) : undefined;
   const by = performerName(resources, borrowing.performerReference);
   const replacedBy = performerName(resources, borrowing.replaced?.performerReference);
@@ -289,6 +299,8 @@ export const toBorrowingRow = (
     ...(borrowing.vfcEligibility ? { vfcEligibility: borrowing.vfcEligibility } : {}),
     reason: borrowing.reason,
     ...(by ? { performerName: by } : {}),
-    ...(borrowing.replaced ? { replaced: { date: borrowing.replaced.date, ...(replacedBy ? { performerName: replacedBy } : {}) } } : {}),
+    ...(borrowing.replaced
+      ? { replaced: { date: borrowing.replaced.date, ...(replacedBy ? { performerName: replacedBy } : {}) } }
+      : {}),
   };
 };

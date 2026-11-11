@@ -36,8 +36,14 @@ export async function fillVfcEligibilityFromVisit(
   if (administrationDetails.vfcEligibility) return;
   const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
   if (!encounterId) return;
-  const confirmed = await getConfirmedVfcEligibility(oystehr, encounterId);
-  if (confirmed) administrationDetails.vfcEligibility = confirmed.code;
+  try {
+    const confirmed = await getConfirmedVfcEligibility(oystehr, encounterId);
+    if (confirmed) administrationDetails.vfcEligibility = confirmed.code;
+  } catch (error) {
+    // the dose is still given; the record just lacks the eligibility the screen did not send
+    console.error('Error reading the visit VFC eligibility:', error);
+    captureException(error);
+  }
 }
 
 /**

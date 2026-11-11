@@ -1,7 +1,7 @@
 import { Close, SaveOutlined } from '@mui/icons-material';
-import { Autocomplete, Box, Button, FormHelperText, IconButton, TextField, Typography } from '@mui/material';
+import { Autocomplete, Box, Button, Chip, FormHelperText, IconButton, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, ReactNode, useState } from 'react';
+import { FC, ReactNode, useEffect, useState } from 'react';
 import { CptCodesInput } from 'src/components/input/CptCodesInput';
 import { EmployeeOption, useEmployeeOptions } from 'src/components/input/EmployeeSelectInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -17,14 +17,21 @@ import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunizat
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
 import { BASE_ROUTE_OPTIONS, LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { MVX_MANUFACTURERS } from 'utils/lib/types/data/immunization/mvx-manufacturers.generated';
 import {
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
+  Vaccine,
 } from 'utils/lib/types/data/immunization/types';
+import { getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
+import { VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
 import { ImmunizationDiagnosisOption, useImmunizationDiagnosisOptions } from '../hooks/useImmunizationDiagnosisOptions';
+import { useVaccineLotsOnHand } from '../hooks/useVaccineInventory';
 import { ImmunizationLine } from './immunizationLines';
 import { IMMUNIZATION_MENU_PAPER_SX, ImmunizationMenu } from './ImmunizationMenu';
+import { FundingChip, VaccineLotBlank } from './VaccineLotBlank';
 
 /** The admins' button under the line that saves it as a quick pick. */
 export const SAVE_QUICK_PICK_LABEL = 'Save as quick pick';
@@ -36,6 +43,11 @@ const VIS_OPTIONS = [
   { value: 'given', label: 'given' },
   { value: 'not given', label: 'not given' },
 ];
+// The manufacturer is picked by its CDC MVX code; the lot pick fills it from the box's NDC.
+const MVX_OPTIONS = MVX_MANUFACTURERS.map((manufacturer) => ({
+  value: manufacturer.mvx,
+  label: `${manufacturer.name} (${manufacturer.mvx})`,
+}));
 
 /** The small uppercase heading over a group of sentences, as the eRx form's. */
 export const ImmunizationSectionLabel: FC<{ children: ReactNode; spaced?: boolean }> = ({ children, spaced }) => (
@@ -117,7 +129,69 @@ interface ImmunizationSentencesProps {
   needAdministration?: boolean;
   /** More sentences after the administration ones (the details card's emergency contact). */
   children?: ReactNode;
+  /** The visit's location: with it, the Lot blank lists the vaccine's lots on hand there. */
+  locationId?: string;
+  /** The patient's VFC eligibility for the visit, once confirmed: the matching stock lists first. */
+  vfcEligibility?: VfcEligibilityCode;
+  patientFirstName?: string;
 }
+
+/** The Lot blank with the vaccine's lots on hand; a plain blank for a vaccine not set up for inventory. */
+const LotBlank: FC<{
+  line: ImmunizationLine;
+  locationId: string | undefined;
+  vfcEligibility: VfcEligibilityCode | undefined;
+  patientFirstName: string | undefined;
+  readOnly: boolean;
+  need: boolean | undefined;
+  onChange: (next: ImmunizationLine) => void;
+}> = ({ line, locationId, vfcEligibility, patientFirstName, readOnly, need, onChange }) => {
+  const { details, administrationDetails } = line;
+  const { data: lots } = useVaccineLotsOnHand(details.medication?.id, locationId);
+  const updateAdministration = (patch: InputImmunizationOrderAdministrationDetails): void =>
+    onChange({ ...line, administrationDetails: { ...administrationDetails, ...patch } });
+  if (!lots?.length) {
+    return (
+      <TextBlank
+        label="lot number"
+        value={administrationDetails.lot}
+        onChange={(lot) => updateAdministration({ lot, fundingSource: undefined, borrowingReason: undefined })}
+        readOnly={readOnly}
+        need={need}
+        dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
+      />
+    );
+  }
+  return (
+    <VaccineLotBlank
+      lots={lots}
+      value={administrationDetails.lot}
+      vfcEligibility={vfcEligibility}
+      patientFirstName={patientFirstName}
+      readOnly={readOnly}
+      need={need}
+      dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
+      // A picked lot fills what the box says and takes one dose off that lot when administered.
+      onPick={(lot: InventoryLot, borrowingReason) =>
+        onChange({
+          ...line,
+          details: { ...details, manufacturer: lot.manufacturer ?? getMvxManufacturer(lot.mvx)?.name },
+          administrationDetails: {
+            ...administrationDetails,
+            lot: lot.lotNumber,
+            expDate: lot.expirationDate,
+            ndc: lot.ndc ?? '',
+            mvx: lot.mvx ?? administrationDetails.mvx,
+            fundingSource: lot.fundingSource ?? 'private',
+            vfcEligibility,
+            borrowingReason,
+          },
+        })
+      }
+      onType={(lot) => updateAdministration({ lot, fundingSource: undefined, borrowingReason: undefined })}
+    />
+  );
+};
 
 /** One immunization as sentences: what and for what, how much and where, by whom, and the administration details
  * that can be entered at order time. */
@@ -133,6 +207,9 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
   readOnly,
   needAdministration,
   children,
+  locationId,
+  vfcEligibility,
+  patientFirstName,
 }) => {
   const { details, administrationDetails } = line;
   const update = (patch: Partial<InputImmunizationOrderDetails>): void =>
@@ -140,6 +217,19 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
   const updateAdministration = (patch: InputImmunizationOrderAdministrationDetails): void =>
     onChange({ ...line, administrationDetails: { ...administrationDetails, ...patch } });
   const { data: vaccines, isLoading: vaccinesLoading } = useGetVaccines();
+  // The CVX comes from the vaccine, not from typing: picked here, or by a quick pick that named the vaccine.
+  const vaccineCvx = vaccines?.find((vaccine) => vaccine.id === details.medication?.id)?.cvx;
+  useEffect(() => {
+    if (vaccineCvx && administrationDetails.cvx !== vaccineCvx) updateAdministration({ cvx: vaccineCvx });
+    // the line's identity is what matters; updateAdministration is remade every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vaccineCvx, administrationDetails.cvx]);
+  const pickVaccine = (vaccine: Vaccine): void =>
+    onChange({
+      ...line,
+      details: { ...details, medication: { id: vaccine.id, name: vaccine.name } },
+      administrationDetails: { ...administrationDetails, cvx: vaccine.cvx ?? '' },
+    });
   const diagnoses = useImmunizationDiagnosisOptions();
   const { options: providers, isLoading: providersLoading } = useEmployeeOptions(PROVIDERS_FILTER);
   // The instructions blank is offered as a link, like eRx's, and stays once opened or written in.
@@ -201,7 +291,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
                   close();
                 }}
                 onVaccine={(vaccine) => {
-                  update({ medication: vaccine });
+                  pickVaccine(vaccine);
                   close();
                 }}
               />
@@ -284,15 +374,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
       </Sentence>
 
       <Sentence>
-        Manufacturer:{' '}
-        <TextBlank
-          label="manufacturer"
-          value={details.manufacturer}
-          onChange={(manufacturer) => update({ manufacturer })}
-          readOnly={readOnly}
-          dataTestId={dataTestIds.orderVaccinePage.manufacturer}
-        />
-        . Ordered by{' '}
+        Ordered by{' '}
         <PopoverBlank
           label="ordered by"
           title="Ordered by"
@@ -376,14 +458,27 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
       </Sentence>
       <Sentence>
         Lot{' '}
-        <TextBlank
-          label="lot number"
-          value={administrationDetails.lot}
-          onChange={(lot) => updateAdministration({ lot })}
+        <LotBlank
+          line={line}
+          locationId={locationId}
+          vfcEligibility={vfcEligibility}
+          patientFirstName={patientFirstName}
           readOnly={readOnly}
           need={needAdministration}
-          dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
+          onChange={onChange}
         />
+        {administrationDetails.fundingSource && (
+          <>
+            {' '}
+            <FundingChip fundingSource={administrationDetails.fundingSource} />
+            {administrationDetails.borrowingReason && (
+              <>
+                {' '}
+                <Chip size="small" label="Borrowed" sx={{ height: 20, fontSize: 12 }} />
+              </>
+            )}
+          </>
+        )}
         , expires{' '}
         <DateTimeBlank
           kind="date"
@@ -406,22 +501,32 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
         .
       </Sentence>
       <Sentence>
+        {/* The CVX is the vaccine's own; only the manufacturer is picked, and a lot from stock fills it. */}
         CVX{' '}
         <TextBlank
           label="CVX code"
           value={administrationDetails.cvx}
           onChange={(cvx) => updateAdministration({ cvx })}
-          readOnly={readOnly}
+          readOnly
           need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
         />
-        , MVX{' '}
-        <TextBlank
-          label="MVX code"
-          value={administrationDetails.mvx}
-          onChange={(mvx) => updateAdministration({ mvx })}
+        , manufacturer{' '}
+        <SelectBlank
+          label="manufacturer (MVX)"
+          title="Manufacturer"
+          options={MVX_OPTIONS}
+          value={administrationDetails.mvx || undefined}
+          onChange={(mvx) =>
+            onChange({
+              ...line,
+              details: { ...details, manufacturer: getMvxManufacturer(mvx ?? undefined)?.name },
+              administrationDetails: { ...administrationDetails, mvx: mvx ?? '' },
+            })
+          }
           readOnly={readOnly}
           need={needAdministration}
+          verbatim
           dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
         />
         .
