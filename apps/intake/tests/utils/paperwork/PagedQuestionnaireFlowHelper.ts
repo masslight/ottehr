@@ -1334,17 +1334,18 @@ export class PagedQuestionnaireFlowHelper {
   private async continueAndCapturePatch(): Promise<QuestionnaireResponse> {
     const isPatch = (url: string): boolean => url.includes('/patch-paperwork/execute');
     // Set up listeners before clicking continue
-    const requestPromise = this.page.waitForRequest((request) => isPatch(request.url()), { timeout: 20000 });
+    const requestSent = this.page
+      .waitForRequest((request) => isPatch(request.url()), { timeout: 20000 })
+      .then(
+        () => true,
+        () => false
+      );
     const responsePromise = this.page.waitForResponse((response) => isPatch(response.url()), { timeout: 60000 });
     responsePromise.catch(() => undefined);
 
     await this.clickContinue();
 
-    const requestSent = await requestPromise.then(
-      () => true,
-      () => false
-    );
-    if (!requestSent) {
+    if (!(await requestSent)) {
       const { allErrors } = await collectValidationErrorsDetailed(this.page);
       if (allErrors.length) {
         throw new Error(`Continue on ${this.getCurrentPageSlug()} was blocked by validation: ${allErrors.join('; ')}`);

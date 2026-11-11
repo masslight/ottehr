@@ -489,6 +489,8 @@ const processPaperwork = async (
 
 type SampleAppointmentInputParams = CreateAppointmentInputParams & { selectedLocation: Location };
 
+const BOOKABLE_SEARCH_DAYS = 7;
+
 // After the schedule closes for the day the next boundary is off its grid and create-appointment
 // rejects it with SLOT_UNAVAILABLE, so fall forward to the schedule's next bookable starts.
 const getBookableInPersonStart = async (
@@ -498,17 +500,18 @@ const getBookableInPersonStart = async (
   location: Location,
   oystehr: Oystehr
 ): Promise<DateTime> => {
-  const preferred = from.plus({ minutes: 15 * appointmentIndex });
   const { availableSlots } = await getAvailableSlotsForSchedules(
-    { now: DateTime.now(), scheduleList: [{ schedule, owner: location }] },
+    { now: DateTime.now(), numDays: BOOKABLE_SEARCH_DAYS, scheduleList: [{ schedule, owner: location }] },
     oystehr
   );
   const starts = availableSlots
     .map((item) => DateTime.fromISO(item.slot.start))
     .filter((start) => start >= from)
     .sort((a, b) => a.toMillis() - b.toMillis());
-  if (starts.some((start) => start.toMillis() === preferred.toMillis())) return preferred;
-  return starts[appointmentIndex] ?? starts.at(-1) ?? preferred;
+  if (starts.length === 0) {
+    throw new Error(`No bookable in-person slot in the next ${BOOKABLE_SEARCH_DAYS} days for Schedule/${schedule.id}`);
+  }
+  return starts[appointmentIndex % starts.length];
 };
 
 const generateRandomPatientInfo = async (
