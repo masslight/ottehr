@@ -245,7 +245,7 @@ describe('ImmunizationTimeline', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hep B dose 1' }));
     expect(details).toHaveTextContent(/^Hep B dose 1 · Engerix-B · given 07\/08\/2026 \(outside\)$/);
     fireEvent.click(screen.getByText('Outside · Date unknown · not counted'));
-    expect(details).toHaveTextContent(/^MMR.* dose · MMR · given date unknown \(outside, not counted\)$/);
+    expect(details).toHaveTextContent(/^MMR · date unknown \(outside, not counted\)$/);
     expect(details).not.toHaveTextContent(/CVX|lot|mo\)/);
   });
 

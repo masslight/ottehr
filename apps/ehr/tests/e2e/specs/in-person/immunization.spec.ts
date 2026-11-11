@@ -35,7 +35,6 @@ interface AdministrationDetails {
   lotNumber: string;
   expiredDate: string;
   mvxCode: string;
-  cvxCode: string;
   ndcCode: string;
   cptCode: string;
   administeredDate: string;
@@ -91,7 +90,6 @@ const ADMINISTRATION_DETAILS: AdministrationDetails = {
   lotNumber: '1234567',
   expiredDate: '01/01/2030',
   mvxCode: '1111fff',
-  cvxCode: 'aaa222',
   cptCode: '11900',
   ndcCode: '555555ftf',
   administeredDate: '02/10/2025',
@@ -185,7 +183,6 @@ async function enterAdministrationDetails(
   await vaccineDetailsPage.enterLotNumber(administrationDetails.lotNumber);
   await vaccineDetailsPage.enterExpiredDate(administrationDetails.expiredDate);
   await vaccineDetailsPage.enterMvxCode(administrationDetails.mvxCode);
-  await vaccineDetailsPage.enterCvxCode(administrationDetails.cvxCode);
   await vaccineDetailsPage.selectCptCode(administrationDetails.cptCode);
   await vaccineDetailsPage.enterNdcCode(administrationDetails.ndcCode);
   await vaccineDetailsPage.enterAdministeredDate(administrationDetails.administeredDate);

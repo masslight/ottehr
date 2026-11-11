@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication } from 'fhir/r4b';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { LookupNdcInputSchema } from 'utils/lib/types/api/config/in-house-medications';
 import {
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -237,5 +238,19 @@ describe('lookup-ndc - performEffect', () => {
     await expect(performEffect(notCatalog, { ndc: '72572-160-25', medicationId: 'x' })).rejects.toMatchObject({
       code: expect.any(Number),
     });
+  });
+});
+
+describe('lookup-ndc - input', () => {
+  const medicationId = '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b';
+  it('takes a box NDC of digits and dashes and a medication id, and nothing else', () => {
+    expect(LookupNdcInputSchema.safeParse({ ndc: ' 58160-0820-11 ', medicationId }).success).toBe(true);
+    expect(LookupNdcInputSchema.safeParse({ ndc: '58160082011', medicationId }).success).toBe(true);
+    for (const ndc of ['', '58160 0820 11', '5816*', 'abc', '1'.repeat(21)]) {
+      expect(LookupNdcInputSchema.safeParse({ ndc, medicationId }).success).toBe(false);
+    }
+    expect(LookupNdcInputSchema.safeParse({ ndc: '58160-0820-11', medicationId: 'Medication?name=x' }).success).toBe(
+      false
+    );
   });
 });

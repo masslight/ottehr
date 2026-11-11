@@ -930,7 +930,7 @@ export const dataTestIds = {
     lotNumber: 'lot-number',
     expiredDate: 'expired-date',
     mvxCode: 'mvx-code',
-    cvxCode: 'cvx-code',
+    ndcMismatch: 'vaccine-details-ndc-mismatch',
     cptCode: 'cpt-code',
     ndcCode: 'ndc-code',
     administeredDate: 'administered-date',

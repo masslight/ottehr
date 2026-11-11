@@ -222,7 +222,11 @@ export type ReceiveMedicationShipmentResponse =
   | { expirationConflict: ReceiveExpirationConflict };
 
 export const LookupNdcInputSchema = z.object({
-  ndc: z.string().trim().min(1),
+  // A box NDC: digits and dashes only (10 or 11 digits, hyphenated or not); never anything else reaches a lookup.
+  ndc: z
+    .string()
+    .trim()
+    .regex(/^[0-9-]{1,20}$/, 'NDC must be digits and dashes'),
   medicationId: z.string().uuid(),
 });
 export type LookupNdcInput = z.infer<typeof LookupNdcInputSchema>;

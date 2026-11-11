@@ -185,7 +185,8 @@ export const administrationErrors = (line: ImmunizationFormValues, administering
   if (!details.lot?.trim()) errors.push('Enter the lot number');
   if (!details.expDate) errors.push('Enter the expiration date');
   if (!details.ndc?.trim()) errors.push('Enter the NDC code');
-  if (!details.cvx?.trim()) errors.push('Enter the CVX code');
+  // The CVX is saved from the vaccine, never typed: a vaccine set up without one cannot be administered.
+  if (!details.cvx?.trim()) errors.push('This vaccine has no CVX code in its setup');
   if (!details.mvx?.trim()) errors.push('Enter the MVX code');
   if (!details.visGiven) errors.push('Confirm the VIS was given to the patient');
   if (!details.visGivenDate) errors.push('Enter the VIS date');

@@ -16,6 +16,17 @@ vi.mock('src/features/visits/in-person/hooks/useImmunization', () => ({
   }),
 }));
 
+const ndcLookup = vi.hoisted(() => ({
+  results: {} as Record<string, unknown>,
+  calls: [] as string[],
+}));
+vi.mock('src/features/admin/inventory/useNdcLookup', () => ({
+  useNdcLookup: (ndc: string) => {
+    ndcLookup.calls.push(ndc);
+    return ndcLookup.results[ndc] ?? { status: 'idle' };
+  },
+}));
+
 vi.mock('src/features/immunization/hooks/useImmunizationDiagnosisOptions', () => ({
   useImmunizationDiagnosisOptions: () => [{ resourceId: 'cond-1', display: 'Z23 - Encounter for immunization' }],
 }));
@@ -165,9 +176,10 @@ describe('ImmunizationSentences', () => {
 
     expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.lotNumber)).toHaveValue('L-42');
     expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.ndcCode)).toHaveValue('00006-4681-00');
-    // the CVX is the vaccine's own and reads as text; the manufacturer is picked by MVX and shows its name
-    expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.cvxCode)).toHaveTextContent('03');
-    expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.mvxCode)).toHaveTextContent('Merck and Co., Inc. (MSD)');
+    // no CVX blank (it is saved from the vaccine); the manufacturer shows its name only, and saves the MVX code
+    expect(screen.queryByText(/CVX/)).not.toBeInTheDocument();
+    expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.mvxCode)).toHaveTextContent(/^Merck and Co., Inc.$/);
+    expect(screen.getByText(/^\s*Manufacturer\s*$/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Administration' })).toBeInTheDocument();
   });
 
@@ -231,5 +243,68 @@ describe('ImmunizationSentences', () => {
     } finally {
       Settings.defaultZone = defaultZone;
     }
+  });
+
+  describe('a typed NDC', () => {
+    const hepb = { id: 'vac-hepb', name: 'Hep B vaccine' };
+    const product = { packageNdc: '58160-0820-11', name: 'Engerix-B', manufacturer: 'GSK', rxcuis: [] };
+    let saved: ImmunizationLine | undefined;
+    const Harness = ({ start }: { start: ImmunizationLine }): JSX.Element => {
+      const [line, setLine] = useState(start);
+      saved = line;
+      return (
+        <ImmunizationSentences
+          line={line}
+          index={0}
+          onChange={setLine}
+          quickPicks={[]}
+          onQuickPick={vi.fn()}
+          errors={[]}
+          readOnly={false}
+        />
+      );
+    };
+    const withVaccine = (administrationDetails = {}): ImmunizationLine => ({
+      ...emptyImmunizationLine(),
+      details: { medication: hepb },
+      administrationDetails,
+    });
+    beforeEach(() => {
+      ndcLookup.results = {};
+      ndcLookup.calls = [];
+    });
+
+    it('fills an empty manufacturer from the box', async () => {
+      ndcLookup.results['58160-0820-11'] = {
+        status: 'match',
+        comparedBy: 'cvx',
+        product,
+        vaccine: { cvx: '08', vaccineName: 'Hep B', mvx: 'SKB' },
+      };
+      render(<Harness start={withVaccine()} />);
+      await userEvent.setup().type(screen.getByTestId(dataTestIds.vaccineDetailsPage.ndcCode), '58160-0820-11');
+      expect(saved?.administrationDetails.mvx).toBe('SKB');
+      expect(screen.queryByTestId(dataTestIds.vaccineDetailsPage.ndcMismatch)).not.toBeInTheDocument();
+    });
+
+    it('never overwrites a manufacturer picked by hand, and warns when the box is another vaccine', async () => {
+      ndcLookup.results['00006-4681-00'] = {
+        status: 'mismatch',
+        comparedBy: 'cvx',
+        product: { ...product, packageNdc: '00006-4681-00', name: 'M-M-R II' },
+        vaccine: { cvx: '03', vaccineName: 'MMR', mvx: 'MSD' },
+      };
+      render(<Harness start={withVaccine({ mvx: 'PMC' })} />);
+      await userEvent.setup().type(screen.getByTestId(dataTestIds.vaccineDetailsPage.ndcCode), '00006-4681-00');
+      expect(saved?.administrationDetails.mvx).toBe('PMC');
+      expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.ndcMismatch)).toHaveTextContent(
+        'NDC 00006-4681-00 is MMR, not Hep B vaccine. Check the box.'
+      );
+    });
+
+    it('does not look up an NDC a stock lot filled', () => {
+      render(<Harness start={withVaccine({ ndc: '58160-0820-11', lot: 'L1' })} />);
+      expect(ndcLookup.calls.every((ndc) => ndc === '')).toBe(true);
+    });
   });
 });

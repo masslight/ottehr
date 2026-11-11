@@ -420,17 +420,21 @@ const LaneStatusIcon = ({
   );
 };
 
-/** "Hep B dose 1 · Engerix-B · given 07/10/2026 (outside, late)": brand when known; a note only when it matters. */
+/**
+ * "Hep B dose 1 · Engerix-B · given 07/10/2026 (outside, late)", "MMR · date unknown (outside, not counted)": brand
+ * when known and not just the lane's name, "dose" only with a number, a note only when it matters.
+ */
 const givenDoseText = (laneLabel: string, dose: EvaluatedDose, record?: PatientImmunizationRecord): string => {
   const notes = [
     record?.outside && 'outside',
     dose.counted && dose.timing === 'late' && 'late',
     !dose.counted && 'not counted',
   ].filter(Boolean);
+  const numbered = dose.counted && dose.doseNumber;
   return [
-    `${laneLabel} dose${dose.counted && dose.doseNumber ? ` ${dose.doseNumber}` : ''}`,
-    record?.vaccineName,
-    `given ${dose.date ? formatDate(dose.date) : 'date unknown'}${notes.length ? ` (${notes.join(', ')})` : ''}`,
+    numbered ? `${laneLabel} dose ${dose.doseNumber}` : laneLabel,
+    record?.vaccineName !== laneLabel ? record?.vaccineName : undefined,
+    `${dose.date ? `given ${formatDate(dose.date)}` : 'date unknown'}${notes.length ? ` (${notes.join(', ')})` : ''}`,
   ]
     .filter(Boolean)
     .join(' · ');

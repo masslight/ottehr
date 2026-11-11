@@ -24,7 +24,7 @@ import { Medication } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useRef, useState } from 'react';
-import { lookupNdc, receiveMedicationShipment } from 'src/api/api';
+import { receiveMedicationShipment } from 'src/api/api';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -33,7 +33,6 @@ import { isVaccineCatalogMedication } from 'utils/lib/fhir/medication-inventory'
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   InHouseMedicationInventory,
-  LookupNdcResponse,
   MEDICATION_COUNTED_AS_LABELS,
   ReceiveExpirationConflict,
   ReceiveMedicationShipmentInput,
@@ -46,6 +45,7 @@ import {
 import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 import { formatExpiration, inventoryButtonSx, storedLocationId, unitLabel } from './inventory.helpers';
 import { useLastReceivedLot } from './inventory.queries';
+import { NdcLookupState, useNdcLookup } from './useNdcLookup';
 
 interface ReceiveShipmentDialogProps {
   open: boolean;
@@ -66,9 +66,7 @@ interface ReceiveFormState {
   fundingSource: VaccineFundingSource;
 }
 
-type LookupState = { status: 'idle' | 'loading' } | LookupNdcResponse;
-
-const NDC_LOOKUP_DEBOUNCE_MS = 600;
+type LookupState = NdcLookupState;
 
 /** What the lookup panel says while there is no product to show. */
 const LOOKUP_MESSAGES: Partial<Record<LookupState['status'], (ndc: string) => string>> = {
@@ -97,7 +95,6 @@ export default function ReceiveShipmentDialog({
     fundingSource: 'private',
   }));
   const isVaccine = isVaccineCatalogMedication(medication);
-  const [lookup, setLookup] = useState<LookupState>({ status: 'idle' });
   const [saving, setSaving] = useState(false);
   // Set when the location already has this lot number with another expiration date; staff pick what to do.
   const [conflict, setConflict] = useState<ReceiveExpirationConflict | undefined>(undefined);
@@ -123,32 +120,11 @@ export default function ReceiveShipmentDialog({
     }));
   }, [lastReceivedLot.data]);
 
-  // Look the box up once typing pauses; a result for an NDC that has since changed is dropped.
+  // Look the box up once typing pauses; the directory's labeler fills the manufacturer.
+  const lookup = useNdcLookup(form.ndc, medication.id);
   useEffect(() => {
-    const ndc = form.ndc.trim();
-    if (!oystehrZambda || !ndc) {
-      setLookup({ status: 'idle' });
-      return;
-    }
-    let cancelled = false;
-    setLookup({ status: 'loading' });
-    const timer = setTimeout(() => {
-      lookupNdc(oystehrZambda, { ndc, medicationId: medication.id })
-        .then((result) => {
-          if (cancelled) return;
-          setLookup(result);
-          if (result.product?.manufacturer) setField('manufacturer', result.product.manufacturer);
-        })
-        .catch((error) => {
-          console.error('Error looking up NDC', error);
-          if (!cancelled) setLookup({ status: 'unavailable' });
-        });
-    }, NDC_LOOKUP_DEBOUNCE_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [form.ndc, oystehrZambda, medication.id]);
+    if ('product' in lookup && lookup.product?.manufacturer) setField('manufacturer', lookup.product.manufacturer);
+  }, [lookup]);
 
   const locationName = locations.find((location) => location.id === form.locationId)?.name ?? 'the location';
 
@@ -210,10 +186,8 @@ export default function ReceiveShipmentDialog({
         >
           <Typography variant="body2">
             NDC {product?.packageNdc ?? form.ndc.trim()} is{' '}
-            {lookup.vaccine
-              ? `${lookup.vaccine.vaccineName} (CVX ${lookup.vaccine.cvx})`
-              : product?.name ?? 'a different medication'}
-            , not {name}. Check the box before saving.
+            {lookup.vaccine ? lookup.vaccine.vaccineName : product?.name ?? 'a different medication'}, not {name}. Check
+            the box before saving.
           </Typography>
         </Box>
       );
@@ -223,15 +197,7 @@ export default function ReceiveShipmentDialog({
         <Typography variant="body2" fontWeight={700}>
           {'vaccine' in lookup && lookup.vaccine ? 'CDC NDC crosswalk' : 'FDA NDC directory'}
         </Typography>
-        <Typography variant="body2">
-          {[
-            product?.name,
-            product?.manufacturer,
-            'vaccine' in lookup && lookup.vaccine ? `MVX ${lookup.vaccine.mvx}` : undefined,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </Typography>
+        <Typography variant="body2">{[product?.name, product?.manufacturer].filter(Boolean).join(' · ')}</Typography>
         {product?.packageDescription ? (
           <Typography variant="body2" color="text.secondary">
             {product.packageDescription}

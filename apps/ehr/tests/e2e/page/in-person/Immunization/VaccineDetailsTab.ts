@@ -36,10 +36,6 @@ export class VaccineDetailsTab {
     await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.mvxCode).fill(mvxCode);
   }
 
-  async enterCvxCode(cvxCode: string): Promise<void> {
-    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.cvxCode).fill(cvxCode);
-  }
-
   async selectCptCode(cptCode: string): Promise<void> {
     // The CPT codes blank opens the code search in a popover.
     await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.cptCode).click();

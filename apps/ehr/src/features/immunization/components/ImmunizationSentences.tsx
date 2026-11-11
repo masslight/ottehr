@@ -5,6 +5,7 @@ import { FC, ReactNode, useEffect, useState } from 'react';
 import { CptCodesInput } from 'src/components/input/CptCodesInput';
 import { EmployeeOption, useEmployeeOptions } from 'src/components/input/EmployeeSelectInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useNdcLookup } from 'src/features/admin/inventory/useNdcLookup';
 import {
   BlankButton,
   DateTimeBlank,
@@ -55,7 +56,7 @@ const SOURCE_OPTIONS = IMMUNIZATION_OUTSIDE_SOURCES.map((source) => ({ value: so
 // The manufacturer is picked by its CDC MVX code; the lot pick fills it from the box's NDC.
 const MVX_OPTIONS = MVX_MANUFACTURERS.map((manufacturer) => ({
   value: manufacturer.mvx,
-  label: `${manufacturer.name} (${manufacturer.mvx})`,
+  label: manufacturer.name,
 }));
 
 const toDate = (value: string | undefined): DateTime | null => (value ? DateTime.fromISO(value) : null);
@@ -271,7 +272,7 @@ const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
           />
           , made by{' '}
           <SelectBlank
-            label="manufacturer (MVX)"
+            label="manufacturer"
             title="Manufacturer"
             options={MVX_OPTIONS}
             value={administrationDetails.mvx || undefined}
@@ -419,6 +420,34 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
     // the line's identity is what matters; updateAdministration is remade every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaccineCvx, administrationDetails.cvx]);
+  // A typed NDC (not one a stock lot filled) is looked up: the box's manufacturer fills an empty manufacturer, or one
+  // an earlier lookup filled, never one picked by hand; a box of another vaccine is a warning only.
+  const [typedNdc, setTypedNdc] = useState('');
+  const [lookupMvx, setLookupMvx] = useState<string>();
+  const ndcLookup = useNdcLookup(
+    !readOnly && typedNdc && typedNdc === administrationDetails.ndc ? typedNdc : '',
+    details.medication?.id
+  );
+  const lookupVaccine = 'vaccine' in ndcLookup ? ndcLookup.vaccine : undefined;
+  useEffect(() => {
+    const mvx = lookupVaccine?.mvx;
+    if (!mvx || mvx === administrationDetails.mvx) return;
+    if (administrationDetails.mvx && administrationDetails.mvx !== lookupMvx) return;
+    setLookupMvx(mvx);
+    onChange({
+      ...line,
+      details: { ...details, manufacturer: getMvxManufacturer(mvx)?.name },
+      administrationDetails: { ...administrationDetails, mvx },
+    });
+    // only a new lookup result fills; the line is read fresh then
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookupVaccine?.mvx]);
+  const ndcMismatch =
+    ndcLookup.status === 'mismatch'
+      ? `NDC ${ndcLookup.product?.packageNdc ?? typedNdc.trim()} is ${
+          lookupVaccine?.vaccineName ?? ndcLookup.product?.name ?? 'another product'
+        }, not ${details.medication?.name ?? 'this vaccine'}. Check the box.`
+      : undefined;
   const diagnoses = useImmunizationDiagnosisOptions();
   const { options: providers, isLoading: providersLoading } = useEmployeeOptions(PROVIDERS_FILTER);
   // The instructions blank is offered as a link, like eRx's, and stays once opened or written in.
@@ -709,27 +738,31 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
         <TextBlank
           label="NDC code"
           value={administrationDetails.ndc}
-          onChange={(ndc) => updateAdministration({ ndc })}
+          onChange={(ndc) => {
+            setTypedNdc(ndc ?? '');
+            updateAdministration({ ndc });
+          }}
           readOnly={readOnly}
           need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
         />
         .
       </Sentence>
+      {ndcMismatch && (
+        <Typography
+          variant="caption"
+          color="warning.main"
+          sx={{ mt: -0.5 }}
+          data-testid={dataTestIds.vaccineDetailsPage.ndcMismatch}
+        >
+          {ndcMismatch}
+        </Typography>
+      )}
       <Sentence>
-        {/* The CVX is the vaccine's own; only the manufacturer is picked, and a lot from stock fills it. */}
-        CVX{' '}
-        <TextBlank
-          label="CVX code"
-          value={administrationDetails.cvx}
-          onChange={(cvx) => updateAdministration({ cvx })}
-          readOnly
-          need={needAdministration}
-          dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
-        />
-        , manufacturer{' '}
+        {/* The CVX is saved from the vaccine; the manufacturer is picked, or filled by a lot from stock or a typed NDC. */}
+        Manufacturer{' '}
         <SelectBlank
-          label="manufacturer (MVX)"
+          label="manufacturer"
           title="Manufacturer"
           options={MVX_OPTIONS}
           value={administrationDetails.mvx || undefined}

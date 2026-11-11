@@ -155,7 +155,7 @@ describe('VaccineDetailsCard - blank administration text', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Partly Administered' }));
 
     expect(await screen.findByTestId('line-errors')).toHaveTextContent(
-      'Enter the lot number. Enter the expiration date. Enter the NDC code. Enter the CVX code. Enter the MVX code. ' +
+      'Enter the lot number. Enter the expiration date. Enter the NDC code. This vaccine has no CVX code in its setup. Enter the MVX code. ' +
         'Confirm the VIS was given to the patient. Enter the VIS date'
     );
     expect(screen.queryByTestId('administration-confirmation-dialog')).not.toBeInTheDocument();
