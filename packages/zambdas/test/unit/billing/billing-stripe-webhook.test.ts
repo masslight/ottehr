@@ -1145,6 +1145,58 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  // Regression: the payment kept the dates of its reservation, which can be from another day than the
+  // charge (a replay reusing it, or one reserved just before midnight), and reports placed it there.
+  it('dates the payment it activates by the charge, not by the reservation', async () => {
+    const reservedTheDayBefore = {
+      ...reservation(),
+      created: '2025-07-06T15:00:00.000Z',
+      paymentDate: '2025-07-06',
+      contained: [
+        {
+          ...reservation().contained![0],
+          created: '2025-07-06T15:00:00.000Z',
+          paymentDate: '2025-07-06',
+        },
+      ],
+    } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [reservedTheDayBefore]);
+
+    // 2025-07-08 03:30 UTC is 2025-07-07 23:30 in the default timezone, which the EHR dates payments in
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', ehrCharge({ created: 1751945400 })),
+      secrets,
+    });
+
+    const [activated] = refreshedNotices(transaction);
+    expect(activated.created).toBe('2025-07-08T03:30:00.000Z');
+    expect(activated.paymentDate).toBe('2025-07-07');
+    expect(getContainedReconciliation(activated)).toMatchObject({
+      created: '2025-07-08T03:30:00.000Z',
+      paymentDate: '2025-07-07',
+    });
+  });
+
+  it('keeps the dates of a payment it only refreshes', async () => {
+    const recorded = {
+      ...reservation(),
+      status: 'active',
+      created: '2025-07-06T15:00:00.000Z',
+      paymentDate: '2025-07-06',
+      identifier: [
+        { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+        { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+      ],
+    } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [recorded]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', ehrCharge({ created: 1751945400 })), secrets });
+
+    const [refreshed] = refreshedNotices(transaction);
+    expect(refreshed.created).toBe('2025-07-06T15:00:00.000Z');
+    expect(refreshed.paymentDate).toBe('2025-07-06');
+  });
+
   it('never creates a notice for a charge whose reservation is not found, asking for redelivery', async () => {
     const { oystehr, transaction } = makeOystehr([[claim]]);
 

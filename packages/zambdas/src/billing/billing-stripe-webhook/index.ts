@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, FhirResource, Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
@@ -28,6 +29,7 @@ import {
   createPaymentNotice,
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
+  ehrPaymentDate,
   findBillingClaimForEncounter,
   findPaymentNotice,
   findPaymentNoticeByAnyIdentifier,
@@ -340,16 +342,29 @@ const ehrReservationOf = ({
 });
 
 // The EHR's reservation of a charge that went through, recorded as the payment: what Stripe owns is
-// refreshed as on any notice, and it gains the EHR payment id readers search by.
+// refreshed as on any notice, and it gains the EHR payment id readers search by. The payment is dated
+// by the charge, as the EHR dates the payments it activates: the reservation may be from well before
+// (reused by a replay, or reserved just before midnight), and reports place payments by these dates.
 const activateEhrReservation = (
   pending: PaymentNotice,
   desiredNotice: PaymentNotice,
   ehrPaymentId: string | undefined
 ): PaymentNotice => {
   const refreshed = mergeStripeOwnedFields(pending, desiredNotice);
+  const chargedAt = desiredNotice.created ? DateTime.fromISO(desiredNotice.created) : undefined;
+  const dated =
+    chargedAt?.isValid && desiredNotice.created
+      ? { created: desiredNotice.created, paymentDate: ehrPaymentDate(chargedAt) }
+      : undefined;
   return {
     ...refreshed,
+    ...dated,
     identifier: withActivatedEhrPaymentId(refreshed.identifier, ehrPaymentId),
+    contained: dated
+      ? refreshed.contained?.map((resource) =>
+          resource.resourceType === 'PaymentReconciliation' ? { ...resource, ...dated } : resource
+        )
+      : refreshed.contained,
   };
 };
 

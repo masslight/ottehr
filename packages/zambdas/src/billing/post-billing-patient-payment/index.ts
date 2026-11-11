@@ -22,7 +22,6 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { TIMEZONES } from 'utils/lib/types/constants';
 import { PostBillingPatientPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   FHIR_RESOURCE_NOT_FOUND,
@@ -52,6 +51,7 @@ import {
   createPaymentNotice,
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
+  ehrPaymentDate,
   findBillingClaimForEncounter,
   findPaymentNotice,
   isActivatedEhrPaymentNotice,
@@ -562,13 +562,12 @@ const makePaymentNotice = (input: {
   const { paymentMethod, amountInCents } = paymentDetails;
 
   // the created timestamp is in UTC and the exact date in any timezone can always be derived from there
-  // for now the payment date is set to the default timezone (US Eastern)
   const now = DateTime.now();
   const created = now.toUTC().toISO();
   if (!created) {
     throw new Error('Failed to serialize the current time for PaymentNotice creation');
   }
-  const paymentDate = now.setZone(TIMEZONES[0]).toFormat('yyyy-MM-dd');
+  const paymentDate = ehrPaymentDate(now);
 
   const paymentAmount: Money = {
     value: amountInCents / 100,

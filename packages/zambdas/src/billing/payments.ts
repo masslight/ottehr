@@ -13,6 +13,7 @@ import {
   ProvenanceAgent,
   Reference,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   BILLING_RESOURCE_TAG,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -29,6 +30,7 @@ import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
 import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
@@ -81,6 +83,10 @@ export const pendingEhrPaymentNotice = (notice: PaymentNotice, ehrPaymentId: str
     ),
   };
 };
+
+// The date an EHR patient payment is reported on: for now the day it was taken in the default timezone
+// (US Eastern); the exact date in any other can be derived from the UTC created timestamp.
+export const ehrPaymentDate = (takenAt: DateTime): string => takenAt.setZone(TIMEZONES[0]).toFormat('yyyy-MM-dd');
 
 // An activated reservation is known by the EHR payment id, which payment readers search by, and keeps
 // the reservation identifier replays reserve by.
