@@ -24,7 +24,7 @@ Time in seconds; in brackets, how many times the ideal time. **Every result matc
 
 | Report | Range | ideal | current | studio |
 |---|---|---|---|---|
-| r1 visits by provider | 60 days | 12.5 | 11.6 (0.9×) | 30.5 (2.4×) ¹ |
+| r1 visits by provider | 60 days | 12.5 ² | 11.6 (0.9×) | 30.5 (2.4×) ¹ |
 | r2 temperature by location | 60 days | 6.3 | 10.8 (1.7×) | 12.3 (2.0×) |
 | r3 diagnoses and CPT codes | 60 days | 6.6 | 11.2 (1.7×) | 8.0 (1.2×) |
 | r1 visits by provider | a year | 26.4 | 42.0 (1.6×) | 34.0 (1.3×) |
@@ -32,6 +32,8 @@ Time in seconds; in brackets, how many times the ideal time. **Every result matc
 | r3 diagnoses and CPT codes | a year | 23.9 | 45.8 (1.9×) | 43.9 (1.8×) |
 
 Requests (async jobs / pages) for a year: ideal 52 / 221 / 139, current 165 / 252 / 254, studio 29 / 419 / 255.
+
+² The very first run of the bench, on a cold database cache: ideal's appointments took 8.2 s and encounters 10.3 s here, against 3.6–4.3 s for the same searches in the next reports. Current ran right after it.
 
 ¹ One slow job: Report Studio's visits step took 30.2 s in 3 requests; ideal took 12.5 s on the same run. A single run, so this cell is noise until repeated.
 
