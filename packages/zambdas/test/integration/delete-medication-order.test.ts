@@ -5,7 +5,10 @@ import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { medicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
+import {
+  medicationApplianceLocations,
+  medicationApplianceRoutes,
+} from 'utils/lib/types/api/medication-administration.types';
 import { CancelImmunizationOrderResponse } from 'utils/lib/types/data/immunization/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM } from '../../src/shared/candid';
@@ -117,7 +120,12 @@ describe('deleting in-house medication and vaccine orders', () => {
         id: 'create-update-medication-order',
         orderId,
         newStatus: 'administered',
-        orderData: { ...inHouseOrderData(visit, cptCodes), effectiveDateTime: DateTime.now().toUTC().toISO() },
+        orderData: {
+          ...inHouseOrderData(visit, cptCodes),
+          effectiveDateTime: DateTime.now().toUTC().toISO(),
+          // IV Infusion is an injectable route, so administering it requires a location
+          location: { code: medicationApplianceLocations[0].code, name: medicationApplianceLocations[0].name },
+        },
       });
     };
 

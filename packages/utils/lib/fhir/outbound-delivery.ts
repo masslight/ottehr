@@ -16,9 +16,12 @@ import { getIdFromReference } from './reference';
 
 const input = (code: string, valueString?: string, reference?: string): TaskInput => ({
   type: { coding: [{ system: OUTBOUND_DELIVERY_INPUT_SYSTEM, code }] },
-  ...(valueString ? { valueString } : {}),
+  ...(valueString?.trim() ? { valueString } : {}),
   ...(reference ? { valueReference: { reference } } : {}),
 });
+
+const hasValue = (taskInput: TaskInput): boolean =>
+  taskInput.valueString !== undefined || taskInput.valueReference !== undefined;
 
 export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): Task {
   const authoredOn = data.authoredOn ?? DateTime.now().toUTC().toISO() ?? new Date().toISOString();
@@ -70,7 +73,7 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
       ...(data.senderOrganizationReference
         ? [input(OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization, undefined, data.senderOrganizationReference)]
         : []),
-    ],
+    ].filter(hasValue),
     output: data.communicationReference
       ? [
           makeOutboundDeliveryOutput(OUTBOUND_DELIVERY_OUTPUT_CODES.communication, {

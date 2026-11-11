@@ -107,6 +107,17 @@ describe('admin-update-progress-note-config - validateRequestParameters', () => 
     expect(validateRequestParameters(input).signReviewPrompt).toBeUndefined();
   });
 
+  test('should turn a whitespace-only signReviewPrompt into an empty string, a deliberate clear', () => {
+    const input = createMockZambdaInput({ ...DEFAULT_PROGRESS_NOTE_CONFIG, signReviewPrompt: ' \n ' });
+    expect(validateRequestParameters(input).signReviewPrompt).toBe('');
+  });
+
+  test('should accept a signReviewPrompt that only exceeds the max length by surrounding whitespace', () => {
+    const prompt = 'x'.repeat(SIGN_REVIEW_PROMPT_MAX_LENGTH);
+    const input = createMockZambdaInput({ ...DEFAULT_PROGRESS_NOTE_CONFIG, signReviewPrompt: `${prompt}\n` });
+    expect(validateRequestParameters(input).signReviewPrompt).toBe(prompt);
+  });
+
   test('should leave specialtyTransferOptions undefined when omitted, so the stored list is left alone', () => {
     const { specialtyTransferOptions: _specialtyTransferOptions, ...bodyWithoutSpecialties } =
       DEFAULT_PROGRESS_NOTE_CONFIG;

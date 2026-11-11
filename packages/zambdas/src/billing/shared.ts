@@ -122,7 +122,7 @@ import {
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RulesEngineInsurance, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -1590,7 +1590,7 @@ export function setCoveragePayer(
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: groupNumber || payerId!,
+      value: groupNumber?.trim() || payerId!,
       name: payerOrg.name ?? '',
     },
   ];
@@ -2154,4 +2154,19 @@ export async function getGroupNumber(
   if (groupNumber === payorOrg?.id) groupNumber = undefined;
 
   return groupNumber;
+}
+
+export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
+  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
+    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+  );
+  return payerClaimControlNumbers.find(
+    (i) =>
+      // is matching type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === insurance
+      ) ||
+      // legacy type-less identifier for primary insurance
+      (insurance === 'primary' && !i.type)
+  )?.value;
 }

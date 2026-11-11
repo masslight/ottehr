@@ -3199,6 +3199,8 @@ export interface FileInboundFaxInput {
   folderId: string;
   internalName?: string;
   documentName: string;
+  encounterId?: string;
+  reviewTaskAssignee?: { id: string; name: string };
   // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative
   // url from the verified inbound-fax Task's stored input.
 }

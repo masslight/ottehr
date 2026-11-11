@@ -103,7 +103,7 @@ export const unionIdentifiers = (existing: Identifier[] = [], added: Identifier[
 
 // a billing notice shadows the legacy notice it was copied from (cash/check bridge) or that records
 // the same Stripe payment (webhook)
-const shadowsLegacyNotice = (billingNotice: PaymentNotice, legacyNotice: PaymentNotice): boolean => {
+export const shadowsLegacyNotice = (billingNotice: PaymentNotice, legacyNotice: PaymentNotice): boolean => {
   const bridged = billingNotice.identifier?.some(
     (identifier) => identifier.system === CLINICAL_PAYMENT_NOTICE_ID_SYSTEM && identifier.value === legacyNotice.id
   );

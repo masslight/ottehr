@@ -8,7 +8,9 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
+  FormControlLabel,
   Grid,
   IconButton,
   Link,
@@ -25,11 +27,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Task } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { deleteInboundFax, fileInboundFax } from 'src/api/api';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
+import { SelectInput } from 'src/components/input/SelectInput';
 import { formatDate, GET_TASKS_KEY } from 'src/features/visits/in-person/hooks/useTasks';
 import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
+import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   parsePatientDocsFolders,
@@ -37,7 +43,9 @@ import {
   QUERY_KEYS,
   useGetPatientDocsFolders,
 } from 'src/hooks/useGetPatientDocs';
+import { useGetPatientVisitHistory } from 'src/hooks/useGetPatientVisitHistory';
 import PageContainer from 'src/layout/PageContainer';
+import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FAX_TASK, isInboundFaxDeleting, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
@@ -50,6 +58,11 @@ const isStaleFaxError = (e: unknown): boolean => {
   return (error?.code ?? error?.output?.code) === APIErrorCode.PRECONDITION_FAILED;
 };
 const STALE_FAX_MESSAGE = 'This fax was changed by someone else. The page has been refreshed.';
+
+type MatchFormValues = {
+  visitEncounterId: string | null;
+  reviewAssignee: { id: string; name: string } | null;
+};
 
 export const InboundFaxMatch: React.FC = () => {
   const { communicationId } = useParams();
@@ -81,6 +94,10 @@ export const InboundFaxMatch: React.FC = () => {
   const [confirmedSelectedPatient, setConfirmedSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>();
   const [documentName, setDocumentName] = useState('');
+  const [createReviewTask, setCreateReviewTask] = useState(false);
+  const methods = useForm<MatchFormValues>({ defaultValues: { visitEncounterId: null, reviewAssignee: null } });
+  const { setValue } = methods;
+  const [visitEncounterId, reviewAssignee] = methods.watch(['visitEncounterId', 'reviewAssignee']);
 
   if (!communicationId) {
     throw new Error('communicationId is required');
@@ -197,11 +214,39 @@ export const InboundFaxMatch: React.FC = () => {
     [foldersData, confirmedPatientId]
   );
 
+  const { data: visitHistory, isLoading: visitsLoading } = useGetPatientVisitHistory(confirmedSelectedPatient?.id);
+  // Follow-ups, scheduled ones included, are only listed under their original visit.
+  const visitOptions = useMemo(() => {
+    const dateLabel = (dateTime: string | undefined): string =>
+      dateTime ? formatISOStringToDateAndTime(dateTime) : '';
+    return (visitHistory?.visits ?? []).flatMap((visit) => [
+      ...(visit.encounterId
+        ? [
+            {
+              encounterId: visit.encounterId,
+              label: `${getVisitTypeLabelForTypeAndServiceMode({
+                type: visit.type,
+                serviceMode: visit.serviceMode,
+              })} ${dateLabel(visit.dateTime)}`,
+            },
+          ]
+        : []),
+      ...(visit.followUps ?? []).map((followUp) => ({
+        encounterId: followUp.encounterId,
+        label: `${followUp.type ?? '-'} ${dateLabel(followUp.dateTime)}`,
+      })),
+    ]);
+  }, [visitHistory]);
+
   // Auto-confirm on radio select — no intermediate "Select" button step needed
-  const handlePatientSelect = useCallback((patient: SearchResultParsedPatient | undefined): void => {
-    setConfirmedSelectedPatient(patient);
-    setSelectedFolder(undefined);
-  }, []);
+  const handlePatientSelect = useCallback(
+    (patient: SearchResultParsedPatient | undefined): void => {
+      setConfirmedSelectedPatient(patient);
+      setSelectedFolder(undefined);
+      setValue('visitEncounterId', null);
+    },
+    [setValue]
+  );
 
   const handleFile = async (): Promise<void> => {
     if (!oystehrZambda || !taskId || !confirmedSelectedPatient || !selectedFolder || !pdfUrl || !documentName) return;
@@ -218,6 +263,10 @@ export const InboundFaxMatch: React.FC = () => {
         folderId: selectedFolder.id,
         internalName: selectedFolder.internalName,
         documentName,
+        ...(visitEncounterId ? { encounterId: visitEncounterId } : {}),
+        ...(createReviewTask && reviewAssignee
+          ? { reviewTaskAssignee: { id: reviewAssignee.id, name: reviewAssignee.name } }
+          : {}),
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
@@ -225,7 +274,9 @@ export const InboundFaxMatch: React.FC = () => {
           queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId: confirmedSelectedPatient.id }],
         }),
       ]);
-      enqueueSnackbar('Fax filed successfully', { variant: 'success' });
+      enqueueSnackbar(createReviewTask ? 'Fax filed and review task created' : 'Fax filed successfully', {
+        variant: 'success',
+      });
       navigate('/tasks');
     } catch (e) {
       console.error('Failed to file fax:', e);
@@ -276,7 +327,8 @@ export const InboundFaxMatch: React.FC = () => {
     !!taskId &&
     // Staff must be able to see the document before filing it against a patient chart.
     !!presignedPdfUrl &&
-    !deletionPending;
+    !deletionPending &&
+    (!createReviewTask || !!reviewAssignee);
 
   if (error) {
     return (
@@ -375,143 +427,175 @@ export const InboundFaxMatch: React.FC = () => {
                 <Alert severity="info">{readOnlyNotice}</Alert>
               ) : (
                 <Paper sx={{ p: 3 }}>
-                  <Stack spacing={3}>
-                    {deletionPending && (
-                      <Alert severity="warning">
-                        A previous attempt to delete this fax did not finish. It can no longer be filed; delete it
-                        again.
-                      </Alert>
-                    )}
-                    {/* Patient search */}
-                    <Stack spacing={1}>
-                      <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
-                        Match to patient:
-                      </Typography>
-                      {confirmedSelectedPatient ? (
-                        <TextField
-                          label="Selected"
-                          InputProps={{
-                            readOnly: true,
-                            endAdornment: (
-                              <IconButton
-                                onClick={() => {
-                                  setConfirmedSelectedPatient(undefined);
-                                  setSelectedFolder(undefined);
-                                }}
-                                edge="end"
-                                size="small"
-                              >
-                                <ClearIcon />
-                              </IconButton>
-                            ),
-                          }}
-                          value={`${confirmedSelectedPatient.name} (${confirmedSelectedPatient.birthDate})`}
-                        />
-                      ) : (
-                        <UnsolicitedPatientMatchSearchCard
-                          selectedPatient={confirmedSelectedPatient}
-                          setSelectedPatient={handlePatientSelect}
-                          handleConfirmPatientMatch={handlePatientSelect}
+                  <FormProvider {...methods}>
+                    <Stack spacing={3}>
+                      {deletionPending && (
+                        <Alert severity="warning">
+                          A previous attempt to delete this fax did not finish. It can no longer be filed; delete it
+                          again.
+                        </Alert>
+                      )}
+                      {/* Patient search */}
+                      <Stack spacing={1}>
+                        <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
+                          Match to patient:
+                        </Typography>
+                        {confirmedSelectedPatient ? (
+                          <TextField
+                            label="Selected"
+                            InputProps={{
+                              readOnly: true,
+                              endAdornment: (
+                                <IconButton onClick={() => handlePatientSelect(undefined)} edge="end" size="small">
+                                  <ClearIcon />
+                                </IconButton>
+                              ),
+                            }}
+                            value={`${confirmedSelectedPatient.name} (${confirmedSelectedPatient.birthDate})`}
+                          />
+                        ) : (
+                          <UnsolicitedPatientMatchSearchCard
+                            selectedPatient={confirmedSelectedPatient}
+                            setSelectedPatient={handlePatientSelect}
+                            handleConfirmPatientMatch={handlePatientSelect}
+                          />
+                        )}
+                      </Stack>
+
+                      {confirmedSelectedPatient && (
+                        <SelectInput
+                          name="visitEncounterId"
+                          label="Connect to a visit (optional)"
+                          options={visitsLoading ? [] : visitOptions.map((visit) => visit.encounterId)}
+                          getOptionLabel={(option) =>
+                            visitOptions.find((visit) => visit.encounterId === option)?.label ?? option
+                          }
+                          loading={visitsLoading}
+                          size="medium"
+                          dataTestId="inbound-fax-visit-select"
                         />
                       )}
-                    </Stack>
 
-                    {/* Folder selection */}
-                    {confirmedSelectedPatient && (
-                      <Stack spacing={1}>
-                        <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
-                          Select folder:
+                      {/* Folder selection */}
+                      {confirmedSelectedPatient && (
+                        <Stack spacing={1}>
+                          <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
+                            Select folder:
+                          </Typography>
+                          {foldersLoading ? (
+                            <CircularProgress size={24} />
+                          ) : folders.length === 0 ? (
+                            <Typography color="text.secondary">No folders found for this patient</Typography>
+                          ) : (
+                            <List dense disablePadding>
+                              {[...folders]
+                                .sort((a, b) => a.folderName.localeCompare(b.folderName))
+                                .map((folder) => (
+                                  <ListItemButton
+                                    key={folder.id}
+                                    selected={selectedFolder?.id === folder.id}
+                                    onClick={() =>
+                                      setSelectedFolder(selectedFolder?.id === folder.id ? undefined : folder)
+                                    }
+                                    sx={{ borderRadius: 1 }}
+                                  >
+                                    <ListItemIcon sx={{ minWidth: 36 }}>
+                                      <FolderOutlinedIcon />
+                                    </ListItemIcon>
+                                    <ListItemText
+                                      primary={`${folder.folderName} (${folder.documentsCount})`}
+                                      primaryTypographyProps={{
+                                        fontWeight: selectedFolder?.id === folder.id ? 600 : 400,
+                                      }}
+                                    />
+                                  </ListItemButton>
+                                ))}
+                            </List>
+                          )}
+                        </Stack>
+                      )}
+
+                      {/* Document name */}
+                      {confirmedSelectedPatient && selectedFolder && (
+                        <Stack spacing={1}>
+                          <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
+                            Document name:
+                          </Typography>
+                          <TextField
+                            fullWidth
+                            value={documentName}
+                            onChange={(e) => setDocumentName(e.target.value)}
+                            placeholder="Enter document name"
+                          />
+                        </Stack>
+                      )}
+
+                      {confirmedSelectedPatient && selectedFolder && (
+                        <Stack spacing={1}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={createReviewTask}
+                                onChange={(e) => setCreateReviewTask(e.target.checked)}
+                              />
+                            }
+                            label="Create task to review this fax"
+                          />
+                          {createReviewTask && (
+                            <EmployeeSelectInput
+                              name="reviewAssignee"
+                              label="Assign task to"
+                              required
+                              size="medium"
+                              dataTestId="inbound-fax-review-assignee"
+                            />
+                          )}
+                        </Stack>
+                      )}
+
+                      {/* Actions */}
+                      {previewUnavailable && !isPresigning && (
+                        <Typography variant="body2" color="error" textAlign="right">
+                          The fax preview must load before it can be filed. Use “Retry preview”.
                         </Typography>
-                        {foldersLoading ? (
-                          <CircularProgress size={24} />
-                        ) : folders.length === 0 ? (
-                          <Typography color="text.secondary">No folders found for this patient</Typography>
-                        ) : (
-                          <List dense disablePadding>
-                            {[...folders]
-                              .sort((a, b) => a.folderName.localeCompare(b.folderName))
-                              .map((folder) => (
-                                <ListItemButton
-                                  key={folder.id}
-                                  selected={selectedFolder?.id === folder.id}
-                                  onClick={() =>
-                                    setSelectedFolder(selectedFolder?.id === folder.id ? undefined : folder)
-                                  }
-                                  sx={{ borderRadius: 1 }}
-                                >
-                                  <ListItemIcon sx={{ minWidth: 36 }}>
-                                    <FolderOutlinedIcon />
-                                  </ListItemIcon>
-                                  <ListItemText
-                                    primary={`${folder.folderName} (${folder.documentsCount})`}
-                                    primaryTypographyProps={{
-                                      fontWeight: selectedFolder?.id === folder.id ? 600 : 400,
-                                    }}
-                                  />
-                                </ListItemButton>
-                              ))}
-                          </List>
-                        )}
+                      )}
+                      <Stack direction="row" spacing={2} justifyContent="flex-end">
+                        <ConfirmationDialog
+                          title="Delete inbound fax?"
+                          description={`This will permanently delete the ${pageCount || '?'}-page fax received from ${
+                            senderFaxNumber || 'unknown'
+                          } on ${receivedDate ? formatDate(receivedDate) : 'an unknown date'}. This cannot be undone.`}
+                          response={handleDelete}
+                          actionButtons={{
+                            proceed: { text: 'Delete', color: 'error', loading: isDeleting },
+                            back: { text: 'Cancel' },
+                          }}
+                        >
+                          {(showDialog) => (
+                            <LoadingButton
+                              loading={isDeleting}
+                              variant="outlined"
+                              color="error"
+                              onClick={showDialog}
+                              sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
+                            >
+                              Delete
+                            </LoadingButton>
+                          )}
+                        </ConfirmationDialog>
+                        <LoadingButton
+                          loading={isFiling}
+                          variant="contained"
+                          color="primary"
+                          onClick={handleFile}
+                          disabled={!readyToSubmit}
+                          sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
+                        >
+                          Save
+                        </LoadingButton>
                       </Stack>
-                    )}
-
-                    {/* Document name */}
-                    {confirmedSelectedPatient && selectedFolder && (
-                      <Stack spacing={1}>
-                        <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
-                          Document name:
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          value={documentName}
-                          onChange={(e) => setDocumentName(e.target.value)}
-                          placeholder="Enter document name"
-                        />
-                      </Stack>
-                    )}
-
-                    {/* Actions */}
-                    {previewUnavailable && !isPresigning && (
-                      <Typography variant="body2" color="error" textAlign="right">
-                        The fax preview must load before it can be filed. Use “Retry preview”.
-                      </Typography>
-                    )}
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
-                      <ConfirmationDialog
-                        title="Delete inbound fax?"
-                        description={`This will permanently delete the ${pageCount || '?'}-page fax received from ${
-                          senderFaxNumber || 'unknown'
-                        } on ${receivedDate ? formatDate(receivedDate) : 'an unknown date'}. This cannot be undone.`}
-                        response={handleDelete}
-                        actionButtons={{
-                          proceed: { text: 'Delete', color: 'error', loading: isDeleting },
-                          back: { text: 'Cancel' },
-                        }}
-                      >
-                        {(showDialog) => (
-                          <LoadingButton
-                            loading={isDeleting}
-                            variant="outlined"
-                            color="error"
-                            onClick={showDialog}
-                            sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
-                          >
-                            Delete
-                          </LoadingButton>
-                        )}
-                      </ConfirmationDialog>
-                      <LoadingButton
-                        loading={isFiling}
-                        variant="contained"
-                        color="primary"
-                        onClick={handleFile}
-                        disabled={!readyToSubmit}
-                        sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
-                      >
-                        Save
-                      </LoadingButton>
                     </Stack>
-                  </Stack>
+                  </FormProvider>
                 </Paper>
               )}
             </Grid>

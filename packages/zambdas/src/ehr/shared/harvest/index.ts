@@ -530,7 +530,8 @@ function buildDocToSave({
   text: string;
 }): DocToSaveData {
   const sorted = sortAttachmentsByCreationTime(attachments);
-  const dateCreated = sorted[0]?.creation ?? '';
+  const dateCreated =
+    sorted.find((a) => a.creation && DateTime.fromISO(a.creation).isValid)?.creation ?? DateTime.now().toUTC().toISO()!;
   return {
     code,
     files: sorted.map(({ url = '', title = '' }) => ({ url, title })),

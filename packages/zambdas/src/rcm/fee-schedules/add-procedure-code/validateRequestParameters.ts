@@ -1,13 +1,15 @@
+import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { optionalTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const AddProcedureCodeBodySchema = z.object({
   feeScheduleId: z.string().uuid(),
-  code: z.string().min(1),
-  description: z.string().optional(),
-  modifier: z.string().optional(),
+  code: z.string().transform(sanitizeStringForFhirCode).pipe(z.string().min(1)),
+  description: optionalTextSchema,
+  modifier: z.string().transform(sanitizeStringForFhirCode).optional(),
   amount: z.number(),
 });
 

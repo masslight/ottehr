@@ -86,3 +86,24 @@ describe('practice managed questionnaire import-json: the uploaded json', () => 
     );
   });
 });
+
+describe('practice managed questionnaire import-json: title and name', () => {
+  test('rejects a whitespace-only title', () => {
+    expect(() => validateRequestParameters(inputFor({ ...cage(), title: '   ' }))).toThrow('title is required');
+  });
+
+  test.each(['Анкета', '問診票', '???'])('derives a non-empty name when the title %s has no ascii letters', (title) => {
+    const { questionnaire } = validateRequestParameters(inputFor({ ...cage(), title }));
+    expect(questionnaire.name?.trim()).toBeTruthy();
+  });
+
+  test('derives the name from the title when the given name is blank', () => {
+    const { questionnaire } = validateRequestParameters(inputFor({ ...cage(), name: '  ' }));
+    expect(questionnaire.name).toBe('cage-questionnaire-alcohol-screening');
+  });
+
+  test('keeps an explicit name', () => {
+    const { questionnaire } = validateRequestParameters(inputFor({ ...cage(), name: 'CAGE' }));
+    expect(questionnaire.name).toBe('CAGE');
+  });
+});
