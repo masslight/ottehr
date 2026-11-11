@@ -157,7 +157,7 @@ const MAYA_GIVEN_HERE: { key: string; name: string; cvx: string; lot: string; mv
   { key: 'maya-pcv-1', name: 'Prevnar 20', cvx: '216', lot: 'GK5112', mvx: 'PFR' },
   { key: 'maya-hepb-2', name: 'Hep B (Engerix-B)', cvx: '08', lot: 'ENG4471', mvx: 'SKB' },
 ];
-const MAYA_TWO_MONTH_VISIT = '2026-09-09T10:15:00';
+const MAYA_TWO_MONTH_VISIT = '2026-09-09T10:15:00-04:00';
 
 const LEO_OUTSIDE: OutsideDose[] = [
   fromLakeside('leo-hepb-1', 'Hep B', '08', '2021-09-14'),
