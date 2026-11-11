@@ -217,6 +217,7 @@ export function projectedDoseSegments(
   const pastDue = dose.pastDue ? ageInMonths(dob, dose.pastDue) : null;
   const title = projectedDoseText(laneLabel, dose);
   const name = `${laneLabel} dose ${dose.n}`;
+  const dependsOn = `(depends on dose ${dose.n - 1})`;
   return [
     segment(
       'projected-earliest',
@@ -224,7 +225,7 @@ export function projectedDoseSegments(
       recommended,
       maxMonths,
       title,
-      windowTip(name, 'early window', dose.earliest, dose.recommended)
+      `${windowTip(name, 'early window', dose.earliest, dose.recommended)} ${dependsOn}`
     ),
     segment(
       'projected-recommended',
@@ -232,7 +233,7 @@ export function projectedDoseSegments(
       pastDue ?? maxMonths,
       maxMonths,
       title,
-      windowTip(name, 'window', dose.recommended, dose.pastDue)
+      `${windowTip(name, 'window', dose.recommended, dose.pastDue)} ${dependsOn}`
     ),
   ].filter((candidate): candidate is TimelineSegment => candidate !== undefined);
 }

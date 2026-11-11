@@ -158,8 +158,8 @@ describe('projected later doses', () => {
   it('draws allowed but early, then one outline window ending at the past-due date', () => {
     const segments = projectedDoseSegments(dtap4, 'DTaP/Tdap/Td', DOB, 84);
     expect(segments.map((segment) => segment.tip)).toEqual([
-      'DTaP/Tdap/Td dose 4 early window: 07/08/2027 – 10/07/2027',
-      'DTaP/Tdap/Td dose 4 window: 10/08/2027 – 01/07/2028',
+      'DTaP/Tdap/Td dose 4 early window: 07/08/2027 – 10/07/2027 (depends on dose 3)',
+      'DTaP/Tdap/Td dose 4 window: 10/08/2027 – 01/07/2028 (depends on dose 3)',
     ]);
     expect(segments.map((segment) => segment.kind)).toEqual(['projected-earliest', 'projected-recommended']);
     expect(segments[1].to).toBeCloseTo(ageInMonths(DOB, dtap4.pastDue));
