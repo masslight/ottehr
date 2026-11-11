@@ -23,7 +23,15 @@ import { OBSERVATION_CODES } from '../../data/in-house/in-house.constants';
 import { TestStatus } from '../../data/in-house/in-house.types';
 import { ExternalLabsStatus } from '../../data/labs/labs.types';
 import { NursingOrdersStatus } from '../../data/orders/constants';
-import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+import {
+  AdHocLayerMap,
+  DatasetInput,
+  datasetInputSchema,
+  datasetRowSchema,
+  foreignLayers,
+  LayerRowFields,
+} from './dataset';
+import { PATIENT_LAYERS } from './patients';
 
 // Closed vocabularies are taken from the app's own constants, so a status the app adds or renames
 // changes the schema the report is generated against instead of failing validation at runtime.
@@ -88,7 +96,7 @@ const RESULT_INTERPRETATION_VALUES = enumValues(Object.values(OBSERVATION_CODES)
 export const EncounterBaseRowSchema = z.object({
   // --- Visit ---
   appointmentId: z.string().describe('Visit id.'),
-  encounterId: z.string().optional().describe('Encounter id (internal — dedupe/joins).'),
+  encounterId: z.string().describe('Encounter id (internal — dedupe/joins; one row per encounter).'),
   date: z.string().nullable().describe('Viewer-local visit day (yyyy-MM-dd); day-level companion of startTime.'),
   startTime: z
     .string()
@@ -1380,18 +1388,35 @@ export const ENCOUNTER_LAYERS = {
 
 export type EncounterLayerId = keyof typeof ENCOUNTER_LAYERS;
 
+// The patients dataset's layers, offered on every encounter row by its patientId (`patients.allergies`, …).
+export const ENCOUNTER_FOREIGN_LAYERS: AdHocLayerMap = foreignLayers({
+  sourceId: 'patients',
+  sourceLabel: 'Patient',
+  source: PATIENT_LAYERS,
+  key: 'patientId',
+  base: EncounterBaseRowSchema,
+  native: ENCOUNTER_LAYERS,
+});
+
+/** Every layer the encounters dataset offers: its own, then the foreign ones. */
+export const ENCOUNTER_ALL_LAYERS: AdHocLayerMap = { ...ENCOUNTER_LAYERS, ...ENCOUNTER_FOREIGN_LAYERS };
+
+type EncounterNativeRow = z.infer<typeof EncounterBaseRowSchema> & LayerRowFields<typeof ENCOUNTER_LAYERS>;
+/** The foreign patient-layer columns an encounter row may carry (each optional, the base's own fields excluded). */
+export type EncounterForeignRowFields = Omit<LayerRowFields<typeof PATIENT_LAYERS>, keyof EncounterNativeRow>;
+
 // Full row: base columns required, every layer column optional (present when its layer was
 // requested); the schema the response is validated against. `datasetRowSchema` merges generically
 // (loose static shape), so we tag it with the precise row type from the same layer map — validation
 // stays runtime-exact and consumers get the precise type.
-export type AdHocEncounterRow = z.infer<typeof EncounterBaseRowSchema> & LayerRowFields<typeof ENCOUNTER_LAYERS>;
-export const AdHocEncounterRowSchema = datasetRowSchema(EncounterBaseRowSchema, ENCOUNTER_LAYERS).describe(
+export type AdHocEncounterRow = EncounterNativeRow & EncounterForeignRowFields;
+export const AdHocEncounterRowSchema = datasetRowSchema(EncounterBaseRowSchema, ENCOUNTER_ALL_LAYERS).describe(
   'One row per encounter.'
 ) as unknown as z.ZodType<AdHocEncounterRow>;
 
-// Endpoint input: the date window + one include<Layer> flag per layer, derived from the map.
-export const AdHocEncountersInputSchema = datasetInputSchema(ENCOUNTER_LAYERS);
-export type AdHocEncountersInput = DatasetInput<typeof ENCOUNTER_LAYERS>;
+// Endpoint input: the date window + one include<Layer> flag per layer (foreign ones too), derived from the maps.
+export const AdHocEncountersInputSchema = datasetInputSchema(ENCOUNTER_ALL_LAYERS);
+export type AdHocEncountersInput = DatasetInput<typeof ENCOUNTER_LAYERS> & Partial<Record<`include${string}`, boolean>>;
 
 export const AdHocEncountersOutputSchema = z.object({
   encounters: z.array(AdHocEncounterRowSchema),

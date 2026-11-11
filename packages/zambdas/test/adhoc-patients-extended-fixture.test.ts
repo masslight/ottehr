@@ -26,6 +26,7 @@ import {
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
+import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import {
   PATIENT_HAS_MEDICAID_URL,
@@ -37,6 +38,7 @@ import {
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
+import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 import { makeProcedureResource } from '../src/shared/chart-data';
 
@@ -773,6 +775,39 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
 
     const other = rows.find((r) => r.patientId === 'pat-2')!;
     expect(other).toMatchObject({ allergies: [], problemCount: 0, currentMedicationCount: 0, surgicalHistory: [] });
+  });
+
+  it('foreign patient layers: the encounters and billing rows carry the patient layer columns by patientId', async () => {
+    const patientRows = await fetchAdHocPatientRows(fakeOystehr, {
+      dateRange,
+      includeAllergies: true,
+      includeVisitHistory: true,
+    });
+    const encounterRows = await fetchAdHocEncounterRows(fakeOystehr, {
+      dateRange,
+      'includePatients.allergies': true,
+      'includePatients.visitHistory': true,
+    });
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: encounterRows }))).toEqual([]);
+
+    for (const row of encounterRows) {
+      const patient = patientRows.find((p) => p.patientId === row.patientId)!;
+      expect(row.allergies).toEqual(patient.allergies);
+      expect(row.allergyDetails).toEqual(patient.allergyDetails);
+      expect(row.patientStatus).toBe(patient.patientStatus);
+    }
+    expect(encounterRows.find((r) => r.patientId === 'pat-1')?.allergies).toEqual(['Penicillin', 'Aspirin']);
+
+    // A foreign layer never overwrites the dataset's own fields.
+    expect(encounterRows.every((r) => !('totalVisits' in r))).toBe(true);
+
+    const billingRows = await fetchAdHocBillingRows(
+      fakeOystehr,
+      { dateRange, 'includePatients.allergies': true },
+      emptyBillingOystehr
+    );
+    expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows: billingRows }))).toEqual([]);
+    expect(billingRows.find((r) => r.patientId === 'pat-1')?.allergies).toEqual(['Penicillin', 'Aspirin']);
   });
 
   it('rows parse against the schema', async () => {

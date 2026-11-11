@@ -536,8 +536,11 @@ const paymentNotices: FhirResource[] = [
 
 // The attending provider is not an _include on the main search: it is fetched by id afterwards, so
 // the fake serves Practitioner as a scoped type rather than alongside the appointment graph.
-const rootResources: FhirResource[] = [appointment, encounter, patient, location];
+const rootResources: FhirResource[] = [appointment, encounter];
 const scopedByType: Record<string, FhirResource[]> = {
+  // Patients and locations are loaded by id after the appointments, never as an _include.
+  Patient: [patient],
+  Location: [location],
   Practitioner: [practitioner],
   Schedule: [locationSchedule],
   Condition: [condition],

@@ -51,6 +51,7 @@ async function fetchAdHocBillingClaims({
 
 export const billingClaimsDataset: AdHocDataset = {
   id: BILLING_CLAIMS_DATASET_ID,
+  rowKey: 'claimId',
   label: LABEL,
   description: DESCRIPTION,
   options: ADHOC_BILLING_CLAIMS_OPTIONS,
