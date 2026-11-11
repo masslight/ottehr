@@ -99,6 +99,8 @@ export type ImmunizationGroupStatus =
   | 'due'
   | 'pastdue'
   | 'complete'
+  /** CDSi "Aged Out" or "Not Recommended" with no dose given: none is recommended at this age (Hep A at 30). */
+  | 'notroutine'
   | 'immune'
   | 'contraindicated'
   | 'declined';

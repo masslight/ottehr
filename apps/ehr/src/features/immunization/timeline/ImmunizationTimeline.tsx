@@ -79,6 +79,7 @@ const CHIP_COLORS: Record<ImmunizationGroupStatus, { bg: string; text: string; b
   due: { bg: '#FFE0B2', text: '#5F2B00' },
   pastdue: { bg: '#FECDD2', text: '#B71C1C' },
   notyet: { bg: '#E6E8EE', text: '#616161' },
+  notroutine: { bg: '#FFF', text: '#616161', border: '#E0E0E0' },
   declined: { bg: '#FFF', text: '#616161', border: '#BFC2C6' },
   contraindicated: { bg: '#FFF', text: '#B71C1C', border: '#EF9A9A' },
   immune: { bg: '#C8E6C9', text: '#1B5E20', border: '#A5D6A7' },

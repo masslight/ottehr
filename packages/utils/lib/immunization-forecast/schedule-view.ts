@@ -63,6 +63,8 @@ export interface VaccineScheduleView {
 const ADULT_ONLY_LANES: ImmunizationGroupId[] = ['pneumo-adult', 'rsv-adult', 'zoster'];
 /** Series that start at this age or later are the adolescent/adult schedule (varicella 13+, HPV 15+, MenB 16+). */
 const ADULT_SERIES_START = '13 years';
+/** The adult rule where it is the childhood series' recurring booster, in the words the adult schedule uses. */
+const ADULT_BOOSTER_TARGETS: Partial<Record<ImmunizationGroupId, string>> = { dtap: 'Td or Tdap every 10 years' };
 const AGE_BASE = '2000-01-01';
 
 const laneSeries = (rules: RulesData, lane: ForecastGroupDefinition, antigen: string): SeriesRule[] =>
@@ -123,14 +125,15 @@ const toLane = (
   lane: ForecastGroupDefinition,
   antigen: string,
   series: SeriesRule,
-  doses: SeriesDoseRule[]
+  doses: SeriesDoseRule[],
+  target = targetText(lane, series)
 ): VaccineScheduleLane => ({
   group: lane.id,
   label: lane.label,
   antigen,
   seriesName: series.seriesName,
   level: levelOf(series),
-  target: targetText(lane, series),
+  target,
   doses: doses.map(doseRow),
   guidance: series.seriesAdminGuidance,
 });
@@ -176,7 +179,7 @@ export function buildVaccineScheduleView(rules: RulesData = getRulesData()): Vac
     } else {
       // No adolescent/adult series: the childhood series' recurring booster (Td every 10 years) is the adult rule.
       const boosters = childSeries.doses.filter((dose) => dose.recurringDose);
-      if (boosters.length) adults.push(toLane(lane, antigen, childSeries, boosters));
+      if (boosters.length) adults.push(toLane(lane, antigen, childSeries, boosters, ADULT_BOOSTER_TARGETS[lane.id]));
     }
   }
 

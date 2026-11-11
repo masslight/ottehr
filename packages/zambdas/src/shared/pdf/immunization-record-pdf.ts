@@ -38,6 +38,7 @@ const STATUS_TEXT: Record<ImmunizationGroupStatus, string> = {
   due: 'Due',
   pastdue: 'Past due',
   complete: 'Complete',
+  notroutine: 'Not routine',
   immune: 'Immune',
   contraindicated: 'Contraindicated',
   declined: 'Declined',

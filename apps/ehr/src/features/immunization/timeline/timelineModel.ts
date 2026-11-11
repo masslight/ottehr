@@ -110,7 +110,7 @@ const segment = (
 
 export const formatDate = (iso: string): string => DateTime.fromISO(iso).toFormat(DATE_FORMAT);
 
-const NO_NEXT_BAR: ImmunizationGroupStatus[] = ['complete', 'contraindicated', 'immune'];
+const NO_NEXT_BAR: ImmunizationGroupStatus[] = ['complete', 'notroutine', 'contraindicated', 'immune'];
 
 /** The next dose as a bar: earliest → recommended → past due, plus a past-due segment up to today. */
 export function nextDoseSegments(
@@ -185,6 +185,7 @@ export const STATUS_LABELS: Record<ImmunizationGroupStatus, string> = {
   due: 'Due today',
   pastdue: 'Past due',
   complete: 'Complete',
+  notroutine: 'Not routine',
   immune: 'Immune',
   contraindicated: 'Contraindicated',
   declined: 'Declined',
