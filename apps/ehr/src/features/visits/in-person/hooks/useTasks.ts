@@ -34,7 +34,7 @@ import {
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
-import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl } from '../routing/helpers';
+import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl, getVisitDocumentsUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
@@ -760,6 +760,22 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           name: isActioned ? VIEW_FAX : 'Match',
           link: inboundFaxMatchPath(communicationId),
         };
+      }
+    }
+    if (code === FAX_TASK.code.reviewInboundFax) {
+      title = task.description || 'Review fax';
+      subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
+      completable = true;
+      const appointmentId = getInputString(FAX_TASK.input.appointmentId, task);
+      const patientId = getInputString(FAX_TASK.input.patientId, task);
+      const folderId = getInputString(FAX_TASK.input.folderId, task);
+      const link = appointmentId
+        ? addEncounterIdToLink(getVisitDocumentsUrl(appointmentId))
+        : patientId
+        ? `/patient/${patientId}/docs${folderId ? `?folderId=${encodeURIComponent(folderId)}` : ''}`
+        : undefined;
+      if (link) {
+        action = { name: VIEW_FAX, link };
       }
     }
   }

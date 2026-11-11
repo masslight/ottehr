@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, List, Task } from 'fhir/r4b';
+import { Communication, Encounter, List, Patient, Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -12,7 +12,7 @@ type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockOystehr, mockDeleteZ3Object, mockCaptureException } = vi.hoisted(() => ({
+const { mockOystehr, mockDeleteZ3Object, mockCaptureException, mockResolveCallerPractitionerRef } = vi.hoisted(() => ({
   mockOystehr: {
     fhir: {
       get: vi.fn(),
@@ -24,6 +24,7 @@ const { mockOystehr, mockDeleteZ3Object, mockCaptureException } = vi.hoisted(() 
   },
   mockDeleteZ3Object: vi.fn(),
   mockCaptureException: vi.fn(),
+  mockResolveCallerPractitionerRef: vi.fn(),
 }));
 
 vi.mock('utils/lib/helpers/helpers', async (importOriginal) => {
@@ -55,6 +56,14 @@ vi.mock('../../src/shared/sentry', async (importOriginal) => {
   return {
     ...actual,
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+  };
+});
+
+vi.mock('../../src/shared/practitioners', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    resolveCallerPractitionerRef: mockResolveCallerPractitionerRef,
   };
 });
 
@@ -140,7 +149,7 @@ function makeFolderList(overrides: Partial<List> = {}): List {
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function makeSearchBundle(resources: (Task | List)[], hasNext = false) {
+function makeSearchBundle(resources: (Task | List | Encounter)[], hasNext = false) {
   return {
     resourceType: 'Bundle',
     type: 'searchset',
@@ -427,6 +436,135 @@ describe('file-inbound-fax handler', () => {
       expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
       expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('file-inbound-fax visit link and review task', () => {
+  const patient: Patient = {
+    resourceType: 'Patient',
+    id: 'patient-789',
+    name: [{ given: ['Frodo'], family: 'Baggins' }],
+  };
+  const encounter: Encounter = {
+    resourceType: 'Encounter',
+    id: 'enc-1',
+    status: 'finished',
+    class: { code: 'AMB' },
+    subject: { reference: 'Patient/patient-789' },
+    appointment: [{ reference: 'Appointment/appt-1' }],
+  };
+  const filer = { reference: 'Practitioner/prac-filer', display: 'Bilbo Baggins' };
+  const assignee = { id: 'prac-1', name: 'Samwise Gamgee' };
+  const receivedDate = '2026-03-13T10:00:00Z';
+
+  function mockReads({ encounters = [encounter], folders = [makeFolderList()] } = {}): void {
+    const faxTask = makeFaxTask();
+    faxTask.input = [...faxTask.input!, { type: { coding: [{ code: 'received-date' }] }, valueString: receivedDate }];
+    mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task') return faxTask;
+      if (resourceType === 'Patient') return patient;
+      throw new Error(`unexpected get for ${resourceType}`);
+    });
+    mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'List') return makeSearchBundle(folders);
+      if (resourceType === 'Encounter') return makeSearchBundle(encounters);
+      throw new Error(`unexpected search for ${resourceType}`);
+    });
+    mockOystehr.fhir.transaction.mockResolvedValue({
+      entry: [{ resource: { resourceType: 'DocumentReference', id: 'docref-1' } }],
+    });
+    mockResolveCallerPractitionerRef.mockResolvedValue(filer);
+  }
+
+  const inputValue = (task: Task, code: string): string | undefined =>
+    task.input?.find((i) => i.type?.coding?.some((c) => c.code === code))?.valueString;
+
+  it("attaches the filed document to the visit, after checking the visit is the patient's", async () => {
+    mockReads();
+
+    const result = await fileInboundFax(makeInput({ ...fileBody, encounterId: 'enc-1' }));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'Encounter',
+      params: [
+        { name: '_id', value: 'enc-1' },
+        { name: 'subject', value: 'Patient/patient-789' },
+      ],
+    });
+    const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
+    const docRefPost = requests.find((r: any) => r.method === 'POST' && r.url === '/DocumentReference');
+    expect(docRefPost.resource.context).toEqual({ encounter: [{ reference: 'Encounter/enc-1' }] });
+  });
+
+  it("rejects another patient's visit before the folder List could be materialized", async () => {
+    mockReads({ encounters: [], folders: [] });
+
+    const result = await fileInboundFax(
+      makeInput({ ...fileBody, folderId: 'synthetic:visit-notes', internalName: 'visit-notes', encounterId: 'enc-1' })
+    );
+
+    expect(result.statusCode).toBe(400);
+    const body = JSON.parse(result.body);
+    expect(body.code).toBe(APIErrorCode.INVALID_INPUT);
+    expect(body.message).toContain('Encounter/enc-1 not found for Patient/patient-789');
+    expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('creates the assigned review task in the same transaction as the filing', async () => {
+    mockReads();
+
+    const result = await fileInboundFax(makeInput({ ...fileBody, encounterId: 'enc-1', reviewTaskAssignee: assignee }));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockResolveCallerPractitionerRef).toHaveBeenCalledWith('test-token', secrets, mockOystehr);
+    const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
+    expect(requests).toHaveLength(4);
+    const docRefPost = requests.find((r: any) => r.method === 'POST' && r.url === '/DocumentReference');
+    const reviewTask: Task = requests.find((r: any) => r.method === 'POST' && r.url === '/Task').resource;
+
+    expect(reviewTask.groupIdentifier?.value).toBe(FAX_TASK.category);
+    expect(reviewTask.code?.coding).toEqual([{ system: FAX_TASK.system, code: FAX_TASK.code.reviewInboundFax }]);
+    expect(reviewTask.description).toBe('Review fax “Fax from +15551234567” for Frodo Baggins');
+    expect(reviewTask.status).toBe('in-progress');
+    expect(reviewTask.owner).toMatchObject({ reference: 'Practitioner/prac-1', display: 'Samwise Gamgee' });
+    expect(reviewTask.requester).toEqual(filer);
+    expect(reviewTask.focus).toEqual({ reference: docRefPost.fullUrl });
+    expect(reviewTask.encounter).toEqual({ reference: 'Encounter/enc-1' });
+    expect(inputValue(reviewTask, 'patient-id')).toBe('patient-789');
+    expect(inputValue(reviewTask, 'folder-id')).toBe('folder-abc');
+    expect(inputValue(reviewTask, 'appointment-id')).toBe('appt-1');
+    expect(inputValue(reviewTask, 'communication-id')).toBe('comm-456');
+    expect(inputValue(reviewTask, 'received-date')).toBe(receivedDate);
+    // The fax's own match task is found by `based-on Communication/…` (match page, ingestion idempotency).
+    expect(reviewTask.basedOn).toBeUndefined();
+    expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+  });
+
+  it('points a review task without a visit at the patient folder only', async () => {
+    mockReads();
+
+    await fileInboundFax(makeInput({ ...fileBody, reviewTaskAssignee: assignee }));
+
+    expect(mockOystehr.fhir.search).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Encounter' }));
+    const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
+    const docRefPost = requests.find((r: any) => r.method === 'POST' && r.url === '/DocumentReference');
+    const reviewTask: Task = requests.find((r: any) => r.method === 'POST' && r.url === '/Task').resource;
+    expect(docRefPost.resource.context).toBeUndefined();
+    expect(reviewTask.encounter).toBeUndefined();
+    expect(inputValue(reviewTask, 'appointment-id')).toBeUndefined();
+    expect(inputValue(reviewTask, 'folder-id')).toBe('folder-abc');
+  });
+
+  it('files nothing when the filer cannot be resolved for the review task', async () => {
+    mockReads();
+    mockResolveCallerPractitionerRef.mockRejectedValue(new Error('no practitioner for user'));
+
+    const result = await fileInboundFax(makeInput({ ...fileBody, reviewTaskAssignee: assignee }));
+
+    expect(result.statusCode).toBe(500);
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 });
 

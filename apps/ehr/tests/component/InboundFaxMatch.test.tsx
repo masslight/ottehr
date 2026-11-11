@@ -122,6 +122,20 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
   parsePatientDocsFolders: (...args: unknown[]) => mockParsePatientDocsFolders(...args),
 }));
 
+const mockUseGetPatientVisitHistory = vi.fn();
+
+vi.mock('../../src/hooks/useGetPatientVisitHistory', () => ({
+  useGetPatientVisitHistory: (patientId: string | undefined) => mockUseGetPatientVisitHistory(patientId),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useGetEmployees', () => ({
+  useGetEmployeesWithDetails: () => ({
+    isLoading: false,
+    data: { providers: [], nonProviders: [{ id: 'prac-1', name: 'Samwise Gamgee' }] },
+  }),
+  toProviderDetails: (e: { id: string; name: string }) => ({ practitionerId: e.id, name: e.name }),
+}));
+
 vi.mock('notistack', () => ({
   enqueueSnackbar: vi.fn(),
 }));
@@ -148,6 +162,26 @@ const MOCK_FOLDERS = [
     isCustom: false,
   },
 ];
+
+const MOCK_VISITS = {
+  visits: [
+    {
+      appointmentId: 'appt-1',
+      encounterId: 'enc-1',
+      type: 'walk-in',
+      serviceMode: 'in-person',
+      dateTime: '2026-03-01T15:00:00Z',
+    },
+    // No encounter: nothing a document could be attached to.
+    {
+      appointmentId: 'appt-2',
+      encounterId: undefined,
+      type: 'pre-booked',
+      serviceMode: 'in-person',
+      dateTime: '2026-02-01T15:00:00Z',
+    },
+  ],
+};
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -230,6 +264,10 @@ describe('InboundFaxMatch page', () => {
       data: patientId ? { lists: [], catalogDefs: [] } : undefined,
     }));
     mockParsePatientDocsFolders.mockReturnValue(MOCK_FOLDERS);
+    mockUseGetPatientVisitHistory.mockImplementation((patientId: string | undefined) => ({
+      isLoading: false,
+      data: patientId ? MOCK_VISITS : undefined,
+    }));
   });
 
   it('renders the page title', async () => {
@@ -583,6 +621,117 @@ describe('InboundFaxMatch page', () => {
     // Navigates back to the tasks board
     await waitFor(() => {
       expect(screen.getByTestId('tasks-page')).toBeDefined();
+    });
+  });
+
+  describe('visit link and review task', () => {
+    const renderPage = (): void => {
+      const Wrapper = createWrapper();
+      render(
+        <Wrapper>
+          <InboundFaxMatch />
+        </Wrapper>
+      );
+    };
+
+    const chooseOption = async (
+      user: ReturnType<typeof userEvent.setup>,
+      testId: string,
+      option: RegExp
+    ): Promise<void> => {
+      await user.click(within(screen.getByTestId(testId)).getByRole('combobox'));
+      await user.click(await screen.findByRole('option', { name: option }));
+    };
+
+    const save = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+      const saveButton = screen.getByText('Save').closest('button');
+      await waitFor(() => {
+        expect(saveButton?.disabled).toBe(false);
+      });
+      await user.click(saveButton!);
+    };
+
+    it('offers only visits that have an encounter, and attaches the document to the chosen one', async () => {
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      expect(mockUseGetPatientVisitHistory).toHaveBeenCalledWith('patient-123');
+      await user.click(within(screen.getByTestId('inbound-fax-visit-select')).getByRole('combobox'));
+      expect(await screen.findAllByRole('option')).toHaveLength(1);
+      await user.click(screen.getByRole('option', { name: /Walk-in In Person Visit/ }));
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ encounterId: 'enc-1' })
+        );
+      });
+      expect(mockFileInboundFax.mock.calls[0][1]).not.toHaveProperty('reviewTaskAssignee');
+    });
+
+    it('drops the chosen visit when the patient changes, since it belongs to the previous patient', async () => {
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      await chooseOption(user, 'inbound-fax-visit-select', /Walk-in In Person Visit/);
+      const clearButton = screen
+        .getByDisplayValue(/Frodo Baggins/)
+        .closest('.MuiInputBase-root')
+        ?.querySelector('button');
+      await user.click(clearButton!);
+      await selectPatientAndFolder(user);
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalled();
+      });
+      expect(mockFileInboundFax.mock.calls[0][1]).not.toHaveProperty('encounterId');
+    });
+
+    it('requires an assignee before filing with a review task, then sends it along', async () => {
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      expect(screen.queryByTestId('inbound-fax-review-assignee')).toBeNull();
+      await user.click(screen.getByLabelText('Create task to review this fax'));
+
+      expect(screen.getByText('Save').closest('button')?.disabled).toBe(true);
+      await chooseOption(user, 'inbound-fax-review-assignee', /Samwise Gamgee/);
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ reviewTaskAssignee: { id: 'prac-1', name: 'Samwise Gamgee' } })
+        );
+      });
+      expect(mockFileInboundFax.mock.calls[0][1]).not.toHaveProperty('encounterId');
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Fax filed and review task created', { variant: 'success' });
+    });
+
+    it('does not create a review task once the checkbox is unticked again', async () => {
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      await user.click(screen.getByLabelText('Create task to review this fax'));
+      await chooseOption(user, 'inbound-fax-review-assignee', /Samwise Gamgee/);
+      await user.click(screen.getByLabelText('Create task to review this fax'));
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalled();
+      });
+      expect(mockFileInboundFax.mock.calls[0][1]).not.toHaveProperty('reviewTaskAssignee');
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Fax filed successfully', { variant: 'success' });
     });
   });
 

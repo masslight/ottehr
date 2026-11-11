@@ -58,9 +58,12 @@ vi.mock('src/features/visits/shared/components/patient/docs/UploadDocumentDialog
 
 import { PatientDocumentsExplorer } from '../../src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 
-const explorerFor = (patientId: string): JSX.Element => (
+const explorerFor = (
+  patientId: string,
+  props: { initialFolderId?: string; initialFolderName?: string } = {}
+): JSX.Element => (
   <MemoryRouter>
-    <PatientDocumentsExplorer patientId={patientId} />
+    <PatientDocumentsExplorer patientId={patientId} {...props} />
   </MemoryRouter>
 );
 
@@ -84,6 +87,27 @@ describe('PatientDocumentsExplorer folder selection', () => {
     rerender(explorerFor('patient-1'));
 
     expect(mockSearchDocuments).toHaveBeenLastCalledWith(expect.objectContaining({ documentsFolder: REAL_FOLDER }));
+  });
+
+  it('preselects the deep-linked folder by List id, ahead of a folder matching by name', () => {
+    const otherFolder: PatientDocumentsFolder = { ...REAL_FOLDER, id: 'list-2', folderName: 'Other' };
+    docsState.documentsFolders = [REAL_FOLDER, otherFolder];
+
+    render(explorerFor('patient-1', { initialFolderId: 'list-2', initialFolderName: 'Referrals' }));
+
+    expect(mockSearchDocuments).toHaveBeenLastCalledWith(expect.objectContaining({ documentsFolder: otherFolder }));
+  });
+
+  it('lets the user clear a deep-linked folder without it being selected again', async () => {
+    docsState.documentsFolders = [REAL_FOLDER];
+    const user = userEvent.setup();
+    render(explorerFor('patient-1', { initialFolderId: 'list-1' }));
+    expect(mockSearchDocuments).toHaveBeenLastCalledWith(expect.objectContaining({ documentsFolder: REAL_FOLDER }));
+
+    // Clicking the selected folder again deselects it.
+    await user.click(screen.getByText('Select folder'));
+
+    expect(mockSearchDocuments).toHaveBeenLastCalledWith(expect.objectContaining({ documentsFolder: undefined }));
   });
 
   it('closes its upload dialog when reused for another patient', async () => {
