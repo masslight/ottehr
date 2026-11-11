@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Invoice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -13,6 +13,7 @@ import {
   getInvoiceNumber,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { isVersionConflictError } from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
@@ -236,20 +237,22 @@ function savedInvoicePdf(invoice: Invoice, pdf: Omit<NioInvoicePdfData, 'invoice
   };
 }
 
+const invoicePdfParams = (invoiceId: string): SearchParam[] => [
+  {
+    name: 'related',
+    value: `Invoice/${invoiceId}`,
+  },
+  {
+    name: 'status',
+    value: 'current',
+  },
+];
+
 async function findInvoicePdf(oystehr: Oystehr, invoiceId: string): Promise<DocumentReference | undefined> {
   const documentReferences = (
     await oystehr.fhir.search<DocumentReference>({
       resourceType: 'DocumentReference',
-      params: [
-        {
-          name: 'related',
-          value: `Invoice/${invoiceId}`,
-        },
-        {
-          name: 'status',
-          value: 'current',
-        },
-      ],
+      params: invoicePdfParams(invoiceId),
     })
   ).unbundle();
   return documentReferences[0];
@@ -280,7 +283,16 @@ async function uploadInvoicePdf({
       title: fileName,
       contentType: MIME_TYPES.PDF,
       relatedReference: `Invoice/${invoice.id}`,
-    })
+    }),
+    {
+      ifNoneExist: [
+        ...invoicePdfParams(invoice.id!),
+        {
+          name: '_tag',
+          value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`,
+        },
+      ],
+    }
   );
 }
 

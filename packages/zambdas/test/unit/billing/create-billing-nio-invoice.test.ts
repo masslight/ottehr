@@ -5,6 +5,7 @@ import {
   buildBillingInvoice,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/create-billing-nio-invoice';
 import { NioInvoiceDraft } from '../../../src/billing/nio-invoice';
@@ -248,7 +249,21 @@ describe('create-billing-nio-invoice', () => {
       'https://z3.test/upload',
       'application/pdf'
     );
-    const [documentReference] = create.mock.calls[0] as [DocumentReference];
+    const [documentReference, options] = create.mock.calls[0] as [DocumentReference, { ifNoneExist: unknown }];
+    expect(options.ifNoneExist).toEqual([
+      {
+        name: 'related',
+        value: 'Invoice/invoice-1',
+      },
+      {
+        name: 'status',
+        value: 'current',
+      },
+      {
+        name: '_tag',
+        value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`,
+      },
+    ]);
     expect(documentReference.context?.related).toEqual([
       {
         reference: 'Invoice/invoice-1',
