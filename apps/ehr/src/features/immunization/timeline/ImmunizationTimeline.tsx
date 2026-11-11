@@ -27,6 +27,7 @@ import {
   ImmunizationGroupForecast,
   ImmunizationGroupId,
   ImmunizationGroupStatus,
+  ProjectedDoses,
 } from 'utils/lib/immunization-forecast/types';
 import {
   ImmunizationMark,
@@ -40,9 +41,12 @@ import {
   formatAge,
   formatDate,
   givenDoseWindowSegments,
+  lastProjectedMonths,
   markHistoryText,
   markRecordedText,
   nextDoseSegments,
+  projectedDoseSegments,
+  projectedDoseText,
   sameShotText,
   STATUS_LABELS,
   timelineRanges,
@@ -65,6 +69,8 @@ export interface ImmunizationTimelineProps {
   onClear: (markId: string) => void;
   /** A mark is being saved or cleared. */
   busy?: boolean;
+  /** Later doses per group, if each is given on time: drawn in outline, display only. */
+  projections?: ProjectedDoses;
 }
 
 const MARK_OPTIONS: { value: ImmunizationMarkType; label: string }[] = [
@@ -96,6 +102,9 @@ const SEGMENT_STYLE: Record<
   pastdue: { top: 11, height: 12, background: '#F8C9C9' },
   'window-earliest': { top: 13, height: 8, background: EARLIEST_STRIPES },
   'window-recommended': { top: 13, height: 8, background: '#E3EEDD' },
+  'projected-earliest': { top: 11, height: 12, background: 'transparent', border: '1px dashed #8A96A3' },
+  'projected-recommended': { top: 11, height: 12, background: 'transparent', border: '1.5px solid #F0A04B' },
+  'projected-pastdue': { top: 11, height: 12, background: 'transparent', border: '1.5px solid #E57373' },
 };
 const LATE_WINDOW_BACKGROUND = '#F3DADA';
 const LABEL_WIDTH = 380;
@@ -105,6 +114,7 @@ const PLOT_INSET = 16;
 type Selection =
   | { kind: 'dose'; group: ImmunizationGroupId; id: string }
   | { kind: 'next'; group: ImmunizationGroupId }
+  | { kind: 'projected'; group: ImmunizationGroupId; n: number }
   | { kind: 'lane'; group: ImmunizationGroupId };
 
 export const StatusChip = ({ status }: { status: ImmunizationGroupStatus }): ReactElement => {
@@ -239,11 +249,14 @@ export const ImmunizationTimeline = ({
   onMark,
   onClear,
   busy,
+  projections,
 }: ImmunizationTimelineProps): ReactElement => {
   const theme = useTheme();
   const todayMonths = ageInMonths(dob, forecast.asOf);
   const ranges = useMemo(() => timelineRanges(todayMonths), [todayMonths]);
-  const [maxMonths, setMaxMonths] = useState(() => defaultRange(todayMonths, ranges).maxMonths);
+  const [maxMonths, setMaxMonths] = useState(
+    () => defaultRange(todayMonths, ranges, lastProjectedMonths(projections, dob)).maxMonths
+  );
   const [showWindows, setShowWindows] = useState(true);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [menu, setMenu] = useState<{ group: ImmunizationGroupForecast; anchor: HTMLElement } | null>(null);
@@ -313,6 +326,10 @@ export const ImmunizationTimeline = ({
           </Typography>
         </Typography>
       );
+    }
+    if (selection.kind === 'projected') {
+      const projected = projections?.[group.group]?.find((candidate) => candidate.n === selection.n);
+      return projected ? <Typography variant="body2">{projectedDoseText(group.label, projected)}</Typography> : null;
     }
     const history = markHistoryText(marks, group.group);
     if (selection.kind === 'lane' || !group.next) {
@@ -518,6 +535,17 @@ export const ImmunizationTimeline = ({
                     onClick={() => setSelection({ kind: 'next', group: group.group })}
                   />
                 ))}
+                {(projections?.[group.group] ?? []).flatMap((projected) =>
+                  projectedDoseSegments(projected, group.label, dob, maxMonths).map((segment) => (
+                    <Segment
+                      key={`projected-${projected.n}-${segment.kind}`}
+                      segment={segment}
+                      maxMonths={maxMonths}
+                      dim={dim}
+                      onClick={() => setSelection({ kind: 'projected', group: group.group, n: projected.n })}
+                    />
+                  ))
+                )}
                 {showWindows &&
                   group.doses.flatMap((dose) =>
                     givenDoseWindowSegments(dose, dob, maxMonths, group.label).map((segment) => (
@@ -618,6 +646,17 @@ export const ImmunizationTimeline = ({
             ],
             [<LegendSwatch key="r" sx={{ background: SEGMENT_STYLE.recommended.background }} />, 'Recommended'],
             [<LegendSwatch key="p" sx={{ background: SEGMENT_STYLE.pastdue.background }} />, 'Past due'],
+            ...(projections && Object.keys(projections).length
+              ? [
+                  [
+                    <LegendSwatch
+                      key="l"
+                      sx={{ border: SEGMENT_STYLE['projected-recommended'].border, boxSizing: 'border-box' }}
+                    />,
+                    'Later doses (if each is given on time)',
+                  ],
+                ]
+              : []),
             ...(showWindows
               ? [
                   [

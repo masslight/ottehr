@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { forecastImmunizations } from 'utils/lib/immunization-forecast/engine';
 import { buildForecastInput } from 'utils/lib/immunization-forecast/forecast-input';
+import { projectLaterDoses } from 'utils/lib/immunization-forecast/projections';
 import {
   GetImmunizationForecastResponse,
   ImmunizationMark,
@@ -80,12 +81,15 @@ const marks: ImmunizationMark[] = [
     cleared: { at: '2026-10-01T15:00:00.000Z', by: { id: 'nurse-1', name: 'J. Nurse' } },
   },
 ];
+const forecastInput = buildForecastInput({ dob: DOB, sex: 'female', asOf: AS_OF }, immunizations, marks);
+const forecast = forecastImmunizations(forecastInput);
 const fixture: GetImmunizationForecastResponse = {
   dob: DOB,
   immunizations,
   marks,
   cvxGroups: {},
-  forecast: forecastImmunizations(buildForecastInput({ dob: DOB, sex: 'female', asOf: AS_OF }, immunizations, marks)),
+  forecast,
+  projections: projectLaterDoses(forecastInput, forecast),
 };
 
 describe('ImmunizationTimeline', () => {
@@ -109,6 +113,20 @@ describe('ImmunizationTimeline', () => {
     expect(screen.getByText(/Allowed but early/)).toBeInTheDocument();
     expect(screen.getByText(/^\s*Recommended$/)).toBeInTheDocument();
     expect(screen.queryByText(/Earliest to recommended|Recommended to past due/)).not.toBeInTheDocument();
+  });
+
+  it('draws later doses in outline, opens on a range wide enough for them, and explains them on click', () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    expect(screen.getByRole('button', { name: '0–7 y' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Later doses (if each is given on time)')).toBeInTheDocument();
+    const polio = screen.getByTestId('immunization-lane-ipv');
+    const later = within(polio).getAllByRole('button', { name: /^Polio dose 3 \(projected\): recommended / });
+    expect(later.length).toBeGreaterThan(0);
+    for (const bar of later) expect(bar).toHaveStyle({ background: 'transparent' });
+    fireEvent.click(later[0]);
+    expect(
+      screen.getAllByText(/^Polio dose 3 \(projected\): recommended .*, if dose 2 is given on time\.$/).length
+    ).toBeGreaterThan(0);
   });
 
   it('renders one lane per vaccine group with its status, doses, undated dose and mark', () => {

@@ -44,6 +44,7 @@ export const ImmunizationTimelineContainer = ({
         immunizations={data.immunizations}
         marks={data.marks}
         dob={data.dob}
+        projections={data.projections}
         readOnly={readOnly}
         busy={saveMark.isPending || clearMark.isPending}
         onMark={(group, mark, note) => saveMark.mutate({ patientId, vaccineGroup: group, mark, note })}

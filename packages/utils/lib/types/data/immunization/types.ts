@@ -1,4 +1,4 @@
-import { ImmunizationForecast, ImmunizationGroupId } from '../../../immunization-forecast/types';
+import { ImmunizationForecast, ImmunizationGroupId, ProjectedDoses } from '../../../immunization-forecast/types';
 import { VaccineFundingSource, VfcEligibilityCode } from './vfc';
 
 export interface ImmunizationOrderDetails {
@@ -243,6 +243,8 @@ export interface GetImmunizationForecastRequest {
 /** The forecast computed server-side from the patient's records, with the records it was computed from. */
 export interface GetImmunizationForecastResponse extends GetPatientImmunizationsResponse {
   forecast: ImmunizationForecast;
+  /** Display only: the timeline's later doses, if each is given on time. Due today never reads it. */
+  projections?: ProjectedDoses;
   /** Every CVX code the rules know → the groups it covers, so the Due today box can map stocked vaccines. */
   cvxGroups: Record<string, ImmunizationGroupId[]>;
   /** The patient's date of birth, ISO yyyy-mm-dd; the timeline places doses by age. */

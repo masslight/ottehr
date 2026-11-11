@@ -11,6 +11,8 @@ import {
   ImmunizationGroupForecast,
   ImmunizationGroupId,
   ImmunizationGroupStatus,
+  ProjectedDose,
+  ProjectedDoses,
 } from 'utils/lib/immunization-forecast/types';
 import { ImmunizationMark } from 'utils/lib/types/data/immunization/types';
 
@@ -33,9 +35,26 @@ export function timelineRanges(ageMonths: number): TimelineRange[] {
   return [...CHILD_RANGES, { label: `0–${maxMonths / 12} y`, maxMonths }];
 }
 
-/** The smallest range that still shows the patient's age (the last one when none does). */
-export const defaultRange = (ageMonths: number, ranges: TimelineRange[]): TimelineRange =>
-  ranges.find((range) => ageMonths <= range.maxMonths) ?? ranges[ranges.length - 1];
+/** How far past today the default range stretches to show projected later doses. */
+const PROJECTION_REACH_MONTHS = 60;
+
+/**
+ * The smallest range that still shows the patient's age (the last one when none does) and the last projected later
+ * dose's recommended date, as far as five years past today.
+ */
+export const defaultRange = (ageMonths: number, ranges: TimelineRange[], projectedMonths = 0): TimelineRange => {
+  const shown = Math.max(ageMonths, Math.min(projectedMonths, ageMonths + PROJECTION_REACH_MONTHS));
+  return ranges.find((range) => shown <= range.maxMonths) ?? ranges[ranges.length - 1];
+};
+
+/** Age at the latest recommended date among the projected later doses; 0 when there are none. */
+export const lastProjectedMonths = (projections: ProjectedDoses | undefined, dob: string): number =>
+  Math.max(
+    0,
+    ...Object.values(projections ?? {})
+      .flatMap((doses) => doses ?? [])
+      .map((dose) => ageInMonths(dob, dose.recommended))
+  );
 
 /** Age in (fractional) months on `date`; both ISO dates or date-times, read in the browser's zone. */
 export const ageInMonths = (dob: string, date: string): number =>
@@ -84,7 +103,15 @@ export function timelineTicks(maxMonths: number): TimelineTick[] {
   return ticks;
 }
 
-export type TimelineSegmentKind = 'earliest' | 'recommended' | 'pastdue' | 'window-earliest' | 'window-recommended';
+export type TimelineSegmentKind =
+  | 'earliest'
+  | 'recommended'
+  | 'pastdue'
+  | 'window-earliest'
+  | 'window-recommended'
+  | 'projected-earliest'
+  | 'projected-recommended'
+  | 'projected-pastdue';
 
 export interface TimelineSegment {
   kind: TimelineSegmentKind;
@@ -141,6 +168,38 @@ export function nextDoseSegments(
       : undefined,
   ];
   return segments.filter((candidate): candidate is TimelineSegment => candidate !== undefined);
+}
+
+/** "Polio dose 3 (projected): recommended 01/08/2027, past due after 03/06/2028, if dose 2 is given on time." */
+export const projectedDoseText = (laneLabel: string, dose: ProjectedDose): string =>
+  `${laneLabel} dose ${dose.n} (projected): recommended ${formatDate(dose.recommended)}${
+    dose.pastDue ? `, past due after ${formatDate(dose.pastDue)}` : ''
+  }, if dose ${dose.n - 1} is given on time.`;
+
+/** How far past its past-due date a projected dose's past-due part reaches, as a share of the age then. */
+const PROJECTED_PASTDUE_SPAN = 0.08;
+
+/**
+ * A later dose, if each dose before it is given on time, drawn in outline: allowed but early → recommended → past
+ * due. Its past-due part is a short stub, since the dose is not past due yet.
+ */
+export function projectedDoseSegments(
+  dose: ProjectedDose,
+  laneLabel: string,
+  dob: string,
+  maxMonths: number
+): TimelineSegment[] {
+  const earliest = ageInMonths(dob, dose.earliest);
+  const recommended = ageInMonths(dob, dose.recommended);
+  const pastDue = dose.pastDue ? ageInMonths(dob, dose.pastDue) : null;
+  const title = projectedDoseText(laneLabel, dose);
+  return [
+    segment('projected-earliest', earliest, recommended, maxMonths, title),
+    segment('projected-recommended', Math.max(earliest, recommended), pastDue ?? maxMonths, maxMonths, title),
+    pastDue !== null
+      ? segment('projected-pastdue', pastDue, pastDue * (1 + PROJECTED_PASTDUE_SPAN), maxMonths, title)
+      : undefined,
+  ].filter((candidate): candidate is TimelineSegment => candidate !== undefined);
 }
 
 export const windowText = (window: DoseWindow): string =>

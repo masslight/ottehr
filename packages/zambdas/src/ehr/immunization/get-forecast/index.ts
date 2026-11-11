@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { cvxToGroups } from 'utils/lib/immunization-forecast/cvx-groups';
+import { projectLaterDoses } from 'utils/lib/immunization-forecast/projections';
 import {
   GetImmunizationForecastRequest,
   GetImmunizationForecastResponse,
@@ -51,8 +52,19 @@ export async function getImmunizationForecast(
   const asOf = encounter
     ? assessmentDate(encounter, timezone ? now.setZone(timezone) : now, timezone)
     : input.asOf ?? now.toISODate()!;
-  const { patient, records, forecast } = await loadPatientForecast(oystehr, input.patientId, asOf, timezone);
-  return { ...records, forecast, cvxGroups: cvxToGroups(), dob: patient.birthDate! };
+  const {
+    patient,
+    records,
+    forecast,
+    input: forecastInput,
+  } = await loadPatientForecast(oystehr, input.patientId, asOf, timezone);
+  return {
+    ...records,
+    forecast,
+    projections: projectLaterDoses(forecastInput, forecast),
+    cvxGroups: cvxToGroups(),
+    dob: patient.birthDate!,
+  };
 }
 
 async function readPatientEncounter(oystehr: Oystehr, patientId: string, encounterId: string): Promise<Encounter> {

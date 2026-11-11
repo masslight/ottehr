@@ -176,3 +176,13 @@ export interface ImmunizationForecast {
   /** Input doses whose CVX maps to none of the forecast antigens (e.g. travel vaccines); they are listed nowhere else. */
   unmappedDoses: ForecastDoseInput[];
 }
+
+/** A later dose on the timeline, if each dose before it is given on its recommended date (display only). */
+export interface ProjectedDose {
+  n: number;
+  earliest: string;
+  recommended: string;
+  pastDue: string | null;
+}
+
+export type ProjectedDoses = Partial<Record<ImmunizationGroupId, ProjectedDose[]>>;

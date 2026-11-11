@@ -3,7 +3,11 @@ import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { forecastImmunizations } from 'utils/lib/immunization-forecast/engine';
 import { buildForecastInput, isoDateOf } from 'utils/lib/immunization-forecast/forecast-input';
-import { ForecastPatientSex, ImmunizationForecast } from 'utils/lib/immunization-forecast/types';
+import {
+  ForecastPatientSex,
+  ImmunizationForecast,
+  ImmunizationForecastInput,
+} from 'utils/lib/immunization-forecast/types';
 import { GetPatientImmunizationsResponse } from 'utils/lib/types/data/immunization/types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { buildPatientImmunizationsResponse, searchPatientImmunizations } from './records';
@@ -13,6 +17,8 @@ export interface PatientForecast {
   patient: Patient;
   records: GetPatientImmunizationsResponse;
   forecast: ImmunizationForecast;
+  /** What the engine was run on, so a caller can run it again (the timeline's later doses). */
+  input: ImmunizationForecastInput;
 }
 
 /** The CDSi assessment date: the visit's day (in the visit's zone) when it has started, otherwise today. */
@@ -44,5 +50,5 @@ export async function loadPatientForecast(
     records.marks,
     timezone
   );
-  return { patient, records, forecast: forecastImmunizations(input) };
+  return { patient, records, forecast: forecastImmunizations(input), input };
 }

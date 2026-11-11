@@ -6,8 +6,11 @@ import {
   defaultRange,
   formatAge,
   givenDoseWindowSegments,
+  lastProjectedMonths,
   markHistoryText,
   nextDoseSegments,
+  projectedDoseSegments,
+  projectedDoseText,
   sameShotText,
   timelineRanges,
   timelineTicks,
@@ -111,6 +114,42 @@ describe('next dose bar', () => {
     expect(nextDoseSegments(group({ status: 'immune', next }), DOB, '2026-11-10', 24)).toEqual([]);
     const beyond = { ...next, earliest: '2030-07-08', recommended: '2030-07-08', pastDue: '2031-07-08' };
     expect(nextDoseSegments(group({ next: beyond }), DOB, '2026-11-10', 24)).toEqual([]);
+  });
+});
+
+describe('projected later doses', () => {
+  const polio4 = { n: 4, earliest: '2030-07-08', recommended: '2030-07-08', pastDue: '2033-08-04' };
+  const dtap4 = { n: 4, earliest: '2027-07-08', recommended: '2027-10-08', pastDue: '2028-01-08' };
+
+  it('stretches the default range to the last projected recommended date, at most five years past today', () => {
+    expect(lastProjectedMonths(undefined, DOB)).toBe(0);
+    expect(lastProjectedMonths({ ipv: [polio4], dtap: [dtap4] }, DOB)).toBeCloseTo(48);
+    expect(defaultRange(4, timelineRanges(4), 48).label).toBe('0–7 y');
+    expect(defaultRange(4, timelineRanges(4), 15).label).toBe('0–2 y');
+    // an HPV dose at 11 years is out of reach for an infant: the range stops at today + 5 years
+    expect(defaultRange(4, timelineRanges(4), 132).label).toBe('0–7 y');
+  });
+
+  it('draws allowed but early → recommended → a past-due stub, with the "if given on time" text', () => {
+    const segments = projectedDoseSegments(dtap4, 'DTaP/Tdap/Td', DOB, 84);
+    expect(segments.map((segment) => segment.kind)).toEqual([
+      'projected-earliest',
+      'projected-recommended',
+      'projected-pastdue',
+    ]);
+    expect(segments[1].to).toBeCloseTo(ageInMonths(DOB, dtap4.pastDue));
+    expect(segments[2].from).toBeCloseTo(segments[1].to);
+    expect(segments[0].title).toBe(
+      'DTaP/Tdap/Td dose 4 (projected): recommended 10/08/2027, past due after 01/08/2028, if dose 3 is given on time.'
+    );
+    // same earliest and recommended: no allowed-but-early part; beyond the range: clipped away
+    expect(projectedDoseSegments(polio4, 'Polio', DOB, 84).map((segment) => segment.kind)).toEqual([
+      'projected-recommended',
+    ]);
+    expect(projectedDoseSegments(polio4, 'Polio', DOB, 24)).toEqual([]);
+    expect(projectedDoseText('Polio', { ...polio4, pastDue: null })).toBe(
+      'Polio dose 4 (projected): recommended 07/08/2030, if dose 3 is given on time.'
+    );
   });
 });
 
