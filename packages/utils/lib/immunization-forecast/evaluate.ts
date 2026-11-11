@@ -84,6 +84,8 @@ export interface SeriesForecast {
   latest?: IsoDate;
   unadjustedRecommended?: IsoDate;
   unadjustedPastDue?: IsoDate;
+  /** The seasonal recommendation's end date, for a seasonal dose whose data has one. */
+  seasonEnd?: IsoDate;
   /** Recommended CVX codes for the forecast dose (FORECASTRECVAC-1). */
   cvx: string[];
   /** FORECASTPRIORITY-1: every preferable interval of the forecast dose is an override interval. */
@@ -580,6 +582,7 @@ export function evaluateAndForecastSeries(
         latest: dates.latest,
         unadjustedRecommended: dates.unadjustedRecommended,
         unadjustedPastDue: dates.unadjustedPastDue,
+        ...(seasonEnd && { seasonEnd }),
       };
     }
     return series;

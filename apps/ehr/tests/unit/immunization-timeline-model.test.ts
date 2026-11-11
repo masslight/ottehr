@@ -134,6 +134,42 @@ describe('next dose bar', () => {
     expect(seasonal[1].to).toBe(24);
   });
 
+  it('ends a seasonal bar at the season end, or runs it to the edge when no end date is published', () => {
+    const flu = nextDoseSegments(
+      group({
+        group: 'flu',
+        label: 'Influenza',
+        next: {
+          n: 1,
+          earliest: '2026-09-01',
+          recommended: '2026-09-01',
+          pastDue: null,
+          latest: null,
+          cvx: [],
+          seasonEnd: '2027-06-30',
+        },
+      }),
+      DOB,
+      '2026-11-10',
+      24
+    );
+    expect(flu.map((segment) => segment.kind)).toEqual(['recommended']);
+    expect(flu[0].to).toBeCloseTo(ageInMonths(DOB, '2027-06-30'));
+    expect(flu[0].tip).toBe('Influenza dose 1 window: 09/01/2026 – 06/30/2027');
+    const covid = nextDoseSegments(
+      group({
+        group: 'covid',
+        label: 'COVID-19',
+        next: { n: 1, earliest: '2026-09-02', recommended: '2026-09-02', pastDue: null, latest: null, cvx: [] },
+      }),
+      DOB,
+      '2026-11-10',
+      24
+    );
+    expect(covid[0].to).toBe(24);
+    expect(covid[0].tip).toBe('COVID-19 dose 1 window: from 09/02/2026 (no season end date published)');
+  });
+
   it('draws nothing for complete, immune or contraindicated lanes, and clips to the range', () => {
     expect(nextDoseSegments(group({ status: 'complete', next }), DOB, '2026-11-10', 24)).toEqual([]);
     expect(nextDoseSegments(group({ status: 'immune', next }), DOB, '2026-11-10', 24)).toEqual([]);

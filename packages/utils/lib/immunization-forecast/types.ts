@@ -142,6 +142,8 @@ export interface NextDose {
   pastDue: string | null;
   /** Last date the dose can be given (max age − 1 day), when the series has one. */
   latest: string | null;
+  /** A seasonal dose's season end date (inclusive), when the data publishes one (flu, infant RSV; not COVID). */
+  seasonEnd?: string;
   /** CVX codes the data recommends for this dose at the forecast dates (forecastVaccineType = Y). */
   cvx: string[];
   /** Short explanation for the UI, e.g. the series' administrative guidance. */

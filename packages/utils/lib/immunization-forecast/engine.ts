@@ -373,6 +373,8 @@ function buildGroupForecast(
     const pastDues = notComplete.map((s) => s.forecast.pastDue).filter((d): d is IsoDate => !!d);
     const pastDue = pastDues.length === notComplete.length ? maxDate(minDate(...pastDues), earliest)! : null;
     const latest = minDate(...notComplete.map((s) => s.forecast.latest)) ?? null;
+    const seasonEnds = notComplete.map((s) => s.forecast.seasonEnd).filter((d): d is IsoDate => !!d);
+    const seasonEnd = seasonEnds.length === notComplete.length ? minDate(...seasonEnds) : undefined;
     const doseNumbers = notComplete.map((s) => s.forecast.doseNumber ?? 1);
     const administerFull = rules.vaccineGroupAdministerFull.get(definition.vaccineGroup) ?? false;
     const cvx = [...new Set(notComplete.flatMap((s) => s.forecast.cvx))];
@@ -385,6 +387,7 @@ function buildGroupForecast(
       latest,
       cvx,
       note: guidance,
+      ...(seasonEnd && { seasonEnd }),
     };
   }
   for (const s of contained) {

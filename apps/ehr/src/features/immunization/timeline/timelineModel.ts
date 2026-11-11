@@ -4,6 +4,7 @@
  */
 import { DateTime } from 'luxon';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
+import { FORECAST_GROUPS } from 'utils/lib/immunization-forecast/groups';
 import {
   DoseWindow,
   EvaluatedDose,
@@ -11,6 +12,7 @@ import {
   ImmunizationGroupForecast,
   ImmunizationGroupId,
   ImmunizationGroupStatus,
+  NextDose,
   ProjectedDose,
   ProjectedDoses,
 } from 'utils/lib/immunization-forecast/types';
@@ -147,6 +149,17 @@ const windowTip = (name: string, which: 'early window' | 'window', from: string,
     ? `${name} ${which}: ${formatDate(from)} – ${formatDate(dayBefore(until))}`
     : `${name} ${which}: from ${formatDate(from)}`;
 
+const SEASONAL_GROUPS = new Set(FORECAST_GROUPS.filter((group) => group.seasonal).map((group) => group.id));
+
+/** The next dose's window: up to the day before past due, else through the season's last day, else open-ended. */
+const nextWindowTip = (name: string, group: ImmunizationGroupForecast['group'], next: NextDose): string => {
+  if (next.pastDue || !next.seasonEnd) {
+    const tip = windowTip(name, 'window', next.recommended, next.pastDue);
+    return !next.pastDue && SEASONAL_GROUPS.has(group) ? `${tip} (no season end date published)` : tip;
+  }
+  return `${name} window: ${formatDate(next.recommended)} – ${formatDate(next.seasonEnd)}`;
+};
+
 const NO_NEXT_BAR: ImmunizationGroupStatus[] = ['complete', 'notroutine', 'contraindicated', 'immune'];
 
 /** The next dose as a bar: earliest → recommended → past due, plus a past-due segment up to today. */
@@ -161,6 +174,7 @@ export function nextDoseSegments(
   const earliest = ageInMonths(dob, next.earliest);
   const recommended = ageInMonths(dob, next.recommended);
   const pastDue = next.pastDue ? ageInMonths(dob, next.pastDue) : null;
+  const seasonEnd = next.seasonEnd ? ageInMonths(dob, next.seasonEnd) : null;
   const today = ageInMonths(dob, asOf);
   const name = `${group.label} dose ${next.n}`;
   const segments = [
@@ -175,12 +189,12 @@ export function nextDoseSegments(
     segment(
       'recommended',
       Math.max(earliest, recommended),
-      pastDue ?? maxMonths,
+      pastDue ?? seasonEnd ?? maxMonths,
       maxMonths,
       `Dose ${next.n}: recommended ${formatDate(next.recommended)}${
         next.pastDue ? `, past due ${formatDate(next.pastDue)}` : ''
       }`,
-      windowTip(name, 'window', next.recommended, next.pastDue)
+      nextWindowTip(name, group.group, next)
     ),
     pastDue !== null && today > pastDue
       ? segment(

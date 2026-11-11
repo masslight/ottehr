@@ -49,7 +49,7 @@ Input rules (decisions #5 and #6):
 | `seriesStatus` | The CDSi status behind it: `Not Complete`, `Complete`, `Aged Out`, `Not Recommended`, `Immune`. `Aged Out` and `Not Recommended` show as `complete`; `notes` says why. |
 | `targetDoses`, `targetText` | `4` / `"4"`, `"5, then Tdap at 11–12 y"`, `"Every season"`. |
 | `doses[]` | One per input dose of the group: `doseNumber`, `status` (`valid`, `invalid`, `extraneous`, `not-counted`), `reason`, `counted`, and for counted doses the `window` it was due in (earliest / recommended / pastDue) plus `timing` (`early`, `on-time`, `late`). The Flowsheets timeline draws the windows behind past doses. |
-| `next` | `{ n, earliest, recommended, pastDue \| null, latest \| null, cvx[], note }` or `null`. Seasonal doses have no past-due date. `cvx` lists the vaccines the data recommends for the dose (forecastVaccineType = Y). |
+| `next` | `{ n, earliest, recommended, pastDue \| null, latest \| null, cvx[], note, seasonEnd? }` or `null`. Seasonal doses have no past-due date; `seasonEnd` is the season's last day (inclusive) when the data publishes one (flu, infant RSV; COVID has none). `cvx` lists the vaccines the data recommends for the dose (forecastVaccineType = Y). |
 | `notNeeded` | 1-based dose numbers the patient no longer needs (skipped by age or history, e.g. Hib/PCV dose 4 for a healthy child 5 y or older). |
 | `mark`, `notes` | The active mark; plain-language notes (skip descriptions, "Patient has exceeded the maximum age", …). |
 

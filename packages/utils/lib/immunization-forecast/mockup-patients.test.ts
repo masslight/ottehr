@@ -355,3 +355,15 @@ describe('input rules', () => {
     expect(f.unmappedDoses.map((d) => d.id)).toEqual(['x']);
   });
 });
+
+describe('season end on the next dose', () => {
+  it("carries the season's last day for flu and infant RSV, and none for COVID", () => {
+    const infant = forecastImmunizations({ dob: '2026-07-08', sex: 'female', asOf: '2026-11-10', doses: [] });
+    const next = (group: string): unknown => infant.groups.find((g) => g.group === group)?.next;
+    expect(next('flu')).toMatchObject({ recommended: '2027-01-08', pastDue: null, seasonEnd: '2027-06-30' });
+    expect(next('rsv')).toMatchObject({ pastDue: null, seasonEnd: '2027-03-31' });
+    expect(next('covid')).toMatchObject({ pastDue: null });
+    expect(next('covid')).not.toHaveProperty('seasonEnd');
+    expect(next('hepb')).not.toHaveProperty('seasonEnd');
+  });
+});
