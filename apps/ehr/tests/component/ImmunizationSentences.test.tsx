@@ -1,5 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DateTime, Settings } from 'luxon';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ─── Mocks (must come before component imports) ─────────────────────────────
@@ -145,5 +147,46 @@ describe('ImmunizationSentences', () => {
     expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.cvxCode)).toHaveTextContent('03');
     expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.mvxCode)).toHaveTextContent('Merck and Co., Inc. (MSD)');
     expect(screen.getByRole('heading', { name: 'Administration' })).toBeInTheDocument();
+  });
+
+  it('a typed given date keeps the date and opens at the current time', async () => {
+    // Browsers give the years typed on the way to 2026 (0002, 0020, 0202) offsets with seconds (-04:56:02);
+    // an IANA default zone does the same here, where Node's system zone rounds them to whole minutes.
+    const defaultZone = Settings.defaultZone;
+    Settings.defaultZone = 'America/New_York';
+    try {
+      let saved: string | undefined;
+      const Harness = (): JSX.Element => {
+        const [line, setLine] = useState(emptyImmunizationLine());
+        saved = line.administrationDetails.administeredDateTime;
+        return (
+          <ImmunizationSentences
+            line={line}
+            index={0}
+            onChange={setLine}
+            quickPicks={[]}
+            onQuickPick={vi.fn()}
+            errors={[]}
+            readOnly={false}
+          />
+        );
+      };
+      render(<Harness />);
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId(dataTestIds.vaccineDetailsPage.administeredDate));
+      await user.keyboard('11112026');
+
+      const given = DateTime.fromISO(saved ?? '');
+      expect(given.toISODate()).toBe('2026-11-11');
+      expect(
+        Math.abs(
+          given
+            .set({ year: 2026, month: 11, day: 11 })
+            .diff(DateTime.now().set({ year: 2026, month: 11, day: 11 }), 'minutes').minutes
+        )
+      ).toBeLessThan(2);
+    } finally {
+      Settings.defaultZone = defaultZone;
+    }
   });
 });

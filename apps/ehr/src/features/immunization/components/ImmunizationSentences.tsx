@@ -422,16 +422,22 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const instructionsShown = instructionsOpen || !!details.instructions;
 
-  // The date and time blanks share the one administered date-time; a date picked first is at midnight, as before.
+  // The date and time blanks share the one administered date-time; a date picked first is at the current time.
   const administered = administrationDetails.administeredDateTime
     ? DateTime.fromISO(administrationDetails.administeredDateTime)
     : null;
   const setAdministered = (next: DateTime | null, part: 'date' | 'time'): void => {
+    // A year still being typed (0002, 0020, 0202) is skipped: its old local-mean-time offset has seconds, which
+    // the saved ISO drops, so each keystroke moved the time back a little, past midnight to 11:59 PM the day before.
+    if (next?.isValid && next.year < 1900) return;
     const current = administered?.isValid ? administered : null;
+    const now = DateTime.now();
     const merged = !next?.isValid
       ? null
       : !current
-      ? next
+      ? part === 'date'
+        ? next.set({ hour: now.hour, minute: now.minute, second: 0, millisecond: 0 })
+        : next
       : part === 'date'
       ? current.set({ year: next.year, month: next.month, day: next.day })
       : current.set({ hour: next.hour, minute: next.minute, second: 0, millisecond: 0 });
