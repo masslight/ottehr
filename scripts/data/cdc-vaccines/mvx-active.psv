@@ -1,0 +1,39 @@
+# CDC MVX code set, rows with status Active, as published at
+# https://www2a.cdc.gov/vaccines/iis/iisstandards/vaccines.asp?rpt=mvx (read 2026-11-10).
+# code|manufacturer name
+ASZ|AstraZeneca
+BBI|Bharat Biotech International Limited
+BN|Bavarian Nordic A/S
+BTP|Biotest Pharmaceuticals Corporation
+CAN|CanSino Biologics, Inc
+DVC|DynPort Vaccine Company, LLC
+DVX|Dynavax, Inc.
+GEO|GeoVax Labs, Inc.
+GRF|Grifols
+IDB|ID Biomedical
+JNJ|Johnson and Johnson
+JSN|Janssen
+KED|Kedrion Biopharma
+KGC|Korea Green Cross Corporation
+MBL|Massachusetts Biologic Laboratories
+MDO|Medicago, Inc
+MED|MedImmune, Inc. (AstraZeneca)
+MIP|Emergent BioSolutions
+MOD|Moderna US, Inc.
+MSD|Merck and Co., Inc.
+MSP|MSP Vaccine Company - (partnership Merck and Sanofi Pasteur)
+NAB|NABI
+NVX|Novavax, Inc.
+OTH|Other manufacturer
+PAX|Emergent Travel Health, Inc (Formerly PaxVax)
+PFR|Pfizer, Inc
+PMC|Sanofi Pasteur
+PSC|Protein Sciences
+SEQ|Seqirus
+SKB|GlaxoSmithKline
+SNV|Sinovac
+SPH|Sinopharm-Biotech
+TVA|TEVA Pharmaceuticals USA
+UNK|Unknown manufacturer
+VAL|Valneva
+WAL|Wyeth

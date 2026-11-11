@@ -25,6 +25,7 @@ import {
   validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
+import { applyVaccineDoseFunding } from '../vaccine-stock';
 
 let m2mToken: string;
 
@@ -90,6 +91,7 @@ async function createImmunizationOrder(
   };
   await updateOrderDetails(medicationAdministration, details, oystehr);
   applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
+  applyVaccineDoseFunding(medicationAdministration, administrationDetails);
   const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
   return {
     orderId: createdMedicationAdministration.id!,
@@ -112,6 +114,7 @@ export async function updateImmunizationOrder(
   }
   await updateOrderDetails(medicationAdministration, details, oystehr);
   applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
+  applyVaccineDoseFunding(medicationAdministration, administrationDetails);
   await oystehr.fhir.update(medicationAdministration);
   return {
     orderId: medicationAdministration.id!,

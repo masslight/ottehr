@@ -61,6 +61,7 @@ const drug = (
 ): TrackedDrug => ({
   medicationId,
   name,
+  type: 'medication',
   inventory: { countedAs: 'vial', eachContains: { amount: 4, unit: 'mg' }, use: 'single-use', reorderLevels },
 });
 
@@ -521,8 +522,7 @@ describe('adjust-medication-inventory - performEffect', () => {
       performerReference: 'Practitioner/me',
       components: [{ code: 'counted', value: 4, unit: 'vial' }],
     });
-    expect(result.lot).toMatchObject({ id: 'lot-1', onHand: 4 });
-    expect(result.entry).toMatchObject({ type: 'count', quantity: -2 });
+    expect(result).toMatchObject({ lot: { id: 'lot-1', onHand: 4 }, entry: { type: 'count', quantity: -2 } });
   });
 
   it('rejects a Medication that is not a lot before writing anything', async () => {

@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coding, Extension, MedicationAdministration, Organization, RelatedPerson } from 'fhir/r4b';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getMedicationName, mapFhirToOrderStatus } from 'utils/lib/fhir/medication-administration';
+import { getVaccineDoseFunding } from 'utils/lib/fhir/vfc';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
   CVX_CODE_SYSTEM_URL,
@@ -132,8 +133,10 @@ export function mapMedicationAdministrationToImmunizationOrder(
   const orderVisGiven = medicationAdministration.extension?.some(
     (e) => e.url === IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL && e.valueBoolean
   );
+  const funding = getVaccineDoseFunding(medicationAdministration);
   const hasOrderTimeAdministrationDetails =
     administrationCodesExtensions.length > 0 ||
+    Object.keys(funding).length > 0 ||
     medication?.batch != null ||
     visGivenDate != null ||
     orderAdministeredDateTime != null ||
@@ -186,6 +189,7 @@ export function mapMedicationAdministrationToImmunizationOrder(
               }))
               .filter((c) => c.code !== ''),
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
+            ...funding,
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
             administeredDateTime: isAdministered
               ? medicationAdministration.effectiveDateTime ?? ''

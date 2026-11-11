@@ -1762,6 +1762,13 @@
       "src": "src/ehr/immunization/get-vaccines/index",
       "zip": ".dist/zips/get-vaccines.zip"
     },
+    "VFC-ELIGIBILITY": {
+      "name": "vfc-eligibility",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/vfc-eligibility/index",
+      "zip": ".dist/zips/vfc-eligibility.zip"
+    },
     "ADMINISTER-IMMUNIZATION_ORDER": {
       "name": "administer-immunization-order",
       "type": "http_auth",

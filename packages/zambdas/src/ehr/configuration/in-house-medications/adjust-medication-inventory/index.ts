@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Medication } from 'fhir/r4b';
+import { FhirResource, Medication, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { parseInventoryLot, parseInventoryStockEntry } from 'utils/lib/fhir/medication-inventory';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { makeVfcBorrowingReplacedExtension, parseVfcBorrowingObservation } from 'utils/lib/fhir/vfc';
 import {
   AdjustMedicationInventoryInput,
   AdjustMedicationInventoryInputSchema,
@@ -11,17 +12,18 @@ import {
   InventoryLot,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { StockEntryWrite, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateWithSchema } from '../../../../shared/validation';
+import { toBorrowingRow } from '../../../../shared/vfc';
 
 let m2mToken: string;
 
-/** Adjusts a lot up or down with a reason, or records a shelf count (requirement 6). */
+/** Adjusts a lot up or down with a reason, records a shelf count (requirement 6), or marks a VFC borrowing paid back. */
 export const index = wrapHandler(
   'admin-adjust-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -49,7 +51,7 @@ export const index = wrapHandler(
  * number as a component.
  */
 export const stockEntryForAction = (
-  params: AdjustMedicationInventoryInput,
+  params: Exclude<AdjustMedicationInventoryInput, { action: 'borrowing-replaced' }>,
   lot: InventoryLot,
   performerReference: string,
   effectiveDateTime: string
@@ -79,6 +81,7 @@ export const performEffect = async (
   params: AdjustMedicationInventoryInput,
   performerReference: string
 ): Promise<AdjustMedicationInventoryResponse> => {
+  if (params.action === 'borrowing-replaced') return markBorrowingReplaced(oystehr, params.borrowingId, performerReference);
   const lotResource = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: params.lotId });
   const lot = parseInventoryLot(lotResource);
   if (!lot) throw FHIR_RESOURCE_NOT_FOUND('Medication');
@@ -93,4 +96,29 @@ export const performEffect = async (
   const parsedEntry = parseInventoryStockEntry(written.entry);
   if (!parsedLot || !parsedEntry) throw new Error('Stock entry was written but could not be read back');
   return { lot: parsedLot, entry: parsedEntry };
+};
+
+/** The borrowing row keeps its history; "replaced" is added as an extension with who and when. */
+const markBorrowingReplaced = async (
+  oystehr: Oystehr,
+  borrowingId: string,
+  performerReference: string
+): Promise<AdjustMedicationInventoryResponse> => {
+  const observation = await oystehr.fhir.get<Observation>({ resourceType: 'Observation', id: borrowingId });
+  const borrowing = parseVfcBorrowingObservation(observation);
+  if (!borrowing) throw FHIR_RESOURCE_NOT_FOUND('Observation');
+  if (borrowing.replaced) throw INVALID_INPUT_ERROR('This borrowing is already marked replaced.');
+  const extensions = [
+    ...(observation.extension ?? []),
+    makeVfcBorrowingReplacedExtension(DateTime.now().toUTC().toISO(), performerReference),
+  ];
+  const updated = await oystehr.fhir.patch<Observation>({
+    resourceType: 'Observation',
+    id: borrowingId,
+    operations: [{ op: observation.extension ? 'replace' : 'add', path: '/extension', value: extensions }],
+  });
+  const parsed = parseVfcBorrowingObservation(updated);
+  if (!parsed) throw new Error('Borrowing was updated but could not be read back');
+  const resources: FhirResource[] = [updated];
+  return { borrowing: toBorrowingRow(parsed, resources, new Map()) };
 };

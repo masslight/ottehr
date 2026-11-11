@@ -2,13 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication } from 'fhir/r4b';
-import { isCatalogMedication } from 'utils/lib/fhir/medication-inventory';
+import { getMedicationCvx, isCatalogMedication, isVaccineCatalogMedication } from 'utils/lib/fhir/medication-inventory';
 import {
   LookupNdcInput,
   LookupNdcInputSchema,
   LookupNdcResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
+import { findNdcVaccineProduct, getCvxVaccine, getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
@@ -41,6 +42,7 @@ export const performEffect = async (
 ): Promise<LookupNdcResponse> => {
   const catalog = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: medicationId });
   if (!isCatalogMedication(catalog)) throw FHIR_RESOURCE_NOT_FOUND('Medication');
+  if (isVaccineCatalogMedication(catalog)) return lookupVaccineNdc(ndc, getMedicationCvx(catalog));
 
   const candidates = ndcPackageCandidates(ndc);
   if (candidates.length === 0) return { status: 'not-found' };
@@ -57,4 +59,17 @@ export const performEffect = async (
   if (!product) return { status: 'not-found' };
 
   return { ...compareNdcProduct(product, catalog), product };
+};
+
+/** Vaccines are looked up in the shipped CDC NDC crosswalk, which also names the manufacturer (MVX), and compared by CVX. */
+export const lookupVaccineNdc = (ndc: string, catalogCvx: string | undefined): LookupNdcResponse => {
+  const match = findNdcVaccineProduct(ndc);
+  if (!match) return { status: 'not-found' };
+  const manufacturer = getMvxManufacturer(match.mvx)?.name ?? match.labeler;
+  return {
+    status: catalogCvx && match.cvx === catalogCvx ? 'match' : 'mismatch',
+    comparedBy: 'cvx',
+    product: { packageNdc: match.saleNdc, name: match.name, brandName: match.name, manufacturer, rxcuis: [] },
+    vaccine: { cvx: match.cvx, vaccineName: getCvxVaccine(match.cvx)?.name ?? match.cvx, mvx: match.mvx },
+  };
 };
