@@ -682,7 +682,7 @@ For each prerequisite, fail loudly with a clear error pointing to the EHR admin 
 | Payer Organization | EHR `/admin/insurances` (`EditInsurance.tsx`) or IaC `config/oystehr/payers.json` |
 | Fee schedule | EHR `/admin/fee-schedule` → create + associate to payer + add ChargeItems |
 | Intake Questionnaire | IaC `config/oystehr/in-person-intake-questionnaire.json` + `npm run bump-canonical-version` + redeploy |
-| Vaccine catalog | IaC `config/oystehr/vaccines.json` |
+| Vaccine catalog | EHR Admin → In-House Medications → switch catalog vaccines on (or `npm run migrate-config-vaccines` in `packages/zambdas` on a project upgraded from the old `vaccines.json` config) |
 | Global template | EHR Global Templates admin (see §6.3) — built from a fully-charted reference encounter |
 
 ---

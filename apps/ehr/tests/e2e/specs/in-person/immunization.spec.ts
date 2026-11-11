@@ -18,7 +18,7 @@ import {
   medicationApplianceLocations,
   medicationApplianceRoutes,
 } from 'utils/lib/types/api/medication-administration.types';
-import vaccines from '../../../../../../config/oystehr/vaccines.json';
+import { getCvxVaccine } from 'utils/lib/types/data/immunization/vaccine-lookup';
 
 interface VaccineInfo {
   vaccine: string;
@@ -46,13 +46,12 @@ interface AdministrationDetails {
   mobile: string;
 }
 
-const vaccineKeys = Object.keys(vaccines.fhirResources);
-// Clamp to the available vaccines: an instance may configure only a single vaccine, in which case
-// the administration tests reuse it (the locators tolerate the resulting duplicate MAR and
-// progress-note entries). When more vaccines exist, each test gets a distinct one.
+// Catalog vaccines the instance has switched on (the config-vaccine upgrade switches these on; see
+// packages/zambdas/src/scripts/migrate-config-vaccines.ts). Each administration test gets a distinct one, which
+// keeps its MAR and progress-note entries unique.
+const vaccineKeys = ['115', '20', '113']; // Tdap, DTaP, Td
 const vaccineNameAt = (index: number): string =>
-  vaccines.fhirResources[vaccineKeys[Math.min(index, vaccineKeys.length - 1)] as keyof typeof vaccines.fhirResources]
-    ?.resource.identifier[1].value;
+  getCvxVaccine(vaccineKeys[Math.min(index, vaccineKeys.length - 1)])?.name ?? '';
 
 const vaccine = vaccineNameAt(0);
 

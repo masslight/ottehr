@@ -116,7 +116,7 @@ Each bootstrap prints its resolution table and refuses to write JSON for entries
 
 Two categories are bounded by what the target project already has:
 
-- **Immunization**: needs vaccine `Medication` resources tagged `virtual-medication-type|virtual-vaccine-inventory`. The Ottehr IaC ships only 3 (Tdap / DTaP / Td — see `config/oystehr/vaccines.json`). To get more picks, expand that config and redeploy first.
+- **Immunization**: needs active vaccine `Medication` resources with a CVX code (tagged `virtual-medication-type|virtual-vaccine-inventory`). These are the catalog vaccines switched on in Admin → In-House Medications; a fresh project has none. To get more picks, switch more on there first (or run `npm run migrate-config-vaccines` in `packages/zambdas` on a project upgraded from the old `vaccines.json` config).
 - **In-house medication**: needs in-house `Medication` resources tagged `virtual-medication-type|virtual-medication-inventory`. Synth has 12; bootstrap script targets all 12.
 
 The bootstraps reuse the project-local Medication FHIR ids that are already there. To add picks, add Medications first.
