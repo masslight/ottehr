@@ -112,17 +112,25 @@ describe('DueTodayBox', () => {
     renderBox();
     const rows = screen.getAllByTestId(dataTestIds.orderVaccinePage.dueTodayRow);
     expect(rows[0]).toHaveTextContent('Pentacel covers DTaP/Tdap/Td · Hib · Polio');
-    expect(rows[1]).toHaveTextContent('Prevnar 20 covers PCV');
+    expect(rows[1]).toHaveTextContent('Prevnar 20 infant covers PCV');
     expect(rows).toHaveLength(2);
     expect(screen.getByText('Not suggested: Rotavirus (declined)')).toBeInTheDocument();
     expect(screen.getByText('Hep B 2 not due until 12/23/2026')).toBeInTheDocument();
+  });
+
+  it('names a vaccine with exactly one quick pick by that quick pick, and one with several by the vaccine', () => {
+    renderBox();
+    const rows = screen.getAllByTestId(dataTestIds.orderVaccinePage.dueTodayRow);
+    expect(within(rows[1]).getByText('Prevnar 20 infant')).toBeInTheDocument();
+    expect(within(rows[1]).queryByText('Prevnar 20')).not.toBeInTheDocument();
+    expect(within(rows[0]).getByText('Pentacel')).toBeInTheDocument();
   });
 
   it('⊕ on a vaccine with one quick pick adds it; a vaccine with several lists them, each with its own ⊕', async () => {
     const user = userEvent.setup();
     renderBox();
 
-    await user.click(screen.getByRole('button', { name: 'Add Prevnar 20' }));
+    await user.click(screen.getByRole('button', { name: 'Add Prevnar 20 infant' }));
     expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ id: 'prevnar' }));
 
     expect(screen.queryByRole('button', { name: 'Add Pentacel' })).not.toBeInTheDocument();

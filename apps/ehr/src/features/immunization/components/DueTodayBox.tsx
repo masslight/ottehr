@@ -4,7 +4,15 @@ import { FC, ReactNode, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
-import { Coverage, DueToday, DueTodayCandidate, isVaccineAdded, StockedVaccine, vaccinesToAddAll } from './dueToday';
+import {
+  Coverage,
+  DueToday,
+  DueTodayCandidate,
+  isVaccineAdded,
+  StockedVaccine,
+  stockedVaccineName,
+  vaccinesToAddAll,
+} from './dueToday';
 import { ImmunizationFormValues } from './immunizationLines';
 
 // The look of the eRx suggestion boxes (SuggestedSentences, tinted).
@@ -88,7 +96,7 @@ const VaccineRow: FC<VaccineRowProps> = ({ candidate, labelOf, added, readOnly, 
               aria-disabled={vaccine.outOfStock || undefined}
             >
               <Box component="span" sx={{ fontWeight: 500 }}>
-                {vaccine.name}
+                {stockedVaccineName(vaccine)}
               </Box>{' '}
               <Typography component="span" variant="caption" color="text.secondary">
                 covers {covers.map(labelOf).join(' · ')}
@@ -102,7 +110,8 @@ const VaccineRow: FC<VaccineRowProps> = ({ candidate, labelOf, added, readOnly, 
           {added ? (
             <Added />
           ) : (
-            !readOnly && !several && <AddButton label={`Add ${vaccine.name}`} onClick={() => onAdd(vaccine)} />
+            !readOnly &&
+            !several && <AddButton label={`Add ${stockedVaccineName(vaccine)}`} onClick={() => onAdd(vaccine)} />
           )}
         </Box>
       </Box>

@@ -90,6 +90,10 @@ export const stockedVaccines = (
     };
   });
 
+/** The name the box shows: a vaccine given one way reads as its quick pick ("Prevnar 20 infant"), else as itself. */
+export const stockedVaccineName = (vaccine: StockedVaccine): string =>
+  vaccine.quickPicks.length === 1 ? vaccine.quickPicks[0].name : vaccine.name;
+
 export const dueGroups = (forecast: ImmunizationForecast): DueGroup[] =>
   forecast.groups.flatMap((group) =>
     (group.status === 'due' || group.status === 'pastdue') && group.next
