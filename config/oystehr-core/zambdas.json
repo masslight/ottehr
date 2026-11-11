@@ -811,6 +811,27 @@
       "src": "src/patient/appointment/get-past-visits/index",
       "zip": ".dist/zips/get-past-visits.zip"
     },
+    "GET-SUPPORT-CHAT": {
+      "name": "get-support-chat",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/support-chat/get-support-chat/index",
+      "zip": ".dist/zips/get-support-chat.zip"
+    },
+    "MARK-SUPPORT-CHAT-READ": {
+      "name": "mark-support-chat-read",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/support-chat/mark-support-chat-read/index",
+      "zip": ".dist/zips/mark-support-chat-read.zip"
+    },
+    "SEND-SUPPORT-CHAT-MESSAGE": {
+      "name": "send-support-chat-message",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/support-chat/send-support-chat-message/index",
+      "zip": ".dist/zips/send-support-chat-message.zip"
+    },
     "TELEMED-UPDATE-APPOINTMENT": {
       "name": "telemed-update-appointment",
       "type": "http_auth",
@@ -1867,6 +1888,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/tasks/create-manual-task/index",
       "zip": ".dist/zips/create-manual-task.zip"
+    },
+    "REPLY-SUPPORT-CHAT": {
+      "name": "reply-support-chat",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-chat/reply-support-chat/index",
+      "zip": ".dist/zips/reply-support-chat.zip"
     },
     "SUB-SEND-INVOICE-TO-PATIENT": {
       "name": "sub-send-invoice-to-patient",

@@ -44,7 +44,10 @@ describe('getReviewedRadiologyResults', () => {
   it('returns the final read of reviewed in-house orders as plain text and skips the rest', async () => {
     mockGetRadiologyOrders.mockResolvedValue({
       orders: [
-        order({ finalReport: encodeRadiologyReport('No acute fracture.\nSoft tissues normal.') }),
+        order({
+          finalReport: encodeRadiologyReport('No acute fracture.\nSoft tissues normal.'),
+          performedBy: { id: 'practitioner-1', name: 'Demo Admin, MD' },
+        }),
         order({ serviceRequestId: 'sr-2', status: RadiologyOrderStatus.final, finalReport: 'unreviewed' }),
         order({ serviceRequestId: 'sr-3', status: RadiologyOrderStatus.pending }),
       ],
@@ -54,7 +57,14 @@ describe('getReviewedRadiologyResults', () => {
 
     expect(mockGetRadiologyOrders).toHaveBeenCalledWith(oystehr, { encounterIds: [ENCOUNTER_ID] });
     expect(mockSearchRadiologyResultDocRefs).not.toHaveBeenCalled();
-    expect(results).toEqual([{ studyType: STUDY_TYPE, report: 'No acute fracture.\nSoft tissues normal.', files: [] }]);
+    expect(results).toEqual([
+      {
+        studyType: STUDY_TYPE,
+        report: 'No acute fracture.\nSoft tissues normal.',
+        performedBy: 'Demo Admin, MD',
+        files: [],
+      },
+    ]);
   });
 
   it('returns presigned result files for reviewed external orders', async () => {

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { describe, expect, test, vi } from 'vitest';
-import { getFhirResources } from '../../src/patient/appointment/get-past-visits/helpers';
+import { getFhirResources } from '../../src/shared/visits';
 
 describe('get-past-visits helpers', () => {
   // Appointment:actor puts any booked Practitioner in the result set, and iterating Encounter:participant from it

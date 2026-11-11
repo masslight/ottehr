@@ -17,7 +17,7 @@ import {
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { fetchAdHocClaimRows } from '../../../billing/adhoc/claims';
 import { fetchAdHocRuleRows } from '../../../billing/adhoc/rules';
-import { createBillingClient, createEraReadClient } from '../../../billing/shared';
+import { createBillingClient, createEraReadClient, UnscopedOystehr } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { validateOutputWithSchema } from '../../../shared/validate-zod';
 import { wrapTaskHandler } from '../helpers';
@@ -26,7 +26,7 @@ const ZAMBDA_NAME = 'sub-adhoc-billing-dataset';
 
 let m2mToken: string;
 
-async function eraReadClientFor(secrets: Secrets): Promise<Oystehr> {
+async function eraReadClientFor(secrets: Secrets): Promise<UnscopedOystehr> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   return createEraReadClient(m2mToken, secrets);
 }
@@ -134,6 +134,7 @@ export const index = wrapTaskHandler(
     );
 
     const { json, rowCount } = await stage('build data', taskId, startedAt, async () =>
+      // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the untagged E/M code ValueSet, and actor names span users' Practitioners and billing Devices
       buildOutputJson(oystehr, await eraReadClientFor(secrets), params)
     );
 

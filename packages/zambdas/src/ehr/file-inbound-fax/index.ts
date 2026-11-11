@@ -1,9 +1,12 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { DocumentReference, FhirResource, List, Task } from 'fhir/r4b';
+import { DocumentReference, Encounter, FhirResource, List, Patient, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -16,7 +19,9 @@ import {
 } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { topLevelCatch } from '../../shared/lambda';
+import { resolveCallerPractitionerRef } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
+import { createOwnerReference, createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
 import { resolvePatientDocumentFolder } from '../shared/patient-document-folders';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -29,8 +34,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`[${ZAMBDA_NAME}] handler start`);
 
   try {
-    const { secrets, taskId, communicationId, patientId, folderId, documentName, internalName } =
-      validateRequestParameters(input);
+    const {
+      secrets,
+      taskId,
+      communicationId,
+      patientId,
+      folderId,
+      documentName,
+      internalName,
+      encounterId,
+      reviewTaskAssignee,
+    } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(
@@ -83,6 +97,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(`Task/${taskId} has no stored fax PDF url; cannot file this fax`);
     }
 
+    // Everything that can reject the request runs before the folder is resolved: resolving can lazily
+    // create the per-patient folder List, which a rejection afterwards would leave behind.
+    let appointmentId: string | undefined;
+    if (encounterId) {
+      const encounters = (
+        await oystehr.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [
+            { name: '_id', value: encounterId },
+            { name: 'subject', value: `Patient/${patientId}` },
+            { name: '_include', value: 'Encounter:part-of' },
+          ],
+        })
+      ).unbundle();
+      const encounter = encounters.find((candidate) => candidate.id === encounterId);
+      if (!encounter) {
+        throw INVALID_INPUT_ERROR(`Encounter/${encounterId} not found for Patient/${patientId}`);
+      }
+      // A follow-up's chart is opened through its original visit's appointment.
+      const visitEncounter = isFollowupEncounter(encounter)
+        ? encounters.find((candidate) => `Encounter/${candidate.id}` === encounter.partOf?.reference)
+        : encounter;
+      appointmentId = getIdFromReference(visitEncounter?.appointment?.[0]?.reference, 'Appointment');
+    }
+    const reviewTaskContext = reviewTaskAssignee
+      ? await Promise.all([
+          oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
+          resolveCallerPractitionerRef(input.headers.Authorization.replace('Bearer ', ''), secrets, oystehr),
+        ])
+      : undefined;
+
     // Resolve the target folder. `folderId` may be a real List id or the
     // `synthetic:${internalName}` sentinel the read path hands out for folders the patient has
     // no List for yet; the shared resolver materializes those (validating against the folder
@@ -120,6 +165,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         subject: {
           reference: `Patient/${patientId}`,
         },
+        ...(encounterId ? { context: { encounter: [{ reference: `Encounter/${encounterId}` }] } } : {}),
         content: [
           {
             attachment: {
@@ -173,6 +219,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     const requests: BatchInputRequest<FhirResource>[] = [createDocRefRequest, updateListRequest, markTaskFiledRequest];
+
+    // Created in the same transaction so a fax is never filed without the review task that was asked for.
+    if (reviewTaskAssignee && reviewTaskContext) {
+      const [patient, requester] = reviewTaskContext;
+      requests.push(
+        buildReviewTaskRequest({
+          faxTask: task,
+          communicationId,
+          patient,
+          documentName,
+          folderId: resolvedFolderId,
+          encounterId,
+          appointmentId,
+          documentReference: { reference: docRefFullUrl },
+          assignee: reviewTaskAssignee,
+          requester,
+        })
+      );
+    }
+
     const transactionResult = await oystehr.fhir.transaction<FhirResource>({ requests }).catch((error: unknown) => {
       // A lost optimistic lock (Task or folder List changed concurrently) is an expected race, not a server fault.
       if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
@@ -190,7 +256,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     console.log(
-      `[${ZAMBDA_NAME}] filed DocumentReference/${documentRefId} into List/${resolvedFolderId} and marked Task/${taskId} filed`
+      `[${ZAMBDA_NAME}] filed DocumentReference/${documentRefId} into List/${resolvedFolderId} and marked Task/${taskId} filed${
+        reviewTaskAssignee ? ', with a review task' : ''
+      }`
     );
 
     return {
@@ -203,3 +271,56 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
+
+export const reviewFaxTaskTitle = (documentName: string, patientName: string | undefined): string =>
+  `Review fax “${documentName}”${patientName ? ` for ${patientName}` : ''}`;
+
+function buildReviewTaskRequest(args: {
+  faxTask: Task;
+  communicationId: string;
+  patient: Patient;
+  documentName: string;
+  folderId: string;
+  encounterId: string | undefined;
+  appointmentId: string | undefined;
+  documentReference: Reference;
+  assignee: { id: string; name: string };
+  requester: Reference;
+}): BatchInputPostRequest<Task> {
+  const {
+    faxTask,
+    communicationId,
+    patient,
+    documentName,
+    folderId,
+    encounterId,
+    appointmentId,
+    documentReference,
+    assignee,
+    requester,
+  } = args;
+  return {
+    method: 'POST',
+    url: '/Task',
+    resource: {
+      ...createTask({
+        category: FAX_TASK.category,
+        title: reviewFaxTaskTitle(documentName, getFullestAvailableName(patient)),
+        code: { system: FAX_TASK.system, code: FAX_TASK.code.reviewInboundFax },
+        encounterId,
+        input: [
+          { type: FAX_TASK.input.patientId, valueString: patient.id },
+          { type: FAX_TASK.input.folderId, valueString: folderId },
+          { type: FAX_TASK.input.appointmentId, valueString: appointmentId },
+          // Lets a notification about this task open the fax itself (see buildTaskNotificationAbout).
+          { type: FAX_TASK.input.communicationId, valueString: communicationId },
+          { type: FAX_TASK.input.receivedDate, valueString: getTaskInputValue(faxTask, FAX_TASK.input.receivedDate) },
+        ],
+      }),
+      status: 'in-progress',
+      owner: createOwnerReference(assignee.id, assignee.name),
+      requester,
+      focus: documentReference,
+    },
+  };
+}

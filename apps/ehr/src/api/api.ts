@@ -317,6 +317,11 @@ import {
   SendReceiptByEmailZambdaOutput,
 } from 'utils/lib/types/api/send-receipt-by-email.types';
 import {
+  GetSupportChatResponse,
+  MarkSupportChatReadInput,
+  ReplySupportChatInput,
+} from 'utils/lib/types/api/support-chat.types';
+import {
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
 } from 'utils/lib/types/api/unassign-practitioner/unassign-practitioner.types';
@@ -516,6 +521,9 @@ const USER_ACTIVATION_ZAMBDA_ID = 'user-activation';
 const GET_CONVERSATION_ZAMBDA_ID = 'get-conversation';
 const GET_EMPLOYEE_CHATS_ZAMBDA_ID = 'get-employee-chats';
 const OPEN_EMPLOYEE_CHAT_ZAMBDA_ID = 'open-employee-chat';
+const GET_SUPPORT_CHAT_ZAMBDA_ID = 'get-support-chat';
+const REPLY_SUPPORT_CHAT_ZAMBDA_ID = 'reply-support-chat';
+const MARK_SUPPORT_CHAT_READ_ZAMBDA_ID = 'mark-support-chat-read';
 const GET_SCHEDULE_ZAMBDA_ID = 'get-schedule';
 const CANCEL_APPOINTMENT_ZAMBDA_ID = 'cancel-appointment';
 const GET_EMPLOYEES_ZAMBDA_ID = 'get-employees';
@@ -1488,6 +1496,35 @@ export const openEmployeeChat = async (
   }
 };
 
+export const getSupportChat = async (oystehr: Oystehr, taskId: string): Promise<GetSupportChatResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_SUPPORT_CHAT_ZAMBDA_ID, taskId });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw new Error(JSON.stringify(error));
+  }
+};
+
+export const replySupportChat = async (
+  oystehr: Oystehr,
+  parameters: ReplySupportChatInput
+): Promise<GetSupportChatResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: REPLY_SUPPORT_CHAT_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw new Error(JSON.stringify(error));
+  }
+};
+
+export const markSupportChatRead = async (oystehr: Oystehr, parameters: MarkSupportChatReadInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({ id: MARK_SUPPORT_CHAT_READ_ZAMBDA_ID, ...parameters });
+  } catch (error: unknown) {
+    throw new Error(JSON.stringify(error));
+  }
+};
+
 export const getLocations = async (
   oystehr: Oystehr,
   parameters: GetScheduleRequestParams
@@ -1528,7 +1565,7 @@ export const cancelAppointment = async (
   }
 };
 
-export const getEmployees = async (oystehr: Oystehr, options?: { lite?: boolean }): Promise<GetEmployeesResponse> => {
+export const getEmployees = async (oystehr: Oystehr): Promise<GetEmployeesResponse> => {
   try {
     if (GET_EMPLOYEES_ZAMBDA_ID == null) {
       throw new Error('get employees environment variable could not be loaded');
@@ -1536,7 +1573,6 @@ export const getEmployees = async (oystehr: Oystehr, options?: { lite?: boolean 
 
     const response = await oystehr.zambda.execute({
       id: GET_EMPLOYEES_ZAMBDA_ID,
-      ...(options?.lite ? { lite: true } : {}),
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -3382,6 +3418,8 @@ export interface FileInboundFaxInput {
   folderId: string;
   internalName?: string;
   documentName: string;
+  encounterId?: string;
+  reviewTaskAssignee?: { id: string; name: string };
   // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative
   // url from the verified inbound-fax Task's stored input.
 }
