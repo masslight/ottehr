@@ -64,6 +64,7 @@ import {
 import {
   getEmailForIndividual,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPhoneNumberForIndividual,
   mapGenderToLabel,
@@ -1015,6 +1016,7 @@ export async function fetchAdHocEncounterRows(
       visitStatusSince: currentStatusSince,
       scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
       patientId: patient?.id || '',
+      friendlyPatientId: patient ? getPatientFriendlyId(patient) : '',
       firstName: patient ? getPatientFirstName(patient) || '' : '',
       lastName: patient ? getPatientLastName(patient) || '' : '',
       patientName: patient ? [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' ') : '',
