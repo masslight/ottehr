@@ -891,6 +891,12 @@ export const dataTestIds = {
     associatedDx: 'order-vaccine-associated-dx',
     manufacturer: 'order-vaccine-manufacturer',
     line: 'order-vaccine-line',
+    addOutsideButton: 'order-vaccine-add-outside',
+    outsideLine: 'order-vaccine-outside-line',
+    outsideDate: 'order-vaccine-outside-date',
+    outsidePlace: 'order-vaccine-outside-place',
+    outsideSource: 'order-vaccine-outside-source',
+    outsideLot: 'order-vaccine-outside-lot',
   },
 
   immunizationPage: {

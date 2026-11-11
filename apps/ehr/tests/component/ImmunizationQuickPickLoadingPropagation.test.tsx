@@ -67,6 +67,7 @@ vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useGetVaccines: () => ({ data: [], isLoading: false }),
   useAdministerImmunizationOrder: () => ({ mutateAsync: vi.fn() }),
   useCancelImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRecordOutsideImmunization: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateUpdateImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useGetImmunizationOrders: () => ({ data: immunizationOrdersResponse, isLoading: false }),
 }));

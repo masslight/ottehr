@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
@@ -5,15 +6,26 @@ import {
   CreateUpdateImmunizationOrderRequest,
   ImmunizationCptCode,
   ImmunizationEmergencyContact,
+  ImmunizationOutsideSource,
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
+  RecordOutsideImmunizationRequest,
 } from 'utils/lib/types/data/immunization/types';
 
+/** The external line's own blanks: when, where and from what source the dose was given. */
+export interface OutsideDoseValues {
+  dateGiven?: string;
+  place?: string;
+  source?: ImmunizationOutsideSource;
+}
+
 /** What the order form holds for one immunization, in the shape the create endpoint takes: the order's details and
- * the administration details that can be entered at order time. */
+ * the administration details that can be entered at order time. A line with `outside` records a dose administered
+ * externally instead of ordering one: the vaccine, lot and manufacturer are the same blanks. */
 export interface ImmunizationFormValues {
   details: Partial<InputImmunizationOrderDetails>;
   administrationDetails: InputImmunizationOrderAdministrationDetails;
+  outside?: OutsideDoseValues;
 }
 
 /** One immunization on the order page. */
@@ -44,11 +56,31 @@ export const emptyImmunizationLine = (
 
 /** A line from saved values: a draft's, or the order being edited. */
 export const immunizationLineFrom = (
-  values: Pick<ImmunizationFormValues, 'details'> & Partial<Pick<ImmunizationFormValues, 'administrationDetails'>>
+  values: Pick<ImmunizationFormValues, 'details'> &
+    Partial<Pick<ImmunizationFormValues, 'administrationDetails' | 'outside'>>
 ): ImmunizationLine => ({
   key: ++nextLineKey,
   details: { ...values.details },
   administrationDetails: { ...EMPTY_ADMINISTRATION_DETAILS, ...values.administrationDetails },
+  ...(values.outside ? { outside: { ...values.outside } } : {}),
+});
+
+/** A line nothing has been written in: "+ Add an externally administered immunization" converts it. */
+export const isUntouchedOrderLine = (line: ImmunizationFormValues): boolean =>
+  !line.outside && !line.details.medication && !line.details.dose && !line.details.units && !line.details.route;
+
+/** An order line becomes an external one and back: the × after "administered externally". */
+export const toggleOutside = <T extends ImmunizationFormValues>(line: T): T =>
+  line.outside ? { ...line, outside: undefined } : { ...line, outside: {} };
+
+/** On an external line a quick pick names the vaccine and its codes; its stock lot and expiry are not the dose's. */
+export const applyQuickPickToOutsideLine = <T extends ImmunizationFormValues>(
+  line: T,
+  quickPick: ImmunizationQuickPickData
+): T => ({
+  ...line,
+  details: { ...line.details, medication: quickPick.vaccine, manufacturer: quickPick.manufacturer },
+  administrationDetails: { ...line.administrationDetails, cvx: quickPick.cvx, mvx: quickPick.mvx },
 });
 
 /** The quick pick's values over the form's: the order details when `applyOrderDetails`, the administration
@@ -99,6 +131,30 @@ export const immunizationLineErrors = (line: ImmunizationFormValues): string[] =
   return errors;
 };
 
+/** An external line needs only its vaccine; a date given cannot be in the future. */
+export const outsideLineErrors = (line: ImmunizationFormValues): string[] => {
+  const errors: string[] = [];
+  if (!line.details.medication) errors.push('Pick the immunization');
+  const dateGiven = line.outside?.dateGiven ? DateTime.fromISO(line.outside.dateGiven) : undefined;
+  if (dateGiven && dateGiven.startOf('day') > DateTime.now().startOf('day')) {
+    errors.push('The date given cannot be in the future');
+  }
+  return errors;
+};
+
+/** The order page's save button: the orders and the outside doses it will save, e.g. "Order Immunization · Record 2
+ * Outside". */
+export const orderButtonLabel = (lines: ImmunizationFormValues[]): string => {
+  const outside = lines.filter((line) => line.outside).length;
+  const orders = lines.length - outside;
+  return [
+    orders === 1 ? 'Order Immunization' : orders ? `Order ${orders} Immunizations` : '',
+    outside ? `Record ${outside} Outside` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+};
+
 /** What administering requires, as the details card's fields did: every administration detail, unless the order is
  * being marked not administered. */
 export const administrationErrors = (line: ImmunizationFormValues, administering: boolean): string[] => {
@@ -129,6 +185,23 @@ export const emergencyContactErrors = (contact: Partial<ImmunizationEmergencyCon
   }
   return errors;
 };
+
+export const outsideLineToRequest = (
+  line: ImmunizationFormValues,
+  encounterId: string
+): RecordOutsideImmunizationRequest => ({
+  encounterId,
+  ...cleanupProperties({
+    vaccine: line.details.medication,
+    cvx: line.administrationDetails.cvx,
+    mvx: line.administrationDetails.mvx,
+    manufacturer: line.details.manufacturer,
+    lot: line.administrationDetails.lot,
+    dateGiven: line.outside?.dateGiven,
+    place: line.outside?.place,
+    source: line.outside?.source,
+  }),
+});
 
 export const immunizationLineToRequest = (
   line: ImmunizationFormValues,

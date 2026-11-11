@@ -9,7 +9,10 @@ import {
   CreateUpdateImmunizationOrderResponse,
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
+  GetPatientImmunizationsResponse,
   GetVaccinesResponse,
+  RecordOutsideImmunizationRequest,
+  RecordOutsideImmunizationResponse,
   Vaccine,
 } from 'utils/lib/types/data/immunization/types';
 import { invalidateChartSections } from '../../shared/hooks/chartSectionCache';
@@ -125,5 +128,45 @@ export const useGetVaccines = (): UseQueryResult<Vaccine[], Error> => {
     enabled: oystehrZambda != null,
     retry: 2,
     staleTime: 5 * 60 * 1000,
+  });
+};
+
+const GET_PATIENT_IMMUNIZATIONS_KEY = 'get-patient-immunizations';
+
+/** The patient's Immunization records: doses given here and outside, and the per-vaccine marks. */
+export const useGetPatientImmunizations = (
+  patientId: string | undefined
+): UseQueryResult<GetPatientImmunizationsResponse, Error> => {
+  const { oystehrZambda } = useApiClients();
+  return useQuery({
+    queryKey: [GET_PATIENT_IMMUNIZATIONS_KEY, patientId],
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({ patientId, id: 'get-patient-immunizations' });
+      return chooseJson(response);
+    },
+    enabled: oystehrZambda != null && Boolean(patientId),
+    retry: 2,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+/** Saves a dose administered externally straight into the patient's history. */
+export const useRecordOutsideImmunization = (): UseMutationResult<
+  RecordOutsideImmunizationResponse,
+  Error,
+  RecordOutsideImmunizationRequest
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: RecordOutsideImmunizationRequest) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({ ...input, id: 'record-outside-immunization' });
+      return chooseJson(response);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [GET_PATIENT_IMMUNIZATIONS_KEY], exact: false });
+    },
   });
 };

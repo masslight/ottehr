@@ -32,14 +32,21 @@ import {
   useCancelImmunizationOrder,
   useCreateUpdateImmunizationOrder,
   useGetImmunizationOrders,
+  useRecordOutsideImmunization,
 } from '../../visits/in-person/hooks/useImmunization';
 import {
   applyImmunizationQuickPick,
+  applyQuickPickToOutsideLine,
   emptyImmunizationLine,
   ImmunizationLine,
   immunizationLineErrors,
   immunizationLineFrom,
   immunizationLineToRequest,
+  isUntouchedOrderLine,
+  orderButtonLabel,
+  outsideLineErrors,
+  outsideLineToRequest,
+  toggleOutside,
 } from '../components/immunizationLines';
 import { ImmunizationSectionLabel, ImmunizationSentences } from '../components/ImmunizationSentences';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
@@ -82,6 +89,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const [isOrderSaved, setIsOrderSaved] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { mutateAsync: createUpdateOrder } = useCreateUpdateImmunizationOrder();
+  const { mutateAsync: recordOutside } = useRecordOutsideImmunization();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(encounterId);
 
   const currentUser = useEvolveUser();
@@ -118,6 +126,16 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   }, []);
   const updateLine = (key: number, next: ImmunizationLine): void =>
     changeLines((current) => current.map((line) => (line.key === key ? next : line)));
+  /** An untouched order line becomes the external one; otherwise one is added after the others. */
+  const addOutsideLine = (): void =>
+    changeLines((current) => {
+      const untouched = current.find(isUntouchedOrderLine);
+      return untouched
+        ? current.map((line) => (line === untouched ? toggleOutside(line) : line))
+        : [...current, toggleOutside(emptyImmunizationLine(defaultProvider))];
+    });
+  const lineErrors = (line: ImmunizationLine): string[] =>
+    line.outside ? outsideLineErrors(line) : immunizationLineErrors(line);
 
   // The draft holds every line of a new order, once the user has changed something; not the lines sent.
   useEffect(() => {
@@ -170,7 +188,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const addQuickPickLine = useCallback(
     (quickPick: ImmunizationQuickPickData): void =>
       changeLines((current) => {
-        const target = current.find((line) => !line.details.medication);
+        const target = current.find((line) => !line.outside && !line.details.medication);
         return target
           ? current.map((line) => (line === target ? applyImmunizationQuickPick(line, quickPick, true) : line))
           : [...current, applyImmunizationQuickPick(emptyImmunizationLine(defaultProvider), quickPick, true)];
@@ -209,16 +227,17 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   );
   usePendingQuickPick('immunizations', handlePendingQuickPick, !isOrderLoading);
 
-  // The create endpoint takes one order, so each line is sent in turn; a sent line leaves the form, so a failure
-  // part-way leaves exactly the unsent ones (and their draft) to try again.
+  // The create endpoint takes one order, so each line is sent in turn (an external line to the history instead); a
+  // sent line leaves the form, so a failure part-way leaves exactly the unsent ones (and their draft) to try again.
   const order = async (): Promise<void> => {
     setOrderAttempted(true);
-    if (lines.some((line) => immunizationLineErrors(line).length > 0)) return;
+    if (lines.some((line) => lineErrors(line).length > 0)) return;
     setOrdering(true);
     const sent: ImmunizationLine[] = [];
     try {
       for (const line of lines) {
-        await createUpdateOrder(immunizationLineToRequest(line, encounterId, orderId));
+        if (line.outside) await recordOutside(outsideLineToRequest(line, encounterId));
+        else await createUpdateOrder(immunizationLineToRequest(line, encounterId, orderId));
         sent.push(line);
         if (isCreating) changeLines((current) => current.filter((item) => item.key !== line.key));
       }
@@ -316,23 +335,39 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       }
                       quickPicks={mergedQuickPicks}
                       onQuickPick={(quickPick) =>
-                        updateLine(line.key, applyImmunizationQuickPick(line, quickPick, true))
+                        updateLine(
+                          line.key,
+                          line.outside
+                            ? applyQuickPickToOutsideLine(line, quickPick)
+                            : applyImmunizationQuickPick(line, quickPick, true)
+                        )
                       }
-                      onSaveQuickPick={isAdmin ? () => openSaveQuickPickDialog(line) : undefined}
-                      errors={orderAttempted ? immunizationLineErrors(line) : []}
+                      onSaveQuickPick={isAdmin && !line.outside ? () => openSaveQuickPickDialog(line) : undefined}
+                      errors={orderAttempted ? lineErrors(line) : []}
                       readOnly={isReadOnly}
                     />
                   ))}
                 </Box>
                 {isCreating && !isReadOnly && (
-                  <Button
-                    size="small"
-                    startIcon={<Add />}
-                    sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
-                    onClick={() => changeLines((current) => [...current, emptyImmunizationLine(defaultProvider)])}
-                  >
-                    Add another immunization
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    <Button
+                      size="small"
+                      startIcon={<Add />}
+                      sx={{ textTransform: 'none' }}
+                      onClick={() => changeLines((current) => [...current, emptyImmunizationLine(defaultProvider)])}
+                    >
+                      Add another immunization
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<Add />}
+                      sx={{ textTransform: 'none' }}
+                      onClick={addOutsideLine}
+                      data-testid={dataTestIds.orderVaccinePage.addOutsideButton}
+                    >
+                      Add an externally administered immunization
+                    </Button>
+                  </Box>
                 )}
 
                 <WarningBlock
@@ -388,11 +423,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                     onClick={() => void order()}
                     data-testid={dataTestIds.orderVaccinePage.orderVaccineButton}
                   >
-                    {orderId
-                      ? 'Save changes'
-                      : lines.length === 1
-                      ? 'Order Immunization'
-                      : `Order ${lines.length} Immunizations`}
+                    {orderId ? 'Save changes' : orderButtonLabel(lines)}
                   </LoadingButton>
                 </Stack>
               </Stack>

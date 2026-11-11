@@ -16,14 +16,17 @@ import {
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
 import { BASE_ROUTE_OPTIONS, LOCATION_OPTIONS } from 'src/shared/utils/options';
+import { IMMUNIZATION_OUTSIDE_SOURCES } from 'utils/lib/fhir/immunization';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
+  ImmunizationOutsideSource,
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
+  Vaccine,
 } from 'utils/lib/types/data/immunization/types';
 import { ImmunizationDiagnosisOption, useImmunizationDiagnosisOptions } from '../hooks/useImmunizationDiagnosisOptions';
-import { formatImmunizationCptCode, ImmunizationLine } from './immunizationLines';
+import { formatImmunizationCptCode, ImmunizationLine, OutsideDoseValues, toggleOutside } from './immunizationLines';
 import { IMMUNIZATION_MENU_PAPER_SX, ImmunizationMenu } from './ImmunizationMenu';
 
 /** The admins' button under the line that saves it as a quick pick. */
@@ -36,6 +39,18 @@ const VIS_OPTIONS = [
   { value: 'given', label: 'given' },
   { value: 'not given', label: 'not given' },
 ];
+const SOURCE_OPTIONS = IMMUNIZATION_OUTSIDE_SOURCES.map((source) => ({ value: source.value, label: source.label }));
+
+const toDate = (value: string | undefined): DateTime | null => (value ? DateTime.fromISO(value) : null);
+
+// A blue bar down the immunization's left edge marks where each one starts; its sentences sit line under line.
+const LINE_SX = {
+  display: 'flex',
+  flexDirection: 'column',
+  borderLeft: 3,
+  borderColor: 'primary.main',
+  pl: 1.5,
+} as const;
 
 /** The small uppercase heading over a group of sentences, as the eRx form's. */
 export const ImmunizationSectionLabel: FC<{ children: ReactNode; spaced?: boolean }> = ({ children, spaced }) => (
@@ -100,6 +115,175 @@ const OptionSearch = <T,>({
   </Box>
 );
 
+/** The vaccine, a little larger than the rest of the line, with the menu of quick picks and vaccines on hand. */
+const ImmunizationBlank: FC<{
+  value: string | undefined;
+  readOnly: boolean;
+  quickPicks: ImmunizationQuickPickData[];
+  onQuickPick: (quickPick: ImmunizationQuickPickData) => void;
+  onVaccine: (vaccine: Vaccine) => void;
+}> = ({ value, readOnly, quickPicks, onQuickPick, onVaccine }) => {
+  const { data: vaccines, isLoading: vaccinesLoading } = useGetVaccines();
+  return (
+    <Box component="span" sx={{ fontSize: '1.125em' }}>
+      <PopoverBlank
+        label="immunization"
+        title="Immunization"
+        // The menu's own field says "Immunization".
+        hideTitle
+        paperSx={IMMUNIZATION_MENU_PAPER_SX}
+        value={value}
+        need
+        readOnly={readOnly}
+        dataTestId={dataTestIds.orderVaccinePage.vaccine}
+      >
+        {(close) => (
+          <ImmunizationMenu
+            quickPicks={quickPicks}
+            vaccines={vaccines}
+            vaccinesLoading={vaccinesLoading}
+            onQuickPick={(quickPick) => {
+              onQuickPick(quickPick);
+              close();
+            }}
+            onVaccine={(vaccine) => {
+              onVaccine(vaccine);
+              close();
+            }}
+          />
+        )}
+      </PopoverBlank>
+    </Box>
+  );
+};
+
+interface OutsideImmunizationSentencesProps
+  extends Pick<
+    ImmunizationSentencesProps,
+    'line' | 'index' | 'onChange' | 'onRemove' | 'quickPicks' | 'onQuickPick' | 'errors' | 'readOnly'
+  > {
+  outside: OutsideDoseValues;
+}
+
+/** A dose administered externally, on the same line: "[vaccine] administered externally × on [date given] at [where],
+ * from [source]", plus the lot and manufacturer when known. The × turns it back into an order line. Saved straight
+ * into the history: no order, no stock, no billing. */
+const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
+  line,
+  index,
+  onChange,
+  onRemove,
+  quickPicks,
+  onQuickPick,
+  errors,
+  readOnly,
+  outside,
+}) => {
+  const { details, administrationDetails } = line;
+  const updateOutside = (patch: OutsideDoseValues): void => onChange({ ...line, outside: { ...outside, ...patch } });
+  // The lot sentence is offered as a link, like the instructions, and stays once opened or filled.
+  const [lotOpen, setLotOpen] = useState(false);
+  const lotShown = lotOpen || !!administrationDetails.lot || !!details.manufacturer;
+
+  return (
+    <Box sx={{ ...LINE_SX, borderColor: 'text.disabled' }} data-testid={dataTestIds.orderVaccinePage.outsideLine}>
+      <Sentence onRemove={onRemove} removeLabel={`Remove immunization ${index + 1}`}>
+        <ImmunizationBlank
+          value={details.medication?.name}
+          readOnly={readOnly}
+          quickPicks={quickPicks}
+          onQuickPick={onQuickPick}
+          onVaccine={(medication) => onChange({ ...line, details: { ...details, medication } })}
+        />{' '}
+        <Box component="strong" sx={{ fontWeight: 500 }}>
+          administered externally
+        </Box>
+        {!readOnly && (
+          <RemoveButton label="Remove administered externally" onClick={() => onChange(toggleOutside(line))} />
+        )}{' '}
+        on{' '}
+        <DateTimeBlank
+          kind="date"
+          label="date given"
+          value={toDate(outside.dateGiven)}
+          onChange={(next) => updateOutside({ dateGiven: next?.toISODate() ?? undefined })}
+          readOnly={readOnly}
+          dataTestId={dataTestIds.orderVaccinePage.outsideDate}
+        />{' '}
+        at{' '}
+        <TextBlank
+          label="where"
+          value={outside.place}
+          onChange={(place) => updateOutside({ place })}
+          readOnly={readOnly}
+          dataTestId={dataTestIds.orderVaccinePage.outsidePlace}
+        />
+        , from{' '}
+        <SelectBlank
+          label="source"
+          title="Source"
+          options={SOURCE_OPTIONS}
+          value={outside.source}
+          onChange={(source) =>
+            updateOutside({ source: (source as ImmunizationOutsideSource | undefined) ?? undefined })
+          }
+          readOnly={readOnly}
+          clearable
+          dataTestId={dataTestIds.orderVaccinePage.outsideSource}
+        />
+        .
+      </Sentence>
+
+      {lotShown ? (
+        <Sentence>
+          Lot{' '}
+          <TextBlank
+            label="lot number"
+            value={administrationDetails.lot}
+            onChange={(lot) => onChange({ ...line, administrationDetails: { ...administrationDetails, lot } })}
+            readOnly={readOnly}
+            dataTestId={dataTestIds.orderVaccinePage.outsideLot}
+          />
+          , made by{' '}
+          <TextBlank
+            label="manufacturer"
+            value={details.manufacturer}
+            onChange={(manufacturer) => onChange({ ...line, details: { ...details, manufacturer } })}
+            readOnly={readOnly}
+            dataTestId={dataTestIds.orderVaccinePage.manufacturer}
+          />
+          .
+          {!readOnly && (
+            <RemoveButton
+              label="Remove lot"
+              onClick={() => {
+                setLotOpen(false);
+                onChange({
+                  ...line,
+                  details: { ...details, manufacturer: '' },
+                  administrationDetails: { ...administrationDetails, lot: '' },
+                });
+              }}
+            />
+          )}
+        </Sentence>
+      ) : (
+        !readOnly && (
+          <Sentence>
+            <BlankButton label="+ lot and manufacturer" ghost readOnly={readOnly} onClick={() => setLotOpen(true)} />
+          </Sentence>
+        )
+      )}
+
+      {errors.length > 0 && (
+        <FormHelperText error sx={{ mt: 0.5 }}>
+          {errors.join('. ')}.
+        </FormHelperText>
+      )}
+    </Box>
+  );
+};
+
 interface ImmunizationSentencesProps {
   line: ImmunizationLine;
   index: number;
@@ -139,7 +323,6 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
     onChange({ ...line, details: { ...details, ...patch } });
   const updateAdministration = (patch: InputImmunizationOrderAdministrationDetails): void =>
     onChange({ ...line, administrationDetails: { ...administrationDetails, ...patch } });
-  const { data: vaccines, isLoading: vaccinesLoading } = useGetVaccines();
   const diagnoses = useImmunizationDiagnosisOptions();
   const { options: providers, isLoading: providersLoading } = useEmployeeOptions(PROVIDERS_FILTER);
   // The instructions blank is offered as a link, like eRx's, and stays once opened or written in.
@@ -161,8 +344,6 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
       : current.set({ hour: next.hour, minute: next.minute, second: 0, millisecond: 0 });
     updateAdministration({ administeredDateTime: merged?.toISO() ?? undefined });
   };
-  const toDate = (value: string | undefined): DateTime | null => (value ? DateTime.fromISO(value) : null);
-
   const cptCodes = administrationDetails.cptCodes ?? [];
   // On its own row under the line's last sentence, once the line has a vaccine to save.
   const saveButton = onSaveQuickPick && !readOnly && details.medication && (
@@ -171,43 +352,32 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
     </Button>
   );
 
+  if (line.outside) {
+    return (
+      <OutsideImmunizationSentences
+        line={line}
+        index={index}
+        onChange={onChange}
+        onRemove={onRemove}
+        quickPicks={quickPicks}
+        onQuickPick={onQuickPick}
+        errors={errors}
+        readOnly={readOnly}
+        outside={line.outside}
+      />
+    );
+  }
+
   return (
-    // A blue bar down the immunization's left edge marks where each one starts; its sentences sit line under line.
-    <Box
-      sx={{ display: 'flex', flexDirection: 'column', borderLeft: 3, borderColor: 'primary.main', pl: 1.5 }}
-      data-testid={dataTestIds.orderVaccinePage.line}
-    >
+    <Box sx={LINE_SX} data-testid={dataTestIds.orderVaccinePage.line}>
       <Sentence onRemove={onRemove} removeLabel={`Remove immunization ${index + 1}`}>
-        {/* The vaccine reads a little larger than the rest of the line. */}
-        <Box component="span" sx={{ fontSize: '1.125em' }}>
-          <PopoverBlank
-            label="immunization"
-            title="Immunization"
-            // The menu's own field says "Immunization".
-            hideTitle
-            paperSx={IMMUNIZATION_MENU_PAPER_SX}
-            value={details.medication?.name}
-            need
-            readOnly={readOnly}
-            dataTestId={dataTestIds.orderVaccinePage.vaccine}
-          >
-            {(close) => (
-              <ImmunizationMenu
-                quickPicks={quickPicks}
-                vaccines={vaccines}
-                vaccinesLoading={vaccinesLoading}
-                onQuickPick={(quickPick) => {
-                  onQuickPick(quickPick);
-                  close();
-                }}
-                onVaccine={(vaccine) => {
-                  update({ medication: vaccine });
-                  close();
-                }}
-              />
-            )}
-          </PopoverBlank>
-        </Box>{' '}
+        <ImmunizationBlank
+          value={details.medication?.name}
+          readOnly={readOnly}
+          quickPicks={quickPicks}
+          onQuickPick={onQuickPick}
+          onVaccine={(medication) => update({ medication })}
+        />{' '}
         for {/* A chosen diagnosis stays a blank: clicking it picks again to swap it. */}
         <PopoverBlank
           label={details.associatedDx ? 'diagnosis' : 'add diagnosis'}

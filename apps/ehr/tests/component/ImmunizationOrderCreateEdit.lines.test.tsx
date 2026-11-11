@@ -102,6 +102,7 @@ vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagemen
 
 vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useCancelImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRecordOutsideImmunization: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateUpdateImmunizationOrder: () => ({ mutateAsync: mockCreateUpdateOrder, isPending: false }),
   useGetImmunizationOrders: () => ({ data: undefined, isLoading: false }),
 }));
