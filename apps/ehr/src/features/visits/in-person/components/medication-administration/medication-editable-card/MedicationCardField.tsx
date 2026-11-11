@@ -202,6 +202,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   if (field === 'location') {
     // getMedicationFieldValue coerces unset fields to '' — treat anything non-object as no selection.
     const currentValue = rawValue && typeof rawValue === 'object' ? rawValue : null;
+    const hasError = showError && required && !currentValue;
     return (
       <StyledFormControl data-testid={dataTestIds.orderMedicationPage.inputField(field)} disabled={!isEditable}>
         <Autocomplete
@@ -212,7 +213,16 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           getOptionKey={(option) => `${option.code}|${option.name}`}
           isOptionEqualToValue={(option, val) => option.code === val.code && option.name === val.name}
           onChange={(_e, opt) => onChange(field, opt ? { code: opt.code, name: opt.name } : undefined)}
-          renderInput={(params) => <TextField {...params} label={label} placeholder={`Search ${label}`} />}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={label}
+              placeholder={`Search ${label}`}
+              required={required}
+              error={hasError}
+              helperText={hasError ? REQUIRED_FIELD_ERROR_MESSAGE : ''}
+            />
+          )}
         />
       </StyledFormControl>
     );

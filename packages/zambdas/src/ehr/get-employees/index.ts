@@ -1,12 +1,10 @@
 import Oystehr, { RoleListItem, UserListItem } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { Practitioner } from 'fhir/r4b';
 import { allLicensesForPractitioner, getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName, getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
-import { Secrets } from 'utils/lib/secrets';
 import { EmployeeDetails, GetEmployeesResponse } from 'utils/lib/types/api/get-employees/get-employees.types';
 import { getAllNotificationRows } from 'utils/lib/types/api/provider-notifications';
 import { AVAILABLE_EMPLOYEE_ROLES, hasPractitionerProfile, RoleType } from 'utils/lib/types/api/user.types';
@@ -16,7 +14,6 @@ import { lambdaResponse } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { getRoleMembers } from '../../shared/users.helper';
-import { validateRequestParameters } from './validateRequestParameters';
 
 // For local development it makes it easier to track performance
 if (process.env.IS_OFFLINE === 'true') {
@@ -24,25 +21,9 @@ if (process.env.IS_OFFLINE === 'true') {
   require('console-stamp')(console, { pattern: 'HH:MM:ss.l' });
 }
 
-export interface GetEmployeesInput {
-  secrets: Secrets | null;
-  /**
-   * When true, skips the expensive Encounter queries and the heavy Practitioner enrichment
-   * (qualifications, telecom, notification settings, last-login meta). Use this when the caller
-   * only needs id, name, and role classification — e.g. populating dropdowns. The fields that
-   * depend on the skipped work (`seenPatientRecently`, `gettingAlerts`, `licenses`,
-   * `phoneNumber`, `lastLogin`) are returned as empty/default values.
-   */
-  lite?: boolean;
-}
-
 let oystehrToken: string;
 export const index = wrapHandler('get-employees', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
-  const { secrets, lite } = validatedParameters;
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
+  const { secrets } = input;
 
   if (!oystehrToken) {
     console.log('getting token');
@@ -71,32 +52,20 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     id: existingRoles.find((role) => role.name === value)?.id,
   })).filter((entry): entry is { role: RoleType; id: string } => Boolean(entry.id));
 
-  console.log(`Preparing the FHIR batch request (lite=${Boolean(lite)}).`);
-
   const practitionerIds = allEmployees
     .filter((employee) => employee.profile?.startsWith('Practitioner/'))
     .map((employee) => getIdFromReference(employee.profile, 'Practitioner'));
 
-  // Lite mode skips the organization-wide Encounter queries (used only for `seenPatientRecently`)
-  // and trims Practitioner _elements to just what's needed for names.
-  const fhirRequests = lite
-    ? [`Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`]
-    : (() => {
-        const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
-        return [
-          `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
-          `Encounter?status=in-progress&_elements=id,participant`,
-          `Encounter?status=finished&date=gt${encounterCutDate}&_elements=id,participant`,
-        ];
-      })();
-  const getResourcesRequest = getResourcesFromBatchInlineRequests(oystehr, fhirRequests);
+  const getPractitionersRequest = getResourcesFromBatchInlineRequests(oystehr, [
+    `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
+  ]);
 
   console.log('Do mixed promises in parallel...');
 
-  const [inactiveRoleMembers, assignableRoleMembers, resources] = await Promise.all([
+  const [inactiveRoleMembers, assignableRoleMembers, practitioners] = await Promise.all([
     getRoleMembers(inactiveRoleId, oystehr),
     Promise.all(assignableRoles.map(async ({ role, id }) => ({ role, members: await getRoleMembers(id, oystehr) }))),
-    getResourcesRequest as Promise<Resource[]>,
+    getPractitionersRequest as Promise<Practitioner[]>,
   ]);
 
   const inactiveMemberIds = new Set(inactiveRoleMembers.map((member) => member.id));
@@ -112,19 +81,11 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     }
   }
 
-  const recentlyActivePractitioners: string[] = lite
-    ? []
-    : extractParticipantsRefsFromResources(resources as FhirResource[]);
-
-  console.log('recentlyActivePractitioners.length:', recentlyActivePractitioners.length);
-
   const employeeDetails: EmployeeDetails[] = allEmployees.map((employee) => {
     const status = inactiveMemberIds.has(employee.id) ? 'Deactivated' : 'Active';
     const isPractitioner = hasPractitionerProfile(employee.profile);
     const practitionerId = isPractitioner ? getIdFromReference(employee.profile) : undefined;
-    const practitioner = practitionerId
-      ? (resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined)
-      : undefined;
+    const practitioner = practitionerId ? practitioners.find((resource) => resource.id === practitionerId) : undefined;
 
     const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
@@ -141,7 +102,6 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       lastName: getLastName(practitioner) ?? '',
       phoneNumber: phone ? standardizePhoneNumber(phone)! : '',
       licenses: practitioner ? allLicensesForPractitioner(practitioner) : [],
-      seenPatientRecently: recentlyActivePractitioners.includes(employee.profile),
       gettingAlerts: notificationPreferences
         ? getAllNotificationRows(notificationPreferences).some((row) => row.enabled)
         : false,
@@ -166,19 +126,4 @@ async function getEmployees(oystehr: Oystehr): Promise<UserListItem[]> {
 
 async function getRoles(oystehr: Oystehr): Promise<RoleListItem[]> {
   return oystehr.role.list();
-}
-
-function extractParticipantsRefsFromResources(bundleResources: FhirResource[]): string[] {
-  const participantSet: string[] = [];
-  bundleResources.forEach((res) => {
-    if (res.resourceType === 'Encounter' && res.participant) {
-      res.participant.forEach((participant) => {
-        if (participant.individual?.reference) {
-          participantSet.push(participant.individual.reference);
-        }
-      });
-    }
-  });
-
-  return participantSet.filter((participant) => participant && participant.match(/^Practitioner\//) !== null);
 }

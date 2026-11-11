@@ -173,7 +173,18 @@ export const EncounterBaseRowSchema = z.object({
         'visit\'s note. "" when none.'
     ),
   // --- Patient ---
-  patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
+  patientId: z
+    .string()
+    .describe(
+      'Patient id (internal UUID); rows are per-encounter, so count UNIQUE patientId for a patient count. Display ' +
+        'friendlyPatientId instead unless asked for the UUID.'
+    ),
+  friendlyPatientId: z
+    .string()
+    .describe(
+      'Human-readable patient id (PID) shown in the EHR patient header — the "friendly" / short patient id. Use ' +
+        'it whenever the user asks to display a patient id / PID. "" when the patient has none.'
+    ),
   firstName: z.string().describe('Patient first name.'),
   lastName: z.string().describe('Patient last name.'),
   patientName: z.string().describe('Patient full name.'),

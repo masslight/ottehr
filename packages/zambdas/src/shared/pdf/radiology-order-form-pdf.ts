@@ -1,9 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { DocumentReference, Location, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
+import { Coverage, DocumentReference, Location, Patient, Practitioner, RelatedPerson, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
-import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import {
+  createFilesDocumentReferences,
+  getAllPractitionerCredentials,
+  getPlanIdAndNameFromCoverage,
+} from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
@@ -11,6 +15,7 @@ import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { Secrets } from 'utils/lib/secrets';
 import { RADIOLOGY_SAFETY_FLAG_LABELS, RadiologySafetyFlag } from 'utils/lib/types/api/radiology';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { formatDateForLabs, formatDOB } from 'utils/lib/utils/dateUtils';
 import { getPatientLastFirstName } from '../patients';
 import { makeRadiologyDTO } from '../radiology';
@@ -44,14 +49,30 @@ export interface RadiologyOrderFormInput {
   location?: Location;
   timezone: string;
   weight?: { value: number; unit: string };
+  coverages: OrderedCoveragesWithSubscribers;
   oystehr: Oystehr;
 }
 
-interface RadiologyOrderFormData extends PdfData {
-  patient: { name: string; dob: string; id: string; phone?: string };
+interface InsuranceLine {
+  rank: 'Primary' | 'Secondary';
+  carrier?: string;
+  subscriberName?: string;
+  memberId?: string;
+  relationship?: string;
+}
+
+export interface RadiologyOrderFormData extends PdfData {
+  patient: {
+    name: string;
+    dob: string;
+    id: string;
+    phone?: string;
+    address?: string;
+    insurances: InsuranceLine[];
+  };
   performingOrg: OrganizationBlock;
   orderingClinic: OrganizationBlock;
-  orderingProvider: { name: string; npi?: string; signatureName: string };
+  orderingProvider: { name: string; npi?: string; signatureName: string; credentials?: string };
   order: {
     orderedAtISO?: string;
     timezone: string;
@@ -65,8 +86,23 @@ interface RadiologyOrderFormData extends PdfData {
   };
 }
 
-const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput, RadiologyOrderFormData> = (input) => {
-  const { serviceRequest, patient, practitioner, location, timezone, weight, oystehr } = input;
+const composeInsuranceLine = (
+  rank: InsuranceLine['rank'],
+  coverage: Coverage | undefined,
+  subscriber: RelatedPerson | undefined
+): InsuranceLine | undefined => {
+  if (!coverage) return undefined;
+  return {
+    rank,
+    carrier: getPlanIdAndNameFromCoverage(coverage).planName || undefined,
+    subscriberName: subscriber ? getFullestAvailableName(subscriber, true) : undefined,
+    memberId: coverage.subscriberId,
+    relationship: coverage.relationship?.coding?.[0]?.display,
+  };
+};
+
+export const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput, RadiologyOrderFormData> = (input) => {
+  const { serviceRequest, patient, practitioner, location, timezone, weight, coverages, oystehr } = input;
   const dto = makeRadiologyDTO(serviceRequest);
 
   const practitionerName = practitioner?.name?.[0];
@@ -80,6 +116,11 @@ const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput, Radio
       dob: formatDOB(patient.birthDate) ?? '',
       id: getPatientFriendlyId(patient) || patient.id || '',
       phone: standardizePhoneNumber(patient.telecom?.find((t) => t.system === 'phone')?.value),
+      address: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : undefined,
+      insurances: [
+        composeInsuranceLine('Primary', coverages.primary, coverages.primarySubscriber),
+        composeInsuranceLine('Secondary', coverages.secondary, coverages.secondarySubscriber),
+      ].filter((line): line is InsuranceLine => line !== undefined),
     },
     performingOrg: {
       name: dto.performingOrganization?.name,
@@ -98,6 +139,7 @@ const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput, Radio
       name: practitioner ? getFullestAvailableName(practitioner) ?? '' : '',
       npi: practitioner?.identifier?.find((id) => id.system === FHIR_IDENTIFIER_NPI)?.value,
       signatureName,
+      credentials: practitioner ? getAllPractitionerCredentials(practitioner).join(', ') || undefined : undefined,
     },
     order: {
       orderedAtISO: serviceRequest.authoredOn,
@@ -142,7 +184,9 @@ const createRadiologyOrderFormStyles: StyleFactory = (assets) => {
         spacing: 4,
         newLineAfter: true,
       },
+      faxResults: { fontSize: 12, font: assets.fonts.bold, spacing: 3, newLineAfter: true },
       signature: { fontSize: 20, font: assets.fonts.signature, spacing: 5, newLineAfter: true },
+      signatureCredentials: { fontSize: 13, font: assets.fonts.regular, spacing: 5, newLineAfter: true },
       regular: bodyLine,
       fieldText: bodyLine,
       text: { fontSize: 11, font: assets.fonts.regular, spacing: 2 },
@@ -172,7 +216,13 @@ const drawOrganizationBlock = (
 const fromColumn: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData['orderingClinic']> = {
   preferredWidth: 'column',
   dataSelector: (data) => data.orderingClinic,
-  render: (client, clinic, styles) => drawOrganizationBlock(client, styles, 'From:', clinic),
+  render: (client, clinic, styles) => {
+    drawOrganizationBlock(client, styles, 'From:', { ...clinic, fax: undefined });
+    if (clinic.fax) {
+      client.drawText('Please fax results to:', styles.textStyles.faxResults);
+      client.drawText(clinic.fax, styles.textStyles.faxResults);
+    }
+  },
 };
 
 const toColumn: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData['performingOrg']> = {
@@ -193,7 +243,45 @@ const patientSection: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData[
       .filter(Boolean)
       .join('     ');
     client.drawText(line, styles.textStyles.regular);
+    if (patient.address) client.drawText(`Address: ${patient.address}`, styles.textStyles.regular);
+    patient.insurances.forEach((insurance) => {
+      const label = `${insurance.rank} Insurance`;
+      const gap = 10;
+      const valueWidth =
+        client.getRightBound() -
+        client.getLeftBound() -
+        client.getTextDimensions(label, styles.textStyles.fieldHeader).width -
+        gap;
+      drawFieldLine(client, styles, {
+        label,
+        gap,
+        value: wrapBetweenSegments(
+          [
+            insurance.carrier,
+            insurance.subscriberName ? `Subscriber: ${insurance.subscriberName}` : undefined,
+            insurance.memberId ? `ID: ${insurance.memberId}` : undefined,
+            insurance.relationship ? `Relation: ${insurance.relationship}` : undefined,
+          ].filter((segment): segment is string => !!segment),
+          valueWidth,
+          (text) => client.getTextDimensions(text, styles.textStyles.fieldText).width
+        ),
+      });
+    });
   },
+};
+
+const wrapBetweenSegments = (segments: string[], maxWidth: number, measure: (text: string) => number): string => {
+  const lines: string[] = [];
+  segments.forEach((segment) => {
+    const last = lines.length - 1;
+    const joined = last >= 0 ? `${lines[last]}     ${segment}` : undefined;
+    if (joined !== undefined && measure(`${joined} `) <= maxWidth) {
+      lines[last] = joined;
+    } else {
+      lines.push(segment);
+    }
+  });
+  return lines.join('\n');
 };
 
 const orderSection: PdfSection<RadiologyOrderFormData, RadiologyOrderFormData> = {
@@ -248,11 +336,19 @@ const signatureSection: PdfSection<RadiologyOrderFormData, RadiologyOrderFormDat
   shouldRender: (provider) => !!provider.signatureName,
   render: (client, provider, styles) => {
     client.newLine(48);
-    client.drawText(provider.signatureName, styles.textStyles.signature);
+    const signatureStyle = styles.textStyles.signature;
+    client.drawText(provider.signatureName, { ...signatureStyle, newLineAfter: !provider.credentials });
+    if (provider.credentials) {
+      client.drawStartXPosSpecifiedText(
+        `, ${provider.credentials}`,
+        styles.textStyles.signatureCredentials,
+        client.getLeftBound() + client.getTextDimensions(provider.signatureName, signatureStyle).width
+      );
+    }
   },
 };
 
-const radiologyOrderFormRenderConfig: PdfRenderConfig<RadiologyOrderFormData> = {
+export const radiologyOrderFormRenderConfig: PdfRenderConfig<RadiologyOrderFormData> = {
   // Title spans the full width, top-left (banner); From/To follow as left-aligned body columns.
   header: { title: 'RADIOLOGY ORDER', titleLayout: 'banner' },
   headerBodySeparator: false,

@@ -69,6 +69,7 @@ import {
   shouldCreateVitalsRecheckNursingOrder,
   syncInventoryForOrder,
   updateMedicationAdministrationData,
+  validateAdministrationLocation,
   validateProviderAccess,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -227,6 +228,8 @@ async function updateOrder(
       newStatus,
     });
   }
+
+  validateAdministrationLocation(newStatus, updatedMedicationAdministration ?? orderResources.medicationAdministration);
 
   if (currentStatus && newStatus) {
     if (updatedMedicationAdministration) {

@@ -55,6 +55,8 @@ export type PatientDocumentsExplorerProps = {
   uploadEncounterId?: string;
   /** Preselect this folder once folders have loaded, matched case-insensitively on display name. */
   initialFolderName?: string;
+  /** Preselect this folder once folders have loaded, matched on its List id. Wins over `initialFolderName`. */
+  initialFolderId?: string;
   /**
    * Browse-only: hides upload/scan and the rename/delete row actions. Downloading stays available.
    * Set by visit surfaces when the chart is locked or the user may not edit it.
@@ -72,6 +74,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   patient,
   uploadEncounterId,
   initialFolderName,
+  initialFolderId,
   readOnly = false,
 }) => {
   const theme = useTheme();
@@ -147,14 +150,20 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     if (real) setSelectedFolder(real);
   }, [documentsFolders, selectedFolder]);
 
-  // Used by the Patient Follow-up Task "Go To Task" deep link from completed practice-managed forms.
+  // Task deep links: Patient Follow-up "Go To Task" (by name) and the inbound fax review "View" (by id).
+  // Applied once, so clearing the folder afterwards doesn't re-select it.
+  const initialFolderApplied = useRef(false);
   useEffect(() => {
-    if (!initialFolderName) return;
-    if (selectedFolder) return;
-    if (!documentsFolders.length) return;
-    const match = documentsFolders.find((f) => f.folderName?.toLowerCase() === initialFolderName.toLowerCase());
-    if (match) setSelectedFolder(match);
-  }, [initialFolderName, documentsFolders, selectedFolder]);
+    if (initialFolderApplied.current || selectedFolder) return;
+    const match = documentsFolders.find((f) =>
+      initialFolderId
+        ? f.id === initialFolderId
+        : !!initialFolderName && f.folderName?.toLowerCase() === initialFolderName.toLowerCase()
+    );
+    if (!match) return;
+    initialFolderApplied.current = true;
+    setSelectedFolder(match);
+  }, [initialFolderId, initialFolderName, documentsFolders, selectedFolder]);
 
   const shouldShowClearFilters =
     searchDocNameFieldValue.trim().length > 0 || !!searchDocAddedDate || !!selectedFolder || !!selectedVisit;

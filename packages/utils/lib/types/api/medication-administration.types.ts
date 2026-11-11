@@ -1250,6 +1250,57 @@ export const inHouseMedicationsMedicationApplianceRoutes: MedicationApplianceRou
  */
 export const IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK: readonly string[] = [medicationApplianceRoutes.INFUSION.code];
 
+/**
+ * Routes that mark an in-house medication as an injectable, so the Location (administration site) has to be
+ * recorded when the order is administered. Orders already administered without a location are left as they are
+ * until they are edited and saved as administered again.
+ */
+export const ROUTE_CODES_REQUIRING_ADMINISTRATION_LOCATION: readonly string[] = [
+  medicationApplianceRoutes.INTRAMUSCULAR.code,
+  medicationApplianceRoutes.INTRAVENOUS.code,
+  medicationApplianceRoutes.INFUSION.code,
+  medicationApplianceRoutes.OPHTHALMIC.code,
+  medicationApplianceRoutes.OTIC.code,
+  medicationApplianceRoutes.CONJUNCTIVAL.code,
+  medicationApplianceRoutes.INTRA_ARTERIAL.code,
+  medicationApplianceRoutes.INTRA_ARTICULAR.code,
+  medicationApplianceRoutes.INTRABURSAL.code,
+  medicationApplianceRoutes.INTRACAMERAL.code,
+  medicationApplianceRoutes.INTRACORNEAL.code,
+  medicationApplianceRoutes.INTRADERMAL.code,
+  medicationApplianceRoutes.INTRAOCULAR.code,
+  medicationApplianceRoutes.INTRAOSSEOUS.code,
+  medicationApplianceRoutes.INTRASYNOVIAL.code,
+  medicationApplianceRoutes.INTRATENDINOUS.code,
+  medicationApplianceRoutes.INTRATYMPANIC.code,
+  medicationApplianceRoutes.INTRAVENOUS_CENTRAL.code,
+  medicationApplianceRoutes.INTRAVENOUS_PERIPHERAL.code,
+  medicationApplianceRoutes.INTRAVITREAL.code,
+  medicationApplianceRoutes.OCULAR.code,
+  medicationApplianceRoutes.PERIARTICULAR.code,
+  medicationApplianceRoutes.PERIBULBAR.code,
+  medicationApplianceRoutes.PERINEURAL.code,
+  medicationApplianceRoutes.PERITENDINOUS.code,
+  medicationApplianceRoutes.POSTERIOR_JUXTASCLERAL.code,
+  medicationApplianceRoutes.RETROBULBAR.code,
+  medicationApplianceRoutes.SUBCONJUNCTIVAL.code,
+  medicationApplianceRoutes.SUBCUTANEOUS.code,
+  medicationApplianceRoutes.SUBRETINAL.code,
+  medicationApplianceRoutes.TRANSTYMPANIC.code,
+  medicationApplianceRoutes.TOPICAL.code,
+  medicationApplianceRoutes.CUTANEOUS.code,
+  medicationApplianceRoutes.EPILESIONAL.code,
+  medicationApplianceRoutes.INFILTRATION.code,
+  medicationApplianceRoutes.INTRALESIONAL.code,
+  medicationApplianceRoutes.INTRAVASCULAR.code,
+  medicationApplianceRoutes.PERCUTANEOUS.code,
+  medicationApplianceRoutes.SUBLESIONAL.code,
+  medicationApplianceRoutes.TRANSDERMAL.code,
+];
+
+export const isRouteRequiringAdministrationLocation = (routeCode: string | undefined): boolean =>
+  Boolean(routeCode && ROUTE_CODES_REQUIRING_ADMINISTRATION_LOCATION.includes(routeCode));
+
 export interface EmergencyContactRelationship {
   code: string;
   system: string;

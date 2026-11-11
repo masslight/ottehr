@@ -117,6 +117,10 @@ export const getImmunizationNewOrderUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/immunization/order`;
 };
 
+export const getVisitDocumentsUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/documents`;
+};
+
 export const getInPersonVisitDetailsUrl = (appointmentId: string): string => {
   return `/visit/${appointmentId}`;
 };
