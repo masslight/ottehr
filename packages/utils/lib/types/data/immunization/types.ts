@@ -99,3 +99,12 @@ export interface CancelImmunizationOrderResponse {
   retainedCptCodes: string[];
   billingReviewRequired: boolean;
 }
+
+export interface Vaccine {
+  id: string;
+  name: string;
+}
+
+export interface GetVaccinesResponse {
+  vaccines: Vaccine[];
+}

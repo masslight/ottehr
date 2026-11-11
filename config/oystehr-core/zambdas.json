@@ -1720,6 +1720,13 @@
       "src": "src/ehr/immunization/get-orders/index",
       "zip": ".dist/zips/get-immunization-orders.zip"
     },
+    "GET-VACCINES": {
+      "name": "get-vaccines",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/get-vaccines/index",
+      "zip": ".dist/zips/get-vaccines.zip"
+    },
     "ADMINISTER-IMMUNIZATION_ORDER": {
       "name": "administer-immunization-order",
       "type": "http_auth",

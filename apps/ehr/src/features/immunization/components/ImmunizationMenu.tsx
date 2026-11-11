@@ -1,7 +1,7 @@
 import { Box, TextField, Typography, useTheme } from '@mui/material';
 import { FC, KeyboardEvent, MouseEvent, ReactNode, useEffect, useId, useRef, useState } from 'react';
-import { Vaccine } from 'src/features/visits/in-person/hooks/useImmunization';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { Vaccine } from 'utils/lib/types/data/immunization/types';
 
 /** A pick in the line's immunization menu. */
 type ImmunizationMenuPick =

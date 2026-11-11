@@ -1,11 +1,6 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Identifier, Medication } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
-import {
-  INVENTORY_VACCINE_TYPE_CODE,
-  MEDICATION_IDENTIFIER_NAME_SYSTEM,
-} from 'utils/lib/types/api/medication-administration.constants';
 import {
   AdministerImmunizationOrderRequest,
   CancelImmunizationOrderRequest,
@@ -14,16 +9,13 @@ import {
   CreateUpdateImmunizationOrderResponse,
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
+  GetVaccinesResponse,
+  Vaccine,
 } from 'utils/lib/types/data/immunization/types';
 import { invalidateChartSections } from '../../shared/hooks/chartSectionCache';
 
 const GET_IMMUNIZATION_ORDERS_KEY = 'get-immunization-orders';
 const GET_VACCINES_KEY = 'get-vaccines';
-
-export interface Vaccine {
-  id: string;
-  name: string;
-}
 
 export const useCreateUpdateImmunizationOrder = (): UseMutationResult<
   CreateUpdateImmunizationOrderResponse,
@@ -120,34 +112,17 @@ export const useCancelImmunizationOrder = (
 };
 
 export const useGetVaccines = (): UseQueryResult<Vaccine[], Error> => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   return useQuery({
     queryKey: [GET_VACCINES_KEY],
     queryFn: async () => {
-      if (!oystehr) throw new Error('oystehr not defined');
-      const data = await oystehr.fhir.search<Medication>({
-        resourceType: 'Medication',
-        params: [{ name: 'identifier', value: INVENTORY_VACCINE_TYPE_CODE }],
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({
+        id: 'get-vaccines',
       });
-      return data
-        .unbundle()
-        .flatMap((medication) => {
-          const identifier = medication.identifier?.find(
-            (identifier: Identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-          );
-          if (identifier?.value && medication.id) {
-            return [
-              {
-                id: medication.id,
-                name: identifier?.value,
-              },
-            ];
-          }
-          return [];
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
+      return (chooseJson(response) as GetVaccinesResponse).vaccines;
     },
-    enabled: oystehr != null,
+    enabled: oystehrZambda != null,
     retry: 2,
     staleTime: 5 * 60 * 1000,
   });
