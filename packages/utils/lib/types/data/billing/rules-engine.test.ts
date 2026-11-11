@@ -5,7 +5,7 @@ import {
   collectApplyTagNames,
   collectSetNioIds,
   collectSetResourceRefs,
-  getRuleFieldDef,
+  getFieldDef,
   getServiceLinePropertyDef,
   MAX_REGEX_PATTERN_LENGTH,
   PATIENT_COVERAGE_FIELD_ID,
@@ -253,7 +253,7 @@ describe('RunBillingRulesEngineInputSchema payerClaimControlNumber', () => {
 
 describe('rule value validation', () => {
   const field = (id: string): RuleFieldDef => {
-    const def = getRuleFieldDef(id);
+    const def = getFieldDef(id, 'claim');
     if (!def) throw new Error(`unknown field ${id}`);
     return def;
   };

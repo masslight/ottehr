@@ -93,7 +93,13 @@ import {
 import { zambdaApiUrlOverride } from 'utils/lib/helpers/zambda-api-url-override';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
-import { CLAIM_TAG_SYSTEM, ERA_SOURCE, EraSource, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  asEraClaimStatusCode,
+  CLAIM_TAG_SYSTEM,
+  ERA_SOURCE,
+  EraSource,
+  ndcToDigits,
+} from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingInsuranceType,
   BillingPolicyHolderInput,
@@ -108,6 +114,7 @@ import {
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
   ClaimCoverageType,
+  ClaimRemit,
 } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
@@ -131,10 +138,18 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
 import { fetchAllPages } from '../shared/fhir';
 import {
+  extractClaimResponseAmounts,
+  extractRemitAdjustments,
+  fetchClaimEraLinks,
+  fetchClaimResponsesByClaimIds,
+  sortClaimResponsesByRecency,
+} from './claim-amounts';
+import {
   getCustomInsuranceOrgBusinessId,
   isCustomInsuranceOrganization,
   resolvePayerOrganization,
 } from './custom-insurance-org.helpers';
+import { buildEraRemitServiceLines } from './era-remits';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -1103,7 +1118,7 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
       .filter(
         (
           supportingInfo
-        ): supportingInfo is Omit<ClaimSupportingInfo, 'valueReferrence'> & { valueReference: Reference } =>
+        ): supportingInfo is Omit<ClaimSupportingInfo, 'valueReference'> & { valueReference: Reference } =>
           !!supportingInfo.valueReference && !!supportingInfo.valueReference.reference
       )
       .map(
@@ -1142,6 +1157,73 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     subscribers,
     documentReferences,
   };
+}
+
+export async function fetchErasForClaim(
+  oystehr: Oystehr,
+  claimId: string
+): Promise<{
+  claimResponses: ClaimResponse[];
+  paymentReconciliationIdByClaimResponseId: Map<string, string>;
+  paymentReconciliationById: Map<string, PaymentReconciliation>;
+}> {
+  const erasByClaimId = await fetchClaimResponsesByClaimIds(oystehr, [claimId]);
+  const claimResponses = sortClaimResponsesByRecency(erasByClaimId.get(claimId) ?? []);
+  const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
+    oystehr,
+    claimResponses
+  );
+  const paymentReconciliationById = new Map(
+    paymentReconciliations.map((paymentReconciliation) => [paymentReconciliation.id ?? '', paymentReconciliation])
+  );
+  return {
+    claimResponses,
+    paymentReconciliationIdByClaimResponseId,
+    paymentReconciliationById,
+  };
+}
+
+export async function buildClaimRemits(
+  oystehr: Oystehr,
+  claim: Claim,
+  claimResponses: ClaimResponse[],
+  paymentReconciliationIdByClaimResponseId: Map<string, string>,
+  paymentReconciliationById: Map<string, PaymentReconciliation>,
+  payersByRefParam?: Map<string, Organization>
+): Promise<ClaimRemit[]> {
+  const payersByRef =
+    payersByRefParam ??
+    (await resolvePayersByRef(oystehr, [
+      ...claimResponses.map((era) => era.insurer?.reference),
+      ...paymentReconciliationById
+        .values()
+        .map((paymentReconciliation) => paymentReconciliation.paymentIssuer?.reference),
+    ]));
+  return [...claimResponses].reverse().map((cr) => {
+    const amounts = extractClaimResponseAmounts(cr);
+    const era = paymentReconciliationById.get(paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') ?? '');
+    // the ERA's paymentIssuer outranks ClaimResponse.insurer, which a manual match may have corrupted
+    const issuerRef = era?.paymentIssuer?.reference;
+    const payer =
+      (issuerRef ? payersByRef.get(issuerRef) : undefined) ??
+      (cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined);
+    return {
+      claimResponseId: cr.id ?? '',
+      date: cr.created ?? '',
+      payerName: payer?.name ?? cr.insurer?.display ?? '',
+      eraStatusCode: asEraClaimStatusCode(
+        cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString
+      ),
+      allowed: amounts.allowed ?? null,
+      paid: amounts.paid,
+      patientResp: amounts.patientResp ?? null,
+      adjustments: extractRemitAdjustments(cr),
+      paymentReconciliationId: era?.id ?? '',
+      checkNumber: era ? getEraCheckNumber(era) ?? '' : '',
+      checkDate: era?.paymentDate ?? '',
+      serviceLines: buildEraRemitServiceLines(cr, claim),
+    };
+  });
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {

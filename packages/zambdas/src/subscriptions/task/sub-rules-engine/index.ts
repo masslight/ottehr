@@ -67,6 +67,7 @@ import {
   createBillingClient,
   fetchById,
   fetchClaimGraph,
+  fetchErasForClaim,
   fetchPatientCoverages,
   findRulesEngineList,
   hasTag,
@@ -212,19 +213,27 @@ export async function complexValidation(
   }
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations, customInsuranceOrganizations] =
-    await Promise.all([
-      loadReferenceResources(oystehr, rules),
-      loadChargeMasters(oystehr, rules),
-      loadPatientCoverageContext(oystehr, rules, model.patient),
-      loadNioOrganizations(oystehr, rules),
-      loadCustomInsuranceOrganizations(oystehr, rules),
-    ]);
+  const [
+    referenceResources,
+    chargeMasters,
+    patientCoverageContext,
+    nioOrganizations,
+    customInsuranceOrganizations,
+    { claimResponses },
+  ] = await Promise.all([
+    loadReferenceResources(oystehr, rules),
+    loadChargeMasters(oystehr, rules),
+    loadPatientCoverageContext(oystehr, rules, model.patient),
+    loadNioOrganizations(oystehr, rules),
+    loadCustomInsuranceOrganizations(oystehr, rules),
+    fetchErasForClaim(oystehr, claimId),
+  ]);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
   model.patientCoverageContext = patientCoverageContext;
   model.nioOrganizations = nioOrganizations;
   model.customInsuranceOrganizations = customInsuranceOrganizations;
+  model.claimResponses = claimResponses;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
@@ -238,7 +247,8 @@ export async function complexValidation(
       (model.nioOrganizations ? `, nioOrganizations=${model.nioOrganizations.size}` : '') +
       (model.customInsuranceOrganizations
         ? `, customInsuranceOrganizations=${model.customInsuranceOrganizations.size}`
-        : '')
+        : '') +
+      (model.claimResponses ? `, claimResponses=${model.claimResponses.length}` : '')
   );
   return {
     engine,

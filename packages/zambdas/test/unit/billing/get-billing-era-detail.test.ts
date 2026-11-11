@@ -17,7 +17,11 @@ import {
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/get-billing-era-detail';
-import { buildManualClaimResponse, buildManualPaymentReconciliation } from '../../../src/billing/manual-era';
+import {
+  buildManualClaimResponse,
+  buildManualPaymentReconciliation,
+  CARC_REASON_SYSTEM,
+} from '../../../src/billing/manual-era';
 import {
   ERA_CHECK_SYSTEM,
   ERA_ICN_EXTENSION,
@@ -79,7 +83,7 @@ const adjudications = (parts: {
   if (parts.pr) {
     list.push({
       category: { coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: 'PR' }] },
-      reason: { coding: [{ system: 'https://x12.org/codes/claim-adjustment-reason-codes', code: parts.pr[0] }] },
+      reason: { coding: [{ system: CARC_REASON_SYSTEM, code: parts.pr[0] }] },
       amount: { value: parts.pr[1], currency: 'USD' },
     });
   }
