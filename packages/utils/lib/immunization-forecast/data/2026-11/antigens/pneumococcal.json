@@ -1,0 +1,2248 @@
+{
+ "antigen": "Pneumococcal",
+ "source": "cdc-4.64",
+ "series": [
+  {
+   "seriesName": "Pneumococcal 4-dose series",
+   "targetDisease": "Pneumococcal",
+   "vaccineGroup": "Pneumococcal",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1,
+    "maxAgeToStart": "12 months - 4 days"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "6 weeks - 4 days",
+       "minAge": "6 weeks",
+       "earliestRecAge": "2 months",
+       "latestRecAge": "3 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 weeks - 4 days",
+       "minAge": "10 weeks",
+       "earliestRecAge": "4 months",
+       "latestRecAge": "5 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "13 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose not required if current dose was administered on or after 24 months - 4 days of age.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "24 months - 4 days"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Target Dose not required for those who are 24 months of age or older.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "24 months"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "14 weeks - 4 days",
+       "minAge": "14 weeks",
+       "earliestRecAge": "6 months",
+       "latestRecAge": "7 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "13 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is not required if the current dose was administered on or after 12 months of age",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "12 months"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Target Dose is not required if the current dose was administered on or after 12 months - 4 days of age AND at least 8 weeks - 4 days from the previous dose",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "12 months - 4 days"
+          },
+          {
+           "id": 2,
+           "type": "Interval",
+           "interval": "8 weeks - 4 days"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is not required for those 12 months or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "12 months"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 4",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "16 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "6 months",
+       "latestRecInt": "7 months + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 5",
+     "ages": [
+      {
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received 1 or more doses of PCV13, PCV15, or PCV20",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 weeks - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "133",
+            "215",
+            "216"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Pneumococcal dose 2 at 7 months series",
+   "targetDisease": "Pneumococcal",
+   "vaccineGroup": "Pneumococcal",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 2,
+    "maxAgeToStart": "12 months - 4 days"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "6 weeks - 4 days",
+       "minAge": "6 weeks",
+       "earliestRecAge": "2 months",
+       "latestRecAge": "3 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 weeks - 4 days",
+       "minAge": "10 weeks",
+       "earliestRecAge": "4 months",
+       "latestRecAge": "5 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "13 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 months or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 months - 4 days"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "14 weeks - 4 days",
+       "minAge": "14 weeks",
+       "earliestRecAge": "6 months",
+       "latestRecAge": "7 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "13 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 4",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "16 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "6 months",
+       "latestRecInt": "7 months + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 5",
+     "ages": [
+      {
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received 1 or more doses of PCV13, PCV15, or PCV20",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 weeks - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "133",
+            "215",
+            "216"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Pneumococcal start at 12 months series",
+   "targetDisease": "Pneumococcal",
+   "vaccineGroup": "Pneumococcal",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 3,
+    "maxAgeToStart": "24 months - 4 days"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "12 months",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "latestRecInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received 1 or more doses of PCV13, PCV15, or PCV20",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "12 months - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "133",
+            "215",
+            "216"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Pneumococcal start at 24 months series",
+   "targetDisease": "Pneumococcal",
+   "vaccineGroup": "Pneumococcal",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 4
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "24 months - 4 days",
+       "minAge": "24 months",
+       "earliestRecAge": "24 months",
+       "latestRecAge": "24 months",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV7",
+       "cvx": "100",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal, unspecified formulation",
+       "cvx": "109",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Pneumococcal Conjugate, unspecified formulation",
+       "cvx": "152",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV10",
+       "cvx": "177",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "33"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received 1 or more doses of PCV13, PCV15, or PCV20",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "24 months - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "133",
+            "215",
+            "216"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Pneumococcal 50+ 1-dose PCV series",
+   "targetDisease": "Pneumococcal",
+   "vaccineGroup": "Pneumococcal",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard 50+",
+    "seriesGroup": 3,
+    "seriesPriority": "A",
+    "seriesPreference": 1,
+    "minAgeToStart": "50 years"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "Adults who have received PCV15 but have not yet completed PPSV23 series, can complete the series with either 1 dose of PCV20 or 1 dose of PCV21 if they no longer have access to PPSV23."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "19 years",
+       "minAge": "50 years",
+       "earliestRecAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "33"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "1 year",
+       "earliestRecInt": "1 year"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "19 years",
+       "minAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "133",
+        "215",
+        "216"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "1 year",
+       "earliestRecInt": "1 year"
+      },
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "33"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "5 years",
+       "earliestRecInt": "5 years",
+       "latestRecInt": "5 years"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PPSV23",
+       "cvx": "33",
+       "beginAge": "2 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PPSV23",
+       "cvx": "33",
+       "beginAge": "2 years - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if patient has received a valid PCV20 or PCV21",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "216",
+            "327"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Pneumococcal 50+ 2-dose PCV13 series",
+   "targetDisease": "Pneumococcal",
+   "vaccineGroup": "Pneumococcal",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard 50+",
+    "seriesGroup": 3,
+    "seriesPriority": "A",
+    "seriesPreference": 2,
+    "minAgeToStart": "50 years"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "Adults who have received PCV13 please consult the following for PCV20, PCV21 or PPSV23 options: https://www.cdc.gov/pneumococcal/downloads/Vaccine-Timing-Adults-JobAid.pdf",
+    "Based on shared clinical decision-making, 1 dose of PCV20 or PCV21 may be administered at least 5 years after the last pneumococcal vaccine dose provided the patient previously received both PCV13 and PPSV23 with at least one dose of PPSV23 received on or after 65 years of age. More guidance can be found here: \nhttps://www.cdc.gov/vaccines/hcp/admin/downloads/job-aid-SCDM-pneumococcal-508.pdf"
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "19 years",
+       "minAge": "50 years",
+       "earliestRecAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "33"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "1 year",
+       "earliestRecInt": "1 year"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "",
+       "cvx": "",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "19 years",
+       "minAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "133",
+        "215",
+        "216"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "1 year",
+       "earliestRecInt": "1 year"
+      },
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "33"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "5 years",
+       "earliestRecInt": "5 years",
+       "latestRecInt": "5 years"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PPSV23",
+       "cvx": "33",
+       "beginAge": "2 years - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "50 years",
+       "minAge": "50 years",
+       "earliestRecAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "5 years",
+       "earliestRecInt": "5 years"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PPSV23",
+       "cvx": "33",
+       "beginAge": "2 years - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if patient has already received one dose of PPSV on or after 65 years of age.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "65 years",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "33"
+           ]
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if patient received a valid PCV15, PCV20, or PCV21",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "215",
+            "216",
+            "327"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 4",
+     "ages": [
+      {
+       "absMinAge": "65 years",
+       "minAge": "65 years",
+       "earliestRecAge": "65 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "5 years",
+       "earliestRecInt": "5 years"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if patient received a valid PCV15, PCV20, or PCV21",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "215",
+            "216",
+            "327"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required if patient received PCV13 and no PCV15, PCV20, or PCV21 on or after age 6 years",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "133"
+           ]
+          },
+          {
+           "id": 2,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to",
+           "vaccineTypes": [
+            "215",
+            "216",
+            "327"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Pneumococcal 50+ 2-dose PPSV23-PCV series",
+   "targetDisease": "Pneumococcal",
+   "vaccineGroup": "Pneumococcal",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard 50+",
+    "seriesGroup": 3,
+    "seriesPriority": "A",
+    "seriesPreference": 3,
+    "minAgeToStart": "50 years"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "Adults who have received PCV13 please consult the following for PCV20, PCV21 or PPSV23 options: https://www.cdc.gov/pneumococcal/downloads/Vaccine-Timing-Adults-JobAid.pdf",
+    "Based on shared clinical decision-making, 1 dose of PCV20 or PCV21 may be administered at least 5 years after the last pneumococcal vaccine dose provided the patient previously received both PCV13 and PPSV23 with at least one dose of PPSV23 received on or after 65 years of age. More guidance can be found here: \nhttps://www.cdc.gov/vaccines/hcp/admin/downloads/job-aid-SCDM-pneumococcal-508.pdf"
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "2 years - 4 days",
+       "minAge": "50 years",
+       "earliestRecAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "33"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "5 years",
+       "earliestRecInt": "5 years"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PPSV23",
+       "cvx": "33",
+       "beginAge": "2 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PPSV23",
+       "cvx": "33",
+       "beginAge": "2 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "19 years",
+       "minAge": "50 years",
+       "earliestRecAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "1 year",
+       "earliestRecInt": "1 year"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV13",
+       "cvx": "133",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "50 years",
+       "minAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "5 years",
+       "earliestRecInt": "5 years"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PPSV23",
+       "cvx": "33",
+       "beginAge": "2 years - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if patient has already received one dose of PPSV on or after 65 years of age.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "65 years",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "33"
+           ]
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if patient received a valid PCV15, PCV20, or PCV21",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "215",
+            "216",
+            "327"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 4",
+     "ages": [
+      {
+       "absMinAge": "65 years",
+       "minAge": "65 years",
+       "earliestRecAge": "65 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "5 years",
+       "earliestRecInt": "5 years"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PCV15",
+       "cvx": "215",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV20",
+       "cvx": "216",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PCV21",
+       "cvx": "327",
+       "beginAge": "19 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if patient received a valid PCV15, PCV20, or PCV21",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "215",
+            "216",
+            "327"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required if patient received PCV13 and no PCV15, PCV20, or PCV21 on or after age 6 years",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "133"
+           ]
+          },
+          {
+           "id": 2,
+           "type": "Vaccine Count by Age",
+           "beginAge": "6 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to",
+           "vaccineTypes": [
+            "215",
+            "216",
+            "327"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}

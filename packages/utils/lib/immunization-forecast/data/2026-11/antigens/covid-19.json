@@ -1,0 +1,1529 @@
+{
+ "antigen": "COVID-19",
+ "source": "aira-26.1",
+ "series": [
+  {
+   "seriesName": "COVID-19 start at 6mo-23mo series",
+   "targetDisease": "COVID-19",
+   "vaccineGroup": "COVID-19",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1,
+    "maxAgeToStart": "2 years"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "0 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "cessationDate": "2023-09-11"
+      },
+      {
+       "absMinAge": "6 months - 4 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "effectiveDate": "2023-09-12"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "6 months",
+       "endAge": "12 years",
+       "volume": "0.25",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5 mL dose",
+       "cvx": "207",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose",
+       "cvx": "208",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 vaccine, Subunit, rS-naNoparticle+Matrix-M1 Adjuvant, PF, 0.5 mL",
+       "cvx": "211",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "SARS-COV-2 (COVID-19) vaccine, Unspecified Formulation",
+       "cvx": "213",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose, tris-sucrose",
+       "cvx": "217",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "218",
+       "beginAge": "0 days",
+       "endAge": "18 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 3 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "219",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL dose",
+       "cvx": "221",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, Pediatric 50 mcg/0.5 mL dose",
+       "cvx": "227",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, pediatric 25 mcg/0.25 mL dose",
+       "cvx": "228",
+       "beginAge": "0 days",
+       "endAge": "7 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 50 mcg/0.5 mL or 25mcg/0.25 mL dose",
+       "cvx": "229",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 30 mcg/0.3 mL dose",
+       "cvx": "300",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL dose",
+       "cvx": "301",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 3 mcg/0.2 mL dose",
+       "cvx": "302",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 3 mcg/0.3 mL",
+       "cvx": "308",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+       "cvx": "310",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "0 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "230"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false,
+     "seasonalRecommendation": {
+      "startDate": "2026-09-02"
+     }
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "0 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "cessationDate": "2023-09-11"
+      },
+      {
+       "absMinAge": "6 months - 4 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "effectiveDate": "2023-09-12"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "28 days",
+       "earliestRecInt": "28 days",
+       "latestRecInt": "42 days",
+       "cessationDate": "2021-10-24"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "28 days - 4 days",
+       "minInt": "28 days",
+       "earliestRecInt": "28 days",
+       "latestRecInt": "8 weeks",
+       "effectiveDate": "2021-10-25"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "6 months",
+       "endAge": "12 years",
+       "volume": "0.25",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5 mL dose",
+       "cvx": "207",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose",
+       "cvx": "208",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 vaccine, Subunit, rS-naNoparticle+Matrix-M1 Adjuvant, PF, 0.5 mL",
+       "cvx": "211",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "SARS-COV-2 (COVID-19) vaccine, Unspecified Formulation",
+       "cvx": "213",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose, tris-sucrose",
+       "cvx": "217",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "218",
+       "beginAge": "0 days",
+       "endAge": "18 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 3 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "219",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL dose",
+       "cvx": "221",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, Pediatric 50 mcg/0.5 mL dose",
+       "cvx": "227",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, pediatric 25 mcg/0.25 mL dose",
+       "cvx": "228",
+       "beginAge": "0 days",
+       "endAge": "7 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 50 mcg/0.5 mL or 25mcg/0.25 mL dose",
+       "cvx": "229",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 30 mcg/0.3 mL dose",
+       "cvx": "300",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL dose",
+       "cvx": "301",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 3 mcg/0.2 mL dose",
+       "cvx": "302",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 3 mcg/0.3 mL",
+       "cvx": "308",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+       "cvx": "310",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "0 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "230"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is Not needed if patient has received 1 valid dose of Pfizer before 08/28/2026 AND patient is under 2 years old",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Date",
+           "endDate": "2026-08-28",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to",
+           "vaccineTypes": [
+            "208",
+            "217",
+            "218",
+            "219",
+            "300",
+            "301",
+            "302",
+            "308",
+            "309",
+            "310"
+           ]
+          },
+          {
+           "id": 2,
+           "type": "Age",
+           "endAge": "2 years"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Target Dose is Not needed if patient has received 1 valid dose of Novavax before 08/28/2026 AND patient is under 2 years old",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Date",
+           "endDate": "2026-08-28",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to",
+           "vaccineTypes": [
+            "211",
+            "313"
+           ]
+          },
+          {
+           "id": 2,
+           "type": "Age",
+           "endAge": "2 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Target Dose is Not needed if patient has received 1 valid unspecified dose before 08/28/2026 AND patient is under 2 years old",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Date",
+           "endDate": "2026-08-28",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to",
+           "vaccineTypes": [
+            "213"
+           ]
+          },
+          {
+           "id": 2,
+           "type": "Age",
+           "endAge": "2 years"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false,
+     "seasonalRecommendation": {
+      "startDate": "2026-09-02"
+     }
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "0 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "cessationDate": "2023-09-11"
+      },
+      {
+       "absMinAge": "6 months - 4 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "effectiveDate": "2023-09-12"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "21 days",
+       "earliestRecInt": "21 days",
+       "latestRecInt": "42 days",
+       "cessationDate": "2021-10-24"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "21 days - 4 days",
+       "minInt": "21 days",
+       "earliestRecInt": "21 days",
+       "latestRecInt": "8 weeks",
+       "effectiveDate": "2021-10-25"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "6 months",
+       "endAge": "12 years",
+       "volume": "0.25",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5 mL dose",
+       "cvx": "207",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose",
+       "cvx": "208",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 vaccine, Subunit, rS-naNoparticle+Matrix-M1 Adjuvant, PF, 0.5 mL",
+       "cvx": "211",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "SARS-COV-2 (COVID-19) vaccine, Unspecified Formulation",
+       "cvx": "213",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose, tris-sucrose",
+       "cvx": "217",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "218",
+       "beginAge": "0 days",
+       "endAge": "18 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 3 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "219",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL dose",
+       "cvx": "221",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, Pediatric 50 mcg/0.5 mL dose",
+       "cvx": "227",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, pediatric 25 mcg/0.25 mL dose",
+       "cvx": "228",
+       "beginAge": "0 days",
+       "endAge": "7 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 50 mcg/0.5 mL or 25mcg/0.25 mL dose",
+       "cvx": "229",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 30 mcg/0.3 mL dose",
+       "cvx": "300",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL dose",
+       "cvx": "301",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 3 mcg/0.2 mL dose",
+       "cvx": "302",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 3 mcg/0.3 mL",
+       "cvx": "308",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+       "cvx": "310",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "0 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "230"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is Not needed if patient has received 2 valid doses",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "0 days",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false,
+     "seasonalRecommendation": {
+      "startDate": "2026-09-02"
+     }
+    },
+    {
+     "doseNumber": "Dose 4",
+     "ages": [
+      {
+       "absMinAge": "0 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "cessationDate": "2023-09-11"
+      },
+      {
+       "absMinAge": "6 months - 4 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "effectiveDate": "2023-09-12"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "cessationDate": "2021-10-24"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "effectiveDate": "2021-10-25",
+       "cessationDate": "2025-08-26"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "28 days - 4 days",
+       "minInt": "28 days",
+       "earliestRecInt": "28 days",
+       "effectiveDate": "2025-08-27"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "6 months",
+       "endAge": "12 years",
+       "volume": "0.25",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5 mL dose",
+       "cvx": "207",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose",
+       "cvx": "208",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 vaccine, Subunit, rS-naNoparticle+Matrix-M1 Adjuvant, PF, 0.5 mL",
+       "cvx": "211",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "SARS-COV-2 (COVID-19) vaccine, Unspecified Formulation",
+       "cvx": "213",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose, tris-sucrose",
+       "cvx": "217",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "218",
+       "beginAge": "0 days",
+       "endAge": "18 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 3 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "219",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL dose",
+       "cvx": "221",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, Pediatric 50 mcg/0.5 mL dose",
+       "cvx": "227",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, pediatric 25 mcg/0.25 mL dose",
+       "cvx": "228",
+       "beginAge": "0 days",
+       "endAge": "7 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 50 mcg/0.5 mL or 25mcg/0.25 mL dose",
+       "cvx": "229",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL",
+       "cvx": "230",
+       "beginAge": "0 days",
+       "endAge": "6 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 30 mcg/0.3 mL dose",
+       "cvx": "300",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL dose",
+       "cvx": "301",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 3 mcg/0.2 mL dose",
+       "cvx": "302",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 3 mcg/0.3 mL",
+       "cvx": "308",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+       "cvx": "310",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "0 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is Not needed if patient received at least 2 valid doses before 08/28/2026",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Date",
+           "endDate": "2026-08-28",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Target Dose is Not needed if patient received at least 2 valid doses on or after 8/28/2026",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Date",
+           "startDate": "2026-08-28",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Target Dose is Not needed if the patient received at least 2 valid doses of Moderna or Novavax",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "207",
+            "211",
+            "221",
+            "227",
+            "228",
+            "229",
+            "230",
+            "311",
+            "312",
+            "313",
+            "334"
+           ]
+          }
+         ]
+        },
+        {
+         "id": 4,
+         "description": "Target Dose is Not needed on or after 2 years of age",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "2 years"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false,
+     "seasonalRecommendation": {
+      "startDate": "2026-09-02"
+     }
+    },
+    {
+     "doseNumber": "Dose 5",
+     "ages": [
+      {
+       "absMinAge": "0 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "cessationDate": "2023-09-11"
+      },
+      {
+       "absMinAge": "6 months - 4 days",
+       "minAge": "6 months",
+       "earliestRecAge": "6 months",
+       "effectiveDate": "2023-09-12"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "0 days",
+       "cessationDate": "2023-09-11"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "effectiveDate": "2023-09-12"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+       "cvx": "310",
+       "beginAge": "5 years",
+       "endAge": "12 years",
+       "volume": "0.25",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "6 months",
+       "endAge": "12 years",
+       "volume": "0.25",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5 mL dose",
+       "cvx": "207",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose",
+       "cvx": "208",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 vaccine, vector-nr, rS-ChAdOx1, PF, 0.5 mL",
+       "cvx": "210",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 vaccine, Subunit, rS-naNoparticle+Matrix-M1 Adjuvant, PF, 0.5 mL",
+       "cvx": "211",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "SARS-COV-2 (COVID-19) vaccine, Unspecified Formulation",
+       "cvx": "213",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose, tris-sucrose",
+       "cvx": "217",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "218",
+       "beginAge": "0 days",
+       "endAge": "18 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 3 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "219",
+       "beginAge": "0 days",
+       "endAge": "6 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL dose",
+       "cvx": "221",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, Pediatric 50 mcg/0.5 mL dose",
+       "cvx": "227",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, pediatric 25 mcg/0.25 mL dose",
+       "cvx": "228",
+       "beginAge": "0 days",
+       "endAge": "7 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 50 mcg/0.5 mL or 25mcg/0.25 mL dose",
+       "cvx": "229",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL",
+       "cvx": "230",
+       "beginAge": "0 days",
+       "endAge": "6 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 30 mcg/0.3 mL dose",
+       "cvx": "300",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL dose",
+       "cvx": "301",
+       "beginAge": "0 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 3 mcg/0.2 mL dose",
+       "cvx": "302",
+       "beginAge": "0 days",
+       "endAge": "7 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 3 mcg/0.3 mL",
+       "cvx": "308",
+       "beginAge": "0 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+       "cvx": "310",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "0 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 IV Non-US Vaccine (COVAXIN)",
+       "cvx": "502",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 VVnr Non-US Vaccine (CONVIDECIA), CanSiNo Biological Inc./Beijing Institute of BiotechNology",
+       "cvx": "506",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 IV Non-US Vaccine (BIBP, SiNopharm)",
+       "cvx": "510",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 IV Non-US Vaccine (CoronaVac, SiNovac)",
+       "cvx": "511",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 VLP Non-US Vaccine (Medicago, Covifenz)",
+       "cvx": "512",
+       "beginAge": "18 years - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 mRNA, bivalent, original/Omicron BA.1 Non-US Vaccine Product (Spikevax Bivalent), Moderna",
+       "cvx": "519",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "COVID-19 mRNA, bivalent, original/Omicron BA.1 Non-US Vaccine Product (Comirnaty Bivalent), Pfizer-BioNTech",
+       "cvx": "520",
+       "beginAge": "0 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is Not needed after one dose has been administered on or after 8/28/2026",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Date",
+           "startDate": "2026-08-28",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": true,
+     "seasonalRecommendation": {
+      "startDate": "2026-09-02"
+     }
+    }
+   ]
+  },
+  {
+   "seriesName": "COVID-19 start at 2 years+ series",
+   "targetDisease": "COVID-19",
+   "vaccineGroup": "COVID-19",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 2
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "The AAP recommends a single dose of age-appropriate 2026-2027 COVID-19 vaccine for persons 2 through 18 years and in the following risk groups: persons at high risk of severe COVID-19, residents of long-term care facilities or other congregate settings, persons who have never been vaccinated against COVID-19, persons whose household contacts are at high risk for severe COVID-19.",
+    "Children 2 through 18 years of age not considered at increased risk of severe COVID-19 whose parent or guardian desires their protection from COVID-19 should be offered a single dose of age appropriate 2026-2027 COVID-19 vaccine.",
+    "The recommended interval for Moderna (mNexspike) is 3 months after the last dose; however a dose administered at least 2 months after the last dose should not be repeated. The recommended interval for those 65 years and older receiving their second dose this season is 6 months."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "2 years",
+       "minAge": "2 years",
+       "earliestRecAge": "2 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "21 days",
+       "cessationDate": "2021-10-24"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "21 days - 4 days",
+       "minInt": "21 days",
+       "effectiveDate": "2021-10-25",
+       "cessationDate": "2025-08-26"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "effectiveDate": "2025-08-27"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "12 years",
+       "volume": "0.3",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+       "cvx": "310",
+       "beginAge": "5 years",
+       "endAge": "12 years",
+       "volume": "0.3",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "6 months",
+       "endAge": "12 years",
+       "volume": "0.25",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "12 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "12 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "12 years",
+       "volume": "0.2",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5 mL dose",
+       "cvx": "207",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose",
+       "cvx": "208",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 vaccine, vector-nr, rS-ChAdOx1, PF, 0.5 mL",
+       "cvx": "210",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 vaccine, Subunit, rS-naNoparticle+Matrix-M1 Adjuvant, PF, 0.5 mL",
+       "cvx": "211",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "SARS-COV-2 (COVID-19) vaccine, vector Non-replicating, recombinant spike protein-Ad26, preservative free, 0.5 mL",
+       "cvx": "212",
+       "beginAge": "18 years - 4 days"
+      },
+      {
+       "vaccineType": "SARS-COV-2 (COVID-19) vaccine, Unspecified Formulation",
+       "cvx": "213",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose, tris-sucrose",
+       "cvx": "217",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "218",
+       "beginAge": "6 months - 4 days",
+       "endAge": "18 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 3 mcg/0.2 mL dose, tris-sucrose",
+       "cvx": "219",
+       "beginAge": "6 months - 4 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL dose",
+       "cvx": "221",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, Pediatric 50 mcg/0.5 mL dose",
+       "cvx": "227",
+       "beginAge": "6 months - 4 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, pediatric 25 mcg/0.25 mL dose",
+       "cvx": "228",
+       "beginAge": "6 months - 4 days",
+       "endAge": "7 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 50 mcg/0.5 mL or 25mcg/0.25 mL dose",
+       "cvx": "229",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL",
+       "cvx": "230",
+       "beginAge": "6 months - 4 days",
+       "endAge": "6 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 30 mcg/0.3 mL dose",
+       "cvx": "300",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL dose",
+       "cvx": "301",
+       "beginAge": "6 months - 4 days",
+       "endAge": "13 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, bivalent, PF, 3 mcg/0.2 mL dose",
+       "cvx": "302",
+       "beginAge": "6 months - 4 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 3 mcg/0.3 mL",
+       "cvx": "308",
+       "beginAge": "6 months - 4 days",
+       "endAge": "5 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+       "cvx": "310",
+       "beginAge": "6 months - 4 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+       "cvx": "311",
+       "beginAge": "6 months - 4 days",
+       "endAge": "12 years"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 IV Non-US Vaccine (COVAXIN)",
+       "cvx": "502",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 VVnr Non-US Vaccine (CONVIDECIA), CanSiNo Biological Inc./Beijing Institute of BiotechNology",
+       "cvx": "506",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 IV Non-US Vaccine (BIBP, SiNopharm)",
+       "cvx": "510",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 IV Non-US Vaccine (CoronaVac, SiNovac)",
+       "cvx": "511",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 VLP Non-US Vaccine (Medicago, Covifenz)",
+       "cvx": "512",
+       "beginAge": "18 years - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 mRNA, bivalent, original/Omicron BA.1 Non-US Vaccine Product (Spikevax Bivalent), Moderna",
+       "cvx": "519",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19 mRNA, bivalent, original/Omicron BA.1 Non-US Vaccine Product (Comirnaty Bivalent), Pfizer-BioNTech",
+       "cvx": "520",
+       "beginAge": "6 months - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is Not needed after one valid dose has been administered on or after 8/28/2026",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Date",
+           "startDate": "2026-08-28",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": true,
+     "seasonalRecommendation": {
+      "startDate": "2026-09-02"
+     }
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "65 years - 4 days",
+       "minAge": "65 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "6 months"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "12 years",
+       "volume": "0.3",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "12 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "12 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "12 years",
+       "volume": "0.2",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "SARS-COV-2 (COVID-19) vaccine, Unspecified Formulation",
+       "cvx": "213",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+       "cvx": "309",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+       "cvx": "312",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, subunit, rS-naNoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+       "cvx": "313",
+       "beginAge": "6 months - 4 days"
+      },
+      {
+       "vaccineType": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+       "cvx": "334",
+       "beginAge": "6 months - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "310",
+      "311"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target dose is Not needed if patient is under 65 years",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "endAge": "65 years"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false,
+     "seasonalRecommendation": {
+      "startDate": "2026-09-02"
+     }
+    }
+   ]
+  }
+ ]
+}

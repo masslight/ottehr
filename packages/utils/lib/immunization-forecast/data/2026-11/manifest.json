@@ -1,0 +1,46 @@
+{
+  "version": "2026-11",
+  "generatedAt": "2026-11-11",
+  "sources": [
+    {
+      "name": "CDC CDSi Supporting Data",
+      "version": "4.64",
+      "url": "https://www.cdc.gov/iis/cdsi/index.html",
+      "file": "supporting-data-4.64-508.zip",
+      "antigens": [
+        "Diphtheria",
+        "HepA",
+        "HepB",
+        "Hib",
+        "HPV",
+        "Measles",
+        "Meningococcal",
+        "Meningococcal B",
+        "Mumps",
+        "Pertussis",
+        "Pneumococcal",
+        "Polio",
+        "Rotavirus",
+        "Rubella",
+        "Tetanus",
+        "Varicella",
+        "Zoster"
+      ]
+    },
+    {
+      "name": "AIRA medical societies (AAP/AAFP/ACOG/IDSA) Supporting Data",
+      "version": "26.1",
+      "url": "https://www.immregistries.org/clinical-decision-support",
+      "file": "Version 26.1.zip",
+      "antigens": [
+        "COVID-19",
+        "Influenza",
+        "RSV"
+      ]
+    }
+  ],
+  "notes": [
+    "Series that require a coded patient observation (Risk series with indications) are not shipped.",
+    "Contraindication and immunity tables are not shipped: the engine takes per-vaccine marks instead."
+  ]
+}

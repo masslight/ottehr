@@ -1,0 +1,244 @@
+{
+ "antigen": "Zoster",
+ "source": "cdc-4.64",
+ "series": [
+  {
+   "seriesName": "Zoster 2-dose series",
+   "targetDisease": "Zoster",
+   "vaccineGroup": "Zoster",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "18 years - 4 days",
+       "minAge": "50 years",
+       "earliestRecAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "21",
+        "94",
+        "121"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Zoster recombinant",
+       "cvx": "187",
+       "beginAge": "18 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Zoster recombinant",
+       "cvx": "187",
+       "beginAge": "18 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "50 years - 4 days",
+       "minAge": "50 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "7 months + 4 weeks"
+      },
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "21",
+        "94",
+        "121"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Zoster recombinant",
+       "cvx": "187",
+       "beginAge": "18 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Zoster recombinant",
+       "cvx": "187",
+       "beginAge": "18 years - 4 days"
+      },
+      {
+       "vaccineType": "Zoster, unspecified formulation",
+       "cvx": "188",
+       "beginAge": "18 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Zoster 3-dose series",
+   "targetDisease": "Zoster",
+   "vaccineGroup": "Zoster",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 2
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "50 years",
+       "minAge": "60 years",
+       "earliestRecAge": "60 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "",
+       "cvx": "",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Zoster live",
+       "cvx": "121",
+       "beginAge": "50 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Zoster recombinant",
+       "cvx": "187",
+       "beginAge": "18 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Zoster recombinant",
+       "cvx": "187",
+       "beginAge": "18 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "7 months + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Zoster recombinant",
+       "cvx": "187",
+       "beginAge": "18 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Zoster recombinant",
+       "cvx": "187",
+       "beginAge": "18 years - 4 days"
+      },
+      {
+       "vaccineType": "Zoster, unspecified formulation",
+       "cvx": "188",
+       "beginAge": "18 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}
