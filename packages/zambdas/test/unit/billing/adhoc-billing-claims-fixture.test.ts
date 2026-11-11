@@ -12,11 +12,17 @@ import {
   Practitioner,
   Provenance,
 } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_TAXONOMY,
+  FHIR_IDENTIFIER_NPI,
+  PAYMENT_METHOD_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
   CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
 } from 'utils/lib/helpers/rcm/constants';
 import {
@@ -88,14 +94,25 @@ const facility: Location = {
   resourceType: 'Location',
   id: 'loc-1',
   name: 'Midtown',
-  identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '2222222222' }],
+  identifier: [
+    { system: FHIR_IDENTIFIER_NPI, value: '2222222222' },
+    { system: FHIR_IDENTIFIER_CLIA, value: '05D2222222' },
+  ],
 };
 
 const provider: Practitioner = {
   resourceType: 'Practitioner',
   id: 'pr-1',
   name: [{ given: ['Bo'], family: 'Kim' }],
-  identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1111111111' }],
+  identifier: [
+    { system: FHIR_IDENTIFIER_NPI, value: '1111111111' },
+    {
+      type: {
+        coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_TAXONOMY }],
+      },
+      value: '207Q00000X',
+    },
+  ],
 };
 
 const coverage: Coverage = {
@@ -958,8 +975,11 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     expect(insured).toMatchObject({
       billingProvider: 'Kim, Bo',
       billingProviderNpi: '1111111111',
+      billingProviderTaxonomy: '207Q00000X',
       renderingProviderNpi: '1111111111',
+      renderingProviderTaxonomy: '207Q00000X',
       facilityNpi: '2222222222',
+      facilityClia: '05D2222222',
       placeOfService: '11',
       patientControlNumber: 'PCN-1',
       accidentTypes: ['auto'],
