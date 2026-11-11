@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { buildPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
 import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
@@ -55,6 +54,7 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
 
 import {
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
+  EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
   reconcilePaymentNoticesForClaim,
   stripeAccountExtension,
@@ -102,14 +102,6 @@ const historyEntries = (): Provenance[] =>
   writes()
     .filter((request) => request.url === '/Provenance')
     .map((request) => request.resource as Provenance);
-
-// the conditional create matched a notice the webhook stored first, which it answers with 200
-const webhookStoredFirst = (notice: PaymentNotice): void => {
-  billingTransaction.mockImplementationOnce(async () => ({
-    entry: [{ resource: notice, response: { status: '200 OK' } }],
-    unbundle: () => [notice],
-  }));
-};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -225,166 +217,170 @@ describe('post-billing-patient-payment', () => {
     expect(JSON.parse(result.body).notice.id).toBe('pn-existing');
   });
 
-  it('charges the card and dedups on the charge id the billing webhook also uses', async () => {
-    await invoke({
-      paymentMethod: 'card',
-      amountInCents: 4000,
-      paymentMethodId: 'pm_1',
-      idempotencyKey: IDEMPOTENCY_KEY,
-    });
-
-    expect(paymentIntentsCreate.mock.calls[0][1]).toMatchObject({ idempotencyKey: IDEMPOTENCY_KEY });
-    const [{ ifNoneExist }] = noticeCreates();
-    const notice = createdNotice();
-    expect(notice.identifier).toEqual([
-      { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
-      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
-      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
-    ]);
-    expect(ifNoneExist?.[0]).toEqual({ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1` });
-    // payee is the org behind the connected account, as the webhook resolves it
-    expect(billingSearch).toHaveBeenCalledWith({
-      resourceType: 'Organization',
-      params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_1` }],
-    });
-    expect(notice.payee).toEqual({ reference: 'Organization/stripe-org' });
-    expect(notice.extension).toContainEqual(stripeAccountExtension('acct_1'));
-    expect(notice.recipient).toEqual({ reference: 'Organization/stripe-org' });
-    // the notice is ours, so there is nothing to merge
-    expect(merges()).toEqual([]);
-  });
-
-  describe('claim link when merging into the notice the webhook wrote first', () => {
+  describe('card payments', () => {
     const claim = { resourceType: 'Claim', id: 'claim-1', provider: { reference: 'Organization/provider' } } as Claim;
-    const webhookNotice = (request: PaymentNotice['request']): PaymentNotice =>
-      ({
-        resourceType: 'PaymentNotice',
-        id: 'pn-webhook',
-        meta: { versionId: '4', tag: [BILLING_RESOURCE_TAG] },
-        status: 'active',
-        request,
-        identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
-      }) as PaymentNotice;
     const encounterRequest = {
       type: 'Claim',
       identifier: { system: ottehrIdentifierSystem('claim-encounter-id'), value: ENCOUNTER_ID },
     };
     const postCard = (): Promise<APIGatewayProxyResult> =>
       invoke({ paymentMethod: 'card', amountInCents: 4000, paymentMethodId: 'pm_1', idempotencyKey: IDEMPOTENCY_KEY });
+    const versionConflict = (): Error => Object.assign(new Error('Precondition Failed'), { code: 412 });
+    // the notice as the webhook leaves a reservation it activated
+    const activatedByWebhook = (): PaymentNotice =>
+      ({
+        resourceType: 'PaymentNotice',
+        id: 'pn-1',
+        meta: { versionId: '2', tag: [BILLING_RESOURCE_TAG] },
+        status: 'active',
+        request: encounterRequest,
+        identifier: [
+          { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+          { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+          { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+        ],
+      }) as PaymentNotice;
 
-    it('links a notice stored before the claim existed through reconcile, so its history comes along', async () => {
+    it('reserves the payment as a draft no payment reader can find before charging the card', async () => {
+      await postCard();
+
+      const [reservation] = noticeCreates();
+      expect(reservation.ifNoneExist?.[0]).toEqual({
+        name: 'identifier',
+        value: `${EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM}|${DEDUP_VALUE}`,
+      });
+      const pending = reservation.resource as PaymentNotice;
+      expect(pending.status).toBe('draft');
+      expect(pending.request).toBeUndefined();
+      expect(pending.identifier).toEqual([{ system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE }]);
+      expect(getPaymentNoticeSubmitterRef(pending)).toEqual({ reference: 'Practitioner/pr-1', display: 'Front Desk' });
+      // a reservation is not a payment, so nothing is recorded in claim history for it
+      expect(billingTransaction.mock.calls[0][0].requests).toHaveLength(1);
+      expect(billingTransaction.mock.invocationCallOrder[0]).toBeLessThan(
+        paymentIntentsCreate.mock.invocationCallOrder[0]
+      );
+      // the charge names the reservation, so the billing webhook finds it instead of creating a notice
+      expect(paymentIntentsCreate.mock.calls[0][0].metadata).toMatchObject({ oystehr_ehr_payment_id: DEDUP_VALUE });
+      expect(paymentIntentsCreate.mock.calls[0][1]).toMatchObject({ idempotencyKey: IDEMPOTENCY_KEY });
+    });
+
+    it('activates the reservation in place once the charge succeeds, recording the payment', async () => {
       vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(claim);
-      webhookStoredFirst(webhookNotice(encounterRequest));
+
+      const result = await postCard();
+
+      expect(noticeCreates()).toHaveLength(1);
+      const [activation] = merges();
+      expect(activation.url).toBe('/PaymentNotice/pn-1');
+      expect(activation.ifMatch).toBe('W/"1"');
+      const notice = activation.resource as PaymentNotice;
+      expect(notice.status).toBe('active');
+      expect(notice.request).toEqual({ ...encounterRequest, reference: 'Claim/claim-1' });
+      expect(notice.identifier).toEqual([
+        { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      ]);
+      // payee is the org behind the connected account, as the webhook resolves it
+      expect(billingSearch).toHaveBeenCalledWith({
+        resourceType: 'Organization',
+        params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_1` }],
+      });
+      expect(notice.payee).toEqual({ reference: 'Organization/stripe-org' });
+      expect(notice.recipient).toEqual({ reference: 'Organization/stripe-org' });
+      expect(notice.extension).toContainEqual(stripeAccountExtension('acct_1'));
+      const [entry] = historyEntries();
+      expect(entry.activity?.coding?.[0]).toEqual(CLAIM_PROVENANCE_ACTIVITY.create);
+      expect(entry.target).toEqual([{ reference: 'PaymentNotice/pn-1' }, { reference: 'Claim/claim-1' }]);
+      expect(entry.agent).toEqual([
+        expect.objectContaining({ who: { reference: 'Practitioner/pr-1', display: 'Front Desk' } }),
+      ]);
+      expect(clinicalCreate.mock.calls[0][0].focus.reference).toBe('PaymentNotice/pn-1');
+      expect(JSON.parse(result.body).notice.id).toBe('pn-1');
+    });
+
+    it('keeps the notice the webhook activated first, writing nothing over it', async () => {
+      billingTransaction
+        .mockImplementationOnce(async ({ requests }: { requests: WriteRequest[] }) => {
+          const pending = { ...requests[0].resource, id: 'pn-1', meta: { versionId: '1' } };
+          return { entry: [{ resource: pending, response: { status: '201 Created' } }], unbundle: () => [pending] };
+        })
+        .mockRejectedValueOnce(versionConflict());
+      billingGet.mockResolvedValueOnce(activatedByWebhook());
+
+      const result = await postCard();
+
+      // the one activation attempt lost to the webhook's; the re-read notice is already ours
+      expect(merges()).toHaveLength(1);
+      expect(billingGet).toHaveBeenCalledWith({ resourceType: 'PaymentNotice', id: 'pn-1' });
+      expect(JSON.parse(result.body).notice.identifier).toEqual(activatedByWebhook().identifier);
+      expect(clinicalCreate.mock.calls[0][0].focus.reference).toBe('PaymentNotice/pn-1');
+    });
+
+    it('resumes the reservation of the attempt a replay repeats', async () => {
+      const reserved = {
+        resourceType: 'PaymentNotice',
+        id: 'pn-reserved',
+        meta: { versionId: '3', tag: [BILLING_RESOURCE_TAG] },
+        status: 'draft',
+        identifier: [{ system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE }],
+      } as PaymentNotice;
+      billingTransaction.mockImplementationOnce(async () => ({
+        entry: [{ resource: reserved, response: { status: '200 OK' } }],
+        unbundle: () => [reserved],
+      }));
 
       await postCard();
 
-      expect(mergedNotice().request).toEqual(encounterRequest);
-      expect(reconcilePaymentNoticesForClaim).toHaveBeenCalledWith(expect.anything(), claim);
+      expect(merges().map((request) => [request.url, request.ifMatch])).toEqual([
+        ['/PaymentNotice/pn-reserved', 'W/"3"'],
+      ]);
     });
 
-    it('returns and schedules the notice as reconcile linked it', async () => {
-      vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(claim);
-      webhookStoredFirst(webhookNotice(encounterRequest));
-      const linked = {
-        ...webhookNotice({ ...encounterRequest, reference: 'Claim/claim-1' }),
-        meta: { versionId: '6' },
-      };
+    it('links an activated notice through reconcile when the claim appeared after the charge', async () => {
+      vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(undefined).mockResolvedValueOnce(claim);
+      const linked = { ...activatedByWebhook(), request: { ...encounterRequest, reference: 'Claim/claim-1' } };
       billingGet.mockResolvedValueOnce(linked);
 
       const result = await postCard();
 
-      expect(vi.mocked(reconcilePaymentNoticesForClaim).mock.invocationCallOrder[0]).toBeLessThan(
-        billingGet.mock.invocationCallOrder[0]
-      );
-      expect(billingGet).toHaveBeenCalledWith({ resourceType: 'PaymentNotice', id: 'pn-webhook' });
+      expect(mergedNotice().request).toEqual(encounterRequest);
+      expect(reconcilePaymentNoticesForClaim).toHaveBeenCalledWith(expect.anything(), claim);
       expect(JSON.parse(result.body).notice.request.reference).toBe('Claim/claim-1');
     });
 
-    it('keeps a claim link the notice already has', async () => {
-      vi.mocked(findBillingClaimForEncounter).mockResolvedValueOnce(claim);
-      webhookStoredFirst(webhookNotice({ ...encounterRequest, reference: 'Claim/claim-earlier' }));
+    it('cancels the reservation when the charge fails, recording no payment', async () => {
+      paymentIntentsCreate.mockRejectedValueOnce(
+        Object.assign(new Error('Your card was declined.'), { type: 'StripeCardError', code: 'card_declined' })
+      );
 
-      await postCard();
+      await expect(postCard()).rejects.toBeDefined();
 
-      expect(mergedNotice().request?.reference).toBe('Claim/claim-earlier');
-      expect(reconcilePaymentNoticesForClaim).not.toHaveBeenCalled();
-    });
-  });
-
-  it('merges into the notice the webhook wrote first, keeping its refund stamps', async () => {
-    const refunds = buildPaymentRefundsExtension([
-      { stripeRefundId: 're_1', amountInCents: 500, dateISO: '2026-04-22T16:00:00Z', status: 'succeeded' },
-    ]);
-    const webhookNotice = {
-      resourceType: 'PaymentNotice',
-      id: 'pn-webhook',
-      meta: { versionId: '4', tag: [BILLING_RESOURCE_TAG] },
-      status: 'active',
-      identifier: [
-        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
-        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
-      ],
-      extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' }, refunds],
-      contained: [{ resourceType: 'PaymentReconciliation', id: 'contained-reconciliation' }],
-    };
-    webhookStoredFirst(webhookNotice as PaymentNotice);
-
-    await invoke({
-      paymentMethod: 'card',
-      amountInCents: 4000,
-      paymentMethodId: 'pm_1',
-      idempotencyKey: IDEMPOTENCY_KEY,
+      const [cancellation] = merges();
+      expect(cancellation.url).toBe('/PaymentNotice/pn-1');
+      expect(cancellation.ifMatch).toBe('W/"1"');
+      const cancelled = cancellation.resource as PaymentNotice;
+      expect(cancelled.status).toBe('cancelled');
+      expect(cancelled.identifier).toEqual([{ system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE }]);
+      expect(historyEntries()).toEqual([]);
+      expect(clinicalCreate).not.toHaveBeenCalled();
     });
 
-    expect(merges()[0].ifMatch).toBe('W/"4"');
-    const merged = mergedNotice();
-    expect(merged.id).toBe('pn-webhook');
-    expect(merged.identifier).toEqual([
-      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
-      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
-      { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
-    ]);
-    expect(merged.extension).toContainEqual(refunds);
-    expect(merged.payee).toEqual({ reference: 'Organization/stripe-org' });
-    expect(merged.extension?.filter((ext) => ext.url === stripeAccountExtension(undefined).url)).toEqual([
-      stripeAccountExtension('acct_1'),
-    ]);
-    expect(getPaymentNoticeSubmitterRef(merged)).toEqual({ reference: 'Practitioner/pr-1', display: 'Front Desk' });
-    expect(clinicalCreate.mock.calls[0][0].focus.reference).toBe('PaymentNotice/pn-webhook');
-    // the webhook recorded the payment; the post records its own change to it
-    const [entry] = historyEntries().filter((resource) =>
-      resource.target.some((target) => target.reference === 'PaymentNotice/pn-webhook')
-    );
-    expect(entry.activity?.coding?.[0]).toEqual(CLAIM_PROVENANCE_ACTIVITY.update);
-    expect(entry.agent).toEqual([
-      expect.objectContaining({ who: { reference: 'Practitioner/pr-1', display: 'Front Desk' } }),
-    ]);
-  });
+    it('keeps a reservation the webhook activated while the charge reported a failure', async () => {
+      paymentIntentsCreate.mockResolvedValueOnce({ id: 'pi_1', status: 'processing', latest_charge: 'ch_1' });
+      billingTransaction
+        .mockImplementationOnce(async ({ requests }: { requests: WriteRequest[] }) => {
+          const pending = { ...requests[0].resource, id: 'pn-1', meta: { versionId: '1' } };
+          return { entry: [{ resource: pending, response: { status: '201 Created' } }], unbundle: () => [pending] };
+        })
+        .mockRejectedValueOnce(versionConflict());
+      billingGet.mockResolvedValueOnce(activatedByWebhook());
 
-  it('re-reads the notice and merges again when a refund was stamped after it was read', async () => {
-    const webhookNotice = {
-      resourceType: 'PaymentNotice',
-      id: 'pn-webhook',
-      meta: { versionId: '4', tag: [BILLING_RESOURCE_TAG] },
-      status: 'active',
-      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
-    } as PaymentNotice;
-    const refunds = buildPaymentRefundsExtension([
-      { stripeRefundId: 're_1', amountInCents: 500, dateISO: '2026-04-22T16:00:00Z', status: 'succeeded' },
-    ]);
-    webhookStoredFirst(webhookNotice);
-    billingTransaction.mockRejectedValueOnce(Object.assign(new Error('Precondition Failed'), { code: 412 }));
-    billingGet.mockResolvedValueOnce({ ...webhookNotice, meta: { versionId: '5' }, extension: [refunds] });
+      await expect(postCard()).rejects.toBeDefined();
 
-    await invoke({
-      paymentMethod: 'card',
-      amountInCents: 4000,
-      paymentMethodId: 'pm_1',
-      idempotencyKey: IDEMPOTENCY_KEY,
+      // the cancellation lost to the activation and was not retried over it
+      expect(merges()).toHaveLength(1);
     });
-
-    expect(merges().map((request) => request.ifMatch)).toEqual(['W/"4"', 'W/"5"']);
-    expect((merges()[1].resource as PaymentNotice).extension).toContainEqual(refunds);
   });
 
   it('rejects a card payment without a saved payment method', async () => {

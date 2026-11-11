@@ -5,13 +5,14 @@ import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
-import { getContainedReconciliation } from 'utils/lib/fhir/payments';
+import { getContainedReconciliation, getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
 import { wrapHandler } from '../../shared/sentry';
 import {
   applyRefundsToPaymentNoticeWithRetry,
+  ehrPaymentIdFromStripeMetadata,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
@@ -24,17 +25,22 @@ import {
   billingProviderRefForStripeAccount,
   claimRequestFor,
   createPaymentNotice,
+  EHR_PATIENT_PAYMENT_ID_SYSTEM,
+  EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
   findPaymentNotice,
+  findPaymentNoticeByAnyIdentifier,
+  isPendingEhrPaymentNotice,
   paymentActor,
   paymentNoticeHistoryRequest,
   reconcilePaymentNoticesForClaim,
   recordPaymentNoticeChange,
   stampedStripeAccount,
   stripeAccountExtension,
+  withActivatedEhrPaymentId,
   withStripeAccountExtension,
 } from '../payments';
-import { resolveClaimActor } from '../provenance';
+import { humanClaimActor, resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -50,13 +56,39 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  await performEffect(oystehr, params);
+  try {
+    await performEffect(oystehr, params);
+  } catch (error) {
+    if (error instanceof EhrPaymentReservationNotFoundError) {
+      // answered without an error report: the non-2xx status makes Stripe redeliver the event later
+      console.warn(error.message);
+      return {
+        statusCode: 503,
+        body: JSON.stringify({ message: error.message }),
+      };
+    }
+    throw error;
+  }
 
   return {
     statusCode: 200,
     body: JSON.stringify({}),
   };
 });
+
+// The EHR reserves a card payment's notice before charging the card and tags the charge with the
+// reservation's id, so the notice of such a charge is always there to activate or refresh, and the
+// webhook never creates one: a create could race the EHR's activation of its reservation, and two
+// concurrent conditional creates can both store a notice, recording the charge twice. A reservation
+// not found yet is waited for by having Stripe redeliver the event.
+export class EhrPaymentReservationNotFoundError extends Error {
+  constructor(chargeId: string, ehrPaymentId: string) {
+    super(
+      `No PaymentNotice reserves EHR payment ${ehrPaymentId} of charge ${chargeId} yet; asking Stripe to redeliver`
+    );
+    this.name = 'EhrPaymentReservationNotFoundError';
+  }
+}
 
 // Patient payments live in billing whatever BILLING_INTEGRATION says, so their Stripe-owned state
 // and refund stamps are always kept current. Only Ottehr billing records Stripe activity the EHR did
@@ -203,6 +235,24 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     return;
   }
 
+  const ehrPaymentId = ehrPaymentIdFromStripeMetadata(charge.metadata);
+  const found = await findPaymentNoticeByAnyIdentifier(oystehr, [
+    { system: STRIPE_PAYMENT_ID_SYSTEM, value: charge.id },
+    ...(ehrPaymentId
+      ? [
+          { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
+          { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
+        ]
+      : []),
+  ]);
+  if (!found && ehrPaymentId) {
+    throw new EhrPaymentReservationNotFoundError(charge.id, ehrPaymentId);
+  }
+  if (found && isPendingEhrPaymentNotice(found) && charge.status !== 'succeeded') {
+    console.log(`Charge ${charge.id} is ${charge.status}; leaving the EHR's reservation PaymentNotice/${found.id}`);
+    return;
+  }
+
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
   const billingProviderRef = await billingProviderRefForStripeAccount(oystehr, stripeAccount, secrets);
 
@@ -242,7 +292,19 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     outcome: charge.paid ? 'complete' : 'partial',
   });
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, createIfMissing);
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, createIfMissing, {
+    knownNotice: found ?? null,
+  });
+};
+
+// The EHR's reservation of a charge that went through, recorded as the payment: what Stripe owns is
+// refreshed as on any notice, and the reservation id becomes the EHR payment id readers search by.
+const activateEhrReservation = (pending: PaymentNotice, desiredNotice: PaymentNotice): PaymentNotice => {
+  const refreshed = mergeStripeOwnedFields(pending, desiredNotice);
+  return {
+    ...refreshed,
+    identifier: withActivatedEhrPaymentId(refreshed.identifier),
+  };
 };
 
 // The claim link is the stored one: only reconcile adds it, so the history recorded before it comes along.
@@ -285,13 +347,19 @@ const persistPaymentNoticeUpsert = async (
   encounterId: string,
   // false refreshes a notice that already exists and writes nothing otherwise
   createIfMissing: boolean,
-  refundedByReference?: string
+  options: {
+    refundedByReference?: string;
+    // the notice the caller already looked up (null: looked up and found none), saving a second search
+    knownNotice?: PaymentNotice | null;
+  } = {}
 ): Promise<void> => {
+  const { refundedByReference, knownNotice } = options;
   const dedupIdentifier = {
     system: STRIPE_PAYMENT_ID_SYSTEM,
     value: dedupStripeId,
   };
-  const found = await findPaymentNotice(oystehr, dedupIdentifier);
+  const found =
+    knownNotice === undefined ? await findPaymentNotice(oystehr, dedupIdentifier) : knownNotice ?? undefined;
   if (!found && !createIfMissing) {
     console.log(`No billing PaymentNotice records ${dedupStripeId}; nothing to refresh`);
     return;
@@ -330,12 +398,18 @@ const persistPaymentNoticeUpsert = async (
                 resourceType: 'PaymentNotice',
                 id: stored.notice.id!,
               });
-        const refreshed = mergeStripeOwnedFields(existing, desiredNotice);
+        // the EHR may not have activated its reservation: the charge went through, so it is recorded
+        // here as the payment's creation, by whoever took it
+        const activating = isPendingEhrPaymentNotice(existing);
+        const refreshed = activating
+          ? activateEhrReservation(existing, desiredNotice)
+          : mergeStripeOwnedFields(existing, desiredNotice);
+        const submitter = activating ? getPaymentNoticeSubmitterRef(existing) : undefined;
         const history = paymentNoticeHistoryRequest({
           targetReference: `PaymentNotice/${existing.id}`,
-          before: existing,
+          before: activating ? undefined : existing,
           after: refreshed,
-          agent,
+          agent: submitter ? humanClaimActor(submitter) : agent,
         });
         await oystehr.fhir.transaction<FhirResource>({
           requests: [
@@ -420,15 +494,9 @@ const upsertPaymentNoticeForRefund = async (
     cancelled: failed,
   });
 
-  await persistPaymentNoticeUpsert(
-    oystehr,
-    desiredNotice,
-    refund.id,
-    claim,
-    encounterId,
-    true,
-    refund.metadata?.refundedByReference
-  );
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId, true, {
+    refundedByReference: refund.metadata?.refundedByReference,
+  });
 
   await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };

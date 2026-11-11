@@ -36,7 +36,12 @@ import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
-import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadata } from '../../shared/stripeIntegration';
+import {
+  getStripeClient,
+  STRIPE_METADATA_KEYS,
+  STRIPE_PAYMENT_ID_SYSTEM,
+  stripeEncounterMetadata,
+} from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { ensurePaymentTaskForNotice, unionIdentifiers } from '../patient-payments';
@@ -45,8 +50,11 @@ import {
   claimRequestFor,
   createPaymentNotice,
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
+  EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
+  isPendingEhrPaymentNotice,
   paymentNoticeHistoryRequest,
+  pendingEhrPaymentNotice,
   reconcilePaymentNoticesForClaim,
   stripeAccountExtension,
 } from '../payments';
@@ -92,7 +100,7 @@ const performEffect = async (
   clinicalOystehr: Oystehr,
   billingOystehr: Oystehr
 ): Promise<PaymentNotice> => {
-  const { encounterId, paymentDetails, secrets } = input;
+  const { encounterId, paymentDetails } = input;
   // every payment carries the identifier so billing AR picks it up; a request without a client
   // key simply cannot be replayed
   const dedupValue = `${encounterId}_${paymentDetails.idempotencyKey ?? randomUUID()}`;
@@ -127,56 +135,16 @@ const performEffect = async (
     }
   }
 
-  const stripePayment =
+  let storedNotice =
     paymentDetails.paymentMethod === 'card'
-      ? await chargeSavedCard(input, paymentDetails.paymentMethodId, clinicalOystehr)
-      : undefined;
-  const paymentIntent = stripePayment?.paymentIntent;
-  const chargeId =
-    typeof paymentIntent?.latest_charge === 'string' ? paymentIntent.latest_charge : paymentIntent?.latest_charge?.id;
-
-  const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
-  // the provider owed the money: for a card payment the org behind the Stripe account it landed in,
-  // as the billing webhook records it; otherwise the claim's provider when a claim exists, else the
-  // default billing organization (the same default claim creation uses)
-  const payeeRef: Reference = stripePayment
-    ? await billingProviderRefForStripeAccount(billingOystehr, stripePayment.stripeAccount, secrets)
-    : claim?.provider ?? { reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets) };
-  const desiredNotice = makePaymentNotice({
-    ...input,
-    claim,
-    payeeRef,
-    stripeAccount: stripePayment && { stripeAccount: stripePayment.stripeAccount },
-    identifiers: [
-      dedupIdentifier,
-      ...[paymentIntent?.id, chargeId]
-        .filter((id): id is string => Boolean(id))
-        .map((value) => ({ system: STRIPE_PAYMENT_ID_SYSTEM, value })),
-    ],
-  });
-
-  // The billing stripe webhook records the same charge, keyed by the charge id, and may get there
-  // first: both writers dedup on that id and merge into whichever notice exists, and whichever
-  // stores it first records the payment in claim history. Without a charge, the conditional create
-  // closes the window where two replays race past the guard above.
-  const agent = humanClaimActor(input.submitterRef);
-  const stored = await createPaymentNotice({
-    oystehr: billingOystehr,
-    notice: desiredNotice,
-    dedupIdentifier: chargeId
-      ? { system: STRIPE_PAYMENT_ID_SYSTEM, value: chargeId }
-      : { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: dedupValue },
-    agent,
-  });
-  let storedNotice = stored.created
-    ? stored.notice
-    : await mergeIntoWebhookNotice(billingOystehr, stored.notice, desiredNotice, agent);
+      ? await recordCardPayment(input, paymentDetails.paymentMethodId, dedupValue, clinicalOystehr, billingOystehr)
+      : await recordCollectedPayment(input, dedupValue, billingOystehr);
 
   if (!storedNotice.request?.reference && storedNotice.id) {
-    // the webhook may have stored the charge before the claim existed, or the claim may have appeared
-    // while the notice was being stored; reconcile links it along with its claim history, and the
-    // notice is re-read so the caller gets the linked version
-    const claimToLink = claim ?? (await findBillingClaimForEncounter(billingOystehr, encounterId));
+    // the claim may have appeared while the notice was being stored, or the webhook may have activated
+    // the reservation before the claim existed; reconcile links it along with its claim history, and
+    // the notice is re-read so the caller gets the linked version
+    const claimToLink = await findBillingClaimForEncounter(billingOystehr, encounterId);
     if (claimToLink) {
       await reconcilePaymentNoticesForClaim(billingOystehr, claimToLink);
       storedNotice = await billingOystehr.fhir.get<PaymentNotice>({
@@ -193,12 +161,167 @@ const performEffect = async (
   return storedNotice;
 };
 
-const chargeSavedCard = async (
+// Cash, check and the other methods collected without Stripe. The conditional create closes the window
+// where two replays race past the idempotency guard.
+const recordCollectedPayment = async (
+  input: EffectInput,
+  ehrPaymentId: string,
+  billingOystehr: Oystehr
+): Promise<PaymentNotice> => {
+  const ehrPaymentIdentifier = { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId };
+  const claim = await findBillingClaimForEncounter(billingOystehr, input.encounterId);
+  // the claim's provider when a claim exists, else the default billing organization (the same default
+  // claim creation uses)
+  const payeeRef: Reference = claim?.provider ?? {
+    reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, input.secrets),
+  };
+  const stored = await createPaymentNotice({
+    oystehr: billingOystehr,
+    notice: makePaymentNotice({
+      ...input,
+      claim,
+      payeeRef,
+      stripeAccount: undefined,
+      identifiers: [ehrPaymentIdentifier],
+    }),
+    dedupIdentifier: ehrPaymentIdentifier,
+    agent: humanClaimActor(input.submitterRef),
+  });
+  return stored.notice;
+};
+
+// The payment is reserved as a draft before the card is charged, and the charge carries the
+// reservation's id. The billing stripe webhook therefore always finds this payment's notice, which it
+// activates or refreshes but never creates, so the two writers never race to create one: each
+// activates the reservation with a write locked to the version it read, and the loser merges into
+// the winner's notice.
+const recordCardPayment = async (
   input: EffectInput,
   paymentMethodId: string,
+  ehrPaymentId: string,
+  clinicalOystehr: Oystehr,
+  billingOystehr: Oystehr
+): Promise<PaymentNotice> => {
+  const { encounterId, secrets } = input;
+  const agent = humanClaimActor(input.submitterRef);
+  const { customerId, stripeAccount } = await savedCardCustomer(input, clinicalOystehr);
+  // the org behind the Stripe account the money lands in, as the billing webhook records it
+  const payeeRef = await billingProviderRefForStripeAccount(billingOystehr, stripeAccount, secrets);
+  const noticeFor = (claim: Claim | undefined, identifiers: Identifier[]): PaymentNotice =>
+    makePaymentNotice({ ...input, claim, payeeRef, stripeAccount: { stripeAccount }, identifiers });
+
+  // a replay reuses the reservation of the attempt it repeats
+  const { notice: pending } = await createPaymentNotice({
+    oystehr: billingOystehr,
+    notice: pendingEhrPaymentNotice(noticeFor(undefined, []), ehrPaymentId),
+    dedupIdentifier: { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
+    agent: undefined,
+  });
+
+  let paymentIntent: Stripe.PaymentIntent;
+  try {
+    paymentIntent = await chargeSavedCard(input, { paymentMethodId, customerId, stripeAccount, ehrPaymentId });
+  } catch (error) {
+    await cancelPendingPaymentNotice(billingOystehr, pending);
+    throw error;
+  }
+  const chargeId =
+    typeof paymentIntent.latest_charge === 'string' ? paymentIntent.latest_charge : paymentIntent.latest_charge?.id;
+
+  const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
+  const desiredNotice = noticeFor(claim, [
+    { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
+    ...[paymentIntent.id, chargeId]
+      .filter((id): id is string => Boolean(id))
+      .map((value) => ({ system: STRIPE_PAYMENT_ID_SYSTEM, value })),
+  ]);
+
+  const activation = await activatePendingPaymentNotice(billingOystehr, pending, desiredNotice, agent);
+  return activation.activated
+    ? activation.notice
+    : mergeIntoWebhookNotice(billingOystehr, activation.notice, desiredNotice, agent);
+};
+
+// Records the reservation as the payment, in claim history as the payment's creation. A reservation
+// the webhook activated first is returned as it is, for the caller to merge into.
+const activatePendingPaymentNotice = (
+  billingOystehr: Oystehr,
+  pending: PaymentNotice,
+  desiredNotice: PaymentNotice,
+  agent: ProvenanceAgent
+): Promise<{ notice: PaymentNotice; activated: boolean }> => {
+  const noticeId = pending.id;
+  if (!noticeId) throw new Error('The reserved PaymentNotice has no id');
+  return withVersionConflictRetries(async (attempt) => {
+    const existing =
+      attempt === 1
+        ? pending
+        : await billingOystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: noticeId });
+    if (!isPendingEhrPaymentNotice(existing)) {
+      return { notice: existing, activated: false };
+    }
+    const activated: PaymentNotice = { ...desiredNotice, id: noticeId, meta: existing.meta };
+    const history = paymentNoticeHistoryRequest({
+      targetReference: `PaymentNotice/${noticeId}`,
+      after: activated,
+      agent,
+    });
+    await billingOystehr.fhir.transaction<FhirResource>({
+      requests: [
+        {
+          method: 'PUT',
+          url: `/PaymentNotice/${noticeId}`,
+          resource: activated,
+          ifMatch: makeOptimisticLockIfMatchHeader(existing),
+        },
+        ...(history ? [history] : []),
+      ],
+    });
+    return { notice: activated, activated: true };
+  });
+};
+
+// A charge that failed leaves its reservation cancelled. Only a draft is cancelled: should the charge
+// have gone through after all, the webhook activates the reservation, and that is kept. Failing to
+// cancel is logged rather than thrown so the caller sees the charge error; no payment reader lists
+// the draft either way.
+const cancelPendingPaymentNotice = async (billingOystehr: Oystehr, pending: PaymentNotice): Promise<void> => {
+  const noticeId = pending.id;
+  if (!noticeId) return;
+  try {
+    await withVersionConflictRetries(async (attempt) => {
+      const existing =
+        attempt === 1
+          ? pending
+          : await billingOystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: noticeId });
+      if (!isPendingEhrPaymentNotice(existing) || existing.status !== 'draft') return;
+      await billingOystehr.fhir.transaction<FhirResource>({
+        requests: [
+          {
+            method: 'PUT',
+            url: `/PaymentNotice/${noticeId}`,
+            resource: {
+              ...existing,
+              status: 'cancelled',
+              contained: existing.contained?.map((resource) =>
+                resource.resourceType === 'PaymentReconciliation' ? { ...resource, status: 'cancelled' } : resource
+              ),
+            },
+            ifMatch: makeOptimisticLockIfMatchHeader(existing),
+          },
+        ],
+      });
+    });
+  } catch (error) {
+    console.error(`Could not cancel the reserved PaymentNotice/${noticeId} of a failed charge`, error);
+  }
+};
+
+const savedCardCustomer = async (
+  input: EffectInput,
   clinicalOystehr: Oystehr
-): Promise<{ paymentIntent: Stripe.PaymentIntent; stripeAccount: string | undefined }> => {
-  const { patientId, encounterId, paymentDetails, secrets } = input;
+): Promise<{ customerId: string; stripeAccount: string | undefined }> => {
+  const { patientId, encounterId } = input;
   const { account } = await getAccountAndCoverageResourcesForPatient(patientId, clinicalOystehr);
   if (!account) {
     throw FHIR_RESOURCE_NOT_FOUND('Account');
@@ -208,6 +331,15 @@ const chargeSavedCard = async (
   if (!customerId) {
     throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }
+  return { customerId, stripeAccount };
+};
+
+const chargeSavedCard = async (
+  input: EffectInput,
+  card: { paymentMethodId: string; customerId: string; stripeAccount: string | undefined; ehrPaymentId: string }
+): Promise<Stripe.PaymentIntent> => {
+  const { patientId, encounterId, paymentDetails, secrets } = input;
+  const { paymentMethodId, customerId, stripeAccount, ehrPaymentId } = card;
 
   let paymentIntent: Stripe.PaymentIntent;
   try {
@@ -219,7 +351,11 @@ const chargeSavedCard = async (
         payment_method: paymentMethodId,
         description: paymentDetails.description || `Payment for encounter ${encounterId}`,
         confirm: true,
-        metadata: stripeEncounterMetadata({ encounterId, patientId }),
+        metadata: {
+          ...stripeEncounterMetadata({ encounterId, patientId }),
+          // Stripe copies it to the charge, where the billing webhook finds the reservation by it
+          [STRIPE_METADATA_KEYS.ehrPaymentId]: ehrPaymentId,
+        },
         automatic_payment_methods: {
           enabled: true,
           allow_redirects: 'never',
@@ -239,7 +375,7 @@ const chargeSavedCard = async (
     throw GENERIC_STRIPE_PAYMENT_ERROR;
   }
   console.log('Payment Intent created:', paymentIntent.id);
-  return { paymentIntent, stripeAccount };
+  return paymentIntent;
 };
 
 // The webhook's copy has no submitter or EHR identifier; add ours, keeping its refund stamps and its
