@@ -13,6 +13,7 @@ import {
   IMMUNIZATION_MARK_CLEARED_EXTENSION_URL,
   IMMUNIZATION_MARK_REASON_SYSTEM,
   IMMUNIZATION_MARKS,
+  IMMUNIZATION_ORIGIN_SYSTEM,
   IMMUNIZATION_OUTSIDE_SOURCES,
   IMMUNIZATION_SOURCE_UNSPECIFIED,
   immunizationFromMedicationAdministration,
@@ -109,7 +110,7 @@ export function validateOutsideImmunizationDetails(body: any): OutsideImmunizati
 }
 
 /**
- * An outside dose: an Immunization only (primarySource false, the source coded from CDC NIP001), straight into the
+ * An outside dose: an Immunization only (primarySource false, the source coded from CDC NIP001 and, where one matches, HL7 Immunization Origin), straight into the
  * history. No order, no stock, no billing. Without a date given, occurrenceString says the date is unknown.
  */
 export function buildOutsideImmunization(
@@ -126,7 +127,10 @@ export function buildOutsideImmunization(
     status: 'completed',
     primarySource: false,
     reportOrigin: {
-      coding: [{ system: IMMUNIZATION_INFORMATION_SOURCE_SYSTEM, code: origin.code, display: origin.display }],
+      coding: [
+        { system: IMMUNIZATION_INFORMATION_SOURCE_SYSTEM, code: origin.code, display: origin.display },
+        ...(source?.origin ? [{ system: IMMUNIZATION_ORIGIN_SYSTEM, ...source.origin }] : []),
+      ],
       text: origin.label,
     },
     vaccineCode: {

@@ -42,6 +42,9 @@ export const IMMUNIZATION_ENTERING_PROVIDER_CODE = 'EP';
 /** CDC NIP001 "Immunization Information Source": what registries take in RXA-9 for historical doses. */
 export const IMMUNIZATION_INFORMATION_SOURCE_SYSTEM = 'urn:oid:2.16.840.1.114222.4.5.274';
 
+/** HL7 Immunization Origin: FHIR's own, coarser list for reportOrigin, written next to the NIP001 code. */
+export const IMMUNIZATION_ORIGIN_SYSTEM = 'http://terminology.hl7.org/CodeSystem/immunization-origin';
+
 export interface ImmunizationSourceOption {
   value: ImmunizationOutsideSource;
   /** The NIP001 code and its display. */
@@ -49,6 +52,8 @@ export interface ImmunizationSourceOption {
   display: string;
   /** How the source blank reads it, suiting children and adults alike. */
   label: string;
+  /** The HL7 Immunization Origin code, where one matches. */
+  origin?: { code: string; display: string };
 }
 
 export const IMMUNIZATION_OUTSIDE_SOURCES: readonly ImmunizationSourceOption[] = [
@@ -57,36 +62,42 @@ export const IMMUNIZATION_OUTSIDE_SOURCES: readonly ImmunizationSourceOption[] =
     code: '03',
     display: "Historical information - from parent's written record",
     label: 'a written record',
+    origin: { code: 'record', display: 'Written Record' },
   },
   {
     value: 'other-provider',
     code: '02',
     display: 'Historical information - from other provider',
     label: "another provider's records",
+    origin: { code: 'provider', display: 'Other Provider' },
   },
   {
     value: 'recall',
     code: '04',
     display: "Historical information - from parent's recall",
     label: "the patient's or family's recall",
+    origin: { code: 'recall', display: 'Parent/Guardian/Patient Recall' },
   },
   {
     value: 'other-registry',
     code: '05',
     display: 'Historical information - from other registry',
     label: 'another registry',
+    origin: { code: 'jurisdiction', display: 'Jurisdictional IIS' },
   },
   {
     value: 'school-record',
     code: '07',
     display: 'Historical information - from school record',
     label: 'a school record',
+    origin: { code: 'school', display: 'School Record' },
   },
   {
     value: 'birth-certificate',
     code: '06',
     display: 'Historical information - from birth certificate',
     label: 'a birth certificate',
+    origin: { code: 'record', display: 'Written Record' },
   },
   {
     value: 'public-agency',

@@ -8,6 +8,7 @@ import {
   IMMUNIZATION_INFORMATION_SOURCE_SYSTEM,
   IMMUNIZATION_MARK_CLEARED_EXTENSION_URL,
   IMMUNIZATION_MARK_REASON_SYSTEM,
+  IMMUNIZATION_ORIGIN_SYSTEM,
   immunizationFromMedicationAdministration,
   immunizationMarkToRecord,
   immunizationToRecord,
@@ -227,7 +228,7 @@ describe('outside doses', () => {
     });
   });
 
-  it('is an Immunization only: primary source false, the source coded from NIP001, the date or "unknown"', () => {
+  it('is an Immunization only: primary source false, the source coded from NIP001 and HL7, the date or "unknown"', () => {
     const dated = buildOutsideImmunization(
       {
         vaccine: { name: 'DTaP' },
@@ -252,6 +253,7 @@ describe('outside doses', () => {
             code: '03',
             display: "Historical information - from parent's written record",
           },
+          { system: IMMUNIZATION_ORIGIN_SYSTEM, code: 'record', display: 'Written Record' },
         ],
         text: 'a written record',
       },
@@ -272,7 +274,17 @@ describe('outside doses', () => {
     const undated = buildOutsideImmunization({ vaccine: { name: 'MMR' } }, patient, encounter, nurse, NOW);
     expect(undated.occurrenceDateTime).toBeUndefined();
     expect(undated.occurrenceString).toBe('unknown');
-    expect(undated.reportOrigin).toMatchObject({ coding: [{ code: '01' }], text: 'source unspecified' });
+    // no HL7 Immunization Origin code means "unspecified": NIP001 only
+    expect(undated.reportOrigin).toEqual({
+      coding: [
+        {
+          system: IMMUNIZATION_INFORMATION_SOURCE_SYSTEM,
+          code: '01',
+          display: 'Historical information - source unspecified',
+        },
+      ],
+      text: 'source unspecified',
+    });
 
     const record = immunizationToRecord({ ...undated, id: 'imm-2' });
     expect(record).toMatchObject({
