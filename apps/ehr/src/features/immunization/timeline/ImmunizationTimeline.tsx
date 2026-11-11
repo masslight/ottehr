@@ -196,7 +196,6 @@ const SEGMENT_STYLE: Record<
   'window-recommended': { top: 13, height: 8, background: '#E3EEDD' },
   'projected-earliest': { top: 11, height: 12, background: 'transparent', border: `1px dashed ${PROJECTED_GRAY}` },
   'projected-recommended': { top: 11, height: 12, background: 'transparent', border: `1.5px solid ${NEXT_ORANGE}` },
-  'projected-pastdue': { top: 11, height: 12, background: 'transparent', border: '1.5px solid #E57373' },
 };
 const LATE_WINDOW_BACKGROUND = '#F3DADA';
 /** The frozen left column: status icon + vaccine name. */
@@ -251,27 +250,28 @@ const Segment = ({
   const style = SEGMENT_STYLE[segment.kind];
   const left = xPercent(segment.from, maxMonths);
   return (
-    <Box
-      component={onClick ? 'button' : 'span'}
-      type={onClick ? 'button' : undefined}
-      onClick={onClick}
-      title={segment.title}
-      aria-label={onClick ? segment.title : undefined}
-      sx={{
-        position: 'absolute',
-        left: `${left}%`,
-        width: `${xPercent(segment.to, maxMonths) - left}%`,
-        top: style.top,
-        height: style.height,
-        borderRadius: style.height / 2,
-        border: style.border ?? 0,
-        boxSizing: 'border-box',
-        p: 0,
-        background: segment.late ? LATE_WINDOW_BACKGROUND : style.background,
-        opacity: dim ? 0.45 : 1,
-        cursor: onClick ? 'pointer' : 'default',
-      }}
-    />
+    <Tooltip followCursor title={segment.tip}>
+      <Box
+        component={onClick ? 'button' : 'span'}
+        type={onClick ? 'button' : undefined}
+        onClick={onClick}
+        aria-label={onClick ? segment.title : undefined}
+        sx={{
+          position: 'absolute',
+          left: `${left}%`,
+          width: `${xPercent(segment.to, maxMonths) - left}%`,
+          top: style.top,
+          height: style.height,
+          borderRadius: style.height / 2,
+          border: style.border ?? 0,
+          boxSizing: 'border-box',
+          p: 0,
+          background: segment.late ? LATE_WINDOW_BACKGROUND : style.background,
+          opacity: dim ? 0.45 : 1,
+          cursor: onClick ? 'pointer' : 'default',
+        }}
+      />
+    </Tooltip>
   );
 };
 

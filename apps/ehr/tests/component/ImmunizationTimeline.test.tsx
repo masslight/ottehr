@@ -160,6 +160,17 @@ describe('ImmunizationTimeline', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/Earliest: .* · Recommended: .* · Past due:/);
   });
 
+  it('hovering a bar says in one short line what it means for the dose', async () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    const pcv = screen.getByTestId('immunization-lane-pcv');
+    const bar = within(pcv).getByRole('button', { name: /^Dose 2: recommended / });
+    fireEvent.mouseOver(bar);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      /^PCV.* dose 2 window: \d\d\/\d\d\/\d{4} – \d\d\/\d\d\/\d{4}$/
+    );
+    expect(bar.tagName).toBe('BUTTON'); // still opens the details on click
+  });
+
   it('renders one lane per vaccine group with its status icon, doses, undated dose and mark', async () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     for (const group of fixture.forecast.groups) {

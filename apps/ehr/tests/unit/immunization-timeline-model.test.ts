@@ -82,6 +82,30 @@ describe('timeline axis', () => {
 });
 
 describe('next dose bar', () => {
+  it('says in one short line what each part of the bar means', () => {
+    const [early, recommended, pastDue] = nextDoseSegments(
+      group({
+        status: 'pastdue',
+        next: { n: 2, earliest: '2026-09-05', recommended: '2026-11-08', pastDue: '2026-12-08', latest: null, cvx: [] },
+      }),
+      DOB,
+      '2027-01-08',
+      24
+    );
+    expect(early.tip).toBe('DTaP/Tdap/Td dose 2 early window: 09/05/2026 – 11/07/2026');
+    expect(recommended.tip).toBe('DTaP/Tdap/Td dose 2 window: 11/08/2026 – 12/07/2026');
+    expect(pastDue.tip).toBe('DTaP/Tdap/Td dose 2 past due since 12/08/2026');
+    const seasonal = nextDoseSegments(
+      group({
+        next: { n: 1, earliest: '2026-09-05', recommended: '2026-11-08', pastDue: null, latest: null, cvx: [] },
+      }),
+      DOB,
+      '2026-11-10',
+      24
+    );
+    expect(seasonal[1].tip).toBe('DTaP/Tdap/Td dose 1 window: from 11/08/2026');
+  });
+
   const next = {
     n: 2,
     earliest: '2026-09-05',
@@ -131,15 +155,14 @@ describe('projected later doses', () => {
     expect(defaultRange(4, timelineRanges(4), 132).label).toBe('0–7 y');
   });
 
-  it('draws allowed but early → recommended → a past-due stub, with the "if given on time" text', () => {
+  it('draws allowed but early, then one outline window ending at the past-due date', () => {
     const segments = projectedDoseSegments(dtap4, 'DTaP/Tdap/Td', DOB, 84);
-    expect(segments.map((segment) => segment.kind)).toEqual([
-      'projected-earliest',
-      'projected-recommended',
-      'projected-pastdue',
+    expect(segments.map((segment) => segment.tip)).toEqual([
+      'DTaP/Tdap/Td dose 4 early window: 07/08/2027 – 10/07/2027',
+      'DTaP/Tdap/Td dose 4 window: 10/08/2027 – 01/07/2028',
     ]);
+    expect(segments.map((segment) => segment.kind)).toEqual(['projected-earliest', 'projected-recommended']);
     expect(segments[1].to).toBeCloseTo(ageInMonths(DOB, dtap4.pastDue));
-    expect(segments[2].from).toBeCloseTo(segments[1].to);
     expect(segments[0].title).toBe(
       'DTaP/Tdap/Td dose 4 (projected): recommended 10/08/2027, past due after 01/08/2028, if dose 3 is given on time.'
     );
@@ -168,6 +191,15 @@ describe('windows of given doses', () => {
     window: { earliest: '2026-09-05', recommended: '2026-11-08', pastDue: '2026-12-08' },
     timing: 'late',
   };
+
+  it('says on hover when the dose was given and how it was timed', () => {
+    const [early, recommended] = givenDoseWindowSegments(dose, DOB, 24, 'DTaP');
+    expect(early.tip).toBe('DTaP dose 2 given 12/20/2026 (late)');
+    expect(recommended.tip).toBe('DTaP dose 2 given 12/20/2026 (late)');
+    expect(givenDoseWindowSegments({ ...dose, timing: 'on-time' }, DOB, 24, 'DTaP')[0].tip).toBe(
+      'DTaP dose 2 given 12/20/2026 (on time)'
+    );
+  });
 
   it('is two bands, the second red when the dose was late, with the window and timing in the title', () => {
     const segments = givenDoseWindowSegments(dose, DOB, 24, 'DTaP');

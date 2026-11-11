@@ -110,8 +110,7 @@ export type TimelineSegmentKind =
   | 'window-earliest'
   | 'window-recommended'
   | 'projected-earliest'
-  | 'projected-recommended'
-  | 'projected-pastdue';
+  | 'projected-recommended';
 
 export interface TimelineSegment {
   kind: TimelineSegmentKind;
@@ -120,6 +119,8 @@ export interface TimelineSegment {
   to: number;
   late?: boolean;
   title: string;
+  /** The hover text, one short line: what this part of the bar means for the dose. */
+  tip: string;
 }
 
 const segment = (
@@ -128,14 +129,23 @@ const segment = (
   to: number,
   maxMonths: number,
   title: string,
+  tip: string,
   late?: boolean
 ): TimelineSegment | undefined => {
   const clippedTo = Math.min(to, maxMonths);
   if (from >= maxMonths || clippedTo <= 0 || clippedTo <= from) return undefined;
-  return { kind, from: Math.max(0, from), to: clippedTo, title, ...(late && { late }) };
+  return { kind, from: Math.max(0, from), to: clippedTo, title, tip, ...(late && { late }) };
 };
 
 export const formatDate = (iso: string): string => DateTime.fromISO(iso).toFormat(DATE_FORMAT);
+
+const dayBefore = (iso: string): string => DateTime.fromISO(iso).minus({ days: 1 }).toISODate()!;
+
+/** "Hib dose 2 early window: 01/06/2026 – 01/19/2026": from `from` to the day before `until`. */
+const windowTip = (name: string, which: 'early window' | 'window', from: string, until: string | null): string =>
+  until
+    ? `${name} ${which}: ${formatDate(from)} – ${formatDate(dayBefore(until))}`
+    : `${name} ${which}: from ${formatDate(from)}`;
 
 const NO_NEXT_BAR: ImmunizationGroupStatus[] = ['complete', 'notroutine', 'contraindicated', 'immune'];
 
@@ -152,8 +162,16 @@ export function nextDoseSegments(
   const recommended = ageInMonths(dob, next.recommended);
   const pastDue = next.pastDue ? ageInMonths(dob, next.pastDue) : null;
   const today = ageInMonths(dob, asOf);
+  const name = `${group.label} dose ${next.n}`;
   const segments = [
-    segment('earliest', earliest, recommended, maxMonths, `Dose ${next.n}: earliest ${formatDate(next.earliest)}`),
+    segment(
+      'earliest',
+      earliest,
+      recommended,
+      maxMonths,
+      `Dose ${next.n}: earliest ${formatDate(next.earliest)}`,
+      windowTip(name, 'early window', next.earliest, next.recommended)
+    ),
     segment(
       'recommended',
       Math.max(earliest, recommended),
@@ -161,10 +179,18 @@ export function nextDoseSegments(
       maxMonths,
       `Dose ${next.n}: recommended ${formatDate(next.recommended)}${
         next.pastDue ? `, past due ${formatDate(next.pastDue)}` : ''
-      }`
+      }`,
+      windowTip(name, 'window', next.recommended, next.pastDue)
     ),
     pastDue !== null && today > pastDue
-      ? segment('pastdue', pastDue, today, maxMonths, `Dose ${next.n}: past due since ${formatDate(next.pastDue!)}`)
+      ? segment(
+          'pastdue',
+          pastDue,
+          today,
+          maxMonths,
+          `Dose ${next.n}: past due since ${formatDate(next.pastDue!)}`,
+          `${name} past due since ${formatDate(next.pastDue!)}`
+        )
       : undefined,
   ];
   return segments.filter((candidate): candidate is TimelineSegment => candidate !== undefined);
@@ -176,12 +202,9 @@ export const projectedDoseText = (laneLabel: string, dose: ProjectedDose): strin
     dose.pastDue ? `, past due after ${formatDate(dose.pastDue)}` : ''
   }, if dose ${dose.n - 1} is given on time.`;
 
-/** How far past its past-due date a projected dose's past-due part reaches, as a share of the age then. */
-const PROJECTED_PASTDUE_SPAN = 0.08;
-
 /**
- * A later dose, if each dose before it is given on time, drawn in outline: allowed but early → recommended → past
- * due. Its past-due part is a short stub, since the dose is not past due yet.
+ * A later dose, if each dose before it is given on time, drawn in outline: allowed but early, then its window up to
+ * the past-due date.
  */
 export function projectedDoseSegments(
   dose: ProjectedDose,
@@ -193,12 +216,24 @@ export function projectedDoseSegments(
   const recommended = ageInMonths(dob, dose.recommended);
   const pastDue = dose.pastDue ? ageInMonths(dob, dose.pastDue) : null;
   const title = projectedDoseText(laneLabel, dose);
+  const name = `${laneLabel} dose ${dose.n}`;
   return [
-    segment('projected-earliest', earliest, recommended, maxMonths, title),
-    segment('projected-recommended', Math.max(earliest, recommended), pastDue ?? maxMonths, maxMonths, title),
-    pastDue !== null
-      ? segment('projected-pastdue', pastDue, pastDue * (1 + PROJECTED_PASTDUE_SPAN), maxMonths, title)
-      : undefined,
+    segment(
+      'projected-earliest',
+      earliest,
+      recommended,
+      maxMonths,
+      title,
+      windowTip(name, 'early window', dose.earliest, dose.recommended)
+    ),
+    segment(
+      'projected-recommended',
+      Math.max(earliest, recommended),
+      pastDue ?? maxMonths,
+      maxMonths,
+      title,
+      windowTip(name, 'window', dose.recommended, dose.pastDue)
+    ),
   ].filter((candidate): candidate is TimelineSegment => candidate !== undefined);
 }
 
@@ -216,6 +251,7 @@ export const windowText = (window: DoseWindow): string =>
     .filter(Boolean)
     .join(' · ');
 
+const GIVEN_TIMING = { early: 'early', 'on-time': 'on time', late: 'late' } as const;
 const TIMING_TEXT = { early: 'Given early', 'on-time': 'Given on time', late: 'Given late' } as const;
 
 export const timingText = (dose: EvaluatedDose): string | undefined =>
@@ -237,9 +273,12 @@ export function givenDoseWindowSegments(
   const title = `${laneLabel} dose ${dose.doseNumber} window: ${windowText(window)}. ${
     timingText(dose) ?? 'Given'
   } at ${formatAge(ageInMonths(dob, dose.date))}.`;
+  const tip = `${laneLabel} dose ${dose.doseNumber} given ${formatDate(dose.date)}${
+    dose.timing ? ` (${GIVEN_TIMING[dose.timing]})` : ''
+  }`;
   return [
-    earliest !== null ? segment('window-earliest', earliest, recommended, maxMonths, title) : undefined,
-    pastDue !== null ? segment('window-recommended', recommended, pastDue, maxMonths, title, late) : undefined,
+    earliest !== null ? segment('window-earliest', earliest, recommended, maxMonths, title, tip) : undefined,
+    pastDue !== null ? segment('window-recommended', recommended, pastDue, maxMonths, title, tip, late) : undefined,
   ].filter((candidate): candidate is TimelineSegment => candidate !== undefined);
 }
 
