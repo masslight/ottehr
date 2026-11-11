@@ -18,11 +18,55 @@ Three typical reports, each fetched three ways and computed to the same result w
 
 A visit is an appointment of the range with an Ottehr module tag and its encounter, follow-up notes left out. Data on local: a year is 43 607 appointments and 56 801 encounters; 60 days is 1 087 and 2 013.
 
-Each range first ran a **warm-up pass** (every report, every way, not counted): the database keeps what it has just read in memory, so the first read of a range is slower (see the appendix). The results below are the measured pass after it, one run per cell, the order of the ways rotating from report to report.
+Each range first ran a **warm-up pass** (every report, every way, not counted): the database keeps what it has just read in memory, so the first read of a range is slower (see appendix B). The results below are the measured pass after it, one run per cell, the order of the ways rotating from report to report.
+
+The main results are for this version **with the root lookups next to the layers** (patients / locations / practitioners by id no longer before the layers; commit `f83acb2175`). The same bench before that change is appendix A.
 
 ## Results
 
 Time in seconds; in brackets, how many times the ideal time. **Every result matched the ideal one** (18 of 18 runs, no errors).
+
+| Report | Range | ideal | current | studio |
+|---|---|---|---|---|
+| r1 visits by provider | 60 days | 6.0 | 8.2 (1.4×) | 8.9 (1.5×) |
+| r2 temperature by location | 60 days | 6.0 | 9.2 (1.5×) | 7.4 (1.2×) |
+| r3 diagnoses and CPT codes | 60 days | 5.6 | 8.9 (1.6×) | 6.8 (1.2×) |
+| r1 visits by provider | a year | 18.2 | 34.7 (1.9×) | 32.3 (1.8×) |
+| r2 temperature by location | a year | 27.1 | 40.6 (1.5×) | 48.8 (1.8×) |
+| r3 diagnoses and CPT codes | a year | 27.6 | 40.8 (1.5×) | 40.9 (1.5×) |
+
+Requests (async jobs / pages) for a year: ideal 52 / 221 / 139, current 165 / 252 / 254, studio 28 / 419 / 255.
+
+**Noise.** At a year the same way varies by 20–40% from run to run (in the earlier pass, the warm-up and the measured run gave ideal r1 24.6 s and 17.0 s). Differences under ~1.3× at a year are within that; at 60 days runs agree within ~10–20%.
+
+## Where the time goes
+
+| Group | ideal | current | studio |
+|---|---|---|---|
+| 60 days: visits | 3.3–4.0 s (appointments and encounters in parallel) | 3.7 s (root) | 5.2–8.6 s |
+| 60 days: the rest | 2.0–2.3 s | 3.5–4.5 s (root lookups 2.3–2.5 s, in parallel with the layer) | 0.3–1.0 s |
+| a year: visits | 15–18 s | 17–19 s (root) | 32–34 s visits, 17–21 s encounters |
+| a year: the rest | 1–12 s | 16–21 s (root lookups 13–14 s; layers 18–21 s, sharing the job pool with them) | 0.5–14 s |
+| Building rows / the result | — | 0.0–1.0 s | — |
+
+## Conclusions
+
+1. **All three are complete.** Every report gave the ideal result in both ranges, in every pass.
+2. **60 days: the change saved 1.3–1.9 s a report (~15%); this version is now 1.4–1.6× the ideal, Report Studio 1.2–1.5×** — about even, this version faster on r1. One round of jobs less: the visits, then the layers with the root lookups beside them.
+3. **A year: this version 1.5–1.9×, Report Studio 1.5–1.8×** — even. The root itself fell from 30–31 s to 17–19 s, about the ideal visits (15–18 s). But the total barely moved (−0.3 to −1.8 s): the root lookups still send ~130 jobs, and they now share the 16-job pool with the layers, so the layers take longer (codes 10 → 21 s). The work moved, it did not shrink.
+4. **That remaining work is mostly local's data.** On local the visits point at ~40 000 location ids and ~24 000 patient ids that mostly do not exist (141 locations and ~340 patients found), so the lookups are ~130 jobs of almost nothing. On production a year has ~20 000 real patients (~40 jobs) and a handful of locations, so the same change should show there as it did at 60 days. To be confirmed on production-like data.
+5. **Report Studio's cost is in its runner, not in its plans.** Its visits step takes 32–34 s for a year in 11 large jobs, and its scoped steps send 250 ids per paged batch (228 requests for temperatures against 87 in ideal). The plans themselves are close to the ideal searches.
+6. **The floor is ~6 s for 60 days and ~18–28 s for a year on local.** FHIR has no joins, so a report reads the visits and then makes a second pass by their ids, and every async job costs ~2.5 s.
+
+## Caveats
+
+- **One measured run per cell**, and a year is noisy (20–40%). Repeat before deciding on a single number.
+- **Local is not production.** Local has many visits and few clinical records: no temperatures at all (r2 measures the overhead of a search that returns nothing) and 37–429 CPT codes. On production the second pass carries far more data.
+- **The Report Studio plans were written by hand** from its data map, not by Claude in Report Studio. They follow its recommended visit search, so they should be close to what it would write.
+
+## Appendix A: before the root-lookups change (warm cache)
+
+This version with patients / locations / practitioners loaded by id *before* the layers. Same bench, same day, with the warm-up. Every result matched the ideal one.
 
 | Report | Range | ideal | current | studio |
 |---|---|---|---|---|
@@ -33,41 +77,11 @@ Time in seconds; in brackets, how many times the ideal time. **Every result matc
 | r2 temperature by location | a year | 34.4 | 40.9 (1.2×) | 52.8 (1.5×) |
 | r3 diagnoses and CPT codes | a year | 25.6 | 41.7 (1.6×) | 45.3 (1.8×) |
 
-Requests (async jobs / pages) for a year: ideal 52 / 221 / 139, current 165 / 252 / 254, studio 28 / 419 / 255.
+Here this version's root took 5.6–5.9 s at 60 days and 30–31 s at a year, the lookups included.
 
-**Noise.** At a year the same way varies by 20–40% from run to run: the warm-up and the measured pass gave ideal r1 24.6 s and 17.0 s, ideal r2 26.1 s and 34.4 s. Differences under ~1.3× at a year are within that.
+## Appendix B: first run (cold cache)
 
-## Where the time goes
-
-| Group | ideal | current | studio |
-|---|---|---|---|
-| 60 days: visits | 3.3–4.0 s (appointments and encounters in parallel) | 5.6–5.9 s (root) | 5.3–6.2 s |
-| 60 days: the rest | 2.0–2.4 s | 3.2–3.3 s (base lookups + layers) | 0.3–1.0 s |
-| a year: visits | 15–21 s | 30–31 s (root) | 32–38 s visits, 17–19 s encounters |
-| a year: the rest | 2–13 s | 4–10 s | 0.5–14 s |
-| Building rows / the result | — | 0.0–0.9 s | — |
-
-## Conclusions
-
-1. **All three are complete.** Every report gave the ideal result in both ranges, in this pass and in the cold one.
-2. **60 days: Report Studio is close to the ideal (1.1–1.2×); this version is 1.6–1.9×**, a steady ~4 s above it. The cost is the number of job rounds one after another: this version runs the visits, then patients / locations / practitioners by id, then the layers and the base lookups (registrar names, schedules, groups) — each round at least one ~2.5 s job. The ideal searches run two rounds.
-3. **A year: this version 1.2–2.1×, Report Studio 1.5–2.0×.** This version is faster on r2 and r3, Report Studio on r1; given the noise, the two are about even.
-4. **The gap of this version is the root**: 30–31 s for a year against 15–21 s for the ideal visits. It loads the appointments and their encounters in full, then patients and locations by id *before* the layers start. On local the visits point at ~40 000 location ids that do not exist (84 requests, 141 found), so that second round costs more here than on production. Cheap next steps:
-   - start the patient / location lookups together with the layers instead of before them (they are needed only to build the rows);
-   - trim the root resources with `_elements`;
-   - load the base lookups (registrar names, schedules, groups) only when a report reads those columns.
-5. **Report Studio's cost is in its runner, not in its plans.** Its visits step takes 32–38 s for a year in 11 large jobs, and its scoped steps send 250 ids per paged batch (228 requests for temperatures against 87 in ideal). The plans themselves are close to the ideal searches.
-6. **The floor is ~5–6 s for 60 days and ~17–34 s for a year on local.** FHIR has no joins, so a report reads the visits and then makes a second pass by their ids, and every async job costs ~2.5 s.
-
-## Caveats
-
-- **One measured run per cell**, and a year is noisy (20–40%). Repeat before deciding on a single number.
-- **Local is not production.** Local has many visits and few clinical records: no temperatures at all (r2 measures the overhead of a search that returns nothing) and 37–429 CPT codes. On production the second pass carries far more data.
-- **The Report Studio plans were written by hand** from its data map, not by Claude in Report Studio. They follow its recommended visit search, so they should be close to what it would write.
-
-## Appendix: first run (cold cache)
-
-The same bench run once without a warm-up, before the run above. The first run of each range read data the database had not read yet, and in both ranges that was **ideal**: its visits took 8.2 s + 10.3 s at 60 days against 3.3–4.3 s once warm, and its encounters 24.1 s at a year against 14.4–15.2 s. That is why current looks faster than the ideal in the first row. Every result matched the ideal one here too.
+The same bench run once without a warm-up, before the runs above (and before the root-lookups change). The first run of each range read data the database had not read yet, and in both ranges that was **ideal**: its visits took 8.2 s + 10.3 s at 60 days against 3.3–4.3 s once warm, and its encounters 24.1 s at a year against 14.4–15.2 s. That is why current looks faster than the ideal in the first row. Every result matched the ideal one here too.
 
 | Report | Range | ideal | current | studio |
 |---|---|---|---|---|
