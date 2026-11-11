@@ -29,12 +29,19 @@ export interface ImmunizationEmergencyContact {
   mobile: string;
 }
 
+/** A CPT code billed with the administration; `billableUnits` is the claim quantity (90461 ×5), 1 when absent. */
+export interface ImmunizationCptCode {
+  code: string;
+  display: string;
+  billableUnits?: number;
+}
+
 export interface ImmunizationOrderAdministrationDetails {
   lot: string;
   expDate: string;
   mvx: string;
   cvx: string;
-  cptCodes?: { code: string; display: string }[];
+  cptCodes?: ImmunizationCptCode[];
   ndc: string;
   administeredProvider: {
     id: string;

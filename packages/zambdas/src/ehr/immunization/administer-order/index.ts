@@ -11,6 +11,7 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getMedicationName,
@@ -40,6 +41,7 @@ import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CONTAINED_MANUFACTURER_ORG_ID,
   CONTAINED_MEDICATION_ID,
+  cptCodeCoding,
   getContainedMedication,
   updateOrderDetails,
   updateVaccineMedicationDetails,
@@ -175,36 +177,42 @@ export async function administerImmunizationOrder(
       const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
       if (encounterId && patientId) {
         try {
-          // Search for existing CPT code Procedures on this encounter
+          // The lines this administration already has: each vaccine given bills its own admin codes, so another
+          // vaccine's 90460 on the visit is not a reason to skip this one.
           const existingProcedures = (
             await oystehr.fhir.search<Procedure>({
               resourceType: 'Procedure',
               params: [
-                { name: 'encounter', value: `Encounter/${encounterId}` },
+                { name: 'part-of', value: `MedicationAdministration/${medicationAdministration.id}` },
                 { name: '_tag', value: 'cpt-code' },
               ],
             })
           ).unbundle();
-          const existingCodes = existingProcedures.map((p) => p.code?.coding?.[0]?.code).filter(Boolean);
-          const newCodes = cptCodesToAdd.filter((c) => !existingCodes.includes(c.code));
-
-          for (const cptCode of newCodes) {
-            await oystehr.fhir.create<Procedure>({
-              resourceType: 'Procedure',
-              subject: { reference: `Patient/${patientId}` },
-              encounter: { reference: `Encounter/${encounterId}` },
-              partOf: [createReference(medicationAdministration)],
-              status: 'completed',
-              code: {
-                coding: [{ code: cptCode.code, display: cptCode.display, system: 'http://www.ama-assn.org/go/cpt' }],
-              },
-              meta: {
-                tag: [{ code: 'cpt-code', system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' }],
-              },
-            });
+          const changedCodes: string[] = [];
+          for (const cptCode of cptCodesToAdd) {
+            const coding = cptCodeCoding(cptCode);
+            const existing = existingProcedures.find((p) => p.code?.coding?.[0]?.code === cptCode.code);
+            if (!existing) {
+              await oystehr.fhir.create<Procedure>({
+                resourceType: 'Procedure',
+                subject: { reference: `Patient/${patientId}` },
+                encounter: { reference: `Encounter/${encounterId}` },
+                partOf: [createReference(medicationAdministration)],
+                status: 'completed',
+                code: { coding: [coding] },
+                meta: {
+                  tag: [{ code: 'cpt-code', system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' }],
+                },
+              });
+              changedCodes.push(cptCode.code);
+            } else if (getCptBillableUnitsForProcedure(existing) !== (cptCode.billableUnits ?? 1)) {
+              // re-administered with a different count: the line keeps its id, the claim gets the new quantity
+              await oystehr.fhir.update<Procedure>({ ...existing, code: { coding: [coding] } });
+              changedCodes.push(`${cptCode.code} ×${cptCode.billableUnits ?? 1}`);
+            }
           }
-          if (newCodes.length > 0) {
-            console.log('Added CPT codes to chart data:', newCodes.map((c) => c.code).join(', '));
+          if (changedCodes.length > 0) {
+            console.log('Added CPT codes to chart data:', changedCodes.join(', '));
           }
         } catch (e) {
           console.error('Failed to add CPT codes to chart data:', e);
@@ -217,6 +225,9 @@ export async function administerImmunizationOrder(
     orderId: medicationAdministration.id!,
   };
 }
+
+const getCptBillableUnitsForProcedure = (procedure: Procedure): number =>
+  getCptBillableUnitsFromCoding(procedure.code?.coding?.[0]) ?? 1;
 
 export function validateRequestParameters(
   input: ZambdaInput

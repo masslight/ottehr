@@ -1,6 +1,7 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coding, Extension, MedicationAdministration, Organization, RelatedPerson } from 'fhir/r4b';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getMedicationName, mapFhirToOrderStatus } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
@@ -180,10 +181,15 @@ export function mapMedicationAdministrationToImmunizationOrder(
             cvx: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code ?? '',
             cptCodes: administrationCodesExtensions
               ?.filter((ext) => ext.valueCodeableConcept?.coding?.[0]?.system === CODE_SYSTEM_CPT)
-              .map((ext) => ({
-                code: ext.valueCodeableConcept?.coding?.[0]?.code ?? '',
-                display: ext.valueCodeableConcept?.coding?.[0]?.display ?? '',
-              }))
+              .map((ext) => {
+                const coding = ext.valueCodeableConcept?.coding?.[0];
+                const billableUnits = getCptBillableUnitsFromCoding(coding);
+                return {
+                  code: coding?.code ?? '',
+                  display: coding?.display ?? '',
+                  ...(billableUnits != null && { billableUnits }),
+                };
+              })
               .filter((c) => c.code !== ''),
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),

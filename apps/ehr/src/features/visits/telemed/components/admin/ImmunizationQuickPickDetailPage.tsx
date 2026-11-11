@@ -5,6 +5,7 @@ import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
+import { formatImmunizationCptCode } from 'src/features/immunization/components/immunizationLines';
 import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { useImmunizationQuickPicksQuery } from './admin.queries';
 
@@ -80,7 +81,9 @@ export default function ImmunizationQuickPickDetailPage(): ReactElement {
           </Row>
           <Row label="CPT">
             <ValueDisplay
-              value={quickPick.cptCodes?.map((c) => `${c.code}${c.display ? ` - ${c.display}` : ''}`).join(', ')}
+              value={quickPick.cptCodes
+                ?.map((c) => `${formatImmunizationCptCode(c)}${c.display ? ` - ${c.display}` : ''}`)
+                .join(', ')}
             />
           </Row>
           <Row label="NDC">

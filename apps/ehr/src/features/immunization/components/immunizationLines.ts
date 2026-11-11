@@ -3,6 +3,7 @@ import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   CreateUpdateImmunizationOrderRequest,
+  ImmunizationCptCode,
   ImmunizationEmergencyContact,
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
@@ -80,6 +81,12 @@ export const applyImmunizationQuickPick = <T extends ImmunizationFormValues>(
     ndc: quickPick.ndc,
   },
 });
+
+/** The code with its count when more than one, as the CPT blank and the quick pick pages read it: "90461 ×5". */
+export const formatImmunizationCptCode = (cptCode: ImmunizationCptCode): string =>
+  cptCode.billableUnits != null && cptCode.billableUnits > 1
+    ? `${cptCode.code} ×${cptCode.billableUnits}`
+    : cptCode.code;
 
 /** What the order form requires, as its fields did: the immunization, a positive dose, its units and who ordered. */
 export const immunizationLineErrors = (line: ImmunizationFormValues): string[] => {

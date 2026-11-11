@@ -23,7 +23,7 @@ import {
   InputImmunizationOrderDetails,
 } from 'utils/lib/types/data/immunization/types';
 import { ImmunizationDiagnosisOption, useImmunizationDiagnosisOptions } from '../hooks/useImmunizationDiagnosisOptions';
-import { ImmunizationLine } from './immunizationLines';
+import { formatImmunizationCptCode, ImmunizationLine } from './immunizationLines';
 import { IMMUNIZATION_MENU_PAPER_SX, ImmunizationMenu } from './ImmunizationMenu';
 
 /** The admins' button under the line that saves it as a quick pick. */
@@ -460,7 +460,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
         <PopoverBlank
           label="CPT codes"
           title="CPT codes"
-          value={cptCodes.map((code) => code.code).join(', ') || undefined}
+          value={cptCodes.map(formatImmunizationCptCode).join(', ') || undefined}
           readOnly={readOnly}
           need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
@@ -471,6 +471,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
                 cptCodes={cptCodes}
                 onChange={(codes) => updateAdministration({ cptCodes: codes })}
                 isEditable={!readOnly}
+                withBillableUnits
               />
             </Box>
           )}

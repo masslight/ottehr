@@ -22,6 +22,8 @@ interface CptCodesInputProps {
   dataTestId?: string;
   /** When true, exactly one code is designated as the medication itself and can be re-designated from the list */
   showMedicationDesignation?: boolean;
+  /** When true, each code carries a count (90461 ×5): a units field beside it, and picking a code again adds one. */
+  withBillableUnits?: boolean;
 }
 
 export const CptCodesInput: FC<CptCodesInputProps> = ({
@@ -30,6 +32,7 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
   isEditable,
   dataTestId,
   showMedicationDesignation = false,
+  withBillableUnits = false,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,10 +46,20 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
   const { isFetching, data } = useGetCPTHCPCSSearch({ search: searchQuery, type: 'both' });
   const searchOptions = data?.codes || [];
 
+  const handleSetUnits = (code: string, billableUnits: number): void => {
+    if (!(Number.isInteger(billableUnits) && billableUnits > 0)) return;
+    onChange(cptCodes.map((c) => (c.code === code ? { ...c, billableUnits } : c)));
+  };
+
   const handleAdd = (code: CPTCodeDTO | null): void => {
     if (!code) return;
-    if (cptCodes.some((c) => c.code === code.code)) return;
+    const existing = cptCodes.find((c) => c.code === code.code);
+    if (existing) {
+      if (withBillableUnits) handleSetUnits(code.code, (existing.billableUnits ?? 1) + 1);
+      return;
+    }
     const newEntry: CptCodeEntry = { code: code.code, display: code.display };
+    if (withBillableUnits) newEntry.billableUnits = 1;
     // First code added becomes the medication by default
     if (showMedicationDesignation && cptCodes.length === 0) newEntry.isMedication = true;
     onChange([...cptCodes, newEntry]);
@@ -141,6 +154,24 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
                   {code.code} {code.display}
                 </Typography>
               </Box>
+              {withBillableUnits && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1, flexShrink: 0 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    ×
+                  </Typography>
+                  {isEditable ? (
+                    <TextField
+                      type="number"
+                      size="small"
+                      value={code.billableUnits ?? 1}
+                      onChange={(event) => handleSetUnits(code.code, Number(event.target.value))}
+                      inputProps={{ min: 1, step: 1, 'aria-label': `Units for ${code.code}`, style: { width: 40 } }}
+                    />
+                  ) : (
+                    <Typography variant="body2">{code.billableUnits ?? 1}</Typography>
+                  )}
+                </Box>
+              )}
               {isEditable && <DeleteIconButton onClick={() => handleRemove(code.code)} />}
             </Box>
           ))}

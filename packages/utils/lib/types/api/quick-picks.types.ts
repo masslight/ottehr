@@ -185,7 +185,7 @@ export interface ImmunizationQuickPickData {
   instructions?: string;
   cvx?: string;
   mvx?: string;
-  cptCodes?: { code: string; display: string }[];
+  cptCodes?: { code: string; display: string; billableUnits?: number }[];
   ndc?: string;
   lot?: string;
   expDate?: string;
