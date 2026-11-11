@@ -13,7 +13,6 @@ const defaultQuickPickState = {
   setQuickPickName: vi.fn(),
   existingQuickPicks: [] as { id: string; name: string }[],
   quickPickSaving: false,
-  onQuickPickSelect: vi.fn(),
   openQuickPickDialog: vi.fn(),
   onSaveAsQuickPick: vi.fn(),
 };
@@ -178,10 +177,6 @@ vi.mock('src/features/visits/in-person/components/RoundedButton', () => ({
 
 vi.mock('../../src/features/immunization/components/AdministrationConfirmationDialog', () => ({
   AdministrationConfirmationDialog: () => <div />,
-}));
-
-vi.mock('../../src/features/immunization/components/OrderDetailsSection', () => ({
-  OrderDetailsSection: () => <div />,
 }));
 
 vi.mock('../../src/features/immunization/components/OrderStatusChip', () => ({

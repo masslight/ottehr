@@ -160,7 +160,6 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     onSaveAsQuickPick,
   } = useImmunizationQuickPickManagement({
     getValues: () => linesRef.current.find((line) => line.key === quickPickLineKey.current) ?? {},
-    applyOrderDetails: true,
   });
   const openSaveQuickPickDialog = (line: ImmunizationLine): void => {
     quickPickLineKey.current = line.key;

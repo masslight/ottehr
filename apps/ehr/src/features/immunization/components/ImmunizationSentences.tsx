@@ -113,6 +113,10 @@ interface ImmunizationSentencesProps {
   /** Shown once an order has been tried. */
   errors: string[];
   readOnly: boolean;
+  /** Marks the administration blanks required: the details card, where they are needed to administer. */
+  needAdministration?: boolean;
+  /** More sentences after the administration ones (the details card's emergency contact). */
+  children?: ReactNode;
 }
 
 /** One immunization as sentences: what and for what, how much and where, by whom, and the administration details
@@ -127,6 +131,8 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
   onSaveQuickPick,
   errors,
   readOnly,
+  needAdministration,
+  children,
 }) => {
   const { details, administrationDetails } = line;
   const update = (patch: Partial<InputImmunizationOrderDetails>): void =>
@@ -353,6 +359,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           value={administered}
           onChange={(next) => setAdministered(next, 'date')}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.administeredDate}
         />{' '}
         at{' '}
@@ -362,6 +369,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           value={administered}
           onChange={(next) => setAdministered(next, 'time')}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.administeredTime}
         />
         .
@@ -373,6 +381,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           value={administrationDetails.lot}
           onChange={(lot) => updateAdministration({ lot })}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
         />
         , expires{' '}
@@ -382,6 +391,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           value={toDate(administrationDetails.expDate)}
           onChange={(next) => updateAdministration({ expDate: next?.toISODate() ?? '' })}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.expiredDate}
         />
         , NDC{' '}
@@ -390,6 +400,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           value={administrationDetails.ndc}
           onChange={(ndc) => updateAdministration({ ndc })}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
         />
         .
@@ -401,6 +412,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           value={administrationDetails.cvx}
           onChange={(cvx) => updateAdministration({ cvx })}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
         />
         , MVX{' '}
@@ -409,6 +421,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           value={administrationDetails.mvx}
           onChange={(mvx) => updateAdministration({ mvx })}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
         />
         .
@@ -422,6 +435,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           value={administrationDetails.visGiven ? 'given' : 'not given'}
           onChange={(value) => updateAdministration({ visGiven: value === 'given' })}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.visCheckbox}
         />
         {administrationDetails.visGiven && (
@@ -434,6 +448,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
               value={toDate(administrationDetails.visGivenDate)}
               onChange={(next) => updateAdministration({ visGivenDate: next?.toISODate() ?? undefined })}
               readOnly={readOnly}
+              need={needAdministration}
               dataTestId={dataTestIds.vaccineDetailsPage.visGivenDate}
             />
           </>
@@ -447,6 +462,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           title="CPT codes"
           value={cptCodes.map((code) => code.code).join(', ') || undefined}
           readOnly={readOnly}
+          need={needAdministration}
           dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
         >
           {() => (
@@ -461,6 +477,8 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
         </PopoverBlank>
         .
       </Sentence>
+
+      {children}
 
       {saveButton}
 

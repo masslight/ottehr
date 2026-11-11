@@ -1,7 +1,9 @@
 import { cleanupProperties } from 'src/helpers/misc.helper';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   CreateUpdateImmunizationOrderRequest,
+  ImmunizationEmergencyContact,
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
 } from 'utils/lib/types/data/immunization/types';
@@ -87,6 +89,37 @@ export const immunizationLineErrors = (line: ImmunizationFormValues): string[] =
   if (!(parseFloat(details.dose ?? '') > 0)) errors.push(details.dose ? 'Dose must be positive' : 'Enter the dose');
   if (!details.units) errors.push('Pick the units');
   if (!details.orderedProvider) errors.push('Pick the ordering provider');
+  return errors;
+};
+
+/** What administering requires, as the details card's fields did: every administration detail, unless the order is
+ * being marked not administered. */
+export const administrationErrors = (line: ImmunizationFormValues, administering: boolean): string[] => {
+  if (!administering) return [];
+  const { administrationDetails: details } = line;
+  const errors: string[] = [];
+  if (!details.administeredDateTime) errors.push('Enter the date and time given');
+  if (!details.lot?.trim()) errors.push('Enter the lot number');
+  if (!details.expDate) errors.push('Enter the expiration date');
+  if (!details.ndc?.trim()) errors.push('Enter the NDC code');
+  if (!details.cvx?.trim()) errors.push('Enter the CVX code');
+  if (!details.mvx?.trim()) errors.push('Enter the MVX code');
+  if (!details.visGiven) errors.push('Confirm the VIS was given to the patient');
+  if (!details.visGivenDate) errors.push('Enter the VIS date');
+  return errors;
+};
+
+/** The emergency contact is all or nothing, and its mobile a valid phone number. */
+export const emergencyContactErrors = (contact: Partial<ImmunizationEmergencyContact>): string[] => {
+  const filled = (value: string | undefined): boolean => !!value?.trim();
+  const values = [contact.relationship, contact.fullName, contact.mobile];
+  const errors: string[] = [];
+  if (values.some(filled) && !values.every(filled)) {
+    errors.push('Complete all emergency contact fields or leave them all empty');
+  }
+  if (filled(contact.mobile) && !isPhoneNumberValid(contact.mobile)) {
+    errors.push('Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number');
+  }
   return errors;
 };
 
