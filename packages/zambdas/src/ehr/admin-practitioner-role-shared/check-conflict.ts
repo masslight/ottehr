@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, PractitionerRole } from 'fhir/r4b';
 import { getPractitionerRoleAllCategories, isServiceCategoryHealthcareService } from 'utils/lib/fhir/healthcareService';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 
 export interface PractitionerRoleConflict {
   /**
@@ -139,7 +140,7 @@ export async function checkPractitionerRoleConflict(
 
     const otherAllCategories = getPractitionerRoleAllCategories(other);
     const otherCategoryIds = (other.healthcareService ?? [])
-      .map((ref) => ref.reference?.split('/')[1])
+      .map((ref) => getIdFromReference(ref.reference))
       .filter((id): id is string => !!id && categoryHsIds.has(id));
 
     // Other offers nothing → can't conflict with whatever candidate offers.

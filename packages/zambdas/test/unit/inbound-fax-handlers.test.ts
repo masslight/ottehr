@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, List, Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -208,7 +209,7 @@ describe('file-inbound-fax handler', () => {
     expect(JSON.stringify(requests)).not.toContain(CLIENT_SUPPLIED_PDF_URL);
   });
 
-  it('files the DocumentReference, List update, and Task completion as a single transaction', async () => {
+  it('files the DocumentReference, List update, and Task filed-marker as a single transaction', async () => {
     mockHappyPathReads();
 
     await fileInboundFax(makeInput(fileBody));
@@ -227,6 +228,17 @@ describe('file-inbound-fax handler', () => {
     expect(docRefPost.fullUrl).toMatch(/^urn:uuid:/);
     expect(listPut.resource.entry).toHaveLength(1);
     expect(listPut.resource.entry[0].item.reference).toBe(docRefPost.fullUrl);
+
+    // Filing marks the Task filed but leaves it open: fax tasks are completed by a person pressing Complete
+    const taskPatchOps = JSON.parse(decodeURIComponent(escape(atob(taskPatch.resource.data))));
+    expect(taskPatchOps).toEqual([
+      {
+        op: 'add',
+        path: '/businessStatus',
+        value: { coding: [{ system: 'inbound-fax-task', code: 'filed' }], text: 'Filed' },
+      },
+    ]);
+    expect(taskPatchOps.some((op: any) => op.path === '/status')).toBe(false);
 
     // No non-transactional writes
     expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
@@ -278,6 +290,33 @@ describe('file-inbound-fax handler', () => {
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
+  it('rejects an already-filed task that is still open (awaiting manual Complete)', async () => {
+    mockHappyPathReads(
+      makeFaxTask({
+        status: 'in-progress',
+        businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }] },
+      })
+    );
+
+    const result = await fileInboundFax(makeInput(fileBody));
+
+    expect(result.statusCode).toBe(400);
+    const body = JSON.parse(result.body);
+    expect(body.code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(body.message).toContain('has already been filed');
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses a fax that a delete has reserved, so its (possibly removed) PDF is never filed', async () => {
+    mockHappyPathReads(makeFaxTask({ businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'deleting' }] } }));
+
+    const result = await fileInboundFax(makeInput(fileBody));
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the task does not exist', async () => {
     mockOystehr.fhir.get.mockRejectedValue(new Error('not found'));
 
@@ -306,6 +345,28 @@ describe('file-inbound-fax handler', () => {
     const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
     const listPut = requests.find((r: any) => r.method === 'PUT' && r.url === '/List/folder-abc');
     expect(listPut.ifMatch).toBe('W/"7"');
+  });
+
+  it('guards the Task filed-marker with an optimistic lock so a concurrent file, delete or Complete fails the filing', async () => {
+    mockHappyPathReads(makeFaxTask({ meta: { versionId: '3' } }));
+
+    await fileInboundFax(makeInput(fileBody));
+
+    const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
+    const taskPatch = requests.find((r: any) => r.method === 'PATCH' && r.url === '/Task/task-123');
+    expect(taskPatch.ifMatch).toBe('W/"3"');
+  });
+
+  it('reports a lost optimistic lock as PRECONDITION_FAILED rather than a server error', async () => {
+    mockHappyPathReads();
+    mockOystehr.fhir.transaction.mockRejectedValue(
+      new Oystehr.OystehrFHIRError({ code: 412, error: { resourceType: 'OperationOutcome', issue: [] } })
+    );
+
+    const result = await fileInboundFax(makeInput(fileBody));
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
   });
 
   describe('synthetic folder ids', () => {
@@ -428,7 +489,73 @@ describe('delete-inbound-fax handler', () => {
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
-  it('fails the operation (without touching FHIR) when the Z3 delete fails, and reports it', async () => {
+  it('rejects a filed task that is still open, so the PDF backing the filed document is not deleted', async () => {
+    mockTaskRead(
+      makeFaxTask({
+        status: 'in-progress',
+        businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }] },
+      })
+    );
+
+    const result = await deleteInboundFax(makeInput(deleteBody));
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(mockDeleteZ3Object).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('reserves the deletion with a version-checked Task update before removing the PDF', async () => {
+    mockTaskRead(makeFaxTask({ meta: { versionId: '5' } }));
+    mockDeleteZ3Object.mockResolvedValue(undefined);
+
+    const result = await deleteInboundFax(makeInput(deleteBody));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehr.fhir.patch).toHaveBeenCalledWith(
+      {
+        resourceType: 'Task',
+        id: 'task-123',
+        operations: [
+          {
+            op: 'add',
+            path: '/businessStatus',
+            value: { coding: [{ system: 'inbound-fax-task', code: 'deleting' }], text: 'Deleting' },
+          },
+        ],
+      },
+      { optimisticLockingVersionId: '5' }
+    );
+    expect(mockOystehr.fhir.patch.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteZ3Object.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('deletes nothing when a filing committed after the Task was read (reservation lock fails)', async () => {
+    mockTaskRead(makeFaxTask({ meta: { versionId: '5' } }));
+    mockOystehr.fhir.patch.mockRejectedValueOnce(
+      new Oystehr.OystehrFHIRError({ code: 412, error: { resourceType: 'OperationOutcome', issue: [] } })
+    );
+
+    const result = await deleteInboundFax(makeInput(deleteBody));
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(mockDeleteZ3Object).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('retries a delete that was reserved earlier but did not finish', async () => {
+    mockTaskRead(makeFaxTask({ businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'deleting' }] } }));
+    mockDeleteZ3Object.mockRejectedValue(new Z3Error('not found', 404));
+
+    const result = await deleteInboundFax(makeInput(deleteBody));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehr.fhir.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails the operation (without deleting the Communication) when the Z3 delete fails, and reports it', async () => {
     mockTaskRead();
     mockDeleteZ3Object.mockRejectedValue(new Z3Error('delete failed', 500));
 

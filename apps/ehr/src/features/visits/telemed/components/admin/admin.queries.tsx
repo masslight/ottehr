@@ -17,6 +17,7 @@ import {
   createPrescriptionQuickPick,
   createPrescriptionSetQuickPick,
   deleteEmCode,
+  getDmeQuickPicks,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
   getLabelPrintingConfig,
@@ -30,6 +31,7 @@ import {
   practiceManagedQuestionnaireImportJson,
   practiceManagedQuestionnaireUpdate,
   removeQuickPick,
+  updateDmeQuickPick,
   updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
@@ -49,6 +51,7 @@ import {
   UpdateEmCodeInput,
 } from 'utils/lib/types/api/config/em-codes';
 import {
+  DmeQuickPickData,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   PrescriptionQuickPickData,
@@ -151,21 +154,23 @@ export const useInsuranceMutation = (
       note?: string;
       showInPaperwork?: boolean;
     }) => {
+      const name = data.name?.trim();
+      const note = data.note?.trim();
       if (data.showInPaperwork) {
-        if (!data.existingName && data.name) {
+        if (!data.existingName && name) {
           await oystehrZambda?.zambda.execute({
             id: 'add-payer-to-insurance-override-list',
             listName: 'patient',
             payerId,
-            payerNameOverride: data.name,
+            payerNameOverride: name,
           });
         }
-        if (data.existingName && data.existingName !== data.name) {
+        if (data.existingName && name && data.existingName !== name) {
           await oystehrZambda?.zambda.execute({
             id: 'edit-payer-in-insurance-override-list',
             listName: 'patient',
             payerId,
-            payerNameOverride: data.name,
+            payerNameOverride: name,
           });
         }
       }
@@ -176,23 +181,23 @@ export const useInsuranceMutation = (
           payerId,
         });
       }
-      if (!data.existingNote && data.note) {
+      if (!data.existingNote && note) {
         await oystehrZambda?.zambda.execute({
           id: 'add-payer-to-insurance-override-list',
           listName: 'ehr',
           payerId,
-          payerNote: data.note,
+          payerNote: note,
         });
       }
-      if (data.existingNote && data.note && data.existingNote !== data.note) {
+      if (data.existingNote && note && data.existingNote !== note) {
         await oystehrZambda?.zambda.execute({
           id: 'edit-payer-in-insurance-override-list',
           listName: 'ehr',
           payerId,
-          payerNote: data.note,
+          payerNote: note,
         });
       }
-      if (data.existingNote && !data.note) {
+      if (data.existingNote && !note) {
         await oystehrZambda?.zambda.execute({
           id: 'remove-payer-from-insurance-override-list',
           listName: 'ehr',
@@ -346,6 +351,13 @@ export const useRenameProcedureQuickPickMutation = makeRenameQuickPickMutation<P
   updateProcedureQuickPick
 );
 export const useRemoveProcedureQuickPickMutation = makeRemoveQuickPickMutation('procedure-quick-picks');
+
+export const useDmeQuickPicksQuery = makeQuickPicksQuery('dme-quick-picks', getDmeQuickPicks);
+export const useRenameDmeQuickPickMutation = makeRenameQuickPickMutation<DmeQuickPickData>(
+  'dme-quick-picks',
+  updateDmeQuickPick
+);
+export const useRemoveDmeQuickPickMutation = makeRemoveQuickPickMutation('dme-quick-picks');
 
 export const useRadiologyQuickPicksQuery = makeQuickPicksQuery('radiology-quick-picks', getRadiologyQuickPicks);
 export const useRenameRadiologyQuickPickMutation = makeRenameQuickPickMutation<RadiologyQuickPickData>(

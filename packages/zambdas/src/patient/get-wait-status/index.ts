@@ -8,6 +8,7 @@ import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { WaitingRoomResponse } from 'utils/lib/types/data/get-wait-status.types';
+import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
 import { getUser } from '../../shared/auth';
@@ -91,7 +92,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(`Appointment/Encounter is not found for appointment id ${appointmentID}`);
     return {
       statusCode: 404,
-      body: JSON.stringify({ message: 'Appointment is not found' }),
+      body: JSON.stringify(APPOINTMENT_NOT_FOUND_ERROR),
     };
   }
 

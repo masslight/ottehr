@@ -17,6 +17,7 @@ import {
   isScheduledFollowupEncounter,
 } from 'utils/lib/fhir/encounter';
 import { cleanUpStaffHistoryTag, getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
 import { extractNioIdFromReferenceUrl } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
@@ -183,6 +184,7 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
   }
 
   if (bookingDetails.authorizedNonLegalGuardians !== undefined) {
+    const guardians = bookingDetails.authorizedNonLegalGuardians.trim();
     const extension = patient.extension || [];
     const extensionIndex = (patient.extension || []).findIndex((ext) => {
       return ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url;
@@ -191,15 +193,15 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
     let skipUpdate = false;
 
     if (extensionIndex > -1) {
-      if (bookingDetails.authorizedNonLegalGuardians) {
-        extension[extensionIndex].valueString = bookingDetails.authorizedNonLegalGuardians;
+      if (guardians) {
+        extension[extensionIndex].valueString = guardians;
       } else {
         extension.splice(extensionIndex, 1);
       }
-    } else if (bookingDetails.authorizedNonLegalGuardians) {
+    } else if (guardians) {
       extension.push({
         url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
-        valueString: bookingDetails.authorizedNonLegalGuardians,
+        valueString: guardians,
       });
     } else {
       skipUpdate = true;
@@ -509,7 +511,7 @@ export async function validateVisitEmployerSelection(oystehr: Oystehr, visitEmpl
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference a non-insurance organization');
   }
 
-  const organizationId = visitEmployer.reference?.split('/')[1];
+  const organizationId = getIdFromReference(visitEmployer.reference);
 
   if (!organizationId) {
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer.reference must be Organization/{id}');

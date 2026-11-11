@@ -1,9 +1,11 @@
-import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { CreateManualTaskRequestSchema, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
-import { validateRequestParameters } from '../src/ehr/tasks/create-manual-task';
 import { ZambdaInput } from '../src/shared/types/common';
+import { validateWithSchema } from '../src/shared/validation';
 
-const zambdaInput = (body: unknown): ZambdaInput => ({ body: JSON.stringify(body), secrets: null }) as ZambdaInput;
+const zambdaInput = (body: unknown): ZambdaInput => ({ body: JSON.stringify(body), secrets: {} }) as ZambdaInput;
+const validateRequestParameters = (input: ZambdaInput): ReturnType<typeof validateWithSchema> =>
+  validateWithSchema(CreateManualTaskRequestSchema, input);
 
 const TASK = {
   category: MANUAL_TASK.category.erx,

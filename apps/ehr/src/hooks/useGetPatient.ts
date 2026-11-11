@@ -1,11 +1,19 @@
 import { captureException } from '@sentry/react';
-import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  UseMutationResult,
+  useQuery,
+  useQueryClient,
+  UseQueryOptions,
+  UseQueryResult,
+} from '@tanstack/react-query';
 import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
+import { hasInsurancePriorityChange } from 'utils/lib/helpers/paperwork/paperwork';
 import { RemoveCoverageZambdaInput } from 'utils/lib/types/api/patient-account';
 import { PromiseReturnType } from 'utils/lib/types/common';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -20,6 +28,8 @@ export const useGetPatient = (
   otherPatientsWithSameName: boolean;
   setOtherPatientsWithSameName: (value: boolean) => void;
   duplicatePatients: Patient[];
+  /** The duplicate-name check could not run, so an empty `duplicatePatients` proves nothing. */
+  duplicateSearchFailed: boolean;
   patient?: Patient;
   setPatient: (patient: Patient) => void;
   relatedPerson?: RelatedPerson;
@@ -62,7 +72,7 @@ export const useGetPatient = (
     (resource) => resource.resourceType === 'Patient'
   ) as Patient;
 
-  const { data: otherPatientsWithSameNameResources } = useQuery({
+  const { data: otherPatientsWithSameNameResources, isError: isDuplicateSearchError } = useQuery({
     queryKey: ['otherPatientsWithSameNameResources', id],
     queryFn: () => {
       if (!oystehr || !patientResource) return null;
@@ -93,7 +103,8 @@ export const useGetPatient = (
         return;
       }
 
-      if (!patientResources || !otherPatientsWithSameNameResources) {
+      // The duplicate-name search only feeds the duplicate warning; its failure must not hide the patient.
+      if (!patientResources || (!otherPatientsWithSameNameResources && !isDuplicateSearchError)) {
         return;
       }
 
@@ -105,7 +116,7 @@ export const useGetPatient = (
       ) as RelatedPerson;
       const personTemp: Person = patientResources.find((resource) => resource.resourceType === 'Person') as Person;
 
-      const duplicates = (otherPatientsWithSameNameResources as Patient[]).filter(
+      const duplicates = ((otherPatientsWithSameNameResources ?? []) as Patient[]).filter(
         (r) => r.resourceType === 'Patient' && r.id !== id && r.active !== false
       );
       if (duplicates.length > 0) {
@@ -126,13 +137,20 @@ export const useGetPatient = (
       console.error(error);
       captureException(error);
     });
-  }, [id, oystehr, patientResources, otherPatientsWithSameNameResources]);
+  }, [id, oystehr, patientResources, otherPatientsWithSameNameResources, isDuplicateSearchError]);
+
+  useEffect(() => {
+    if (isDuplicateSearchError) {
+      enqueueSnackbar('Could not check this patient for duplicate records.', { variant: 'warning' });
+    }
+  }, [isDuplicateSearchError]);
 
   return {
     loading,
     otherPatientsWithSameName,
     setOtherPatientsWithSameName,
     duplicatePatients,
+    duplicateSearchFailed: isDuplicateSearchError,
     patient,
     relatedPerson,
     person,
@@ -251,6 +269,7 @@ export const useUpdatePatientAccount = (
   successMessage: string = 'Patient information updated successfully'
 ): UseMutationResult<void, Error, QuestionnaireResponse> => {
   const apiClient = useOystehrAPIClient();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationKey: ['update-patient-account'],
@@ -267,10 +286,19 @@ export const useUpdatePatientAccount = (
       }
     },
 
-    onSuccess: () => {
+    onSuccess: (_data, questionnaireResponse) => {
       enqueueSnackbar(successMessage, {
         variant: 'success',
       });
+
+      if (hasInsurancePriorityChange(questionnaireResponse.item ?? [])) {
+        void queryClient.resetQueries({ queryKey: ['get-visit-files'] });
+        void queryClient.resetQueries({ queryKey: ['insurance-card-extraction'] });
+      }
+
+      // Refresh the Patient resource shown in the sticky header and other useGetPatient consumers.
+      void queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources'] });
+
       if (onSuccess) {
         onSuccess();
       }

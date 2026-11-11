@@ -1,6 +1,6 @@
 import Oystehr, { Bundle } from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { APIGatewayProxyResult } from 'aws-lambda';
+import { Context } from 'aws-lambda';
 import {
   Appointment,
   Communication,
@@ -35,6 +35,7 @@ import {
   getSMSNumberForIndividual,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -49,6 +50,7 @@ import { APPOINTMENT_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { isTruthy } from 'utils/lib/types/utils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { deadlineFromContext } from '../../shared/concurrency';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getPaperworkCompleteness } from '../../shared/paperwork-completeness';
 import { getTrackingBoardVisitStatus, sortAppointments } from '../../shared/queueingUtils';
@@ -60,6 +62,8 @@ import {
   getAppointmentQueryInput,
   getTimezone,
   getTimezoneResourceIdFromAppointment,
+  lambdaResultBytes,
+  MAX_RESPONSE_BYTES,
   mergeResources,
   parseAttenderProviderType,
   parseEncounterParticipants,
@@ -122,6 +126,9 @@ const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
 // issues searches as POST bodies.
 const PROVENANCE_SEARCH_CHUNK_SIZE = 100;
 
+// Kept back from the Lambda's limit for Step C, the response and the Sentry flush; Step B is cut short before it.
+const TRACKING_BOARD_RESPONSE_RESERVE_MS = 5_000;
+
 /** Visit type and service category filters. The encounter map is needed to detect scheduled follow-ups. */
 const filterAppointmentsForBoard = (
   appointments: Appointment[],
@@ -156,7 +163,8 @@ const filterAppointmentsForBoard = (
 
 let m2mToken: string;
 
-export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-appointments', async (input: ZambdaInput, context?: Context) => {
+  const trackingBoardDeadline = deadlineFromContext(context, TRACKING_BOARD_RESPONSE_RESERVE_MS);
   // The tracking board polls this endpoint every 30 s per open tab, so per-invocation logging is one summary line
   // (see logSummary) rather than a line per phase.
   const phaseMs: Record<string, number> = {};
@@ -346,7 +354,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       (asEnc.participant ?? []).forEach((p) => {
         const ref = p.individual?.reference;
         if (ref?.startsWith('Practitioner/')) {
-          const id = ref.split('/')[1];
+          const id = getIdFromReference(ref, 'Practitioner');
           if (id) practitionerIds.push(id);
         }
       });
@@ -433,6 +441,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     encounterIds: trackingBoardEncounterIds,
     // Optional: it only shortens `next` links, and a missing secret must not fail the page (see the catch below).
     fhirApiUrl: getOptionalSecret(SecretsKeys.FHIR_API, secrets),
+    deadline: trackingBoardDeadline,
   })
     .finally(() => {
       // It overlaps the related-resource phase, so it gets its own timing rather than a phase.
@@ -720,6 +729,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     cancelled,
     ...trackingBoardExtras,
   };
+  const result = { statusCode: 200, body: JSON.stringify(response) };
+  const responseBytes = lambdaResultBytes(result);
   endPhase('structure');
 
   const rows = [...preBooked, ...inOffice, ...completed, ...cancelled];
@@ -729,12 +740,13 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     // Patients with no RelatedPerson holding an SMS number: ordinary data, so counted here instead of logged per row.
     withoutSmsModel: rows.filter((row) => !row.smsModel).length,
     ...(trackingBoardExtras.ordersAndVitalsIncomplete ? { ordersAndVitalsIncomplete: true } : {}),
+    bytes: responseBytes,
   });
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+  if (responseBytes > MAX_RESPONSE_BYTES) {
+    throw APPOINTMENT_SEARCH_TOO_BROAD_ERROR;
+  }
+  return result;
 });
 
 interface AppointmentInformationInputs {

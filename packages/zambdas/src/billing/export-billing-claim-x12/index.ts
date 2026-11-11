@@ -36,9 +36,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(params: ExportClaimX12Params, oystehr: Oystehr): Promise<ExportClaimX12Response> {
-  const { claimId } = params;
+  const { claimId, submissionType, submissionInsurance, payerClaimControlNumber } = params;
   try {
-    const { x12 } = await oystehr.rcm.claimToX12({ claimId });
+    const { x12 } = await oystehr.rcm.claimToX12({
+      claimId,
+      action: submissionType,
+      insurance: submissionInsurance,
+      payerClaimControlNumber,
+    });
     return { x12 };
   } catch (error) {
     console.error(`X12 generation failed for claim ${claimId}`, error);

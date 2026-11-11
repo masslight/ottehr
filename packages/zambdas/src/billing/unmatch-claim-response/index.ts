@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClaimResponse } from 'fhir/r4b';
+import { ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
 import { codeableConcept, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
@@ -14,7 +14,9 @@ import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
+import { claimMatchHistoryRequests, matchFieldsPatchOperations, UNMATCH_FIELDS } from '../claim-response-match';
 import { assertClaimResponseEraNotVoided } from '../era-write';
+import { resolveClaimActor } from '../provenance';
 import { createBillingClient, createEraReadClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {
@@ -28,9 +30,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
   const eraReadClient = createEraReadClient(m2mToken, params.secrets);
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, eraReadClient, {
+    ...params,
+    agent,
+  });
 
   return {
     statusCode: 200,
@@ -38,7 +44,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: Params): Promise<ClaimResponse> {
+export async function performEffect(
+  oystehr: Oystehr,
+  eraReadClient: Oystehr,
+  params: Params & { agent: ProvenanceAgent }
+): Promise<ClaimResponse> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
@@ -46,6 +56,21 @@ export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, pa
   await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
   const containedClaim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
   const containedPatient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
+  const unmatched: ClaimResponse = {
+    ...claimResponse,
+    request: containedClaim
+      ? {
+          reference: '#' + containedClaim?.id,
+        }
+      : UNKNOWN_REFERENCE,
+    insurer: containedClaim?.insurer ?? UNKNOWN_REFERENCE,
+    patient: containedClaim
+      ? {
+          reference: '#' + containedPatient?.id,
+        }
+      : UNKNOWN_REFERENCE,
+    type: codeableConcept('unknown', CODE_SYSTEM_CLAIM_TYPE, 'Unknown'),
+  };
 
   const bundle = await oystehr.fhir.transaction({
     requests: [
@@ -54,36 +79,12 @@ export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, pa
         resourceId: claimResponse.id!,
         // Fails if a void cancelled the response after the check above.
         ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
-        patchOperations: [
-          {
-            op: 'replace',
-            path: '/request',
-            value: containedClaim
-              ? {
-                  reference: '#' + containedClaim?.id,
-                }
-              : UNKNOWN_REFERENCE,
-          },
-          {
-            op: 'replace',
-            path: '/insurer',
-            value: containedClaim?.insurer ?? UNKNOWN_REFERENCE,
-          },
-          {
-            op: 'replace',
-            path: '/patient',
-            value: containedClaim
-              ? {
-                  reference: '#' + containedPatient?.id,
-                }
-              : UNKNOWN_REFERENCE,
-          },
-          {
-            op: 'replace',
-            path: '/type',
-            value: codeableConcept('unknown', CODE_SYSTEM_CLAIM_TYPE, 'Unknown'),
-          },
-        ],
+        patchOperations: matchFieldsPatchOperations(unmatched, UNMATCH_FIELDS),
+      }),
+      ...claimMatchHistoryRequests({
+        before: claimResponse,
+        after: unmatched,
+        agent: params.agent,
       }),
     ],
   });

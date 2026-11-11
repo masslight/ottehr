@@ -1,4 +1,5 @@
 import { PractitionerRole, Slot } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import { getSlotAtLocationId } from 'utils/lib/utils/scheduleUtils';
 
@@ -33,7 +34,7 @@ export function resolveBookingLocationId(input: {
   if (scheduleOwner.resourceType === 'PractitionerRole') {
     const role = scheduleOwner as PractitionerRole;
     const prLocationIds = (role.location ?? [])
-      .map((ref) => ref.reference?.split('/')[1])
+      .map((ref) => getIdFromReference(ref.reference))
       .filter((id): id is string => !!id);
     if (prLocationIds.length === 1) {
       return prLocationIds[0];

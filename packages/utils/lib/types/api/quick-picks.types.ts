@@ -1,5 +1,6 @@
 import type { DoseBasis } from '../../helpers/medications/plain-dose';
 import type { StructuredFacts } from '../../procedure-coding/structured-fields';
+import type { DmeDurationUnit, DmeLaterality, DmeModifier, DmeThirdParty } from './dme.types';
 import type { MedicationProductDetails } from './erx-search.types';
 import type { CompoundInput, QuantityUnit } from './order-prescription.types';
 // ── Generic CRUD types for all quick pick categories ──
@@ -85,6 +86,29 @@ export type CreateProcedureQuickPickResponse = QuickPickCreateResponse<Procedure
 export type UpdateProcedureQuickPickInput = QuickPickUpdateInput<ProcedureQuickPickData>;
 export type UpdateProcedureQuickPickResponse = QuickPickUpdateResponse<ProcedureQuickPickData>;
 export type GetProcedureQuickPicksResponse = QuickPickListResponse<ProcedureQuickPickData>;
+
+// ── DME Quick Picks ──
+
+export interface DmeQuickPickData {
+  id?: string;
+  name: string;
+  /** DME name the pick puts on the order */
+  itemName: string;
+  billingCodes?: { code: string; display: string }[];
+  quantity?: number;
+  laterality?: DmeLaterality;
+  modifier?: DmeModifier;
+  duration?: { value: number; unit: DmeDurationUnit };
+  instructions?: string;
+  external?: boolean;
+  thirdParty?: DmeThirdParty;
+}
+
+export type CreateDmeQuickPickInput = QuickPickCreateInput<DmeQuickPickData>;
+export type CreateDmeQuickPickResponse = QuickPickCreateResponse<DmeQuickPickData>;
+export type UpdateDmeQuickPickInput = QuickPickUpdateInput<DmeQuickPickData>;
+export type UpdateDmeQuickPickResponse = QuickPickUpdateResponse<DmeQuickPickData>;
+export type GetDmeQuickPicksResponse = QuickPickListResponse<DmeQuickPickData>;
 
 // ── Allergy Quick Picks ──
 

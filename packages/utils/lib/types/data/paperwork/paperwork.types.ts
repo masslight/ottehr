@@ -259,3 +259,8 @@ export enum InsuranceEligibilityCheckStatus {
   eligibilityNotChecked = 'eligibility-not-checked', // not done or some system failure occurred
   eligibilityNotConfirmed = 'eligibility-not-confirmed', // eligibility check was done and the patient's insurance info was deemed not eligible
 }
+
+export interface InsurancePriorityChanges {
+  primaryBecameSecondary: boolean;
+  secondaryBecamePrimary: boolean;
+}

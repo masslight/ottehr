@@ -10,7 +10,7 @@ export const ClearRosButton: FC = () => {
 
   const selected = Object.values(observationMap).filter(isRosObservationSet);
   // `isLoading` only covers writes this component fired, so it says nothing about a row toggle or a
-  // system "Select all" still in flight elsewhere. Clearing on top of one of those resolves
+  // system "Denies all" still in flight elsewhere. Clearing on top of one of those resolves
   // correctly through the hook's reconciliation, but the button should read as busy while it cannot
   // yet do the whole job.
   const isSelectionPending =

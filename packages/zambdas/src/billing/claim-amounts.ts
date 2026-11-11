@@ -4,13 +4,16 @@ import {
   ClaimResponse,
   ClaimResponseItemAdjudication,
   FhirResource,
+  Invoice,
   PaymentNotice,
   PaymentReconciliation,
   Provenance,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getPaymentNoticeInvoiceId } from 'utils/lib/fhir/billing-invoice';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
 import {
@@ -21,12 +24,7 @@ import {
 import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
-import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
-import {
-  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
-  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
-  MANUAL_REFUND_ID_SYSTEM,
-} from './payments';
+import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from './payments';
 import { ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
@@ -247,6 +245,13 @@ export function sumPatientPayments(notices: PaymentNotice[]): number {
   return notices.filter((n) => n.status === 'active').reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
 }
 
+// Notices for other invoices are ignored, so callers can pass a claim's whole list.
+export function getInvoiceBalanceInCents(invoice: Invoice, notices: PaymentNotice[]): number {
+  if (!invoice.id) throw new Error('An invoice balance needs a saved invoice');
+  const invoicePayments = notices.filter((notice) => getPaymentNoticeInvoiceId(notice) === invoice.id);
+  return Math.round(((invoice.totalGross?.value ?? 0) - sumPatientPayments(invoicePayments)) * 100);
+}
+
 export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPayment {
   const reconciliation = getContainedReconciliation(notice);
   return {
@@ -264,6 +269,10 @@ export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPaymen
 // real Claim/{id} reference.
 export function isMatchedToClaim(claimResponse: ClaimResponse): boolean {
   return claimResponse.request?.reference?.startsWith('Claim/') ?? false;
+}
+
+export function matchedClaimId(claimResponse: ClaimResponse): string | undefined {
+  return getIdFromReference(claimResponse.request?.reference, 'Claim');
 }
 
 export interface EraClaimCounts {
@@ -391,7 +400,7 @@ export async function fetchPatientPaymentsByEncounterIds(
       },
       {
         name: 'identifier',
-        value: `${MANUAL_REFUND_ID_SYSTEM}|,${STRIPE_PAYMENT_ID_SYSTEM}|,${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|,${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|`,
+        value: PATIENT_PAYMENT_IDENTIFIER_FILTER,
       },
     ],
     groupKeyOf: (notice) => notice.request?.identifier?.value,

@@ -12,7 +12,7 @@ synthetic staff (`../SYNTH-STAFF.md`). In practice it's **run → verify**:
 seeding, so you don't run the planner separately — `plan-population` stays
 runnable standalone only to eyeball a plan. Resume/idempotency state lives in the
 target project as FHIR (a manifest + per-visit tags), **not** a local file or CI
-cache, so re-running (locally or via a re-dispatched GitHub Action) just continues
+cache, so re-running just continues
 where it left off.
 
 > **When to run this.** Fresh environments are populated by the [daily census](../DAILY-CENSUS.md) by

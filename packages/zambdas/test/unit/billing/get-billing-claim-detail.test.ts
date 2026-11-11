@@ -20,6 +20,7 @@ import { performEffect } from '../../../src/billing/get-billing-claim-detail';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_CHECK_SYSTEM,
+  ERA_ICN_EXTENSION,
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
@@ -229,6 +230,19 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     expect(response.patientPayments).toEqual([]);
   });
 
+  it('skips the invoice lookup while invoicing is not in the billing app', async () => {
+    const oystehr = makeBillingClient([]);
+
+    const response = await performEffect(
+      oystehr,
+      {} as unknown as Oystehr,
+      { claimId: 'claim-1', secrets: {} } as never
+    );
+
+    expect(response.invoices).toEqual([]);
+    expect(oystehr.fhir.search).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Invoice' }));
+  });
+
   it('lists a cancelled refund for the audit trail but keeps it out of patientPaid and the balance', async () => {
     const notices = [
       paymentNotice({
@@ -329,6 +343,12 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
       {
         productOrService: { coding: [{ code: 'unknown' }] },
         adjudication: [casAdjustment('OA', 5, '23')],
+      },
+    ],
+    extension: [
+      {
+        url: ERA_ICN_EXTENSION,
+        valueString: 'PCCN-12345',
       },
     ],
   });

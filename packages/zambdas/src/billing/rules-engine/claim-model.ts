@@ -76,10 +76,12 @@ import {
   EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+  getClaimBillType,
   getClaimService,
   getClaimSupportingInfo,
   getClaimType,
   getClaimTypeCoding,
+  getPayerClaimControlNumber,
   getProviderLicense,
   getTaxonomy,
   prepareWorkingCopy,
@@ -87,6 +89,7 @@ import {
   resourceDisplayName,
   setClaimRenderingProviderCareTeam,
   setClia,
+  setCoverageRelationship,
   setStateLicense,
   setTaxId,
   setTaxonomy,
@@ -306,7 +309,7 @@ export const writeServiceLineProperty = (
   const writer = SERVICE_LINE_WRITERS[propertyId];
   if (!writer) return false;
   if (operation !== 'set' && getServiceLinePropertyDef(propertyId)?.valueType !== 'list') return false;
-  return writer(line, value, operation);
+  return writer(line, value.trim(), operation);
 };
 
 export type DateValueResolution = { value: string } | { error: string };
@@ -498,11 +501,7 @@ const READERS: Record<string, FieldReader> = {
   placeOfServiceCodes: (m) =>
     (m.claim.item ?? []).map((item) => item.locationCodeableConcept?.coding?.[0]?.code).filter((c): c is string => !!c),
   serviceLineCount: (m) => String(m.claim.item?.length ?? 0),
-  billType: (m) => {
-    const facilityTypeCode = getExtension(m.claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE)?.valueString;
-    const frequencyCode = getExtension(m.claim, EXTENSION_CLAIM_FREQUENCY_CODE)?.valueString ?? '1';
-    return facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '';
-  },
+  billType: (m) => getClaimBillType(m.claim),
   patientDischargeStatusCode: (m) => getExtension(m.claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS)?.valueString ?? '',
   admissionType: (m) => getExtension(m.claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
   admissionSource: (m) => getExtension(m.claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
@@ -515,15 +514,19 @@ const READERS: Record<string, FieldReader> = {
 
   ...coverageReaders('insurance', primaryCoverage),
   ...personReaders('policyHolder', policyHolder(primaryCoverage)),
+  'insurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'primary'),
 
   ...coverageReaders('secondaryInsurance', secondaryCoverage),
   ...personReaders('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
+  'secondaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'secondary'),
 
   ...coverageReaders('tertiaryInsurance', tertiaryCoverage),
   ...personReaders('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
+  'tertiaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'tertiary'),
 
   ...coverageReaders('quaternaryInsurance', quaternaryCoverage),
   ...personReaders('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
+  'quaternaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'quaternary'),
 
   'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
@@ -773,6 +776,32 @@ const setCoverageFromPatient = (
   return true;
 };
 
+// Make the patient the coverage's subscriber — the claim editor's "Self" relationship edit
+// (update-billing-claim). Only Self is writable: any other relationship needs a policy-holder record
+// rules cannot create. The coverage's standalone policy-holder copy leaves the model (pending edits to
+// it are discarded, a copy minted earlier in this run is never POSTed), so later rules read the
+// policy-holder fields as empty; unlike the editor the now-unreferenced copy is not deleted.
+const setRelationshipSelf = (
+  model: RulesEngineClaimModel,
+  value: string | null,
+  resolve: (m: RulesEngineClaimModel) => Coverage | undefined
+): boolean => {
+  const coverage = resolve(model);
+  const patientRef = coverage?.beneficiary?.reference;
+  if (!coverage || value !== 'Self' || !patientRef) return false;
+  const replacedSubscriber = policyHolder(resolve)(model);
+  const sharedWithOtherCoverage = model.coverages.some(
+    (other) => other !== coverage && other.subscriber?.reference === coverage.subscriber?.reference
+  );
+  if (replacedSubscriber?.id && !sharedWithOtherCoverage) {
+    model.subscribers = model.subscribers.filter((s) => s.id !== replacedSubscriber.id);
+    model.createdCopyIds?.delete(replacedSubscriber.id);
+  }
+  setCoverageRelationship(coverage, 'Self');
+  coverage.subscriber = { reference: patientRef };
+  return true;
+};
+
 const setProviderFamily = (p: Provider | undefined, value: string | null): boolean => {
   if (!p) return false;
   // `|| undefined`: an empty value clears the field — a literal '' is invalid FHIR.
@@ -897,9 +926,9 @@ const writePlanType = (
 ): boolean => {
   const coverage = resolve(model);
   if (!coverage || !value || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(value)) return false;
-  // setCoveragePlanType returns an updated copy; swap it into the model (same resource id, so the
-  // engine's snapshot/dirty check still pairs it with the original).
-  model.coverages[0] = setCoveragePlanType(coverage, value);
+  // setCoveragePlanType returns an updated copy; swap it into the slot it came from (same resource
+  // id, so the engine's snapshot/dirty check still pairs it with the original).
+  model.coverages[model.coverages.indexOf(coverage)] = setCoveragePlanType(coverage, value);
   return true;
 };
 
@@ -976,7 +1005,7 @@ const coverageWriters = (
     return true;
   },
   [`${prefix}.planType`]: (m, v) => writePlanType(m, v, resolve),
-  // [`${prefix}.relationship`]: (m) => readRelationship(resolve(m)),
+  [`${prefix}.relationship`]: (m, v) => setRelationshipSelf(m, v, resolve),
 });
 
 // Writers for a provider (rendering or billing), paired with providerReaders.
@@ -1167,5 +1196,5 @@ export const WRITABLE_FIELD_IDS: string[] = Object.keys(WRITERS);
 export const writeField = (model: RulesEngineClaimModel, fieldId: string, value: string | null): boolean => {
   const writer = WRITERS[fieldId];
   if (!writer) return false;
-  return writer(model, value);
+  return writer(model, value?.trim() ?? null);
 };

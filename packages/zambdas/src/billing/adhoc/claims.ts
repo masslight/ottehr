@@ -33,6 +33,7 @@ import {
 } from '../claim-search';
 import {
   CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
+  EHR_PATIENT_PAYMENT_ID_SYSTEM,
   MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
   MANUAL_REFUND_ID_SYSTEM,
 } from '../payments';
@@ -546,7 +547,7 @@ type PatientPaymentSource = 'ehr' | 'card' | 'manual' | 'other';
 
 const paymentSource = (notice: PaymentNotice): PatientPaymentSource => {
   const systems = new Set((notice.identifier ?? []).map((identifier) => identifier.system));
-  if (systems.has(CLINICAL_PAYMENT_NOTICE_ID_SYSTEM)) return 'ehr';
+  if (systems.has(CLINICAL_PAYMENT_NOTICE_ID_SYSTEM) || systems.has(EHR_PATIENT_PAYMENT_ID_SYSTEM)) return 'ehr';
   if (systems.has(STRIPE_PAYMENT_ID_SYSTEM)) return 'card';
   if (systems.has(MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM) || systems.has(MANUAL_REFUND_ID_SYSTEM)) return 'manual';
   return 'other';

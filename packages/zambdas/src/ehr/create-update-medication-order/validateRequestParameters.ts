@@ -1,4 +1,6 @@
+import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
 import {
+  MedicationData,
   MedicationInteractions,
   UpdateMedicationOrderInput,
 } from 'utils/lib/types/api/medication-administration.types';
@@ -21,7 +23,8 @@ export function validateRequestParameters(
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }
-  const { orderId, newStatus, orderData, interactions } = parsedBody;
+  const { orderId, newStatus, interactions } = parsedBody;
+  const orderData = normalizeOrderData(parsedBody.orderData);
 
   if (newStatus) {
     if (newStatus === 'administered' && !orderData) {
@@ -36,7 +39,7 @@ export function validateRequestParameters(
       );
     }
     if (newStatus === 'administered') {
-      if (!orderData.effectiveDateTime)
+      if (!orderData?.effectiveDateTime)
         throw INVALID_INPUT_ERROR(
           'On status change to "administered" effectiveDateTime field should be present in zambda input'
         );
@@ -45,7 +48,7 @@ export function validateRequestParameters(
     const missedFields: string[] = [];
     if (orderData && !orderId) {
       if (!orderData.patient) missedFields.push('patient');
-      if (!orderData.encounter) missedFields.push('encounter');
+      if (!orderData.encounterId) missedFields.push('encounterId');
       if (!orderData.medicationId) missedFields.push('medicationId');
       if (!orderData.units) missedFields.push('units');
       if (!orderData.dose) missedFields.push('dose');
@@ -66,6 +69,20 @@ export function validateRequestParameters(
     secrets: input.secrets,
     interactions: normalizedInteractions,
   };
+}
+
+const optionalOrderTextFields = ['instructions', 'manufacturer', 'lotNumber', 'reason', 'otherReason'] as const;
+
+function normalizeOrderData(orderData?: MedicationData): MedicationData | undefined {
+  if (!orderData) {
+    return orderData;
+  }
+  const normalized: MedicationData = { ...orderData };
+  for (const field of optionalOrderTextFields) {
+    normalized[field] = orderData[field]?.trim() || undefined;
+  }
+  normalized.ndc = orderData.ndc ? sanitizeStringForFhirCode(orderData.ndc) || undefined : undefined;
+  return normalized;
 }
 
 const normalizeOverrideReason = (reason?: string): string | undefined =>

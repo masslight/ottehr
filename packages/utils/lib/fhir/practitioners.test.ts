@@ -1,7 +1,14 @@
 import { Practitioner } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import { PHRASES_EXTENSION_URL } from '../types/constants';
-import { applyPhraseChange, getPhrasesForPractitioner, getPhrasesPatchOperation, Phrase } from './practitioners';
+import { PRACTITIONER_QUALIFICATION_EXTENSION_URL } from './constants';
+import {
+  applyPhraseChange,
+  getPhrasesForPractitioner,
+  getPhrasesPatchOperation,
+  makeQualificationForPractitioner,
+  Phrase,
+} from './practitioners';
 
 const practitionerWithPhrases = (raw: string): Practitioner => ({
   resourceType: 'Practitioner',
@@ -179,5 +186,30 @@ describe('getPhrasesPatchOperation', () => {
     const practitioner: Practitioner = { resourceType: 'Practitioner', extension: [otherExtension] };
     getPhrasesPatchOperation(practitioner, phrases);
     expect(practitioner.extension).toEqual([otherExtension]);
+  });
+});
+
+describe('makeQualificationForPractitioner', () => {
+  const qualificationExtensionUrls = (number: string | undefined): string[] =>
+    makeQualificationForPractitioner({ state: 'CA', code: 'MD', number, date: '2030-01-01', active: true })
+      .extension!.find((extension) => extension.url === PRACTITIONER_QUALIFICATION_EXTENSION_URL)!
+      .extension!.map((extension) => extension.url);
+
+  it('omits the license number extension when the number is only whitespace', () => {
+    expect(qualificationExtensionUrls('   ')).toEqual(['status', 'whereValid', 'expDate']);
+  });
+
+  it('omits the license number extension when there is no number', () => {
+    expect(qualificationExtensionUrls(undefined)).toEqual(['status', 'whereValid', 'expDate']);
+  });
+
+  it('stores a license number without surrounding whitespace', () => {
+    const qualification = makeQualificationForPractitioner({
+      state: 'CA',
+      code: 'MD',
+      number: ' A123 ',
+      active: true,
+    });
+    expect(qualification.extension?.[0].extension).toContainEqual({ url: 'number', valueString: 'A123' });
   });
 });

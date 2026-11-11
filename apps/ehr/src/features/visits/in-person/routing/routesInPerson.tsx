@@ -1,3 +1,7 @@
+import { DmeOrderCreatePage } from 'src/features/dme/pages/DmeOrderCreatePage';
+import { DmeOrderDetailsPage } from 'src/features/dme/pages/DmeOrderDetailsPage';
+import { DmeOrderEditPage } from 'src/features/dme/pages/DmeOrderEditPage';
+import { DmeOrdersPage } from 'src/features/dme/pages/DmeOrdersPage';
 import { Immunization } from 'src/features/immunization/pages/Immunization';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
@@ -40,6 +44,7 @@ import { Plan } from '../pages/Plan';
 import Procedures from '../pages/Procedures';
 import ProceduresNew from '../pages/ProceduresNew';
 import { ProgressNote } from '../pages/ProgressNote';
+import { Questionnaires } from '../pages/Questionnaires';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
 import { VisitDocuments } from '../pages/VisitDocuments';
@@ -49,6 +54,7 @@ export enum ROUTER_PATH {
   REVIEW_AND_SIGN = 'review-and-sign',
   FOLLOW_UP_NOTE = 'follow-up-note',
   SCREENING = 'screening-questions',
+  QUESTIONNAIRES = 'questionnaires',
   VITALS = 'vitals',
   ALLERGIES = 'allergies',
   MEDICATIONS = 'medications',
@@ -88,6 +94,11 @@ export enum ROUTER_PATH {
   IN_HOUSE_LAB_ORDER_CREATE = `in-house-lab-orders/create`,
   IN_HOUSE_LAB_ORDER_DETAILS = `in-house-lab-orders/:serviceRequestID/order-details`,
 
+  DME = 'dme',
+  DME_CREATE = 'dme/create',
+  DME_DETAILS = 'dme/:dmeOrderId/order-details',
+  DME_EDIT = 'dme/:dmeOrderId/edit',
+
   NURSING_ORDERS = 'nursing-orders',
   NURSING_ORDER_CREATE = 'nursing-orders/create',
   NURSING_ORDER_DETAILS = 'nursing-orders/:serviceRequestID/order-details',
@@ -119,6 +130,14 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <Screening />,
     text: 'Screening Questions',
     iconKey: 'Screening Questions',
+    groupLabel: 'Intake',
+  },
+  [ROUTER_PATH.QUESTIONNAIRES]: {
+    path: ROUTER_PATH.QUESTIONNAIRES,
+    modes: ['main', 'readonly'],
+    element: <Questionnaires />,
+    text: 'Clinical Forms',
+    iconKey: 'Questionnaires',
     groupLabel: 'Intake',
   },
   [ROUTER_PATH.VITALS]: {
@@ -302,6 +321,41 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <ProceduresNew />,
     text: 'Edit Procedure ',
     iconKey: 'Procedures',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.DME]: {
+    path: ROUTER_PATH.DME,
+    modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
+    element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrdersPage /> : null,
+    text: 'DME',
+    iconKey: 'DME',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.DME_CREATE]: {
+    path: ROUTER_PATH.DME_CREATE,
+    modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrderCreatePage /> : null,
+    text: 'DME',
+    iconKey: 'DME',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.DME_DETAILS]: {
+    path: ROUTER_PATH.DME_DETAILS,
+    modes: ['main', 'follow-up'],
+    isSkippedInNavigation: true,
+    element: <DmeOrderDetailsPage />,
+    text: 'DME',
+    iconKey: 'DME',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.DME_EDIT]: {
+    path: ROUTER_PATH.DME_EDIT,
+    modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrderEditPage /> : null,
+    text: 'DME',
+    iconKey: 'DME',
     groupLabel: 'Actions',
   },
   [ROUTER_PATH.NURSING_ORDERS]: {

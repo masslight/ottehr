@@ -98,6 +98,7 @@ import {
   PatientMasterRecordResource,
   relatedPersonFieldPaths,
 } from 'utils/lib/fhir/patientMasterRecord';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   consolidateOperations,
   ContactTelecomConfig,
@@ -529,7 +530,8 @@ function buildDocToSave({
   text: string;
 }): DocToSaveData {
   const sorted = sortAttachmentsByCreationTime(attachments);
-  const dateCreated = sorted[0]?.creation ?? '';
+  const dateCreated =
+    sorted.find((a) => a.creation && DateTime.fromISO(a.creation).isValid)?.creation ?? DateTime.now().toUTC().toISO()!;
   return {
     code,
     files: sorted.map(({ url = '', title = '' }) => ({ url, title })),
@@ -1132,7 +1134,12 @@ export function createMasterRecordPatchOperations(
   result.patient.patchOpsForDirectUpdate.push(
     ...resolveTelecomIntents(guardianTelecomIntents, patient.contact?.[0]?.telecom, '/contact/0/telecom')
   );
-  result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
+  const { sourceQuestionnaire } = questionnaireResponseHarvestInput;
+  const formLinkIds =
+    sourceQuestionnaire && pcpItems.length > 0
+      ? (flattenItems(sourceQuestionnaire.item ?? []) as IntakeQuestionnaireItem[]).map((item) => item.linkId)
+      : undefined;
+  result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient, formLinkIds));
   // sanitize the patient patch ops so no SSN is leaked in logs
   const sanitizedPatchOps = result.patient.patchOpsForDirectUpdate.map((op) => {
     if (op.path?.includes('patient-ssn')) {
@@ -1240,7 +1247,22 @@ const resolveTelecomIntents = (
   return [{ op: 'replace', path: telecomPath, value: target }];
 };
 
-export const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
+const getStoredPcpFields = (
+  pcp: Practitioner | undefined
+): Omit<PcpContactDetails, 'active'> & { address?: string } => ({
+  firstName: pcp?.name?.[0]?.given?.[0],
+  lastName: pcp?.name?.[0]?.family,
+  practiceName: pcp?.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/practice-name`)?.valueString,
+  address: pcp?.address?.[0]?.text,
+  phone: pcp?.telecom?.find((telecom) => telecom.system === 'phone')?.value,
+  fax: pcp?.telecom?.find((telecom) => telecom.system === 'fax')?.value,
+});
+
+export const getPCPPatchOps = (
+  flattenedItems: QuestionnaireResponseItem[],
+  patient: Patient,
+  formLinkIds?: string[]
+): Operation[] => {
   const isActive = flattenedItems.find((field) => field.linkId === 'pcp-active')?.answer?.[0]?.valueBoolean;
   const firstName = flattenedItems.find((field) => field.linkId === 'pcp-first')?.answer?.[0]?.valueString;
   const lastName = flattenedItems.find((field) => field.linkId === 'pcp-last')?.answer?.[0]?.valueString;
@@ -1268,7 +1290,8 @@ export const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], pati
   const currentPCPRef = patient.generalPractitioner?.[0];
   const currentContainedPCP = currentPCPRef?.reference
     ? patient.contained?.find(
-        (resource) => `#${resource.id}` === currentPCPRef?.reference && resource.resourceType === 'Practitioner'
+        (resource): resource is Practitioner =>
+          `#${resource.id}` === currentPCPRef?.reference && resource.resourceType === 'Practitioner'
       )
     : undefined;
 
@@ -1300,27 +1323,39 @@ export const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], pati
     let address: Practitioner['address'];
     let extension: Practitioner['extension'];
 
-    if (lastName) {
-      name = [{ family: lastName }];
-      if (firstName) {
-        name[0].given = [firstName];
+    // A field the form's questionnaire lacks (e.g. intake has no fax) keeps its stored value; any other one left
+    // empty is cleared. Response items can't tell these apart: intake drops the fields the patient cleared.
+    const isInForm = (linkId: string): boolean => !formLinkIds || formLinkIds.includes(linkId);
+    const stored = getStoredPcpFields(currentContainedPCP);
+
+    const pcpFirstName = isInForm('pcp-first') ? firstName : stored.firstName;
+    const pcpLastName = isInForm('pcp-last') ? lastName : stored.lastName;
+    const pcpPracticeName = isInForm('pcp-practice') ? practiceName : stored.practiceName;
+    const pcpStreetAddress = isInForm('pcp-address') ? pcpAddress : stored.address;
+    const pcpPhone = isInForm('pcp-number') ? formatPhoneNumber(phone) : stored.phone;
+    const pcpFax = isInForm('pcp-fax') ? formatPhoneNumber(fax) : stored.fax;
+
+    if (pcpLastName) {
+      name = [{ family: pcpLastName }];
+      if (pcpFirstName) {
+        name[0].given = [pcpFirstName];
       }
     }
 
-    if (phone || fax) {
+    if (pcpPhone || pcpFax) {
       telecom = [];
-      if (phone) telecom.push({ system: 'phone', value: formatPhoneNumber(phone) });
-      if (fax) telecom.push({ system: 'fax', value: formatPhoneNumber(fax) });
+      if (pcpPhone) telecom.push({ system: 'phone', value: pcpPhone });
+      if (pcpFax) telecom.push({ system: 'fax', value: pcpFax });
     }
-    if (pcpAddress) {
-      address = [{ text: pcpAddress }];
+    if (pcpStreetAddress) {
+      address = [{ text: pcpStreetAddress }];
     }
 
-    if (practiceName) {
+    if (pcpPracticeName) {
       extension = [
         {
           url: `${PRIVATE_EXTENSION_BASE_URL}/practice-name`,
-          valueString: practiceName,
+          valueString: pcpPracticeName,
         },
       ];
     }
@@ -1385,28 +1420,19 @@ export const getPcpPatchOpsFromDetails = (details: PcpContactDetails, patient: P
       )
     : undefined;
 
-  const existingFirstName = existingPcp?.name?.[0]?.given?.[0];
-  const existingLastName = existingPcp?.name?.[0]?.family;
+  const existing = getStoredPcpFields(existingPcp);
 
-  const existingPractice = existingPcp?.extension?.find(
-    (extension) => extension.url === `${PRIVATE_EXTENSION_BASE_URL}/practice-name`
-  )?.valueString;
-
-  const existingAddress = existingPcp?.address?.[0]?.text;
-  const existingPhone = existingPcp?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
-  const existingFax = existingPcp?.telecom?.find((telecom) => telecom.system === 'fax')?.value;
-
-  const firstName = details.firstName ?? existingFirstName;
-  const lastName = details.lastName ?? existingLastName;
-  const practiceName = details.practiceName ?? existingPractice;
-  const phone = details.phone ?? existingPhone;
-  const fax = details.fax ?? existingFax;
+  const firstName = details.firstName ?? existing.firstName;
+  const lastName = details.lastName ?? existing.lastName;
+  const practiceName = details.practiceName ?? existing.practiceName;
+  const phone = details.phone ?? existing.phone;
+  const fax = details.fax ?? existing.fax;
 
   const items: QuestionnaireResponseItem[] = [
     { linkId: 'pcp-first', answer: firstName ? [{ valueString: firstName }] : undefined },
     { linkId: 'pcp-last', answer: lastName ? [{ valueString: lastName }] : undefined },
     { linkId: 'pcp-practice', answer: practiceName ? [{ valueString: practiceName }] : undefined },
-    { linkId: 'pcp-address', answer: existingAddress ? [{ valueString: existingAddress }] : undefined },
+    { linkId: 'pcp-address', answer: existing.address ? [{ valueString: existing.address }] : undefined },
     { linkId: 'pcp-number', answer: phone ? [{ valueString: phone }] : undefined },
     { linkId: 'pcp-fax', answer: fax ? [{ valueString: fax }] : undefined },
     { linkId: 'pcp-active', answer: [{ valueBoolean: details.active }] },
@@ -2308,7 +2334,7 @@ export const buildEmployerAccountResource = (params: BuildEmployerAccountResourc
   const guarantor = mergeGuarantors(baseAccount.guarantor, organizationReference);
 
   const organizationIdFromReference = organizationReference.startsWith('Organization/')
-    ? organizationReference.split('/')[1]
+    ? getIdFromReference(organizationReference, 'Organization')
     : undefined;
 
   return {
@@ -3516,7 +3542,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
   // we should only split if it's an actual reference, and not a bare id like urn:uuid etc
   const getNewCoverageRefId = (coverageRef: Reference | undefined): string | undefined => {
     const ref = coverageRef?.reference;
-    return ref?.startsWith('Coverage/') ? ref.split('/')[1] : ref;
+    return ref?.startsWith('Coverage/') ? getIdFromReference(ref, 'Coverage') : ref;
   };
 
   const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
@@ -3544,13 +3570,25 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     }
   }
 
-  if (preserveOmittedCoverages && existingCoverages.primary && !newPrimaryCoverage) {
+  // An omitted coverage is kept in its slot only if it didn't move to the other one (e.g. a sole primary coverage
+  // changed to secondary by the insurance section save); otherwise it would end up in both slots.
+  if (
+    preserveOmittedCoverages &&
+    existingCoverages.primary &&
+    !newPrimaryCoverage &&
+    existingCoverages.primary.id !== newSecondaryCoverageId
+  ) {
     suggestedNewCoverageObject.push({
       coverage: { reference: `Coverage/${existingCoverages.primary.id}` },
       priority: 1,
     });
   }
-  if (preserveOmittedCoverages && existingCoverages.secondary && !newSecondaryCoverage) {
+  if (
+    preserveOmittedCoverages &&
+    existingCoverages.secondary &&
+    !newSecondaryCoverage &&
+    existingCoverages.secondary.id !== newPrimaryCoverageId
+  ) {
     suggestedNewCoverageObject.push({
       coverage: { reference: `Coverage/${existingCoverages.secondary.id}` },
       priority: 2,
@@ -3921,6 +3959,23 @@ const replaceCurrentGuarantor = (
   });
 };
 
+export const isEmergencyContactRelatedPerson = (relatedPerson: RelatedPerson): boolean =>
+  Boolean(
+    relatedPerson.relationship?.some(
+      (rel) =>
+        rel.coding?.some(
+          (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
+        )
+    )
+  );
+
+export const isAttorneyRelatedPerson = (relatedPerson: RelatedPerson): boolean =>
+  Boolean(
+    relatedPerson.relationship?.some(
+      (rel) => rel.coding?.some((coding) => coding.code === 'OTHER' && coding.display === 'MVA Attorney')
+    )
+  );
+
 type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient | Organization)[];
 interface UnbundledAccountResourceWithInsuranceResources {
   patient: Patient;
@@ -3958,13 +4013,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   );
 
   const attorneyRelatedPerson: RelatedPerson | undefined = resources.find(
-    (res): res is RelatedPerson =>
-      res.resourceType === 'RelatedPerson' &&
-      Boolean(
-        res.relationship?.some(
-          (rel) => rel.coding?.some((coding) => coding.code === 'OTHER' && coding.display === 'MVA Attorney')
-        )
-      )
+    (res): res is RelatedPerson => res.resourceType === 'RelatedPerson' && isAttorneyRelatedPerson(res)
   );
 
   const existingCoverages: OrderedCoveragesWithSubscribers = {};
@@ -3976,7 +4025,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
       existingGuarantorResource = takeContainedOrFind(guarantorReference, resources, existingAccount);
     }
     existingAccount.coverage?.forEach((cov) => {
-      const coverage = coverageResources.find((c) => c.id === cov.coverage?.reference?.split('/')[1]);
+      const coverage = coverageResources.find((c) => c.id === getIdFromReference(cov.coverage?.reference));
       if (coverage) {
         if (cov.priority === 1) {
           existingCoverages.primary = coverage;
@@ -4026,7 +4075,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 
   if (workersCompAccount?.coverage) {
     existingCoverages.workersComp = coverageResources.find((coverage) => {
-      return coverage.id === workersCompAccount?.coverage?.[0]?.coverage?.reference?.split('/')[1];
+      return coverage.id === getIdFromReference(workersCompAccount?.coverage?.[0]?.coverage?.reference);
     });
   }
 
@@ -4059,15 +4108,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   );
 
   const emergencyContactResource = resources.find(
-    (res): res is RelatedPerson =>
-      (res.resourceType === 'RelatedPerson' &&
-        res.relationship?.some(
-          (rel) =>
-            rel.coding?.some(
-              (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
-            )
-        )) ||
-      false
+    (res): res is RelatedPerson => res.resourceType === 'RelatedPerson' && isEmergencyContactRelatedPerson(res)
   );
 
   return {

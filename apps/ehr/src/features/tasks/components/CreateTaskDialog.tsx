@@ -246,7 +246,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
       handleConfirm={handleConfirm}
       disabled={
         !formValue.category ||
-        !formValue.taskTitle ||
+        !formValue.taskTitle?.trim() ||
         !formValue.location ||
         // A refill or change request is on a prescription.
         ((refillRequest || changeRequest) && !formValue.order)

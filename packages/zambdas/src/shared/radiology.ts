@@ -10,10 +10,12 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { convert } from 'html-to-text';
 import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import {
+  decodeRadiologyReportHtml,
   LATERALITY_SELECTORS,
   LateralityValue,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
@@ -23,7 +25,7 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
 } from 'utils/lib/fhir/radiology';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   RadiologyDTO,
   RadiologyPerformedBy,
@@ -58,7 +60,7 @@ export const resolveOrderingProvider = (
     id ? practitioners.find((practitioner) => practitioner.id === id) : undefined;
 
   const attendingProvider = findPractitioner(encounter ? getAttendingPractitionerId(encounter) : undefined);
-  const requester = findPractitioner(serviceRequest.requester?.reference?.split('/')[1]);
+  const requester = findPractitioner(getIdFromReference(serviceRequest.requester?.reference));
 
   // A Practitioner without a name would make the order's provider column blank, so prefer one that has one.
   return [attendingProvider, requester].find((practitioner) => practitioner && getFullestAvailableName(practitioner));
@@ -71,7 +73,7 @@ export const resolveOrderingProvider = (
  * to be is an accident of who did the data entry.
  */
 export const getOrderingProviderIds = (serviceRequest: ServiceRequest, encounter: Encounter | undefined): string[] => {
-  const requesterId = serviceRequest.requester?.reference?.split('/')[1];
+  const requesterId = getIdFromReference(serviceRequest.requester?.reference);
   const attendingId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   return [...new Set([requesterId, attendingId].filter((id): id is string => !!id))];
 };
@@ -87,7 +89,7 @@ export const getReportAuthor = (report: DiagnosticReport | undefined): Reference
   report?.performer?.find(isPractitionerRef);
 
 export const getReportAuthorId = (report: DiagnosticReport | undefined): string | undefined =>
-  removePrefix('Practitioner/', getReportAuthor(report)?.reference ?? '');
+  getIdFromReference(getReportAuthor(report)?.reference, 'Practitioner');
 
 /**
  * Records the practitioner who performed the study on `ServiceRequest.performer`, taking the display name
@@ -171,6 +173,9 @@ export const findRadiologyFinalReviewTask = (tasks: Task[], serviceRequestId: st
  */
 export const isRadiologyOrderReviewed = (tasks: Task[], serviceRequestId: string): boolean =>
   findRadiologyFinalReviewTask(tasks, serviceRequestId)?.status === 'completed';
+
+export const radiologyReportText = (stored: string | undefined): string =>
+  stored ? convert(decodeRadiologyReportHtml(stored), { wordwrap: false }) : '';
 
 export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
   if (!reports.length) return undefined;
@@ -288,7 +293,7 @@ export const makeRadiologyDTO = (
 
 const extractPerformedBy = (serviceRequest: ServiceRequest): RadiologyPerformedBy | undefined => {
   const performer = serviceRequest.performer?.find((ref) => ref.reference?.startsWith('Practitioner/'));
-  const id = performer?.reference?.split('/')[1];
+  const id = getIdFromReference(performer?.reference, 'Practitioner');
   if (!id) {
     return undefined;
   }

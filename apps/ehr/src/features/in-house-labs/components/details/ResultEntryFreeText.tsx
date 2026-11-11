@@ -12,6 +12,7 @@ export const ResultEntryFreeText: React.FC<ResultEntryFreeTextProps> = ({ testIt
   const theme = useTheme();
 
   const validateInput = (entry: string): string | boolean => {
+    if (!entry?.trim()) return 'Please input a value';
     if (testItemComponent.dataType === 'string' && testItemComponent.validations) {
       const { validations } = testItemComponent;
       console.log('entry and validations', entry, validations);
@@ -51,6 +52,7 @@ export const ResultEntryFreeText: React.FC<ResultEntryFreeTextProps> = ({ testIt
             {...field}
             disabled={!!disabled}
             fullWidth
+            size="small"
             id="result-entry-text"
             error={!!fieldState.error}
             helperText={fieldState.error?.message}

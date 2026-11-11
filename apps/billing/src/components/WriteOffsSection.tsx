@@ -403,13 +403,11 @@ export function WriteOffsSection({
                         onChange={(e) => field.onChange(e.target.value)}
                         error={!!fieldError}
                       >
-                        {Object.keys(reasonOptions)
-                          .sort()
-                          .map((key) => (
-                            <MenuItem key={key} value={key}>
-                              {reasonOptions[key]}
-                            </MenuItem>
-                          ))}
+                        {Object.keys(reasonOptions).map((key) => (
+                          <MenuItem key={key} value={key}>
+                            {reasonOptions[key]}
+                          </MenuItem>
+                        ))}
                       </Select>
                       {fieldError && <FormHelperText error>{fieldError.message}</FormHelperText>}
                     </FormControl>

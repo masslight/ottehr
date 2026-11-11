@@ -30,7 +30,12 @@ vi.mock('../../src/features/visits/shared/hooks/useErxPatientVitals', async (imp
   const actual = await importOriginal<typeof import('../../src/features/visits/shared/hooks/useErxPatientVitals')>();
   return {
     ...actual,
-    useErxPatientVitals: () => ({ hasVitals: true, isVitalsLoading: false, isVitalsFetched: true }),
+    useErxPatientVitals: () => ({
+      hasVitals: true,
+      isVitalsLoading: false,
+      isVitalsFetched: true,
+      missingVitalsMessage: 'missing vitals',
+    }),
   };
 });
 

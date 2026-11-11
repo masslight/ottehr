@@ -2,8 +2,10 @@ import { z } from 'zod';
 import { Secrets } from '../../../secrets';
 import { PrescribedMedicationDTO } from '../../api/chart-data/chart-data.types';
 import { ProcedureDTO } from '../../api/chart-data/chart-data.types';
+import { DmeOrderDTO } from '../../api/dme.types';
 import { ExtendedMedicationDataForResponse } from '../../api/medication-administration.types';
 import { GetRadiologyOrderListZambdaOrder } from '../../api/radiology';
+import { optionalTextSchema } from '../../text-schemas';
 import { ImmunizationOrder } from '../immunization/types';
 import { InHouseOrderListPageItemDTO } from '../in-house/in-house.types';
 import { LabOrderListPageDTO } from '../labs/labs.types';
@@ -11,7 +13,7 @@ import { NursingOrdersStatus } from './constants';
 
 export const CreateNursingOrderInputSchema = z.object({
   encounterId: z.string().uuid(),
-  notes: z.string().optional(),
+  notes: optionalTextSchema,
 });
 
 export type CreateNursingOrderInput = z.infer<typeof CreateNursingOrderInputSchema>;
@@ -113,6 +115,8 @@ export interface OrdersForTrackingBoardTable {
   erxOrdersByEncounterId: Record<string, PrescribedMedicationDTO[]>;
   proceduresByEncounterId: Record<string, ProcedureDTO[]>;
   immunizationOrdersByEncounterId: Record<string, ImmunizationOrder[]>;
+  /** Pending in-house DME orders only */
+  dmeOrdersByEncounterId: Record<string, DmeOrderDTO[]>;
 }
 
 export interface OrdersForTrackingBoardRow {
@@ -124,4 +128,5 @@ export interface OrdersForTrackingBoardRow {
   erxOrders: PrescribedMedicationDTO[] | undefined;
   procedures: ProcedureDTO[] | undefined;
   immunizationOrders: ImmunizationOrder[] | undefined;
+  dmeOrders: DmeOrderDTO[] | undefined;
 }

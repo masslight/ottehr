@@ -1,7 +1,8 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
 import {
+  getFormPlacement,
   isJsonImportedQ,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
 } from 'utils/lib/helpers/practice-managed-questionnaires';
@@ -13,7 +14,7 @@ import { compareVersions } from '../../../shared/fhir';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { handleFormInFlows, patchQuestionnaireVersion } from '../helpers';
+import { handleFormInFlows, patchQuestionnaireVersion, supersedeVersionRequests } from '../helpers';
 import { ValidatedRequest, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -168,13 +169,12 @@ async function importNewVersion(
   };
 
   // retire the existing version
-  const retireRequests: BatchInputPatchRequest<Questionnaire>[] = [
-    {
-      method: 'PATCH',
-      url: `Questionnaire/${existingQuestionnaireId}`,
-      operations: [{ op: 'replace', path: '/status', value: 'retired' }],
-    },
-  ];
+  const retireRequests = await supersedeVersionRequests({
+    url: questionnaireUrl,
+    previousId: existingQuestionnaireId,
+    placement: getFormPlacement(questionnaire),
+    oystehr,
+  });
 
   console.log('checking if form is contained in any flows');
   const flowRequests: BatchInputRequest<Questionnaire>[] = await handleFormInFlows({

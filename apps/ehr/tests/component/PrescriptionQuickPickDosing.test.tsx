@@ -25,7 +25,7 @@ import {
   withListedQuickPick,
 } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
 import { VisitWeight } from '../../src/features/visits/in-person/components/erx/useVisitWeight';
-import { ProcedureQuickPickDialogs } from '../../src/features/visits/in-person/components/procedures/ProcedureQuickPickDialogs';
+import { QuickPickSaveDialogs } from '../../src/features/visits/shared/components/QuickPickSaveDialogs';
 import { detailed, ERX_PRODUCT_DETAILS } from './helpers/erxProducts';
 
 // The real suggestions seam: the rows here come from the quick picks given.
@@ -175,7 +175,7 @@ describe('Save as quick pick: the calculator’s dosing', () => {
       durationDays: 10,
     });
     const { unmount } = render(
-      <ProcedureQuickPickDialogs
+      <QuickPickSaveDialogs
         open
         name="Amox strep"
         onNameChange={() => undefined}
@@ -183,7 +183,7 @@ describe('Save as quick pick: the calculator’s dosing', () => {
         saving={false}
         onClose={() => undefined}
         onSave={() => undefined}
-        subject="prescription"
+        entityLabel="prescription"
         details={quickPickDosingText(saved.dosing!)}
       />
     );
@@ -199,7 +199,7 @@ describe('Save as quick pick: the calculator’s dosing', () => {
     );
     expect(quickPickNameInUse('Amox strep 2', [BY_WEIGHT])).toBeUndefined();
     const named = render(
-      <ProcedureQuickPickDialogs
+      <QuickPickSaveDialogs
         open
         name="amox STREP"
         onNameChange={() => undefined}
@@ -207,7 +207,7 @@ describe('Save as quick pick: the calculator’s dosing', () => {
         saving={false}
         onClose={() => undefined}
         onSave={() => undefined}
-        subject="prescription"
+        entityLabel="prescription"
         placeholder="Quick pick name"
         nameError={nameError}
       />

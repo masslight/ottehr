@@ -12,7 +12,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import React, { ReactElement, ReactNode, useEffect, useState } from 'react';
+import React, { ReactElement, ReactNode, useState } from 'react';
 import {
   findUnpickedBlank,
   isSentenceBlank,
@@ -22,10 +22,9 @@ import {
 } from 'utils/lib/helpers/suggested-sentences';
 
 export interface SuggestedSentence {
-  /** Stable identity within the list; a changed `rows` array resets every pick. */
   id: string;
+  name?: string;
   segments: SentenceSegment[];
-  /** Why this sentence is offered, shown under it as "Because …". */
   reason?: string;
   /** More lines under it in gray, as written. */
   details?: string[];
@@ -36,21 +35,19 @@ export interface SuggestedSentence {
   segmentsFor?: (picks: SentencePicks) => SentenceSegment[];
 }
 
-/** The current value of each segment: a pick for a blank, `undefined` for text and for a blank left on its default. */
 export type SentencePicks = (string | undefined)[];
 
 interface SuggestedSentencesProps<T extends SuggestedSentence> {
   title: string;
-  /** Lighter text after the title, e.g. how the rows were chosen. */
   caption?: string;
   rows: T[];
-  /** Whether the row, as currently filled in, is already in the target; derived by the caller, never stored here. */
   isAdded: (row: T, picks: SentencePicks) => boolean;
   onAdd: (row: T, picks: SentencePicks) => void;
   addLabel: string;
   addedLabel: string;
+  resolveValues?: (row: T, picks: SentencePicks) => SentencePicks;
+  findConflict?: (row: T, picks: SentencePicks, segment: number, option: string) => string | undefined;
   dataTestId?: string;
-  /** Rendered between the title and the rows (a note about the patient, say). */
   children?: ReactNode;
   /** The popover body for a blank filled in some other way than from its options (a prescription's dose, typed),
    * given the pick to make; `undefined` keeps the options list. */
@@ -66,7 +63,6 @@ interface SuggestedSentencesProps<T extends SuggestedSentence> {
   onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-/** Position of a blank: template row and segment index within it */
 interface BlankRef {
   row: number;
   segment: number;
@@ -74,10 +70,11 @@ interface BlankRef {
 
 const blankKey = ({ row, segment }: BlankRef): string => `${row}:${segment}`;
 
-/**
- * Template sentences with the variable words highlighted; picking a word swaps it and "+" hands the finished
- * row to the caller. Plain templates, nothing is read from the image or the chart.
- */
+const defaultValues = (row: SuggestedSentence, picks: SentencePicks): SentencePicks =>
+  row.segments.map((segment, i) => (isSentenceBlank(segment) ? picks[i] ?? segment.initial : undefined));
+
+const fieldName = (blank: SentenceBlank): string => blank.title.replace(/\s*\(.*\)$/, '').toLowerCase();
+
 export const SuggestedSentences = <T extends SuggestedSentence>({
   title,
   caption,
@@ -86,6 +83,8 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   onAdd,
   addLabel,
   addedLabel,
+  resolveValues = defaultValues,
+  findConflict,
   dataTestId,
   children,
   renderPicker,
@@ -95,28 +94,27 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   collapsed = false,
   onCollapsedChange,
 }: SuggestedSentencesProps<T>): ReactElement => {
-  // Picks are kept apart from the templates so a value the provider chose survives re-renders but not a
-  // change of the rows themselves (another study, other numbers), which rebuilds the templates.
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [active, setActive] = useState<{ blank: BlankRef; anchor: HTMLElement } | null>(null);
-
-  useEffect(() => {
-    setValues({});
-    setActive(null);
-  }, [rows]);
+  const [picked, setPicked] = useState<{ rows: T[]; values: Record<string, string> }>({ rows, values: {} });
+  const [opened, setOpened] = useState<{ rows: T[]; blank: BlankRef; anchor: HTMLElement } | null>(null);
+  const values = picked.rows === rows ? picked.values : {};
+  const active = opened?.rows === rows ? opened : null;
 
   const activeBlank = active && (rows[active.blank.row].segments[active.blank.segment] as SentenceBlank);
-  // `undefined` is a blank that still has to be picked (a side the order didn't fix).
-  const valueOf = (ref: BlankRef, blank: SentenceBlank): string | undefined => values[blankKey(ref)] ?? blank.initial;
   const rowPicks = (row: number): SentencePicks =>
     rows[row].segments.map((segment, i) =>
       isSentenceBlank(segment) ? values[blankKey({ row, segment: i })] : undefined
     );
+  // A row's segments as its picks make them (`segmentsFor`), so a value worked out again shows.
+  const shownValues = (row: number): SentencePicks => {
+    const picks = rowPicks(row);
+    const segments = rows[row].segmentsFor?.(picks);
+    return resolveValues(segments ? { ...rows[row], segments } : rows[row], picks);
+  };
 
   const pick = (option: string): void => {
     if (!active) return;
-    setValues((prev) => ({ ...prev, [blankKey(active.blank)]: option }));
-    setActive(null);
+    setPicked({ rows, values: { ...values, [blankKey(active.blank)]: option } });
+    setOpened(null);
   };
   const picker = active && activeBlank && renderPicker?.(rows[active.blank.row], activeBlank, pick);
 
@@ -136,8 +134,10 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
       {rows.map((suggestion, row) => {
         const picks = rowPicks(row);
         const segments = suggestion.segmentsFor?.(picks) ?? suggestion.segments;
+        const shown = shownValues(row);
         const mustPick = findUnpickedBlank(segments, picks);
         const added = !mustPick && isAdded(suggestion, picks);
+        const named = (label: string): string => (suggestion.name ? `${label}: ${suggestion.name}` : label);
         return (
           <Box key={suggestion.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, py: 0.5 }}>
             <Typography variant="body2" sx={{ flex: 1, lineHeight: 1.8 }}>
@@ -151,9 +151,11 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                     </Box>
                   );
                 const ref = { row, segment: i };
-                const picked = blankKey(ref) in values;
-                const blankValue = valueOf(ref, segment);
+                const isPicked = picks[i] !== undefined;
+                const blankValue = shown[i];
                 const unpicked = blankValue === undefined;
+                const empty = blankValue === '';
+                const name = fieldName(segment);
                 return (
                   <Box
                     component="button"
@@ -161,11 +163,13 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                     key={i}
                     aria-label={`${segment.title}: ${unpicked ? 'not picked' : blankValue || NONE_OPTION_LABEL}`}
                     aria-haspopup="listbox"
-                    onClick={(e: React.MouseEvent<HTMLElement>) => setActive({ blank: ref, anchor: e.currentTarget })}
+                    aria-expanded={active?.blank.row === row && active.blank.segment === i}
+                    onClick={(e: React.MouseEvent<HTMLElement>) =>
+                      setOpened({ rows, blank: ref, anchor: e.currentTarget })
+                    }
                     sx={(theme) => {
-                      const tint = picked ? theme.palette.success.main : theme.palette.primary.main;
+                      const tint = isPicked ? theme.palette.success.main : theme.palette.primary.main;
                       return {
-                        // A button, but laid out as a run of text so a long value wraps within the sentence.
                         display: 'inline',
                         textAlign: 'left',
                         font: 'inherit',
@@ -178,7 +182,6 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                         borderRadius: '3px',
                         padding: '1px 2px',
                         '&:hover': { backgroundColor: alpha(tint, 0.3) },
-                        // Still to be picked: an outlined placeholder rather than a value that could pass for one.
                         ...(unpicked && {
                           border: '1px dashed',
                           borderColor: theme.palette.warning.dark,
@@ -186,11 +189,18 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                           backgroundColor: 'transparent',
                           '&:hover': { backgroundColor: alpha(theme.palette.warning.main, 0.1) },
                         }),
+                        ...(empty && {
+                          border: '1px dotted',
+                          borderColor: theme.palette.divider,
+                          color: theme.palette.text.secondary,
+                          backgroundColor: 'transparent',
+                          '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.08) },
+                        }),
                       };
                     }}
                   >
-                    {unpicked ? segment.placeholder ?? segment.title.toLowerCase() : blankValue || NONE_OPTION_LABEL}
-                    {picked && (
+                    {unpicked ? segment.placeholder ?? name : empty ? `+ ${name}` : blankValue}
+                    {isPicked && !empty && (
                       <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />
                     )}
                   </Box>
@@ -217,7 +227,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: '2.6px', flex: 'none' }}>
               {renderBesideAdd?.(suggestion, picks)}
               {added ? (
-                <CheckCircle sx={{ fontSize: 16, color: 'success.main', m: '2px' }} titleAccess={addedLabel} />
+                <CheckCircle sx={{ fontSize: 16, color: 'success.main', m: '2px' }} titleAccess={named(addedLabel)} />
               ) : (
                 <Tooltip
                   title={mustPick ? `Pick the ${mustPick.title.toLowerCase()} first` : suggestion.addLabel ?? addLabel}
@@ -225,7 +235,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
                   <span>
                     <IconButton
                       size="small"
-                      aria-label={suggestion.addLabel ?? addLabel}
+                      aria-label={named(suggestion.addLabel ?? addLabel)}
                       disabled={Boolean(mustPick)}
                       onClick={() => onAdd(suggestion, picks)}
                       sx={{ padding: '2px' }}
@@ -290,7 +300,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
       <Menu
         open={Boolean(active) && !picker}
         anchorEl={active?.anchor}
-        onClose={() => setActive(null)}
+        onClose={() => setOpened(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         MenuListProps={{ role: 'listbox', 'aria-label': activeBlank?.title, dense: true }}
@@ -304,17 +314,25 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
         {active &&
           activeBlank &&
           activeBlank.options.map((option) => {
-            const current = option === valueOf(active.blank, activeBlank);
+            const { row, segment } = active.blank;
+            const current = option === shownValues(row)[segment];
+            const clash = findConflict?.(rows[row], rowPicks(row), segment, option);
             return (
               <MenuItem
                 key={option}
                 role="option"
                 selected={current}
                 aria-selected={current}
-                sx={{ borderRadius: 1, mx: 1 }}
+                disabled={Boolean(clash)}
+                sx={{ borderRadius: 1, mx: 1, whiteSpace: 'normal' }}
                 onClick={() => pick(option)}
               >
                 {option || NONE_OPTION_LABEL}
+                {clash && (
+                  <Typography component="span" variant="caption" sx={{ ml: 1 }}>
+                    (not with “{clash}”)
+                  </Typography>
+                )}
               </MenuItem>
             );
           })}
@@ -323,7 +341,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
       <Popover
         open={Boolean(picker)}
         anchorEl={active?.anchor}
-        onClose={() => setActive(null)}
+        onClose={() => setOpened(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         // Named by the blank's title; the picker's own labelled field shows it, so no heading repeats it.

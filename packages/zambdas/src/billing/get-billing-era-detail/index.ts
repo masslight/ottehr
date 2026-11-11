@@ -12,7 +12,7 @@ import {
 } from 'fhir/r4b';
 import { RAW_X12_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { codeableConcept, getExtension, getNPI, getTaxID } from 'utils/lib/fhir/helpers';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_PROCESS_PRIORITY } from 'utils/lib/helpers/rcm/constants';
 import { ERA_SOURCE, ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants';
 import { GetEraDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -123,7 +123,7 @@ export async function performEffect(
     oystehr,
     resourceType: 'Patient',
     ids: unmatchedResponses
-      .map((claimResponse) => removePrefix('Patient/', claimResponse.patient?.reference ?? ''))
+      .map((claimResponse) => getIdFromReference(claimResponse.patient?.reference, 'Patient'))
       .filter((id): id is string => !!id),
     buildParam: (batch) => [
       {

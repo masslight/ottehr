@@ -1,5 +1,6 @@
 import { VideoChatCreateInviteInput } from 'utils/lib/types/data/telemed/video-chat-invites.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { optionalTextSchema, requiredTextSchema } from 'utils/lib/types/text-schemas';
 import { emailRegex } from 'utils/lib/validation/regex';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -8,10 +9,10 @@ import { safeJsonParse, safeValidate } from '../../../shared/validation';
 const CreateInviteBodySchema = z
   .object({
     appointmentId: z.string().min(1),
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    phoneNumber: z.string().optional(),
-    emailAddress: z.string().optional(),
+    firstName: requiredTextSchema,
+    lastName: requiredTextSchema,
+    phoneNumber: optionalTextSchema,
+    emailAddress: optionalTextSchema,
   })
   .superRefine((data, ctx) => {
     if (!data.phoneNumber && !data.emailAddress) {

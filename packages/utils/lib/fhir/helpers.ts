@@ -97,7 +97,7 @@ import {
 } from './constants';
 import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
 import { PatientMasterRecordResourceType } from './patientMasterRecord';
-import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
+import { getPatchBinary, getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
 
 export function isFHIRError(error: any): boolean {
   return !(error instanceof Error) && typeof error === 'object' && error.resourceType === 'OperationOutcome';
@@ -378,7 +378,7 @@ export async function createFilesDocumentReferences(
           status: 'current',
           docStatus,
           type: type,
-          date: dateCreated,
+          date: dateCreated?.trim() || undefined,
           content: [
             {
               attachment: {
@@ -400,6 +400,9 @@ export async function createFilesDocumentReferences(
       console.log('making DocumentReference results =>', JSON.stringify(docRefBundle, null, 2));
 
       const docRef = docRefBundle.entry?.[0]?.resource;
+      if (docRef) {
+        docRefs.push(docRef);
+      }
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
         let typeCode = type.coding[0].code;
@@ -422,7 +425,6 @@ export async function createFilesDocumentReferences(
             reference: `DocumentReference/${docRef.id}`,
           },
         });
-        docRefs.push(docRef);
       }
     }
 
@@ -653,17 +655,21 @@ export const getAppointmentMetaTagOpForStatusUpdate = (
     updatedByOverride?: string;
   }
 ): Operation[] => {
+  return getPatchOperationsForNewMetaTags(appointment, getAppointmentStatusUpdateTags(updatedStatus, updatedBy));
+};
+
+export const getAppointmentStatusUpdateTags = (
+  updatedStatus: VisitStatusWithoutUnknown,
+  updatedBy: {
+    user?: User;
+    updatedByOverride?: string;
+  }
+): Coding[] => {
   const { user, updatedByOverride } = updatedBy;
   const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus, display: updatedStatus };
   const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
   const updatedByText = updatedByOverride ? updatedByOverride : staffUpdateBy;
-  const updateTag = {
-    system: CRITICAL_CHANGE_SYSTEM,
-    display: updatedByText,
-    version: DateTime.now().toISO() || '',
-  };
-  const ops = getPatchOperationsForNewMetaTags(appointment, [statusTag, updateTag]);
-  return ops;
+  return [statusTag, createCriticalUpdateTag(updatedByText)];
 };
 
 /**
@@ -1473,8 +1479,9 @@ export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   return outcomeEntry;
 };
 
+// Organizations that pay invoices store their Stripe customers the same way as an Account.
 export const getStripeCustomerIdFromAccount = (
-  account: Account,
+  account: Pick<Account, 'identifier'>,
   stripeAccount: string | undefined
 ): string | undefined => {
   if (!stripeAccount) {
@@ -1641,6 +1648,12 @@ export function getResponsiblePartyFromAccount(
   return takeContainedOrFind<RelatedPerson | Patient>(responsiblePartyRef, resources, account);
 }
 
+// The schedule owner among an appointment's actors: its Location, else its HealthcareService, else its Practitioner.
+export const scheduleOwnerAmong = (resources: Resource[]): Location | HealthcareService | Practitioner | undefined =>
+  (resources.find((resource) => resource.resourceType === 'Location') as Location | undefined) ??
+  (resources.find((resource) => resource.resourceType === 'HealthcareService') as HealthcareService | undefined) ??
+  (resources.find((resource) => resource.resourceType === 'Practitioner') as Practitioner | undefined);
+
 export const getScheduleOwnerFromAppointmentOrEncounter = async (
   input: { appointmentId?: string; encounterId?: string },
   oystehr: Oystehr
@@ -1688,18 +1701,7 @@ export const getScheduleOwnerFromAppointmentOrEncounter = async (
   ).unbundle();
   console.log(`successfully retrieved ${allResources.length} appointment resources`);
   const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
-  const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
-  const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
-  const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
-
-  let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
-  if (fhirLocation) {
-    scheduleOwner = fhirLocation as Location;
-  } else if (fhirHS) {
-    scheduleOwner = fhirHS as HealthcareService;
-  } else if (fhirPractitioner) {
-    scheduleOwner = fhirPractitioner as Practitioner;
-  }
+  const scheduleOwner = scheduleOwnerAmong(allResources);
 
   if (!fhirAppointment) {
     throw APPOINTMENT_NOT_FOUND_ERROR;
@@ -1864,4 +1866,26 @@ export function reducePatchOperations<T extends FhirResource>(
     existingPatch.operations.push(...request.operations);
   }
   return newRequests;
+}
+
+// A transaction sends a JSON patch without its ifMatch, so the resource's patches go as binary ones
+// locked to its version instead.
+export function versionLockedPatches<T extends FhirResource>({
+  requests,
+  resource,
+}: {
+  requests: BatchInputRequest<T>[];
+  resource: FhirResource;
+}): BatchInputRequest<T>[] {
+  const url = `/${resource.resourceType}/${resource.id}`;
+  return requests.map((request) =>
+    request.method === 'PATCH' && 'operations' in request && request.url === url
+      ? (getPatchBinary({
+          resourceType: resource.resourceType,
+          resourceId: resource.id!,
+          ifMatch: makeOptimisticLockIfMatchHeader(resource),
+          patchOperations: request.operations,
+        }) as BatchInputRequest<T>)
+      : request
+  );
 }

@@ -40,8 +40,8 @@ export function createMedicationCopy(
   if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
   if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
-      lotNumber: orderData.lotNumber,
-      expirationDate: orderData.expDate,
+      lotNumber: orderData.lotNumber || undefined,
+      expirationDate: orderData.expDate || undefined,
     };
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };
@@ -93,8 +93,12 @@ export function updateMedicationAdministrationData(data: {
   administeredProviderId?: string;
   orderedByProviderId?: string;
   medicationResource: Medication;
+  newStatus?: MedicationOrderStatusesType;
 }): MedicationAdministration {
-  const { orderResources, orderData, administeredProviderId, orderedByProviderId, medicationResource } = data;
+  const { orderResources, administeredProviderId, orderedByProviderId, medicationResource, newStatus } = data;
+  // a not/partly-administered reason doesn't apply once the order is administered
+  const orderData: MedicationData =
+    newStatus === 'administered' ? { ...data.orderData, reason: undefined, otherReason: undefined } : data.orderData;
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;

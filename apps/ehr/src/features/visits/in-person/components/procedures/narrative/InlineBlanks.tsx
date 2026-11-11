@@ -108,6 +108,9 @@ interface BlankButtonProps {
   popupId?: string;
   /** Outlined in orange while a warning points at it. */
   warn?: boolean;
+  /** Marks the blank invalid for assistive tech; `describedBy` points at the error text. */
+  invalid?: boolean;
+  describedBy?: string;
 }
 
 /** The clickable value inside a sentence. Read-only surfaces get the same words as plain text. */
@@ -123,6 +126,8 @@ export const BlankButton: FC<BlankButtonProps> = ({
   expanded,
   popupId,
   warn,
+  invalid,
+  describedBy,
 }) => {
   if (readOnly) return <ReadOnlyBlank label={label} value={value} />;
   // An inline span rather than <button>: a long value then wraps across lines like the surrounding text.
@@ -136,6 +141,8 @@ export const BlankButton: FC<BlankButtonProps> = ({
       aria-haspopup={popupId ? 'dialog' : undefined}
       title={hint}
       aria-label={`${label}${value ? `: ${value}` : ' (empty)'}`}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
       data-testid={dataTestId}
       data-needed={!value && need ? true : undefined}
       data-warn={warn || undefined}
@@ -505,6 +512,7 @@ interface MultiBlankProps {
   values: readonly string[] | undefined;
   onChange: (values: string[]) => void;
   readOnly: boolean;
+  need?: boolean;
   dataTestId?: string;
   ghost?: boolean;
 }
@@ -517,6 +525,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   values = [],
   onChange,
   readOnly,
+  need,
   dataTestId,
   otherValue,
   onOtherChange,
@@ -537,6 +546,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
       title={title ?? label}
       value={display || undefined}
       ghost={ghost}
+      need={need}
       readOnly={readOnly}
       dataTestId={dataTestId}
     >
@@ -617,12 +627,13 @@ interface TextBlankProps {
   label: string;
   /** Shorter text shown in the empty box; the label stays the accessible name and tooltip. */
   placeholder?: string;
-  kind?: 'text' | 'number' | 'time';
+  kind?: 'text' | 'number';
   value: string | number | undefined;
   onChange: (raw: string) => void;
   readOnly: boolean;
   need?: boolean;
   min?: number;
+  max?: number;
   step?: number;
   /** A number with more decimal places than this isn't taken: typing the extra digit does nothing. */
   maxDecimals?: number;
@@ -632,9 +643,11 @@ interface TextBlankProps {
   dataTestId?: string;
   /** Outlined in orange while a warning points at it. */
   warn?: boolean;
+  invalid?: boolean;
+  describedBy?: string;
 }
 
-/** Borderless input that sits in the sentence: numbers, clock times and short free text. */
+/** Borderless input that sits in the sentence: numbers and short free text. */
 export const TextBlank: FC<TextBlankProps> = ({
   label,
   placeholder: placeholderProp,
@@ -644,12 +657,15 @@ export const TextBlank: FC<TextBlankProps> = ({
   readOnly,
   need,
   min,
+  max,
   step,
   maxDecimals,
   width,
   multiline,
   dataTestId,
   warn,
+  invalid,
+  describedBy,
 }) => {
   const text = value === undefined ? '' : String(value);
   const grows = multiline && kind === 'text';
@@ -667,13 +683,17 @@ export const TextBlank: FC<TextBlankProps> = ({
       }}
       inputProps={{
         'aria-label': label,
+        'aria-invalid': invalid || undefined,
+        'aria-describedby': describedBy,
         'data-testid': dataTestId,
         'data-needed': !text && need ? true : undefined,
         'data-warn': warn || undefined,
         title: placeholder === label ? undefined : label,
         // Chrome's form-history dropdown would look like an app popover inside a sentence.
         autoComplete: 'off',
-        ...(kind === 'number' ? { min, step: step ?? 1, inputMode: 'decimal' } : {}),
+        ...(kind === 'number'
+          ? { min, max, step: step ?? 1, inputMode: min !== undefined && min < 0 ? 'text' : 'decimal' }
+          : {}),
       }}
       sx={(theme) => {
         const inline = inlineInputSx(theme, text === '', need ?? false);
@@ -699,7 +719,7 @@ export const TextBlank: FC<TextBlankProps> = ({
             : {}),
           maxWidth: '100%',
           // The box hugs its content: the placeholder at first, then whatever is typed.
-          width: kind === 'time' ? 'auto' : width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,
+          width: width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,
           '@supports (field-sizing: content)': { width: width ?? 'auto', '& input': { fieldSizing: 'content' } },
         };
       }}
@@ -713,11 +733,12 @@ interface DateTimeBlankProps {
   value: DateTime | null | undefined;
   onChange: (value: DateTime | null) => void;
   readOnly: boolean;
+  need?: boolean;
   dataTestId?: string;
 }
 
 /** The existing MUI pickers, restyled as inline blanks so date/time semantics stay exactly as before. */
-export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onChange, readOnly, dataTestId }) => {
+export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onChange, readOnly, need, dataTestId }) => {
   const display = value?.isValid
     ? kind === 'date'
       ? value.toLocaleString(DateTime.DATE_MED)
@@ -734,9 +755,14 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
           textField: {
             variant: 'standard',
             InputProps: { disableUnderline: true },
-            inputProps: { 'aria-label': label, 'data-testid': dataTestId, placeholder: label },
+            inputProps: {
+              'aria-label': label,
+              'data-testid': dataTestId,
+              'data-needed': !display && need ? true : undefined,
+              placeholder: label,
+            },
             sx: (theme) => {
-              const inline = inlineInputSx(theme, !display, false);
+              const inline = inlineInputSx(theme, !display, need ?? false);
               return {
                 // Input and icon share one shrink-wrapped inline box, so the icon never spills over the
                 // words after it; the margin is the visible gap before them.
@@ -765,6 +791,44 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
   );
 };
 
+const parseClockTime = (value: string | undefined): DateTime | null =>
+  value ? DateTime.fromFormat(value, 'H:mm') : null;
+
+const toClockTime = (value: DateTime | null): string | undefined =>
+  value?.isValid ? value.toFormat('HH:mm') : undefined;
+
+interface ClockTimeBlankProps {
+  label: string;
+  /** "HH:mm", the shape coding answers store clock times in. */
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+  readOnly: boolean;
+  need?: boolean;
+}
+
+export const ClockTimeBlank: FC<ClockTimeBlankProps> = ({ label, value, onChange, readOnly, need }) => {
+  const [draft, setDraft] = useState<DateTime | null>(() => parseClockTime(value));
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    // The stored answer changed elsewhere (a template, a removed row): show it instead of the draft.
+    if (value !== toClockTime(draft)) setDraft(parseClockTime(value));
+  }
+  return (
+    <DateTimeBlank
+      kind="time"
+      label={label}
+      value={draft}
+      onChange={(next) => {
+        setDraft(next);
+        onChange(toClockTime(next));
+      }}
+      readOnly={readOnly}
+      need={need}
+    />
+  );
+};
+
 interface SentenceProps {
   children: ReactNode;
   onRemove?: () => void;
@@ -780,7 +844,7 @@ const JOIN = '\u2060';
 /** Inputs and pickers are atomic inlines: browsers may still break right after them, joiner or not, so
  * those blanks and their punctuation share a no-break wrapper. Text blanks keep wrapping internally. */
 const isAtomicBlank = (node: ReactNode): boolean =>
-  isValidElement(node) && (node.type === TextBlank || node.type === DateTimeBlank);
+  isValidElement(node) && (node.type === TextBlank || node.type === DateTimeBlank || node.type === ClockTimeBlank);
 
 /** Flattens fragments and keeps punctuation with its blank: a trailing ". " or ")" is joined to the
  * blank before it and an opening "(" to the blank after it, so a line never starts with a full stop or

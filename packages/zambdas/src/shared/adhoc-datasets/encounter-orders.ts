@@ -244,7 +244,7 @@ export async function fetchEncounterOrders(
     return records;
   };
 
-  // The tracking board's order search (buildTrackingBoardSearchUrls), as an async-bulk job.
+  // The tracking board's order search (buildTrackingBoardSearches), as an async-bulk job.
   const fetched = await fetchScopedResources<
     ServiceRequest | Task | DiagnosticReport | Provenance | Practitioner | Specimen
   >(oystehr, 'ServiceRequest', 'encounter', encounterRefs, [

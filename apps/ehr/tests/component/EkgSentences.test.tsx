@@ -1,0 +1,419 @@
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ReactElement, useState } from 'react';
+import { ekgFamily } from 'utils/lib/procedure-coding/families/ekg';
+import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
+import { StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
+import { describe, expect, it } from 'vitest';
+import { dataTestIds } from '../../src/constants/data-test-ids';
+import { EkgSentences } from '../../src/features/visits/in-person/components/procedures/narrative/EkgSentences';
+
+const latest: { facts?: StructuredFacts } = {};
+
+function Form({
+  initial = {},
+  readOnly = false,
+  isChild = false,
+}: {
+  initial?: StructuredFacts;
+  readOnly?: boolean;
+  isChild?: boolean;
+}): ReactElement {
+  const [value, setValue] = useState<StructuredFacts>(resolveFamilyFacts(ekgFamily, { structuredFacts: initial }));
+  latest.facts = value;
+  return <EkgSentences family={ekgFamily} value={value} onChange={setValue} readOnly={readOnly} isChild={isChild} />;
+}
+
+const USE = /^Use this interpretation: /;
+const ADDED = /^Added to interpretation: /;
+const needed = (name: string): boolean => screen.getByRole('button', { name }).hasAttribute('data-needed');
+
+const tile = (key: string): HTMLElement => screen.getByTestId(dataTestIds.documentProcedurePage.ekgTile(key));
+const typeNumbers = async (
+  user: ReturnType<typeof userEvent.setup>,
+  numbers: Record<string, number>
+): Promise<void> => {
+  for (const [name, value] of Object.entries(numbers)) {
+    const input = screen.getByRole('spinbutton', { name });
+    await user.clear(input);
+    await user.type(input, String(value));
+  }
+};
+
+describe('EKG sentences', () => {
+  it('shows six plain measurement tiles after the billing sentence and the interpretation blanks after them', () => {
+    render(<Form />);
+    expect(screen.getByText(/Component furnished:/)).toBeInTheDocument();
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(7);
+    for (const key of ['rate', 'pr', 'qrs', 'qt', 'qtc', 'axisDegrees']) expect(tile(key)).toBeInTheDocument();
+    expect(within(tile('qtc')).getByText('Bazett')).toBeInTheDocument();
+    expect(needed('rhythm (empty)')).toBe(true);
+    expect(needed('intervals and conduction (empty)')).toBe(true);
+    expect(needed('other findings (empty)')).toBe(false);
+    expect(needed('impression (empty)')).toBe(true);
+    expect(screen.queryByRole('button', { name: /^\+ other findings/ })).not.toBeInTheDocument();
+  });
+
+  it('flags the interpretation as needed only when the code includes the report', () => {
+    render(<Form initial={{ component: 'tracing only' }} />);
+    expect(needed('rhythm (empty)')).toBe(false);
+    expect(needed('comparison with prior (empty)')).toBe(false);
+  });
+
+  it('calculates QTc with Bazett from QT and rate, Fridericia on F, and keeps a typed value as manual', async () => {
+    const user = userEvent.setup();
+    render(<Form />);
+    await typeNumbers(user, { 'Rate (bpm)': 72, 'QT (ms)': 380 });
+    const qtc = screen.getByRole('spinbutton', { name: 'QTc (ms)' });
+    expect(qtc).toHaveValue(416);
+    expect(latest.facts).toMatchObject({ rate: 72, qt: 380, qtc: 416, qtcMethod: 'Bazett' });
+
+    await user.click(screen.getByRole('button', { name: 'Fridericia' }));
+    expect(qtc).toHaveValue(404);
+    expect(within(tile('qtc')).getByText('Fridericia')).toBeInTheDocument();
+    expect(latest.facts).toMatchObject({ qtc: 404, qtcMethod: 'Fridericia' });
+
+    await user.clear(qtc);
+    await user.type(qtc, '430');
+    expect(within(tile('qtc')).getByText('manual')).toBeInTheDocument();
+    expect(latest.facts).toMatchObject({ qtc: 430, qtcMethod: 'manual' });
+    await typeNumbers(user, { 'Rate (bpm)': 80 });
+    expect(qtc).toHaveValue(430);
+    await user.click(screen.getByRole('button', { name: 'Bazett' }));
+    expect(qtc).toHaveValue(439);
+    await user.clear(screen.getByRole('spinbutton', { name: 'QT (ms)' }));
+    expect(latest.facts?.qtc).toBeUndefined();
+    expect(latest.facts?.qtcMethod).toBe('Bazett');
+  });
+
+  it('keeps Fridericia picked before the numbers, and a cleared manual QTc manual', async () => {
+    const user = userEvent.setup();
+    render(<Form />);
+    await user.click(screen.getByRole('button', { name: 'Fridericia' }));
+    await typeNumbers(user, { 'Rate (bpm)': 72, 'QT (ms)': 380 });
+    expect(screen.getByRole('spinbutton', { name: 'QTc (ms)' })).toHaveValue(404);
+    expect(latest.facts).toMatchObject({ qtc: 404, qtcMethod: 'Fridericia' });
+
+    const qtc = screen.getByRole('spinbutton', { name: 'QTc (ms)' });
+    await user.clear(qtc);
+    await typeNumbers(user, { 'Rate (bpm)': 90 });
+    expect(qtc).toHaveValue(null);
+    expect(within(tile('qtc')).getByText('manual')).toBeInTheDocument();
+    expect(latest.facts).toMatchObject({ rate: 90, qtc: undefined, qtcMethod: 'manual' });
+  });
+
+  it('keeps the intervals list open while ticking, with "normal" standing alone', async () => {
+    const user = userEvent.setup();
+    render(<Form />);
+    await user.click(screen.getByRole('button', { name: 'intervals and conduction (empty)' }));
+    await user.click(screen.getByRole('checkbox', { name: 'first-degree AV block' }));
+    expect(screen.getByRole('checkbox', { name: 'prolonged QTc' })).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'prolonged QTc' }));
+    expect(latest.facts?.conduction).toEqual(['first-degree AV block', 'prolonged QTc']);
+    await user.click(screen.getByRole('checkbox', { name: 'normal' }));
+    expect(latest.facts?.conduction).toEqual(['normal']);
+    await user.click(screen.getByRole('checkbox', { name: 'right bundle branch block' }));
+    expect(latest.facts?.conduction).toEqual(['right bundle branch block']);
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'intervals and conduction: right bundle branch block' })
+    ).toBeInTheDocument();
+  });
+
+  it('suggests reads ranked for the numbers, lets a highlighted word change, and fills the fields on ⊕', async () => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 64, pr: 236, qrs: 92, qt: 410 }} />);
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getByText('Because PR 236 ms is over 200')).toBeInTheDocument();
+    const useButtons = within(box).getAllByRole('button', { name: USE });
+    expect(useButtons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Use this interpretation: First-degree AV block',
+      'Use this interpretation: Normal',
+      'Use this interpretation: Nonspecific ST-T changes',
+    ]);
+
+    await user.click(useButtons[0]);
+    expect(latest.facts).toMatchObject({
+      rhythm: 'sinus rhythm',
+      conduction: ['first-degree AV block'],
+      stt: ['no acute ST-T wave changes'],
+      impression: 'borderline EKG',
+    });
+    expect(screen.getByRole('button', { name: 'impression: borderline EKG' })).toBeInTheDocument();
+    expect(within(box).getAllByRole('img', { name: ADDED })).toHaveLength(1);
+
+    await user.click(within(box).getAllByRole('button', { name: 'Impression: borderline EKG' })[0]);
+    await user.click(screen.getByRole('option', { name: 'abnormal EKG' }));
+    expect(within(box).queryByRole('img', { name: ADDED })).not.toBeInTheDocument();
+    expect(latest.facts?.impression).toBe('borderline EKG');
+    await user.click(within(box).getAllByRole('button', { name: USE })[0]);
+    expect(latest.facts?.impression).toBe('abnormal EKG');
+    await user.click(screen.getByRole('button', { name: 'rhythm: sinus rhythm' }));
+    await user.click(screen.getByRole('option', { name: 'sinus arrhythmia' }));
+    expect(within(box).queryByRole('img', { name: ADDED })).not.toBeInTheDocument();
+  });
+
+  it('waits for the rate and QT, and offers a child only the normal read with no reminders', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Form />);
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getByText('enter the rate and QT to see suggestions')).toBeInTheDocument();
+    expect(within(box).queryByRole('button', { name: USE })).not.toBeInTheDocument();
+    await typeNumbers(user, { 'Rate (bpm)': 72, 'QT (ms)': 380 });
+    expect(within(box).getAllByRole('button', { name: USE })).toHaveLength(2);
+    unmount();
+
+    render(
+      <Form initial={{ rate: 118, pr: 236, qt: 410, conduction: ['normal'], impression: 'normal EKG' }} isChild />
+    );
+    const childBox = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(
+      within(childBox)
+        .getAllByRole('button', { name: USE })
+        .map((button) => button.ariaLabel)
+    ).toEqual(['Use this interpretation: Normal']);
+    expect(within(childBox).getByText('Under 18: enter abnormal interpretations manually')).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
+
+  it('reminds an adult when the interpretation contradicts the numbers, with one-click fixes', async () => {
+    const user = userEvent.setup();
+    render(
+      <Form initial={{ rate: 64, pr: 236, qrs: 92, qt: 410, conduction: ['normal'], impression: 'normal EKG' }} />
+    );
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+    expect(within(box).getByText(/A PR of 236 ms meets the definition of first-degree AV block/)).toBeInTheDocument();
+    expect(within(box).getByText(/this is a reminder, not a block/)).toBeInTheDocument();
+
+    await user.click(within(box).getByRole('button', { name: 'Add first-degree AV block' }));
+    expect(latest.facts?.conduction).toEqual(['first-degree AV block']);
+    expect(within(box).queryByText(/A PR of 236 ms/)).not.toBeInTheDocument();
+    expect(latest.facts?.impression).toBe('normal EKG');
+    expect(within(box).getByRole('button', { name: 'Change impression to abnormal EKG' })).toBeInTheDocument();
+    await user.click(within(box).getByRole('button', { name: 'Change impression to borderline EKG' }));
+    expect(latest.facts?.impression).toBe('borderline EKG');
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
+
+  it('moves the normal row off "normal EKG" when its axis is changed to a deviation with no axis typed', async () => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 72, pr: 160, qrs: 88, qt: 380 }} />);
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getAllByRole('button', { name: USE })[0]).toHaveAccessibleName(
+      'Use this interpretation: Normal'
+    );
+    expect(within(box).getAllByRole('button', { name: /^Impression: / })[0]).toHaveAccessibleName(
+      'Impression: normal EKG'
+    );
+    await user.click(within(box).getAllByRole('button', { name: 'Axis: Normal axis' })[0]);
+    await user.click(screen.getByRole('option', { name: 'Left axis deviation' }));
+    expect(within(box).getAllByRole('button', { name: /^Impression: / })[0]).toHaveAccessibleName(
+      'Impression: otherwise normal EKG'
+    );
+
+    await user.click(within(box).getAllByRole('button', { name: USE })[0]);
+    expect(latest.facts).toMatchObject({ axis: 'left axis deviation', impression: 'otherwise normal EKG' });
+  });
+
+  it('suggests the axis the typed number shows, so using a row raises no axis reminder', async () => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 75, pr: 160, qrs: 90, qt: 410, qtc: 458, qtcMethod: 'manual' }} />);
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getAllByRole('button', { name: 'Axis: Normal axis' })).toHaveLength(3);
+
+    await typeNumbers(user, { 'Axis (°)': -45 });
+    expect(within(box).getAllByRole('button', { name: 'Axis: Left axis deviation' })).toHaveLength(3);
+    expect(within(box).queryByRole('button', { name: 'Axis: Normal axis' })).not.toBeInTheDocument();
+
+    await user.click(within(box).getByRole('button', { name: 'Use this interpretation: Prolonged QTc' }));
+    expect(latest.facts).toMatchObject({
+      axisDegrees: -45,
+      axis: 'left axis deviation',
+      conduction: ['prolonged QTc'],
+    });
+    expect(screen.getByRole('button', { name: 'axis: left axis deviation' })).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+
+    await typeNumbers(user, { 'Axis (°)': 110 });
+    expect(within(box).getAllByRole('button', { name: 'Axis: Right axis deviation' })).toHaveLength(3);
+    expect(latest.facts?.axis).toBe('left axis deviation');
+    let reminders = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+    expect(within(reminders).getByText(/right axis deviation; Axis says "left axis deviation"/)).toBeInTheDocument();
+
+    await typeNumbers(user, { 'Axis (°)': 45 });
+    reminders = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+    expect(within(reminders).getByText(/is normal; Axis says "left axis deviation"/)).toBeInTheDocument();
+    expect(
+      within(reminders).queryByRole('button', { name: 'Set axis to right axis deviation' })
+    ).not.toBeInTheDocument();
+    const before = latest.facts;
+    await user.click(within(reminders).getByRole('button', { name: 'Set axis to normal' }));
+    expect(latest.facts).toEqual({ ...before, axis: 'normal' });
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['-0', -0],
+    ['007', 7],
+    ['1e2', 100],
+    ['5.5', 5.5],
+  ])('preserves the editable axis text %s while storing its numeric value', async (text, number) => {
+    const user = userEvent.setup();
+    render(<Form />);
+    const input = screen.getByRole('spinbutton', { name: 'Axis (°)' }) as HTMLInputElement;
+    await user.click(input);
+    fireEvent.change(input, { target: { value: text } });
+    expect(input.value).toBe(text);
+    expect(latest.facts?.axisDegrees).toBe(number);
+    await user.tab();
+    expect(input.value).toBe(String(number));
+    expect(latest.facts?.axisDegrees).toBe(number);
+  });
+
+  it('keeps signed and zero axis values editable and clears only the measurement', async () => {
+    const user = userEvent.setup();
+    const initial = { rate: 72, qt: 380, axis: 'left axis deviation', impression: 'otherwise normal EKG' };
+    render(<Form initial={initial} />);
+    const input = screen.getByRole('spinbutton', { name: 'Axis (°)' });
+    expect(input).toHaveAttribute('inputmode', 'text');
+    expect(screen.getByRole('spinbutton', { name: 'Rate (bpm)' })).toHaveAttribute('inputmode', 'numeric');
+
+    for (const axisDegrees of [-180, 0, 110]) {
+      await typeNumbers(user, { 'Axis (°)': axisDegrees });
+      expect(input).toHaveValue(axisDegrees);
+      expect(latest.facts).toMatchObject({ ...initial, axisDegrees });
+    }
+
+    await user.clear(input);
+    expect(input).toHaveValue(null);
+    expect(latest.facts).toMatchObject({ ...initial, axisDegrees: undefined });
+    expect(within(tile('axisDegrees')).getByText('°')).toBeInTheDocument();
+  });
+
+  it.each([-181, 181])('withholds suggestions at %s° until the axis is corrected or cleared', async (axisDegrees) => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 72, pr: 160, qrs: 88, qt: 380, axis: 'normal', impression: 'normal EKG' }} />);
+    const input = screen.getByRole('spinbutton', { name: 'Axis (°)' });
+    expect(input).toHaveAttribute('min', '-180');
+    expect(input).toHaveAttribute('max', '180');
+    await typeNumbers(user, { 'Axis (°)': axisDegrees });
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(input).toBeInvalid();
+    expect(within(box).queryByRole('button', { name: USE })).not.toBeInTheDocument();
+    expect(within(box).getByText('enter an axis between -180° and 180° to see suggestions')).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+
+    await typeNumbers(user, { 'Axis (°)': 110 });
+    expect(within(box).getAllByRole('button', { name: 'Axis: Right axis deviation' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Set axis to right axis deviation' })).toBeInTheDocument();
+    await user.clear(input);
+    expect(within(box).getAllByRole('button', { name: 'Axis: Normal axis' })).toHaveLength(2);
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
+
+  it('offers an otherwise normal read for an axis deviation, and extreme axis deviation for an extreme one', async () => {
+    const user = userEvent.setup();
+    render(<Form initial={{ rate: 72, pr: 160, qrs: 88, qt: 380, axisDegrees: -45 }} />);
+    const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
+    expect(within(box).getByRole('button', { name: 'Impression: otherwise normal EKG' })).toBeInTheDocument();
+    await user.click(within(box).getByRole('button', { name: 'Use this interpretation: Normal' }));
+    expect(latest.facts).toMatchObject({ axis: 'left axis deviation', impression: 'otherwise normal EKG' });
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'axis: left axis deviation' }));
+    await user.click(screen.getByRole('option', { name: 'normal' }));
+    await typeNumbers(user, { 'Axis (°)': -120 });
+    expect(within(box).getAllByRole('button', { name: 'Axis: Extreme axis deviation' })).toHaveLength(2);
+    const reminders = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+    expect(
+      within(reminders).getByText(/An axis of -120° is extreme axis deviation; Axis says "normal"/)
+    ).toBeInTheDocument();
+    await user.click(within(reminders).getByRole('button', { name: 'Set axis to extreme axis deviation' }));
+    expect(latest.facts?.axis).toBe('extreme axis deviation');
+    expect(screen.getByRole('button', { name: 'axis: extreme axis deviation' })).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
+
+  it('reminds an adult when the typed axis contradicts a normal axis, and the fix changes only the axis', async () => {
+    const user = userEvent.setup();
+    render(
+      <Form
+        initial={{
+          rate: 72,
+          pr: 160,
+          qrs: 88,
+          qt: 380,
+          axis: 'normal',
+          conduction: ['normal'],
+          stt: ['no acute ST-T wave changes'],
+          otherFindings: ['left ventricular hypertrophy'],
+          impression: 'otherwise normal EKG',
+        }}
+      />
+    );
+    const axis = screen.getByRole('spinbutton', { name: 'Axis (°)' });
+    const reminders = (): HTMLElement | null => screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+
+    await user.type(axis, '-');
+    expect(reminders()).not.toBeInTheDocument();
+    await user.type(axis, '45');
+    expect(
+      within(reminders()!)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['An axis of -45° is left axis deviation; Axis says "normal".Set axis to left axis deviation']);
+
+    await user.click(within(reminders()!).getByRole('button', { name: 'Set axis to left axis deviation' }));
+    expect(latest.facts).toMatchObject({
+      axisDegrees: -45,
+      axis: 'left axis deviation',
+      conduction: ['normal'],
+      stt: ['no acute ST-T wave changes'],
+      otherFindings: ['left ventricular hypertrophy'],
+      impression: 'otherwise normal EKG',
+    });
+    expect(screen.getByRole('button', { name: 'axis: left axis deviation' })).toBeInTheDocument();
+    expect(reminders()).not.toBeInTheDocument();
+
+    await user.clear(axis);
+    expect(latest.facts?.axisDegrees).toBeUndefined();
+    expect(latest.facts?.axis).toBe('left axis deviation');
+    await user.click(screen.getByRole('button', { name: 'axis: left axis deviation' }));
+    await user.click(screen.getByRole('option', { name: 'normal' }));
+    expect(reminders()).not.toBeInTheDocument();
+
+    await user.type(axis, '110');
+    expect(
+      within(reminders()!).getByText(/An axis of \+110° is right axis deviation; Axis says "normal"/)
+    ).toBeInTheDocument();
+    await user.clear(axis);
+    await user.type(axis, '90');
+    expect(reminders()).not.toBeInTheDocument();
+    await user.clear(axis);
+    await user.type(axis, '91');
+    expect(within(reminders()!).getAllByRole('listitem')).toHaveLength(1);
+    await user.click(within(reminders()!).getByRole('button', { name: 'Set axis to right axis deviation' }));
+    expect(latest.facts).toMatchObject({ axisDegrees: 91, axis: 'right axis deviation' });
+    expect(reminders()).not.toBeInTheDocument();
+  });
+
+  it('offers the impression scale in its own order and the measurements as plain text when read-only', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Form />);
+    await user.click(screen.getByRole('button', { name: 'impression (empty)' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'normal EKG',
+      'otherwise normal EKG',
+      'borderline EKG',
+      'abnormal EKG',
+    ]);
+    unmount();
+
+    render(<Form initial={{ rate: 72, qt: 380, qtc: 416, qtcMethod: 'Bazett' }} readOnly />);
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(within(tile('qtc')).getByText('416')).toBeInTheDocument();
+    expect(within(tile('qtc')).getByText('Bazett')).toBeInTheDocument();
+    expect(within(tile('pr')).getByText('—')).toBeInTheDocument();
+  });
+});

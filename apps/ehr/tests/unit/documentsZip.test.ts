@@ -52,7 +52,7 @@ describe('describeIncompleteArchive', () => {
 });
 
 const PATIENT: Patient = { resourceType: 'Patient', name: [{ family: 'Black', given: ['Oliver', 'Nickolas'] }] };
-const NOW = DateTime.fromISO('2026-10-16T14:30:45Z');
+const NOW = DateTime.fromISO('2026-10-16T14:30:45Z', { zone: 'UTC' });
 
 const bytesOf = (text: string): Uint8Array<ArrayBuffer> => new TextEncoder().encode(text);
 
@@ -62,13 +62,13 @@ const readZip = async (blob: Blob): Promise<Record<string, string>> => {
 };
 
 describe('makeDocumentsZipFileName', () => {
-  it('names the archive after the patient with a UTC timestamp to the minute', () => {
+  it('names the archive after the patient with a timestamp to the minute', () => {
     expect(makeDocumentsZipFileName(PATIENT, NOW)).toBe('docs-black_oliver-2026-10-16_14-30.zip');
   });
 
-  it('uses UTC whatever zone the clock is in', () => {
+  it("uses the clock's zone, which is the user's local zone by default", () => {
     expect(makeDocumentsZipFileName(PATIENT, NOW.setZone('America/New_York'))).toBe(
-      'docs-black_oliver-2026-10-16_14-30.zip'
+      'docs-black_oliver-2026-10-16_10-30.zip'
     );
   });
 

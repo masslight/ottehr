@@ -160,7 +160,7 @@ describe('ClearRosButton', () => {
         resourceId: 'obs-fever-denies',
       },
     };
-    // A row toggle or a system "Select all" fired elsewhere: this hook instance's own isLoading
+    // A row toggle or a system "Denies all" fired elsewhere: this hook instance's own isLoading
     // says nothing about it, so the button has to read the shared pending fields.
     mockPendingFields = ['ros-constitutional-fever-denies'];
 

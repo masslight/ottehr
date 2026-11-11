@@ -19,6 +19,7 @@ import { OrderPrescriptionInput } from 'utils/lib/types/api/order-prescription.t
 import { PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
+import { QuickPickSaveDialogs } from '../../../shared/components/QuickPickSaveDialogs';
 import { AllergiesContainer } from '../../../shared/components/review-tab/components/AllergiesContainer';
 import { MedicationsContainer } from '../../../shared/components/review-tab/components/MedicationsContainer';
 import { useChartData } from '../../../shared/hooks/useChartData';
@@ -28,7 +29,6 @@ import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppo
 import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
 import { useAppointmentData, useSaveChartData } from '../../../shared/stores/appointment/appointment.store';
 import { PopoverBlank, Sentence } from '../procedures/narrative/InlineBlanks';
-import { ProcedureQuickPickDialogs } from '../procedures/ProcedureQuickPickDialogs';
 import { calculatorWeightKg, previousVisitWeightNote } from './DoseCalculator';
 import { PharmacySearch } from './PharmacySearch';
 import { patientAddressAndPhone } from './prescriptionDialogs';
@@ -484,7 +484,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
         </Box>
       </Box>
 
-      <ProcedureQuickPickDialogs
+      <QuickPickSaveDialogs
         open={quickPickLineKey != null}
         name={quickPickName}
         onNameChange={(name) => {
@@ -495,7 +495,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
         saving={quickPickSaving}
         onClose={() => setQuickPickLineKey(null)}
         onSave={() => void onSaveAsQuickPick()}
-        subject="prescription"
+        entityLabel="prescription"
         details={savedDosing && quickPickDosingText(savedDosing)}
         placeholder="Quick pick name"
         nameError={quickPickNameError}

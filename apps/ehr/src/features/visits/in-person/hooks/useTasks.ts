@@ -13,9 +13,12 @@ import {
   TASK_LOCATION_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { getCoding, getExtension } from 'utils/lib/fhir/helpers';
+import { getCoding, getExtension, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
@@ -24,13 +27,15 @@ import {
   CreateManualTaskRequest,
   ERX_TASK,
   FAX_TASK,
+  isInboundFaxDeleting,
+  isInboundFaxFiled,
   MANUAL_TASK,
   RADIOLOGY_TASK,
   Task,
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
-import { getRadiologyOrderEditUrl } from '../routing/helpers';
+import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
@@ -62,11 +67,21 @@ const TASK_STATUSES_TO_EXCLUDE = [
 
 export interface TasksSearchParams {
   assignedTo?: string | null;
+  /** Comma-separated category codes; a task matches any of them. */
   category?: string | null;
+  /** Comma-separated location ids; a task matches any of them. */
   location?: string | null;
   status?: string | null;
   page?: number;
 }
+
+/** `a,b` -> `system|a,system|b`: a token search value matching any of the comma-separated codes within `system`. */
+const anyTokenInSystem = (system: string, codes: string): string =>
+  codes
+    .split(',')
+    .filter(Boolean)
+    .map((code) => `${system}|${code}`)
+    .join(',');
 
 export interface AssignTaskRequest {
   taskId: string;
@@ -226,7 +241,7 @@ export const useGetTasks = (
       if (category) {
         baseParams.push({
           name: 'group-identifier',
-          value: TASK_CATEGORY_IDENTIFIER + '|' + category,
+          value: anyTokenInSystem(TASK_CATEGORY_IDENTIFIER, category),
         });
       }
       if (status) {
@@ -262,14 +277,14 @@ export const useGetTasks = (
 
       if (location) {
         // Tasks with no location tag (e.g. inbound faxes) are location-agnostic and must NOT be
-        // hidden by the location filter. FHIR search can't express "location tag == X OR no
+        // hidden by the location filter. FHIR search can't express "location tag in (X, Y) OR no
         // location tag" in a single query, so we run two disjoint searches — tasks tagged with
-        // the selected location, and tasks with no location tag at all — and merge them.
+        // any selected location, and tasks with no location tag at all — and merge them.
         // To paginate the merged set correctly, fetch each stream through the end of the
         // requested page window, merge-sort, and slice out the page.
         const windowEnd = pageOffset + TASKS_PAGE_SIZE;
         const [tagged, untagged] = await Promise.all([
-          searchTasks([{ name: '_tag', value: TASK_LOCATION_SYSTEM + '|' + location }], windowEnd, 0),
+          searchTasks([{ name: '_tag', value: anyTokenInSystem(TASK_LOCATION_SYSTEM, location) }], windowEnd, 0),
           searchTasks([{ name: '_tag:not', value: TASK_LOCATION_SYSTEM + '|' }], windowEnd, 0),
         ]);
         const merged = mergeLocationFilteredTasks({ tagged, untagged, pageOffset, pageSize: TASKS_PAGE_SIZE });
@@ -420,26 +435,50 @@ export const useCreateManualTask = (): UseMutationResult<void, Error, CreateManu
   });
 };
 
+/**
+ * Completes a Task against its current version. An inbound fax reserved for deletion is refused (completing it
+ * would block the delete retry), and the version check stops a stale Complete from overtaking a reservation made
+ * after the read. Exported for tests.
+ */
+export const completeTaskVersionChecked = async (oystehr: Oystehr, input: CompleteTaskRequest): Promise<void> => {
+  const task = await oystehr.fhir.get<FhirTask>({ resourceType: 'Task', id: input.taskId });
+  if (isInboundFaxDeleting(task)) {
+    throw new Error('This fax is being deleted and can no longer be completed.');
+  }
+  // A transaction entry carries ifMatch in the body: the FHIR API's CORS policy rejects an If-Match header.
+  const completeRequest = getPatchBinary({
+    resourceType: 'Task',
+    resourceId: input.taskId,
+    patchOperations: [
+      {
+        op: 'replace',
+        path: '/status',
+        value: 'completed',
+      },
+      ...(input.owner ? [{ op: 'add' as const, path: '/owner', value: input.owner }] : []),
+    ],
+    ifMatch: makeOptimisticLockIfMatchHeader(task),
+  });
+  try {
+    await oystehr.fhir.transaction<FhirTask>({ requests: [completeRequest] });
+  } catch (error) {
+    if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
+      throw new Error('This task was changed by someone else. Refresh the page and try again.');
+    }
+    throw error;
+  }
+};
+
 export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRequest> => {
   const { oystehr } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CompleteTaskRequest) => {
       if (!oystehr) throw new Error('oystehr not defined');
-      await oystehr.fhir.patch<FhirTask>({
-        resourceType: 'Task',
-        id: input.taskId,
-        operations: [
-          {
-            op: 'replace',
-            path: '/status',
-            value: 'completed',
-          },
-          ...(input.owner ? [{ op: 'add' as const, path: '/owner', value: input.owner }] : []),
-        ],
-      });
+      await completeTaskVersionChecked(oystehr, input);
     },
-    onSuccess: async () => {
+    // Also on failure: a refused Complete means the row is stale.
+    onSettled: async () => {
       await queryClient.invalidateQueries({
         queryKey: [GET_TASKS_KEY],
         exact: false,
@@ -461,6 +500,7 @@ export const useCompleteErxTask = (): UseMutationResult<void, Error, { taskId: s
   });
 };
 
+/** Exported for tests. */
 export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>): Task {
   const category = task.groupIdentifier?.value ?? '';
   let action: any = undefined;
@@ -613,6 +653,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
               date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
             }
           : undefined,
+        createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
         completable,
       };
     }
@@ -693,6 +734,26 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       title = `Review Radiology Final Results ${studyTypeForTitle} for ${patientName}`;
     }
   }
+  if (category === DME_TASK.category) {
+    const code = getCoding(task.code, DME_TASK.system)?.code ?? '';
+    const patientName = getInputString(DME_TASK.input.patientName, task);
+    const itemName = getInputString(DME_TASK.input.itemName, task);
+    const appointmentId = getInputString(DME_TASK.input.appointmentId, task) ?? '';
+    const orderId =
+      task.basedOn
+        ?.find((ref) => ref.reference?.startsWith('DeviceRequest/'))
+        ?.reference?.replace('DeviceRequest/', '') ?? '';
+    action = { name: GO_TO_ORDER, link: addEncounterIdToLink(getDmeOrderDetailsUrl(appointmentId, orderId)) };
+
+    const orderDate = getInputString(DME_TASK.input.orderDate, task);
+    const providerName = getInputString(DME_TASK.input.providerName, task);
+    const locationDisplay = task.location?.display ? ` | ${task.location?.display}` : '';
+    subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}${locationDisplay}`;
+
+    if (code === DME_TASK.code.dispense) {
+      title = `Dispense ${itemName} for ${patientName}`;
+    }
+  }
   if (category === ERX_TASK.category) {
     const code = getCoding(task.code, ERX_TASK.system)?.code;
     completable = true;
@@ -718,10 +779,13 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       // subscription: a generic label beats a blank row in the queue, and it stays a single wording.
       title = task.description || 'Inbound fax';
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
+      // Fax tasks are never completed automatically (not even by filing); like manual tasks, a person
+      // presses Complete. Not while a delete has reserved the fax: completing it would block the delete retry.
+      completable = !isInboundFaxDeleting(task);
       if (communicationId) {
-        // Once the fax is actioned (filed = completed, deleted = cancelled), the match page
+        // Once the fax is actioned (filed, completed, or deleted = cancelled), the match page
         // renders read-only, so the action label flips from "Match" to "View".
-        const isActioned = task.status === 'completed' || task.status === 'cancelled';
+        const isActioned = isInboundFaxFiled(task) || task.status === 'completed' || task.status === 'cancelled';
         action = {
           name: isActioned ? VIEW_FAX : 'Match',
           link: inboundFaxMatchPath(communicationId),
@@ -746,6 +810,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
         }
       : undefined,
+    createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
     alert: getAlertCode(task),
     completable: completable,
   };

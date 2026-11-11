@@ -1,4 +1,6 @@
 import { Task as FhirTask } from 'fhir/r4b';
+import { z } from 'zod';
+import { optionalTextSchema, requiredTextSchema } from '../../text-schemas';
 
 export interface Task {
   id: string;
@@ -17,34 +19,38 @@ export interface Task {
     name: string;
     date: string;
   };
+  createdById?: string;
   alert?: TaskAlertCode;
   completable: boolean;
 }
-export interface CreateManualTaskRequest {
-  category: string;
-  appointmentId?: string;
-  orderId?: string;
-  // An eRx task on a prescription (orderId) that is a patient's refill request
-  refillRequest?: boolean;
-  // An eRx task on a prescription (orderId) that is a patient's change request
-  changeRequest?: boolean;
-  encounterId?: string;
-  taskTitle: string;
-  taskDetails?: string;
-  assignee?: {
-    id: string;
-    name: string;
-  };
-  location: {
-    id: string;
-    name: string;
-  };
-  patient?: {
-    id: string;
-    name: string;
-  };
-  createdBy?: string;
-}
+const namedReference = z.object({ id: requiredTextSchema, name: requiredTextSchema });
+const optionalNamedReference = namedReference.nullish().transform((value) => value ?? undefined);
+
+export const CreateManualTaskRequestSchema = z
+  .object({
+    category: requiredTextSchema,
+    appointmentId: optionalTextSchema,
+    orderId: optionalTextSchema,
+    // An eRx task on a prescription (orderId) that is a patient's refill request
+    refillRequest: z.boolean().default(false),
+    // An eRx task on a prescription (orderId) that is a patient's change request
+    changeRequest: z.boolean().default(false),
+    encounterId: optionalTextSchema,
+    taskTitle: requiredTextSchema,
+    taskDetails: optionalTextSchema,
+    assignee: optionalNamedReference,
+    location: namedReference,
+    patient: optionalNamedReference,
+    createdBy: optionalTextSchema,
+  })
+  .refine((task) => !(task.refillRequest && task.changeRequest), {
+    message: 'A task is a refill request or a change request, not both',
+  })
+  .refine((task) => !((task.refillRequest || task.changeRequest) && !task.orderId), {
+    message: 'A refill or change request needs a prescription',
+    path: ['orderId'],
+  });
+export type CreateManualTaskRequest = z.input<typeof CreateManualTaskRequestSchema>;
 
 export const MANUAL_TASK = {
   category: {
@@ -93,7 +99,26 @@ export const FAX_TASK = {
     pdfUrl: 'pdf-url',
     receivedDate: 'received-date',
   },
+  businessStatus: {
+    filed: 'filed',
+    deleting: 'deleting',
+  },
 } as const;
+
+const hasInboundFaxBusinessStatus = (task: FhirTask, code: string): boolean =>
+  !!task.businessStatus?.coding?.some((coding) => coding.system === FAX_TASK.system && coding.code === code);
+
+/**
+ * True once an inbound fax has been filed into a patient's chart. Filing records this on the Task's
+ * `businessStatus` but leaves the Task open: like a manual task, it is completed by a person pressing
+ * Complete in the Tasks queue.
+ */
+export const isInboundFaxFiled = (task: FhirTask): boolean =>
+  hasInboundFaxBusinessStatus(task, FAX_TASK.businessStatus.filed);
+
+/** True while a delete has reserved the fax (its PDF may already be gone); filing must refuse it. */
+export const isInboundFaxDeleting = (task: FhirTask): boolean =>
+  hasInboundFaxBusinessStatus(task, FAX_TASK.businessStatus.deleting);
 
 /**
  * Reads a valueString Task.input from a Task created via the zambdas' `createTask` helper,

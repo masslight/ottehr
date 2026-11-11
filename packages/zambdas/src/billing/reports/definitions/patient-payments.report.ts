@@ -26,10 +26,11 @@ import {
   STRIPE_PAYMENT_ID_SYSTEM,
 } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
+import { invoiceIdForPaymentNotice } from '../../patient-payments';
 import {
   CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
-  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
-  MANUAL_REFUND_ID_SYSTEM,
+  PATIENT_PAYMENT_IDENTIFIER_FILTER,
+  stampedStripeAccount,
 } from '../../payments';
 import { BILLING_WORKING_COPY_TAG, fhirName, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../shared';
 import { ReportDefinition } from '../framework/types';
@@ -153,12 +154,6 @@ const stripeIdsOf = (notice: PaymentNotice): string[] =>
     .map((identifier) => identifier.value ?? '')
     .filter(Boolean);
 
-// the webhook's disposition strings carry the charge↔invoice/refund links
-const invoiceIdOf = (notice: PaymentNotice): string | undefined =>
-  stripeIdsOf(notice).find((id) => id.startsWith('in_')) ??
-  notice.payment?.reference?.match(/in_\w+/)?.[0] ??
-  (notice.contained?.[0] as { disposition?: string } | undefined)?.disposition?.match(/invoice (in_\w+)/)?.[1];
-
 const refundedChargeIdOf = (notice: PaymentNotice): string | undefined =>
   (notice.contained?.[0] as { disposition?: string } | undefined)?.disposition?.match(/for charge (ch_\w+)/)?.[1];
 
@@ -223,7 +218,7 @@ async function loadWindowNotices(
             { name: '_offset', value: String(offset) },
             {
               name: 'identifier',
-              value: `${MANUAL_REFUND_ID_SYSTEM}|,${STRIPE_PAYMENT_ID_SYSTEM}|,${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|,${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|`,
+              value: PATIENT_PAYMENT_IDENTIFIER_FILTER,
             },
           ],
         });
@@ -276,7 +271,7 @@ async function loadWindowNotices(
   const synthetic = new WeakSet<PaymentNotice>();
   const invoiceChargeIds = new Set<string>();
   for (const notice of notices) {
-    if (invoiceIdOf(notice)) {
+    if (invoiceIdForPaymentNotice(notice)) {
       stripeIdsOf(notice)
         .filter((id) => id.startsWith('ch_') || id.startsWith('pi_'))
         .forEach((id) => invoiceChargeIds.add(id));
@@ -306,7 +301,7 @@ async function loadWindowNotices(
   }
 
   const categoryOf = (notice: PaymentNotice): string => {
-    if (invoiceIdOf(notice)) return 'invoice';
+    if (invoiceIdForPaymentNotice(notice)) return 'invoice';
     const refundedChargeId = refundedChargeIdOf(notice);
     if (refundedChargeId && invoiceChargeIds.has(refundedChargeId)) return 'invoice';
     return noticeMethod(notice);
@@ -683,6 +678,9 @@ async function resolveStripeStatuses(
   const invoiceCache = new Map<string, Stripe.Invoice | undefined>();
 
   const stripeAccountFor = async (notice: PaymentNotice): Promise<string | undefined> => {
+    // the account the payment was taken on, when its writer stamped it
+    const stamped = stampedStripeAccount(notice);
+    if (stamped) return stamped.stripeAccount;
     const orgId = notice.payee?.reference?.replace('Organization/', '');
     if (!orgId || !isValidUUID(orgId)) return undefined;
     if (!stripeAccountByOrgId.has(orgId)) {
@@ -718,7 +716,7 @@ async function resolveStripeStatuses(
   const noticeByInvoiceId = new Map<string, PaymentNotice>();
   for (const notice of notices) {
     if (synthetic?.has(notice)) continue;
-    const invoiceId = invoiceIdOf(notice);
+    const invoiceId = invoiceIdForPaymentNotice(notice);
     if (invoiceId && !noticeByInvoiceId.has(invoiceId)) noticeByInvoiceId.set(invoiceId, notice);
   }
   const invoiceEntries = [...noticeByInvoiceId.entries()];
@@ -745,7 +743,7 @@ async function resolveStripeStatuses(
       // synthetic rows already carry their charge/refund state; no invoice retrieve needed
       if (synthetic?.has(notice)) return 'Paid';
 
-      const invoiceId = invoiceIdOf(notice);
+      const invoiceId = invoiceIdForPaymentNotice(notice);
       if (invoiceId) {
         const invoice = await fetchInvoice(invoiceId, notice);
         if (!invoice) return 'Invoice status unavailable';

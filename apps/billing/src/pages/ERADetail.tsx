@@ -467,6 +467,7 @@ export default function ERADetail(): ReactElement {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           fileName={`era-${era.id}.txt`}
+          type="era"
           x12Provider={() => Promise.resolve(era.x12)}
         />
       )}

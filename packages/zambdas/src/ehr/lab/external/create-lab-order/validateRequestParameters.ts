@@ -36,7 +36,8 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
     psc,
     orderingLocation,
     selectedPaymentMethod,
-    clinicalInfoNoteByUser,
+    clinicalInfoNoteByUser:
+      typeof clinicalInfoNoteByUser === 'string' && clinicalInfoNoteByUser.trim() ? clinicalInfoNoteByUser : undefined,
     isStat: isStat ?? false,
     secrets: input.secrets,
   };
