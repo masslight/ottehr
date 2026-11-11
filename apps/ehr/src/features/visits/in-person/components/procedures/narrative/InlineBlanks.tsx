@@ -765,18 +765,21 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
               const inline = inlineInputSx(theme, !display, need ?? false);
               return {
                 // Input and icon share one shrink-wrapped inline box, so the icon never spills over the
-                // words after it; the margin is the visible gap before them.
+                // words after it; the sentence's own spaces and punctuation follow it, as after the other blanks.
                 display: 'inline-flex',
                 width: 'auto',
                 verticalAlign: 'baseline',
-                mr: '0.35em',
                 '& .MuiInputBase-root': { font: 'inherit', lineHeight: 'inherit', width: 'auto' },
                 ...inline,
                 '& input': {
                   ...(inline['& input'] as Record<string, unknown>),
+                  // A picked date or time looks like any other filled blank.
+                  ...(display ? { ...filledSx(theme), padding: '1px 2px' } : {}),
                   flex: 'none',
                   minWidth: 0,
                   width: display ? (kind === 'date' ? '11ch' : '8ch') : `${label.length}ch`,
+                  // The box hugs what the picker writes in it, so no gap opens before the icon.
+                  '@supports (field-sizing: content)': { width: 'auto', fieldSizing: 'content' },
                 },
                 '& .MuiInputAdornment-root': { ml: 0, flex: 'none', height: 'auto' },
                 // MuiIconButton-edgeEnd sets margin-right: -12px, which pushed the icon over the next word.

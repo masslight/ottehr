@@ -20,7 +20,6 @@ import {
 } from 'src/features/visits/in-person/hooks/useImmunization';
 import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
 import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
-import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
@@ -101,7 +100,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
 
   const {
     mergedQuickPicks,
-    mergedQuickPicksLoading,
     quickPickDialogOpen,
     setQuickPickDialogOpen,
     quickPickName,
@@ -111,9 +109,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     openQuickPickDialog,
     onSaveAsQuickPick,
   } = useImmunizationQuickPickManagement({ getValues: () => line });
-  // On the details card a quick pick fills the administration details only; the vaccine is the order's.
   const onQuickPickSelect = (quickPick: Parameters<typeof applyImmunizationQuickPick>[1]): void =>
-    setLine((current) => applyImmunizationQuickPick(current, quickPick, false));
+    setLine((current) => applyImmunizationQuickPick(current, quickPick, true));
 
   const errorsFor = (type: AdministrationType): string[] => [
     ...immunizationLineErrors(line),
@@ -180,24 +177,13 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
       <AccordionCard>
         <Stack spacing={1.5} style={{ padding: '24px' }}>
           <ImmunizationSectionLabel>Order</ImmunizationSectionLabel>
-          {!isReadOnly && (
-            <QuickPicksButton
-              quickPicks={mergedQuickPicks}
-              loading={mergedQuickPicksLoading}
-              getLabel={(qp) => qp.name}
-              onSelect={onQuickPickSelect}
-              showAddOption
-              isAdmin={isAdmin}
-              onAddOrUpdate={() => void openQuickPickDialog()}
-              searchable
-            />
-          )}
           <ImmunizationSentences
             line={line}
             index={0}
             onChange={setLine}
             quickPicks={mergedQuickPicks}
             onQuickPick={onQuickPickSelect}
+            onSaveQuickPick={isAdmin ? () => void openQuickPickDialog() : undefined}
             errors={attempted ? errorsFor(administrationType) : []}
             readOnly={isReadOnly}
             needAdministration

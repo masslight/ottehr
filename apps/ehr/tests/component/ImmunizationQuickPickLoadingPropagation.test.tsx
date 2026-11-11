@@ -43,18 +43,6 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: ({ loading }: { loading?: boolean }) => (
-    <div data-testid="quick-picks-button">{String(Boolean(loading))}</div>
-  ),
-}));
-
-vi.mock('src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: ({ loading }: { loading?: boolean }) => (
-    <div data-testid="quick-picks-button">{String(Boolean(loading))}</div>
-  ),
-}));
-
 vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagement', () => ({
   useImmunizationQuickPickManagement: () => quickPickState,
 }));
@@ -227,23 +215,6 @@ vi.mock('../../src/features/visits/shared/components/review-tab/components/Aller
 vi.mock('../../src/features/visits/shared/components/review-tab/components/MedicationsContainer', () => ({
   MedicationsContainer: () => <div />,
 }));
-
-describe('immunization quick pick loading propagation', () => {
-  it('passes the loading state to VaccineDetailsCard quick picks', () => {
-    render(
-      <VaccineDetailsCard
-        order={
-          {
-            id: 'order-1',
-            administrationDetails: {},
-          } as any
-        }
-      />
-    );
-
-    expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
-  });
-});
 
 describe('immunization save quick pick dialog', () => {
   afterEach(() => {

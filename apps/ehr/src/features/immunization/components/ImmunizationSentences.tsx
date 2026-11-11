@@ -317,38 +317,38 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           )}
         </PopoverBlank>
         .
-        {instructionsShown ? (
+        {!instructionsShown && !readOnly && (
           <>
             {' '}
-            Instructions:{' '}
-            <TextBlank
-              label="instructions"
-              multiline
-              value={details.instructions}
-              onChange={(instructions) => update({ instructions })}
-              readOnly={readOnly}
-              dataTestId={dataTestIds.orderVaccinePage.instructions}
-            />
-            .
-            {!readOnly && (
-              <RemoveButton
-                label="Remove instructions"
-                onClick={() => {
-                  setInstructionsOpen(false);
-                  update({ instructions: '' });
-                }}
-              />
-            )}
+            <BlankButton label="+ instructions" ghost readOnly={readOnly} onClick={() => setInstructionsOpen(true)} />
           </>
-        ) : (
-          !readOnly && (
-            <>
-              {' '}
-              <BlankButton label="+ instructions" ghost readOnly={readOnly} onClick={() => setInstructionsOpen(true)} />
-            </>
-          )
         )}
       </Sentence>
+
+      {/* On a line of its own, as wide as eRx's directions, so typed instructions wrap in a box that fits them. */}
+      {instructionsShown && (
+        <Sentence>
+          Instructions:{' '}
+          <TextBlank
+            label="instructions"
+            width="480px"
+            multiline
+            value={details.instructions}
+            onChange={(instructions) => update({ instructions })}
+            readOnly={readOnly}
+            dataTestId={dataTestIds.orderVaccinePage.instructions}
+          />
+          {!readOnly && (
+            <RemoveButton
+              label="Remove instructions"
+              onClick={() => {
+                setInstructionsOpen(false);
+                update({ instructions: '' });
+              }}
+            />
+          )}
+        </Sentence>
+      )}
 
       <ImmunizationSectionLabel spaced>Administration</ImmunizationSectionLabel>
       <Sentence>
