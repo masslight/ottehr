@@ -22,6 +22,9 @@ export interface Task {
   createdById?: string;
   alert?: TaskAlertCode;
   completable: boolean;
+  chat?: {
+    hasUnread: boolean;
+  };
 }
 const namedReference = z.object({ id: requiredTextSchema, name: requiredTextSchema });
 const optionalNamedReference = namedReference.nullish().transform((value) => value ?? undefined);
@@ -145,5 +148,16 @@ export const ERX_TASK = {
   },
   input: {
     providerName: 'provider-name',
+  },
+} as const;
+
+export const PATIENT_REQUEST_TASK = {
+  category: 'patient-request',
+  system: 'patient-request-task',
+  code: {
+    prescriptionRefill: 'prescription-refill',
+    schoolWorkNote: 'school-work-note',
+    medicalRecord: 'medical-record',
+    followUp: 'follow-up',
   },
 } as const;
