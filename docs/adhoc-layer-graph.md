@@ -253,7 +253,7 @@ Front end (`report-builder/page/useReportBuilder.ts`, `query/merge-rows.ts`, `qu
 - The range is fixed for the session (same dataset and date controls). A range "until now" would gain visits every minute and change the row set between two loads. An explicit fetch starts a new session.
 - `mergeRows(prev, next, rowKey)`: each row of `next` (base + the new layers) gets the fields of the `prev` row with the same key. When the two are not the same set of rows, every layer is loaded again.
 - The data file is inflated in the browser (`DecompressionStream`); a plain JSON file from an older Task still reads.
-- The Task status is polled after 500 ms, then every second.
+- The Task status is polled every 2 s, the first check 2 s after the start (each check is a zambda call; every second would double them for ~0.5 s of average wait). The worker's own polling of each async job stays at 1 s: there a 2 s poll would add ~0.5–1 s to every round of jobs.
 
 ### 2.7 Any data, not one dataset
 

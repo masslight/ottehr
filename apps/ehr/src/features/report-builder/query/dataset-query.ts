@@ -28,9 +28,9 @@ export async function downloadReportData<T>(downloadUrl: string): Promise<T> {
   return JSON.parse(await readReportDataBytes(new Uint8Array(await response.arrayBuffer()))) as T;
 }
 
-// The first status check comes soon after the start (a small report is ready in about a second), then every second.
-const ADHOC_FIRST_POLL_MS = 500;
-const ADHOC_POLL_INTERVAL_MS = 1000;
+// Every 2 s, the first check 2 s after the start (a Task is never done sooner). Each check is a zambda call; polling
+// every second would double them for ~0.5 s of average wait on reports that take 8–40 s.
+const ADHOC_POLL_INTERVAL_MS = 2000;
 const ADHOC_TASK_WORKER_TIMEOUT_MS = 900 * 1000;
 const ADHOC_POLL_TIMEOUT_MS = ADHOC_TASK_WORKER_TIMEOUT_MS + 2 * 60 * 1000;
 
@@ -41,7 +41,7 @@ export async function pollAdHocTask<S extends { status: string; error?: string }
 ): Promise<S> {
   const deadline = Date.now() + ADHOC_POLL_TIMEOUT_MS;
 
-  await new Promise((resolve) => setTimeout(resolve, ADHOC_FIRST_POLL_MS));
+  await new Promise((resolve) => setTimeout(resolve, ADHOC_POLL_INTERVAL_MS));
 
   while (Date.now() < deadline) {
     const status = await getStatus();
