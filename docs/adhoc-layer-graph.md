@@ -123,8 +123,9 @@ sequenceDiagram
   FE->>FE: range fixed for the session
   FE->>W: Task{datasetId, range, options:{vitals}}
   W->>F: root: one job per 15-day window, Appointment + _revinclude Encounter
-  W->>F: Patient / Location / Practitioner by id (500 ids per job)
-  par base lookups and layers
+  par root lookups, base lookups and layers
+    W->>F: Patient / Location / Practitioner by id (500 ids per job)
+  and
     W->>F: registrar names, Schedule, HealthcareService
   and
     W->>F: vitals: Observation by encounter, _tag=vital-…, 500 ids per job
@@ -139,8 +140,10 @@ sequenceDiagram
 
 Run order in the worker (`adhoc-datasets/encounters/index.ts`):
 
-1. **Root** (`root.ts`): appointments with their encounters (and follow-ups through `Encounter:part-of`), then patients, locations and the attending / intake practitioners by id.
-2. **In parallel:** the base lookups (registrar names, location schedules, provider groups), every requested layer's `fetch`, and the requested foreign patient layers. Each needs only the root; the job pool limits the requests, not the layers.
+1. **Root** (`root.ts`): appointments with their encounters (and follow-ups through `Encounter:part-of`).
+2. **In parallel:** the root lookups (patients, locations and the attending / intake practitioners by id — `ctx.rootLookups()`, once), the base lookups (registrar names, location schedules, provider groups), every requested layer's `fetch`, and the requested foreign patient layers. Each needs only the root; the job pool limits the requests, not the layers.
+   - Most layers do not read patients or locations, so they no longer wait for them. The few that do while fetching await `rootLookups()` themselves: employer, paperwork, the foreign patient layers, the lab / nursing orders, the location schedules, and the practitioner loader. The root's practitioners (with the provider-type extension) therefore still land in the practitioner map before any other lookup, and the rows are the same as with the lookups first.
+   - This saves one round of jobs (~2.5–4 s) on every report. The patients and billing datasets keep the lookups inside the root: they need the patients to build their rows.
 3. **Rows:** one per encounter — the base row, then each layer's `map`, then the foreign columns by `patientId`.
 4. A log line shows where the time went: `[adhoc] encounters timing: rows=… root ms=… layers ms=… map ms=… | <layer>: fetch … map …`.
 
