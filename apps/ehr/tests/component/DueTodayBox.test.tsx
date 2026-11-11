@@ -77,10 +77,10 @@ const quickPicks = [
 ];
 const stocked = stockedVaccines(
   [
-    { id: 'pentacel', name: 'Pentacel' },
-    { id: 'daptacel', name: 'Daptacel' },
-    { id: 'vaxelis', name: 'Vaxelis' },
-    { id: 'prevnar', name: 'Prevnar 20' },
+    { id: 'pentacel', name: 'Pentacel', cvx: '120' },
+    { id: 'daptacel', name: 'Daptacel', cvx: '20' },
+    { id: 'vaxelis', name: 'Vaxelis', cvx: '146' },
+    { id: 'prevnar', name: 'Prevnar 20', cvx: '216' },
   ],
   quickPicks
 );

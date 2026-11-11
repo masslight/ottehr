@@ -18,7 +18,6 @@ import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
 import { BASE_ROUTE_OPTIONS, LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { IMMUNIZATION_OUTSIDE_SOURCES } from 'utils/lib/fhir/immunization';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
-import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { MVX_MANUFACTURERS } from 'utils/lib/types/data/immunization/mvx-manufacturers.generated';
 import {
@@ -32,7 +31,13 @@ import { VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
 import { ImmunizationDiagnosisOption, useImmunizationDiagnosisOptions } from '../hooks/useImmunizationDiagnosisOptions';
 import { useVaccineLotsOnHand } from '../hooks/useVaccineInventory';
 import { LineQuickPicks } from './DueTodayBox';
-import { formatImmunizationCptCode, ImmunizationLine, OutsideDoseValues, toggleOutside } from './immunizationLines';
+import {
+  applyLotToLine,
+  formatImmunizationCptCode,
+  ImmunizationLine,
+  OutsideDoseValues,
+  toggleOutside,
+} from './immunizationLines';
 import { IMMUNIZATION_MENU_PAPER_SX, ImmunizationMenu } from './ImmunizationMenu';
 import { FundingChip, VaccineLotBlank } from './VaccineLotBlank';
 
@@ -363,22 +368,7 @@ const LotBlank: FC<{
       need={need}
       dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
       // A picked lot fills what the box says and takes one dose off that lot when administered.
-      onPick={(lot: InventoryLot, borrowingReason) =>
-        onChange({
-          ...line,
-          details: { ...details, manufacturer: lot.manufacturer ?? getMvxManufacturer(lot.mvx)?.name },
-          administrationDetails: {
-            ...administrationDetails,
-            lot: lot.lotNumber,
-            expDate: lot.expirationDate,
-            ndc: lot.ndc ?? '',
-            mvx: lot.mvx ?? administrationDetails.mvx,
-            fundingSource: lot.fundingSource ?? 'private',
-            vfcEligibility,
-            borrowingReason,
-          },
-        })
-      }
+      onPick={(lot, borrowingReason) => onChange(applyLotToLine(line, lot, vfcEligibility, borrowingReason))}
       onType={(lot) => updateAdministration({ lot, fundingSource: undefined, borrowingReason: undefined })}
     />
   );

@@ -70,6 +70,7 @@ vi.mock('../../src/features/immunization/hooks/useVaccineInventory', () => ({
   useVfcEligibility: () => ({ data: undefined, isLoading: false }),
   useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useVaccineLotsOnHand: () => ({ data: [] }),
+  useVaccineInventoryAtLocation: () => ({ data: undefined }),
 }));
 vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({ OrderHistoryTable: () => <div /> }));
 

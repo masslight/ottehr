@@ -1,6 +1,7 @@
 import { Add } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Divider, Stack } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -40,6 +41,7 @@ import {
 import {
   buildDueToday,
   coverageOf,
+  DueTodayLotPick,
   fillFromDueToday,
   StockedVaccine,
   stockedVaccines,
@@ -64,7 +66,7 @@ import { ImmunizationSectionLabel, ImmunizationSentences } from '../components/I
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { VfcEligibilityBox } from '../components/VfcEligibilityBox';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
-import { useVfcEligibility } from '../hooks/useVaccineInventory';
+import { useVaccineInventoryAtLocation, useVfcEligibility } from '../hooks/useVaccineInventory';
 
 // Layout from the eRx order form: the side column sits beside the form once the page is wide enough.
 const SIDE_COLUMN_WIDTH = 340;
@@ -80,12 +82,13 @@ const addVaccineToLines = (
   lines: ImmunizationLine[],
   vaccine: StockedVaccine,
   quickPick: ImmunizationQuickPickData | undefined,
-  orderedProvider: InputImmunizationOrderDetails['orderedProvider'] | undefined
+  orderedProvider: InputImmunizationOrderDetails['orderedProvider'] | undefined,
+  lotPick: DueTodayLotPick
 ): ImmunizationLine[] => {
   const target = lines.find((line) => !line.outside && !line.details.medication);
   return target
-    ? lines.map((line) => (line === target ? fillFromDueToday(line, vaccine, quickPick) : line))
-    : [...lines, fillFromDueToday(emptyImmunizationLine(orderedProvider), vaccine, quickPick)];
+    ? lines.map((line) => (line === target ? fillFromDueToday(line, vaccine, quickPick, lotPick) : line))
+    : [...lines, fillFromDueToday(emptyImmunizationLine(orderedProvider), vaccine, quickPick, lotPick)];
 };
 
 interface ImmunizationOrderCreateEditProps {
@@ -257,14 +260,24 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   );
   usePendingQuickPick('immunizations', handlePendingQuickPick, !isOrderLoading);
 
-  // The Due today box: the forecast run on the server for this visit, the vaccines the practice gives, their quick picks.
+  // The Due today box: the forecast run on the server for this visit, the vaccines the practice gives with their
+  // lots on hand here, and their quick picks.
   const {
     data: forecastResponse,
     isLoading: forecastLoading,
     isError: forecastError,
   } = useGetImmunizationForecast({ patientId: isCreating ? patient?.id : undefined, encounterId: encounter?.id });
   const { data: vaccines } = useGetVaccines();
-  const stocked = useMemo(() => stockedVaccines(vaccines, mergedQuickPicks), [vaccines, mergedQuickPicks]);
+  const { data: vaccineInventory } = useVaccineInventoryAtLocation(isCreating ? location?.id : undefined);
+  const stocked = useMemo(
+    () => stockedVaccines(vaccines, mergedQuickPicks, vaccineInventory),
+    [vaccines, mergedQuickPicks, vaccineInventory]
+  );
+  // ⊕ pre-picks the lot the Lot blank would list first: the patient's stock, soonest expiry, never expired.
+  const lotPick = useMemo<DueTodayLotPick>(
+    () => ({ vfcEligibility, today: DateTime.now().toISODate() }),
+    [vfcEligibility]
+  );
   const dueToday = useMemo(
     () => forecastResponse && buildDueToday(forecastResponse.forecast, stocked, forecastResponse.cvxGroups),
     [forecastResponse, stocked]
@@ -274,13 +287,13 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     [dueToday, forecastResponse, lines, stocked]
   );
   const addFromDueToday = (vaccine: StockedVaccine, quickPick?: ImmunizationQuickPickData): void =>
-    changeLines((current) => addVaccineToLines(current, vaccine, quickPick, defaultProvider));
+    changeLines((current) => addVaccineToLines(current, vaccine, quickPick, defaultProvider, lotPick));
   // The fewest-shot set; a vaccine given several ways is added without a quick pick, and its line asks which.
   const addAllDue = (): void =>
     changeLines((current) =>
       dueToday
         ? vaccinesToAddAll(dueToday, current).reduce(
-            (lines, vaccine) => addVaccineToLines(lines, vaccine, undefined, defaultProvider),
+            (lines, vaccine) => addVaccineToLines(lines, vaccine, undefined, defaultProvider, lotPick),
             current
           )
         : current

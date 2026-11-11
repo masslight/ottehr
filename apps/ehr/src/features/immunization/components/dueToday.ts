@@ -1,18 +1,22 @@
 import { DateTime } from 'luxon';
 import { ImmunizationForecast, ImmunizationGroupId } from 'utils/lib/immunization-forecast/types';
+import { InventoryDrugRow, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { Vaccine } from 'utils/lib/types/data/immunization/types';
-import { applyImmunizationQuickPick, ImmunizationFormValues } from './immunizationLines';
+import { sortVaccineLotsForPatient, VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
+import { applyImmunizationQuickPick, applyLotToLine, ImmunizationFormValues } from './immunizationLines';
 
 /** CVX → the forecast groups it covers, as the forecast endpoint returns it. */
 export type CvxGroups = Record<string, ImmunizationGroupId[]>;
 
-/** A vaccine the practice gives, with the CVX codes and quick picks it is known by. */
+/** A vaccine the practice gives, with the CVX codes and quick picks it is known by and its lots on hand. */
 export interface StockedVaccine {
   id: string;
   name: string;
   cvxCodes: string[];
   quickPicks: ImmunizationQuickPickData[];
+  /** On hand at the visit's location; empty when inventory is not set up for it. */
+  lots: InventoryLot[];
 }
 
 /** A group due today or past due, and the CVX codes the forecast allows for its next dose. */
@@ -58,24 +62,33 @@ const normalizeCvx = (cvx: string): string => cvx.trim().padStart(2, '0');
 
 const unique = <T>(values: T[]): T[] => [...new Set(values)];
 
+const onHand = (lots: InventoryLot[]): InventoryLot[] => lots.filter((lot) => lot.onHand > 0);
+
 /**
- * The vaccines the practice can give today. Stocked = in the practice's vaccine list (get-vaccines) until inventory
- * lots exist; this is the one place that decides it. A vaccine's CVX codes come from its quick picks, so one with no
- * quick pick carrying a CVX cannot be suggested.
+ * The vaccines the practice can give today, each with the CVX of its catalog entry and its quick picks; this is the
+ * one place that decides what "stocked" means. With vaccine lots on hand anywhere, stocked means a lot on hand at
+ * the visit's location; with no inventory set up at all, the practice's vaccine list (get-vaccines) is the stock.
  */
 export const stockedVaccines = (
   vaccines: Vaccine[] | undefined,
-  quickPicks: ImmunizationQuickPickData[]
-): StockedVaccine[] =>
-  (vaccines ?? []).map((vaccine) => {
-    const picks = quickPicks.filter((quickPick) => quickPick.vaccine?.id === vaccine.id);
-    return {
-      id: vaccine.id,
-      name: vaccine.name,
-      cvxCodes: unique(picks.flatMap((quickPick) => (quickPick.cvx?.trim() ? [normalizeCvx(quickPick.cvx)] : []))),
-      quickPicks: picks,
-    };
+  quickPicks: ImmunizationQuickPickData[],
+  inventory?: InventoryDrugRow[]
+): StockedVaccine[] => {
+  const anyStock = (inventory ?? []).some((row) => onHand(row.lots).length > 0);
+  return (vaccines ?? []).flatMap((vaccine) => {
+    const lots = onHand(inventory?.find((row) => row.medicationId === vaccine.id)?.lots ?? []);
+    if (anyStock && !lots.length) return [];
+    return [
+      {
+        id: vaccine.id,
+        name: vaccine.name,
+        cvxCodes: vaccine.cvx?.trim() ? [normalizeCvx(vaccine.cvx)] : [],
+        quickPicks: quickPicks.filter((quickPick) => quickPick.vaccine?.id === vaccine.id),
+        lots,
+      },
+    ];
   });
+};
 
 export const dueGroups = (forecast: ImmunizationForecast): DueGroup[] =>
   forecast.groups.flatMap((group) =>
@@ -107,10 +120,17 @@ const candidatesFor = (
     return [{ vaccine, covers, extras }];
   });
 
-/** The tie rule: fewest shots for what's due, then nothing given that isn't due; the lot that expires soonest waits
- * for inventory. The name settles what is left, so the box reads the same every time. */
+/** The on-hand lot that expires soonest; a vaccine without lots sorts after one with them. */
+const soonestExpiration = (candidate: DueTodayCandidate): string =>
+  candidate.vaccine.lots.map((lot) => lot.expirationDate.slice(0, 10)).sort()[0] ?? '9999-12-31';
+
+/** The tie rule (decision #8): fewest shots for what's due, then nothing given that isn't due, then the lot that
+ * expires soonest. The name settles what is left, so the box reads the same every time. */
 const rank = (a: DueTodayCandidate, b: DueTodayCandidate, gain: (c: DueTodayCandidate) => number): number =>
-  gain(b) - gain(a) || a.extras.length - b.extras.length || a.vaccine.name.localeCompare(b.vaccine.name);
+  gain(b) - gain(a) ||
+  a.extras.length - b.extras.length ||
+  soonestExpiration(a).localeCompare(soonestExpiration(b)) ||
+  a.vaccine.name.localeCompare(b.vaccine.name);
 
 const MAX_UPCOMING = 3;
 
@@ -167,26 +187,48 @@ export const buildDueToday = (
 export const isVaccineAdded = (vaccine: StockedVaccine, lines: ImmunizationFormValues[]): boolean =>
   lines.some((line) => !line.outside && line.details.medication?.id === vaccine.id);
 
+export interface DueTodayLotPick {
+  /** The patient's VFC eligibility for the visit, once confirmed. */
+  vfcEligibility?: VfcEligibilityCode;
+  /** ISO yyyy-mm-dd, the browser's day: an expired lot is never pre-picked. */
+  today: string;
+}
+
+/**
+ * The lot ⊕ pre-picks: the patient's stock first (VFC lots for a VFC-eligible child, private otherwise), soonest
+ * expiry, as the Lot blank lists them. Never an expired lot, and never the other stock: borrowing is the
+ * provider's own choice in the Lot blank, where it asks for the reason.
+ */
+export const lotToPrePick = (vaccine: StockedVaccine, pick: DueTodayLotPick): InventoryLot | undefined =>
+  sortVaccineLotsForPatient(vaccine.lots, pick.vfcEligibility, pick.today).find(
+    (option) => !option.expired && option.matches !== false
+  )?.lot;
+
 /**
  * What ⊕ fills (option B): a vaccine with one quick pick fills the whole line from it; a quick pick picked in the
  * box fills from that one; otherwise only the vaccine, and the line asks. The CVX is the vaccine's own when it has
- * just one (a quick pick carries none).
+ * just one (a quick pick carries none), and with `lotPick` the line gets its lot from stock too.
  */
 export const fillFromDueToday = <T extends ImmunizationFormValues>(
   line: T,
   vaccine: StockedVaccine,
-  quickPick: ImmunizationQuickPickData | undefined = vaccine.quickPicks.length === 1 ? vaccine.quickPicks[0] : undefined
+  quickPick: ImmunizationQuickPickData | undefined = vaccine.quickPicks.length === 1
+    ? vaccine.quickPicks[0]
+    : undefined,
+  lotPick?: DueTodayLotPick
 ): T => {
   const filled = quickPick
     ? applyImmunizationQuickPick(line, quickPick, true)
     : { ...line, details: { ...line.details, medication: { id: vaccine.id, name: vaccine.name } } };
-  return {
+  const withCvx = {
     ...filled,
     administrationDetails: {
       ...filled.administrationDetails,
       cvx: vaccine.cvxCodes.length === 1 ? vaccine.cvxCodes[0] : filled.administrationDetails.cvx,
     },
   };
+  const lot = lotPick ? lotToPrePick(vaccine, lotPick) : undefined;
+  return lot ? applyLotToLine(withCvx, lot, lotPick?.vfcEligibility) : withCvx;
 };
 
 /** The fewest-shot set "Add all due" adds: each row's lead that is not on the page yet. */

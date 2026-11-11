@@ -1,8 +1,9 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { useInventoryLotsOnHand } from 'src/features/admin/inventory/inventory.queries';
+import { DateTime } from 'luxon';
+import { useInventoryLotsOnHand, useMedicationInventory } from 'src/features/admin/inventory/inventory.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
+import { InventoryDrugRow, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { VfcEligibilityResponse } from 'utils/lib/types/api/vfc-eligibility';
 import { VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
 
@@ -44,6 +45,19 @@ export const useConfirmVfcEligibility = (
     },
     onSuccess: (data) => queryClient.setQueryData([VFC_ELIGIBILITY_KEY, encounterId], data),
   });
+};
+
+/**
+ * Every vaccine's lots at the visit's location, for the Due today box; undefined until read (the box then treats
+ * the practice's vaccine list as the stock). The browser's date decides "expired", as it does on the MAR.
+ */
+export const useVaccineInventoryAtLocation = (
+  locationId: string | undefined
+): { data: InventoryDrugRow[] | undefined } => {
+  const { data } = useMedicationInventory(
+    locationId ? { view: 'location', locationId, today: DateTime.now().toISODate() } : undefined
+  );
+  return { data: data?.drugs.filter((drug) => drug.type === 'vaccine') };
 };
 
 /** Lots of the vaccine on hand at the visit's location; empty for a vaccine not set up for inventory. */

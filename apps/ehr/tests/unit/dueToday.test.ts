@@ -3,6 +3,7 @@ import {
   ImmunizationGroupForecast,
   ImmunizationGroupId,
 } from 'utils/lib/immunization-forecast/types';
+import { InventoryDrugRow, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { Vaccine } from 'utils/lib/types/data/immunization/types';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +13,7 @@ import {
   CvxGroups,
   fillFromDueToday,
   isVaccineAdded,
+  lotToPrePick,
   StockedVaccine,
   stockedVaccines,
   vaccinesToAddAll,
@@ -79,7 +81,7 @@ const cvxGroups: CvxGroups = {
   '162': ['menb'],
 };
 
-const vaccine = (id: string, name: string): Vaccine => ({ id, name });
+const vaccine = (id: string, name: string, cvx?: string): Vaccine => ({ id, name, cvx });
 const quickPick = (
   name: string,
   vaccineId: string,
@@ -96,14 +98,15 @@ const quickPick = (
   ...extra,
 });
 
+// The CVX is the catalog entry's; a vaccine from the config list that predates the catalog has none.
 const VACCINES = [
-  vaccine('pentacel', 'Pentacel'),
-  vaccine('daptacel', 'Daptacel'),
-  vaccine('acthib', 'ActHIB'),
-  vaccine('ipol', 'IPOL'),
-  vaccine('vaxelis', 'Vaxelis'),
-  vaccine('prevnar', 'Prevnar 20'),
-  vaccine('rotateq', 'RotaTeq'),
+  vaccine('pentacel', 'Pentacel', '120'),
+  vaccine('daptacel', 'Daptacel', '20'),
+  vaccine('acthib', 'ActHIB', '48'),
+  vaccine('ipol', 'IPOL', '10'),
+  vaccine('vaxelis', 'Vaxelis', '146'),
+  vaccine('prevnar', 'Prevnar 20', '216'),
+  vaccine('rotateq', 'RotaTeq', '116'),
   vaccine('engerix', 'Engerix-B'),
 ];
 const QUICK_PICKS = [
@@ -115,23 +118,59 @@ const QUICK_PICKS = [
   quickPick('Vaxelis', 'vaxelis', '146'),
   quickPick('Prevnar 20 infant', 'prevnar', '216'),
   quickPick('RotaTeq', 'rotateq', '116', { dose: '2', route: '26643006' }),
-  quickPick('Engerix-B peds', 'engerix', undefined), // no CVX: cannot be suggested
+  quickPick('Engerix-B peds', 'engerix', undefined),
 ];
+
+const lot = (id: string, overrides: Partial<InventoryLot> = {}): InventoryLot => ({
+  id,
+  catalogMedicationId: 'pentacel',
+  locationId: 'loc-1',
+  lotNumber: id.toUpperCase(),
+  expirationDate: '2027-06-30',
+  ndc: '49281-0511-05',
+  manufacturer: 'Sanofi Pasteur',
+  mvx: 'PMC',
+  fundingSource: 'private',
+  onHand: 5,
+  unit: 'dose',
+  status: 'active',
+  ...overrides,
+});
+const stockRow = (medicationId: string, lots: InventoryLot[]): InventoryDrugRow =>
+  ({
+    medicationId,
+    name: medicationId,
+    type: 'vaccine',
+    lots: lots.map((l) => ({ ...l, markers: [] })),
+  }) as unknown as InventoryDrugRow;
 
 const stocked = stockedVaccines(VACCINES, QUICK_PICKS);
 const byId = (id: string): StockedVaccine => stocked.find((vaccine) => vaccine.id === id)!;
 const names = (candidates: { vaccine: { name: string } }[]): string[] => candidates.map((c) => c.vaccine.name);
 
 describe('stockedVaccines', () => {
-  it('takes the practice vaccine list as the stock and reads each one’s CVX codes and quick picks from its quick picks', () => {
-    expect(byId('pentacel')).toMatchObject({ name: 'Pentacel', cvxCodes: ['120'] });
+  it('without inventory, takes the practice vaccine list as the stock, with each one’s catalog CVX and quick picks', () => {
+    expect(byId('pentacel')).toMatchObject({ name: 'Pentacel', cvxCodes: ['120'], lots: [] });
     expect(byId('pentacel').quickPicks.map((qp) => qp.name)).toEqual(['Pentacel 2/4/6 mo', 'Pentacel 15–18 mo']);
     expect(byId('engerix').cvxCodes).toEqual([]);
     expect(stockedVaccines(undefined, QUICK_PICKS)).toEqual([]);
+    expect(stockedVaccines(VACCINES, QUICK_PICKS, []).map((v) => v.id)).toEqual(VACCINES.map((v) => v.id));
   });
 
-  it('pads a typed CVX to the engine’s two digits', () => {
-    expect(stockedVaccines([vaccine('e', 'Engerix')], [quickPick('E', 'e', '8')])[0].cvxCodes).toEqual(['08']);
+  it('pads a CVX to the engine’s two digits', () => {
+    expect(stockedVaccines([vaccine('e', 'Engerix', '8')], [])[0].cvxCodes).toEqual(['08']);
+  });
+
+  it('with vaccine lots on hand, stocked means a lot on hand at the visit’s location', () => {
+    const inventory = [
+      stockRow('pentacel', [lot('p1'), lot('p0', { onHand: 0 })]),
+      stockRow('daptacel', [lot('d0', { catalogMedicationId: 'daptacel', onHand: 0 })]),
+    ];
+    const stockedHere = stockedVaccines(VACCINES, QUICK_PICKS, inventory);
+    expect(stockedHere.map((v) => v.id)).toEqual(['pentacel']);
+    expect(stockedHere[0].lots.map((l) => l.id)).toEqual(['p1']);
+    // lots set up but none on hand anywhere: back to the vaccine list
+    expect(stockedVaccines(VACCINES, QUICK_PICKS, [inventory[1]]).map((v) => v.id)).toEqual(VACCINES.map((v) => v.id));
   });
 });
 
@@ -163,6 +202,23 @@ describe('buildDueToday — option A, fewest shots first', () => {
     );
     expect(names([twoCombos.rows[0].lead])).toEqual(['Pentacel']);
     expect(names(twoCombos.rows[0].alternatives)).toEqual(['Vaxelis']);
+  });
+
+  it('when shots and extras tie, leads with the vaccine whose lot expires soonest (tie rule 3)', () => {
+    const inventory = [
+      stockRow('daptacel', [lot('d1', { catalogMedicationId: 'daptacel', expirationDate: '2027-09-30' })]),
+      stockRow('infanrix', [
+        lot('i2', { catalogMedicationId: 'infanrix', expirationDate: '2027-12-31' }),
+        lot('i1', { catalogMedicationId: 'infanrix', expirationDate: '2027-03-31' }),
+      ]),
+    ];
+    const twoDtaps = buildDueToday(
+      forecast,
+      stockedVaccines([vaccine('daptacel', 'Daptacel', '20'), vaccine('infanrix', 'Infanrix', '20')], [], inventory),
+      cvxGroups
+    );
+    expect(names([twoDtaps.rows[0].lead])).toEqual(['Infanrix']);
+    expect(names(twoDtaps.rows[0].alternatives)).toEqual(['Daptacel']);
   });
 
   it('falls back to single vaccines, one row each, when no combination is stocked', () => {
@@ -227,6 +283,37 @@ describe('what ⊕ fills — option B', () => {
     });
     expect(filled.details.dose).toBeUndefined();
     expect(filled.administrationDetails.cvx).toBe('120');
+  });
+
+  it('pre-picks the lot the Lot blank would list first: the patient’s stock, soonest expiry, never expired or borrowed', () => {
+    const pentacel: StockedVaccine = {
+      ...byId('pentacel'),
+      lots: [
+        lot('private-late', { expirationDate: '2027-06-30', fundingSource: 'private' }),
+        lot('vfc-soon', { expirationDate: '2027-03-31', fundingSource: 'vfc', ndc: '49281-0510-05' }),
+        lot('vfc-expired', { expirationDate: '2026-01-31', fundingSource: 'vfc' }),
+      ],
+    };
+    const today = '2026-11-10';
+    expect(lotToPrePick(pentacel, { vfcEligibility: 'V02', today })?.id).toBe('vfc-soon');
+    expect(lotToPrePick(pentacel, { vfcEligibility: 'V01', today })?.id).toBe('private-late');
+    expect(lotToPrePick(pentacel, { today })?.id).toBe('vfc-soon');
+    // only the other stock on hand: nothing is pre-picked; borrowing is the provider's call in the Lot blank
+    expect(lotToPrePick({ ...pentacel, lots: [pentacel.lots[0]] }, { vfcEligibility: 'V02', today })).toBeUndefined();
+
+    const filled = fillFromDueToday(line, pentacel, undefined, { vfcEligibility: 'V02', today });
+    expect(filled.administrationDetails).toMatchObject({
+      cvx: '120',
+      lot: 'VFC-SOON',
+      expDate: '2027-03-31',
+      ndc: '49281-0510-05',
+      mvx: 'PMC',
+      fundingSource: 'vfc',
+      vfcEligibility: 'V02',
+    });
+    expect(filled.details.manufacturer).toBe('Sanofi Pasteur');
+    // without lots the line keeps its blanks for the Lot blank to fill
+    expect(fillFromDueToday(line, byId('pentacel'), undefined, { today }).administrationDetails.lot).toBe('');
   });
 
   it('"Add all due" adds each row’s lead that is not on the page yet', () => {

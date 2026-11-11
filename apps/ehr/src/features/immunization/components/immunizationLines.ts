@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   CreateUpdateImmunizationOrderRequest,
@@ -11,6 +12,8 @@ import {
   InputImmunizationOrderDetails,
   RecordOutsideImmunizationRequest,
 } from 'utils/lib/types/data/immunization/types';
+import { getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
+import { VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
 
 /** The external line's own blanks: when, where and from what source the dose was given. */
 export interface OutsideDoseValues {
@@ -106,6 +109,28 @@ export const applyImmunizationQuickPick = <T extends ImmunizationFormValues>(
   administrationDetails: {
     ...values.administrationDetails,
     cptCodes: quickPick.cptCodes ?? [],
+  },
+});
+
+/** A lot picked from stock fills what the box says: lot, expiry, NDC, manufacturer and MVX, the stock it came from
+ * and the eligibility it was picked under. The dose comes off that lot when administered. */
+export const applyLotToLine = <T extends ImmunizationFormValues>(
+  line: T,
+  lot: InventoryLot,
+  vfcEligibility: VfcEligibilityCode | undefined,
+  borrowingReason?: string
+): T => ({
+  ...line,
+  details: { ...line.details, manufacturer: lot.manufacturer ?? getMvxManufacturer(lot.mvx)?.name },
+  administrationDetails: {
+    ...line.administrationDetails,
+    lot: lot.lotNumber,
+    expDate: lot.expirationDate,
+    ndc: lot.ndc ?? '',
+    mvx: lot.mvx ?? line.administrationDetails.mvx,
+    fundingSource: lot.fundingSource ?? 'private',
+    vfcEligibility,
+    borrowingReason,
   },
 });
 
