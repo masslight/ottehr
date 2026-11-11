@@ -578,7 +578,7 @@ type TaskId =
   | 'mergePatients'
   | 'generatePatientStatement'
   | 'sendPatientStatementByMail'
-  | 'sendFaxPacket';
+  | 'sendDocumentPacket';
 type TaskIndicator = {
   [key in TaskId]: TaskCoding;
 };
@@ -632,7 +632,7 @@ export const TaskIndicator: TaskIndicator = {
     system: Task_Send_Patient_Statement_By_Mail_Url,
     code: 'send-patient-statement-by-mail',
   },
-  sendFaxPacket: {
+  sendDocumentPacket: {
     system: OttehrTaskSystem,
     code: 'send-document-packet',
   },

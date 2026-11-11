@@ -8,7 +8,7 @@ import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
-  getOutboundDeliveryFaxPacketSnapshot,
+  getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   isDocumentLinkAttempt,
   makeOutboundDeliveryAttempt,
@@ -83,7 +83,7 @@ export async function performEffect(
   );
   const appointmentId = getIdFromReference(original.focus?.reference, 'Appointment');
   const recipient = getOutboundDeliveryRecipientSnapshot(original);
-  const faxPacket = getOutboundDeliveryFaxPacketSnapshot(original);
+  const packetSnapshot = getOutboundDeliveryPacketSnapshot(original);
   const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');
   const recipientName = recipient.name;
   const documentReference = await resolveDocumentReference(original, appointmentId, oystehr);
@@ -110,8 +110,8 @@ export async function performEffect(
       recipientName,
       recipientOrganization: recipient.organization,
       recipientPhone: recipient.phone,
-      faxPacketPageCount: faxPacket.pageCount,
-      faxPacketParts: faxPacket.parts,
+      packetPageCount: packetSnapshot.pageCount,
+      packetParts: packetSnapshot.parts,
       parentAttemptId: originalId,
       senderId: user.id,
     };
@@ -125,8 +125,8 @@ export async function performEffect(
         recipientName,
         recipientOrganization: recipient.organization,
         recipientPhone: recipient.phone,
-        faxPacketPageCount: faxPacket.pageCount,
-        faxPacketParts: faxPacket.parts,
+        packetPageCount: packetSnapshot.pageCount,
+        packetParts: packetSnapshot.parts,
         documentReferenceId,
         requesterReference,
         senderOrganizationReference: `Organization/${organizationId}`,

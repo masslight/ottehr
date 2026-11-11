@@ -7,8 +7,8 @@ import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
 import {
   getOutboundDeliveryChannel,
-  getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryInput,
+  getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   getOutboundDeliverySenderOrganizationId,
   makeOutboundDeliveryOutput,
@@ -22,7 +22,7 @@ import {
   DOCUMENT_LINK_TTL_MINUTES,
   OpenDocumentLinkInputSchema,
   OpenDocumentLinkOutput,
-} from 'utils/lib/types/api/fax.types';
+} from 'utils/lib/types/api/document-packet.types';
 import { FHIR_RESOURCE_IS_GONE, FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -227,7 +227,7 @@ async function resendDocumentLink(
     getOutboundDeliverySenderOrganizationId(task) || getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
   const appointmentId = getIdFromReference(task.focus?.reference, 'Appointment');
   const location = appointmentId ? await getVisitLocation(oystehr, appointmentId) : undefined;
-  const packet = getOutboundDeliveryFaxPacketSnapshot(task);
+  const packet = getOutboundDeliveryPacketSnapshot(task);
 
   await sendDocumentLinkEmailAttempt({
     oystehr,
@@ -239,8 +239,8 @@ async function resendDocumentLink(
     recipientOrganization: recipient.organization,
     recipientPhone: recipient.phone,
     documentReferenceId,
-    faxPacketPageCount: packet.pageCount,
-    faxPacketParts: packet.parts,
+    packetPageCount: packet.pageCount,
+    packetParts: packet.parts,
     organizationId,
     contactPhone: getLocationContactPhone(location),
     senderDisplay: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderDisplay)?.valueString,

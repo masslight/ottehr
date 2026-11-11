@@ -102,8 +102,8 @@ export interface OutboundDeliveryAttemptData {
   recipientOrganization?: string;
   recipientPhone?: string;
   documentReferenceId?: string;
-  faxPacketPageCount?: number;
-  faxPacketParts?: string[];
+  packetPageCount?: number;
+  packetParts?: string[];
   communicationReference?: string;
   requesterReference?: string;
   senderOrganizationReference?: string;

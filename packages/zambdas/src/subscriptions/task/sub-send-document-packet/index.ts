@@ -3,17 +3,17 @@ import { Organization, Practitioner, Task } from 'fhir/r4b';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
-  FAX_PACKET_FAILURE_TASK_OUTPUT,
-  FAX_PACKET_REQUEST_TASK_INPUT,
-  FAX_PACKET_RESULTS_TASK_OUTPUT,
-  FaxJobFailureReason,
-  FaxPacketSource,
-  FaxPacketTaskPayload,
-} from 'utils/lib/types/api/fax.types';
+  DOCUMENT_PACKET_FAILURE_TASK_OUTPUT,
+  DOCUMENT_PACKET_REQUEST_TASK_INPUT,
+  DOCUMENT_PACKET_RESULTS_TASK_OUTPUT,
+  DocumentPacketJobFailureReason,
+  DocumentPacketSource,
+  DocumentPacketTaskPayload,
+} from 'utils/lib/types/api/document-packet.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { FaxPacketTooLargeError } from '../../../shared/fax/build-fax-packet';
-import { resolveFaxPacketPlan } from '../../../shared/fax/resolve-fax-source';
-import { deliverFaxPacket, savePcpIfRequested } from '../../../shared/fax/run-fax-packet';
+import { DocumentPacketTooLargeError } from '../../../shared/document-packet/build-document-packet';
+import { deliverDocumentPacket, savePcpIfRequested } from '../../../shared/document-packet/deliver-document-packet';
+import { resolveDocumentPacketPlan } from '../../../shared/document-packet/resolve-packet-source';
 import { wrapTaskHandler } from '../helpers';
 
 let cachedM2MToken: string | undefined;
@@ -23,28 +23,33 @@ const ensureM2MToken = async (secrets: Secrets | null): Promise<string> => {
   return cachedM2MToken;
 };
 
-const readPayload = (task: Task): FaxPacketTaskPayload => {
+const readPayload = (task: Task): DocumentPacketTaskPayload => {
   const raw = task.input?.find(
     (entry) =>
       entry.type?.coding?.some(
         (coding) =>
-          coding.system === FAX_PACKET_REQUEST_TASK_INPUT.system && coding.code === FAX_PACKET_REQUEST_TASK_INPUT.code
+          coding.system === DOCUMENT_PACKET_REQUEST_TASK_INPUT.system &&
+          coding.code === DOCUMENT_PACKET_REQUEST_TASK_INPUT.code
       )
   )?.valueString;
 
-  if (!raw) throw new Error('Fax packet task is missing its request payload');
+  if (!raw) throw new Error('Document packet task is missing its request payload');
 
-  return JSON.parse(raw) as FaxPacketTaskPayload;
+  return JSON.parse(raw) as DocumentPacketTaskPayload;
 };
 
 /** Tasks queued before the payload carried a source are single-visit sends named by `Task.focus`. */
-const faxSourceFromTaskFocus = (task: Task): FaxPacketSource => {
+const packetSourceFromTaskFocus = (task: Task): DocumentPacketSource => {
   const appointmentId = getIdFromReference(task.focus?.reference, 'Appointment');
-  if (!appointmentId) throw new Error('Fax packet task has neither a source nor an Appointment focus');
+  if (!appointmentId) throw new Error('Document packet task has neither a source nor an Appointment focus');
   return { type: 'visit', appointmentId };
 };
 
-const recordFailureReason = async (oystehr: Oystehr, taskId: string, reason: FaxJobFailureReason): Promise<void> => {
+const recordFailureReason = async (
+  oystehr: Oystehr,
+  taskId: string,
+  reason: DocumentPacketJobFailureReason
+): Promise<void> => {
   try {
     await oystehr.fhir.patch<Task>({
       resourceType: 'Task',
@@ -53,12 +58,12 @@ const recordFailureReason = async (oystehr: Oystehr, taskId: string, reason: Fax
         {
           op: 'add',
           path: '/output',
-          value: [{ type: { coding: [FAX_PACKET_FAILURE_TASK_OUTPUT] }, valueString: reason }],
+          value: [{ type: { coding: [DOCUMENT_PACKET_FAILURE_TASK_OUTPUT] }, valueString: reason }],
         },
       ],
     });
   } catch (error) {
-    console.error('Error recording fax packet failure reason:', error);
+    console.error('Error recording document packet failure reason:', error);
   }
 };
 
@@ -69,17 +74,17 @@ export const index = wrapTaskHandler(
 
     try {
       const payload = readPayload(task);
-      const source = payload.source ?? faxSourceFromTaskFocus(task);
+      const source = payload.source ?? packetSourceFromTaskFocus(task);
       const token = await ensureM2MToken(secrets);
       const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
       const [plan, organization, senderPractitioner] = await Promise.all([
-        resolveFaxPacketPlan({ oystehr, token, secrets, source }),
+        resolveDocumentPacketPlan({ oystehr, token, secrets, source }),
         oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
         oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: payload.senderPractitionerId }),
       ]);
 
-      const results = await deliverFaxPacket({
+      const results = await deliverDocumentPacket({
         oystehr,
         token,
         secrets,
@@ -102,7 +107,7 @@ export const index = wrapTaskHandler(
           {
             op: 'add',
             path: '/output',
-            value: [{ type: { coding: [FAX_PACKET_RESULTS_TASK_OUTPUT] }, valueString: JSON.stringify(results) }],
+            value: [{ type: { coding: [DOCUMENT_PACKET_RESULTS_TASK_OUTPUT] }, valueString: JSON.stringify(results) }],
           },
         ],
       });
@@ -111,11 +116,11 @@ export const index = wrapTaskHandler(
 
       return {
         taskStatus: 'completed' as const,
-        statusReason: `fax packet sent to ${sent}/${results.length} recipient(s)`,
+        statusReason: `document packet sent to ${sent}/${results.length} recipient(s)`,
       };
     } catch (error) {
-      if (!(error instanceof FaxPacketTooLargeError)) throw error;
-      console.log(`[fax-packet] ${error.message}`);
+      if (!(error instanceof DocumentPacketTooLargeError)) throw error;
+      console.log(`[document-packet] ${error.message}`);
       await recordFailureReason(oystehr, task.id!, 'too-large');
       return { taskStatus: 'failed' as const, statusReason: error.message };
     }

@@ -5,12 +5,16 @@ import { getAllPractitionerCredentials, getOrganizationFaxNumber } from 'utils/l
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { FaxRecipient, GetFaxPacketPreviewInput, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import {
+  DocumentPacketRecipient,
+  GetDocumentPacketPreviewInput,
+  GetDocumentPacketPreviewOutput,
+} from 'utils/lib/types/api/document-packet.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
-import { collectMedicalRecordParts } from '../../shared/fax/collect-patient-documents';
-import { resolveFaxDocumentAvailability } from '../../shared/fax/collect-visit-documents';
+import { collectMedicalRecordParts } from '../../shared/document-packet/collect-patient-documents';
+import { resolvePacketDocumentAvailability } from '../../shared/document-packet/collect-visit-documents';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -42,7 +46,7 @@ export const findContainedPcp = (patient: Patient | undefined): Practitioner | u
     (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.id === CONTAINED_PCP_ID
   );
 
-export const mapPcpToRecipient = (pcp: Practitioner | undefined): FaxRecipient | undefined => {
+export const mapPcpToRecipient = (pcp: Practitioner | undefined): DocumentPacketRecipient | undefined => {
   if (!pcp) return undefined;
 
   const faxNumber = toTenDigitPhoneNumber(pcp.telecom?.find((telecom) => telecom.system === 'fax')?.value);
@@ -81,10 +85,10 @@ export const resolveSenderFaxNumber = async (
 };
 
 export const performEffect = async (
-  { appointmentId, medicalRecord }: GetFaxPacketPreviewInput,
+  { appointmentId, medicalRecord }: GetDocumentPacketPreviewInput,
   oystehr: Oystehr,
   secrets: Secrets | null
-): Promise<GetFaxPacketPreviewOutput> => {
+): Promise<GetDocumentPacketPreviewOutput> => {
   // Started up front so it overlaps the visit lookups below. It never rejects, so awaiting it late is safe.
   const senderFaxNumber = resolveSenderFaxNumber(oystehr, secrets);
 
@@ -117,7 +121,7 @@ export const performEffect = async (
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No encounter found for appointment ${appointmentId}`);
   }
 
-  const documents = await resolveFaxDocumentAvailability({
+  const documents = await resolvePacketDocumentAvailability({
     oystehr,
     appointmentId: appointment.id,
     encounterId: encounter.id,

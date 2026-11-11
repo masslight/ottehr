@@ -48,7 +48,7 @@ const makeDocument = (
 const makeActions = (overrides: Partial<DocumentTableActions> = {}): DocumentTableActions => ({
   isActionAllowed: () => true,
   onDocumentDownload: vi.fn().mockResolvedValue(undefined),
-  onDocumentFax: vi.fn(),
+  onDocumentSend: vi.fn(),
   onDocumentRename: vi.fn().mockResolvedValue(undefined),
   onDocumentDelete: vi.fn().mockResolvedValue(undefined),
   ...overrides,
@@ -92,13 +92,13 @@ describe('PatientDocumentsExplorerTable', () => {
   });
 
   it('faxes the row the user picked', async () => {
-    const onDocumentFax = vi.fn();
+    const onDocumentSend = vi.fn();
     const user = userEvent.setup();
-    renderTable([makeDocument('doc-1', 'visit-note.pdf')], makeActions({ onDocumentFax }));
+    renderTable([makeDocument('doc-1', 'visit-note.pdf')], makeActions({ onDocumentSend }));
 
     await user.click(screen.getByRole('button', { name: 'Send Document' }));
 
-    expect(onDocumentFax).toHaveBeenCalledWith('doc-1');
+    expect(onDocumentSend).toHaveBeenCalledWith('doc-1');
   });
 
   it('offers the fax action only for documents a fax can carry', () => {
@@ -139,7 +139,7 @@ describe('PatientDocumentsExplorerTable', () => {
   it('hides the fax action when the caller disallows it', () => {
     renderTable(
       [makeDocument('doc-1', 'visit-note.pdf')],
-      makeActions({ isActionAllowed: (_id, actionType) => actionType !== 'ActionFax' })
+      makeActions({ isActionAllowed: (_id, actionType) => actionType !== 'ActionSend' })
     );
 
     expect(screen.queryByRole('button', { name: 'Send Document' })).not.toBeInTheDocument();

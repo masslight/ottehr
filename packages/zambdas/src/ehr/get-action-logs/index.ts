@@ -7,7 +7,7 @@ import { getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
-  getOutboundDeliveryFaxPacketSnapshot,
+  getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   getOutboundDeliverySenderOrganizationId,
   isDocumentLinkAttempt,
@@ -225,7 +225,7 @@ function composeEntry(
   const patient = patients.get(patientId);
   const appointment = appointments.get(appointmentId);
   const recipient = getOutboundDeliveryRecipientSnapshot(task);
-  const faxPacket = getOutboundDeliveryFaxPacketSnapshot(task);
+  const packetSnapshot = getOutboundDeliveryPacketSnapshot(task);
   const status = getOutboundDeliveryAttemptStatus(
     task,
     recipient.communicationId ? communications.get(recipient.communicationId) : undefined
@@ -241,7 +241,7 @@ function composeEntry(
     appointmentId,
     visitDate: appointment?.start,
     documentReferenceId: recipient.documentReferenceId,
-    documentTitle: getDocumentTitle(recipient.documentReferenceId, faxPacket.parts),
+    documentTitle: getDocumentTitle(recipient.documentReferenceId, packetSnapshot.parts),
     canRetry:
       status === 'failed' &&
       Boolean(channel === 'fax' ? recipient.documentReferenceId || appointmentId : appointmentId) &&
@@ -253,8 +253,8 @@ function composeEntry(
   };
 }
 
-const getDocumentTitle = (documentReferenceId: string | undefined, faxPacketParts: string[]): string | undefined => {
-  if (faxPacketParts.length === 1) return faxPacketParts[0];
-  if (faxPacketParts.length > 1) return `Document packet (${faxPacketParts.length} documents)`;
+const getDocumentTitle = (documentReferenceId: string | undefined, packetParts: string[]): string | undefined => {
+  if (packetParts.length === 1) return packetParts[0];
+  if (packetParts.length > 1) return `Document packet (${packetParts.length} documents)`;
   return documentReferenceId ? 'Visit Note' : undefined;
 };

@@ -1,10 +1,14 @@
 import { formatPhoneNumber, isPhoneNumberValid, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
-import { isEmailRecipient, SendFaxPacketInput, SendFaxPacketInputSchema } from 'utils/lib/types/api/fax.types';
+import {
+  isEmailRecipient,
+  SendDocumentPacketInput,
+  SendDocumentPacketInputSchema,
+} from 'utils/lib/types/api/document-packet.types';
 import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 
-export function validateRequestParameters(input: ZambdaInput): SendFaxPacketInput & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(input: ZambdaInput): SendDocumentPacketInput & Pick<ZambdaInput, 'secrets'> {
   if (input.headers.Authorization === undefined) {
     throw MISSING_AUTH_TOKEN;
   }
@@ -13,7 +17,7 @@ export function validateRequestParameters(input: ZambdaInput): SendFaxPacketInpu
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = safeValidate(SendFaxPacketInputSchema, safeJsonParse(input.body));
+  const parsed = safeValidate(SendDocumentPacketInputSchema, safeJsonParse(input.body));
 
   const recipients = parsed.recipients.map((recipient) => {
     // The follow-up phone is printed on the cover sheet and never dialled, so a number we cannot

@@ -37,8 +37,8 @@ import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchB
 import { FlaggedReasonIcon } from 'src/components/FlaggedReasonIcon';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { FLAGGED_REASON_FOR_VISIT_TOOLTIP, FLAGGED_REASONS_FOR_VISIT } from 'src/constants';
-import { useSendFax } from 'src/features/fax/hooks/useSendFax';
-import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
+import { useSendDocuments } from 'src/features/send-documents/hooks/useSendDocuments';
+import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocumentsDialog';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
@@ -423,7 +423,9 @@ export const Header = (): JSX.Element => {
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [careTeamAnchorEl, setCareTeamAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
-  const sendFaxDialog = useSendFax(appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined);
+  const sendDocumentsController = useSendDocuments(
+    appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined
+  );
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -911,11 +913,11 @@ export const Header = (): JSX.Element => {
                   <MenuItem
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
-                      sendFaxDialog.open();
+                      sendDocumentsController.open();
                     }}
                     disabled={!appointmentID}
                     sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
-                    data-testid={dataTestIds.faxDialog.menuItem}
+                    data-testid={dataTestIds.sendDocumentsDialog.menuItem}
                   >
                     <ListItemIcon sx={{ color: theme.palette.primary.main }}>
                       <SendOutlinedIcon fontSize="small" />
@@ -924,7 +926,7 @@ export const Header = (): JSX.Element => {
                   </MenuItem>
                 </Menu>
                 <CreateTaskDialog open={showCreateTaskDialog} handleClose={() => setShowCreateTaskDialog(false)} />
-                <SendFaxDialog controller={sendFaxDialog} />
+                <SendDocumentsDialog controller={sendDocumentsController} />
               </Grid>
             </Grid>
           </Grid>

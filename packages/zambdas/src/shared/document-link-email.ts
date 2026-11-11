@@ -8,7 +8,11 @@ import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/brandi
 import { GenericOutreachTemplateData } from 'utils/lib/ottehr-config/sendgrid';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { OutboundDeliveryAttemptData } from 'utils/lib/types/api/action-logs.types';
-import { DOCUMENT_LINK_AUDIENCE, DOCUMENT_LINK_TTL, DOCUMENT_LINK_TTL_MINUTES } from 'utils/lib/types/api/fax.types';
+import {
+  DOCUMENT_LINK_AUDIENCE,
+  DOCUMENT_LINK_TTL,
+  DOCUMENT_LINK_TTL_MINUTES,
+} from 'utils/lib/types/api/document-packet.types';
 import { EmailSendOptions, getEmailClient } from './communication';
 import {
   completeOutboundDeliveryAttempt,
@@ -32,8 +36,8 @@ export interface DocumentLinkEmailInput {
   /** The packet PDF the link opens. */
   documentReferenceId: string;
   /** What went into the packet, recorded on the attempt so Action Logs can name it. */
-  faxPacketPageCount?: number;
-  faxPacketParts?: string[];
+  packetPageCount?: number;
+  packetParts?: string[];
   organizationId: string;
   /** The number a recipient who got the email in error is told to call (see `getLocationContactPhone`). */
   contactPhone?: string;
@@ -158,8 +162,8 @@ export async function sendDocumentLinkEmailAttempt(
     recipientOrganization: input.recipientOrganization,
     recipientPhone: input.recipientPhone,
     documentReferenceId: input.documentReferenceId,
-    faxPacketPageCount: input.faxPacketPageCount,
-    faxPacketParts: input.faxPacketParts,
+    packetPageCount: input.packetPageCount,
+    packetParts: input.packetParts,
     requesterReference: input.requesterReference,
     senderOrganizationReference: `Organization/${input.organizationId}`,
     parentAttemptId: input.parentAttemptId,

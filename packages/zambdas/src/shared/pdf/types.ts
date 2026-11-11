@@ -1159,13 +1159,13 @@ export interface DischargeSummaryData extends PdfData {
   documentsAttached?: boolean;
 }
 /**
- * Data for the generated first page of an outbound fax packet.
+ * Data for the generated first page of an outbound document packet.
  */
 /**
  * Who and what the cover sheet is about. The visit fields are absent for packets that do not belong
  * to a single visit (a whole medical record, or one document from the patient's Docs table).
  */
-export interface FaxCoverSheetSubject {
+export interface PacketCoverSheetSubject {
   /** "Black, Oliver" */
   patientName: string;
   /** MRN or patient uuid — printed as PID. */
@@ -1178,7 +1178,7 @@ export interface FaxCoverSheetSubject {
   visitTypeLabel?: string;
 }
 
-export interface FaxCoverSheetData extends PdfData {
+export interface PacketCoverSheetData extends PdfData {
   /** Exactly one of `faxNumber` / `email` is set, matching the recipient's delivery channel. */
   recipient: { name?: string; organization?: string; faxNumber?: string; email?: string; phoneNumber?: string };
   sender: {
@@ -1189,7 +1189,7 @@ export interface FaxCoverSheetData extends PdfData {
     phoneNumber?: string;
     faxNumber?: string;
   };
-  subject: FaxCoverSheetSubject;
+  subject: PacketCoverSheetSubject;
   /** Total pages of the merged packet, cover sheet included. */
   totalPages: number;
   /** Already formatted "MM/DD/YYYY  hh:mm A". */

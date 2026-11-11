@@ -51,11 +51,11 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
         ? [input(OUTBOUND_DELIVERY_INPUT_CODES.recipientOrganization, data.recipientOrganization)]
         : []),
       ...(data.recipientPhone ? [input(OUTBOUND_DELIVERY_INPUT_CODES.recipientPhone, data.recipientPhone)] : []),
-      ...(data.faxPacketPageCount !== undefined
-        ? [input(OUTBOUND_DELIVERY_INPUT_CODES.faxPacketPageCount, String(data.faxPacketPageCount))]
+      ...(data.packetPageCount !== undefined
+        ? [input(OUTBOUND_DELIVERY_INPUT_CODES.packetPageCount, String(data.packetPageCount))]
         : []),
       // One entry per document so the packet composition stays readable without a delimiter convention.
-      ...(data.faxPacketParts ?? []).map((part) => input(OUTBOUND_DELIVERY_INPUT_CODES.faxPacketParts, part)),
+      ...(data.packetParts ?? []).map((part) => input(OUTBOUND_DELIVERY_INPUT_CODES.packetParts, part)),
       ...(data.documentReferenceId
         ? [
             input(
@@ -93,7 +93,7 @@ export function getOutboundDeliveryInput(task: Task, code: string): TaskInput | 
   );
 }
 
-/** Every input entry carrying `code`. Use for repeating codes such as the fax packet part list. */
+/** Every input entry carrying `code`. Use for repeating codes such as the document packet part list. */
 export function getOutboundDeliveryInputs(task: Task, code: string): TaskInput[] {
   return (task.input ?? []).filter(
     (item) =>
@@ -146,17 +146,17 @@ export function getOutboundDeliverySenderOrganizationId(task: Task): string | un
 export const isDocumentLinkAttempt = (task: Task): boolean =>
   getOutboundDeliveryChannel(task) === 'email' && Boolean(getOutboundDeliverySenderOrganizationId(task));
 
-export interface OutboundDeliveryFaxPacketSnapshot {
+export interface OutboundDeliveryPacketSnapshot {
   pageCount?: number;
   parts: string[];
 }
 
-export function getOutboundDeliveryFaxPacketSnapshot(task: Task): OutboundDeliveryFaxPacketSnapshot {
-  const rawPageCount = getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.faxPacketPageCount)?.valueString;
+export function getOutboundDeliveryPacketSnapshot(task: Task): OutboundDeliveryPacketSnapshot {
+  const rawPageCount = getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.packetPageCount)?.valueString;
   const pageCount = rawPageCount === undefined ? undefined : Number(rawPageCount);
   return {
     pageCount: pageCount !== undefined && Number.isFinite(pageCount) ? pageCount : undefined,
-    parts: getOutboundDeliveryInputs(task, OUTBOUND_DELIVERY_INPUT_CODES.faxPacketParts).flatMap((entry) =>
+    parts: getOutboundDeliveryInputs(task, OUTBOUND_DELIVERY_INPUT_CODES.packetParts).flatMap((entry) =>
       entry.valueString ? [entry.valueString] : []
     ),
   };

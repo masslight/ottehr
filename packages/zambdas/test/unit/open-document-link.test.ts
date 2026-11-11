@@ -8,7 +8,7 @@ import {
   makeOutboundDeliveryOutput,
 } from 'utils/lib/fhir/outbound-delivery';
 import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
-import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/fax.types';
+import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-packet.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 
@@ -322,8 +322,8 @@ describe('open-document-link', () => {
             recipientAddress: 'olivia@example.com',
             documentReferenceId: 'packet-1',
             senderOrganizationReference: 'Organization/org-1',
-            faxPacketPageCount: 7,
-            faxPacketParts: ['Medical Record'],
+            packetPageCount: 7,
+            packetParts: ['Medical Record'],
           }),
           id: 'attempt-1',
           status: 'completed',
@@ -336,7 +336,7 @@ describe('open-document-link', () => {
     await call(await expiredToken());
 
     expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledWith(
-      expect.objectContaining({ faxPacketPageCount: 7, faxPacketParts: ['Medical Record'] })
+      expect.objectContaining({ packetPageCount: 7, packetParts: ['Medical Record'] })
     );
   });
 

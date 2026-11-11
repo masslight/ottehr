@@ -5,7 +5,7 @@ import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
 import { LoadingScreen } from 'src/telemed/features/common/LoadingScreen';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { OpenDocumentLinkOutput } from 'utils/lib/types/api/fax.types';
+import { OpenDocumentLinkOutput } from 'utils/lib/types/api/document-packet.types';
 
 export const OPEN_DOCUMENT_LINK_ZAMBDA_ID = 'open-document-link';
 export const OPEN_DOCUMENT_LINK_PATH = '/documents';

@@ -1,10 +1,10 @@
 import { Task, TaskOutput } from 'fhir/r4b';
 import {
-  FAX_PACKET_FAILURE_TASK_OUTPUT,
-  FAX_PACKET_RESULTS_TASK_OUTPUT,
-  FaxRecipientResult,
-  GetFaxPacketStatusOutput,
-} from 'utils/lib/types/api/fax.types';
+  DOCUMENT_PACKET_FAILURE_TASK_OUTPUT,
+  DOCUMENT_PACKET_RESULTS_TASK_OUTPUT,
+  DocumentPacketRecipientResult,
+  GetDocumentPacketStatusOutput,
+} from 'utils/lib/types/api/document-packet.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 
@@ -32,13 +32,13 @@ import { index } from '../../src/ehr/get-document-packet-status';
 const TASK_ID = '650e8400-e29b-41d4-a716-446655440001';
 
 const failureReasonOutput = (value: string): TaskOutput => ({
-  type: { coding: [FAX_PACKET_FAILURE_TASK_OUTPUT] },
+  type: { coding: [DOCUMENT_PACKET_FAILURE_TASK_OUTPUT] },
   valueString: value,
 });
 
-const sentRecipient: FaxRecipientResult = { faxNumber: '+12125551234', status: 'sent' };
+const sentRecipient: DocumentPacketRecipientResult = { faxNumber: '+12125551234', status: 'sent' };
 
-const statusFor = async (task: Pick<Task, 'status' | 'output'>): Promise<GetFaxPacketStatusOutput> => {
+const statusFor = async (task: Pick<Task, 'status' | 'output'>): Promise<GetDocumentPacketStatusOutput> => {
   mockFhirGet.mockResolvedValue({ resourceType: 'Task', id: TASK_ID, intent: 'order', ...task });
   const result: any = await (index as any)(
     createMockZambdaInput({ taskId: TASK_ID }, { secrets: createMockSecrets() })
@@ -62,7 +62,7 @@ describe('get-document-packet-status', () => {
       status: 'completed',
       output: [
         failureReasonOutput('too-large'),
-        { type: { coding: [FAX_PACKET_RESULTS_TASK_OUTPUT] }, valueString: JSON.stringify([sentRecipient]) },
+        { type: { coding: [DOCUMENT_PACKET_RESULTS_TASK_OUTPUT] }, valueString: JSON.stringify([sentRecipient]) },
       ],
     });
 

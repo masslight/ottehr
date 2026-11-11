@@ -1,12 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import {
-  FAX_PACKET_FAILURE_TASK_OUTPUT,
-  FAX_PACKET_RESULTS_TASK_OUTPUT,
-  FaxJobStatus,
-  FaxRecipientResult,
-  GetFaxPacketStatusOutput,
-} from 'utils/lib/types/api/fax.types';
+  DOCUMENT_PACKET_FAILURE_TASK_OUTPUT,
+  DOCUMENT_PACKET_RESULTS_TASK_OUTPUT,
+  DocumentPacketJobStatus,
+  DocumentPacketRecipientResult,
+  GetDocumentPacketStatusOutput,
+} from 'utils/lib/types/api/document-packet.types';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -18,7 +18,7 @@ const ZAMBDA_NAME = 'get-document-packet-status';
 let m2mToken: string;
 
 /** Terminal FHIR Task statuses map to the two job outcomes; everything else is still pending. */
-const toJobStatus = (taskStatus: Task['status']): FaxJobStatus => {
+const toJobStatus = (taskStatus: Task['status']): DocumentPacketJobStatus => {
   if (taskStatus === 'completed') return 'completed';
   if (taskStatus === 'failed' || taskStatus === 'cancelled' || taskStatus === 'rejected') return 'failed';
   return 'pending';
@@ -39,15 +39,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       (entry) => entry.type?.coding?.some((coding) => coding.system === target.system && coding.code === target.code)
     )?.valueString;
 
-  const resultsJson = findOutput(FAX_PACKET_RESULTS_TASK_OUTPUT);
+  const resultsJson = findOutput(DOCUMENT_PACKET_RESULTS_TASK_OUTPUT);
 
-  const recipients: FaxRecipientResult[] = resultsJson ? (JSON.parse(resultsJson) as FaxRecipientResult[]) : [];
+  const recipients: DocumentPacketRecipientResult[] = resultsJson
+    ? (JSON.parse(resultsJson) as DocumentPacketRecipientResult[])
+    : [];
 
   const jobStatus = toJobStatus(task.status);
-  const rawFailureReason = jobStatus === 'failed' ? findOutput(FAX_PACKET_FAILURE_TASK_OUTPUT) : undefined;
+  const rawFailureReason = jobStatus === 'failed' ? findOutput(DOCUMENT_PACKET_FAILURE_TASK_OUTPUT) : undefined;
   const failureReason = rawFailureReason === 'too-large' ? rawFailureReason : undefined;
 
-  const output: GetFaxPacketStatusOutput = { jobStatus, recipients, failureReason };
+  const output: GetDocumentPacketStatusOutput = { jobStatus, recipients, failureReason };
 
   return { statusCode: 200, body: JSON.stringify(output) };
 });

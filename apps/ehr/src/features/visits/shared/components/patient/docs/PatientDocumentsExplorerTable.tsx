@@ -33,7 +33,7 @@ import { isFaxableAttachment } from 'utils/lib/utils/file';
 
 export enum DocumentTableActionType {
   ActionDownload = 'ActionDownload',
-  ActionFax = 'ActionFax',
+  ActionSend = 'ActionSend',
   ActionRename = 'ActionRename',
   ActionDelete = 'ActionDelete',
 }
@@ -42,13 +42,13 @@ export type DocumentTableActions = {
   isActionAllowed: (documentId: string, actionType: DocumentTableActionType) => boolean;
   onDocumentDownload: (documentId: string, options?: DownloadDocumentOptions) => Promise<void>;
   /** Opens the fax dialog for this document; faxing is a single-document action by design. */
-  onDocumentFax: (documentId: string) => void;
+  onDocumentSend: (documentId: string) => void;
   onDocumentRename: (documentId: string, newName: string) => Promise<void>;
   onDocumentDelete: (documentId: string) => Promise<void>;
 };
 
 const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableActions }> = ({ docInfo, actions }) => {
-  const { isActionAllowed, onDocumentDownload, onDocumentFax, onDocumentRename, onDocumentDelete } = actions;
+  const { isActionAllowed, onDocumentDownload, onDocumentSend, onDocumentRename, onDocumentDelete } = actions;
   const theme = useTheme();
   const lineColor = theme.palette.primary.main;
 
@@ -141,12 +141,12 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
           </IconButton>
         )}
 
-        {isActionAllowed(docInfo.id, DocumentTableActionType.ActionFax) && isDocumentFaxable(docInfo) && (
+        {isActionAllowed(docInfo.id, DocumentTableActionType.ActionSend) && isDocumentSendable(docInfo) && (
           <Tooltip title="Send Document">
             <IconButton
               aria-label="Send Document"
-              onClick={() => onDocumentFax(docInfo.id)}
-              data-testid={dataTestIds.patientDocsPage.faxDocumentButton(docInfo.id)}
+              onClick={() => onDocumentSend(docInfo.id)}
+              data-testid={dataTestIds.patientDocsPage.sendDocumentButton(docInfo.id)}
             >
               <SendOutlinedIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
             </IconButton>
@@ -256,7 +256,7 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
  * Only documents a fax can actually carry get the action — offering it for a medical-record archive
  * or another unsupported format would fail later with "nothing faxable".
  */
-const isDocumentFaxable = (docInfo: PatientDocumentInfo): boolean => {
+const isDocumentSendable = (docInfo: PatientDocumentInfo): boolean => {
   if (docInfo.typeCodes?.some((code) => code === FAX_PACKET_CODE || code === MEDICAL_RECORD_EXPORT_CODE)) return false;
   // Judged on the stored attachment, exactly as the server judges it when the fax is built — a
   // display title is not a MIME type, and offering an action the server will drop is worse than

@@ -3,11 +3,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
-  FAX_PACKET_REQUEST_TASK_INPUT,
-  FaxPacketSource,
-  FaxPacketTaskPayload,
-  SendFaxPacketOutput,
-} from 'utils/lib/types/api/fax.types';
+  DOCUMENT_PACKET_REQUEST_TASK_INPUT,
+  DocumentPacketSource,
+  DocumentPacketTaskPayload,
+  SendDocumentPacketOutput,
+} from 'utils/lib/types/api/document-packet.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
@@ -42,31 +42,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // A single-visit packet also names the visit, which is what files it under that visit's fax history.
   const { patientId, appointmentId } = await resolveTaskSubject(oystehr, source);
 
-  const payload: FaxPacketTaskPayload = { source, recipients, senderPractitionerId, senderUserId: user.id };
+  const payload: DocumentPacketTaskPayload = { source, recipients, senderPractitionerId, senderUserId: user.id };
 
   const task = await oystehr.fhir.create<Task>({
     resourceType: 'Task',
     status: 'requested',
     intent: 'order',
-    code: { coding: [{ system: TaskIndicator.sendFaxPacket.system, code: TaskIndicator.sendFaxPacket.code }] },
+    code: {
+      coding: [{ system: TaskIndicator.sendDocumentPacket.system, code: TaskIndicator.sendDocumentPacket.code }],
+    },
     ...(appointmentId ? { focus: { reference: `Appointment/${appointmentId}`, type: 'Appointment' } } : {}),
     for: { reference: `Patient/${patientId}` },
     authoredOn: new Date().toISOString(),
     input: [
       {
-        type: { coding: [FAX_PACKET_REQUEST_TASK_INPUT] },
+        type: { coding: [DOCUMENT_PACKET_REQUEST_TASK_INPUT] },
         valueString: JSON.stringify(payload),
       },
     ],
   });
 
-  const output: SendFaxPacketOutput = { taskId: task.id! };
+  const output: SendDocumentPacketOutput = { taskId: task.id! };
   return { statusCode: 200, body: JSON.stringify(output) };
 });
 
 const resolveTaskSubject = async (
   oystehr: Oystehr,
-  source: FaxPacketSource
+  source: DocumentPacketSource
 ): Promise<{ patientId: string; appointmentId?: string }> => {
   if (source.type !== 'visit') {
     return { patientId: source.patientId, appointmentId: undefined };

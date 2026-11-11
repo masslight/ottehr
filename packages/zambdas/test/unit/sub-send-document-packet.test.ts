@@ -1,7 +1,10 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { Operation } from 'fast-json-patch';
 import { Task, TaskOutput } from 'fhir/r4b';
-import { FAX_PACKET_REQUEST_TASK_INPUT, FaxPacketTaskPayload } from 'utils/lib/types/api/fax.types';
+import {
+  DOCUMENT_PACKET_REQUEST_TASK_INPUT,
+  DocumentPacketTaskPayload,
+} from 'utils/lib/types/api/document-packet.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 import { createMockSecrets } from './validate-request-parameters/helpers';
@@ -31,28 +34,28 @@ vi.mock('../../src/shared/errors', async (importOriginal) => ({
   sendErrors: (...args: unknown[]) => mockSendErrors(...args),
 }));
 
-const mockResolveFaxPacketPlan = vi.fn();
-vi.mock('../../src/shared/fax/resolve-fax-source', () => ({
-  resolveFaxPacketPlan: (...args: unknown[]) => mockResolveFaxPacketPlan(...args),
+const mockResolveDocumentPacketPlan = vi.fn();
+vi.mock('../../src/shared/document-packet/resolve-packet-source', () => ({
+  resolveDocumentPacketPlan: (...args: unknown[]) => mockResolveDocumentPacketPlan(...args),
 }));
 
-const mockDeliverFaxPacket = vi.fn();
-vi.mock('../../src/shared/fax/run-fax-packet', () => ({
-  deliverFaxPacket: (...args: unknown[]) => mockDeliverFaxPacket(...args),
+const mockDeliverDocumentPacket = vi.fn();
+vi.mock('../../src/shared/document-packet/deliver-document-packet', () => ({
+  deliverDocumentPacket: (...args: unknown[]) => mockDeliverDocumentPacket(...args),
   savePcpIfRequested: vi.fn(),
 }));
 
-import { FaxPacketTooLargeError } from '../../src/shared/fax/build-fax-packet';
+import { DocumentPacketTooLargeError } from '../../src/shared/document-packet/build-document-packet';
 import { index } from '../../src/subscriptions/task/sub-send-document-packet';
 
 const handler = index as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-const SIZE_ERROR = new FaxPacketTooLargeError(
-  'Fax packet source documents are over 21.3 MB, which exceeds the 20 MB limit. ' +
+const SIZE_ERROR = new DocumentPacketTooLargeError(
+  'Document packet source documents are over 21.3 MB, which exceeds the 20 MB limit. ' +
     'Fax the needed documents individually instead.'
 );
 
-const payload: FaxPacketTaskPayload = {
+const payload: DocumentPacketTaskPayload = {
   source: {
     type: 'medical-record',
     patientId: 'patient-1',
@@ -68,7 +71,7 @@ const task: Task = {
   id: 'task-1',
   status: 'requested',
   intent: 'order',
-  input: [{ type: { coding: [FAX_PACKET_REQUEST_TASK_INPUT] }, valueString: JSON.stringify(payload) }],
+  input: [{ type: { coding: [DOCUMENT_PACKET_REQUEST_TASK_INPUT] }, valueString: JSON.stringify(payload) }],
 };
 
 const runHandler = (): Promise<APIGatewayProxyResult> =>
@@ -110,7 +113,7 @@ describe('sub-send-document-packet', () => {
       events.push(`${label} saved`);
       return {};
     });
-    mockResolveFaxPacketPlan.mockRejectedValue(SIZE_ERROR);
+    mockResolveDocumentPacketPlan.mockRejectedValue(SIZE_ERROR);
 
     const result = await runHandler();
 
@@ -129,7 +132,7 @@ describe('sub-send-document-packet', () => {
 
   it('records no reason when a lookup fails before the packet turns out too large', async () => {
     let rejectPlan!: (error: unknown) => void;
-    mockResolveFaxPacketPlan.mockReturnValue(
+    mockResolveDocumentPacketPlan.mockReturnValue(
       new Promise((_resolve, reject) => {
         rejectPlan = reject;
       })
@@ -150,7 +153,7 @@ describe('sub-send-document-packet', () => {
       if (describePatch(operations) === 'output:failure-reason') throw new Error('Task patch failed');
       return {};
     });
-    mockResolveFaxPacketPlan.mockRejectedValue(SIZE_ERROR);
+    mockResolveDocumentPacketPlan.mockRejectedValue(SIZE_ERROR);
 
     await runHandler();
 
@@ -160,15 +163,15 @@ describe('sub-send-document-packet', () => {
   });
 
   it('records too-large when the final packet exceeds the limit during delivery', async () => {
-    const finalSizeError = new FaxPacketTooLargeError(
-      'Fax packet is 20.1 MB, which exceeds the 20 MB limit. Fax the needed documents individually instead.'
+    const finalSizeError = new DocumentPacketTooLargeError(
+      'Document packet is 20.1 MB, which exceeds the 20 MB limit. Fax the needed documents individually instead.'
     );
-    mockResolveFaxPacketPlan.mockResolvedValue({ patient: { resourceType: 'Patient', id: 'patient-1' } });
-    mockDeliverFaxPacket.mockRejectedValue(finalSizeError);
+    mockResolveDocumentPacketPlan.mockResolvedValue({ patient: { resourceType: 'Patient', id: 'patient-1' } });
+    mockDeliverDocumentPacket.mockRejectedValue(finalSizeError);
 
     await runHandler();
 
-    expect(mockDeliverFaxPacket).toHaveBeenCalled();
+    expect(mockDeliverDocumentPacket).toHaveBeenCalled();
     expect(patchedLabels()).toEqual(['status:in-progress', 'output:failure-reason', 'status:failed']);
     expect(failedStatusReason()).toBe(finalSizeError.message);
     expect(mockSendErrors).not.toHaveBeenCalled();

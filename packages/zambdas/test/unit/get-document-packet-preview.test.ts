@@ -1,6 +1,6 @@
 import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
-import { FaxDocumentAvailability, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import { GetDocumentPacketPreviewOutput, PacketDocumentAvailability } from 'utils/lib/types/api/document-packet.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
@@ -25,10 +25,10 @@ vi.mock('../../src/shared/sentry', async (importOriginal) => ({
   wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
 }));
 
-const mockResolveFaxDocumentAvailability = vi.fn();
-vi.mock('../../src/shared/fax/collect-visit-documents', async (importOriginal) => ({
+const mockResolvePacketDocumentAvailability = vi.fn();
+vi.mock('../../src/shared/document-packet/collect-visit-documents', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
-  resolveFaxDocumentAvailability: (...args: unknown[]) => mockResolveFaxDocumentAvailability(...args),
+  resolvePacketDocumentAvailability: (...args: unknown[]) => mockResolvePacketDocumentAvailability(...args),
 }));
 
 import { index } from '../../src/ehr/get-document-packet-preview';
@@ -37,7 +37,7 @@ const APPOINTMENT_ID = '650e8400-e29b-41d4-a716-446655440000';
 const PATIENT_ID = '750e8400-e29b-41d4-a716-446655440000';
 const ENCOUNTER_ID = 'encounter-1';
 
-const AVAILABILITY: FaxDocumentAvailability[] = [
+const AVAILABILITY: PacketDocumentAvailability[] = [
   { kind: 'progress-note', available: true, count: 1 },
   { kind: 'discharge-summary', available: false, count: 0, unavailableReason: 'No discharge summary for this visit' },
 ];
@@ -84,7 +84,7 @@ const pcpPractitioner = (overrides: Partial<Practitioner> = {}): Practitioner =>
   ...overrides,
 });
 
-const runPreview = async (patient: Patient): Promise<GetFaxPacketPreviewOutput> => {
+const runPreview = async (patient: Patient): Promise<GetDocumentPacketPreviewOutput> => {
   mockFhirSearch.mockResolvedValue({ unbundle: () => [encounter, appointment, patient] });
   const result: any = await (index as any)(
     createMockZambdaInput({ appointmentId: APPOINTMENT_ID }, { secrets: createMockSecrets() })
@@ -96,7 +96,7 @@ const runPreview = async (patient: Patient): Promise<GetFaxPacketPreviewOutput> 
 describe('get-document-packet-preview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockResolveFaxDocumentAvailability.mockResolvedValue(AVAILABILITY);
+    mockResolvePacketDocumentAvailability.mockResolvedValue(AVAILABILITY);
     mockFhirGet.mockResolvedValue(senderOrganization);
   });
 
@@ -113,7 +113,7 @@ describe('get-document-packet-preview', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toEqual({ documents: [], hasSavedPcp: false, senderFaxNumber: '+12125550000' });
     // Nothing visit-specific is resolved, so no document availability work is done either.
-    expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+    expect(mockResolvePacketDocumentAvailability).not.toHaveBeenCalled();
     expect(mockFhirSearch).not.toHaveBeenCalled();
   });
 
@@ -138,7 +138,7 @@ describe('get-document-packet-preview', () => {
       })
     );
 
-    const preview = async (dateRange: Record<string, string>): Promise<GetFaxPacketPreviewOutput> => {
+    const preview = async (dateRange: Record<string, string>): Promise<GetDocumentPacketPreviewOutput> => {
       const result: any = await (index as any)(
         createMockZambdaInput({ medicalRecord: { patientId: PATIENT_ID, dateRange } }, { secrets: createMockSecrets() })
       );
@@ -153,7 +153,7 @@ describe('get-document-packet-preview', () => {
       documentCount: 1,
     });
     expect((await preview({ from: '2026-07-01T00:00:00.000Z', to: '2026-07-31T23:59:59.999Z' })).documentCount).toBe(0);
-    expect(mockResolveFaxDocumentAvailability).not.toHaveBeenCalled();
+    expect(mockResolvePacketDocumentAvailability).not.toHaveBeenCalled();
   });
 
   it("counts a follow-up's documents in the follow-up's range rather than the main visit's", async () => {
@@ -212,7 +212,7 @@ describe('get-document-packet-preview', () => {
         createMockZambdaInput({ medicalRecord: { patientId: PATIENT_ID, dateRange } }, { secrets: createMockSecrets() })
       );
       expect(result.statusCode).toBe(200);
-      return (JSON.parse(result.body) as GetFaxPacketPreviewOutput).documentCount;
+      return (JSON.parse(result.body) as GetDocumentPacketPreviewOutput).documentCount;
     };
 
     expect(await countWithin({ from: '2026-10-01T00:00:00.000-04:00', to: '2026-10-31T23:59:59.999-04:00' })).toBe(1);
@@ -245,7 +245,7 @@ describe('get-document-packet-preview', () => {
     const output = await runPreview(patientWith());
 
     expect(output.documents).toEqual(AVAILABILITY);
-    expect(mockResolveFaxDocumentAvailability).toHaveBeenCalledWith(
+    expect(mockResolvePacketDocumentAvailability).toHaveBeenCalledWith(
       expect.objectContaining({ appointmentId: APPOINTMENT_ID, encounterId: ENCOUNTER_ID })
     );
   });

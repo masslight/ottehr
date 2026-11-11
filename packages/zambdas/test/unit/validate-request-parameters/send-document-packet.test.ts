@@ -1,4 +1,4 @@
-import { FAX_MAX_VISITS } from 'utils/lib/types/api/fax.types';
+import { DOCUMENT_PACKET_MAX_VISITS } from 'utils/lib/types/api/document-packet.types';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/send-document-packet/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
@@ -91,7 +91,7 @@ describe('send-document-packet - validateRequestParameters', () => {
             source: {
               type: 'visits',
               patientId: PATIENT_ID,
-              appointmentIds: Array.from({ length: FAX_MAX_VISITS + 1 }, () => APPOINTMENT_ID),
+              appointmentIds: Array.from({ length: DOCUMENT_PACKET_MAX_VISITS + 1 }, () => APPOINTMENT_ID),
             },
           }),
           { secrets }

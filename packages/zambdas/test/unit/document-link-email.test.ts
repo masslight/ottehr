@@ -1,9 +1,9 @@
 import { Task } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
-import { getOutboundDeliveryFaxPacketSnapshot, getOutboundDeliveryInput } from 'utils/lib/fhir/outbound-delivery';
+import { getOutboundDeliveryInput, getOutboundDeliveryPacketSnapshot } from 'utils/lib/fhir/outbound-delivery';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
-import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/fax.types';
+import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-packet.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockSendEmail, mockGetFeatureFlag, mockGetEmailClient } = vi.hoisted(() => {
@@ -152,11 +152,11 @@ describe('document link email attempt', () => {
   it('records what went into the packet, so Action Logs can name it', async () => {
     await sendDocumentLinkEmailAttempt({
       ...baseInput(),
-      faxPacketPageCount: 7,
-      faxPacketParts: ['Medical Record'],
+      packetPageCount: 7,
+      packetParts: ['Medical Record'],
     });
 
-    expect(getOutboundDeliveryFaxPacketSnapshot(create.mock.calls[0][0] as Task)).toEqual({
+    expect(getOutboundDeliveryPacketSnapshot(create.mock.calls[0][0] as Task)).toEqual({
       pageCount: 7,
       parts: ['Medical Record'],
     });
