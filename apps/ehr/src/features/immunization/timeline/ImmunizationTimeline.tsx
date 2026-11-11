@@ -38,6 +38,7 @@ import {
   activeMark,
   ageInMonths,
   defaultRange,
+  doseLabelMonths,
   formatAge,
   formatDate,
   givenDoseWindowSegments,
@@ -92,6 +93,9 @@ const CHIP_COLORS: Record<ImmunizationGroupStatus, { bg: string; text: string; b
   immune: { bg: '#C8E6C9', text: '#1B5E20', border: '#A5D6A7' },
 };
 
+const NEXT_ORANGE = '#F0A04B';
+const NEXT_ORANGE_TEXT = '#8A4B00';
+const PROJECTED_GRAY = '#8A96A3';
 const EARLIEST_STRIPES = 'repeating-linear-gradient(45deg, #A9B4C0 0 3px, #EEF1F4 3px 7px)';
 const SEGMENT_STYLE: Record<
   TimelineSegment['kind'],
@@ -102,8 +106,8 @@ const SEGMENT_STYLE: Record<
   pastdue: { top: 11, height: 12, background: '#F8C9C9' },
   'window-earliest': { top: 13, height: 8, background: EARLIEST_STRIPES },
   'window-recommended': { top: 13, height: 8, background: '#E3EEDD' },
-  'projected-earliest': { top: 11, height: 12, background: 'transparent', border: '1px dashed #8A96A3' },
-  'projected-recommended': { top: 11, height: 12, background: 'transparent', border: '1.5px solid #F0A04B' },
+  'projected-earliest': { top: 11, height: 12, background: 'transparent', border: `1px dashed ${PROJECTED_GRAY}` },
+  'projected-recommended': { top: 11, height: 12, background: 'transparent', border: `1.5px solid ${NEXT_ORANGE}` },
   'projected-pastdue': { top: 11, height: 12, background: 'transparent', border: '1.5px solid #E57373' },
 };
 const LATE_WINDOW_BACKGROUND = '#F3DADA';
@@ -229,6 +233,51 @@ const Dose = ({
     </ButtonBase>
   );
 };
+
+/** The number of a dose still to come, at the start of its bar's recommended part: a hollow circle the size of a
+ * given-dose dot, orange for the next dose and dashed gray for a projected one, drawn above the bars. */
+const DoseNumber = ({
+  n,
+  label,
+  title,
+  projected,
+  left,
+  dim,
+  onClick,
+}: {
+  n: number;
+  label: string;
+  title: string;
+  projected: boolean;
+  left: number;
+  dim?: boolean;
+  onClick: () => void;
+}): ReactElement => (
+  <ButtonBase
+    onClick={onClick}
+    aria-label={label}
+    title={title}
+    sx={{
+      position: 'absolute',
+      top: 7,
+      left: `${left}%`,
+      transform: 'translateX(-50%)',
+      width: 20,
+      height: 20,
+      borderRadius: '50%',
+      fontSize: 10,
+      fontWeight: 600,
+      boxSizing: 'border-box',
+      border: projected ? `2px dashed ${PROJECTED_GRAY}` : `2px solid ${NEXT_ORANGE}`,
+      bgcolor: '#fff',
+      color: projected ? PROJECTED_GRAY : NEXT_ORANGE_TEXT,
+      opacity: dim ? 0.45 : 1,
+      zIndex: 3,
+    }}
+  >
+    {n}
+  </ButtonBase>
+);
 
 const sourceLabel = (record: PatientImmunizationRecord): string =>
   IMMUNIZATION_OUTSIDE_SOURCES.find((source) => source.value === record.source)?.label ??
@@ -447,6 +496,12 @@ export const ImmunizationTimeline = ({
         {forecast.groups.map((group) => {
           const mark = activeMark(marks, group.group);
           const dim = group.status === 'declined';
+          const nextSegments = nextDoseSegments(group, dob, forecast.asOf, maxMonths);
+          const nextLabelAt = doseLabelMonths(nextSegments);
+          const laterDoses = (projections?.[group.group] ?? []).map((projected) => {
+            const segments = projectedDoseSegments(projected, group.label, dob, maxMonths);
+            return { projected, segments, labelAt: doseLabelMonths(segments) };
+          });
           const undated = group.doses.find((dose) => !dose.date);
           return (
             <Box
@@ -526,7 +581,7 @@ export const ImmunizationTimeline = ({
                     }}
                   />
                 )}
-                {nextDoseSegments(group, dob, forecast.asOf, maxMonths).map((segment) => (
+                {nextSegments.map((segment) => (
                   <Segment
                     key={segment.kind}
                     segment={segment}
@@ -535,8 +590,8 @@ export const ImmunizationTimeline = ({
                     onClick={() => setSelection({ kind: 'next', group: group.group })}
                   />
                 ))}
-                {(projections?.[group.group] ?? []).flatMap((projected) =>
-                  projectedDoseSegments(projected, group.label, dob, maxMonths).map((segment) => (
+                {laterDoses.flatMap(({ projected, segments }) =>
+                  segments.map((segment) => (
                     <Segment
                       key={`projected-${projected.n}-${segment.kind}`}
                       segment={segment}
@@ -565,6 +620,33 @@ export const ImmunizationTimeline = ({
                       onClick={() => setSelection({ kind: 'dose', group: group.group, id: dose.id })}
                     />
                   ))}
+                {group.next && nextLabelAt !== null && (
+                  <DoseNumber
+                    n={group.next.n}
+                    label={`${group.label} dose ${group.next.n} (next)`}
+                    title={`${group.label} dose ${group.next.n}: recommended ${formatDate(group.next.recommended)}${
+                      group.next.pastDue ? `, past due ${formatDate(group.next.pastDue)}` : ''
+                    }`}
+                    projected={false}
+                    left={x(nextLabelAt)}
+                    dim={dim}
+                    onClick={() => setSelection({ kind: 'next', group: group.group })}
+                  />
+                )}
+                {laterDoses.map(({ projected, labelAt }) =>
+                  labelAt === null ? null : (
+                    <DoseNumber
+                      key={`projected-${projected.n}-number`}
+                      n={projected.n}
+                      label={`${group.label} dose ${projected.n} (projected)`}
+                      title={projectedDoseText(group.label, projected)}
+                      projected
+                      left={x(labelAt)}
+                      dim={dim}
+                      onClick={() => setSelection({ kind: 'projected', group: group.group, n: projected.n })}
+                    />
+                  )
+                )}
                 {undated && (
                   <ButtonBase
                     onClick={() => setSelection({ kind: 'dose', group: group.group, id: undated.id })}

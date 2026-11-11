@@ -202,6 +202,11 @@ export function projectedDoseSegments(
   ].filter((candidate): candidate is TimelineSegment => candidate !== undefined);
 }
 
+/** Where a dose still to come shows its number: the start of its bar's recommended part (null when off the range). */
+export const doseLabelMonths = (segments: TimelineSegment[]): number | null =>
+  segments.find((candidate) => candidate.kind === 'recommended' || candidate.kind === 'projected-recommended')?.from ??
+  null;
+
 export const windowText = (window: DoseWindow): string =>
   [
     window.earliest && window.earliest !== window.recommended ? `earliest ${formatDate(window.earliest)}` : '',

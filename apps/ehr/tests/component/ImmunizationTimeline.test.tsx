@@ -129,6 +129,24 @@ describe('ImmunizationTimeline', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('numbers the next dose (orange circle) and each later dose (dashed gray circle), above the bars', () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    const pcv = screen.getByTestId('immunization-lane-pcv');
+    const next = within(pcv).getByRole('button', { name: /^PCV.* dose 2 \(next\)$/ });
+    expect(next).toHaveTextContent('2');
+    expect(next).toHaveAttribute('title', expect.stringMatching(/^PCV.* dose 2: recommended \d\d\/\d\d\/\d{4}/));
+    expect(next).toHaveStyle({ borderStyle: 'solid', backgroundColor: '#fff', zIndex: '3' });
+    const later = within(pcv).getByRole('button', { name: /^PCV.* dose 3 \(projected\)$/ });
+    expect(later).toHaveTextContent('3');
+    expect(later).toHaveAttribute(
+      'title',
+      expect.stringMatching(/dose 3 \(projected\): .*if dose 2 is given on time\.$/)
+    );
+    expect(later).toHaveStyle({ borderStyle: 'dashed', zIndex: '3' });
+    // given-dose dots stay distinct: filled navy, under the numbers
+    expect(within(pcv).getByRole('button', { name: /dose 1$/ })).not.toHaveStyle({ backgroundColor: '#fff' });
+  });
+
   it('renders one lane per vaccine group with its status, doses, undated dose and mark', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     for (const group of fixture.forecast.groups) {

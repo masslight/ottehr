@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ageInMonths,
   defaultRange,
+  doseLabelMonths,
   formatAge,
   givenDoseWindowSegments,
   lastProjectedMonths,
@@ -147,6 +148,9 @@ describe('projected later doses', () => {
       'projected-recommended',
     ]);
     expect(projectedDoseSegments(polio4, 'Polio', DOB, 24)).toEqual([]);
+    // the dose number sits at the start of the recommended part, and nowhere when that part is off the range
+    expect(doseLabelMonths(segments)).toBeCloseTo(ageInMonths(DOB, dtap4.recommended));
+    expect(doseLabelMonths(projectedDoseSegments(polio4, 'Polio', DOB, 24))).toBeNull();
     expect(projectedDoseText('Polio', { ...polio4, pastDue: null })).toBe(
       'Polio dose 4 (projected): recommended 07/08/2030, if dose 3 is given on time.'
     );
