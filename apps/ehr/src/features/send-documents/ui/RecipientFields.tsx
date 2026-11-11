@@ -8,8 +8,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
 import { useContactFields } from 'src/features/address-book/useContactFields';
-import { isEmailValid } from 'utils/lib/helpers/helpers';
-import { RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE } from 'utils/lib/types/api/document-packet.types';
+import { isPacketEmailValid, RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE } from 'utils/lib/types/api/document-packet.types';
 import { DeliveryChannel, SendDocumentsFormValues } from '../model/types';
 
 interface RecipientFieldsProps {
@@ -107,7 +106,7 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
           name={field('email')}
           label="Recipient Email"
           required
-          validate={(value) => isEmailValid(value.trim()) || 'Enter a valid email address'}
+          validate={(value) => isPacketEmailValid(value) || 'Enter a valid email address'}
           dataTestId={`${dataTestIds.sendDocumentsDialog.email}-${index}`}
         />
       ) : (

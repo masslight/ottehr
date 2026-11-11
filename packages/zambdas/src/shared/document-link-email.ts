@@ -4,7 +4,7 @@ import { OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/consta
 import { makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
 import { escapeHtml, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
-import { GenericOutreachTemplateData } from 'utils/lib/ottehr-config/sendgrid';
+import { GenericOutreachTemplateData, SENDGRID_CONFIG } from 'utils/lib/ottehr-config/sendgrid';
 import { Secrets } from 'utils/lib/secrets';
 import { OutboundDeliveryAttemptData } from 'utils/lib/types/api/action-logs.types';
 import { DOCUMENT_LINK_TTL_MINUTES } from 'utils/lib/types/api/document-link.types';
@@ -108,7 +108,10 @@ export async function sendDocumentLinkEmailAttempt(
   existingEmailClient?: DocumentLinkEmailClient
 ): Promise<Task> {
   const emailClient = existingEmailClient ?? getEmailClient(input.secrets, input.oystehr);
-  if (!emailClient.getFeatureFlag()) throw new Error('Document link email delivery is disabled');
+  // A disabled template makes the client log the email, link included, instead of sending it.
+  if (!emailClient.getFeatureFlag() || SENDGRID_CONFIG.templates.genericOutreach.disabled) {
+    throw new Error('Document link email delivery is disabled');
+  }
   requireDocumentLinkSigningKey(input.secrets);
   requireOutboundDeliveryValue(input.email, 'Email recipient');
   requireOutboundDeliveryValue(input.documentReferenceId, 'Document packet DocumentReference');

@@ -6,16 +6,21 @@ import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/brandi
 import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-link.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSendEmail, mockGetFeatureFlag, mockGetEmailClient } = vi.hoisted(() => {
+const { mockSendEmail, mockGetFeatureFlag, mockGetEmailClient, genericOutreachTemplate } = vi.hoisted(() => {
   const sendEmail = vi.fn();
   const getFeatureFlag = vi.fn(() => true);
   return {
     mockSendEmail: sendEmail,
     mockGetFeatureFlag: getFeatureFlag,
     mockGetEmailClient: vi.fn(() => ({ getFeatureFlag, sendGenericOutreachEmail: sendEmail })),
+    genericOutreachTemplate: { disabled: false },
   };
 });
 vi.mock('../../src/shared/communication', () => ({ getEmailClient: mockGetEmailClient }));
+vi.mock('utils/lib/ottehr-config/sendgrid', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('utils/lib/ottehr-config/sendgrid')>()),
+  SENDGRID_CONFIG: { templates: { genericOutreach: genericOutreachTemplate } },
+}));
 
 import {
   buildDocumentLinkEmail,
@@ -58,6 +63,7 @@ describe('document link email attempt', () => {
     );
     mockSendEmail.mockResolvedValue(undefined);
     mockGetFeatureFlag.mockReturnValue(true);
+    genericOutreachTemplate.disabled = false;
   });
 
   it('creates the attempt, mints a token for it, emails the link and completes the attempt', async () => {
@@ -110,6 +116,16 @@ describe('document link email attempt', () => {
 
   it('throws before creating an attempt when email delivery is disabled', async () => {
     mockGetFeatureFlag.mockReturnValue(false);
+
+    await expect(sendDocumentLinkEmailAttempt(baseInput())).rejects.toThrow('delivery is disabled');
+    expect(create).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  // With the template disabled the email client returns without sending and logs the whole email, live link
+  // included, so the attempt would be marked sent while the link sat in the logs.
+  it('throws before creating an attempt when the generic outreach template is disabled', async () => {
+    genericOutreachTemplate.disabled = true;
 
     await expect(sendDocumentLinkEmailAttempt(baseInput())).rejects.toThrow('delivery is disabled');
     expect(create).not.toHaveBeenCalled();

@@ -73,6 +73,19 @@ describe('revoke-action-log', () => {
     expect(cancelledIds(fhir.patch)).toEqual(['attempt-1']);
   });
 
+  // The patches run in parallel, so a failed run can leave the clicked attempt cancelled and the rest live.
+  it('finishes a partly applied revoke when it is retried on the already-cancelled attempt', async () => {
+    const fhir = fhirOver([
+      attempt('attempt-1'),
+      attempt('attempt-2', { partOf: [{ reference: 'Task/attempt-1' }], status: 'cancelled' }),
+    ]);
+
+    const output = await performEffect({ attemptId: 'attempt-2', secrets: null }, { fhir } as any, user);
+
+    expect(output.revokedCount).toBe(1);
+    expect(cancelledIds(fhir.patch)).toEqual(['attempt-1']);
+  });
+
   it('fails rather than revoke part of a chain longer than the walk bound', async () => {
     const chain = Array.from({ length: 51 }, (_, index) =>
       attempt(`attempt-${index}`, index > 0 ? { partOf: [{ reference: `Task/attempt-${index - 1}` }] } : {})

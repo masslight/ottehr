@@ -68,6 +68,10 @@ const PacketRecipientBaseSchema = z.object({
   saveAsPcp: z.boolean().optional(),
 });
 
+const PacketEmailSchema = z.string().trim().toLowerCase().email();
+
+export const isPacketEmailValid = (email: string): boolean => PacketEmailSchema.safeParse(email).success;
+
 /**
  * One delivery channel per recipient: a fax number, or an email address that receives an expiring link to
  * the packet. Never both.
@@ -75,7 +79,7 @@ const PacketRecipientBaseSchema = z.object({
 export const DocumentPacketRecipientSchema = z
   .union([
     PacketRecipientBaseSchema.extend({ faxNumber: z.string().min(1), email: z.undefined() }),
-    PacketRecipientBaseSchema.extend({ email: z.string().trim().toLowerCase().email(), faxNumber: z.undefined() }),
+    PacketRecipientBaseSchema.extend({ email: PacketEmailSchema, faxNumber: z.undefined() }),
   ])
   // The credential is shown after the name ("Jane Doe, MD"); without a name it would be dropped silently.
   .refine((recipient) => !recipient.credential || !!recipient.name, {

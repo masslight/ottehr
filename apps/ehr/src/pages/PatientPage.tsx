@@ -85,6 +85,7 @@ export default function PatientPage(): JSX.Element {
   const navigate = useNavigate();
   const defaultTab = location.state?.defaultTab;
   const isLegacyPatientFollowupsEnabled = FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED;
+  const sendMedicalRecordLabel = FEATURE_FLAGS.SENDGRID_ENABLED ? 'Send by Fax or Email' : 'Send as Fax';
   const [tab, setTab] = useState(
     !isLegacyPatientFollowupsEnabled && defaultTab === 'followups' ? 'encounters' : defaultTab || 'encounters'
   );
@@ -441,13 +442,13 @@ export default function PatientPage(): JSX.Element {
               <ListItemIcon>
                 <SendOutlinedIcon fontSize="small" color="primary" />
               </ListItemIcon>
-              <ListItemText>Send by Fax or Email</ListItemText>
+              <ListItemText>{sendMedicalRecordLabel}</ListItemText>
             </MenuItem>
           </Menu>
 
           <MedicalRecordDateRangeDialog
             open={isMedicalRecordRangeOpen}
-            confirmText={medicalRecordAction === 'fax' ? 'Send by Fax or Email' : 'Download Archive'}
+            confirmText={medicalRecordAction === 'fax' ? sendMedicalRecordLabel : 'Download Archive'}
             recordDates={recordDateSpan.data}
             loading={recordDateSpan.isFetching}
             loadFailed={recordDateSpan.isError}

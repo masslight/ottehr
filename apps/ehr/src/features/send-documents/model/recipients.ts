@@ -1,9 +1,10 @@
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { isEmailValid, isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import {
   DOCUMENT_PACKET_MAX_RECIPIENTS,
   DocumentPacketRecipient,
   DocumentPacketSource,
+  isPacketEmailValid,
   SendDocumentPacketInput,
 } from 'utils/lib/types/api/document-packet.types';
 import { RecipientFormValue, SendDocumentsFormValues } from './types';
@@ -54,7 +55,7 @@ export const isRecipientFaxNumberValid = (recipient: RecipientFormValue): boolea
 
 /** A valid address for the channel the recipient is on. */
 export const isRecipientAddressValid = (recipient: RecipientFormValue): boolean =>
-  recipient.channel === 'email' ? isEmailValid(recipient.email.trim()) : isRecipientFaxNumberValid(recipient);
+  recipient.channel === 'email' ? isPacketEmailValid(recipient.email) : isRecipientFaxNumberValid(recipient);
 
 /** Every recipient needs a valid fax number or email, and there must be something to send. */
 export const canSend = (recipients: RecipientFormValue[], hasDocuments: boolean): boolean => {

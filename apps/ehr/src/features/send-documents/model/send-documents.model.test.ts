@@ -139,6 +139,18 @@ describe('recipients', () => {
     expect(canSend([recipient({ channel: 'email', email: '', faxNumber: '2027139680' })], true)).toBe(false);
   });
 
+  // The server rejects the whole send, every recipient included, for an address its schema refuses.
+  it.each(['dr@clinic.com,nurse@clinic.com', 'a..b@clinic.com'])(
+    'refuses %s, which the server schema would reject',
+    (email) => {
+      expect(canSend([recipient({ channel: 'email', email, faxNumber: '' })], true)).toBe(false);
+    }
+  );
+
+  it('accepts an email with surrounding whitespace, which the server trims', () => {
+    expect(canSend([recipient({ channel: 'email', email: '  olivia@example.com ', faxNumber: '' })], true)).toBe(true);
+  });
+
   it('sends an email recipient with its address only, trimmed and lowercased', () => {
     const input = toSendDocumentPacketInput(visitSource, {
       recipients: [recipient({ channel: 'email', email: '  Olivia@Example.COM ', faxNumber: '' })],

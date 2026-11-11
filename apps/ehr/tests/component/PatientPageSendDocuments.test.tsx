@@ -25,6 +25,19 @@ const mockUseSendDocuments = vi.fn();
 const mockOpen = vi.fn();
 const mockDownloadMedicalRecord = vi.fn<(dateRange: unknown) => Promise<void>>();
 const mockGetDocumentPacketPreview = vi.fn();
+const flags = vi.hoisted(() => ({ sendgridEnabled: true }));
+
+vi.mock('src/constants/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('src/constants/feature-flags')>();
+  return {
+    FEATURE_FLAGS: {
+      ...actual.FEATURE_FLAGS,
+      get SENDGRID_ENABLED() {
+        return flags.sendgridEnabled;
+      },
+    },
+  };
+});
 
 // The fax slice owns sending; this page's job is to hand it the right source and visit list.
 vi.mock('src/features/send-documents/hooks/useSendDocuments', () => ({
@@ -95,6 +108,7 @@ const rangeIds = dataTestIds.medicalRecordDateRangeDialog;
 describe('PatientPage fax actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    flags.sendgridEnabled = true;
     mockDownloadMedicalRecord.mockResolvedValue();
     mockGetDocumentPacketPreview.mockResolvedValue({ documents: [], hasSavedPcp: false, documentCount: 3 });
   });
@@ -180,6 +194,18 @@ describe('PatientPage fax actions', () => {
     expect(mockDownloadMedicalRecord).not.toHaveBeenCalled();
     // The whole record is one packet, so no visit picker is offered.
     expect(screen.getByTestId('send-documents-dialog')).not.toHaveTextContent('04/11/2026');
+  });
+
+  // The send dialog offers email only while SendGrid is on, so the entry point must not promise it otherwise.
+  it('offers the record as a fax only while SendGrid is off', async () => {
+    flags.sendgridEnabled = false;
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Medical Record/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Send as Fax' }));
+
+    expect(screen.getByTestId(rangeIds.confirmButton)).toHaveTextContent('Send as Fax');
   });
 
   it('faxes only the chosen range of the record', async () => {

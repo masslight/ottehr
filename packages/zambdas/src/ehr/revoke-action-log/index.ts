@@ -38,7 +38,8 @@ export async function performEffect(
   user: User
 ): Promise<RevokeActionLogOutput> {
   const original = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: parameters.attemptId });
-  if (!isDocumentLinkAttempt(original) || original.status !== 'completed') {
+  // A cancelled attempt is accepted so that retrying a partly applied revoke can finish the rest of the chain.
+  if (!isDocumentLinkAttempt(original) || (original.status !== 'completed' && original.status !== 'cancelled')) {
     throw new Error('Only sent document links can be revoked');
   }
 
