@@ -93,7 +93,7 @@ describe('document link email attempt', () => {
       audience: DOCUMENT_LINK_AUDIENCE,
     });
     expect(payload.sub).toBe('attempt-1');
-    expect(templateData.content).toContain('expires in one hour');
+    expect(templateData.content).toContain('expires in 60 minutes');
 
     expect(patch).toHaveBeenCalledWith(
       expect.objectContaining({ operations: expect.arrayContaining([expect.objectContaining({ value: 'completed' })]) })

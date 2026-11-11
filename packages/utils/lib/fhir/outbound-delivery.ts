@@ -1,6 +1,5 @@
 import { Communication, Task, TaskInput, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { removePrefix } from '../helpers/helpers';
 import { ActionLogChannel, ActionLogStatus, OutboundDeliveryAttemptData } from '../types/api/action-logs.types';
 import {
   OUTBOUND_DELIVERY_INPUT_CODES,
@@ -13,6 +12,7 @@ import {
   OYSTEHR_OUTBOUND_FAX_STATUS_CODES,
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
 } from './constants';
+import { getIdFromReference } from './reference';
 
 const input = (code: string, valueString?: string, reference?: string): TaskInput => ({
   type: { coding: [{ system: OUTBOUND_DELIVERY_INPUT_SYSTEM, code }] },
@@ -123,22 +123,22 @@ export function getOutboundDeliveryRecipientSnapshot(task: Task): OutboundDelive
     name: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientName)?.valueString,
     organization: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientOrganization)?.valueString,
     phone: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientPhone)?.valueString,
-    documentReferenceId: removePrefix(
-      'DocumentReference/',
-      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference ?? ''
+    documentReferenceId: getIdFromReference(
+      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference,
+      'DocumentReference'
     ),
-    communicationId: removePrefix(
-      'Communication/',
-      getOutboundDeliveryOutput(task, OUTBOUND_DELIVERY_OUTPUT_CODES.communication)?.valueReference?.reference ?? ''
+    communicationId: getIdFromReference(
+      getOutboundDeliveryOutput(task, OUTBOUND_DELIVERY_OUTPUT_CODES.communication)?.valueReference?.reference,
+      'Communication'
     ),
   };
 }
 
 /** The organization the attempt was sent from, recorded on the attempt when it was created. */
 export function getOutboundDeliverySenderOrganizationId(task: Task): string | undefined {
-  return removePrefix(
-    'Organization/',
-    getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference ?? ''
+  return getIdFromReference(
+    getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference,
+    'Organization'
   );
 }
 

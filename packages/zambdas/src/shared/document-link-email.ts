@@ -8,7 +8,7 @@ import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/brandi
 import { GenericOutreachTemplateData } from 'utils/lib/ottehr-config/sendgrid';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { OutboundDeliveryAttemptData } from 'utils/lib/types/api/action-logs.types';
-import { DOCUMENT_LINK_AUDIENCE, DOCUMENT_LINK_TTL } from 'utils/lib/types/api/fax.types';
+import { DOCUMENT_LINK_AUDIENCE, DOCUMENT_LINK_TTL, DOCUMENT_LINK_TTL_MINUTES } from 'utils/lib/types/api/fax.types';
 import { EmailSendOptions, getEmailClient } from './communication';
 import {
   completeOutboundDeliveryAttempt,
@@ -113,7 +113,7 @@ export function buildDocumentLinkEmail(input: {
     content:
       `<p>${sender} sent you information from their Electronic Health Record system.</p>` +
       `<p><a href="${escapeHtml(input.url)}">Open documents</a></p>` +
-      '<p>This link expires in one hour. If it has expired, opening it will send you a new link.</p>' +
+      `<p>This link expires in ${DOCUMENT_LINK_TTL_MINUTES} minutes. If it has expired, opening it will send you a new link.</p>` +
       '<hr style="height: 1px; border-width: 0px; background-color: #dfe5e9; margin: 32px 0 24px" />' +
       notice(
         'Do Not Share This Email',

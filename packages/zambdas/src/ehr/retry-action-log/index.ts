@@ -15,7 +15,6 @@ import {
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -82,7 +81,7 @@ export async function performEffect(
     getIdFromReference(original.for?.reference, 'Patient'),
     'patient reference'
   );
-  const appointmentId = removePrefix('Appointment/', original.focus?.reference ?? '') || undefined;
+  const appointmentId = getIdFromReference(original.focus?.reference, 'Appointment');
   const recipient = getOutboundDeliveryRecipientSnapshot(original);
   const faxPacket = getOutboundDeliveryFaxPacketSnapshot(original);
   const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');

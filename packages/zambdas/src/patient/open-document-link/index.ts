@@ -13,7 +13,7 @@ import {
   getOutboundDeliverySenderOrganizationId,
   makeOutboundDeliveryOutput,
 } from 'utils/lib/fhir/outbound-delivery';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -225,14 +225,14 @@ async function resendDocumentLink(
   const recipient = getOutboundDeliveryRecipientSnapshot(task);
   const organizationId =
     getOutboundDeliverySenderOrganizationId(task) || getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
-  const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '') || undefined;
+  const appointmentId = getIdFromReference(task.focus?.reference, 'Appointment');
   const location = appointmentId ? await getVisitLocation(oystehr, appointmentId) : undefined;
   const packet = getOutboundDeliveryFaxPacketSnapshot(task);
 
   await sendDocumentLinkEmailAttempt({
     oystehr,
     secrets,
-    patientId: requireOutboundDeliveryValue(removePrefix('Patient/', task.for?.reference ?? ''), 'patient reference'),
+    patientId: requireOutboundDeliveryValue(getIdFromReference(task.for?.reference, 'Patient'), 'patient reference'),
     appointmentId,
     email: requireOutboundDeliveryValue(recipient.address, 'recipient address'),
     recipientName: recipient.name,
