@@ -121,6 +121,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
 import { formPagePath, OpenFormResponseState } from '../features/visits/shared/components/patient-forms/formNavigation';
+import { useGetEmployeesWithDetails } from '../features/visits/shared/hooks/useGetEmployees';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -130,6 +131,7 @@ import {
   formatNotesHistory,
   getAppointmentAndPatientHistory,
   NoteHistory,
+  replaceStaffEmailsWithNames,
 } from '../helpers/activityLogsUtils';
 import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
@@ -280,7 +282,12 @@ export default function VisitDetailsPage(): ReactElement {
   const [issueDialogOpen, setIssueDialogOpen] = useState<boolean>(false);
   const [activityLogDialogOpen, setActivityLogDialogOpen] = useState<boolean>(false);
   const [activityLogsLoading, setActivityLogsLoading] = useState<boolean>(true);
-  const [activityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
+  const [rawActivityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
+  const { data: employeesData } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
+  const activityLogs = useMemo(
+    () => (rawActivityLogs ? replaceStaffEmailsWithNames(rawActivityLogs, employeesData?.all) : undefined),
+    [rawActivityLogs, employeesData?.all]
+  );
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const user = useEvolveUser();
 

@@ -258,6 +258,31 @@ export const formatPaperworkStartedLog = (paperworkStartedFlag: Flag, timezone: 
   return paperworkStartedActivityLog;
 };
 
+const STAFF_EMAIL_PATTERN = /^Staff\s+(\S+@\S+)$/;
+
+/**
+ * Activity log tags are stamped as `Staff <email>`. Swap the email for the employee's first and last name
+ * at display time (this also covers tags written before this behavior existed). Falls back to the original
+ * text when the email doesn't match a known employee.
+ */
+export const replaceStaffEmailsWithNames = (
+  logs: ActivityLogData[],
+  employees: { email?: string; firstName?: string; lastName?: string; name?: string }[] | undefined
+): ActivityLogData[] => {
+  if (!employees?.length) return logs;
+  const namesByEmail = new Map<string, string>();
+  employees.forEach((employee) => {
+    const email = employee.email?.trim().toLowerCase();
+    const fullName = `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || employee.name?.trim();
+    if (email && fullName) namesByEmail.set(email, fullName);
+  });
+  return logs.map((log) => {
+    const email = log.activityBy.match(STAFF_EMAIL_PATTERN)?.[1];
+    const fullName = email ? namesByEmail.get(email.toLowerCase()) : undefined;
+    return fullName ? { ...log, activityBy: fullName } : log;
+  });
+};
+
 export const sortLogs = (logs: ActivityLogData[]): ActivityLogData[] => {
   return logs.sort((a, b) => {
     const dateA = DateTime.fromISO(a.activityDateTimeISO || '');
