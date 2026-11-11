@@ -94,6 +94,16 @@ describe('ImmunizationTimeline', () => {
     clearMutate.mockReset();
   });
 
+  it('puts "Today" above the age scale and leaves room left of age 0 for a birth dose', () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    expect(screen.getByText('Today')).toHaveStyle({ top: '0px' });
+    expect(screen.getByText('4m')).toHaveStyle({ top: '18px' });
+    const birthDose = within(screen.getByTestId('immunization-lane-hepb')).getByRole('button', {
+      name: 'Hep B dose 1',
+    });
+    expect(birthDose.parentElement).toHaveStyle({ marginLeft: '16px' });
+  });
+
   it('renders one lane per vaccine group with its status, doses, undated dose and mark', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     for (const group of fixture.forecast.groups) {

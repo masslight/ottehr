@@ -86,19 +86,21 @@ const CHIP_COLORS: Record<ImmunizationGroupStatus, { bg: string; text: string; b
   immune: { bg: '#C8E6C9', text: '#1B5E20', border: '#A5D6A7' },
 };
 
-const SEGMENT_STYLE: Record<TimelineSegment['kind'], { top: number; height: number; background: string }> = {
-  earliest: { top: 11, height: 12, background: 'repeating-linear-gradient(45deg, #E3E8EE 0 4px, #F4F6F8 4px 8px)' },
+const EARLIEST_STRIPES = 'repeating-linear-gradient(45deg, #A9B4C0 0 3px, #EEF1F4 3px 7px)';
+const SEGMENT_STYLE: Record<
+  TimelineSegment['kind'],
+  { top: number; height: number; background: string; border?: string }
+> = {
+  earliest: { top: 11, height: 12, background: EARLIEST_STRIPES, border: '1px solid #A9B4C0' },
   recommended: { top: 11, height: 12, background: '#FFE0B2' },
   pastdue: { top: 11, height: 12, background: '#F8C9C9' },
-  'window-earliest': {
-    top: 13,
-    height: 8,
-    background: 'repeating-linear-gradient(45deg, #E6EBF0 0 3px, #F6F8FA 3px 6px)',
-  },
+  'window-earliest': { top: 13, height: 8, background: EARLIEST_STRIPES },
   'window-recommended': { top: 13, height: 8, background: '#E3EEDD' },
 };
 const LATE_WINDOW_BACKGROUND = '#F3DADA';
 const LABEL_WIDTH = 380;
+/** Room left of age 0, so a birth dose's circle clears the lane's Mark button. */
+const PLOT_INSET = 16;
 
 type Selection =
   | { kind: 'dose'; group: ImmunizationGroupId; id: string }
@@ -156,7 +158,8 @@ const Segment = ({
         top: style.top,
         height: style.height,
         borderRadius: style.height / 2,
-        border: 0,
+        border: style.border ?? 0,
+        boxSizing: 'border-box',
         p: 0,
         background: segment.late ? LATE_WINDOW_BACKGROUND : style.background,
         opacity: dim ? 0.45 : 1,
@@ -392,13 +395,13 @@ export const ImmunizationTimeline = ({
       <Paper variant="outlined" sx={{ px: 2, pt: 1, pb: 1.5 }}>
         <Box sx={{ display: 'flex' }}>
           <Box sx={laneLabelSx} />
-          <Box sx={{ flex: 1, position: 'relative', height: 26 }}>
+          <Box sx={{ flex: 1, position: 'relative', height: 40, ml: `${PLOT_INSET}px` }}>
             {ticks.map((tick) => (
               <Typography
                 key={tick.months}
                 variant="caption"
                 color="text.secondary"
-                sx={{ position: 'absolute', top: 4, left: `${x(tick.months)}%`, transform: 'translateX(-50%)' }}
+                sx={{ position: 'absolute', top: 18, left: `${x(tick.months)}%`, transform: 'translateX(-50%)' }}
               >
                 {tick.label}
               </Typography>
@@ -408,8 +411,9 @@ export const ImmunizationTimeline = ({
                 variant="caption"
                 color="primary"
                 sx={{
+                  // above the age scale, so it hides no tick label
                   position: 'absolute',
-                  top: 4,
+                  top: 0,
                   left: `${x(todayMonths)}%`,
                   transform: 'translateX(-50%)',
                   fontWeight: 600,
@@ -471,7 +475,14 @@ export const ImmunizationTimeline = ({
                 </Box>
               </Box>
 
-              <Box sx={{ flex: 1, position: 'relative', borderBottom: `1px solid ${theme.palette.divider}` }}>
+              <Box
+                sx={{
+                  flex: 1,
+                  position: 'relative',
+                  ml: `${PLOT_INSET}px`,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                }}
+              >
                 {ticks.map((tick) => (
                   <Box
                     key={tick.months}
@@ -595,7 +606,14 @@ export const ImmunizationTimeline = ({
               'Outside',
             ],
             [
-              <LegendSwatch key="e" sx={{ background: SEGMENT_STYLE.earliest.background }} />,
+              <LegendSwatch
+                key="e"
+                sx={{
+                  background: SEGMENT_STYLE.earliest.background,
+                  border: SEGMENT_STYLE.earliest.border,
+                  boxSizing: 'border-box',
+                }}
+              />,
               'Earliest to recommended',
             ],
             [
