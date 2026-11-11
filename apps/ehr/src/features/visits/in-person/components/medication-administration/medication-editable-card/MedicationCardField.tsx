@@ -126,8 +126,10 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
     const { lots, locationName } = inventoryLots;
     const options = sortInventoryLotsForPicking(lots, DateTime.now().toISODate());
     const text = typeof rawValue === 'string' ? rawValue : '';
-    const findLot = (lotNumber: string): InventoryLot | undefined =>
-      lots.find((lot) => lot.lotNumber === lotNumber.trim());
+    const findLot = (lotNumber: string): InventoryLot | undefined => {
+      const matches = lots.filter((lot) => lot.lotNumber === lotNumber.trim());
+      return matches.length === 1 ? matches[0] : undefined;
+    };
     const hasError = showError && required && !text;
     return (
       <StyledFormControl data-testid={dataTestIds.orderMedicationPage.inputField(field)} disabled={!isEditable}>

@@ -110,6 +110,22 @@ describe('MedicationCardField lot suggestions', () => {
     expect(input).toHaveValue('B88120');
   });
 
+  it('typing a lot number two lots share picks neither and lists both to choose from', async () => {
+    const onPick = vi.fn();
+    const user = userEvent.setup();
+    const expired = lot('lot-expired', 'A123', inDays(-30), 2, 'Civica');
+    const inDate = lot('lot-in-date', 'A123', inDays(200), 10, 'Hikma');
+    render(<Harness onPick={onPick} lots={[expired, inDate]} />);
+
+    await user.type(screen.getByRole('combobox'), 'A123');
+    expect(onPick).not.toHaveBeenCalled();
+
+    const list = screen.getByRole('listbox');
+    expect(within(list).getAllByRole('option')).toHaveLength(2);
+    await user.click(within(list).getByRole('option', { name: /Hikma/ }));
+    expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ id: 'lot-in-date' }));
+  });
+
   it('keeps the whole list visible while the field holds a listed lot', () => {
     render(<Harness initial="C24117" onPick={vi.fn()} />);
     expect(within(openList()).getAllByRole('option')).toHaveLength(3);
