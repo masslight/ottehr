@@ -58,6 +58,12 @@ Requests (async jobs / pages) for a year: ideal 52 / 221 / 139, current 165 / 25
 5. **Report Studio's cost is in its runner, not in its plans.** Its visits step takes 32–34 s for a year in 11 large jobs, and its scoped steps send 250 ids per paged batch (228 requests for temperatures against 87 in ideal). The plans themselves are close to the ideal searches.
 6. **The floor is ~6 s for 60 days and ~18–28 s for a year on local.** FHIR has no joins, so a report reads the visits and then makes a second pass by their ids, and every async job costs ~2.5 s.
 
+## Takeaway
+
+- On **short ranges** Report Studio is slightly ahead (60 days: 1.2–1.5× the ideal against 1.4–1.6×, a difference of ~1–2 s): a per-report plan reads only what that report needs, while this version always loads the dataset's base row.
+- On **long ranges** this version is even with it or ahead (a year: 1.5–1.9× against 1.5–1.8×; faster on r2, even on r3).
+- This version could close the short-range gap if wanted, but the gap is small, and almost any further optimization here — trimming fields, skipping base columns, reordering lookups — carries a risk of regressions (a silently empty column, a changed row). It is not worth chasing for ~1–2 s.
+
 ## Caveats
 
 - **One measured run per cell**, and a year is noisy (20–40%). Repeat before deciding on a single number.
@@ -81,7 +87,7 @@ Here this version's root took 5.6–5.9 s at 60 days and 30–31 s at a year, th
 
 ## Appendix B: first run (cold cache)
 
-The same bench run once without a warm-up, before the runs above (and before the root-lookups change). The first run of each range read data the database had not read yet, and in both ranges that was **ideal**: its visits took 8.2 s + 10.3 s at 60 days against 3.3–4.3 s once warm, and its encounters 24.1 s at a year against 14.4–15.2 s. That is why current looks faster than the ideal in the first row. Every result matched the ideal one here too.
+The same bench run once without a warm-up, before the runs above. **It ran an earlier, less optimized build of this version**: the patient / location / practitioner lookups ran *before* the layers, not next to them (the change of appendix A). The rest was already in place: one async job per search, 500 ids, 16 jobs at once, layers in parallel. The first run of each range read data the database had not read yet, and in both ranges that was **ideal**: its visits took 8.2 s + 10.3 s at 60 days against 3.3–4.3 s once warm, and its encounters 24.1 s at a year against 14.4–15.2 s. That is why current looks faster than the ideal in the first row. Every result matched the ideal one here too.
 
 | Report | Range | ideal | current | studio |
 |---|---|---|---|---|
