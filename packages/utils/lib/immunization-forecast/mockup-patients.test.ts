@@ -137,7 +137,7 @@ describe('Maya Rivera, DOB 2026-07-08, 4-month well visit on 2026-11-10', () => 
     expect(group(maya, 'mmr').next).toMatchObject({ n: 1, earliest: '2027-07-08', recommended: '2027-07-08' });
     expect(group(maya, 'var').next).toMatchObject({ n: 1, earliest: '2027-07-08', recommended: '2027-07-08' });
     expect(group(maya, 'hepa').next).toMatchObject({ n: 1, earliest: '2027-07-08', recommended: '2027-07-08' });
-    expect(group(maya, 'hpv').next).toMatchObject({ n: 1, earliest: '2035-07-08', recommended: '2037-07-08' });
+    expect(group(maya, 'hpv').next).toMatchObject({ n: 1, earliest: '2035-07-08', recommended: '2035-07-08' });
     expect(group(maya, 'menacwy').next).toMatchObject({ n: 1, earliest: '2037-07-08', recommended: '2037-07-08' });
     for (const id of ['mmr', 'var', 'hepa', 'hpv', 'menacwy'] as const)
       expect(group(maya, id).status, id).toBe('notyet');
@@ -256,7 +256,7 @@ describe('Leo Okafor, DOB 2021-09-14, new-patient catch-up visit on 2026-11-10',
   it('HPV uses the male series and is not yet due', () => {
     const hpv = group(leo, 'hpv');
     expect(hpv.seriesNames).toEqual(['HPV male 2-dose series']);
-    expect(hpv.next).toMatchObject({ n: 1, earliest: '2030-09-14', recommended: '2032-09-14' });
+    expect(hpv.next).toMatchObject({ n: 1, earliest: '2030-09-14', recommended: '2030-09-14' });
   });
 });
 

@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { VaccineScheduleAdminPage } from '../../src/features/admin/vaccine-schedule/VaccineScheduleAdminPage';
 
 describe('VaccineScheduleAdminPage', () => {
-  it('opens on Children, cites the CDC CDSi 4.64 data with AIRA 26.1 for the seasonal antigens, and is read-only', () => {
+  it('opens on Children, cites the CDC CDSi 4.64 data with AIRA 26.1 for the seasonal antigens and the AAP for HPV, and is read-only', () => {
     render(<VaccineScheduleAdminPage />);
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Children', 'Adults', 'Seasonal']);
     expect(
       screen.getByText(
-        /Childhood schedule from CDC CDSi Supporting Data 4\.64, with AIRA medical societies \(AAP\/AAFP\/ACOG\/IDSA\) Supporting Data 26\.1 for COVID-19, Influenza and RSV\./
+        /Childhood schedule from CDC CDSi Supporting Data 4\.64, with AIRA medical societies \(AAP\/AAFP\/ACOG\/IDSA\) Supporting Data 26\.1 for COVID-19, Influenza and RSV; AAP immunization schedule 2026 for HPV\./
       )
     ).toBeInTheDocument();
     expect(screen.getByText('Hep B')).toBeInTheDocument();

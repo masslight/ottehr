@@ -13,7 +13,7 @@
  *   cd packages/utils && npx vitest run lib/immunization-forecast/cdsi-test-cases.test.ts --silent=false
  */
 import { describe, expect, it } from 'vitest';
-import { buildRulesData, getRulesData, RulesData } from './data/rules-data';
+import { buildRulesData, getSourceRulesData, RulesData } from './data/rules-data';
 import { ageInYears } from './dates';
 import { forecastImmunizations } from './engine';
 import { AntigenRules } from './rules-types';
@@ -82,7 +82,7 @@ interface CaseResult {
   problems: string[];
 }
 
-const shipped = getRulesData();
+const shipped = getSourceRulesData();
 
 /** Shipped data with the three seasonal antigens replaced by the CDC 4.64 (2025–26 season) versions. */
 const season2025Rules: RulesData = buildRulesData(shipped.manifest, shipped.schedule, [

@@ -9,11 +9,12 @@ const lane = (lanes: VaccineScheduleLane[], group: string): VaccineScheduleLane 
 };
 
 describe('buildVaccineScheduleView', () => {
-  it('cites the shipped data: CDC CDSi 4.64 and AIRA 26.1 for the seasonal antigens', () => {
+  it('cites the shipped data: CDC CDSi 4.64, AIRA 26.1 for the seasonal antigens, the AAP for HPV', () => {
     expect(view.dataVersion).toBe('2026-11');
     expect(view.sources.map((source) => [source.version, source.antigens.length])).toEqual([
       ['4.64', 17],
       ['26.1', 3],
+      ['2026', 1],
     ]);
   });
 
@@ -47,7 +48,7 @@ describe('buildVaccineScheduleView', () => {
     });
     expect(lane(view.children, 'dtap').target).toBe('5, then Tdap at 11–12 y');
     expect(lane(view.children, 'menb').level).toBe('Shared decision');
-    expect(lane(view.children, 'hpv').doses[0].recommendedAge).toBe('11 years');
+    expect(lane(view.children, 'hpv').doses[0].recommendedAge).toBe('9 years');
   });
 
   it('adults: the series the data applies from adolescence on, plus the Td booster of the childhood series', () => {

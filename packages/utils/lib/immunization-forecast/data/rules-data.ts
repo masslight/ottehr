@@ -25,6 +25,7 @@ import varicella from './2026-11/antigens/varicella.json';
 import zoster from './2026-11/antigens/zoster.json';
 import manifestJson from './2026-11/manifest.json';
 import scheduleJson from './2026-11/schedule.json';
+import { applyAapOverrides } from './aap-overrides';
 
 export interface RulesData {
   manifest: RulesManifest;
@@ -82,11 +83,21 @@ export function buildRulesData(manifest: RulesManifest, schedule: ScheduleRules,
 }
 
 let current: RulesData | undefined;
+let cdcOnly: RulesData | undefined;
 
-/** The rules data shipped with this build (built once, then cached). */
+/** The rules data shipped with this build, with the AAP overrides applied (built once, then cached). */
 export function getRulesData(): RulesData {
   if (!current) {
-    current = buildRulesData(manifestJson as RulesManifest, scheduleJson as unknown as ScheduleRules, ANTIGEN_FILES);
+    const { manifest, antigens } = applyAapOverrides(manifestJson as RulesManifest, ANTIGEN_FILES);
+    current = buildRulesData(manifest, scheduleJson as unknown as ScheduleRules, antigens);
   }
   return current;
+}
+
+/** The converted source data without the AAP overrides; the CDSi test cases run against this. */
+export function getSourceRulesData(): RulesData {
+  if (!cdcOnly) {
+    cdcOnly = buildRulesData(manifestJson as RulesManifest, scheduleJson as unknown as ScheduleRules, ANTIGEN_FILES);
+  }
+  return cdcOnly;
 }
