@@ -542,6 +542,8 @@ export function forecastImmunizations(
     const antigens = rules.vaccineGroupAntigens.get(definition.vaccineGroup) ?? [];
     const hasDoses = antigens.some((a) => (history.byAntigen.get(a)?.length ?? 0) > 0);
     // Adult-only lanes appear for adults; the childhood lane of a split group appears for children or when it has doses.
+    // Zoster is adult-only too, unless a child has a Zoster dose.
+    if (definition.id === 'zoster' && !isAdult && !hasDoses && !input.groups) continue;
     if (definition.seriesGroups) {
       const adultLane = definition.id === 'pneumo-adult' || definition.id === 'rsv-adult';
       if (adultLane && !isAdult && !input.groups) continue;

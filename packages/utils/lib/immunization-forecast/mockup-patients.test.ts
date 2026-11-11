@@ -146,6 +146,17 @@ describe('Maya Rivera, DOB 2026-07-08, 4-month well visit on 2026-11-10', () => 
   it('adult-only lanes are not shown for a child', () => {
     expect(maya.groups.map((g) => g.group)).not.toContain('pneumo-adult');
     expect(maya.groups.map((g) => g.group)).not.toContain('rsv-adult');
+    expect(maya.groups.map((g) => g.group)).not.toContain('zoster');
+  });
+
+  it('the Zoster lane shows for a child only with a Zoster dose or when asked for', () => {
+    const lanes = (input: Partial<Parameters<typeof forecastImmunizations>[0]>): string[] =>
+      forecastImmunizations({ dob: '2026-07-08', sex: 'female', asOf: TODAY, doses: [], ...input }).groups.map(
+        (g) => g.group
+      );
+    expect(lanes({ doses: [outside('z1', '2026-09-09', '187')] })).toContain('zoster');
+    expect(lanes({ groups: ['zoster'] })).toContain('zoster');
+    expect(lanes({ dob: '1960-01-01' })).toContain('zoster');
   });
 });
 
