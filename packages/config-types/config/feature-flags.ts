@@ -37,6 +37,10 @@ export const FeatureFlagsConfigSchema = z.object({
   // organization still resolve and display correctly either way. Per-deployment so customers can
   // migrate at different times.
   customOrganizationsEnabled: z.boolean().optional(),
+  // Primary-care provider scheduling: the provider day/week/month calendar (/schedule) and the
+  // admin template editor (Admin → Provider schedules). Off unless a config opts in; while the
+  // backing zambdas are not built yet the screens run on a seeded in-browser mock API.
+  providerSchedulingEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.input<typeof FeatureFlagsConfigSchema>;

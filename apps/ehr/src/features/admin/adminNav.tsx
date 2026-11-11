@@ -7,6 +7,7 @@ import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlin
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
 import Groups2OutlinedIcon from '@mui/icons-material/Groups2Outlined';
@@ -32,6 +33,7 @@ import { PatientEducationAdminPage } from 'src/features/admin/patient-education/
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import { FormTemplatesAdminPage } from 'src/features/form-templates/FormTemplatesAdminPage';
 import LocationsListPage from 'src/features/locations/LocationsListPage';
+import ProviderScheduleAdminPage from 'src/features/provider-schedule/pages/ProviderScheduleAdminPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
 import EMCodesAdminPage from 'src/features/visits/telemed/components/admin/EMCodesAdminPage';
 import EmployersTab from 'src/features/visits/telemed/components/admin/employers/EmployersTab';
@@ -105,6 +107,17 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <CalendarMonthOutlinedIcon />,
         render: () => <SchedulesPage />,
       },
+      ...(FEATURE_FLAGS.PROVIDER_SCHEDULING_ENABLED
+        ? [
+            {
+              label: 'Provider schedules',
+              path: '/admin/provider-schedules',
+              icon: <EventNoteOutlinedIcon />,
+              beta: true,
+              render: () => <ProviderScheduleAdminPage />,
+            },
+          ]
+        : []),
       {
         label: 'Provider groups',
         path: '/admin/provider-groups',

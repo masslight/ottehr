@@ -52,6 +52,7 @@ import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import LocationConfigPage from './features/locations/LocationConfigPage';
 import { MedicalRecordExportSnackbar } from './features/medical-record-export/components/MedicalRecordExportSnackbar';
 import { MedicalRecordExportWatcher } from './features/medical-record-export/components/MedicalRecordExportWatcher';
+import ProviderSchedulePage from './features/provider-schedule/pages/ProviderSchedulePage';
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
@@ -212,6 +213,9 @@ function App(): ReactElement {
                 <Route path="/reports/daily-payments" element={<DailyPayments />} />
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
+                {FEATURE_FLAGS.PROVIDER_SCHEDULING_ENABLED && (
+                  <Route path="/schedule" element={<ProviderSchedulePage />} />
+                )}
               </>
             )}
             {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (

@@ -7,6 +7,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { FEATURE_FLAGS } from '../../constants/feature-flags';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';
@@ -67,7 +68,7 @@ export default function Navbar(): ReactElement | null {
   const theme = useTheme();
 
   const navbarItems: NavbarItems = useMemo(() => {
-    let navItems = {};
+    let navItems: NavbarItems = {};
 
     if (user) {
       if (user.hasRole([RoleType.Administrator])) {
@@ -86,6 +87,15 @@ export default function Navbar(): ReactElement | null {
       }
       if (user.hasRole([RoleType.CustomerSupport])) {
         navItems = { ...navItems, ...customerSupportNavbarItems };
+      }
+      if (FEATURE_FLAGS.PROVIDER_SCHEDULING_ENABLED && Object.keys(navItems).length > 0) {
+        // Right after Tracking Board: the two day-of-clinic views sit together.
+        const { 'Tracking Board': trackingBoard, ...rest } = navItems;
+        navItems = {
+          ...(trackingBoard ? { 'Tracking Board': trackingBoard } : {}),
+          Schedule: { urls: ['/schedule'] },
+          ...rest,
+        };
       }
     }
     return navItems;
