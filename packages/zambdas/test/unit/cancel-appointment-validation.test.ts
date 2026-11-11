@@ -148,7 +148,7 @@ describe('Prebook Cancel Appointment - validateRequestParameters', () => {
 
     const result = validatePrebookCancelParams(input);
 
-    expect(result.cancellationReasonAdditional).toBe('');
+    expect(result.cancellationReasonAdditional).toBeUndefined();
   });
 });
 

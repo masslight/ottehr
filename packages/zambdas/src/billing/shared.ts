@@ -122,7 +122,7 @@ import {
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RulesEngineInsurance, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -899,11 +899,22 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
+declare const billingScope: unique symbol;
+
+// The client createBillingClient makes, whose FHIR reads and writes see only billing-tagged resources.
+// ottehr/billing-fhir-client-only tells it from other clients by this type, so billing code can't get
+// another client unnoticed. The brand is keyed by a symbol nothing else can name, so only this factory
+// makes one.
+export interface BillingOystehr extends Oystehr {
+  readonly [billingScope]: true;
+}
+
 export function createBillingClient(
   token: string,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
-): Oystehr {
+): BillingOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client factory, which sets the workspace tag
   return new Oystehr({
     accessToken: token,
     services: {
@@ -913,11 +924,21 @@ export function createBillingClient(
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
-  });
+  }) as BillingOystehr;
+}
+
+declare const unscopedScope: unique symbol;
+
+// The client createEraReadClient makes, which sees untagged and billing-tagged resources alike: for code
+// that must see resources before they are tagged, or that nothing tags. Billing code that needs one gets
+// it with a justified exception to ottehr/billing-fhir-client-only, then uses it like any other client.
+export interface UnscopedOystehr extends Oystehr {
+  readonly [unscopedScope]: true;
 }
 
 // ERA resources are untagged by Oystehr
-export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+export function createEraReadClient(token: string, secrets: Secrets | null): UnscopedOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the unscoped client factory
   return new Oystehr({
     accessToken: token,
     services: {
@@ -925,7 +946,7 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
       zambdaApiUrl: zambdaApiUrlOverride(),
     },
-  });
+  }) as UnscopedOystehr;
 }
 
 export async function findById<T extends FhirResource>(
@@ -979,15 +1000,22 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
  * The rules engine responsible for a claim, decided by its AR Stage:
  * - Insurance Payer AR -> Claim Submission Rules
  * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
+ * - Insurance Payer AR + Adjudicated AR Status -> Post-Adjudication Rules
  * - Patient AR -> Patient AR Pre-Invoice Rules
- * Undefined when no engine applies (no AR Stage).
+ * Undefined when no engine applies. If an override is provided, that will be used instead.
  *
  * An engine runs automatically only when a claim is created in its stage. Changing an existing
  * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
  * biller runs the rules explicitly (Submit claim / Prepare for invoice).
  */
-export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | undefined {
+export function determineRulesEngineForClaim(
+  claim: Claim,
+  engineOverride?: RulesEngineType
+): RulesEngineType | undefined {
+  if (engineOverride) return engineOverride;
   const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
+  const insuranceARStatus = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.insuranceArStatus);
+  if (arStage === AR_STAGE.insurancePayer && insuranceARStatus === 'adjudicated') return 'post-adjudication';
   if (arStage === AR_STAGE.insurancePayer) return 'claim-submission';
   if (arStage === AR_STAGE.nonInsurancePayer) return 'non-insurance-payer-pre-invoice';
   if (arStage === AR_STAGE.patient) return 'patient-ar-pre-invoice';
@@ -1583,7 +1611,7 @@ export function setCoveragePayer(
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: groupNumber || payerId!,
+      value: groupNumber?.trim() || payerId!,
       name: payerOrg.name ?? '',
     },
   ];
@@ -2147,4 +2175,19 @@ export async function getGroupNumber(
   if (groupNumber === payorOrg?.id) groupNumber = undefined;
 
   return groupNumber;
+}
+
+export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
+  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
+    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+  );
+  return payerClaimControlNumbers.find(
+    (i) =>
+      // is matching type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === insurance
+      ) ||
+      // legacy type-less identifier for primary insurance
+      (insurance === 'primary' && !i.type)
+  )?.value;
 }

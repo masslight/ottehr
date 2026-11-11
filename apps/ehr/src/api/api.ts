@@ -1368,7 +1368,7 @@ export const cancelAppointment = async (
   }
 };
 
-export const getEmployees = async (oystehr: Oystehr, options?: { lite?: boolean }): Promise<GetEmployeesResponse> => {
+export const getEmployees = async (oystehr: Oystehr): Promise<GetEmployeesResponse> => {
   try {
     if (GET_EMPLOYEES_ZAMBDA_ID == null) {
       throw new Error('get employees environment variable could not be loaded');
@@ -1376,7 +1376,6 @@ export const getEmployees = async (oystehr: Oystehr, options?: { lite?: boolean 
 
     const response = await oystehr.zambda.execute({
       id: GET_EMPLOYEES_ZAMBDA_ID,
-      ...(options?.lite ? { lite: true } : {}),
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -3222,6 +3221,8 @@ export interface FileInboundFaxInput {
   folderId: string;
   internalName?: string;
   documentName: string;
+  encounterId?: string;
+  reviewTaskAssignee?: { id: string; name: string };
   // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative
   // url from the verified inbound-fax Task's stored input.
 }

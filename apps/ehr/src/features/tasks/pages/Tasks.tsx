@@ -58,6 +58,8 @@ const TASK_STATUS_LABEL: Record<string, string> = {
   'in-progress': 'in progress',
   completed: 'completed',
 };
+// Label -> comma-joined category codes: several codes share a label (e.g. the system and the manual
+// "External Lab" tasks), so each option selects all of them.
 const CATEGORIES: Record<string, string> = Object.entries(TASK_CATEGORY_LABEL).reduce<Record<string, string>>(
   (previousValue, entry) => {
     const category = entry[0];
@@ -71,6 +73,36 @@ const CATEGORIES: Record<string, string> = Object.entries(TASK_CATEGORY_LABEL).r
   },
   {}
 );
+
+/**
+ * The `category` URL param is a flat comma-separated list of category codes, so the options it holds are
+ * the ones it names any code of, kept in the order they were picked. A single-category URL from before the
+ * filter was multi-select reads the same way.
+ */
+const parseCategoryParam = (param: string | null): string[] => {
+  const options = (param ?? '')
+    .split(',')
+    .map((code) => Object.values(CATEGORIES).find((option) => option.split(',').includes(code)))
+    .filter((option): option is string => !!option);
+  return [...new Set(options)];
+};
+
+const parseIdListParam = (param: string | null): { id: string }[] =>
+  (param ?? '')
+    .split(',')
+    .filter(Boolean)
+    .map((id) => ({ id }));
+
+/** A filter's form value as stored in the URL and localStorage: select options by `id`, arrays as lists. */
+const toFilterValue = (value: unknown): string | string[] | undefined => {
+  const toItem = (item: unknown): string | undefined =>
+    (typeof item === 'string' ? item : (item as { id?: string } | null)?.id) || undefined;
+  if (Array.isArray(value)) {
+    const items = value.map(toItem).filter((item): item is string => !!item);
+    return items.length > 0 ? items : undefined;
+  }
+  return toItem(value);
+};
 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
@@ -133,12 +165,8 @@ export const Tasks: React.FC = () => {
             id: searchParams.get('assignedTo'),
           }
         : null,
-      category: searchParams.get('category'),
-      location: searchParams.get('location')
-        ? {
-            id: searchParams.get('location'),
-          }
-        : null,
+      category: parseCategoryParam(searchParams.get('category')),
+      location: parseIdListParam(searchParams.get('location')),
       status: searchParams.get('status')?.split(','),
     };
     methods.reset(filtersValues);
@@ -153,15 +181,10 @@ export const Tasks: React.FC = () => {
         const queryParams = new URLSearchParams();
         const filtersToPersist: Record<string, string | string[]> = {};
         for (const key in values) {
-          const value = values[key]?.id ?? values[key];
+          const value = toFilterValue(values[key]);
           if (value) {
-            if (!Array.isArray(value)) {
-              queryParams.set(key, value);
-              filtersToPersist[key] = value;
-            } else if (value.length > 0) {
-              queryParams.set(key, value.join(','));
-              filtersToPersist[key] = value;
-            }
+            queryParams.set(key, Array.isArray(value) ? value.join(',') : value);
+            filtersToPersist[key] = value;
           }
         }
         setSearchParams(queryParams);
@@ -250,10 +273,12 @@ export const Tasks: React.FC = () => {
         <FormProvider {...methods}>
           <Paper>
             <Stack direction="row" alignItems="flex-start" spacing={2} padding="8px">
-              <LocationSelectInput name="location" label="Location" type="in-person" />
+              <LocationSelectInput name="location" label="Location" type="in-person" multiple limitTags={2} />
               <SelectInput
                 name="category"
                 label="Category"
+                multiple
+                limitTags={2}
                 options={Object.values(CATEGORIES)}
                 getOptionLabel={(option) =>
                   Object.entries(CATEGORIES).find(([_key, value]) => value === option)?.[0] ?? option

@@ -52,7 +52,6 @@ const employee = (overrides: Partial<EmployeeDetails>): EmployeeDetails =>
     lastName: 'Provider',
     phoneNumber: '',
     licenses: [],
-    seenPatientRecently: false,
     gettingAlerts: false,
     ...overrides,
   }) as EmployeeDetails;

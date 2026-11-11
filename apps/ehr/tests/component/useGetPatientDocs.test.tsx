@@ -735,6 +735,7 @@ describe('useGetPatientDocs — intake documents linked by appointment', () => {
 describe('useGetPatientDocs — downloadDocument target tab', () => {
   const DOC_ID = 'doc-1';
   let downloadOk = true;
+  let attachment: Record<string, string>;
 
   const docRefBundle = (): any =>
     stubBundle([
@@ -743,9 +744,7 @@ describe('useGetPatientDocs — downloadDocument target tab', () => {
         id: DOC_ID,
         status: 'current',
         subject: { reference: `Patient/${PATIENT_ID}` },
-        content: [
-          { attachment: { url: 'z3://bucket/summary.pdf', title: 'summary.pdf', contentType: 'application/pdf' } },
-        ],
+        content: [{ attachment }],
       } as any,
     ]);
 
@@ -760,6 +759,7 @@ describe('useGetPatientDocs — downloadDocument target tab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     downloadOk = true;
+    attachment = { url: 'z3://bucket/summary.pdf', title: 'summary.pdf', contentType: 'application/pdf' };
     mockFhirSearch.mockImplementation(async (req: any) => {
       const params: { name: string; value: string }[] = req?.params ?? [];
       return params.some((p) => p.name === '_id') ? docRefBundle() : stubBundle([]);
@@ -794,6 +794,32 @@ describe('useGetPatientDocs — downloadDocument target tab', () => {
 
     expect(targetTab.location.href).toBe('');
     expect(targetTab.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens text kept inside the record, as the AI scribe stores its transcript', async () => {
+    attachment = { title: 'Transcript', contentType: 'text/plain', data: btoa('Provider: Hello') };
+    const targetTab = makeTab();
+
+    await renderDownload()(DOC_ID, { skipRelated: true, targetTab });
+
+    const blob: Blob = (window.URL.createObjectURL as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(blob.type).toBe('text/plain;charset=utf-8');
+    expect(blob.size).toBe('Provider: Hello'.length);
+    expect(targetTab.location.href).toBe('blob:summary');
+    expect(targetTab.close).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['text/html', 'text/plain;charset=utf-8'],
+    ['image/svg+xml', 'application/octet-stream'],
+  ])('never renders an inline %s attachment, which could run script in the EHR origin', async (contentType, type) => {
+    attachment = { title: 'Note', contentType, data: btoa('<script>alert(1)</script>') };
+
+    await renderDownload()(DOC_ID, { skipRelated: true, targetTab: makeTab() });
+
+    const blob: Blob = (window.URL.createObjectURL as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(blob.type).toBe(type);
   });
 
   it('still opens a popup when no tab was reserved', async () => {

@@ -37,7 +37,7 @@ import {
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
-import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl } from '../routing/helpers';
+import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl, getVisitDocumentsUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
@@ -70,11 +70,21 @@ const TASK_STATUSES_TO_EXCLUDE = [
 
 export interface TasksSearchParams {
   assignedTo?: string | null;
+  /** Comma-separated category codes; a task matches any of them. */
   category?: string | null;
+  /** Comma-separated location ids; a task matches any of them. */
   location?: string | null;
   status?: string | null;
   page?: number;
 }
+
+/** `a,b` -> `system|a,system|b`: a token search value matching any of the comma-separated codes within `system`. */
+const anyTokenInSystem = (system: string, codes: string): string =>
+  codes
+    .split(',')
+    .filter(Boolean)
+    .map((code) => `${system}|${code}`)
+    .join(',');
 
 export interface AssignTaskRequest {
   taskId: string;
@@ -234,7 +244,7 @@ export const useGetTasks = (
       if (category) {
         baseParams.push({
           name: 'group-identifier',
-          value: TASK_CATEGORY_IDENTIFIER + '|' + category,
+          value: anyTokenInSystem(TASK_CATEGORY_IDENTIFIER, category),
         });
       }
       if (status) {
@@ -270,14 +280,14 @@ export const useGetTasks = (
 
       if (location) {
         // Tasks with no location tag (e.g. inbound faxes) are location-agnostic and must NOT be
-        // hidden by the location filter. FHIR search can't express "location tag == X OR no
+        // hidden by the location filter. FHIR search can't express "location tag in (X, Y) OR no
         // location tag" in a single query, so we run two disjoint searches — tasks tagged with
-        // the selected location, and tasks with no location tag at all — and merge them.
+        // any selected location, and tasks with no location tag at all — and merge them.
         // To paginate the merged set correctly, fetch each stream through the end of the
         // requested page window, merge-sort, and slice out the page.
         const windowEnd = pageOffset + TASKS_PAGE_SIZE;
         const [tagged, untagged] = await Promise.all([
-          searchTasks([{ name: '_tag', value: TASK_LOCATION_SYSTEM + '|' + location }], windowEnd, 0),
+          searchTasks([{ name: '_tag', value: anyTokenInSystem(TASK_LOCATION_SYSTEM, location) }], windowEnd, 0),
           searchTasks([{ name: '_tag:not', value: TASK_LOCATION_SYSTEM + '|' }], windowEnd, 0),
         ]);
         const merged = mergeLocationFilteredTasks({ tagged, untagged, pageOffset, pageSize: TASKS_PAGE_SIZE });
@@ -791,6 +801,22 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           name: isActioned ? VIEW_FAX : 'Match',
           link: inboundFaxMatchPath(communicationId),
         };
+      }
+    }
+    if (code === FAX_TASK.code.reviewInboundFax) {
+      title = task.description || 'Review fax';
+      subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
+      completable = true;
+      const appointmentId = getInputString(FAX_TASK.input.appointmentId, task);
+      const patientId = getInputString(FAX_TASK.input.patientId, task);
+      const folderId = getInputString(FAX_TASK.input.folderId, task);
+      const link = appointmentId
+        ? addEncounterIdToLink(getVisitDocumentsUrl(appointmentId))
+        : patientId
+        ? `/patient/${patientId}/docs${folderId ? `?folderId=${encodeURIComponent(folderId)}` : ''}`
+        : undefined;
+      if (link) {
+        action = { name: VIEW_FAX, link };
       }
     }
   }

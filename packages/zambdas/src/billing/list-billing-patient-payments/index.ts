@@ -9,6 +9,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
+import { practitionerNamesFromEhr } from '../clinical-practitioners';
 import { getPaymentsForEncounter } from '../patient-payment-dtos';
 import { createBillingClient } from '../shared';
 
@@ -24,6 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { patientId, encounterId, secrets } = params;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the patient's Account and legacy clinical payment notices
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
@@ -36,6 +38,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     clinicalOystehr,
     billingOystehr,
     stripeClient: getStripeClient(secrets, { timeoutMs: STRIPE_REQUEST_TIMEOUT_MS }),
+    // named by the EHR's zambda, not a clinical Practitioner read
+    practitionerNames: practitionerNamesFromEhr(billingOystehr),
     account,
     encounterId,
   });

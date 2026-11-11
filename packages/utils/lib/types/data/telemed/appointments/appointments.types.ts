@@ -50,12 +50,19 @@ export interface FollowUpDetails {
   documents: FileURLs;
 }
 
+export interface ReviewedRadiologyResult {
+  studyType: string;
+  report: string;
+  files: FileURLInfo[];
+}
+
 export interface GetVisitDetailsResponse {
   files: FileURLs;
   medications: PrescribedMedication[];
   appointmentTime: string;
   followUps: FollowUpDetails[];
   reviewedLabResults: FileURLInfo[]; // external labs are "reviewed" after a practitioner clicks "Mark as Reviewed" and inhouse labs are "reviewed" at result entry
+  reviewedRadiologyResults: ReviewedRadiologyResult[];
 }
 
 export interface PaymentDataResponse {

@@ -1,75 +1,37 @@
-import { Autocomplete, TextField, Typography } from '@mui/material';
 import { FC } from 'react';
-import { ActionsList } from 'src/components/ActionsList';
-import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { CptCodeSearch } from 'src/components/input/CptCodeSearch';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatProcedureCptCode } from 'utils/lib/procedure-coding/format';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ListSentence } from './narrative/ListSentence';
 
 interface ProcedureCptCodesFieldProps {
   codes: CPTCodeDTO[];
-  searchOptions: CPTCodeDTO[];
-  isSearching: boolean;
-  searchTerm: string;
-  onSearchTermChange: (term: string) => void;
-  onAdd: (code: CPTCodeDTO) => void;
-  onDelete: (code: CPTCodeDTO) => void;
-  disabled: boolean;
+  onChange: (codes: CPTCodeDTO[]) => void;
+  readOnly: boolean;
 }
 
-export const ProcedureCptCodesField: FC<ProcedureCptCodesFieldProps> = ({
-  codes,
-  searchOptions,
-  isSearching,
-  searchTerm,
-  onSearchTermChange,
-  onAdd,
-  onDelete,
-  disabled,
-}) => (
-  <>
-    <Autocomplete
-      fullWidth
-      blurOnSelect
-      options={searchOptions}
-      filterOptions={(x) => x}
-      noOptionsText={
-        searchTerm && searchOptions.length === 0
-          ? 'Nothing found for this search criteria'
-          : 'Start typing to load results'
-      }
-      autoComplete
-      includeInputInList
-      value={null}
-      isOptionEqualToValue={(option, value) => value.code === option.code}
-      getOptionDisabled={(option) => codes.some((selected) => selected.code === option.code)}
-      loading={isSearching}
-      onChange={(_e: unknown, data: CPTCodeDTO | null) => {
-        if (data != null && !codes.some((selected) => selected.code === data.code)) {
-          onAdd(data);
-        }
-      }}
-      getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          size="small"
-          label="CPT code"
-          placeholder="Search CPT code"
-          onChange={(e) => onSearchTermChange(e.target.value)}
-          data-testid={dataTestIds.documentProcedurePage.cptCodeInput}
-        />
-      )}
-      disabled={disabled}
-    />
-    <ActionsList
-      data={codes}
-      getKey={(value, index) => value.resourceId || index}
-      renderItem={(value) => (
-        <Typography data-testid={dataTestIds.documentProcedurePage.cptCode}>{formatProcedureCptCode(value)}</Typography>
-      )}
-      renderActions={(value) => (!disabled ? <DeleteIconButton onClick={() => onDelete(value)} /> : undefined)}
-      divider
-    />
-  </>
+export const ProcedureCptCodesField: FC<ProcedureCptCodesFieldProps> = ({ codes, onChange, readOnly }) => (
+  <ListSentence
+    label="CPT codes"
+    items={codes}
+    itemText={formatProcedureCptCode}
+    onRemove={(index) => onChange(codes.filter((_, itemIndex) => itemIndex !== index))}
+    readOnly={readOnly}
+    blankLabel="CPT code"
+    title="CPT code"
+    testIds={{ add: dataTestIds.documentProcedurePage.addCptCode, text: dataTestIds.documentProcedurePage.cptCode }}
+  >
+    {(close) => (
+      <CptCodeSearch
+        label="Search CPT codes"
+        selected={codes}
+        dataTestId={dataTestIds.documentProcedurePage.cptCodeInput}
+        onPick={(code) => {
+          onChange([...codes, code]);
+          close();
+        }}
+      />
+    )}
+  </ListSentence>
 );

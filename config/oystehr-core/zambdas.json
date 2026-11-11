@@ -1678,6 +1678,13 @@
       "src": "src/ehr/patient-payments/get-encounter-payment-notice/index",
       "zip": ".dist/zips/get-encounter-payment-notice.zip"
     },
+    "GET-PRACTITIONER-NAMES": {
+      "name": "get-practitioner-names",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-practitioner-names/index",
+      "zip": ".dist/zips/get-practitioner-names.zip"
+    },
     "PATIENT-PAYMENTS-INITIATE-PAYMENT": {
       "name": "patient-payments-terminal-initiate-payment",
       "type": "http_auth",

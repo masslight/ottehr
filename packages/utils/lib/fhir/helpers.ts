@@ -378,7 +378,7 @@ export async function createFilesDocumentReferences(
           status: 'current',
           docStatus,
           type: type,
-          date: dateCreated,
+          date: dateCreated?.trim() || undefined,
           content: [
             {
               attachment: {

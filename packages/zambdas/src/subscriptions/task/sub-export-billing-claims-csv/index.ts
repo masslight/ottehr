@@ -29,22 +29,26 @@ export const EXPORT_PAGE_SIZE = 100;
 let m2mToken: string;
 const ZAMBDA_NAME = 'sub-export-billing-claims-csv';
 
-export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
-  console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
-  const { secrets } = params;
-  console.groupEnd();
+export const index = wrapTaskHandler(
+  ZAMBDA_NAME,
+  async (input, _oystehr) => {
+    console.group('validateRequestParameters');
+    const params = validateRequestParameters(input);
+    const { secrets } = params;
+    console.groupEnd();
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createBillingClient(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createBillingClient(m2mToken, secrets);
 
-  console.group('performEffect');
-  const response = await performEffect(oystehr, params);
-  console.groupEnd();
-  console.debug('performEffect success', truncateForLog(response));
+    console.group('performEffect');
+    const response = await performEffect(oystehr, params);
+    console.groupEnd();
+    console.debug('performEffect success', truncateForLog(response));
 
-  return response;
-});
+    return response;
+  },
+  { createClient: createBillingClient }
+);
 
 async function performEffect(
   oystehr: Oystehr,

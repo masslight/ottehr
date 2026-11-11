@@ -1,5 +1,6 @@
 import { Medication } from 'fhir/r4b';
 import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
+import { medicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import { describe, expect, test } from 'vitest';
 import {
   fieldsConfig,
@@ -7,6 +8,8 @@ import {
   fieldsConfigForDispense,
   fieldsConfigForOrder,
   getFieldLabel,
+  getFieldsConfig,
+  MedicationOrderType,
 } from '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/fieldsConfig';
 import { formatMedicationAdministrationReason } from '../../src/features/visits/in-person/components/medication-administration/util';
 
@@ -54,6 +57,37 @@ describe('fieldsConfig - completed-edit', () => {
     const dispenseRequired = Object.entries(fieldsConfigForDispense).filter(([, v]) => v.isRequired).length;
     const completedRequired = Object.entries(fieldsConfigForCompletedEdit).filter(([, v]) => v.isRequired).length;
     expect(completedRequired).toBeLessThan(dispenseRequired);
+  });
+});
+
+// ─── Location Required For Injectables ───────────────────────────────────────
+
+describe('getFieldsConfig - location for injectable routes', () => {
+  const INTRAMUSCULAR = medicationApplianceRoutes.INTRAMUSCULAR.code;
+  const ORAL = medicationApplianceRoutes.ORAL.code;
+  const isLocationRequired = (type: MedicationOrderType, route: string | undefined): boolean | undefined =>
+    (getFieldsConfig(type, route) as Partial<typeof fieldsConfigForDispense>).location?.isRequired;
+
+  test.each(['dispense', 'completed-edit'] as const)('%s requires location for an injectable route', (type) => {
+    expect(isLocationRequired(type, INTRAMUSCULAR)).toBe(true);
+  });
+
+  test.each(['dispense', 'completed-edit'] as const)('%s keeps location optional for other routes', (type) => {
+    expect(isLocationRequired(type, ORAL)).toBe(false);
+    expect(isLocationRequired(type, undefined)).toBe(false);
+  });
+
+  test('not administered keeps location optional for an injectable route', () => {
+    expect(isLocationRequired('dispense-not-administered', INTRAMUSCULAR)).toBe(false);
+  });
+
+  test.each(['order-new', 'order-edit'] as const)('%s has no location field for an injectable route', (type) => {
+    expect(getFieldsConfig(type, INTRAMUSCULAR)).toBe(fieldsConfig[type]);
+  });
+
+  test('leaves the shared configs untouched', () => {
+    getFieldsConfig('dispense', INTRAMUSCULAR);
+    expect(fieldsConfigForDispense.location.isRequired).toBe(false);
   });
 });
 
