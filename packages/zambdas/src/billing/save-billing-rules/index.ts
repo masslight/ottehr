@@ -10,7 +10,7 @@ import {
   collectSetPayerIds,
   collectSetResourceRefs,
   collectSetServiceValues,
-  getRuleFieldDef,
+  getFieldDef,
   NON_INSURANCE_PAYER_FIELD_ID,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule, BillingRulesResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
@@ -235,7 +235,8 @@ function referencedResourceProblem(resource: Resource | undefined, field: string
   if (hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)) {
     return 'it is a per-claim working copy — pick a resource from the reference lists';
   }
-  const role = getRuleFieldDef(field)?.providerRole;
+  // Only the top-level `claim` field catalog supports references
+  const role = getFieldDef(field, 'claim')?.providerRole;
   if (role && !hasTag(resource, PROVIDER_ROLE_TAG, role)) return `it is not tagged as a ${role} provider`;
   return undefined;
 }

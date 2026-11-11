@@ -2,6 +2,8 @@ import { RULES_ENGINE_TYPES, RULES_ENGINES } from './rules-engine.constants';
 import {
   ADD_SERVICE_LINE_FIELDS,
   DATE_SOURCE_CATALOG,
+  ERA_CARC_PROPERTY_CATALOG,
+  ERA_SERVICE_LINE_PROPERTY_CATALOG,
   POS_SOURCE_CATALOG,
   RULE_FIELD_CATALOG,
   RULE_FIELD_GROUP_LABELS,
@@ -43,6 +45,7 @@ const VALUE_TYPE_LABELS: Record<RuleFieldValueType, string> = {
   provider: 'provider reference',
   facility: 'facility reference',
   nio: 'non-insurance organization ID',
+  item: 'array of subitems',
 };
 
 // Escape/normalize a string for use inside a markdown table cell.
@@ -229,18 +232,25 @@ ${renderOperatorTable()}`);
 
   sections.push(`## Claim properties\n\n${fieldSections.join('\n\n')}`);
 
-  sections.push(`## Service line properties
+  sections.push(`## Service Line properties
 
-Service lines are an array, so their per-line properties are not claim properties: they are matched
-and changed by the **Update service lines** / **Remove service lines** actions below, each of which
-carries its own line predicate — either *all service lines* or *lines matching a property*
-comparison (one property, operator, and value per predicate). A rule's condition can detect that a
-matching line exists (e.g. \`cptCodes\` *contains* X, \`duplicateCptCodes\` *is present*,
-\`serviceLineCount\` *is greater than* N); the action's own match is what binds *which* lines it
-touches.
+Service lines are an array, so their per-line properties are not claim properties. Claims can be matched
+by validating that a service line matching a given condition or set of conditions is found on the claim.
 
 ${renderServiceLinePropertyTable(SERVICE_LINE_PROPERTY_CATALOG)}`);
 
+  sections.push(`## Latest ERA CARC properties
+
+ERA CARCs are an array, so their per-line properties are not claim properties. Claims can be matched
+by validating that a CARC matching a given condition or set of conditions is found on the latest ERA.
+
+${renderServiceLinePropertyTable(ERA_CARC_PROPERTY_CATALOG)}`);
+  sections.push(`## Latest ERA Service Line properties
+
+ERA service lines are an array, so their per-line properties are not claim properties. Claims can be matched
+by validating that a service line matching a given condition or set of conditions is found on the latest ERA.
+
+${renderServiceLinePropertyTable(ERA_SERVICE_LINE_PROPERTY_CATALOG)}`);
   sections.push(`## Actions
 
 A matched branch's outcome is a list of actions, applied in order:

@@ -129,7 +129,7 @@ function ConditionalForm({
   const methods = useForm<{ conditional: RuleConditional }>({ defaultValues: { conditional } });
   return (
     <FormProvider {...methods}>
-      <ConditionalEditor name="conditional" engine={engine} />
+      <ConditionalEditor name="conditional" engine={engine} catalog={'claim'} />
       <button onClick={() => void methods.handleSubmit((data) => onValid?.(data))()}>Save</button>
     </FormProvider>
   );
