@@ -147,13 +147,13 @@ const STATUS_ICONS: Record<
   immune: { glyph: 'shield', fg: '#2E7D32', ring: '#2E7D32', fill: '#fff', tip: 'Immune' },
 };
 const ICON_SIZE = 22;
-/** The key's order: the statuses, then the exceptions. */
+/** The key's order: the statuses as a series moves through them, then the rest, then the exceptions. */
 const ICON_KEY: ImmunizationGroupStatus[] = [
-  'uptodate',
-  'complete',
+  'notyet',
   'due',
   'pastdue',
-  'notyet',
+  'uptodate',
+  'complete',
   'notroutine',
   'declined',
   'contraindicated',
@@ -821,6 +821,14 @@ export const ImmunizationTimeline = ({
 
         <Stack direction="row" flexWrap="wrap" useFlexGap spacing={2} sx={{ mt: 1.25, alignItems: 'center' }}>
           {[
+            ...(showWindows
+              ? [
+                  [
+                    <LegendSwatch key="w" sx={{ background: SEGMENT_STYLE['window-recommended'].background }} />,
+                    'When it was due',
+                  ],
+                ]
+              : []),
             [
               <LegendSwatch
                 key="g"
@@ -862,14 +870,6 @@ export const ImmunizationTimeline = ({
                       sx={{ border: SEGMENT_STYLE['projected-recommended'].border, boxSizing: 'border-box' }}
                     />,
                     'Later doses (if each is given on time)',
-                  ],
-                ]
-              : []),
-            ...(showWindows
-              ? [
-                  [
-                    <LegendSwatch key="w" sx={{ background: SEGMENT_STYLE['window-recommended'].background }} />,
-                    'Window a given dose was due in',
                   ],
                 ]
               : []),

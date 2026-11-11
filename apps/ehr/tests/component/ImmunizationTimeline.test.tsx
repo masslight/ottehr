@@ -171,6 +171,22 @@ describe('ImmunizationTimeline', () => {
     expect(bar.tagName).toBe('BUTTON'); // still opens the details on click
   });
 
+  it('orders the bar legend left to right along a row, starting with "When it was due"', () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    const legend = screen.getByText(/^\s*When it was due$/).parentElement!;
+    expect(Array.from(legend.children).map((item) => item.textContent?.trim())).toEqual([
+      'When it was due',
+      'Given here',
+      'Outside',
+      'Allowed but early',
+      'Recommended',
+      'Past due',
+      'Later doses (if each is given on time)',
+    ]);
+    fireEvent.click(screen.getByLabelText('Show windows for given doses'));
+    expect(screen.queryByText(/When it was due/)).not.toBeInTheDocument();
+  });
+
   it('renders one lane per vaccine group with its status icon, doses, undated dose and mark', async () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     for (const group of fixture.forecast.groups) {
@@ -257,19 +273,9 @@ describe('ImmunizationTimeline', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     const key = screen.getByTestId('immunization-status-key');
     expect(key.querySelectorAll('svg')).toHaveLength(9);
-    for (const label of [
-      'Up to date',
-      'Complete',
-      'Due today',
-      'Past due',
-      'Not yet due',
-      'Not routine',
-      'Declined',
-      'Contraindicated',
-      'Immune',
-    ]) {
-      expect(within(key).getByText(new RegExp(`^\\s*${label}$`))).toBeInTheDocument();
-    }
+    expect(key.textContent?.split(/\s+/).join(' ').trim()).toBe(
+      'Not yet due Due today Past due Up to date Complete Not routine Declined Contraindicated Immune'
+    );
     expect(screen.getByTestId('immunization-timeline-scroll')).toHaveStyle({ overflowX: 'auto' });
     const icon = screen.getByRole('button', { name: 'Exception for PCV' });
     expect(icon.parentElement).toHaveStyle({ position: 'sticky', left: '0px', zIndex: '4', width: '170px' });
