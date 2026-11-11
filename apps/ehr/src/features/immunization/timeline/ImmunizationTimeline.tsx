@@ -3,13 +3,11 @@ import {
   Box,
   Button,
   ButtonBase,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  FormControlLabel,
   ListItemIcon,
   ListSubheader,
   Menu,
@@ -24,7 +22,6 @@ import {
   useTheme,
 } from '@mui/material';
 import React, { ReactElement, ReactNode, useMemo, useState } from 'react';
-import { IMMUNIZATION_OUTSIDE_SOURCES, IMMUNIZATION_SOURCE_UNSPECIFIED } from 'utils/lib/fhir/immunization';
 import {
   EvaluatedDose,
   ImmunizationForecast,
@@ -43,7 +40,6 @@ import {
   ageInMonths,
   defaultRange,
   doseLabelMonths,
-  formatAge,
   formatDate,
   givenDoseWindowSegments,
   lastProjectedMonths,
@@ -51,14 +47,10 @@ import {
   markText,
   nextDoseSegments,
   projectedDoseSegments,
-  projectedDoseText,
-  sameShotText,
   STATUS_LABELS,
   timelineRanges,
   TimelineSegment,
   timelineTicks,
-  timingText,
-  windowText,
   xPercent,
 } from './timelineModel';
 
@@ -428,9 +420,21 @@ const LaneStatusIcon = ({
   );
 };
 
-const sourceLabel = (record: PatientImmunizationRecord): string =>
-  IMMUNIZATION_OUTSIDE_SOURCES.find((source) => source.value === record.source)?.label ??
-  IMMUNIZATION_SOURCE_UNSPECIFIED.label;
+/** "Hep B dose 1 · Engerix-B · given 07/10/2026 (outside, late)": brand when known; a note only when it matters. */
+const givenDoseText = (laneLabel: string, dose: EvaluatedDose, record?: PatientImmunizationRecord): string => {
+  const notes = [
+    record?.outside && 'outside',
+    dose.counted && dose.timing === 'late' && 'late',
+    !dose.counted && 'not counted',
+  ].filter(Boolean);
+  return [
+    `${laneLabel} dose${dose.counted && dose.doseNumber ? ` ${dose.doseNumber}` : ''}`,
+    record?.vaccineName,
+    `given ${dose.date ? formatDate(dose.date) : 'date unknown'}${notes.length ? ` (${notes.join(', ')})` : ''}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+};
 
 const LegendSwatch = ({ sx, children }: { sx: object; children?: ReactNode }): ReactElement => (
   <Box component="i" sx={{ display: 'inline-block', width: 22, height: 10, borderRadius: 5, mr: 0.5, ...sx }}>
@@ -455,7 +459,6 @@ export const ImmunizationTimeline = ({
   const [maxMonths, setMaxMonths] = useState(
     () => defaultRange(todayMonths, ranges, lastProjectedMonths(projections, dob)).maxMonths
   );
-  const [showWindows, setShowWindows] = useState(true);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [menu, setMenu] = useState<{ group: ImmunizationGroupForecast; anchor: HTMLElement } | null>(null);
   const [dialog, setDialog] = useState<{ group: ImmunizationGroupForecast; mark: ImmunizationMarkType } | null>(null);
@@ -487,48 +490,15 @@ export const ImmunizationTimeline = ({
       const dose = group.doses.find((candidate) => candidate.id === selection.id);
       const record = recordsById.get(selection.id);
       if (!dose) return null;
-      const same = sameShotText(forecast, dose.id, group.group);
-      return (
-        <Typography variant="body2" component="div">
-          <b>
-            {group.label} {dose.counted ? `dose ${dose.doseNumber}` : '(not counted)'}
-          </b>
-          {' · '}
-          {dose.date ? `${formatDate(dose.date)} (${formatAge(ageInMonths(dob, dose.date))})` : 'Date unknown'}
-          {record?.vaccineName && ` · ${record.vaccineName}`}
-          {dose.cvx && `, CVX ${dose.cvx}`}
-          {!dose.counted && dose.reason && (
-            <>
-              <br />
-              {dose.reason}
-            </>
-          )}
-          {dose.window && (
-            <>
-              <br />
-              Due window: {windowText(dose.window)}. {timingText(dose)}.
-            </>
-          )}
-          {same && (
-            <>
-              <br />
-              Same shot also counts as: {same}
-            </>
-          )}
-          <br />
-          <Typography variant="caption" color="text.secondary">
-            {record?.outside
-              ? `Outside${record.place ? ` · at ${record.place}` : ''} · from ${sourceLabel(record)}`
-              : `Given here${record?.lot ? `, lot ${record.lot}` : ''}${
-                  record?.administeredBy?.name ? `, by ${record.administeredBy.name}` : ''
-                }`}
-          </Typography>
-        </Typography>
-      );
+      return <Typography variant="body2">{givenDoseText(group.label, dose, record)}</Typography>;
     }
     if (selection.kind === 'projected') {
       const projected = projections?.[group.group]?.find((candidate) => candidate.n === selection.n);
-      return projected ? <Typography variant="body2">{projectedDoseText(group.label, projected)}</Typography> : null;
+      return projected ? (
+        <Typography variant="body2">
+          {group.label} dose {projected.n} · projected {formatDate(projected.recommended)}
+        </Typography>
+      ) : null;
     }
     const history = markHistoryText(marks, group.group);
     if (selection.kind === 'lane' || !group.next) {
@@ -550,24 +520,9 @@ export const ImmunizationTimeline = ({
         </Typography>
       );
     }
-    const next = group.next;
     return (
-      <Typography variant="body2" component="div">
-        <b>
-          {group.label} dose {next.n}
-        </b>{' '}
-        · <StatusChip status={group.status} />
-        <br />
-        Earliest: {formatDate(next.earliest)} · Recommended: {formatDate(next.recommended)} · Past due:{' '}
-        {next.pastDue ? formatDate(next.pastDue) : '—'}
-        {next.note && (
-          <>
-            <br />
-            <Typography variant="caption" color="text.secondary">
-              {next.note}
-            </Typography>
-          </>
-        )}
+      <Typography variant="body2">
+        {group.label} dose {group.next.n} · due {formatDate(group.next.recommended)}
       </Typography>
     );
   };
@@ -605,13 +560,6 @@ export const ImmunizationTimeline = ({
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
-        <FormControlLabel
-          control={<Checkbox size="small" checked={showWindows} onChange={(e) => setShowWindows(e.target.checked)} />}
-          label={<Typography variant="body2">Show windows for given doses</Typography>}
-        />
-        <Typography variant="caption" color="text.secondary">
-          Age axis is stretched for infancy, where most doses are.
-        </Typography>
       </Stack>
 
       <Paper variant="outlined" sx={{ px: 2, pt: 1, pb: 1.5 }}>
@@ -747,12 +695,11 @@ export const ImmunizationTimeline = ({
                         />
                       ))
                     )}
-                    {showWindows &&
-                      group.doses.flatMap((dose) =>
-                        givenDoseWindowSegments(dose, dob, maxMonths, group.label).map((segment) => (
-                          <Segment key={`${dose.id}-${segment.kind}`} segment={segment} maxMonths={maxMonths} />
-                        ))
-                      )}
+                    {group.doses.flatMap((dose) =>
+                      givenDoseWindowSegments(dose, dob, maxMonths, group.label).map((segment) => (
+                        <Segment key={`${dose.id}-${segment.kind}`} segment={segment} maxMonths={maxMonths} />
+                      ))
+                    )}
                     {group.doses
                       .filter((dose) => dose.date && ageInMonths(dob, dose.date) <= maxMonths)
                       .map((dose) => (
@@ -833,14 +780,10 @@ export const ImmunizationTimeline = ({
 
         <Stack direction="row" flexWrap="wrap" useFlexGap spacing={2} sx={{ mt: 1.25, alignItems: 'center' }}>
           {[
-            ...(showWindows
-              ? [
-                  [
-                    <LegendSwatch key="w" sx={{ background: SEGMENT_STYLE['window-recommended'].background }} />,
-                    'When it was due',
-                  ],
-                ]
-              : []),
+            [
+              <LegendSwatch key="w" sx={{ background: SEGMENT_STYLE['window-recommended'].background }} />,
+              'When it was due',
+            ],
             [
               <LegendSwatch
                 key="g"

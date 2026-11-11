@@ -124,9 +124,9 @@ describe('ImmunizationTimeline', () => {
     expect(later.length).toBeGreaterThan(0);
     for (const bar of later) expect(bar).toHaveStyle({ background: 'transparent' });
     fireEvent.click(later[0]);
-    expect(
-      screen.getAllByText(/^Polio dose 3 \(projected\): recommended .*, if dose 2 is given on time\.$/).length
-    ).toBeGreaterThan(0);
+    expect(screen.getByTestId('immunization-timeline-details')).toHaveTextContent(
+      /^Polio dose 3 · projected \d\d\/\d\d\/\d{4}$/
+    );
   });
 
   it('numbers the next dose and each later dose in the same dashed gray circle, above the bars', () => {
@@ -167,9 +167,9 @@ describe('ImmunizationTimeline', () => {
       fireEvent.mouseLeave(target);
       await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
     }
-    // the next dose's hover carries the full window, not a one-line summary
+    // one short line: the next dose's due (recommended) date
     fireEvent.mouseOver(within(pcv).getByRole('button', { name: /^PCV.* dose 2 \(next\)$/ }));
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Earliest: .* · Recommended: .* · Past due:/);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/^PCV.* dose 2 · due \d\d\/\d\d\/\d{4}$/);
   });
 
   it('hovering a bar says in one short line what it means for the dose', async () => {
@@ -196,8 +196,9 @@ describe('ImmunizationTimeline', () => {
       'Past due',
       'Later doses (if each is given on time)',
     ]);
-    fireEvent.click(screen.getByLabelText('Show windows for given doses'));
-    expect(screen.queryByText(/When it was due/)).not.toBeInTheDocument();
+    // the given-dose windows are always shown: no toggle, and no axis caption
+    expect(screen.queryByLabelText('Show windows for given doses')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Age axis is stretched/)).not.toBeInTheDocument();
   });
 
   it('fills given doses (navy here, light blue outside) and leaves doses not given yet dashed', () => {
@@ -234,16 +235,18 @@ describe('ImmunizationTimeline', () => {
       within(screen.getByTestId('immunization-lane-mmr')).getByText('Outside · Date unknown · not counted')
     ).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Age range' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Show windows for given doses')).toBeChecked();
   });
 
-  it('shows dose details with the due window, timing and the other lanes the shot counted in', () => {
+  it('shows a given dose as one line: brand and date, with a note only for outside, late or not counted', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
+    const details = screen.getByTestId('immunization-timeline-details');
     fireEvent.click(screen.getByRole('button', { name: 'DTaP/Tdap/Td dose 1' }));
-    expect(screen.getByText(/Pentacel, CVX 120/)).toBeInTheDocument();
-    expect(screen.getByText(/Due window: .*Given on time\./)).toBeInTheDocument();
-    expect(screen.getByText(/Same shot also counts as: .*Polio 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Given here, lot U7421AA, by J\. Nurse/)).toBeInTheDocument();
+    expect(details).toHaveTextContent(/^DTaP\/Tdap\/Td dose 1 · Pentacel · given 09\/09\/2026$/); // on time: no note
+    fireEvent.click(screen.getByRole('button', { name: 'Hep B dose 1' }));
+    expect(details).toHaveTextContent(/^Hep B dose 1 · Engerix-B · given 07\/08\/2026 \(outside\)$/);
+    fireEvent.click(screen.getByText('Outside · Date unknown · not counted'));
+    expect(details).toHaveTextContent(/^MMR.* dose · MMR · given date unknown \(outside, not counted\)$/);
+    expect(details).not.toHaveTextContent(/CVX|lot|mo\)/);
   });
 
   it('shows the mark history, cleared marks included, when the lane is selected', () => {

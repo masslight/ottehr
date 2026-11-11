@@ -8,7 +8,6 @@ import { FORECAST_GROUPS } from 'utils/lib/immunization-forecast/groups';
 import {
   DoseWindow,
   EvaluatedDose,
-  ImmunizationForecast,
   ImmunizationGroupForecast,
   ImmunizationGroupId,
   ImmunizationGroupStatus,
@@ -331,14 +330,3 @@ export const markHistoryText = (marks: ImmunizationMark[], group: ImmunizationGr
 
 export const activeMark = (marks: ImmunizationMark[], group: ImmunizationGroupId): ImmunizationMark | undefined =>
   marks.find((mark) => mark.vaccineGroup.code === group && !mark.cleared);
-
-/** The other lanes the same shot counted in, e.g. "Polio 1, Hib 1" for a Pentacel dose on the DTaP lane. */
-export const sameShotText = (forecast: ImmunizationForecast, doseId: string, group: ImmunizationGroupId): string =>
-  forecast.groups
-    .filter((candidate) => candidate.group !== group)
-    .flatMap((candidate) =>
-      candidate.doses
-        .filter((dose) => dose.id === doseId && dose.counted)
-        .map((dose) => `${candidate.label} ${dose.doseNumber}`)
-    )
-    .join(', ');

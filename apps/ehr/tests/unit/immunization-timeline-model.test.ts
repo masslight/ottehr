@@ -1,4 +1,4 @@
-import { EvaluatedDose, ImmunizationForecast, ImmunizationGroupForecast } from 'utils/lib/immunization-forecast/types';
+import { EvaluatedDose, ImmunizationGroupForecast } from 'utils/lib/immunization-forecast/types';
 import { ImmunizationMark } from 'utils/lib/types/data/immunization/types';
 import { describe, expect, it } from 'vitest';
 import {
@@ -12,7 +12,6 @@ import {
   nextDoseSegments,
   projectedDoseSegments,
   projectedDoseText,
-  sameShotText,
   timelineRanges,
   timelineTicks,
   windowText,
@@ -285,32 +284,5 @@ describe('detail texts', () => {
       { ...marks[0], markedBy: { name: ' ' }, cleared: { at: '2026-12-08T15:00:00.000Z', by: { name: '' } } },
     ];
     expect(markHistoryText(unnamed, 'rota')).toBe('Declined 11/10/2026, cleared 12/08/2026');
-  });
-
-  it('names the other lanes a combination shot counted in', () => {
-    const shot = {
-      id: 'pentacel-1',
-      date: '2026-09-09',
-      cvx: '120',
-      doseNumber: 1,
-      status: 'valid' as const,
-      counted: true,
-    };
-    const forecast: ImmunizationForecast = {
-      asOf: '2026-11-10',
-      dataVersion: '2026-11',
-      unmappedDoses: [],
-      groups: [
-        group({ group: 'dtap', label: 'DTaP/Tdap/Td', doses: [shot] }),
-        group({ group: 'ipv', label: 'Polio', doses: [shot] }),
-        group({ group: 'hib', label: 'Hib', doses: [shot] }),
-        group({
-          group: 'hepb',
-          label: 'Hep B',
-          doses: [{ ...shot, counted: false, status: 'extraneous', doseNumber: null }],
-        }),
-      ],
-    };
-    expect(sameShotText(forecast, 'pentacel-1', 'dtap')).toBe('Polio 1, Hib 1');
   });
 });
