@@ -48,6 +48,13 @@ describe('getCompletedFollowupEncounterPatchOps', () => {
     expect(completed.period).toEqual({ start: '2026-11-10T09:00:00.000Z', end: SIGNED_AT });
   });
 
+  it('ends a follow-up dated in the future at its own start, so the period never ends before it starts', () => {
+    const completed = complete(followup({ period: { start: '2026-11-12T09:00:00.000+01:00' } }));
+
+    expect(completed.status).toBe('finished');
+    expect(completed.period).toEqual({ start: '2026-11-12T09:00:00.000+01:00', end: '2026-11-12T09:00:00.000+01:00' });
+  });
+
   it('adds a period ending at the signing time to a follow-up that has none', () => {
     const completed = complete(followup({ period: undefined }));
 

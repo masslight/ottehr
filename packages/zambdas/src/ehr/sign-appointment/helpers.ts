@@ -95,12 +95,14 @@ export const getSignedAppointmentPatchOps = (appointment: Appointment, user: Use
 export const getCompletedFollowupEncounterPatchOps = (encounter: Encounter): Operation[] => {
   const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
   const now = new Date().toISOString();
+  const start = encounter.period?.start;
+  const end = start && Date.parse(start) > Date.parse(now) ? start : now;
   return [
     { op: 'replace', path: '/status', value: encounterStatus },
     getEncounterStatusHistoryUpdateOp(encounter, encounterStatus, 'completed'),
     ...getEncounterLockMetaTagOperations(encounter, true),
     encounter.period
-      ? addOrReplaceOperation(encounter.period.end, '/period/end', now)
-      : { op: 'add', path: '/period', value: { end: now } },
+      ? addOrReplaceOperation(encounter.period.end, '/period/end', end)
+      : { op: 'add', path: '/period', value: { end } },
   ];
 };

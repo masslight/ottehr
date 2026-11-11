@@ -57,7 +57,7 @@ const run = async (body: string | null): Promise<GetEmployeesResponse> => {
 };
 
 const batchedUrls = (): string[] =>
-  mockFhirBatch.mock.calls.flatMap(([{ requests }]: [{ requests: { url: string }[] }]) => requests.map((r) => r.url));
+  mockFhirBatch.mock.calls.flatMap(([input]) => (input as { requests: { url: string }[] }).requests.map((r) => r.url));
 
 describe('get-employees', () => {
   beforeAll(async () => {
