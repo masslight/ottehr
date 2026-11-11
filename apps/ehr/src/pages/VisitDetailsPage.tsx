@@ -86,7 +86,7 @@ import {
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
 } from 'utils/lib/fhir/encounter';
-import { getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import { getCoding, getCriticalUpdateTagOp, getStaffCriticalUpdateBy } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -131,7 +131,7 @@ import {
   formatNotesHistory,
   getAppointmentAndPatientHistory,
   NoteHistory,
-  replaceStaffEmailsWithNames,
+  resolveStaffNames,
 } from '../helpers/activityLogsUtils';
 import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
@@ -285,7 +285,7 @@ export default function VisitDetailsPage(): ReactElement {
   const [rawActivityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
   const { data: employeesData } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
   const activityLogs = useMemo(
-    () => (rawActivityLogs ? replaceStaffEmailsWithNames(rawActivityLogs, employeesData?.all) : undefined),
+    () => (rawActivityLogs ? resolveStaffNames(rawActivityLogs, employeesData?.all) : undefined),
     [rawActivityLogs, employeesData?.all]
   );
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
@@ -668,7 +668,7 @@ export default function VisitDetailsPage(): ReactElement {
         system: HOP_QUEUE_URI,
         code: now,
       });
-      const updateTag = getCriticalUpdateTagOp(appointment, `Staff ${user?.email ?? `(${user?.id})`}`);
+      const updateTag = getCriticalUpdateTagOp(appointment, getStaffCriticalUpdateBy(user));
 
       return oystehr.fhir.patch<Appointment>({
         resourceType: 'Appointment',

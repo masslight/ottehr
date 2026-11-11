@@ -55,10 +55,14 @@ import { CPTCodeDTO } from '../types/api/chart-data/chart-data.types';
 import { PractitionerLicense, PractitionerQualificationCode } from '../types/api/practitioner.types';
 import { ScheduleOwnerFhirResource } from '../types/api/schedules';
 import { User } from '../types/api/user.types';
-import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskCoding } from '../types/common';
-import { BookableResource, ServiceMode } from '../types/common';
-import { TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
-import { FHIR_CODE_REGEX } from '../types/constants';
+import {
+  BookableResource,
+  ServiceMode,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
+  TaskCoding,
+} from '../types/common';
+import { FHIR_CODE_REGEX, TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
 import { LAB_RESULT_DOC_REF_CODING_CODE } from '../types/data/labs/labs.constants';
 import { EncounterVirtualServiceExtension } from '../types/data/oystehr-api.types.ts/telemed.types';
 import { HealthcareServiceWithLocationContext } from '../types/data/paperwork.types';
@@ -607,15 +611,30 @@ export const STATUS_UPDATE_TAG_SYSTEM = 'status-update';
  */
 export const FOLLOWUP_CONVERSION_TAG_SYSTEM = 'converted-to-follow-up';
 
-export const createCriticalUpdateTag = (updateBy: string): Coding => {
+export interface CriticalUpdateBy {
+  display: string;
+  code?: string;
+}
+
+/** Describes a staff (EHR) user as the author of a critical update. */
+export const getStaffCriticalUpdateBy = (
+  user: Pick<User, 'id' | 'email' | 'profile'> | undefined
+): CriticalUpdateBy => ({
+  display: `Staff ${user?.email ? user.email : `(${user?.id})`}`,
+  code: user?.profile || undefined,
+});
+
+export const createCriticalUpdateTag = (updateBy: string | CriticalUpdateBy): Coding => {
+  const { display, code } = typeof updateBy === 'string' ? { display: updateBy, code: undefined } : updateBy;
   return {
     system: CRITICAL_CHANGE_SYSTEM,
-    display: updateBy,
+    ...(code ? { code } : {}),
+    display,
     version: DateTime.now().toISO() || '',
   };
 };
 
-export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
+export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string | CriticalUpdateBy): Operation => {
   const recordUpdateByTag = createCriticalUpdateTag(updateBy);
 
   if (!resource.meta?.tag) {
@@ -652,7 +671,7 @@ export const getAppointmentMetaTagOpForStatusUpdate = (
   updatedStatus: VisitStatusWithoutUnknown,
   updatedBy: {
     user?: User;
-    updatedByOverride?: string;
+    updatedByOverride?: string | CriticalUpdateBy;
   }
 ): Operation[] => {
   return getPatchOperationsForNewMetaTags(appointment, getAppointmentStatusUpdateTags(updatedStatus, updatedBy));
@@ -662,12 +681,12 @@ export const getAppointmentStatusUpdateTags = (
   updatedStatus: VisitStatusWithoutUnknown,
   updatedBy: {
     user?: User;
-    updatedByOverride?: string;
+    updatedByOverride?: string | CriticalUpdateBy;
   }
 ): Coding[] => {
   const { user, updatedByOverride } = updatedBy;
   const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus, display: updatedStatus };
-  const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
+  const staffUpdateBy = user ? getStaffCriticalUpdateBy(user) : 'n/a';
   const updatedByText = updatedByOverride ? updatedByOverride : staffUpdateBy;
   return [statusTag, createCriticalUpdateTag(updatedByText)];
 };
@@ -680,7 +699,7 @@ export const getAppointmentStatusUpdateTags = (
 export const getAppointmentMetaTagOpForFollowUpConversion = (
   appointment: Appointment,
   parentEncounterId: string,
-  updatedBy: { user?: User; updatedByOverride?: string }
+  updatedBy: { user?: User; updatedByOverride?: string | CriticalUpdateBy }
 ): Operation[] => {
   const { user, updatedByOverride } = updatedBy;
   const conversionTag = {
@@ -688,7 +707,7 @@ export const getAppointmentMetaTagOpForFollowUpConversion = (
     code: parentEncounterId,
     display: `Converted to a follow-up of encounter ${parentEncounterId}`,
   };
-  const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
+  const staffUpdateBy = user ? getStaffCriticalUpdateBy(user) : 'n/a';
   const updateTag = createCriticalUpdateTag(updatedByOverride ? updatedByOverride : staffUpdateBy);
   return getPatchOperationsForNewMetaTags(appointment, [conversionTag, updateTag]);
 };

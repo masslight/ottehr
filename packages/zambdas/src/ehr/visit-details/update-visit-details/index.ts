@@ -16,7 +16,12 @@ import {
   applyVisitOccupationalMedicineEmployerToEncounterExtensions,
   isScheduledFollowupEncounter,
 } from 'utils/lib/fhir/encounter';
-import { cleanUpStaffHistoryTag, getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import {
+  cleanUpStaffHistoryTag,
+  getCoding,
+  getCriticalUpdateTagOp,
+  getStaffCriticalUpdateBy,
+} from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
 import { extractNioIdFromReferenceUrl } from 'utils/lib/helpers/helpers';
@@ -76,7 +81,7 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
       },
     ];
 
-    const updateTag = getCriticalUpdateTagOp(patient, `Staff ${user?.email ? user.email : `(${user?.id})`}`);
+    const updateTag = getCriticalUpdateTagOp(patient, getStaffCriticalUpdateBy(user));
     patientPatchOps.push(updateTag);
 
     const removeStaffUpdateTagOp = cleanUpStaffHistoryTag(patient, 'dob');
@@ -128,7 +133,7 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
       });
     }
 
-    const updateTag = getCriticalUpdateTagOp(patient, `Staff ${user?.email ? user.email : `(${user?.id})`}`);
+    const updateTag = getCriticalUpdateTagOp(patient, getStaffCriticalUpdateBy(user));
     patientPatchOps.push(updateTag);
 
     const storedSuffix = patient?.name?.[0]?.suffix?.[0];
